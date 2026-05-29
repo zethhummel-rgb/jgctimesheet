@@ -341,7 +341,7 @@
 <div class="card form-card">
   <h3>Submit Time Entry</h3>
 
-  <label>Week Start (Sunday only)</label>
+  <label>Week Date</label>
   <input
     type="date"
     id="weekStart"
@@ -441,22 +441,31 @@ function makeLocalDate(dateString) {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
-function validateSunday(input) {
-  const date = makeLocalDate(input.value);
+function formatDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-  if (date.getDay() !== 0) {
-    alert("Please select a Sunday only");
-    input.value = "";
+  return year + "-" + month + "-" + day;
+}
+
+function validateSunday(input) {
+  if (!input.value) {
     document.getElementById("weekDisplay").innerText = "";
     updateJobSuggestions();
     return;
   }
 
-  const weekEnd = new Date(date);
-  weekEnd.setDate(date.getDate() + 6);
+  const date = makeLocalDate(input.value);
+  const weekStart = new Date(date);
+  weekStart.setDate(date.getDate() - date.getDay());
+  input.value = formatDateValue(weekStart);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
 
   document.getElementById("weekDisplay").innerText =
-    "Week: " + formatDate(date) + " -> " + formatDate(weekEnd);
+    "Week: " + formatDate(weekStart) + " -> " + formatDate(weekEnd);
 
   updateJobSuggestions();
   fillJobNumberForSelectedJob();
