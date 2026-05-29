@@ -241,6 +241,7 @@
 
 <div class="card entries-card">
   <h3>Submitted Entries</h3>
+  <button type="button" onclick="clearEntries()">Clear My Entries</button>
   <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
   <div id="entries"></div>
 </div>
@@ -354,7 +355,9 @@ function saveFallbackTimesheets(entries) {
 }
 
 function loadTimesheets() {
-  return memoryTimesheets;
+  return memoryTimesheets.filter(function(entry) {
+    return normalizeWorkerName(entry.user) === normalizeWorkerName(currentUser);
+  });
 }
 
 function setTimesheets(entries) {
@@ -580,15 +583,44 @@ async function submitTime() {
   render();
 }
 
-function clearEntries() {
+async function clearEntries() {
+  if (!currentUser) {
+    alert("You must sign in first");
+    return;
+  }
+
+  const confirmed = confirm("Clear all entries for " + currentUser + "?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  const status = document.getElementById("submitStatus");
+  status.innerText = "Clearing your entries...";
+
+  if (supabaseClient) {
+    const { error } = await supabaseClient
+      .from("timesheet_entries")
+      .delete()
+      .eq("worker_name", currentUser);
+
+    if (error) {
+      status.innerText = "Could not clear your Supabase entries.";
+      return;
+    }
+  }
+
   memoryTimesheets = [];
+  saveFallbackTimesheets(mergeFallbackTimesheets([]));
 
   try {
-    localStorage.removeItem("timesheets");
+    localStorage.setItem("timesheets", JSON.stringify(mergeFallbackTimesheets([])));
   } catch (error) {
   }
 
+  status.innerText = "Your entries were cleared.";
   render();
+  updateJobSuggestions();
 }
 
 function escapeHtml(value) {
