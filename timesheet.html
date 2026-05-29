@@ -583,8 +583,7 @@ async function loadPreviousWeeksFromSupabase() {
     .from("previous_timesheet_weeks")
     .select("*")
     .eq("worker_name", currentUser)
-    .order("submitted_at", { ascending: false })
-    .limit(3);
+    .order("submitted_at", { ascending: false });
 
   if (error) {
     previousWeeks = loadFallbackPreviousWeeks();
@@ -601,7 +600,7 @@ async function loadPreviousWeeksFromSupabase() {
       totalHours: Number(week.total_hours),
       submittedAt: week.submitted_at
     };
-  });
+  }).sort(sortPreviousWeeksByDate).slice(0, 3);
 
   saveFallbackPreviousWeeks(previousWeeks);
   render();
@@ -617,7 +616,7 @@ function loadFallbackPreviousWeeks() {
 
     return saved.filter(function(week) {
       return normalizeWorkerName(week.workerName) === normalizeWorkerName(currentUser);
-    }).slice(0, 3);
+    }).sort(sortPreviousWeeksByDate).slice(0, 3);
   } catch (error) {
     return [];
   }
@@ -639,6 +638,20 @@ function loadAllFallbackPreviousWeeks() {
   } catch (error) {
     return [];
   }
+}
+
+function getPreviousWeekStartTime(week) {
+  const firstEntry = week.entries && week.entries[0];
+  const dateText = firstEntry && firstEntry.weekStartValue
+    ? firstEntry.weekStartValue
+    : String(week.weekLabel || "").split(" to ")[0];
+  const time = new Date(dateText).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortPreviousWeeksByDate(a, b) {
+  return getPreviousWeekStartTime(b) - getPreviousWeekStartTime(a);
 }
 
 function showEntriesTab(tabName) {
@@ -991,12 +1004,11 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel) {
 
     const { data: archives, error: archiveError } = await supabaseClient
       .from("previous_timesheet_weeks")
-      .select("id")
-      .eq("worker_name", currentUser)
-      .order("submitted_at", { ascending: false });
+      .select("id, week_label, entries")
+      .eq("worker_name", currentUser);
 
     if (!archiveError && archives && archives.length > 3) {
-      const oldIds = archives.slice(3).map(function(archive) {
+      const oldIds = archives.sort(sortPreviousWeeksByDate).slice(3).map(function(archive) {
         return archive.id;
       });
 
@@ -1016,7 +1028,7 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel) {
     }
   }
 
-  previousWeeks = [archiveRecord].concat(previousWeeks).slice(0, 3);
+  previousWeeks = [archiveRecord].concat(previousWeeks).sort(sortPreviousWeeksByDate).slice(0, 3);
   saveFallbackPreviousWeeks(previousWeeks);
   memoryTimesheets = [];
   saveFallbackTimesheets(mergeFallbackTimesheets([]));
