@@ -142,7 +142,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 760px;
+      min-width: 860px;
       background: #ffffff;
     }
 
@@ -192,6 +192,20 @@
       font-size: 13px;
       color: #3f4a42;
       font-weight: bold;
+    }
+
+    .check-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 4px 0 10px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .check-row input {
+      width: auto;
+      margin: 0;
     }
   </style>
 </head>
@@ -251,6 +265,11 @@
     <option value="">Select Time Out</option>
   </select>
 
+  <label class="check-row">
+    <input id="nightWork" type="checkbox" />
+    Night Work
+  </label>
+
   <button type="button" onclick="submitTime()">Submit Entry</button>
   <div id="submitStatus" class="status"></div>
 </div>
@@ -263,6 +282,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
@@ -441,7 +461,8 @@ function rowToEntry(row) {
     day: row.day_of_week,
     timeIn: String(row.time_in).slice(0, 5),
     timeOut: String(row.time_out).slice(0, 5),
-    hours: Number(row.hours).toFixed(2)
+    hours: Number(row.hours).toFixed(2),
+    nightWork: Boolean(row.night_work)
   };
 }
 
@@ -455,7 +476,8 @@ function entryToRow(entry) {
     day_of_week: entry.day,
     time_in: entry.timeIn,
     time_out: entry.timeOut,
-    hours: Number(entry.hours)
+    hours: Number(entry.hours),
+    night_work: Boolean(entry.nightWork)
   };
 }
 
@@ -558,6 +580,7 @@ function resetTimeEntryFields() {
   document.getElementById("jobNumber").value = "";
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
+  document.getElementById("nightWork").checked = false;
 }
 
 async function submitTime() {
@@ -572,6 +595,7 @@ async function submitTime() {
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
   const timeOut = document.getElementById("timeOut").value;
+  const nightWork = document.getElementById("nightWork").checked;
 
   if (!weekStart || !jobName || !jobNumber || !day || !timeIn || !timeOut) {
     alert("Fill in all fields");
@@ -597,7 +621,8 @@ async function submitTime() {
     day,
     timeIn,
     timeOut,
-    hours: calculateHours(timeIn, timeOut)
+    hours: calculateHours(timeIn, timeOut),
+    nightWork
   };
 
   const status = document.getElementById("submitStatus");
@@ -696,6 +721,7 @@ function emailEntries() {
       " | " + entry.day +
       " | " + entry.jobName +
       " #" + entry.jobNumber +
+      " | Night Work: " + (entry.nightWork ? "Yes" : "No") +
       " | " + entry.timeIn + "-" + entry.timeOut +
       " | " + Number(entry.hours).toFixed(2) + " hours"
     );
@@ -703,11 +729,61 @@ function emailEntries() {
 
   lines.push("");
   lines.push("Total Hours: " + totalHours.toFixed(2));
+  downloadTimesheetPdf(entries, totalHours);
 
   window.location.href =
     "mailto:zeth@johngordonconstruction.com" +
     "?subject=" + encodeURIComponent(subject) +
-    "&body=" + encodeURIComponent(lines.join("\n"));
+    "&body=" + encodeURIComponent(
+      lines.join("\n") +
+      "\n\nA PDF copy of this timesheet was downloaded. Please attach it before sending."
+    );
+}
+
+function downloadTimesheetPdf(entries, totalHours) {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    return;
+  }
+
+  const doc = new window.jspdf.jsPDF();
+  let y = 16;
+
+  doc.setFontSize(14);
+  doc.text("Construction Timesheet", 14, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.text("Worker: " + currentUser, 14, y);
+  y += 8;
+
+  doc.setFontSize(9);
+  doc.text("Week | Day | Job | Night Work | Time | Hours", 14, y);
+  y += 6;
+
+  for (let entry of entries) {
+    const line =
+      entry.weekStart + " to " + entry.weekEnd +
+      " | " + entry.day +
+      " | " + entry.jobName + " #" + entry.jobNumber +
+      " | " + (entry.nightWork ? "Yes" : "No") +
+      " | " + entry.timeIn + "-" + entry.timeOut +
+      " | " + Number(entry.hours).toFixed(2);
+
+    const wrappedLines = doc.splitTextToSize(line, 180);
+
+    if (y + wrappedLines.length * 5 > 280) {
+      doc.addPage();
+      y = 16;
+    }
+
+    doc.text(wrappedLines, 14, y);
+    y += wrappedLines.length * 5 + 2;
+  }
+
+  y += 4;
+  doc.setFontSize(11);
+  doc.text("Total Hours: " + totalHours.toFixed(2), 14, y);
+  doc.save("timesheet-" + currentUser.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".pdf");
 }
 
 function escapeHtml(value) {
@@ -741,6 +817,7 @@ function render() {
       jobs[key] = {
         jobName: entry.jobName,
         jobNumber: entry.jobNumber,
+        nightWork: false,
         days: {}
       };
 
@@ -750,6 +827,7 @@ function render() {
     }
 
     jobs[key].days[entry.day] += Number(entry.hours);
+    jobs[key].nightWork = jobs[key].nightWork || Boolean(entry.nightWork);
   }
 
   const rows = Object.values(jobs).map(function(job) {
@@ -767,6 +845,7 @@ function render() {
       <tr>
         <td>${escapeHtml(job.jobName)}</td>
         <td>${escapeHtml(job.jobNumber)}</td>
+        <td><input type="checkbox" disabled ${job.nightWork ? "checked" : ""} /></td>
         ${dayCells}
       </tr>
     `;
@@ -779,6 +858,7 @@ function render() {
           <tr>
             <th>Job Name</th>
             <th>Job Number</th>
+            <th>Night Work</th>
             <th>Sunday</th>
             <th>Monday</th>
             <th>Tuesday</th>
@@ -794,7 +874,7 @@ function render() {
       </table>
     </div>
     <div class="email-actions">
-      <button type="button" onclick="emailEntries()">Email Entries</button>
+      <button type="button" onclick="emailEntries()">Download PDF & Email</button>
       <span class="email-note">please send email at end of day Friday</span>
     </div>
   `;
