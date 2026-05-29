@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Time Sheet App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
       font-family: Arial;
@@ -256,6 +257,119 @@
 
     .previous-week {
       margin-top: 14px;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 10px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .logo-wrap {
+        max-width: 260px;
+      }
+
+      h2 {
+        font-size: 22px;
+      }
+
+      input, button, select {
+        min-height: 42px;
+        font-size: 16px;
+      }
+
+      .sign-out,
+      .edit-button {
+        min-height: 34px;
+        font-size: 13px;
+      }
+
+      .tab-buttons,
+      .email-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .tab-buttons button,
+      .email-actions button {
+        width: 100%;
+      }
+
+      .email-note {
+        text-align: center;
+      }
+
+      .table-wrap {
+        overflow-x: visible;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      table {
+        min-width: 0;
+        background: transparent;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        background: #ffffff;
+        border: 1px solid #c5cec1;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        padding: 8px;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #ffffff;
+      }
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border: none;
+        border-bottom: 1px solid #edf1ea;
+        padding: 8px 2px;
+        text-align: right;
+      }
+
+      td:last-child {
+        border-bottom: none;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: #1f3d28;
+        font-weight: bold;
+        text-align: left;
+      }
+
+      td:first-child,
+      td:nth-child(2) {
+        text-align: right;
+      }
+
+      .edit-table-wrap {
+        max-width: none;
+      }
+
+      .edit-table th,
+      .edit-table td {
+        font-size: 14px;
+      }
     }
   </style>
 </head>
@@ -598,6 +712,7 @@ async function loadPreviousWeeksFromSupabase() {
       weekLabel: week.week_label,
       entries: Array.isArray(week.entries) ? week.entries : [],
       totalHours: Number(week.total_hours),
+      note: week.note || "",
       submittedAt: week.submitted_at
     };
   }).sort(sortPreviousWeeksByDate).slice(0, 3);
@@ -934,6 +1049,18 @@ async function emailEntries() {
     return;
   }
 
+  const note = prompt("Add a note to your timesheet? Leave blank if no note is needed.", "");
+
+  if (note === null) {
+    return;
+  }
+
+  const confirmed = confirm("Submit this timesheet? This will save it to Previous Weeks and reset the current week.");
+
+  if (!confirmed) {
+    return;
+  }
+
   const weekLabel = getWeekLabel(entries);
   const subject = "Timesheet - " + currentUser + " - " + weekLabel;
   const lines = [
@@ -961,9 +1088,16 @@ async function emailEntries() {
   }
 
   lines.push("Total Hours: " + totalHours.toFixed(2));
-  downloadTimesheetPdf(entries, totalHours, weekLabel);
 
-  const archived = await archiveCurrentEntries(entries, totalHours, weekLabel);
+  if (note.trim()) {
+    lines.push("");
+    lines.push("Note:");
+    lines.push(note.trim());
+  }
+
+  downloadTimesheetPdf(entries, totalHours, weekLabel, note.trim());
+
+  const archived = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
 
   if (!archived) {
     alert("The email was not opened because the week could not be saved to Previous Weeks.");
@@ -979,12 +1113,13 @@ async function emailEntries() {
     );
 }
 
-async function archiveCurrentEntries(entries, totalHours, weekLabel) {
+async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
   const archiveRecord = {
     workerName: currentUser,
     weekLabel,
     entries,
     totalHours,
+    note,
     submittedAt: new Date().toISOString()
   };
 
@@ -995,7 +1130,8 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel) {
         worker_name: currentUser,
         week_label: weekLabel,
         entries,
-        total_hours: totalHours
+        total_hours: totalHours,
+        note
       });
 
     if (insertError) {
@@ -1154,7 +1290,7 @@ function getEmailTableRows(entries) {
   };
 }
 
-function downloadTimesheetPdf(entries, totalHours, weekLabel) {
+function downloadTimesheetPdf(entries, totalHours, weekLabel, note) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     return;
   }
@@ -1234,6 +1370,21 @@ function downloadTimesheetPdf(entries, totalHours, weekLabel) {
   y += 4;
   doc.setFontSize(11);
   doc.text("Total Hours: " + totalHours.toFixed(2), 14, y);
+
+  if (note) {
+    y += 8;
+
+    if (y > 270) {
+      doc.addPage();
+      y = 16;
+    }
+
+    doc.text("Note:", 14, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(doc.splitTextToSize(note, 180), 14, y);
+  }
+
   doc.save("timesheet-" + currentUser.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".pdf");
 }
 
@@ -1292,10 +1443,10 @@ function renderEditRows(entries) {
   }).map(function(entry) {
     return `
       <tr>
-        <td>${escapeHtml(entry.day)}</td>
-        <td>${escapeHtml(entry.jobName)}</td>
-        <td>${escapeHtml(entry.jobNumber)}</td>
-        <td><button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button></td>
+        <td data-label="Day">${escapeHtml(entry.day)}</td>
+        <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
+        <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
+        <td data-label="Edit"><button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button></td>
       </tr>
     `;
   }).join("");
@@ -1314,11 +1465,11 @@ function renderPreviousWeeks() {
       const rows = group.entries.map(function(entry) {
         return `
           <tr>
-            <td>${escapeHtml(entry.jobName)}</td>
-            <td>${escapeHtml(entry.jobNumber)}</td>
-            <td><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
-            <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
-            <td><b>${Number(entry.hours).toFixed(2)}</b></td>
+            <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
+            <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
+            <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
+            <td data-label="Time">${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+            <td data-label="Hours"><b>${Number(entry.hours).toFixed(2)}</b></td>
           </tr>
         `;
       }).join("");
@@ -1346,6 +1497,7 @@ function renderPreviousWeeks() {
       <div class="previous-week">
         <h3>${escapeHtml(week.weekLabel)}</h3>
         ${groupHtml}
+        ${week.note ? '<div class="small"><b>Note:</b> ' + escapeHtml(week.note) + '</div>' : ''}
         <div class="small"><b>Total Hours:</b> ${Number(week.totalHours).toFixed(2)}</div>
       </div>
     `;
@@ -1416,17 +1568,17 @@ function render() {
       const hours = job.days[day];
 
       if (!hours) {
-        return '<td class="empty-cell">-</td>';
+        return '<td data-label="' + day + '" class="empty-cell">-</td>';
       }
 
-      return "<td><b>" + hours.toFixed(2) + "</b></td>";
+      return '<td data-label="' + day + '"><b>' + hours.toFixed(2) + "</b></td>";
     }).join("");
 
     return `
       <tr>
-        <td>${escapeHtml(job.jobName)}</td>
-        <td>${escapeHtml(job.jobNumber)}</td>
-        <td><input type="checkbox" disabled ${job.nightWork ? "checked" : ""} /></td>
+        <td data-label="Job Name">${escapeHtml(job.jobName)}</td>
+        <td data-label="Job Number">${escapeHtml(job.jobNumber)}</td>
+        <td data-label="Night Work"><input type="checkbox" disabled ${job.nightWork ? "checked" : ""} /></td>
         ${dayCells}
       </tr>
     `;
