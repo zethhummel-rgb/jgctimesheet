@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Time Sheet App</title>
+  <title>Time Sheet Login</title>
   <style>
     body {
       font-family: Arial;
@@ -9,22 +9,6 @@
       padding: 20px;
       margin: 0;
       color: #1f2a24;
-    }
-
-    .card {
-      background: #fbfcf9;
-      padding: 15px;
-      margin-bottom: 12px;
-      border-radius: 8px;
-      border-top: 4px solid #3f7d4d;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
-    }
-
-    .page-title,
-    .form-card {
-      max-width: 460px;
-      margin-left: auto;
-      margin-right: auto;
     }
 
     .logo-wrap {
@@ -41,41 +25,22 @@
       margin: 0 auto;
     }
 
-    .entries-card {
-      max-width: 1100px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .user-bar {
-      max-width: 460px;
-      margin: 0 auto 12px;
-      color: #ffffff;
-      text-align: center;
-      font-size: 13px;
-      font-weight: bold;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-    }
-
-    .sign-out {
-      width: auto;
-      padding: 5px 10px;
-      margin-left: 8px;
-      margin-bottom: 0;
-      background: #5f6a62;
-      font-size: 12px;
-    }
-
-    .sign-out:hover {
-      background: #48514a;
-    }
-
     h2 {
-      margin-top: 0;
-      margin-bottom: 5px;
+      max-width: 460px;
+      margin: 0 auto 5px;
       text-align: center;
       color: #ffffff;
       text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .card {
+      max-width: 460px;
+      background: #fbfcf9;
+      padding: 15px;
+      margin: 0 auto 12px;
+      border-radius: 8px;
+      border-top: 4px solid #3f7d4d;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
     }
 
     h3 {
@@ -84,12 +49,7 @@
       color: #2f6f3c;
     }
 
-    label {
-      font-size: 13px;
-      font-weight: bold;
-    }
-
-    input, button, select {
+    input, button {
       width: 100%;
       padding: 8px;
       margin-top: 4px;
@@ -97,13 +57,13 @@
       box-sizing: border-box;
     }
 
-    input, select {
+    input {
       background: #f7f9f4;
       border: 1px solid #b8c2b2;
       border-radius: 5px;
     }
 
-    input:focus, select:focus {
+    input:focus {
       border-color: #3f7d4d;
       outline: 2px solid #d9ead5;
     }
@@ -120,59 +80,6 @@
     button:hover {
       background: #315f3c;
     }
-
-    .small {
-      font-size: 12px;
-      color: #666;
-    }
-
-    .status {
-      min-height: 18px;
-      margin-top: 4px;
-      font-size: 13px;
-      color: #2f6f3c;
-      font-weight: bold;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      margin-top: 10px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 760px;
-      background: #ffffff;
-    }
-
-    th, td {
-      border: 1px solid #c5cec1;
-      padding: 10px;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    th {
-      background: #dfe9da;
-      color: #1f3d28;
-      font-weight: bold;
-    }
-
-    tbody tr:nth-child(even) {
-      background: #f4f7f1;
-    }
-
-    td:first-child,
-    td:nth-child(2),
-    th:first-child,
-    th:nth-child(2) {
-      text-align: left;
-    }
-
-    .empty-cell {
-      color: #999;
-    }
   </style>
 </head>
 
@@ -182,387 +89,38 @@
   <img src="logo.png" alt="John Gordon Construction" />
 </div>
 
-<h2 class="page-title">Construction Time Sheet</h2>
+<h2>Construction Time Sheet</h2>
 
-<div id="currentUser" class="user-bar"></div>
-
-<div class="card form-card">
-  <h3>Submit Time Entry</h3>
-
-  <label>Week Start (Sunday only)</label>
-  <input
-    type="date"
-    id="weekStart"
-    onchange="validateSunday(this)"
-    onclick="openPicker(this)"
-  />
-
-  <div id="weekDisplay" class="small"></div>
-
-  <label>Day of Week</label>
-  <select id="day">
-    <option value="">Select Day</option>
-    <option>Sunday</option>
-    <option>Monday</option>
-    <option>Tuesday</option>
-    <option>Wednesday</option>
-    <option>Thursday</option>
-    <option>Friday</option>
-    <option>Saturday</option>
-  </select>
-
-  <input
-    id="jobName"
-    placeholder="Job Name"
-    list="jobNameOptions"
-    onchange="fillJobNumberForSelectedJob()"
-    oninput="fillJobNumberForSelectedJob()"
-  />
-  <datalist id="jobNameOptions"></datalist>
-  <input id="jobNumber" placeholder="Job Number" />
-
-  <label>Time In</label>
-  <input
-    id="timeIn"
-    type="time"
-    onclick="openPicker(this)"
-  />
-
-  <label>Time Out</label>
-  <input
-    id="timeOut"
-    type="time"
-    onclick="openPicker(this)"
-  />
-
-  <button type="button" onclick="submitTime()">Submit Entry</button>
-  <div id="submitStatus" class="status"></div>
-</div>
-
-<div class="card entries-card">
-  <h3>Submitted Entries</h3>
-  <button type="button" onclick="clearEntries()">Clear All Entries</button>
-  <div id="entries"></div>
+<div class="card">
+  <h3>Worker Login</h3>
+  <input id="workerName" placeholder="Enter full name" onkeydown="submitOnEnter(event)" />
+  <button type="button" onclick="signIn()">Sign In</button>
 </div>
 
 <script>
-let currentUser = localStorage.getItem("currentWorker");
-let memoryTimesheets = [];
-
-if (!currentUser) {
-  window.location.href = "login.html";
+if (localStorage.getItem("currentWorker")) {
+  window.location.href = "index.html";
 }
 
-function openPicker(input) {
-  if (input.showPicker) {
-    input.showPicker();
-  }
-}
+function signIn() {
+  const name = document.getElementById("workerName").value.trim();
 
-function showCurrentUser() {
-  document.getElementById("currentUser").innerHTML =
-    'Signed in as: ' + escapeHtml(currentUser) +
-    ' <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>';
-}
-
-function signOut() {
-  localStorage.removeItem("currentWorker");
-  window.location.href = "login.html";
-}
-
-function makeLocalDate(dateString) {
-  const parts = dateString.split("-");
-  return new Date(parts[0], parts[1] - 1, parts[2]);
-}
-
-function validateSunday(input) {
-  const date = makeLocalDate(input.value);
-
-  if (date.getDay() !== 0) {
-    alert("Please select a Sunday only");
-    input.value = "";
-    document.getElementById("weekDisplay").innerText = "";
-    updateJobSuggestions();
+  if (!name) {
+    alert("Enter a name first");
     return;
   }
 
-  const weekEnd = new Date(date);
-  weekEnd.setDate(date.getDate() + 6);
-
-  document.getElementById("weekDisplay").innerText =
-    "Week: " + formatDate(date) + " -> " + formatDate(weekEnd);
-
-  updateJobSuggestions();
-  fillJobNumberForSelectedJob();
+  localStorage.setItem("currentWorker", name);
+  window.location.href = "index.html";
 }
 
-function formatDate(date) {
-  return date.toLocaleDateString("en-CA", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
-}
-
-function calculateHours(inTime, outTime) {
-  const start = new Date("1970-01-01T" + inTime + ":00");
-  const end = new Date("1970-01-01T" + outTime + ":00");
-
-  let diff = (end - start) / 1000 / 60 / 60;
-
-  if (diff < 0) diff += 24;
-
-  return diff.toFixed(2);
-}
-
-function loadTimesheets() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("timesheets") || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch (error) {
-    try {
-      localStorage.removeItem("timesheets");
-    } catch (removeError) {
-      return memoryTimesheets;
-    }
-
-    return memoryTimesheets;
+function submitOnEnter(event) {
+  if (event.key === "Enter") {
+    signIn();
   }
-}
-
-function saveTimesheets(entries) {
-  memoryTimesheets = entries;
-
-  try {
-    localStorage.setItem("timesheets", JSON.stringify(entries));
-  } catch (error) {
-    return false;
-  }
-
-  return true;
-}
-
-function getSelectedWeekStart() {
-  return document.getElementById("weekStart").value;
-}
-
-function getJobsForSelectedWeek() {
-  const selectedWeekStart = getSelectedWeekStart();
-
-  if (!selectedWeekStart) {
-    return [];
-  }
-
-  const selectedWeekLabel = formatDate(makeLocalDate(selectedWeekStart));
-  const jobs = {};
-
-  for (let entry of loadTimesheets()) {
-    const entryWeekStart = entry.weekStartValue || entry.weekStart;
-
-    if (entryWeekStart !== selectedWeekStart && entryWeekStart !== selectedWeekLabel) {
-      continue;
-    }
-
-    const key = entry.jobName.toLowerCase() + "|" + entry.jobNumber;
-
-    if (!jobs[key]) {
-      jobs[key] = {
-        jobName: entry.jobName,
-        jobNumber: entry.jobNumber
-      };
-    }
-  }
-
-  return Object.values(jobs).sort(function(a, b) {
-    return a.jobName.localeCompare(b.jobName);
-  });
-}
-
-function updateJobSuggestions() {
-  const options = getJobsForSelectedWeek().map(function(job) {
-    return '<option value="' + escapeHtml(job.jobName) + '" label="#' + escapeHtml(job.jobNumber) + '"></option>';
-  }).join("");
-
-  document.getElementById("jobNameOptions").innerHTML = options;
-}
-
-function fillJobNumberForSelectedJob() {
-  const jobName = document.getElementById("jobName").value.trim().toLowerCase();
-  const jobNumberInput = document.getElementById("jobNumber");
-
-  if (!jobName) {
-    return;
-  }
-
-  const match = getJobsForSelectedWeek().find(function(job) {
-    return job.jobName.toLowerCase() === jobName;
-  });
-
-  if (match) {
-    jobNumberInput.value = match.jobNumber;
-  }
-}
-
-function resetTimeEntryFields() {
-  document.getElementById("jobName").value = "";
-  document.getElementById("jobNumber").value = "";
-  document.getElementById("timeIn").value = "";
-  document.getElementById("timeOut").value = "";
-}
-
-function submitTime() {
-  if (!currentUser) {
-    alert("You must sign in first");
-    return;
-  }
-
-  const weekStart = document.getElementById("weekStart").value;
-  const jobName = document.getElementById("jobName").value.trim();
-  const jobNumber = document.getElementById("jobNumber").value.trim();
-  const day = document.getElementById("day").value;
-  const timeIn = document.getElementById("timeIn").value;
-  const timeOut = document.getElementById("timeOut").value;
-
-  if (!weekStart || !jobName || !jobNumber || !day || !timeIn || !timeOut) {
-    alert("Fill in all fields");
-    return;
-  }
-
-  const startDate = makeLocalDate(weekStart);
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 6);
-
-  const entry = {
-    user: currentUser,
-    weekStartValue: weekStart,
-    weekStart: formatDate(startDate),
-    weekEnd: formatDate(endDate),
-    jobName,
-    jobNumber,
-    day,
-    timeIn,
-    timeOut,
-    hours: calculateHours(timeIn, timeOut)
-  };
-
-  const status = document.getElementById("submitStatus");
-  let stored = loadTimesheets();
-  stored.push(entry);
-
-  if (saveTimesheets(stored)) {
-    status.innerText = "Entry submitted.";
-  } else {
-    status.innerText = "Entry submitted for this browser session.";
-  }
-
-  updateJobSuggestions();
-  resetTimeEntryFields();
-  render();
-}
-
-function clearEntries() {
-  memoryTimesheets = [];
-
-  try {
-    localStorage.removeItem("timesheets");
-  } catch (error) {
-  }
-
-  render();
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, function(character) {
-    return {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[character];
-  });
-}
-
-function render() {
-  const entries = loadTimesheets();
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-  if (entries.length === 0) {
-    document.getElementById("entries").innerHTML =
-      '<div class="small">No entries submitted yet.</div>';
-    return;
-  }
-
-  const jobs = {};
-
-  for (let entry of entries) {
-    const key = entry.jobName + "|" + entry.jobNumber;
-
-    if (!jobs[key]) {
-      jobs[key] = {
-        jobName: entry.jobName,
-        jobNumber: entry.jobNumber,
-        days: {}
-      };
-
-      for (let day of days) {
-        jobs[key].days[day] = 0;
-      }
-    }
-
-    jobs[key].days[entry.day] += Number(entry.hours);
-  }
-
-  const rows = Object.values(jobs).map(function(job) {
-    const dayCells = days.map(function(day) {
-      const hours = job.days[day];
-
-      if (!hours) {
-        return '<td class="empty-cell">-</td>';
-      }
-
-      return "<td><b>" + hours.toFixed(2) + "</b></td>";
-    }).join("");
-
-    return `
-      <tr>
-        <td>${escapeHtml(job.jobName)}</td>
-        <td>${escapeHtml(job.jobNumber)}</td>
-        ${dayCells}
-      </tr>
-    `;
-  }).join("");
-
-  document.getElementById("entries").innerHTML = `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Job Name</th>
-            <th>Job Number</th>
-            <th>Sunday</th>
-            <th>Monday</th>
-            <th>Tuesday</th>
-            <th>Wednesday</th>
-            <th>Thursday</th>
-            <th>Friday</th>
-            <th>Saturday</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-if (currentUser) {
-  showCurrentUser();
-  render();
-  updateJobSuggestions();
 }
 </script>
 
 </body>
 </html>
+
