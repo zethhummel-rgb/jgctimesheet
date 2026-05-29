@@ -346,7 +346,6 @@
     type="date"
     id="weekStart"
     onchange="validateSunday(this)"
-    onclick="openPicker(this)"
   />
 
   <div id="weekDisplay" class="small"></div>
@@ -423,12 +422,6 @@ if (!currentUser) {
   window.location.href = "index.html";
 } else {
   localStorage.setItem("currentWorker", currentUser);
-}
-
-function openPicker(input) {
-  if (input.showPicker) {
-    input.showPicker();
-  }
 }
 
 function showCurrentUser() {
