@@ -797,27 +797,34 @@ function emailEntries() {
     return;
   }
 
-  const subject = "Timesheet - " + currentUser;
+  const weekLabel = getWeekLabel(entries);
+  const subject = "Timesheet - " + currentUser + " - " + weekLabel;
   const lines = [
     "Worker: " + currentUser,
+    "Week: " + weekLabel,
     "",
     "Timesheet Entries:",
     ""
   ];
 
   const totalHours = getTotalHours(entries);
-  const tableRows = getEmailTableRows(entries);
+  const dayGroups = getEntriesByEmailDay(entries);
 
-  lines.push(tableRows.header);
-  lines.push(tableRows.divider);
+  for (let group of dayGroups) {
+    lines.push(group.day);
+    lines.push(group.table.header);
+    lines.push(group.table.divider);
 
-  for (let row of tableRows.rows) {
-    lines.push(row);
+    for (let row of group.table.rows) {
+      lines.push(row);
+    }
+
+    lines.push("");
+    lines.push("");
   }
 
-  lines.push("");
   lines.push("Total Hours: " + totalHours.toFixed(2));
-  downloadTimesheetPdf(entries, totalHours);
+  downloadTimesheetPdf(entries, totalHours, weekLabel);
 
   window.location.href =
     "mailto:zeth@johngordonconstruction.com" +
@@ -834,6 +841,64 @@ function getTotalHours(entries) {
   }, 0);
 }
 
+function getWeekLabel(entries) {
+  const weeks = [];
+
+  for (let entry of entries) {
+    const label = entry.weekStart + " to " + entry.weekEnd;
+
+    if (!weeks.includes(label)) {
+      weeks.push(label);
+    }
+  }
+
+  return weeks.length === 1 ? weeks[0] : "Multiple Weeks";
+}
+
+function getEmailDayOrder() {
+  return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+}
+
+function sortEntriesForEmail(entries) {
+  const dayOrder = getEmailDayOrder();
+
+  return entries.slice().sort(function(a, b) {
+    const dayDifference = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+
+    if (dayDifference !== 0) {
+      return dayDifference;
+    }
+
+    const jobDifference = a.jobName.localeCompare(b.jobName);
+
+    if (jobDifference !== 0) {
+      return jobDifference;
+    }
+
+    return a.timeIn.localeCompare(b.timeIn);
+  });
+}
+
+function getEntriesByEmailDay(entries) {
+  const sortedEntries = sortEntriesForEmail(entries);
+
+  return getEmailDayOrder().map(function(day) {
+    const dayEntries = sortedEntries.filter(function(entry) {
+      return entry.day === day;
+    });
+
+    if (dayEntries.length === 0) {
+      return null;
+    }
+
+    return {
+      day,
+      entries: dayEntries,
+      table: getEmailTableRows(dayEntries)
+    };
+  }).filter(Boolean);
+}
+
 function padCell(value, width) {
   const text = String(value);
 
@@ -846,8 +911,6 @@ function padCell(value, width) {
 
 function getEmailTableRows(entries) {
   const columns = [
-    { label: "Week", width: 24 },
-    { label: "Day", width: 10 },
     { label: "Job", width: 24 },
     { label: "Job #", width: 10 },
     { label: "Night", width: 7 },
@@ -865,8 +928,6 @@ function getEmailTableRows(entries) {
 
   const rows = entries.map(function(entry) {
     const values = [
-      entry.weekStart + " to " + entry.weekEnd,
-      entry.day,
       entry.jobName,
       entry.jobNumber,
       entry.nightWork ? "Yes" : "No",
@@ -886,20 +947,18 @@ function getEmailTableRows(entries) {
   };
 }
 
-function downloadTimesheetPdf(entries, totalHours) {
+function downloadTimesheetPdf(entries, totalHours, weekLabel) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     return;
   }
 
   const doc = new window.jspdf.jsPDF();
   const columns = [
-    { label: "Week", width: 34 },
-    { label: "Day", width: 22 },
-    { label: "Job", width: 38 },
-    { label: "Job #", width: 20 },
-    { label: "Night", width: 18 },
-    { label: "Time", width: 28 },
-    { label: "Hours", width: 20 }
+    { label: "Job", width: 54 },
+    { label: "Job #", width: 26 },
+    { label: "Night", width: 22 },
+    { label: "Time", width: 38 },
+    { label: "Hours", width: 24 }
   ];
   const rowHeight = 9;
   const startX = 14;
@@ -911,30 +970,58 @@ function downloadTimesheetPdf(entries, totalHours) {
 
   doc.setFontSize(11);
   doc.text("Worker: " + currentUser, 14, y);
+  y += 7;
+  doc.text("Week: " + weekLabel, 14, y);
   y += 10;
 
   doc.setFontSize(9);
-  drawPdfHeader(doc, columns, startX, y, rowHeight);
-  y += rowHeight;
+  const dayGroups = getEntriesByEmailDay(entries);
 
-  for (let entry of entries) {
-    if (y + rowHeight > 280) {
+  for (let group of dayGroups) {
+    if (y + rowHeight * 2 > 280) {
       doc.addPage();
       y = 16;
-      drawPdfHeader(doc, columns, startX, y, rowHeight);
+    }
+
+    doc.setFontSize(11);
+    doc.setTextColor("#1f3d28");
+    doc.setFont(undefined, "bold");
+    doc.text(group.day, startX, y);
+    doc.setFont(undefined, "normal");
+    doc.setTextColor("#1f2a24");
+    y += 5;
+
+    doc.setFontSize(9);
+    drawPdfHeader(doc, columns, startX, y, rowHeight);
+    y += rowHeight;
+
+    for (let entry of group.entries) {
+      if (y + rowHeight > 280) {
+        doc.addPage();
+        y = 16;
+        doc.setFontSize(11);
+        doc.setTextColor("#1f3d28");
+        doc.setFont(undefined, "bold");
+        doc.text(group.day + " continued", startX, y);
+        doc.setFont(undefined, "normal");
+        doc.setTextColor("#1f2a24");
+        y += 5;
+        doc.setFontSize(9);
+        drawPdfHeader(doc, columns, startX, y, rowHeight);
+        y += rowHeight;
+      }
+
+      drawPdfRow(doc, columns, startX, y, rowHeight, [
+        entry.jobName,
+        entry.jobNumber,
+        entry.nightWork ? "Yes" : "No",
+        entry.timeIn + "-" + entry.timeOut,
+        Number(entry.hours).toFixed(2)
+      ]);
       y += rowHeight;
     }
 
-    drawPdfRow(doc, columns, startX, y, rowHeight, [
-      entry.weekStart + " to " + entry.weekEnd,
-      entry.day,
-      entry.jobName,
-      entry.jobNumber,
-      entry.nightWork ? "Yes" : "No",
-      entry.timeIn + "-" + entry.timeOut,
-      Number(entry.hours).toFixed(2)
-    ]);
-    y += rowHeight;
+    y += 6;
   }
 
   y += 4;
@@ -982,13 +1069,9 @@ function renderEditRows(entries) {
   return entries.map(function(entry) {
     return `
       <tr>
-        <td>${escapeHtml(entry.weekStart)}</td>
         <td>${escapeHtml(entry.day)}</td>
         <td>${escapeHtml(entry.jobName)}</td>
         <td>${escapeHtml(entry.jobNumber)}</td>
-        <td><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
-        <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
-        <td><b>${Number(entry.hours).toFixed(2)}</b></td>
         <td><button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button></td>
       </tr>
     `;
@@ -1027,6 +1110,7 @@ function render() {
         jobName: entry.jobName,
         jobNumber: entry.jobNumber,
         nightWork: false,
+        firstDayIndex: days.length,
         days: {}
       };
 
@@ -1037,9 +1121,16 @@ function render() {
 
     jobs[key].days[entry.day] += Number(entry.hours);
     jobs[key].nightWork = jobs[key].nightWork || Boolean(entry.nightWork);
+    jobs[key].firstDayIndex = Math.min(jobs[key].firstDayIndex, days.indexOf(entry.day));
   }
 
-  const rows = Object.values(jobs).map(function(job) {
+  const rows = Object.values(jobs).sort(function(a, b) {
+    if (a.firstDayIndex !== b.firstDayIndex) {
+      return a.firstDayIndex - b.firstDayIndex;
+    }
+
+    return a.jobName.localeCompare(b.jobName);
+  }).map(function(job) {
     const dayCells = days.map(function(day) {
       const hours = job.days[day];
 
@@ -1087,13 +1178,9 @@ function render() {
       <table>
         <thead>
           <tr>
-            <th>Week Start</th>
             <th>Day</th>
             <th>Job Name</th>
             <th>Job Number</th>
-            <th>Night Work</th>
-            <th>Time</th>
-            <th>Hours</th>
             <th>Edit</th>
           </tr>
         </thead>
