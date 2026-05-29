@@ -241,11 +241,18 @@
 
 <div class="card entries-card">
   <h3>Submitted Entries</h3>
-  <button type="button" onclick="clearEntries()">Clear All Entries</button>
+  <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
   <div id="entries"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
 let currentUser = localStorage.getItem("currentWorker");
 let memoryTimesheets = [];
 
@@ -315,7 +322,7 @@ function calculateHours(inTime, outTime) {
   return diff.toFixed(2);
 }
 
-function loadTimesheets() {
+function loadFallbackTimesheets() {
   try {
     const saved = JSON.parse(localStorage.getItem("timesheets") || "[]");
     return Array.isArray(saved) ? saved : [];
@@ -330,7 +337,7 @@ function loadTimesheets() {
   }
 }
 
-function saveTimesheets(entries) {
+function saveFallbackTimesheets(entries) {
   memoryTimesheets = entries;
 
   try {
@@ -340,6 +347,77 @@ function saveTimesheets(entries) {
   }
 
   return true;
+}
+
+function loadTimesheets() {
+  return memoryTimesheets;
+}
+
+function setTimesheets(entries) {
+  memoryTimesheets = entries;
+  saveFallbackTimesheets(entries);
+}
+
+function rowToEntry(row) {
+  return {
+    id: row.id,
+    user: row.worker_name,
+    weekStartValue: row.week_start,
+    weekStart: formatDate(makeLocalDate(row.week_start)),
+    weekEnd: row.week_end,
+    jobName: row.job_name,
+    jobNumber: row.job_number,
+    day: row.day_of_week,
+    timeIn: String(row.time_in).slice(0, 5),
+    timeOut: String(row.time_out).slice(0, 5),
+    hours: Number(row.hours).toFixed(2)
+  };
+}
+
+function entryToRow(entry) {
+  return {
+    worker_name: entry.user,
+    week_start: entry.weekStartValue,
+    week_end: entry.weekEnd,
+    job_name: entry.jobName,
+    job_number: entry.jobNumber,
+    day_of_week: entry.day,
+    time_in: entry.timeIn,
+    time_out: entry.timeOut,
+    hours: Number(entry.hours)
+  };
+}
+
+async function loadTimesheetsFromSupabase() {
+  const status = document.getElementById("submitStatus");
+
+  if (!supabaseClient) {
+    setTimesheets(loadFallbackTimesheets());
+    status.innerText = "Using browser storage until Supabase loads.";
+    render();
+    updateJobSuggestions();
+    return;
+  }
+
+  status.innerText = "Loading saved entries...";
+
+  const { data, error } = await supabaseClient
+    .from("timesheet_entries")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    setTimesheets(loadFallbackTimesheets());
+    status.innerText = "Could not reach Supabase. Using browser storage for now.";
+    render();
+    updateJobSuggestions();
+    return;
+  }
+
+  setTimesheets((data || []).map(rowToEntry));
+  status.innerText = "";
+  render();
+  updateJobSuggestions();
 }
 
 function getSelectedWeekStart() {
@@ -410,7 +488,7 @@ function resetTimeEntryFields() {
   document.getElementById("timeOut").value = "";
 }
 
-function submitTime() {
+async function submitTime() {
   if (!currentUser) {
     alert("You must sign in first");
     return;
@@ -447,11 +525,27 @@ function submitTime() {
 
   const status = document.getElementById("submitStatus");
   let stored = loadTimesheets();
-  stored.push(entry);
+  status.innerText = "Saving entry...";
 
-  if (saveTimesheets(stored)) {
-    status.innerText = "Entry submitted.";
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from("timesheet_entries")
+      .insert(entryToRow(entry))
+      .select()
+      .single();
+
+    if (error) {
+      stored.push(entry);
+      saveFallbackTimesheets(stored);
+      status.innerText = "Entry saved in this browser only. Supabase save failed.";
+    } else {
+      stored.push(rowToEntry(data));
+      setTimesheets(stored);
+      status.innerText = "Entry submitted.";
+    }
   } else {
+    stored.push(entry);
+    saveFallbackTimesheets(stored);
     status.innerText = "Entry submitted for this browser session.";
   }
 
@@ -559,8 +653,9 @@ function render() {
 
 if (currentUser) {
   showCurrentUser();
+  setTimesheets(loadFallbackTimesheets());
   render();
-  updateJobSuggestions();
+  loadTimesheetsFromSupabase();
 }
 </script>
 
