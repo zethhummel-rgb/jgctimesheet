@@ -194,6 +194,21 @@
       font-weight: bold;
     }
 
+    .edit-table-wrap {
+      max-width: 360px;
+    }
+
+    .edit-table {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .edit-table th,
+    .edit-table td {
+      padding: 6px;
+      font-size: 12px;
+    }
+
     .check-row {
       display: flex;
       gap: 8px;
@@ -219,6 +234,28 @@
     .cancel-edit {
       display: none;
       background: #5f6a62;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tab-buttons button {
+      width: auto;
+      margin: 0;
+      padding: 7px 12px;
+      background: #5f6a62;
+    }
+
+    .tab-buttons button.active-tab {
+      background: #3f7d4d;
+    }
+
+    .previous-week {
+      margin-top: 14px;
     }
   </style>
 </head>
@@ -290,6 +327,10 @@
 
 <div class="card entries-card">
   <h3>Submitted Entries</h3>
+  <div class="tab-buttons">
+    <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
+    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Previous Weeks</button>
+  </div>
   <button type="button" onclick="clearEntries()">Clear My Entries</button>
   <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
   <div id="entries"></div>
@@ -307,6 +348,8 @@ const supabaseClient = window.supabase
 let currentUser = localStorage.getItem("currentWorker");
 let memoryTimesheets = [];
 let editingEntryId = null;
+let entriesTab = "current";
+let previousWeeks = [];
 
 if (!currentUser) {
   window.location.href = "index.html";
@@ -527,6 +570,87 @@ async function loadTimesheetsFromSupabase() {
   status.innerText = "";
   render();
   updateJobSuggestions();
+}
+
+async function loadPreviousWeeksFromSupabase() {
+  if (!supabaseClient) {
+    previousWeeks = loadFallbackPreviousWeeks();
+    render();
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("previous_timesheet_weeks")
+    .select("*")
+    .eq("worker_name", currentUser)
+    .order("submitted_at", { ascending: false })
+    .limit(3);
+
+  if (error) {
+    previousWeeks = loadFallbackPreviousWeeks();
+    render();
+    return;
+  }
+
+  previousWeeks = (data || []).map(function(week) {
+    return {
+      id: week.id,
+      workerName: week.worker_name,
+      weekLabel: week.week_label,
+      entries: Array.isArray(week.entries) ? week.entries : [],
+      totalHours: Number(week.total_hours),
+      submittedAt: week.submitted_at
+    };
+  });
+
+  saveFallbackPreviousWeeks(previousWeeks);
+  render();
+}
+
+function loadFallbackPreviousWeeks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("previousTimesheetWeeks") || "[]");
+
+    if (!Array.isArray(saved)) {
+      return [];
+    }
+
+    return saved.filter(function(week) {
+      return normalizeWorkerName(week.workerName) === normalizeWorkerName(currentUser);
+    }).slice(0, 3);
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveFallbackPreviousWeeks(weeks) {
+  const otherWorkers = loadAllFallbackPreviousWeeks().filter(function(week) {
+    return normalizeWorkerName(week.workerName) !== normalizeWorkerName(currentUser);
+  });
+  const currentWorkerWeeks = weeks.slice(0, 3);
+
+  localStorage.setItem("previousTimesheetWeeks", JSON.stringify(otherWorkers.concat(currentWorkerWeeks)));
+}
+
+function loadAllFallbackPreviousWeeks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("previousTimesheetWeeks") || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function showEntriesTab(tabName) {
+  entriesTab = tabName;
+  document.getElementById("currentTabButton").classList.toggle("active-tab", tabName === "current");
+  document.getElementById("previousTabButton").classList.toggle("active-tab", tabName === "previous");
+
+  if (tabName === "previous") {
+    loadPreviousWeeksFromSupabase();
+  } else {
+    render();
+  }
 }
 
 function getSelectedWeekStart() {
@@ -789,7 +913,7 @@ async function clearEntries() {
   updateJobSuggestions();
 }
 
-function emailEntries() {
+async function emailEntries() {
   const entries = loadTimesheets();
 
   if (entries.length === 0) {
@@ -826,6 +950,13 @@ function emailEntries() {
   lines.push("Total Hours: " + totalHours.toFixed(2));
   downloadTimesheetPdf(entries, totalHours, weekLabel);
 
+  const archived = await archiveCurrentEntries(entries, totalHours, weekLabel);
+
+  if (!archived) {
+    alert("The email was not opened because the week could not be saved to Previous Weeks.");
+    return;
+  }
+
   window.location.href =
     "mailto:zeth@johngordonconstruction.com" +
     "?subject=" + encodeURIComponent(subject) +
@@ -833,6 +964,70 @@ function emailEntries() {
       lines.join("\n") +
       "\n\nA PDF copy of this timesheet was downloaded. Please attach it before sending."
     );
+}
+
+async function archiveCurrentEntries(entries, totalHours, weekLabel) {
+  const archiveRecord = {
+    workerName: currentUser,
+    weekLabel,
+    entries,
+    totalHours,
+    submittedAt: new Date().toISOString()
+  };
+
+  if (supabaseClient) {
+    const { error: insertError } = await supabaseClient
+      .from("previous_timesheet_weeks")
+      .insert({
+        worker_name: currentUser,
+        week_label: weekLabel,
+        entries,
+        total_hours: totalHours
+      });
+
+    if (insertError) {
+      return false;
+    }
+
+    const { data: archives, error: archiveError } = await supabaseClient
+      .from("previous_timesheet_weeks")
+      .select("id")
+      .eq("worker_name", currentUser)
+      .order("submitted_at", { ascending: false });
+
+    if (!archiveError && archives && archives.length > 3) {
+      const oldIds = archives.slice(3).map(function(archive) {
+        return archive.id;
+      });
+
+      await supabaseClient
+        .from("previous_timesheet_weeks")
+        .delete()
+        .in("id", oldIds);
+    }
+
+    const { error: deleteError } = await supabaseClient
+      .from("timesheet_entries")
+      .delete()
+      .eq("worker_name", currentUser);
+
+    if (deleteError) {
+      return false;
+    }
+  }
+
+  previousWeeks = [archiveRecord].concat(previousWeeks).slice(0, 3);
+  saveFallbackPreviousWeeks(previousWeeks);
+  memoryTimesheets = [];
+  saveFallbackTimesheets(mergeFallbackTimesheets([]));
+  clearEditMode();
+  resetTimeEntryFields();
+  entriesTab = "previous";
+  document.getElementById("currentTabButton").classList.remove("active-tab");
+  document.getElementById("previousTabButton").classList.add("active-tab");
+  render();
+  updateJobSuggestions();
+  return true;
 }
 
 function getTotalHours(entries) {
@@ -1078,6 +1273,59 @@ function renderEditRows(entries) {
   }).join("");
 }
 
+function renderPreviousWeeks() {
+  if (previousWeeks.length === 0) {
+    document.getElementById("entries").innerHTML =
+      '<div class="small">No previous weeks saved yet.</div>';
+    return;
+  }
+
+  const weeksHtml = previousWeeks.map(function(week) {
+    const groups = getEntriesByEmailDay(week.entries || []);
+    const groupHtml = groups.map(function(group) {
+      const rows = group.entries.map(function(entry) {
+        return `
+          <tr>
+            <td>${escapeHtml(entry.jobName)}</td>
+            <td>${escapeHtml(entry.jobNumber)}</td>
+            <td><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
+            <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+            <td><b>${Number(entry.hours).toFixed(2)}</b></td>
+          </tr>
+        `;
+      }).join("");
+
+      return `
+        <h3>${escapeHtml(group.day)}</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Job Name</th>
+                <th>Job Number</th>
+                <th>Night Work</th>
+                <th>Time</th>
+                <th>Hours</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="previous-week">
+        <h3>${escapeHtml(week.weekLabel)}</h3>
+        ${groupHtml}
+        <div class="small"><b>Total Hours:</b> ${Number(week.totalHours).toFixed(2)}</div>
+      </div>
+    `;
+  }).join("");
+
+  document.getElementById("entries").innerHTML = weeksHtml;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, function(character) {
     return {
@@ -1091,6 +1339,11 @@ function escapeHtml(value) {
 }
 
 function render() {
+  if (entriesTab === "previous") {
+    renderPreviousWeeks();
+    return;
+  }
+
   const entries = loadTimesheets();
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -1152,8 +1405,8 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap edit-table-wrap">
+      <table class="edit-table">
         <thead>
           <tr>
             <th>Job Name</th>
