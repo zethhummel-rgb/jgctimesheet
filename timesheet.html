@@ -1261,7 +1261,23 @@ function drawPdfRow(doc, columns, startX, y, rowHeight, values, isHeader) {
 }
 
 function renderEditRows(entries) {
-  return entries.map(function(entry) {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  return entries.slice().sort(function(a, b) {
+    const dayDifference = days.indexOf(a.day) - days.indexOf(b.day);
+
+    if (dayDifference !== 0) {
+      return dayDifference;
+    }
+
+    const jobDifference = a.jobName.localeCompare(b.jobName);
+
+    if (jobDifference !== 0) {
+      return jobDifference;
+    }
+
+    return a.timeIn.localeCompare(b.timeIn);
+  }).map(function(entry) {
     return `
       <tr>
         <td>${escapeHtml(entry.day)}</td>
