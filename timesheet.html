@@ -325,7 +325,13 @@ function calculateHours(inTime, outTime) {
 function loadFallbackTimesheets() {
   try {
     const saved = JSON.parse(localStorage.getItem("timesheets") || "[]");
-    return Array.isArray(saved) ? saved : [];
+    if (!Array.isArray(saved)) {
+      return [];
+    }
+
+    return saved.filter(function(entry) {
+      return normalizeWorkerName(entry.user) === normalizeWorkerName(currentUser);
+    });
   } catch (error) {
     try {
       localStorage.removeItem("timesheets");
@@ -338,8 +344,6 @@ function loadFallbackTimesheets() {
 }
 
 function saveFallbackTimesheets(entries) {
-  memoryTimesheets = entries;
-
   try {
     localStorage.setItem("timesheets", JSON.stringify(entries));
   } catch (error) {
@@ -355,7 +359,28 @@ function loadTimesheets() {
 
 function setTimesheets(entries) {
   memoryTimesheets = entries;
-  saveFallbackTimesheets(entries);
+  saveFallbackTimesheets(mergeFallbackTimesheets(entries));
+}
+
+function normalizeWorkerName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function mergeFallbackTimesheets(currentWorkerEntries) {
+  const otherWorkerEntries = loadAllFallbackTimesheets().filter(function(entry) {
+    return normalizeWorkerName(entry.user) !== normalizeWorkerName(currentUser);
+  });
+
+  return otherWorkerEntries.concat(currentWorkerEntries);
+}
+
+function loadAllFallbackTimesheets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("timesheets") || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
 }
 
 function rowToEntry(row) {
@@ -404,6 +429,7 @@ async function loadTimesheetsFromSupabase() {
   const { data, error } = await supabaseClient
     .from("timesheet_entries")
     .select("*")
+    .eq("worker_name", currentUser)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -536,7 +562,7 @@ async function submitTime() {
 
     if (error) {
       stored.push(entry);
-      saveFallbackTimesheets(stored);
+      saveFallbackTimesheets(mergeFallbackTimesheets(stored));
       status.innerText = "Entry saved in this browser only. Supabase save failed.";
     } else {
       stored.push(rowToEntry(data));
@@ -545,7 +571,7 @@ async function submitTime() {
     }
   } else {
     stored.push(entry);
-    saveFallbackTimesheets(stored);
+    saveFallbackTimesheets(mergeFallbackTimesheets(stored));
     status.innerText = "Entry submitted for this browser session.";
   }
 
