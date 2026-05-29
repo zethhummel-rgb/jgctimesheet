@@ -459,7 +459,8 @@ const supabaseClient = window.supabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
   : null;
 
-let currentUser = localStorage.getItem("currentWorker");
+let currentUser = normalizeWorkerName(localStorage.getItem("currentWorker"));
+let currentUserDisplay = localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker");
 let memoryTimesheets = [];
 let editingEntryId = null;
 let entriesTab = "current";
@@ -467,6 +468,8 @@ let previousWeeks = [];
 
 if (!currentUser) {
   window.location.href = "index.html";
+} else {
+  localStorage.setItem("currentWorker", currentUser);
 }
 
 function openPicker(input) {
@@ -477,12 +480,13 @@ function openPicker(input) {
 
 function showCurrentUser() {
   document.getElementById("currentUser").innerHTML =
-    'Signed in as: ' + escapeHtml(currentUser) +
+    'Signed in as: ' + escapeHtml(currentUserDisplay || currentUser) +
     ' <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>';
 }
 
 function signOut() {
   localStorage.removeItem("currentWorker");
+  localStorage.removeItem("currentWorkerDisplay");
   window.location.href = "index.html";
 }
 
@@ -1007,7 +1011,7 @@ async function clearEntries() {
     return;
   }
 
-  const confirmed = confirm("Clear all entries for " + currentUser + "?");
+  const confirmed = confirm("Clear all entries for " + getDisplayWorkerName() + "?");
 
   if (!confirmed) {
     return;
@@ -1062,9 +1066,9 @@ async function emailEntries() {
   }
 
   const weekLabel = getWeekLabel(entries);
-  const subject = "Timesheet - " + currentUser + " - " + weekLabel;
+  const subject = "Timesheet - " + getDisplayWorkerName() + " - " + weekLabel;
   const lines = [
-    "Worker: " + currentUser,
+    "Worker: " + getDisplayWorkerName(),
     "Week: " + weekLabel,
     "",
     "Timesheet Entries:",
@@ -1185,6 +1189,10 @@ function getTotalHours(entries) {
   return entries.reduce(function(total, entry) {
     return total + Number(entry.hours);
   }, 0);
+}
+
+function getDisplayWorkerName() {
+  return currentUserDisplay || currentUser;
 }
 
 function getWeekLabel(entries) {
@@ -1315,7 +1323,7 @@ function downloadTimesheetPdf(entries, totalHours, weekLabel, note) {
   y += 8;
 
   doc.setFontSize(11);
-  doc.text("Worker: " + currentUser, 14, y);
+  doc.text("Worker: " + getDisplayWorkerName(), 14, y);
   y += 7;
   doc.text("Week: " + weekLabel, 14, y);
   y += 10;
