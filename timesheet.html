@@ -207,6 +207,19 @@
       width: auto;
       margin: 0;
     }
+
+    .edit-button {
+      width: auto;
+      min-width: 72px;
+      padding: 6px 10px;
+      margin: 0;
+      font-size: 12px;
+    }
+
+    .cancel-edit {
+      display: none;
+      background: #5f6a62;
+    }
   </style>
 </head>
 
@@ -270,7 +283,8 @@
     Night Work
   </label>
 
-  <button type="button" onclick="submitTime()">Submit Entry</button>
+  <button id="submitButton" type="button" onclick="submitTime()">Submit Entry</button>
+  <button id="cancelEditButton" class="cancel-edit" type="button" onclick="cancelEdit()">Cancel Edit</button>
   <div id="submitStatus" class="status"></div>
 </div>
 
@@ -292,6 +306,7 @@ const supabaseClient = window.supabase
 
 let currentUser = localStorage.getItem("currentWorker");
 let memoryTimesheets = [];
+let editingEntryId = null;
 
 if (!currentUser) {
   window.location.href = "index.html";
@@ -578,9 +593,57 @@ function fillJobNumberForSelectedJob() {
 function resetTimeEntryFields() {
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
+  document.getElementById("day").value = "";
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
   document.getElementById("nightWork").checked = false;
+}
+
+function setEditMode(entry) {
+  editingEntryId = entry.id;
+  document.getElementById("submitButton").innerText = "Update Entry";
+  document.getElementById("cancelEditButton").style.display = "block";
+  document.getElementById("submitStatus").innerText = "Editing saved entry.";
+}
+
+function clearEditMode() {
+  editingEntryId = null;
+  document.getElementById("submitButton").innerText = "Submit Entry";
+  document.getElementById("cancelEditButton").style.display = "none";
+}
+
+function cancelEdit() {
+  clearEditMode();
+  resetTimeEntryFields();
+  document.getElementById("submitStatus").innerText = "";
+}
+
+function editEntry(entryId) {
+  const entry = loadTimesheets().find(function(item) {
+    return item.id === entryId;
+  });
+
+  if (!entry) {
+    alert("Could not find that entry.");
+    return;
+  }
+
+  document.getElementById("weekStart").value = entry.weekStartValue;
+  validateSunday(document.getElementById("weekStart"));
+  document.getElementById("day").value = entry.day;
+  document.getElementById("jobName").value = entry.jobName;
+  document.getElementById("jobNumber").value = entry.jobNumber;
+  document.getElementById("timeIn").value = entry.timeIn;
+  document.getElementById("timeOut").value = entry.timeOut;
+  document.getElementById("nightWork").checked = Boolean(entry.nightWork);
+  setEditMode(entry);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function replaceStoredEntry(entries, updatedEntry) {
+  return entries.map(function(entry) {
+    return entry.id === updatedEntry.id ? updatedEntry : entry;
+  });
 }
 
 async function submitTime() {
@@ -627,7 +690,37 @@ async function submitTime() {
 
   const status = document.getElementById("submitStatus");
   let stored = loadTimesheets();
-  status.innerText = "Saving entry...";
+  status.innerText = editingEntryId ? "Updating entry..." : "Saving entry...";
+
+  if (editingEntryId) {
+    entry.id = editingEntryId;
+
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .update(entryToRow(entry))
+        .eq("id", editingEntryId)
+        .eq("worker_name", currentUser)
+        .select()
+        .single();
+
+      if (error) {
+        status.innerText = "Could not update this Supabase entry.";
+        return;
+      }
+
+      setTimesheets(replaceStoredEntry(stored, rowToEntry(data)));
+    } else {
+      setTimesheets(replaceStoredEntry(stored, entry));
+    }
+
+    clearEditMode();
+    resetTimeEntryFields();
+    status.innerText = "Entry updated.";
+    updateJobSuggestions();
+    render();
+    return;
+  }
 
   if (supabaseClient) {
     const { data, error } = await supabaseClient
@@ -712,19 +805,14 @@ function emailEntries() {
     ""
   ];
 
-  let totalHours = 0;
+  const totalHours = getTotalHours(entries);
+  const tableRows = getEmailTableRows(entries);
 
-  for (let entry of entries) {
-    totalHours += Number(entry.hours);
-    lines.push(
-      entry.weekStart + " to " + entry.weekEnd +
-      " | " + entry.day +
-      " | " + entry.jobName +
-      " #" + entry.jobNumber +
-      " | Night Work: " + (entry.nightWork ? "Yes" : "No") +
-      " | " + entry.timeIn + "-" + entry.timeOut +
-      " | " + Number(entry.hours).toFixed(2) + " hours"
-    );
+  lines.push(tableRows.header);
+  lines.push(tableRows.divider);
+
+  for (let row of tableRows.rows) {
+    lines.push(row);
   }
 
   lines.push("");
@@ -740,12 +828,81 @@ function emailEntries() {
     );
 }
 
+function getTotalHours(entries) {
+  return entries.reduce(function(total, entry) {
+    return total + Number(entry.hours);
+  }, 0);
+}
+
+function padCell(value, width) {
+  const text = String(value);
+
+  if (text.length > width) {
+    return text.slice(0, width - 1) + ".";
+  }
+
+  return text + " ".repeat(width - text.length);
+}
+
+function getEmailTableRows(entries) {
+  const columns = [
+    { label: "Week", width: 24 },
+    { label: "Day", width: 10 },
+    { label: "Job", width: 24 },
+    { label: "Job #", width: 10 },
+    { label: "Night", width: 7 },
+    { label: "Time", width: 13 },
+    { label: "Hours", width: 6 }
+  ];
+
+  const header = columns.map(function(column) {
+    return padCell(column.label, column.width);
+  }).join(" | ");
+
+  const divider = columns.map(function(column) {
+    return "-".repeat(column.width);
+  }).join("-+-");
+
+  const rows = entries.map(function(entry) {
+    const values = [
+      entry.weekStart + " to " + entry.weekEnd,
+      entry.day,
+      entry.jobName,
+      entry.jobNumber,
+      entry.nightWork ? "Yes" : "No",
+      entry.timeIn + "-" + entry.timeOut,
+      Number(entry.hours).toFixed(2)
+    ];
+
+    return values.map(function(value, index) {
+      return padCell(value, columns[index].width);
+    }).join(" | ");
+  });
+
+  return {
+    header,
+    divider,
+    rows
+  };
+}
+
 function downloadTimesheetPdf(entries, totalHours) {
   if (!window.jspdf || !window.jspdf.jsPDF) {
     return;
   }
 
   const doc = new window.jspdf.jsPDF();
+  const columns = [
+    { label: "Week", width: 34 },
+    { label: "Day", width: 22 },
+    { label: "Job", width: 38 },
+    { label: "Job #", width: 20 },
+    { label: "Night", width: 18 },
+    { label: "Time", width: 28 },
+    { label: "Hours", width: 20 }
+  ];
+  const rowHeight = 9;
+  const startX = 14;
   let y = 16;
 
   doc.setFontSize(14);
@@ -754,36 +911,78 @@ function downloadTimesheetPdf(entries, totalHours) {
 
   doc.setFontSize(11);
   doc.text("Worker: " + currentUser, 14, y);
-  y += 8;
+  y += 10;
 
   doc.setFontSize(9);
-  doc.text("Week | Day | Job | Night Work | Time | Hours", 14, y);
-  y += 6;
+  drawPdfHeader(doc, columns, startX, y, rowHeight);
+  y += rowHeight;
 
   for (let entry of entries) {
-    const line =
-      entry.weekStart + " to " + entry.weekEnd +
-      " | " + entry.day +
-      " | " + entry.jobName + " #" + entry.jobNumber +
-      " | " + (entry.nightWork ? "Yes" : "No") +
-      " | " + entry.timeIn + "-" + entry.timeOut +
-      " | " + Number(entry.hours).toFixed(2);
-
-    const wrappedLines = doc.splitTextToSize(line, 180);
-
-    if (y + wrappedLines.length * 5 > 280) {
+    if (y + rowHeight > 280) {
       doc.addPage();
       y = 16;
+      drawPdfHeader(doc, columns, startX, y, rowHeight);
+      y += rowHeight;
     }
 
-    doc.text(wrappedLines, 14, y);
-    y += wrappedLines.length * 5 + 2;
+    drawPdfRow(doc, columns, startX, y, rowHeight, [
+      entry.weekStart + " to " + entry.weekEnd,
+      entry.day,
+      entry.jobName,
+      entry.jobNumber,
+      entry.nightWork ? "Yes" : "No",
+      entry.timeIn + "-" + entry.timeOut,
+      Number(entry.hours).toFixed(2)
+    ]);
+    y += rowHeight;
   }
 
   y += 4;
   doc.setFontSize(11);
   doc.text("Total Hours: " + totalHours.toFixed(2), 14, y);
   doc.save("timesheet-" + currentUser.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".pdf");
+}
+
+function drawPdfHeader(doc, columns, startX, y, rowHeight) {
+  doc.setFillColor(223, 233, 218);
+  drawPdfRow(doc, columns, startX, y, rowHeight, columns.map(function(column) {
+    return column.label;
+  }), true);
+}
+
+function drawPdfRow(doc, columns, startX, y, rowHeight, values, isHeader) {
+  let x = startX;
+
+  for (let index = 0; index < columns.length; index++) {
+    const column = columns[index];
+    const value = String(values[index] || "");
+
+    if (isHeader) {
+      doc.rect(x, y, column.width, rowHeight, "FD");
+    } else {
+      doc.rect(x, y, column.width, rowHeight);
+    }
+
+    doc.text(doc.splitTextToSize(value, column.width - 3)[0] || "", x + 2, y + 6);
+    x += column.width;
+  }
+}
+
+function renderEditRows(entries) {
+  return entries.map(function(entry) {
+    return `
+      <tr>
+        <td>${escapeHtml(entry.weekStart)}</td>
+        <td>${escapeHtml(entry.day)}</td>
+        <td>${escapeHtml(entry.jobName)}</td>
+        <td>${escapeHtml(entry.jobNumber)}</td>
+        <td><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
+        <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+        <td><b>${Number(entry.hours).toFixed(2)}</b></td>
+        <td><button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button></td>
+      </tr>
+    `;
+  }).join("");
 }
 
 function escapeHtml(value) {
@@ -870,6 +1069,26 @@ function render() {
         </thead>
         <tbody>
           ${rows}
+        </tbody>
+      </table>
+    </div>
+    <h3>Edit Entries</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Week Start</th>
+            <th>Day</th>
+            <th>Job Name</th>
+            <th>Job Number</th>
+            <th>Night Work</th>
+            <th>Time</th>
+            <th>Hours</th>
+            <th>Edit</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderEditRows(entries)}
         </tbody>
       </table>
     </div>
