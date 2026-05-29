@@ -173,6 +173,26 @@
     .empty-cell {
       color: #999;
     }
+
+    .email-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .email-actions button {
+      width: auto;
+      min-width: 140px;
+      margin: 0;
+    }
+
+    .email-note {
+      font-size: 13px;
+      color: #3f4a42;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -225,6 +245,7 @@
   <input
     id="timeIn"
     type="time"
+    step="1800"
     onclick="openPicker(this)"
   />
 
@@ -232,6 +253,7 @@
   <input
     id="timeOut"
     type="time"
+    step="1800"
     onclick="openPicker(this)"
   />
 
@@ -321,6 +343,10 @@ function calculateHours(inTime, outTime) {
   if (diff < 0) diff += 24;
 
   return diff.toFixed(2);
+}
+
+function isHalfHourTime(time) {
+  return /^\d{2}:\d{2}$/.test(time) && (time.endsWith(":00") || time.endsWith(":30"));
 }
 
 function loadFallbackTimesheets() {
@@ -535,6 +561,11 @@ async function submitTime() {
     return;
   }
 
+  if (!isHalfHourTime(timeIn) || !isHalfHourTime(timeOut)) {
+    alert("Time In and Time Out must be in 30 minute intervals.");
+    return;
+  }
+
   const startDate = makeLocalDate(weekStart);
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 6);
@@ -623,6 +654,45 @@ async function clearEntries() {
   updateJobSuggestions();
 }
 
+function emailEntries() {
+  const entries = loadTimesheets();
+
+  if (entries.length === 0) {
+    alert("No entries to email yet.");
+    return;
+  }
+
+  const subject = "Timesheet - " + currentUser;
+  const lines = [
+    "Worker: " + currentUser,
+    "",
+    "Timesheet Entries:",
+    ""
+  ];
+
+  let totalHours = 0;
+
+  for (let entry of entries) {
+    totalHours += Number(entry.hours);
+    lines.push(
+      entry.weekStart + " to " + entry.weekEnd +
+      " | " + entry.day +
+      " | " + entry.jobName +
+      " #" + entry.jobNumber +
+      " | " + entry.timeIn + "-" + entry.timeOut +
+      " | " + Number(entry.hours).toFixed(2) + " hours"
+    );
+  }
+
+  lines.push("");
+  lines.push("Total Hours: " + totalHours.toFixed(2));
+
+  window.location.href =
+    "mailto:zeth@johngordonconstruction.com" +
+    "?subject=" + encodeURIComponent(subject) +
+    "&body=" + encodeURIComponent(lines.join("\n"));
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, function(character) {
     return {
@@ -705,6 +775,10 @@ function render() {
           ${rows}
         </tbody>
       </table>
+    </div>
+    <div class="email-actions">
+      <button type="button" onclick="emailEntries()">Email Entries</button>
+      <span class="email-note">please send email at end of day Friday</span>
     </div>
   `;
 }
