@@ -1097,11 +1097,10 @@ async function emailEntries() {
 
   downloadTimesheetPdf(entries, totalHours, weekLabel, note.trim());
 
-  const archived = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
+  const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
 
-  if (!archived) {
-    alert("The email was not opened because the week could not be saved to Previous Weeks.");
-    return;
+  if (archiveResult.warning) {
+    alert(archiveResult.warning);
   }
 
   window.location.href =
@@ -1122,6 +1121,7 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
     note,
     submittedAt: new Date().toISOString()
   };
+  let warning = "";
 
   if (supabaseClient) {
     const { error: insertError } = await supabaseClient
@@ -1135,23 +1135,23 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
       });
 
     if (insertError) {
-      return false;
-    }
-
-    const { data: archives, error: archiveError } = await supabaseClient
-      .from("previous_timesheet_weeks")
-      .select("id, week_label, entries")
-      .eq("worker_name", currentUser);
-
-    if (!archiveError && archives && archives.length > 3) {
-      const oldIds = archives.sort(sortPreviousWeeksByDate).slice(3).map(function(archive) {
-        return archive.id;
-      });
-
-      await supabaseClient
+      warning = "The email will open, but this week could not be saved online to Previous Weeks. It was saved on this phone/browser only.";
+    } else {
+      const { data: archives, error: archiveError } = await supabaseClient
         .from("previous_timesheet_weeks")
-        .delete()
-        .in("id", oldIds);
+        .select("id, week_label, entries")
+        .eq("worker_name", currentUser);
+
+      if (!archiveError && archives && archives.length > 3) {
+        const oldIds = archives.sort(sortPreviousWeeksByDate).slice(3).map(function(archive) {
+          return archive.id;
+        });
+
+        await supabaseClient
+          .from("previous_timesheet_weeks")
+          .delete()
+          .in("id", oldIds);
+      }
     }
 
     const { error: deleteError } = await supabaseClient
@@ -1160,7 +1160,7 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
       .eq("worker_name", currentUser);
 
     if (deleteError) {
-      return false;
+      warning = warning || "The email will open, but the current week could not be reset online. Please refresh and use Clear My Entries if the entries still show.";
     }
   }
 
@@ -1175,7 +1175,10 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
   document.getElementById("previousTabButton").classList.add("active-tab");
   render();
   updateJobSuggestions();
-  return true;
+  return {
+    success: true,
+    warning
+  };
 }
 
 function getTotalHours(entries) {
