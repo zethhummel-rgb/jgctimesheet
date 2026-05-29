@@ -266,7 +266,7 @@
     oninput="fillJobNumberForSelectedJob()"
   />
   <datalist id="jobNameOptions"></datalist>
-  <input id="jobNumber" placeholder="Job Number" />
+  <input id="jobNumber" placeholder="Job Number (optional)" />
 
   <label>Time In</label>
   <select id="timeIn">
@@ -660,7 +660,7 @@ async function submitTime() {
   const timeOut = document.getElementById("timeOut").value;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (!weekStart || !jobName || !jobNumber || !day || !timeIn || !timeOut) {
+  if (!weekStart || !jobName || !day || !timeIn || !timeOut) {
     alert("Fill in all fields");
     return;
   }
@@ -944,7 +944,6 @@ function downloadTimesheetPdf(entries, totalHours) {
 }
 
 function drawPdfHeader(doc, columns, startX, y, rowHeight) {
-  doc.setFillColor(223, 233, 218);
   drawPdfRow(doc, columns, startX, y, rowHeight, columns.map(function(column) {
     return column.label;
   }), true);
@@ -958,14 +957,25 @@ function drawPdfRow(doc, columns, startX, y, rowHeight, values, isHeader) {
     const value = String(values[index] || "");
 
     if (isHeader) {
+      doc.setFillColor("#dfe9da");
+      doc.setDrawColor("#8a9585");
+      doc.setTextColor("#1f3d28");
+      doc.setFont(undefined, "bold");
       doc.rect(x, y, column.width, rowHeight, "FD");
     } else {
+      doc.setFillColor("#ffffff");
+      doc.setDrawColor("#c5cec1");
+      doc.setTextColor("#1f2a24");
+      doc.setFont(undefined, "normal");
       doc.rect(x, y, column.width, rowHeight);
     }
 
     doc.text(doc.splitTextToSize(value, column.width - 3)[0] || "", x + 2, y + 6);
     x += column.width;
   }
+
+  doc.setFont(undefined, "normal");
+  doc.setTextColor("#1f2a24");
 }
 
 function renderEditRows(entries) {
