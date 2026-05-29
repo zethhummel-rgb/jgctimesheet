@@ -451,7 +451,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
@@ -1099,8 +1098,6 @@ async function emailEntries() {
     lines.push(note.trim());
   }
 
-  downloadTimesheetPdf(entries, totalHours, weekLabel, note.trim());
-
   const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
 
   if (archiveResult.warning) {
@@ -1111,8 +1108,7 @@ async function emailEntries() {
     "mailto:zeth@johngordonconstruction.com" +
     "?subject=" + encodeURIComponent(subject) +
     "&body=" + encodeURIComponent(
-      lines.join("\n") +
-      "\n\nA PDF copy of this timesheet was downloaded. Please attach it before sending."
+      lines.join("\n")
     );
 }
 
@@ -1299,139 +1295,6 @@ function getEmailTableRows(entries) {
     divider,
     rows
   };
-}
-
-function downloadTimesheetPdf(entries, totalHours, weekLabel, note) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    return;
-  }
-
-  const doc = new window.jspdf.jsPDF();
-  const columns = [
-    { label: "Job", width: 54 },
-    { label: "Job #", width: 26 },
-    { label: "Night", width: 22 },
-    { label: "Time", width: 38 },
-    { label: "Hours", width: 24 }
-  ];
-  const rowHeight = 9;
-  const startX = 14;
-  let y = 16;
-
-  doc.setFontSize(14);
-  doc.text("Construction Timesheet", 14, y);
-  y += 8;
-
-  doc.setFontSize(11);
-  doc.text("Worker: " + getDisplayWorkerName(), 14, y);
-  y += 7;
-  doc.text("Week: " + weekLabel, 14, y);
-  y += 10;
-
-  doc.setFontSize(9);
-  const dayGroups = getEntriesByEmailDay(entries);
-
-  for (let group of dayGroups) {
-    if (y + rowHeight * 2 > 280) {
-      doc.addPage();
-      y = 16;
-    }
-
-    doc.setFontSize(11);
-    doc.setTextColor("#1f3d28");
-    doc.setFont(undefined, "bold");
-    doc.text(group.day, startX, y);
-    doc.setFont(undefined, "normal");
-    doc.setTextColor("#1f2a24");
-    y += 5;
-
-    doc.setFontSize(9);
-    drawPdfHeader(doc, columns, startX, y, rowHeight);
-    y += rowHeight;
-
-    for (let entry of group.entries) {
-      if (y + rowHeight > 280) {
-        doc.addPage();
-        y = 16;
-        doc.setFontSize(11);
-        doc.setTextColor("#1f3d28");
-        doc.setFont(undefined, "bold");
-        doc.text(group.day + " continued", startX, y);
-        doc.setFont(undefined, "normal");
-        doc.setTextColor("#1f2a24");
-        y += 5;
-        doc.setFontSize(9);
-        drawPdfHeader(doc, columns, startX, y, rowHeight);
-        y += rowHeight;
-      }
-
-      drawPdfRow(doc, columns, startX, y, rowHeight, [
-        entry.jobName,
-        entry.jobNumber,
-        entry.nightWork ? "Yes" : "No",
-        entry.timeIn + "-" + entry.timeOut,
-        Number(entry.hours).toFixed(2)
-      ]);
-      y += rowHeight;
-    }
-
-    y += 6;
-  }
-
-  y += 4;
-  doc.setFontSize(11);
-  doc.text("Total Hours: " + totalHours.toFixed(2), 14, y);
-
-  if (note) {
-    y += 8;
-
-    if (y > 270) {
-      doc.addPage();
-      y = 16;
-    }
-
-    doc.text("Note:", 14, y);
-    y += 6;
-    doc.setFontSize(10);
-    doc.text(doc.splitTextToSize(note, 180), 14, y);
-  }
-
-  doc.save("timesheet-" + currentUser.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".pdf");
-}
-
-function drawPdfHeader(doc, columns, startX, y, rowHeight) {
-  drawPdfRow(doc, columns, startX, y, rowHeight, columns.map(function(column) {
-    return column.label;
-  }), true);
-}
-
-function drawPdfRow(doc, columns, startX, y, rowHeight, values, isHeader) {
-  let x = startX;
-
-  for (let index = 0; index < columns.length; index++) {
-    const column = columns[index];
-    const value = String(values[index] || "");
-
-    if (isHeader) {
-      doc.setFillColor("#dfe9da");
-      doc.setDrawColor("#8a9585");
-      doc.setTextColor("#1f3d28");
-      doc.setFont(undefined, "bold");
-      doc.rect(x, y, column.width, rowHeight, "FD");
-    } else {
-      doc.setFillColor("#ffffff");
-      doc.setDrawColor("#c5cec1");
-      doc.setTextColor("#1f2a24");
-      doc.setFont(undefined, "normal");
-      doc.rect(x, y, column.width, rowHeight);
-    }
-
-    doc.text(doc.splitTextToSize(value, column.width - 3)[0] || "", x + 2, y + 6);
-    x += column.width;
-  }
-
-  doc.setFont(undefined, "normal");
-  doc.setTextColor("#1f2a24");
 }
 
 function renderEditRows(entries) {
@@ -1634,7 +1497,7 @@ function render() {
       </table>
     </div>
     <div class="email-actions">
-      <button type="button" onclick="emailEntries()">Download PDF & Email</button>
+      <button type="button" onclick="emailEntries()">Submit & Email</button>
       <span class="email-note">please send email at end of day Friday</span>
     </div>
   `;
