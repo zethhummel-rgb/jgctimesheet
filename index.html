@@ -104,13 +104,15 @@ if (localStorage.getItem("currentWorker")) {
 
 function signIn() {
   const name = document.getElementById("workerName").value.trim();
+  const workerKey = name.toLowerCase();
 
   if (!name) {
     alert("Enter a name first");
     return;
   }
 
-  localStorage.setItem("currentWorker", name);
+  localStorage.setItem("currentWorker", workerKey);
+  localStorage.setItem("currentWorkerDisplay", name);
   window.location.href = "timesheet.html";
 }
 
