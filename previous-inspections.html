@@ -458,6 +458,353 @@ function downloadJsaPdf(record) {
     doc.save(`jsa-${record.inspection_date || "inspection"}.pdf`);
 }
 
+function getAerialInspectionRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+
+    return rows
+        .map((row) => row.cells || [])
+        .filter((cells) => /^\d+$/.test(String(cells[0] || "").trim()))
+        .map((cells) => ({
+            number: cells[0] || "",
+            item: cells[1] || "",
+            result: cells.slice(2).find((cell) => String(cell || "").trim()) || ""
+        }));
+}
+
+function getSafetyRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+
+    return rows
+        .map((row) => row.cells || [])
+        .filter((cells) => cells.length === 2 && cells[0] && !/Safety Item|Confirmed/i.test(cells[0]))
+        .map((cells) => ({
+            item: cells[0] || "",
+            checked: /checked|yes/i.test(String(cells[1] || ""))
+        }));
+}
+
+function drawAerialRow(doc, number, item, result, x, y, widths, height) {
+    drawBoxText(doc, number, x, y, widths[0], height, { fontSize: 7, maxLines: 2 });
+    drawBoxText(doc, item, x + widths[0], y, widths[1], height, { fontSize: 7, maxLines: 4 });
+    drawBoxText(doc, result, x + widths[0] + widths[1], y, widths[2], height, { fontSize: 7, maxLines: 2 });
+}
+
+function downloadAerialLiftPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const margin = 10;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usable = pageWidth - margin * 2;
+    let y = 10;
+
+    const operator = findFieldValue(record, /Operator Name/i);
+    const liftId = findFieldValue(record, /Lift ID/i);
+    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const location = findFieldValue(record, /Location of Use/i);
+    const unitType = findFieldValue(record, /Unit Type/i);
+    const inspectionRows = getAerialInspectionRows(record);
+    const safetyRows = getSafetyRows(record);
+
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(40, 40, 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    drawBoxText(doc, "AERIAL LIFT PRE-USE INSPECTION CHECKLIST", margin, y, usable, 12, { bold: true, fontSize: 12, fill: [230, 236, 230], maxLines: 1 });
+    y += 12;
+
+    drawBoxText(doc, `Operator Print Name:\n${operator}`, margin, y, usable / 3, 16, { bold: true });
+    drawBoxText(doc, `Aerial or Scissor Lift ID#\n${liftId}`, margin + usable / 3, y, usable / 3, 16, { bold: true });
+    drawBoxText(doc, `Date:\n${date}`, margin + usable * 2 / 3, y, usable / 3, 16, { bold: true });
+    y += 16;
+    drawBoxText(doc, `Unit Type: Scissor Lift / Articulating Boom / Man Lift / Other:\n${unitType}`, margin, y, usable * 2 / 3, 16, { bold: true });
+    drawBoxText(doc, `Location of Use:\n${location}`, margin + usable * 2 / 3, y, usable / 3, 16, { bold: true });
+    y += 20;
+
+    const widths = [14, usable - 40, 26];
+    drawAerialRow(doc, "#", "Inspection Item and Description", "P/F/NA", margin, y, widths, 10);
+    y += 10;
+
+    inspectionRows.forEach((row) => {
+        if (y > pageHeight - 42) {
+            doc.addPage();
+            y = 10;
+            drawAerialRow(doc, "#", "Inspection Item and Description", "P/F/NA", margin, y, widths, 10);
+            y += 10;
+        }
+
+        const lineCount = doc.splitTextToSize(row.item, widths[1] - 4).length;
+        const rowHeight = Math.max(9, Math.min(20, lineCount * 4 + 5));
+        drawAerialRow(doc, row.number, row.item, row.result, margin, y, widths, rowHeight);
+        y += rowHeight;
+    });
+
+    if (y > pageHeight - 70) {
+        doc.addPage();
+        y = 10;
+    } else {
+        y += 4;
+    }
+
+    const safetyWidths = [usable - 32, 32];
+    drawBoxText(doc, "Safety Precautions (Have, Look For, or be Aware of)", margin, y, safetyWidths[0], 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, "Check to Confirm", margin + safetyWidths[0], y, safetyWidths[1], 10, { bold: true, fill: [230, 236, 230] });
+    y += 10;
+
+    safetyRows.forEach((row) => {
+        if (y > pageHeight - 20) {
+            doc.addPage();
+            y = 10;
+        }
+
+        const lineCount = doc.splitTextToSize(row.item, safetyWidths[0] - 4).length;
+        const rowHeight = Math.max(9, Math.min(20, lineCount * 4 + 5));
+        drawBoxText(doc, row.item, margin, y, safetyWidths[0], rowHeight, { fontSize: 7, maxLines: 4 });
+        drawBoxText(doc, row.checked ? "X" : "", margin + safetyWidths[0], y, safetyWidths[1], rowHeight, { fontSize: 9, maxLines: 1 });
+        y += rowHeight;
+    });
+
+    const warning = "If the Aerial lift fails any part of this inspection, remove the key and report the problem to your supervisor. Do not operate. If anything has been jerry-rigged, notify your supervisor at once.";
+    drawBoxText(doc, warning, margin, y + 2, usable, 18, { bold: true, fontSize: 7, maxLines: 3 });
+    doc.save(`aerial-lifts-${record.inspection_date || "inspection"}.pdf`);
+}
+
+function fieldIsChecked(record, text) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+    const needle = text.toLowerCase();
+    const field = fields.find((item) => String(item.label || "").toLowerCase().includes(needle));
+    return field ? field.value === "Yes" || field.value === "Selected" : false;
+}
+
+function drawPermitCheckRow(doc, item, checked, x, y, width) {
+    doc.rect(x, y + 1.5, 3.5, 3.5);
+    if (checked) {
+        doc.setFont("helvetica", "bold");
+        doc.text("X", x + 0.7, y + 4.5);
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    return addPdfLine(doc, item, x + 5.5, y + 4.5, width - 5.5);
+}
+
+function drawPermitSection(doc, title, items, record, x, y, width) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    y = addPdfLine(doc, title, x, y, width);
+
+    items.forEach((item) => {
+        y = drawPermitCheckRow(doc, item, fieldIsChecked(record, item.slice(0, 34)), x, y, width);
+    });
+
+    return y + 1;
+}
+
+function downloadHotWorkPermitPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const margin = 10;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usable = pageWidth - margin * 2;
+    let y = 9;
+
+    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const location = findFieldValue(record, /Location/i);
+    const timeStarted = findFieldValue(record, /Time Started/i);
+    const timeCompleted = findFieldValue(record, /Time Completed/i);
+    const work = findFieldValue(record, /Work To Be Done/i);
+    const person = findFieldValue(record, /Name of Person Doing Hot Work/i);
+    const pai = findFieldValue(record, /Permit Authorizing Individual/i);
+    const isEmployee = fieldIsChecked(record, "Employee");
+    const isContractor = fieldIsChecked(record, "Contractor");
+    const extendedYes = fieldIsChecked(record, "Yes");
+    const extendedNo = fieldIsChecked(record, "No");
+
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(40, 40, 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("HOT WORK PERMIT", pageWidth / 2, y, { align: "center" });
+    y += 6;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    y = addPdfLine(doc, "Seek an alternative/safer method if possible!", margin, y, usable);
+    doc.setFont("helvetica", "normal");
+    y = addPdfLine(doc, "Before initiating hot work, ensure precautions are in place as required by NFPA 51B and ANSI Z49.1. Make sure an appropriate fire extinguisher is readily available.", margin, y, usable);
+    y = addPdfLine(doc, "This Hot Work Permit is required for any operation involving open flame or producing heat and/or sparks, including welding, brazing, cutting, grinding, soldering, thawing pipe, torch-applied roofing, or chemical welding.", margin, y, usable);
+    y += 2;
+
+    const half = usable / 2;
+    drawBoxText(doc, `Date\n${date}`, margin, y, half, 13, { bold: true, fontSize: 7 });
+    drawBoxText(doc, `Location/Building and floor\n${location}`, margin + half, y, half, 13, { bold: true, fontSize: 7 });
+    y += 13;
+    drawBoxText(doc, `Work to be done\n${work}`, margin, y, usable, 16, { bold: true, fontSize: 7, maxLines: 2 });
+    y += 16;
+    drawBoxText(doc, `Time started\n${timeStarted}`, margin, y, half, 12, { bold: true, fontSize: 7 });
+    drawBoxText(doc, `Time completed\n${timeCompleted}`, margin + half, y, half, 12, { bold: true, fontSize: 7 });
+    y += 15;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("THIS PERMIT IS GOOD FOR ONE DAY ONLY", pageWidth / 2, y, { align: "center" });
+    y += 6;
+
+    const leftX = margin;
+    const rightX = margin + usable / 2 + 4;
+    const colW = usable / 2 - 4;
+    const startY = y;
+
+    y = drawPermitSection(doc, "General Requirements", [
+        "Available sprinklers, hose streams, and extinguishers are in service and operable.",
+        "Hot work equipment is in good working condition in accordance with manufacturer's specifications.",
+        "Special permission obtained to conduct hot work on metal vessels or piping lined with rubber or plastic."
+    ], record, leftX, y, colW);
+
+    y = drawPermitSection(doc, "Requirements within 35 ft (11 m) of hot work", [
+        "Flammable liquid, dust, lint, and oily deposits removed.",
+        "Explosive atmosphere in area eliminated.",
+        "Floors swept clean and trash removed.",
+        "Combustible floors wet down or covered with damp sand or fire-resistive/noncombustible materials or equivalent.",
+        "Personnel protected from electrical shock when floors are wet.",
+        "Other combustible storage material removed or covered with listed or approved materials.",
+        "All wall and floor openings covered.",
+        "Ducts and conveyors that might carry sparks to distant combustible material covered, protected, or shut down."
+    ], record, leftX, y, colW);
+
+    let rightY = startY;
+    rightY = drawPermitSection(doc, "Requirements for hot work on walls, ceilings, or roofs", [
+        "Construction is noncombustible and without combustible coverings or insulation.",
+        "Combustible material on other side of walls, ceilings, or roofs is moved away."
+    ], record, rightX, rightY, colW);
+
+    rightY = drawPermitSection(doc, "Requirements for hot work on enclosed equipment", [
+        "Enclosed equipment is cleaned of all combustibles.",
+        "Containers are purged of flammable liquid/vapor.",
+        "Pressurized vessels, piping, and equipment removed from service, isolated, and vented."
+    ], record, rightX, rightY, colW);
+
+    rightY = drawPermitSection(doc, "Requirements for hot work fire watch and fire monitoring", [
+        "Fire watch is provided during and for a minimum of 1 hour after hot work, including any break activity.",
+        "Fire watch is provided with suitable extinguishers and, where practical, a charged small hose.",
+        "Fire watch is trained in use of equipment and in sounding alarm.",
+        "Fire watch can be required in adjoining areas, above and below."
+    ], record, rightX, rightY, colW);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(`${extendedYes ? "[X]" : "[ ]"} Yes    ${extendedNo ? "[X]" : "[ ]"} No     Monitoring of hot work area has been extended beyond 1 hour.`, rightX, rightY + 3);
+
+    y = Math.max(y, rightY + 9);
+    y += 3;
+    drawBoxText(doc, `Hot work by   ${isEmployee ? "[X]" : "[ ]"} employee   ${isContractor ? "[X]" : "[ ]"} contractor`, margin, y, usable, 10, { fontSize: 8 });
+    y += 10;
+    drawBoxText(doc, `Name (print) and signature of person doing hot work\n${person}`, margin, y, usable / 2, 18, { bold: true, fontSize: 7 });
+    drawBoxText(doc, "I verify that the above location has been examined, the precautions marked on the checklist have been taken, and permission is granted for this work.", margin + usable / 2, y, usable / 2, 18, { fontSize: 7, maxLines: 3 });
+    y += 18;
+    drawBoxText(doc, `Name (print) and signature of permit-authorizing individual (PAI)\n${pai}`, margin, y, usable, 18, { bold: true, fontSize: 7 });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.text("NFPA 51B - Hot Work Permit reference format. This app-generated copy is based on the completed saved inspection record.", margin, 274);
+    doc.save(`hot-work-permit-${record.inspection_date || "inspection"}.pdf`);
+}
+
+function getHarnessRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+
+    return rows
+        .map((row) => row.cells || [])
+        .filter((cells) => {
+            const first = String(cells[0] || "").trim();
+            const second = String(cells[1] || "").trim();
+            return second && !/Possible Defect|Serial Number|Date of Inspection/i.test(first + " " + second);
+        })
+        .filter((cells) => /Webbing|Stitching|Buckles|Attachment|Label|Cuts|Punctures|Abrasions|Burns|Discolour|Incomplete|Pulled|Distorted|Deformation|Cracks|Corrosion|Function|Excess Wear|Illegible|Missing/i.test(cells.join(" ")))
+        .map((cells) => ({
+            component: cells[0] || "",
+            defect: cells[1] || "",
+            condition: cells[2] || "",
+            result: cells[3] || ""
+        }));
+}
+
+function downloadHarnessPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const margin = 12;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usable = pageWidth - margin * 2;
+    let y = 14;
+
+    const serial = findFieldValue(record, /Serial Number/i);
+    const inspectionDate = findFieldValue(record, /Date of Inspection/i) || record.inspection_date || "";
+    const actions = findFieldValue(record, /Further Actions/i);
+    const inspector = findFieldValue(record, /^Inspector$/i);
+    const signature = findFieldValue(record, /^Signature$/i);
+    const signDate = findFieldValue(record, /^Date$/i) || inspectionDate;
+    const rows = getHarnessRows(record);
+    const failed = rows.some((row) => /fail/i.test(row.result));
+    const fitStatus = failed ? "No - Remove From Service" : "Yes";
+
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(40, 40, 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("John Gordon Construction", pageWidth / 2, y, { align: "center" });
+    y += 7;
+    doc.setFontSize(14);
+    doc.text("Harness Inspection Checklist", pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    drawBoxText(doc, "Serial Number", margin, y, usable / 2, 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, serial, margin + usable / 2, y, usable / 2, 10);
+    y += 10;
+    drawBoxText(doc, "Date of Inspection", margin, y, usable / 2, 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, inspectionDate, margin + usable / 2, y, usable / 2, 10);
+    y += 14;
+
+    const widths = [42, 46, 66, usable - 154];
+    drawBoxText(doc, "Component Part", margin, y, widths[0], 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, "Possible Defect", margin + widths[0], y, widths[1], 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, "Current Condition", margin + widths[0] + widths[1], y, widths[2], 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, "Pass or Fail", margin + widths[0] + widths[1] + widths[2], y, widths[3], 10, { bold: true, fill: [230, 236, 230] });
+    y += 10;
+
+    rows.forEach((row) => {
+        const rowHeight = Math.max(9, Math.min(18, doc.splitTextToSize(row.condition, widths[2] - 4).length * 4 + 5));
+        drawBoxText(doc, row.component, margin, y, widths[0], rowHeight, { fontSize: 7, maxLines: 3 });
+        drawBoxText(doc, row.defect, margin + widths[0], y, widths[1], rowHeight, { fontSize: 7, maxLines: 3 });
+        drawBoxText(doc, row.condition, margin + widths[0] + widths[1], y, widths[2], rowHeight, { fontSize: 7, maxLines: 3 });
+        drawBoxText(doc, row.result, margin + widths[0] + widths[1] + widths[2], y, widths[3], rowHeight, { fontSize: 7, maxLines: 2 });
+        y += rowHeight;
+    });
+
+    y += 6;
+    const labelW = 64;
+    drawBoxText(doc, "Is the item fit to remain in service", margin, y, labelW, 12, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, fitStatus, margin + labelW, y, usable - labelW, 12, { bold: true });
+    y += 12;
+    drawBoxText(doc, "Further Actions to be taken", margin, y, labelW, 18, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, actions, margin + labelW, y, usable - labelW, 18, { maxLines: 3 });
+    y += 18;
+    drawBoxText(doc, "Inspector", margin, y, labelW, 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, inspector, margin + labelW, y, usable - labelW, 10);
+    y += 10;
+    drawBoxText(doc, "Signature", margin, y, labelW, 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, signature, margin + labelW, y, usable - labelW, 10);
+    y += 10;
+    drawBoxText(doc, "Date", margin, y, labelW, 10, { bold: true, fill: [230, 236, 230] });
+    drawBoxText(doc, signDate, margin + labelW, y, usable - labelW, 10);
+
+    doc.save(`harness-${record.inspection_date || "inspection"}.pdf`);
+}
+
 function downloadInspectionPdf(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -473,6 +820,21 @@ function downloadInspectionPdf(id) {
 
     if ((record.inspection_type || "").toLowerCase() === "jsa") {
         downloadJsaPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "aerial lifts") {
+        downloadAerialLiftPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "hot work permit") {
+        downloadHotWorkPermitPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "harness") {
+        downloadHarnessPdf(record);
         return;
     }
 
