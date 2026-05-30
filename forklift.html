@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Forklift Inspection</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1,
+h2 {
+    text-align: center;
+    margin: 0;
+}
+
+h1 {
+    color: #2f6f3c;
+    margin-bottom: 6px;
+}
+
+h2 {
+    margin-bottom: 18px;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: collapse;
+    background: white;
+}
+
+th,
+td {
+    border: 1px solid #999;
+    padding: 7px;
+    vertical-align: middle;
+}
+
+th {
+    background: #e6ece6;
+    font-weight: bold;
+}
+
+.radio-cell {
+    text-align: center;
+    width: 42px;
+}
+
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    margin-top: 12px;
+}
+
+.field {
+    border: 1px solid #999;
+    padding: 8px;
+    background: white;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+input[type=text],
+input[type=date],
+input[type=time],
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 90px;
+}
+
+.signature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 12px;
+}
+
+.note {
+    margin-top: 12px;
+    padding: 10px;
+    background: white;
+    border: 1px solid #999;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    table {
+        font-size: 13px;
+        min-width: 760px;
+    }
+
+    th,
+    td {
+        padding: 5px;
+    }
+
+    .field-grid,
+    .signature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+<h1>John Gordon Construction</h1>
+<h2>Daily Forklift Inspection Form</h2>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Visual Inspection</th>
+<th>SAT</th>
+<th>UNS</th>
+<th>N/A</th>
+<th>Operational Inspection</th>
+<th>SAT</th>
+<th>UNS</th>
+<th>N/A</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>1. Tires/wheels/coating/air pressure</td><td class="radio-cell"><input type="radio" name="f1" value="SAT"></td><td class="radio-cell"><input type="radio" name="f1" value="UNS"></td><td class="radio-cell"><input type="radio" name="f1" value="N/A"></td><td>14. Horn</td><td class="radio-cell"><input type="radio" name="f14" value="SAT"></td><td class="radio-cell"><input type="radio" name="f14" value="UNS"></td><td class="radio-cell"><input type="radio" name="f14" value="N/A"></td></tr>
+<tr><td>2. All lights</td><td class="radio-cell"><input type="radio" name="f2" value="SAT"></td><td class="radio-cell"><input type="radio" name="f2" value="UNS"></td><td class="radio-cell"><input type="radio" name="f2" value="N/A"></td><td>15. Hydraulic steering</td><td class="radio-cell"><input type="radio" name="f15" value="SAT"></td><td class="radio-cell"><input type="radio" name="f15" value="UNS"></td><td class="radio-cell"><input type="radio" name="f15" value="N/A"></td></tr>
+<tr><td>3. Warning devices</td><td class="radio-cell"><input type="radio" name="f3" value="SAT"></td><td class="radio-cell"><input type="radio" name="f3" value="UNS"></td><td class="radio-cell"><input type="radio" name="f3" value="N/A"></td><td>16. Brake</td><td class="radio-cell"><input type="radio" name="f16" value="SAT"></td><td class="radio-cell"><input type="radio" name="f16" value="UNS"></td><td class="radio-cell"><input type="radio" name="f16" value="N/A"></td></tr>
+<tr><td>4. Number of hours/mileage</td><td class="radio-cell"><input type="radio" name="f4" value="SAT"></td><td class="radio-cell"><input type="radio" name="f4" value="UNS"></td><td class="radio-cell"><input type="radio" name="f4" value="N/A"></td><td>17. Emergency brake</td><td class="radio-cell"><input type="radio" name="f17" value="SAT"></td><td class="radio-cell"><input type="radio" name="f17" value="UNS"></td><td class="radio-cell"><input type="radio" name="f17" value="N/A"></td></tr>
+<tr><td>5. Indicator clocks</td><td class="radio-cell"><input type="radio" name="f5" value="SAT"></td><td class="radio-cell"><input type="radio" name="f5" value="UNS"></td><td class="radio-cell"><input type="radio" name="f5" value="N/A"></td><td>18. Seguro de arranque en posicion neutral</td><td class="radio-cell"><input type="radio" name="f18" value="SAT"></td><td class="radio-cell"><input type="radio" name="f18" value="UNS"></td><td class="radio-cell"><input type="radio" name="f18" value="N/A"></td></tr>
+<tr><td>6. Damages to the bodywork</td><td class="radio-cell"><input type="radio" name="f6" value="SAT"></td><td class="radio-cell"><input type="radio" name="f6" value="UNS"></td><td class="radio-cell"><input type="radio" name="f6" value="N/A"></td><td>19. Fork inclination</td><td class="radio-cell"><input type="radio" name="f19" value="SAT"></td><td class="radio-cell"><input type="radio" name="f19" value="UNS"></td><td class="radio-cell"><input type="radio" name="f19" value="N/A"></td></tr>
+<tr><td>7. Oil/fluids/fuel/water leaks</td><td class="radio-cell"><input type="radio" name="f7" value="SAT"></td><td class="radio-cell"><input type="radio" name="f7" value="UNS"></td><td class="radio-cell"><input type="radio" name="f7" value="N/A"></td><td>20. Raising and lowering the fork</td><td class="radio-cell"><input type="radio" name="f20" value="SAT"></td><td class="radio-cell"><input type="radio" name="f20" value="UNS"></td><td class="radio-cell"><input type="radio" name="f20" value="N/A"></td></tr>
+<tr><td>8. Engine oil level</td><td class="radio-cell"><input type="radio" name="f8" value="SAT"></td><td class="radio-cell"><input type="radio" name="f8" value="UNS"></td><td class="radio-cell"><input type="radio" name="f8" value="N/A"></td><td>21. Hydraulic components</td><td class="radio-cell"><input type="radio" name="f21" value="SAT"></td><td class="radio-cell"><input type="radio" name="f21" value="UNS"></td><td class="radio-cell"><input type="radio" name="f21" value="N/A"></td></tr>
+<tr><td>9. Coolant level</td><td class="radio-cell"><input type="radio" name="f9" value="SAT"></td><td class="radio-cell"><input type="radio" name="f9" value="UNS"></td><td class="radio-cell"><input type="radio" name="f9" value="N/A"></td><td>22. Fork status and lock</td><td class="radio-cell"><input type="radio" name="f22" value="SAT"></td><td class="radio-cell"><input type="radio" name="f22" value="UNS"></td><td class="radio-cell"><input type="radio" name="f22" value="N/A"></td></tr>
+<tr><td>10. Fuel level</td><td class="radio-cell"><input type="radio" name="f10" value="SAT"></td><td class="radio-cell"><input type="radio" name="f10" value="UNS"></td><td class="radio-cell"><input type="radio" name="f10" value="N/A"></td><td>23. Safety belts</td><td class="radio-cell"><input type="radio" name="f23" value="SAT"></td><td class="radio-cell"><input type="radio" name="f23" value="UNS"></td><td class="radio-cell"><input type="radio" name="f23" value="N/A"></td></tr>
+<tr><td>11. Hydraulic oil level</td><td class="radio-cell"><input type="radio" name="f11" value="SAT"></td><td class="radio-cell"><input type="radio" name="f11" value="UNS"></td><td class="radio-cell"><input type="radio" name="f11" value="N/A"></td><td>24. Transmission/Steering</td><td class="radio-cell"><input type="radio" name="f24" value="SAT"></td><td class="radio-cell"><input type="radio" name="f24" value="UNS"></td><td class="radio-cell"><input type="radio" name="f24" value="N/A"></td></tr>
+<tr><td>12. Battery</td><td class="radio-cell"><input type="radio" name="f12" value="SAT"></td><td class="radio-cell"><input type="radio" name="f12" value="UNS"></td><td class="radio-cell"><input type="radio" name="f12" value="N/A"></td><td>25. Fire protection equipment</td><td class="radio-cell"><input type="radio" name="f25" value="SAT"></td><td class="radio-cell"><input type="radio" name="f25" value="UNS"></td><td class="radio-cell"><input type="radio" name="f25" value="N/A"></td></tr>
+<tr><td>13. External lubrication points</td><td class="radio-cell"><input type="radio" name="f13" value="SAT"></td><td class="radio-cell"><input type="radio" name="f13" value="UNS"></td><td class="radio-cell"><input type="radio" name="f13" value="N/A"></td><td>26. Reverse alarm</td><td class="radio-cell"><input type="radio" name="f26" value="SAT"></td><td class="radio-cell"><input type="radio" name="f26" value="UNS"></td><td class="radio-cell"><input type="radio" name="f26" value="N/A"></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="field-grid">
+    <div class="field"><label>Brand</label><input type="text"></div>
+    <div class="field"><label>Capacity</label><input type="text"></div>
+    <div class="field"><label>Identification</label><input type="text"></div>
+    <div class="field"><label>Hours/Mileage</label><input type="text"></div>
+    <div class="field"><label>Date</label><input type="date"></div>
+    <div class="field"><label>Time</label><input type="time"></div>
+</div>
+
+<div class="field">
+    <label>Comments</label>
+    <textarea></textarea>
+</div>
+
+<div class="signature-grid">
+    <div class="field"><label>Operator name and signature</label><input type="text"></div>
+    <div class="field"><label>Supervisor name and signature</label><input type="text"></div>
+</div>
+
+<div class="note">
+    <strong>Instructions:</strong> Mark all indicated lines. SAT = Satisfactory, UNS = Unsatisfactory, N/A = Not applicable.
+</div>
+
+<div class="actions">
+    <button onclick="handleInspectionSave('Fork Lift')">Save</button>
+    <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+<div id="inspectionSaveStatus"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="inspection-records.js?v=3"></script>
+<script>
+const workerName = localStorage.getItem("currentWorker");
+const workerDisplay = localStorage.getItem("currentWorkerDisplay") || workerName;
+
+if (!workerName) {
+    window.location.href = "index.html";
+}
+
+document.getElementById("userBar").textContent = workerDisplay ? "Signed in as: " + workerDisplay : "";
+
+function handleInspectionSave(type) {
+    if (typeof saveInspection !== "function") {
+        alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    saveInspection(type);
+}
+
+function signOut() {
+    localStorage.removeItem("currentWorker");
+    localStorage.removeItem("currentWorkerDisplay");
+    window.location.href = "index.html";
+}
+</script>
+</body>
+</html>
