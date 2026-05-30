@@ -25,6 +25,11 @@ function getFieldLabel(field) {
         return parentLabel.innerText.trim();
     }
 
+    const checkRow = field.closest(".check-row");
+    if (checkRow) {
+        return checkRow.innerText.trim();
+    }
+
     const id = field.getAttribute("id");
     if (id) {
         const label = document.querySelector(`label[for="${id}"]`);
