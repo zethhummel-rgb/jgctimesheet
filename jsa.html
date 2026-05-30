@@ -327,16 +327,17 @@ button:hover {
 
 <div class="actions">
     <button onclick="addRow()">Add Row</button>
-    <button onclick="saveInspection('JSA')">Save</button>
+    <button onclick="handleInspectionSave('JSA')">Save</button>
     <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
+<div id="inspectionSaveStatus" class="subtitle"></div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="inspection-records.js"></script>
+<script src="inspection-records.js?v=3"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
@@ -361,6 +362,15 @@ function addRow() {
 
 function removeRow(button) {
     button.closest("tr").remove();
+}
+
+function handleInspectionSave(type) {
+    if (typeof saveInspection !== "function") {
+        alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    saveInspection(type);
 }
 
 function signOut() {
