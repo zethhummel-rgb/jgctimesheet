@@ -1054,6 +1054,21 @@ async function emailEntries() {
 
   const weekLabel = getWeekLabel(entries);
   const subject = "Timesheet - " + getDisplayWorkerName() + " - " + weekLabel;
+  const totalHours = getTotalHours(entries);
+  const body = buildTimesheetEmailBody(entries, weekLabel, totalHours, note.trim());
+  const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
+
+  if (archiveResult.warning) {
+    alert(archiveResult.warning);
+  }
+
+  window.location.href =
+    "mailto:zeth@johngordonconstruction.com" +
+    "?subject=" + encodeURIComponent(subject) +
+    "&body=" + encodeURIComponent(body);
+}
+
+function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
   const lines = [
     "Worker: " + getDisplayWorkerName(),
     "Week: " + weekLabel,
@@ -1062,7 +1077,6 @@ async function emailEntries() {
     ""
   ];
 
-  const totalHours = getTotalHours(entries);
   const dayGroups = getEntriesByEmailDay(entries);
 
   for (let group of dayGroups) {
@@ -1080,24 +1094,37 @@ async function emailEntries() {
 
   lines.push("Total Hours: " + totalHours.toFixed(2));
 
-  if (note.trim()) {
+  if (note) {
     lines.push("");
     lines.push("Note:");
-    lines.push(note.trim());
+    lines.push(note);
   }
 
-  const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
+  return lines.join("\n");
+}
 
-  if (archiveResult.warning) {
-    alert(archiveResult.warning);
+function resubmitPreviousWeek(index) {
+  const week = previousWeeks[index];
+
+  if (!week || !Array.isArray(week.entries) || week.entries.length === 0) {
+    alert("This previous week has no entries to resubmit.");
+    return;
   }
+
+  const confirmed = confirm("Resubmit this saved week by email?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  const totalHours = Number(week.totalHours || getTotalHours(week.entries));
+  const subject = "Timesheet - " + getDisplayWorkerName() + " - " + week.weekLabel;
+  const body = buildTimesheetEmailBody(week.entries, week.weekLabel, totalHours, week.note || "");
 
   window.location.href =
     "mailto:zeth@johngordonconstruction.com" +
     "?subject=" + encodeURIComponent(subject) +
-    "&body=" + encodeURIComponent(
-      lines.join("\n")
-    );
+    "&body=" + encodeURIComponent(body);
 }
 
 async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
@@ -1324,6 +1351,7 @@ function renderPreviousWeeks() {
   }
 
   const weeksHtml = previousWeeks.map(function(week) {
+    const weekIndex = previousWeeks.indexOf(week);
     const groups = getEntriesByEmailDay(week.entries || []);
     const groupHtml = groups.map(function(group) {
       const rows = group.entries.map(function(entry) {
@@ -1365,6 +1393,9 @@ function renderPreviousWeeks() {
         ${groupHtml}
         ${week.note ? '<div class="small"><b>Note:</b> ' + escapeHtml(week.note) + '</div>' : ''}
         <div class="small"><b>Total Hours:</b> ${Number(week.totalHours).toFixed(2)}</div>
+        <div class="email-actions">
+          <button type="button" onclick="resubmitPreviousWeek(${weekIndex})">Resubmit Email</button>
+        </div>
       </div>
     `;
   }).join("");
