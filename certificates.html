@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Certificates</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial;
+      background: #8f9691;
+      padding: 20px;
+      margin: 0;
+      color: #1f2a24;
+    }
+
+    .logo-wrap {
+      max-width: 347px;
+      margin: 0 auto 8px;
+      text-align: center;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      max-width: 347px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    h2 {
+      max-width: 900px;
+      margin: 0 auto 8px;
+      text-align: center;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .user-bar {
+      max-width: 900px;
+      margin: 0 auto 12px;
+      color: #ffffff;
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+
+    .card {
+      max-width: 900px;
+      background: #fbfcf9;
+      padding: 15px;
+      margin: 0 auto 12px;
+      border-radius: 8px;
+      border-top: 4px solid #3f7d4d;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    }
+
+    h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #2f6f3c;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    input, button, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+
+    input, textarea {
+      background: #f7f9f4;
+      border: 1px solid #b8c2b2;
+      border-radius: 5px;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #3f7d4d;
+      outline: 2px solid #d9ead5;
+    }
+
+    button {
+      background: #3f7d4d;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #315f3c;
+    }
+
+    .secondary {
+      background: #5f6a62;
+    }
+
+    .secondary:hover {
+      background: #48514a;
+    }
+
+    .danger {
+      background: #9a3f3f;
+    }
+
+    .danger:hover {
+      background: #7e3030;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .actions button,
+    .actions a {
+      width: auto;
+      margin: 0;
+    }
+
+    .file-link {
+      display: inline-block;
+      padding: 8px 12px;
+      background: #3f7d4d;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    th, td {
+      border: 1px solid #c5cec1;
+      padding: 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #dfe9da;
+      color: #1f3d28;
+      font-weight: bold;
+    }
+
+    td:first-child,
+    th:first-child {
+      text-align: left;
+    }
+
+    .status {
+      min-height: 18px;
+      margin-top: 4px;
+      font-size: 13px;
+      color: #2f6f3c;
+      font-weight: bold;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .expired {
+      color: #9a3f3f;
+      font-weight: bold;
+    }
+
+    .expiring {
+      color: #8a6500;
+      font-weight: bold;
+    }
+
+    .valid {
+      color: #2f6f3c;
+      font-weight: bold;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 10px;
+      }
+
+      .logo-wrap {
+        max-width: 260px;
+      }
+
+      input, button, textarea {
+        min-height: 42px;
+        font-size: 16px;
+      }
+
+      table {
+        min-width: 620px;
+      }
+
+      th, td {
+        padding: 6px;
+        font-size: 12px;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .actions button,
+      .actions a {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="logo-wrap">
+  <img src="logo.png" alt="John Gordon Construction" />
+</div>
+
+<h2>Certificates</h2>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="card">
+  <h3>Add Certificate</h3>
+
+  <label>Certificate Name</label>
+  <input id="certificateName" placeholder="Example: Working at Heights" />
+
+  <label>Expiry Date</label>
+  <input id="expiryDate" type="date" />
+
+  <label>Notes</label>
+  <textarea id="certificateNotes" rows="3" placeholder="Optional notes"></textarea>
+
+  <label>Certificate File</label>
+  <input id="certificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" />
+
+  <button type="button" onclick="uploadCertificate()">Upload Certificate</button>
+  <div id="certificateStatus" class="status"></div>
+</div>
+
+<div class="card">
+  <h3>My Certificates</h3>
+  <button type="button" onclick="loadCertificates()">Refresh Certificates</button>
+  <div id="certificatesList"></div>
+</div>
+
+<div class="card">
+  <button type="button" onclick="window.location.href='home.html'">Home</button>
+  <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+const currentWorker = normalizeWorkerName(localStorage.getItem("currentWorker"));
+const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
+let certificates = [];
+let certificateUrls = {};
+
+if (!currentWorker) {
+  window.location.href = "index.html";
+}
+
+document.getElementById("currentUser").innerText = "Signed in as: " + currentWorkerDisplay;
+
+function normalizeWorkerName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function makeSafeFileName(name) {
+  return String(name || "certificate")
+    .trim()
+    .replace(/[^a-z0-9.\-_]+/gi, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
+function getCertificateStatus(expiryDate) {
+  if (!expiryDate) {
+    return { text: "No Expiry", className: "valid" };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expiry = new Date(expiryDate + "T00:00:00");
+  const daysUntilExpiry = Math.ceil((expiry - today) / 1000 / 60 / 60 / 24);
+
+  if (daysUntilExpiry < 0) {
+    return { text: "Expired", className: "expired" };
+  }
+
+  if (daysUntilExpiry <= 30) {
+    return { text: "Expiring Soon", className: "expiring" };
+  }
+
+  return { text: "Valid", className: "valid" };
+}
+
+async function uploadCertificate() {
+  const status = document.getElementById("certificateStatus");
+  const certificateName = document.getElementById("certificateName").value.trim();
+  const expiryDate = document.getElementById("expiryDate").value || null;
+  const notes = document.getElementById("certificateNotes").value.trim();
+  const fileInput = document.getElementById("certificateFile");
+  const file = fileInput.files[0];
+
+  if (!certificateName || !file) {
+    alert("Enter a certificate name and choose a file.");
+    return;
+  }
+
+  if (!supabaseClient) {
+    status.innerText = "Supabase is not available right now.";
+    return;
+  }
+
+  status.innerText = "Uploading certificate...";
+
+  const filePath = currentWorker + "/" + Date.now() + "-" + makeSafeFileName(file.name);
+  const { error: uploadError } = await supabaseClient
+    .storage
+    .from("certificates")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type
+    });
+
+  if (uploadError) {
+    status.innerText = "Certificate file upload failed.";
+    return;
+  }
+
+  const { error: insertError } = await supabaseClient
+    .from("certificates")
+    .insert({
+      worker_name: currentWorker,
+      certificate_name: certificateName,
+      expiry_date: expiryDate,
+      notes,
+      file_path: filePath,
+      file_name: file.name,
+      file_type: file.type || "application/octet-stream"
+    });
+
+  if (insertError) {
+    await supabaseClient.storage.from("certificates").remove([filePath]);
+    status.innerText = "Certificate record could not be saved.";
+    return;
+  }
+
+  document.getElementById("certificateName").value = "";
+  document.getElementById("expiryDate").value = "";
+  document.getElementById("certificateNotes").value = "";
+  fileInput.value = "";
+  status.innerText = "Certificate uploaded.";
+  loadCertificates();
+}
+
+async function loadCertificates() {
+  const list = document.getElementById("certificatesList");
+
+  if (!supabaseClient) {
+    list.innerHTML = '<div class="small">Supabase is not available right now.</div>';
+    return;
+  }
+
+  list.innerHTML = '<div class="small">Loading certificates...</div>';
+
+  const { data, error } = await supabaseClient
+    .from("certificates")
+    .select("*")
+    .eq("worker_name", currentWorker)
+    .order("expiry_date", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    list.innerHTML = '<div class="small">Could not load certificates.</div>';
+    return;
+  }
+
+  certificates = data || [];
+  await prepareCertificateUrls();
+  renderCertificates();
+}
+
+async function prepareCertificateUrls() {
+  certificateUrls = {};
+
+  for (let certificate of certificates) {
+    const { data } = await supabaseClient
+      .storage
+      .from("certificates")
+      .createSignedUrl(certificate.file_path, 3600);
+
+    if (data && data.signedUrl) {
+      certificateUrls[certificate.id] = data.signedUrl;
+    }
+  }
+}
+
+function renderCertificates() {
+  const list = document.getElementById("certificatesList");
+
+  if (certificates.length === 0) {
+    list.innerHTML = '<div class="small">No certificates uploaded yet.</div>';
+    return;
+  }
+
+  const rows = certificates.map(function(certificate) {
+    const status = getCertificateStatus(certificate.expiry_date);
+    const fileUrl = certificateUrls[certificate.id] || "#";
+
+    return `
+      <tr>
+        <td>${escapeHtml(certificate.certificate_name)}</td>
+        <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+        <td class="${status.className}">${status.text}</td>
+        <td>${escapeHtml(certificate.notes || "")}</td>
+        <td>
+          <div class="actions">
+            <a class="file-link" href="${fileUrl}" target="_blank" rel="noopener">Open</a>
+            <button type="button" class="danger" onclick="deleteCertificate('${escapeHtml(certificate.id)}')">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  list.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Certificate</th>
+            <th>Expiry</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th>File</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function deleteCertificate(certificateId) {
+  const certificate = certificates.find(function(item) {
+    return item.id === certificateId;
+  });
+
+  if (!certificate) {
+    alert("Could not find that certificate.");
+    return;
+  }
+
+  const confirmed = confirm("Delete " + certificate.certificate_name + "?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  await supabaseClient.storage.from("certificates").remove([certificate.file_path]);
+
+  const { error } = await supabaseClient
+    .from("certificates")
+    .delete()
+    .eq("id", certificateId)
+    .eq("worker_name", currentWorker);
+
+  if (error) {
+    alert("Certificate could not be deleted.");
+    return;
+  }
+
+  loadCertificates();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, function(character) {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[character];
+  });
+}
+
+function signOut() {
+  localStorage.removeItem("currentWorker");
+  localStorage.removeItem("currentWorkerDisplay");
+  window.location.href = "index.html";
+}
+
+loadCertificates();
+</script>
+
+</body>
+</html>
