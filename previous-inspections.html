@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Previous Inspections</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    margin: 0 0 6px;
+    text-align: center;
+    color: #2f6f3c;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 18px;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    background: white;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #e6ece6;
+}
+
+.empty {
+    padding: 18px;
+    background: white;
+    border: 1px solid #c6cec5;
+    text-align: center;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.delete-button {
+    background: #b42318;
+}
+
+.delete-button:hover {
+    background: #8f1d14;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    table {
+        font-size: 13px;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+    <h1>Previous Inspections</h1>
+    <div class="subtitle">Completed inspections from the last 2 months</div>
+
+    <div id="inspectionList" class="empty">Loading inspections...</div>
+
+    <div class="actions">
+        <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+        <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+        <button class="secondary" onclick="signOut()">Sign Out</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="inspection-records.js"></script>
+<script>
+const worker = getCurrentWorker();
+
+if (!worker.key) {
+    window.location.href = "index.html";
+}
+
+document.getElementById("userBar").textContent = worker.display ? "Signed in as: " + worker.display : "";
+
+function formatDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleDateString();
+}
+
+function escapeHtml(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function buildDetails(record) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+
+    return fields
+        .filter((field) => field.value)
+        .slice(0, 5)
+        .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
+        .join("<br>");
+}
+
+async function loadInspections() {
+    const list = document.getElementById("inspectionList");
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+    if (!inspectionSupabaseClient) {
+        list.className = "empty";
+        list.textContent = "Supabase is not available right now.";
+        return;
+    }
+
+    const { data, error } = await inspectionSupabaseClient
+        .from("inspection_records")
+        .select("*")
+        .gte("created_at", twoMonthsAgo.toISOString())
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        list.className = "empty";
+        list.textContent = "Could not load previous inspections.";
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        list.className = "empty";
+        list.textContent = "No inspections have been saved in the last 2 months.";
+        return;
+    }
+
+    list.className = "table-wrap";
+    list.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Saved</th>
+                    <th>Inspection Date</th>
+                    <th>Inspection</th>
+                    <th>Completed By</th>
+                    <th>Details</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.map((record) => `
+                    <tr>
+                        <td>${escapeHtml(formatDate(record.created_at))}</td>
+                        <td>${escapeHtml(formatDate(record.inspection_date))}</td>
+                        <td>${escapeHtml(record.inspection_type)}</td>
+                        <td>${escapeHtml(record.worker_display_name || record.worker_name)}</td>
+                        <td>${buildDetails(record)}</td>
+                        <td><button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button></td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
+async function deleteInspection(id) {
+    if (!confirm("Delete this inspection?")) {
+        return;
+    }
+
+    const { error } = await inspectionSupabaseClient
+        .from("inspection_records")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("This inspection could not be deleted.");
+        return;
+    }
+
+    loadInspections();
+}
+
+function signOut() {
+    localStorage.removeItem("currentWorker");
+    localStorage.removeItem("currentWorkerDisplay");
+    window.location.href = "index.html";
+}
+
+loadInspections();
+</script>
+</body>
+</html>
