@@ -1389,13 +1389,13 @@ function renderPreviousWeeks() {
 
     return `
       <div class="previous-week">
-        <h3>${escapeHtml(week.weekLabel)}</h3>
+        <div class="email-actions">
+          <h3>${escapeHtml(week.weekLabel)}</h3>
+          <button type="button" onclick="resubmitPreviousWeek(${weekIndex})">Resubmit This Week</button>
+        </div>
         ${groupHtml}
         ${week.note ? '<div class="small"><b>Note:</b> ' + escapeHtml(week.note) + '</div>' : ''}
         <div class="small"><b>Total Hours:</b> ${Number(week.totalHours).toFixed(2)}</div>
-        <div class="email-actions">
-          <button type="button" onclick="resubmitPreviousWeek(${weekIndex})">Resubmit Email</button>
-        </div>
       </div>
     `;
   }).join("");
