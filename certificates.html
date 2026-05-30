@@ -414,12 +414,12 @@ async function prepareCertificateUrls() {
   certificateUrls = {};
 
   for (let certificate of certificates) {
-    const { data } = await supabaseClient
+    const { data, error } = await supabaseClient
       .storage
       .from("certificates")
       .createSignedUrl(certificate.file_path, 3600);
 
-    if (data && data.signedUrl) {
+    if (!error && data && data.signedUrl) {
       certificateUrls[certificate.id] = data.signedUrl;
     }
   }
@@ -436,6 +436,9 @@ function renderCertificates() {
   const rows = certificates.map(function(certificate) {
     const status = getCertificateStatus(certificate.expiry_date);
     const fileUrl = certificateUrls[certificate.id] || "#";
+    const fileButton = certificateUrls[certificate.id]
+      ? '<a class="file-link" href="' + fileUrl + '" target="_blank" rel="noopener">Open</a>'
+      : '<button type="button" class="secondary" onclick="loadCertificates()">Refresh Link</button>';
 
     return `
       <tr>
@@ -445,7 +448,7 @@ function renderCertificates() {
         <td>${escapeHtml(certificate.notes || "")}</td>
         <td>
           <div class="actions">
-            <a class="file-link" href="${fileUrl}" target="_blank" rel="noopener">Open</a>
+            ${fileButton}
             <button type="button" class="danger" onclick="deleteCertificate('${escapeHtml(certificate.id)}')">Delete</button>
           </div>
         </td>
