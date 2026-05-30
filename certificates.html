@@ -251,6 +251,12 @@
 <div id="currentUser" class="user-bar"></div>
 
 <div class="card">
+  <h3>My Certificates</h3>
+  <button type="button" onclick="loadCertificates()">Refresh Certificates</button>
+  <div id="certificatesList"></div>
+</div>
+
+<div class="card">
   <h3>Add Certificate</h3>
 
   <label>Certificate Name</label>
@@ -267,12 +273,6 @@
 
   <button type="button" onclick="uploadCertificate()">Upload Certificate</button>
   <div id="certificateStatus" class="status"></div>
-</div>
-
-<div class="card">
-  <h3>My Certificates</h3>
-  <button type="button" onclick="loadCertificates()">Refresh Certificates</button>
-  <div id="certificatesList"></div>
 </div>
 
 <div class="card">
