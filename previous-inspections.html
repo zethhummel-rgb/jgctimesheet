@@ -129,6 +129,22 @@ button:hover {
     background: #8f1d14;
 }
 
+.download-button {
+    background: #2f6f3c;
+}
+
+.download-button:hover {
+    background: #245832;
+}
+
+.email-button {
+    background: #0b5e3b;
+}
+
+.email-button:hover {
+    background: #08452b;
+}
+
 @media (max-width: 768px) {
     body {
         padding: 12px;
@@ -171,8 +187,10 @@ button:hover {
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="inspection-records.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const worker = getCurrentWorker();
+let inspectionRecords = [];
 
 if (!worker.key) {
     window.location.href = "index.html";
@@ -243,6 +261,7 @@ async function loadInspections() {
         return;
     }
 
+    inspectionRecords = data;
     list.className = "table-wrap";
     list.innerHTML = `
         <table>
@@ -253,6 +272,8 @@ async function loadInspections() {
                     <th>Inspection</th>
                     <th>Completed By</th>
                     <th>Details</th>
+                    <th>PDF</th>
+                    <th>Email</th>
                     <th>Delete</th>
                 </tr>
             </thead>
@@ -264,12 +285,108 @@ async function loadInspections() {
                         <td>${escapeHtml(record.inspection_type)}</td>
                         <td>${escapeHtml(record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
+                        <td><button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button></td>
+                        <td><button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button></td>
                         <td><button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button></td>
                     </tr>
                 `).join("")}
             </tbody>
         </table>
     `;
+}
+
+function addPdfLine(doc, text, x, y, maxWidth) {
+    const lines = doc.splitTextToSize(String(text || ""), maxWidth);
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    lines.forEach((line) => {
+        if (y > pageHeight - 18) {
+            doc.addPage();
+            y = 18;
+        }
+
+        doc.text(line, x, y);
+        y += 6;
+    });
+
+    return y;
+}
+
+function safeFileName(value) {
+    return String(value || "inspection")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+function downloadInspectionPdf(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("PDF download is not available right now.");
+        return;
+    }
+
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const maxWidth = pageWidth - margin * 2;
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+    let y = 16;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    y = addPdfLine(doc, "John Gordon Construction", margin, y, maxWidth);
+    y = addPdfLine(doc, record.inspection_type || "Inspection", margin, y + 2, maxWidth);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    y = addPdfLine(doc, `Saved: ${formatDate(record.created_at)}`, margin, y + 4, maxWidth);
+    y = addPdfLine(doc, `Inspection Date: ${formatDate(record.inspection_date)}`, margin, y, maxWidth);
+    y = addPdfLine(doc, `Completed By: ${record.worker_display_name || record.worker_name || ""}`, margin, y, maxWidth);
+
+    if (fields.length) {
+        doc.setFont("helvetica", "bold");
+        y = addPdfLine(doc, "Form Details", margin, y + 6, maxWidth);
+        doc.setFont("helvetica", "normal");
+
+        fields.forEach((field) => {
+            if (field.value) {
+                y = addPdfLine(doc, `${field.label}: ${field.value}`, margin, y, maxWidth);
+            }
+        });
+    }
+
+    if (rows.length) {
+        doc.setFont("helvetica", "bold");
+        y = addPdfLine(doc, "Inspection Items", margin, y + 6, maxWidth);
+        doc.setFont("helvetica", "normal");
+
+        rows.forEach((row) => {
+            const text = row.cells.filter(Boolean).join(" | ");
+            if (text) {
+                y = addPdfLine(doc, text, margin, y, maxWidth);
+            }
+        });
+    }
+
+    const filename = `${safeFileName(record.inspection_type)}-${record.inspection_date || "inspection"}.pdf`;
+    doc.save(filename);
+}
+
+function emailSavedInspection(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+    emailInspectionRecord(record);
 }
 
 async function deleteInspection(id) {
