@@ -425,6 +425,7 @@
 <script>
 const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const supabaseClient = window.supabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
   : null;
@@ -1062,10 +1063,7 @@ async function emailEntries() {
     alert(archiveResult.warning);
   }
 
-  window.location.href =
-    "mailto:zeth@johngordonconstruction.com" +
-    "?subject=" + encodeURIComponent(subject) +
-    "&body=" + encodeURIComponent(body);
+  await sendTimesheetEmail(subject, body, weekLabel);
 }
 
 function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
@@ -1103,7 +1101,7 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
   return lines.join("\n");
 }
 
-function resubmitPreviousWeek(index) {
+async function resubmitPreviousWeek(index) {
   const week = previousWeeks[index];
 
   if (!week || !Array.isArray(week.entries) || week.entries.length === 0) {
@@ -1121,10 +1119,74 @@ function resubmitPreviousWeek(index) {
   const subject = "Timesheet - " + getDisplayWorkerName() + " - " + week.weekLabel;
   const body = buildTimesheetEmailBody(week.entries, week.weekLabel, totalHours, week.note || "");
 
+  await sendTimesheetEmail(subject, body, week.weekLabel);
+}
+
+function openTimesheetMailto(subject, body) {
   window.location.href =
     "mailto:zeth@johngordonconstruction.com" +
     "?subject=" + encodeURIComponent(subject) +
     "&body=" + encodeURIComponent(body);
+}
+
+async function sendTimesheetEmail(subject, body, weekLabel) {
+  const status = document.getElementById("submitStatus");
+
+  if (status) {
+    status.innerText = "Sending timesheet email...";
+  }
+
+  if (!TIMESHEET_EMAIL_SCRIPT_URL) {
+    alert("Automatic email sending is not set up yet. Your email app will open instead.");
+    openTimesheetMailto(subject, body);
+    return;
+  }
+
+  try {
+    await fetch(TIMESHEET_EMAIL_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({
+        subject,
+        body,
+        text: body,
+        worker: getDisplayWorkerName(),
+        weekLabel
+      })
+    });
+
+    if (status) {
+      status.innerText = "Timesheet email sent.";
+    }
+
+    alert("Timesheet email sent.");
+  } catch (error) {
+    alert("Automatic email could not be sent. Your email app will open instead.");
+    openTimesheetMailto(subject, body);
+  }
+}
+
+async function sendTimesheetEmailWithSupabase(subject, body, weekLabel) {
+  if (!supabaseClient) {
+    openTimesheetMailto(subject, body);
+    return;
+  }
+
+  const { error } = await supabaseClient.functions.invoke("send-timesheet-email", {
+    body: {
+      subject,
+      text: body,
+      worker: getDisplayWorkerName(),
+      weekLabel
+    }
+  });
+
+  if (error) {
+    openTimesheetMailto(subject, body);
+  }
 }
 
 async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
