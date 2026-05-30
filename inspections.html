@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Inspections</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1050px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1050px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 24px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    margin: 0 0 6px;
+    color: #2f6f3c;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 22px;
+}
+
+.inspection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 14px;
+}
+
+.inspection-card {
+    min-height: 96px;
+    border: 1px solid #cad6c9;
+    background: #ffffff;
+    color: #1f2a24;
+    border-radius: 8px;
+    padding: 18px;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.inspection-card:hover {
+    transform: translateY(-2px);
+    border-color: #3f7d4d;
+    box-shadow: 0 5px 14px rgba(0,0,0,0.14);
+}
+
+.inspection-card strong {
+    display: block;
+    font-size: 20px;
+    color: #2f6f3c;
+    margin-bottom: 8px;
+}
+
+.inspection-card span {
+    color: #58635c;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.small-button {
+    border: none;
+    background: #47534b;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 10px 15px;
+    font-size: 15px;
+}
+
+.small-button:hover {
+    background: #354039;
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 18px 14px;
+    }
+
+    .inspection-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .inspection-card {
+        min-height: 78px;
+        padding: 15px;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+    <h1>Inspections</h1>
+    <div class="subtitle">Choose an inspection form</div>
+
+    <div class="inspection-grid">
+        <button class="inspection-card" type="button" onclick="window.location.href='jsa.html'">
+            <strong>JSA</strong>
+            <span>Job Safety Analysis form</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Scissor Lift')">
+            <strong>Scissor Lift</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Boom Lift')">
+            <strong>Boom Lift</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Fork Lift')">
+            <strong>Fork Lift</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Tele Handler')">
+            <strong>Tele Handler</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Harness')">
+            <strong>Harness</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+
+        <button class="inspection-card" type="button" onclick="comingSoon('Hot Work Permit')">
+            <strong>Hot Work Permit</strong>
+            <span>Inspection form coming soon</span>
+        </button>
+    </div>
+
+    <div class="actions">
+        <button class="small-button" type="button" onclick="window.location.href='home.html'">Home</button>
+        <button class="small-button" type="button" onclick="signOut()">Sign Out</button>
+    </div>
+</div>
+
+<script>
+const workerName = localStorage.getItem('currentWorker');
+const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
+
+if (!workerName) {
+    window.location.href = 'index.html';
+}
+
+document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+function comingSoon(formName) {
+    alert(formName + ' form will be added next.');
+}
+
+function signOut() {
+    localStorage.removeItem('currentWorker');
+    localStorage.removeItem('currentWorkerDisplay');
+    window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
