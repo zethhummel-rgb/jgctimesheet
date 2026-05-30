@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hot Work Permit</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    margin: 0 0 18px;
+    color: #2f6f3c;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 4px;
+}
+
+input[type=text],
+input[type=date],
+input[type=time],
+textarea {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 80px;
+}
+
+.radio-stack label {
+    font-weight: normal;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 18px;
+}
+
+.section {
+    margin-top: 25px;
+    border-top: 2px solid #d8dfd7;
+    padding-top: 15px;
+}
+
+.section h3 {
+    color: #2f6f3c;
+    margin-top: 0;
+}
+
+.check-row {
+    padding: 8px;
+    border-bottom: 1px solid #e0e5df;
+    background: #ffffff;
+}
+
+.check-row input {
+    margin-right: 8px;
+}
+
+#permitStatus {
+    background: #dc3545;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    #permitStatus {
+        font-size: 18px;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+}
+
+@media print {
+    body {
+        background: #ffffff;
+        padding: 0;
+    }
+
+    .logo-wrap,
+    .user-bar,
+    .actions {
+        display: none;
+    }
+
+    .container {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+<h1>Hot Work Permit</h1>
+
+<div id="permitStatus">
+    INCOMPLETE HOT WORK PERMIT
+</div>
+
+<div class="grid">
+    <div>
+        <label>Date</label>
+        <input type="date">
+    </div>
+
+    <div>
+        <label>Location / Building / Floor</label>
+        <input type="text">
+    </div>
+
+    <div>
+        <label>Time Started</label>
+        <input type="time">
+    </div>
+
+    <div>
+        <label>Time Completed</label>
+        <input type="time">
+    </div>
+</div>
+
+<br>
+
+<label>Work To Be Done</label>
+<textarea></textarea>
+
+<br>
+<br>
+
+<label>Hot Work By</label>
+<div class="radio-stack">
+    <label><input type="radio" name="workerType">Employee</label>
+    <label><input type="radio" name="workerType">Contractor</label>
+</div>
+
+<br>
+
+<label>Name of Person Doing Hot Work</label>
+<input type="text">
+
+<br>
+<br>
+
+<label>Permit Authorizing Individual</label>
+<input type="text">
+
+<div class="section">
+<h3>General Requirements</h3>
+<div class="check-row"><input type="checkbox" class="permitCheck">Available sprinklers, hose streams and extinguishers are operable</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Hot work equipment is in good condition</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Special permission obtained where required</div>
+</div>
+
+<div class="section">
+<h3>Requirements Within 35 ft</h3>
+<div class="check-row"><input type="checkbox" class="permitCheck">Flammable liquids removed</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Explosive atmosphere eliminated</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Floors swept clean</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Combustible floors protected</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Personnel protected from electrical shock</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Combustible storage removed or protected</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Wall and floor openings covered</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Ducts and conveyors protected</div>
+</div>
+
+<div class="section">
+<h3>Walls, Ceilings &amp; Roofs</h3>
+<div class="check-row"><input type="checkbox" class="permitCheck">Construction is non-combustible</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Combustibles on opposite side removed</div>
+</div>
+
+<div class="section">
+<h3>Enclosed Equipment</h3>
+<div class="check-row"><input type="checkbox" class="permitCheck">Equipment cleaned of combustibles</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Containers purged</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Vessels isolated and vented</div>
+</div>
+
+<div class="section">
+<h3>Fire Watch</h3>
+<div class="check-row"><input type="checkbox" class="permitCheck">Fire watch provided during work and 1 hour after</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Fire watch has extinguisher or charged hose</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Fire watch trained</div>
+<div class="check-row"><input type="checkbox" class="permitCheck">Adjoining areas checked</div>
+</div>
+
+<div class="section">
+<h3>Extended Monitoring Required?</h3>
+<div class="radio-stack">
+    <label><input type="radio" name="extended">Yes</label>
+    <label><input type="radio" name="extended">No</label>
+</div>
+</div>
+
+<div class="actions">
+    <button onclick="saveAndEmailInspection('Hot Work Permit')">Save & Email</button>
+    <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="inspection-records.js"></script>
+<script>
+const workerName = localStorage.getItem('currentWorker');
+const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
+const checks = document.querySelectorAll('.permitCheck');
+
+if (!workerName) {
+    window.location.href = 'index.html';
+}
+
+document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+checks.forEach(box => {
+    box.addEventListener('change', updateStatus);
+});
+
+function updateStatus() {
+    const total = checks.length;
+    let checked = 0;
+
+    checks.forEach(box => {
+        if (box.checked) {
+            checked++;
+        }
+    });
+
+    const banner = document.getElementById('permitStatus');
+
+    if (checked === total) {
+        banner.textContent = 'PERMIT READY FOR APPROVAL';
+        banner.style.background = '#28a745';
+    } else {
+        banner.textContent = 'INCOMPLETE HOT WORK PERMIT';
+        banner.style.background = '#dc3545';
+    }
+}
+
+function signOut() {
+    localStorage.removeItem('currentWorker');
+    localStorage.removeItem('currentWorkerDisplay');
+    window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
