@@ -304,16 +304,17 @@ button:hover {
 </div>
 
 <div class="actions">
-    <button onclick="saveInspection('Hot Work Permit')">Save</button>
+    <button onclick="handleInspectionSave('Hot Work Permit')">Save</button>
     <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
+<div id="inspectionSaveStatus"></div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="inspection-records.js"></script>
+<script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
 const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
@@ -324,6 +325,15 @@ if (!workerName) {
 }
 
 document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+function handleInspectionSave(type) {
+    if (typeof saveInspection !== "function") {
+        alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    saveInspection(type);
+}
 
 checks.forEach(box => {
     box.addEventListener('change', updateStatus);
