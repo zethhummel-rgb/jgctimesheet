@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aerial Lift Pre-Use Inspection</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1400px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1400px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    color: #2f6f3c;
+    margin: 0 0 20px;
+}
+
+h3 {
+    margin-top: 24px;
+    color: #2f6f3c;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+input,
+select {
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 680px;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: white;
+}
+
+th,
+td {
+    border: 1px solid #999;
+    padding: 8px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+td:first-child,
+th:first-child,
+td:nth-child(3),
+td:nth-child(4),
+td:nth-child(5),
+th:nth-child(3),
+th:nth-child(4),
+th:nth-child(5) {
+    text-align: center;
+}
+
+.safety-table td:first-child {
+    width: 85%;
+    text-align: left;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    table {
+        font-size: 13px;
+        min-width: 620px;
+    }
+
+    th,
+    td {
+        padding: 6px;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+
+@media print {
+    body {
+        background: #ffffff;
+        padding: 0;
+    }
+
+    .logo-wrap,
+    .user-bar,
+    .actions {
+        display: none;
+    }
+
+    .container {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+    }
+
+    .table-wrap {
+        overflow: visible;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+<h1>Aerial Lift Pre-Use Inspection Form</h1>
+
+<div class="grid">
+    <div class="field">
+        <label>Operator Name</label>
+        <input type="text">
+    </div>
+
+    <div class="field">
+        <label>Lift ID #</label>
+        <input type="text">
+    </div>
+
+    <div class="field">
+        <label>Date</label>
+        <input type="date">
+    </div>
+
+    <div class="field">
+        <label>Location of Use</label>
+        <input type="text">
+    </div>
+
+    <div class="field">
+        <label>Unit Type</label>
+        <select>
+            <option>Scissor Lift</option>
+            <option>Articulating Boom</option>
+            <option>Man Lift</option>
+            <option>Other</option>
+        </select>
+    </div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Inspection Item</th>
+<th>P</th>
+<th>F</th>
+<th>N/A</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>Operating and emergency controls are in proper working condition</td><td><input type="radio" name="i1"></td><td><input type="radio" name="i1"></td><td><input type="radio" name="i1"></td></tr>
+<tr><td>2</td><td>Functional upper drive control interlock</td><td><input type="radio" name="i2"></td><td><input type="radio" name="i2"></td><td><input type="radio" name="i2"></td></tr>
+<tr><td>3</td><td>Emergency lowering function operates properly</td><td><input type="radio" name="i3"></td><td><input type="radio" name="i3"></td><td><input type="radio" name="i3"></td></tr>
+<tr><td>4</td><td>Lower controls override upper controls</td><td><input type="radio" name="i4"></td><td><input type="radio" name="i4"></td><td><input type="radio" name="i4"></td></tr>
+<tr><td>5</td><td>Upper and lower controls protected from inadvertent operation</td><td><input type="radio" name="i5"></td><td><input type="radio" name="i5"></td><td><input type="radio" name="i5"></td></tr>
+<tr><td>6</td><td>Control panel clean and visible</td><td><input type="radio" name="i6"></td><td><input type="radio" name="i6"></td><td><input type="radio" name="i6"></td></tr>
+<tr><td>7</td><td>Switch and mechanical guards in good condition</td><td><input type="radio" name="i7"></td><td><input type="radio" name="i7"></td><td><input type="radio" name="i7"></td></tr>
+<tr><td>8</td><td>Safety indicator lights work</td><td><input type="radio" name="i8"></td><td><input type="radio" name="i8"></td><td><input type="radio" name="i8"></td></tr>
+<tr><td>9</td><td>Drive controls function properly</td><td><input type="radio" name="i9"></td><td><input type="radio" name="i9"></td><td><input type="radio" name="i9"></td></tr>
+<tr><td>10</td><td>Motion alarms functional</td><td><input type="radio" name="i10"></td><td><input type="radio" name="i10"></td><td><input type="radio" name="i10"></td></tr>
+<tr><td>11</td><td>Safety decals readable</td><td><input type="radio" name="i11"></td><td><input type="radio" name="i11"></td><td><input type="radio" name="i11"></td></tr>
+<tr><td>12</td><td>Guard rails and basket chains in place</td><td><input type="radio" name="i12"></td><td><input type="radio" name="i12"></td><td><input type="radio" name="i12"></td></tr>
+<tr><td>13</td><td>Platform clean and free of debris</td><td><input type="radio" name="i13"></td><td><input type="radio" name="i13"></td><td><input type="radio" name="i13"></td></tr>
+<tr><td>14</td><td>Platform extension locks properly</td><td><input type="radio" name="i14"></td><td><input type="radio" name="i14"></td><td><input type="radio" name="i14"></td></tr>
+<tr><td>15</td><td>No cracked welds, leaks, damaged wiring or cables</td><td><input type="radio" name="i15"></td><td><input type="radio" name="i15"></td><td><input type="radio" name="i15"></td></tr>
+<tr><td>16</td><td>Tires and wheels in good condition</td><td><input type="radio" name="i16"></td><td><input type="radio" name="i16"></td><td><input type="radio" name="i16"></td></tr>
+<tr><td>17</td><td>Braking devices operating properly</td><td><input type="radio" name="i17"></td><td><input type="radio" name="i17"></td><td><input type="radio" name="i17"></td></tr>
+<tr><td>18</td><td>Operations manual stored on unit</td><td><input type="radio" name="i18"></td><td><input type="radio" name="i18"></td><td><input type="radio" name="i18"></td></tr>
+<tr><td>19</td><td>Oil, Hydraulic Oil, Fuel and Coolant Levels</td><td><input type="radio" name="i19"></td><td><input type="radio" name="i19"></td><td><input type="radio" name="i19"></td></tr>
+<tr><td>20</td><td>Battery Charge</td><td><input type="radio" name="i20"></td><td><input type="radio" name="i20"></td><td><input type="radio" name="i20"></td></tr>
+<tr><td>21</td><td>Outriggers and alarms functioning</td><td><input type="radio" name="i21"></td><td><input type="radio" name="i21"></td><td><input type="radio" name="i21"></td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>Safety Precautions</h3>
+
+<div class="table-wrap">
+<table class="safety-table">
+<tr>
+<th>Safety Item</th>
+<th>Confirmed</th>
+</tr>
+<tr><td>Personal Protection in use</td><td><input type="checkbox"></td></tr>
+<tr><td>Wind conditions checked</td><td><input type="checkbox"></td></tr>
+<tr><td>Floor conditions checked</td><td><input type="checkbox"></td></tr>
+<tr><td>Housekeeping inspected</td><td><input type="checkbox"></td></tr>
+<tr><td>Electrical hazards reviewed</td><td><input type="checkbox"></td></tr>
+<tr><td>Chemical / Gas / Utility hazards reviewed</td><td><input type="checkbox"></td></tr>
+<tr><td>Overhead obstructions checked</td><td><input type="checkbox"></td></tr>
+<tr><td>Load capacity verified</td><td><input type="checkbox"></td></tr>
+<tr><td>Traffic control / barricades in place if required</td><td><input type="checkbox"></td></tr>
+</table>
+</div>
+
+<div class="actions">
+    <button onclick="saveAndEmailInspection('Aerial Lifts')">Save & Email</button>
+    <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="inspection-records.js"></script>
+<script>
+const workerName = localStorage.getItem('currentWorker');
+const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
+
+if (!workerName) {
+    window.location.href = 'index.html';
+}
+
+document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+function signOut() {
+    localStorage.removeItem('currentWorker');
+    localStorage.removeItem('currentWorkerDisplay');
+    window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
