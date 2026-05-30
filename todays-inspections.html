@@ -145,6 +145,64 @@ button:hover {
     background: #08452b;
 }
 
+.edit-button {
+    background: #2f6f3c;
+}
+
+.edit-button:hover {
+    background: #245832;
+}
+
+.edit-panel {
+    margin-top: 18px;
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid #c6cec5;
+    border-radius: 6px;
+}
+
+.edit-panel[hidden] {
+    display: none;
+}
+
+.edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.edit-field label {
+    font-weight: bold;
+}
+
+.edit-field input,
+.edit-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.edit-rows {
+    margin-top: 12px;
+}
+
+.edit-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid #e0e5df;
+}
+
 @media (max-width: 768px) {
     body {
         padding: 12px;
@@ -160,6 +218,10 @@ button:hover {
 
     .actions button {
         width: 100%;
+    }
+
+    .edit-grid {
+        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -177,6 +239,7 @@ button:hover {
     <div class="subtitle">Completed inspections from the last 24 hours</div>
 
     <div id="inspectionList" class="empty">Loading inspections...</div>
+    <div id="editPanel" class="edit-panel" hidden></div>
 
     <div class="actions">
         <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
@@ -272,6 +335,7 @@ async function loadInspections() {
                     <th>Inspection</th>
                     <th>Completed By</th>
                     <th>Details</th>
+                    <th>Edit</th>
                     <th>PDF</th>
                     <th>Email</th>
                     <th>Delete</th>
@@ -285,7 +349,8 @@ async function loadInspections() {
                         <td>${escapeHtml(record.inspection_type)}</td>
                         <td>${escapeHtml(record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
-                        <td><button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button></td>
+                        <td><button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button></td>
+                        <td><button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button></td>
                         <td><button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button></td>
                         <td><button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button></td>
                     </tr>
@@ -293,6 +358,162 @@ async function loadInspections() {
             </tbody>
         </table>
     `;
+}
+
+function buildEmailBodyFromRecord(record) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+    const lines = [
+        record.inspection_type || "Inspection",
+        `Completed by: ${record.worker_display_name || record.worker_name || ""}`,
+        ""
+    ];
+
+    fields.forEach((field) => {
+        if (field.value) {
+            lines.push(`${field.label}: ${field.value}`);
+        }
+    });
+
+    if (rows.length) {
+        lines.push("", "Inspection Details:");
+        rows.forEach((row) => {
+            lines.push((row.cells || []).filter(Boolean).join(" | "));
+        });
+    }
+
+    return lines.join("\n");
+}
+
+function getRecordFields(record) {
+    return record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+}
+
+function getRecordRows(record) {
+    return record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+}
+
+function editInspection(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+    const panel = document.getElementById("editPanel");
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    const fields = getRecordFields(record);
+    const rows = getRecordRows(record);
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h2>Edit Inspection</h2>
+        <div class="edit-grid">
+            <div class="edit-field">
+                <label>Inspection Date</label>
+                <input id="editInspectionDate" type="date" value="${escapeHtml(record.inspection_date || "")}">
+            </div>
+            <div class="edit-field">
+                <label>Completed By</label>
+                <input id="editCompletedBy" type="text" value="${escapeHtml(record.worker_display_name || record.worker_name || "")}">
+            </div>
+            ${fields.map((field, index) => `
+                <div class="edit-field">
+                    <label>${escapeHtml(field.label)}</label>
+                    <input data-field-index="${index}" type="text" value="${escapeHtml(field.value)}">
+                </div>
+            `).join("")}
+        </div>
+        <div class="edit-rows">
+            <h3>Inspection Items</h3>
+            ${rows.map((row, rowIndex) => `
+                <div class="edit-row">
+                    ${(row.cells || []).map((cell, cellIndex) => `
+                        <div class="edit-field">
+                            <label>Row ${rowIndex + 1}, Column ${cellIndex + 1}</label>
+                            <input data-row-index="${rowIndex}" data-cell-index="${cellIndex}" type="text" value="${escapeHtml(cell)}">
+                        </div>
+                    `).join("")}
+                </div>
+            `).join("")}
+        </div>
+        <div class="actions">
+            <button onclick="saveInspectionEdit('${escapeHtml(record.id)}')">Save Changes</button>
+            <button class="secondary" onclick="cancelInspectionEdit()">Cancel</button>
+        </div>
+    `;
+
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelInspectionEdit() {
+    const panel = document.getElementById("editPanel");
+    panel.hidden = true;
+    panel.innerHTML = "";
+}
+
+async function saveInspectionEdit(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    const fields = getRecordFields(record).map((field) => ({ ...field }));
+    const rows = getRecordRows(record).map((row) => ({
+        ...row,
+        cells: Array.isArray(row.cells) ? [...row.cells] : []
+    }));
+
+    document.querySelectorAll("[data-field-index]").forEach((input) => {
+        fields[Number(input.dataset.fieldIndex)].value = input.value;
+    });
+
+    document.querySelectorAll("[data-row-index][data-cell-index]").forEach((input) => {
+        const rowIndex = Number(input.dataset.rowIndex);
+        const cellIndex = Number(input.dataset.cellIndex);
+        rows[rowIndex].cells[cellIndex] = input.value;
+    });
+
+    const updatedRecord = {
+        ...record,
+        inspection_date: document.getElementById("editInspectionDate").value || record.inspection_date,
+        worker_display_name: document.getElementById("editCompletedBy").value || record.worker_display_name,
+        form_data: {
+            ...(record.form_data || {}),
+            fields,
+            rows
+        }
+    };
+    updatedRecord.email_body = buildEmailBodyFromRecord(updatedRecord);
+
+    const { error } = await inspectionSupabaseClient
+        .from("inspection_records")
+        .update({
+            inspection_date: updatedRecord.inspection_date,
+            worker_display_name: updatedRecord.worker_display_name,
+            form_data: updatedRecord.form_data,
+            email_body: updatedRecord.email_body,
+            title: `${updatedRecord.inspection_type} - ${updatedRecord.inspection_date}`
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("This inspection could not be updated.");
+        return;
+    }
+
+    cancelInspectionEdit();
+    await loadInspections();
 }
 
 function addPdfLine(doc, text, x, y, maxWidth) {
@@ -805,6 +1026,128 @@ function downloadHarnessPdf(record) {
     doc.save(`harness-${record.inspection_date || "inspection"}.pdf`);
 }
 
+function getForkliftRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+    const visual = [];
+    const operational = [];
+
+    rows.forEach((row) => {
+        const cells = row.cells || [];
+        const left = String(cells[0] || "").trim();
+        const right = String(cells[4] || "").trim();
+
+        if (/^\d+\./.test(left)) {
+            visual.push({
+                item: left,
+                result: cells.slice(1, 4).find((cell) => String(cell || "").trim()) || ""
+            });
+        }
+
+        if (/^\d+\./.test(right)) {
+            operational.push({
+                item: right,
+                result: cells.slice(5, 8).find((cell) => String(cell || "").trim()) || ""
+            });
+        }
+    });
+
+    return { visual, operational };
+}
+
+function drawForkliftCheckCell(doc, value, expected, x, y, width, height) {
+    drawBoxText(doc, value === expected ? "X" : "", x, y, width, height, { fontSize: 7, maxLines: 1 });
+}
+
+function downloadForkliftPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const margin = 12;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usable = pageWidth - margin * 2;
+    let y = 14;
+
+    const brand = findFieldValue(record, /^Brand$/i);
+    const capacity = findFieldValue(record, /^Capacity$/i);
+    const identification = findFieldValue(record, /^Identification$/i);
+    const hours = findFieldValue(record, /Hours\/Mileage/i);
+    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const time = findFieldValue(record, /^Time$/i);
+    const comments = findFieldValue(record, /^Comments$/i);
+    const operator = findFieldValue(record, /Operator name/i);
+    const supervisor = findFieldValue(record, /Supervisor name/i);
+    const forkliftRows = getForkliftRows(record);
+
+    doc.setLineWidth(0.25);
+    doc.setDrawColor(20, 20, 20);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("SAFETY STANDARD FOR THE USE OF FORKLIFTS", margin, y);
+    y += 12;
+    doc.setFontSize(15);
+    doc.text("DAILY FORKLIFT INSPECTION FORM", pageWidth / 2, y, { align: "center" });
+    y += 9;
+
+    const itemW = 58;
+    const checkW = 10;
+    const halfW = itemW + checkW * 3;
+    const leftX = margin;
+    const rightX = margin + halfW;
+    const rowH = 7.2;
+
+    doc.rect(margin, y - 5, usable, 160);
+    drawBoxText(doc, "VISUAL INSPECTION", leftX, y, itemW, 10, { bold: true, fontSize: 10, fill: [235, 235, 235] });
+    ["SAT", "UNS", "N/A"].forEach((label, index) => {
+        drawBoxText(doc, label, leftX + itemW + checkW * index, y, checkW, 10, { bold: true, fontSize: 7, fill: [235, 235, 235] });
+    });
+    drawBoxText(doc, "OPERATIONAL INSPECTION", rightX, y, itemW, 10, { bold: true, fontSize: 10, fill: [235, 235, 235] });
+    ["SAT", "UNS", "N/A"].forEach((label, index) => {
+        drawBoxText(doc, label, rightX + itemW + checkW * index, y, checkW, 10, { bold: true, fontSize: 7, fill: [235, 235, 235] });
+    });
+    y += 10;
+
+    for (let index = 0; index < 13; index++) {
+        const visual = forkliftRows.visual[index] || { item: `${index + 1}.`, result: "" };
+        const operational = forkliftRows.operational[index] || { item: `${index + 14}.`, result: "" };
+
+        drawBoxText(doc, visual.item, leftX, y, itemW, rowH, { fontSize: 7, maxLines: 2 });
+        drawForkliftCheckCell(doc, visual.result, "SAT", leftX + itemW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, visual.result, "UNS", leftX + itemW + checkW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, visual.result, "N/A", leftX + itemW + checkW * 2, y, checkW, rowH);
+
+        drawBoxText(doc, operational.item, rightX, y, itemW, rowH, { fontSize: 7, maxLines: 2 });
+        drawForkliftCheckCell(doc, operational.result, "SAT", rightX + itemW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, operational.result, "UNS", rightX + itemW + checkW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, operational.result, "N/A", rightX + itemW + checkW * 2, y, checkW, rowH);
+        y += rowH;
+    }
+
+    const fieldW = usable / 6;
+    [
+        ["Brand", brand],
+        ["Capacity", capacity],
+        ["Identification", identification],
+        ["Hours/Mileage", hours],
+        ["Date", date],
+        ["Time", time]
+    ].forEach((field, index) => {
+        drawBoxText(doc, `${field[0]}:\n${field[1]}`, margin + fieldW * index, y, fieldW, 16, { fontSize: 7, maxLines: 2 });
+    });
+    y += 16;
+
+    drawBoxText(doc, `Comments:\n${comments}`, margin, y, usable, 22, { fontSize: 8, maxLines: 3 });
+    y += 22;
+    drawBoxText(doc, `Operator name and signature:\n${operator}`, margin, y, usable / 2, 18, { fontSize: 8, maxLines: 2 });
+    drawBoxText(doc, `Supervisor name and signature:\n${supervisor}`, margin + usable / 2, y, usable / 2, 18, { fontSize: 8, maxLines: 2 });
+    y += 18;
+    drawBoxText(doc, "Instructions: Mark all indicated lines. SAT = Satisfactory, UNS = Unsatisfactory, N/A = Not applicable. In case you have any additional comment, use the back of this form.", margin, y, usable, 18, { bold: true, fontSize: 8, maxLines: 3 });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("Page 1 of 1", pageWidth - margin, 268, { align: "right" });
+    doc.save(`fork-lift-${record.inspection_date || "inspection"}.pdf`);
+}
+
 function downloadInspectionPdf(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -835,6 +1178,11 @@ function downloadInspectionPdf(id) {
 
     if ((record.inspection_type || "").toLowerCase() === "harness") {
         downloadHarnessPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "fork lift") {
+        downloadForkliftPdf(record);
         return;
     }
 
