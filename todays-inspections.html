@@ -182,6 +182,7 @@ button:hover {
 }
 
 .edit-field input,
+.edit-field select,
 .edit-field textarea {
     width: 100%;
     box-sizing: border-box;
@@ -189,6 +190,11 @@ button:hover {
     border: 1px solid #bcc7bc;
     border-radius: 4px;
     font-size: 14px;
+}
+
+.edit-field input:disabled {
+    background: #eef2ee;
+    color: #58635c;
 }
 
 .edit-rows {
@@ -401,6 +407,120 @@ function getRecordRows(record) {
         : [];
 }
 
+function getInspectionKey(record) {
+    return String(record.inspection_type || "").toLowerCase();
+}
+
+function getFirstFilledCell(cells, indexes) {
+    const index = indexes.find((cellIndex) => String(cells[cellIndex] || "").trim());
+    return index === undefined ? "" : cells[index];
+}
+
+function buildEditSelect(label, rowIndex, cellIndexes, value, options) {
+    return `
+        <div class="edit-field">
+            <label>${escapeHtml(label)}</label>
+            <select data-result-row="${rowIndex}" data-result-cells="${cellIndexes.join(",")}">
+                <option value=""></option>
+                ${options.map((option) => `
+                    <option value="${escapeHtml(option)}" ${value === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                `).join("")}
+            </select>
+        </div>
+    `;
+}
+
+function buildEditInput(label, rowIndex, cellIndex, value) {
+    return `
+        <div class="edit-field">
+            <label>${escapeHtml(label)}</label>
+            <input data-row-index="${rowIndex}" data-cell-index="${cellIndex}" type="text" value="${escapeHtml(value)}">
+        </div>
+    `;
+}
+
+function buildEditableRowsHtml(record, rows) {
+    const type = getInspectionKey(record);
+    const editableRows = [];
+
+    rows.forEach((row, rowIndex) => {
+        const cells = row.cells || [];
+
+        if (type === "jsa" && cells.slice(0, 3).some((cell) => String(cell || "").trim())) {
+            editableRows.push(`
+                <div class="edit-row">
+                    ${buildEditInput("Sequence of Basic Job Steps", rowIndex, 0, cells[0] || "")}
+                    ${buildEditInput("Potential Hazards", rowIndex, 1, cells[1] || "")}
+                    ${buildEditInput("Required Action or Procedure", rowIndex, 2, cells[2] || "")}
+                </div>
+            `);
+        }
+
+        if (type === "aerial lifts" && /^\d+$/.test(String(cells[0] || "").trim())) {
+            editableRows.push(`
+                <div class="edit-row">
+                    <div class="edit-field">
+                        <label>Inspection Item</label>
+                        <input type="text" value="${escapeHtml(cells[1] || "")}" disabled>
+                    </div>
+                    ${buildEditSelect("P/F/N/A", rowIndex, [2, 3, 4], getFirstFilledCell(cells, [2, 3, 4]), ["P", "F", "N/A"])}
+                </div>
+            `);
+        }
+
+        if (type === "harness" && /Webbing|Stitching|Buckles|Attachment|Label|Cuts|Punctures|Abrasions|Burns|Discolour|Incomplete|Pulled|Distorted|Deformation|Cracks|Corrosion|Function|Excess Wear|Illegible|Missing/i.test(cells.join(" "))) {
+            editableRows.push(`
+                <div class="edit-row">
+                    <div class="edit-field">
+                        <label>Component / Defect</label>
+                        <input type="text" value="${escapeHtml([cells[0], cells[1]].filter(Boolean).join(" - "))}" disabled>
+                    </div>
+                    ${buildEditInput("Current Condition", rowIndex, 2, cells[2] || "")}
+                    ${buildEditSelect("Pass / Fail", rowIndex, [3], cells[3] || "", ["PASS", "FAIL", "NA"])}
+                </div>
+            `);
+        }
+
+        if (type === "fork lift") {
+            const controls = [];
+            if (/^\d+\./.test(String(cells[0] || "").trim())) {
+                controls.push(`
+                    <div class="edit-field">
+                        <label>Visual Item</label>
+                        <input type="text" value="${escapeHtml(cells[0] || "")}" disabled>
+                    </div>
+                    ${buildEditSelect("Visual Result", rowIndex, [1, 2, 3], getFirstFilledCell(cells, [1, 2, 3]), ["SAT", "UNS", "N/A"])}
+                `);
+            }
+
+            if (/^\d+\./.test(String(cells[4] || "").trim())) {
+                controls.push(`
+                    <div class="edit-field">
+                        <label>Operational Item</label>
+                        <input type="text" value="${escapeHtml(cells[4] || "")}" disabled>
+                    </div>
+                    ${buildEditSelect("Operational Result", rowIndex, [5, 6, 7], getFirstFilledCell(cells, [5, 6, 7]), ["SAT", "UNS", "N/A"])}
+                `);
+            }
+
+            if (controls.length) {
+                editableRows.push(`<div class="edit-row">${controls.join("")}</div>`);
+            }
+        }
+    });
+
+    if (!editableRows.length) {
+        return "";
+    }
+
+    return `
+        <div class="edit-rows">
+            <h3>Inspection Answers</h3>
+            ${editableRows.join("")}
+        </div>
+    `;
+}
+
 function editInspection(id) {
     const record = inspectionRecords.find((item) => item.id === id);
     const panel = document.getElementById("editPanel");
@@ -412,6 +532,7 @@ function editInspection(id) {
 
     const fields = getRecordFields(record);
     const rows = getRecordRows(record);
+    const editableRowsHtml = buildEditableRowsHtml(record, rows);
 
     panel.hidden = false;
     panel.innerHTML = `
@@ -432,19 +553,7 @@ function editInspection(id) {
                 </div>
             `).join("")}
         </div>
-        <div class="edit-rows">
-            <h3>Inspection Items</h3>
-            ${rows.map((row, rowIndex) => `
-                <div class="edit-row">
-                    ${(row.cells || []).map((cell, cellIndex) => `
-                        <div class="edit-field">
-                            <label>Row ${rowIndex + 1}, Column ${cellIndex + 1}</label>
-                            <input data-row-index="${rowIndex}" data-cell-index="${cellIndex}" type="text" value="${escapeHtml(cell)}">
-                        </div>
-                    `).join("")}
-                </div>
-            `).join("")}
-        </div>
+        ${editableRowsHtml}
         <div class="actions">
             <button onclick="saveInspectionEdit('${escapeHtml(record.id)}')">Save Changes</button>
             <button class="secondary" onclick="cancelInspectionEdit()">Cancel</button>
@@ -482,6 +591,18 @@ async function saveInspectionEdit(id) {
         const rowIndex = Number(input.dataset.rowIndex);
         const cellIndex = Number(input.dataset.cellIndex);
         rows[rowIndex].cells[cellIndex] = input.value;
+    });
+
+    document.querySelectorAll("[data-result-row][data-result-cells]").forEach((input) => {
+        const rowIndex = Number(input.dataset.resultRow);
+        const cellIndexes = input.dataset.resultCells.split(",").map(Number);
+        cellIndexes.forEach((cellIndex) => {
+            rows[rowIndex].cells[cellIndex] = "";
+        });
+
+        if (cellIndexes.length) {
+            rows[rowIndex].cells[cellIndexes[0]] = input.value;
+        }
     });
 
     const updatedRecord = {
@@ -802,6 +923,24 @@ function fieldIsChecked(record, text) {
     return field ? field.value === "Yes" || field.value === "Selected" : false;
 }
 
+function getExactField(record, labelText) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+    const needle = labelText.toLowerCase().trim();
+    return fields.find((item) => String(item.label || "").toLowerCase().trim() === needle);
+}
+
+function hotWorkCheck(record, labelText) {
+    const field = getExactField(record, labelText);
+    return field ? field.value === "Yes" : false;
+}
+
+function hotWorkRadio(record, labelText, expectedValue) {
+    const field = getExactField(record, labelText);
+    return field ? String(field.value || "").toLowerCase() === expectedValue.toLowerCase() : false;
+}
+
 function drawPermitCheckRow(doc, item, checked, x, y, width) {
     doc.rect(x, y + 1.5, 3.5, 3.5);
     if (checked) {
@@ -820,7 +959,7 @@ function drawPermitSection(doc, title, items, record, x, y, width) {
     y = addPdfLine(doc, title, x, y, width);
 
     items.forEach((item) => {
-        y = drawPermitCheckRow(doc, item, fieldIsChecked(record, item.slice(0, 34)), x, y, width);
+        y = drawPermitCheckRow(doc, item, hotWorkCheck(record, item), x, y, width);
     });
 
     return y + 1;
@@ -840,10 +979,10 @@ function downloadHotWorkPermitPdf(record) {
     const work = findFieldValue(record, /Work To Be Done/i);
     const person = findFieldValue(record, /Name of Person Doing Hot Work/i);
     const pai = findFieldValue(record, /Permit Authorizing Individual/i);
-    const isEmployee = fieldIsChecked(record, "Employee");
-    const isContractor = fieldIsChecked(record, "Contractor");
-    const extendedYes = fieldIsChecked(record, "Yes");
-    const extendedNo = fieldIsChecked(record, "No");
+    const isEmployee = hotWorkRadio(record, "Employee", "Employee");
+    const isContractor = hotWorkRadio(record, "Contractor", "Contractor");
+    const extendedYes = hotWorkRadio(record, "Yes", "Yes");
+    const extendedNo = hotWorkRadio(record, "No", "No");
 
     doc.setLineWidth(0.2);
     doc.setDrawColor(40, 40, 40);
@@ -881,39 +1020,39 @@ function downloadHotWorkPermitPdf(record) {
     const startY = y;
 
     y = drawPermitSection(doc, "General Requirements", [
-        "Available sprinklers, hose streams, and extinguishers are in service and operable.",
-        "Hot work equipment is in good working condition in accordance with manufacturer's specifications.",
-        "Special permission obtained to conduct hot work on metal vessels or piping lined with rubber or plastic."
+        "Available sprinklers, hose streams and extinguishers are operable",
+        "Hot work equipment is in good condition",
+        "Special permission obtained where required"
     ], record, leftX, y, colW);
 
     y = drawPermitSection(doc, "Requirements within 35 ft (11 m) of hot work", [
-        "Flammable liquid, dust, lint, and oily deposits removed.",
-        "Explosive atmosphere in area eliminated.",
-        "Floors swept clean and trash removed.",
-        "Combustible floors wet down or covered with damp sand or fire-resistive/noncombustible materials or equivalent.",
-        "Personnel protected from electrical shock when floors are wet.",
-        "Other combustible storage material removed or covered with listed or approved materials.",
-        "All wall and floor openings covered.",
-        "Ducts and conveyors that might carry sparks to distant combustible material covered, protected, or shut down."
+        "Flammable liquids removed",
+        "Explosive atmosphere eliminated",
+        "Floors swept clean",
+        "Combustible floors protected",
+        "Personnel protected from electrical shock",
+        "Combustible storage removed or protected",
+        "Wall and floor openings covered",
+        "Ducts and conveyors protected"
     ], record, leftX, y, colW);
 
     let rightY = startY;
     rightY = drawPermitSection(doc, "Requirements for hot work on walls, ceilings, or roofs", [
-        "Construction is noncombustible and without combustible coverings or insulation.",
-        "Combustible material on other side of walls, ceilings, or roofs is moved away."
+        "Construction is non-combustible",
+        "Combustibles on opposite side removed"
     ], record, rightX, rightY, colW);
 
     rightY = drawPermitSection(doc, "Requirements for hot work on enclosed equipment", [
-        "Enclosed equipment is cleaned of all combustibles.",
-        "Containers are purged of flammable liquid/vapor.",
-        "Pressurized vessels, piping, and equipment removed from service, isolated, and vented."
+        "Equipment cleaned of combustibles",
+        "Containers purged",
+        "Vessels isolated and vented"
     ], record, rightX, rightY, colW);
 
     rightY = drawPermitSection(doc, "Requirements for hot work fire watch and fire monitoring", [
-        "Fire watch is provided during and for a minimum of 1 hour after hot work, including any break activity.",
-        "Fire watch is provided with suitable extinguishers and, where practical, a charged small hose.",
-        "Fire watch is trained in use of equipment and in sounding alarm.",
-        "Fire watch can be required in adjoining areas, above and below."
+        "Fire watch provided during work and 1 hour after",
+        "Fire watch has extinguisher or charged hose",
+        "Fire watch trained",
+        "Adjoining areas checked"
     ], record, rightX, rightY, colW);
 
     doc.setFont("helvetica", "normal");
