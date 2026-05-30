@@ -805,6 +805,128 @@ function downloadHarnessPdf(record) {
     doc.save(`harness-${record.inspection_date || "inspection"}.pdf`);
 }
 
+function getForkliftRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+    const visual = [];
+    const operational = [];
+
+    rows.forEach((row) => {
+        const cells = row.cells || [];
+        const left = String(cells[0] || "").trim();
+        const right = String(cells[4] || "").trim();
+
+        if (/^\d+\./.test(left)) {
+            visual.push({
+                item: left,
+                result: cells.slice(1, 4).find((cell) => String(cell || "").trim()) || ""
+            });
+        }
+
+        if (/^\d+\./.test(right)) {
+            operational.push({
+                item: right,
+                result: cells.slice(5, 8).find((cell) => String(cell || "").trim()) || ""
+            });
+        }
+    });
+
+    return { visual, operational };
+}
+
+function drawForkliftCheckCell(doc, value, expected, x, y, width, height) {
+    drawBoxText(doc, value === expected ? "X" : "", x, y, width, height, { fontSize: 7, maxLines: 1 });
+}
+
+function downloadForkliftPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter" });
+    const margin = 12;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usable = pageWidth - margin * 2;
+    let y = 14;
+
+    const brand = findFieldValue(record, /^Brand$/i);
+    const capacity = findFieldValue(record, /^Capacity$/i);
+    const identification = findFieldValue(record, /^Identification$/i);
+    const hours = findFieldValue(record, /Hours\/Mileage/i);
+    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const time = findFieldValue(record, /^Time$/i);
+    const comments = findFieldValue(record, /^Comments$/i);
+    const operator = findFieldValue(record, /Operator name/i);
+    const supervisor = findFieldValue(record, /Supervisor name/i);
+    const forkliftRows = getForkliftRows(record);
+
+    doc.setLineWidth(0.25);
+    doc.setDrawColor(20, 20, 20);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("SAFETY STANDARD FOR THE USE OF FORKLIFTS", margin, y);
+    y += 12;
+    doc.setFontSize(15);
+    doc.text("DAILY FORKLIFT INSPECTION FORM", pageWidth / 2, y, { align: "center" });
+    y += 9;
+
+    const itemW = 58;
+    const checkW = 10;
+    const halfW = itemW + checkW * 3;
+    const leftX = margin;
+    const rightX = margin + halfW;
+    const rowH = 7.2;
+
+    doc.rect(margin, y - 5, usable, 160);
+    drawBoxText(doc, "VISUAL INSPECTION", leftX, y, itemW, 10, { bold: true, fontSize: 10, fill: [235, 235, 235] });
+    ["SAT", "UNS", "N/A"].forEach((label, index) => {
+        drawBoxText(doc, label, leftX + itemW + checkW * index, y, checkW, 10, { bold: true, fontSize: 7, fill: [235, 235, 235] });
+    });
+    drawBoxText(doc, "OPERATIONAL INSPECTION", rightX, y, itemW, 10, { bold: true, fontSize: 10, fill: [235, 235, 235] });
+    ["SAT", "UNS", "N/A"].forEach((label, index) => {
+        drawBoxText(doc, label, rightX + itemW + checkW * index, y, checkW, 10, { bold: true, fontSize: 7, fill: [235, 235, 235] });
+    });
+    y += 10;
+
+    for (let index = 0; index < 13; index++) {
+        const visual = forkliftRows.visual[index] || { item: `${index + 1}.`, result: "" };
+        const operational = forkliftRows.operational[index] || { item: `${index + 14}.`, result: "" };
+
+        drawBoxText(doc, visual.item, leftX, y, itemW, rowH, { fontSize: 7, maxLines: 2 });
+        drawForkliftCheckCell(doc, visual.result, "SAT", leftX + itemW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, visual.result, "UNS", leftX + itemW + checkW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, visual.result, "N/A", leftX + itemW + checkW * 2, y, checkW, rowH);
+
+        drawBoxText(doc, operational.item, rightX, y, itemW, rowH, { fontSize: 7, maxLines: 2 });
+        drawForkliftCheckCell(doc, operational.result, "SAT", rightX + itemW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, operational.result, "UNS", rightX + itemW + checkW, y, checkW, rowH);
+        drawForkliftCheckCell(doc, operational.result, "N/A", rightX + itemW + checkW * 2, y, checkW, rowH);
+        y += rowH;
+    }
+
+    const fieldW = usable / 6;
+    [
+        ["Brand", brand],
+        ["Capacity", capacity],
+        ["Identification", identification],
+        ["Hours/Mileage", hours],
+        ["Date", date],
+        ["Time", time]
+    ].forEach((field, index) => {
+        drawBoxText(doc, `${field[0]}:\n${field[1]}`, margin + fieldW * index, y, fieldW, 16, { fontSize: 7, maxLines: 2 });
+    });
+    y += 16;
+
+    drawBoxText(doc, `Comments:\n${comments}`, margin, y, usable, 22, { fontSize: 8, maxLines: 3 });
+    y += 22;
+    drawBoxText(doc, `Operator name and signature:\n${operator}`, margin, y, usable / 2, 18, { fontSize: 8, maxLines: 2 });
+    drawBoxText(doc, `Supervisor name and signature:\n${supervisor}`, margin + usable / 2, y, usable / 2, 18, { fontSize: 8, maxLines: 2 });
+    y += 18;
+    drawBoxText(doc, "Instructions: Mark all indicated lines. SAT = Satisfactory, UNS = Unsatisfactory, N/A = Not applicable. In case you have any additional comment, use the back of this form.", margin, y, usable, 18, { bold: true, fontSize: 8, maxLines: 3 });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("Page 1 of 1", pageWidth - margin, 268, { align: "right" });
+    doc.save(`fork-lift-${record.inspection_date || "inspection"}.pdf`);
+}
+
 function downloadInspectionPdf(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -835,6 +957,11 @@ function downloadInspectionPdf(id) {
 
     if ((record.inspection_type || "").toLowerCase() === "harness") {
         downloadHarnessPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "fork lift") {
+        downloadForkliftPdf(record);
         return;
     }
 
