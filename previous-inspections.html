@@ -319,6 +319,145 @@ function safeFileName(value) {
         .replace(/^-|-$/g, "");
 }
 
+function findFieldValue(record, labelPattern) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+    const field = fields.find((item) => labelPattern.test(item.label || ""));
+    return field ? field.value : "";
+}
+
+function findCheckedLabels(record, labels) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+
+    return labels.map((label) => {
+        const field = fields.find((item) => (item.label || "").toLowerCase().includes(label.toLowerCase()));
+        return {
+            label,
+            checked: field ? field.value === "Yes" : false
+        };
+    });
+}
+
+function drawBoxText(doc, text, x, y, width, height, options = {}) {
+    if (options.fill) {
+        doc.setFillColor(options.fill[0], options.fill[1], options.fill[2]);
+        doc.rect(x, y, width, height, "F");
+    }
+
+    doc.rect(x, y, width, height);
+    doc.setFont("helvetica", options.bold ? "bold" : "normal");
+    doc.setFontSize(options.fontSize || 8);
+
+    const lines = doc.splitTextToSize(String(text || ""), width - 4);
+    doc.text(lines.slice(0, options.maxLines || 3), x + 2, y + 5);
+}
+
+function getJsaRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+
+    return rows
+        .map((row) => row.cells || [])
+        .filter((cells) => cells.slice(0, 3).some((cell) => String(cell || "").trim()))
+        .map((cells) => ({
+            step: cells[0] || "",
+            hazard: cells[1] || "",
+            action: cells[2] || ""
+        }));
+}
+
+function downloadJsaPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 10;
+    let y = 10;
+
+    const contractor = findFieldValue(record, /^Contractor$/i) || "John Gordon Construction";
+    const project = findFieldValue(record, /Project/i);
+    const location = findFieldValue(record, /Location/i);
+    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const supervisor = findFieldValue(record, /Contractor Supervisor/i);
+    const reviewedBy = findFieldValue(record, /Reviewed By/i);
+    const page = findFieldValue(record, /^Page$/i);
+    const of = findFieldValue(record, /^Of$/i);
+    const crew = findFieldValue(record, /Crew Sign Off/i);
+    const checklist = findCheckedLabels(record, [
+        "Lockout / Tag Out",
+        "Hot Work",
+        "Confined Space",
+        "Elevated Work",
+        "Excavation",
+        "Crane / Hoisting / Rigging",
+        "Other"
+    ]);
+    const jsaRows = getJsaRows(record);
+
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(40, 40, 40);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text("John Gordon Construction- Job Safety Analysis Form", pageWidth / 2, y, { align: "center" });
+    y += 6;
+    doc.setFontSize(11);
+    doc.text("Must be filled out Daily", pageWidth / 2, y, { align: "center" });
+    y += 7;
+
+    const usable = pageWidth - margin * 2;
+    const topW = usable / 4;
+    drawBoxText(doc, `Contractor:\n${contractor}`, margin, y, topW, 16, { bold: true });
+    drawBoxText(doc, `Project/Job:\n${project}`, margin + topW, y, topW, 16, { bold: true });
+    drawBoxText(doc, `Location:\n${location}`, margin + topW * 2, y, topW, 16, { bold: true });
+    drawBoxText(doc, `Date:\n${date}`, margin + topW * 3, y, topW, 16, { bold: true });
+    y += 16;
+
+    const checklistText = checklist.map((item) => `${item.checked ? "[X]" : "[ ]"} ${item.label}`).join("   ");
+    drawBoxText(doc, checklistText, margin, y, topW * 2, 22, { fontSize: 7 });
+    drawBoxText(doc, `Contractor Supervisor:\n${supervisor}`, margin + topW * 2, y, topW, 22, { bold: true });
+    drawBoxText(doc, `Reviewed By:\n${reviewedBy}\nPage: ${page || ""} of ${of || ""}`, margin + topW * 3, y, topW, 22, { bold: true });
+    y += 22;
+
+    drawBoxText(doc, `Crew Sign Off: All Individuals- Print and sign\n${crew}`, margin, y, usable, 18, { bold: true });
+    y += 18;
+
+    const col1 = 78;
+    const col2 = 88;
+    const col3 = usable - col1 - col2;
+    const headerFill = [230, 236, 230];
+    drawBoxText(doc, "Sequence of Basic Job Steps", margin, y, col1, 12, { bold: true, fill: headerFill });
+    drawBoxText(doc, "Potential Hazards", margin + col1, y, col2, 12, { bold: true, fill: headerFill });
+    drawBoxText(doc, "Required Action or Procedure", margin + col1 + col2, y, col3, 12, { bold: true, fill: headerFill });
+    y += 12;
+
+    const rowsToDraw = jsaRows.length ? jsaRows : Array.from({ length: 7 }, () => ({ step: "", hazard: "", action: "" }));
+
+    rowsToDraw.forEach((row) => {
+        if (y > 185) {
+            doc.addPage();
+            y = 12;
+            drawBoxText(doc, "Sequence of Basic Job Steps", margin, y, col1, 12, { bold: true, fill: headerFill });
+            drawBoxText(doc, "Potential Hazards", margin + col1, y, col2, 12, { bold: true, fill: headerFill });
+            drawBoxText(doc, "Required Action or Procedure", margin + col1 + col2, y, col3, 12, { bold: true, fill: headerFill });
+            y += 12;
+        }
+
+        const stepLines = doc.splitTextToSize(row.step, col1 - 4).length;
+        const hazardLines = doc.splitTextToSize(row.hazard, col2 - 4).length;
+        const actionLines = doc.splitTextToSize(row.action, col3 - 4).length;
+        const rowHeight = Math.max(16, Math.min(34, Math.max(stepLines, hazardLines, actionLines) * 5 + 6));
+
+        drawBoxText(doc, row.step, margin, y, col1, rowHeight, { fontSize: 8, maxLines: 5 });
+        drawBoxText(doc, row.hazard, margin + col1, y, col2, rowHeight, { fontSize: 8, maxLines: 5 });
+        drawBoxText(doc, row.action, margin + col1 + col2, y, col3, rowHeight, { fontSize: 8, maxLines: 5 });
+        y += rowHeight;
+    });
+
+    doc.save(`jsa-${record.inspection_date || "inspection"}.pdf`);
+}
+
 function downloadInspectionPdf(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -329,6 +468,11 @@ function downloadInspectionPdf(id) {
 
     if (!window.jspdf || !window.jspdf.jsPDF) {
         alert("PDF download is not available right now.");
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "jsa") {
+        downloadJsaPdf(record);
         return;
     }
 
