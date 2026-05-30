@@ -61,7 +61,7 @@ function getFieldLabel(field) {
 
 function getFieldValue(field) {
     if (field.type === "radio") {
-        return field.checked ? "Selected" : "";
+        return field.checked ? (field.value || "Selected") : "";
     }
 
     if (field.type === "checkbox") {
