@@ -133,7 +133,7 @@ function buildInspectionEmail(type, fields, rows) {
     return lines.join("\n");
 }
 
-async function saveAndEmailInspection(type) {
+async function saveInspection(type) {
     const worker = getCurrentWorker();
 
     if (!worker.key) {
@@ -177,7 +177,17 @@ async function saveAndEmailInspection(type) {
         return;
     }
 
-    const subject = encodeURIComponent(`${type} - ${inspectionDate}`);
-    const body = encodeURIComponent(emailBody);
+    alert("Inspection saved.");
+    window.location.href = "previous-inspections.html";
+}
+
+function emailInspectionRecord(record) {
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    const subject = encodeURIComponent(`${record.inspection_type} - ${record.inspection_date || ""}`);
+    const body = encodeURIComponent(record.email_body || "");
     window.location.href = `mailto:${INSPECTION_EMAIL}?subject=${subject}&body=${body}`;
 }
