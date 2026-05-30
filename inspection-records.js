@@ -200,7 +200,7 @@ async function saveInspection(type) {
     }
 
     setInspectionSaveStatus("Inspection saved.");
-    window.location.href = "previous-inspections.html";
+    window.location.href = "todays-inspections.html";
 }
 
 function emailInspectionRecord(record) {
