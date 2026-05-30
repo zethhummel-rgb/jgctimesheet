@@ -390,6 +390,11 @@
     <option value="">Select Time In</option>
   </select>
 
+  <label class="check-row">
+    <input id="tookLunch" type="checkbox" />
+    Did you take Lunch? This will subtract 30 minutes from this input only
+  </label>
+
   <label>Time Out</label>
   <select id="timeOut">
     <option value="">Select Time Out</option>
@@ -497,13 +502,16 @@ function formatDate(date) {
   });
 }
 
-function calculateHours(inTime, outTime) {
+function calculateHours(inTime, outTime, tookLunch) {
   const start = new Date("1970-01-01T" + inTime + ":00");
   const end = new Date("1970-01-01T" + outTime + ":00");
 
   let diff = (end - start) / 1000 / 60 / 60;
 
   if (diff < 0) diff += 24;
+
+  if (tookLunch) diff -= 0.5;
+  if (diff < 0) diff = 0;
 
   return diff.toFixed(2);
 }
@@ -611,6 +619,7 @@ function rowToEntry(row) {
     timeIn: String(row.time_in).slice(0, 5),
     timeOut: String(row.time_out).slice(0, 5),
     hours: Number(row.hours).toFixed(2),
+    tookLunch: Boolean(row.took_lunch),
     nightWork: Boolean(row.night_work)
   };
 }
@@ -626,6 +635,7 @@ function entryToRow(entry) {
     time_in: entry.timeIn,
     time_out: entry.timeOut,
     hours: Number(entry.hours),
+    took_lunch: Boolean(entry.tookLunch),
     night_work: Boolean(entry.nightWork)
   };
 }
@@ -825,6 +835,7 @@ function resetTimeEntryFields() {
   document.getElementById("day").value = "";
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
+  document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
 }
 
@@ -864,6 +875,7 @@ function editEntry(entryId) {
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("timeIn").value = entry.timeIn;
   document.getElementById("timeOut").value = entry.timeOut;
+  document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
   document.getElementById("nightWork").checked = Boolean(entry.nightWork);
   setEditMode(entry);
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -887,6 +899,7 @@ async function submitTime() {
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
   const timeOut = document.getElementById("timeOut").value;
+  const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
   if (!weekStart || !jobName || !day || !timeIn || !timeOut) {
@@ -913,7 +926,8 @@ async function submitTime() {
     day,
     timeIn,
     timeOut,
-    hours: calculateHours(timeIn, timeOut),
+    hours: calculateHours(timeIn, timeOut, tookLunch),
+    tookLunch,
     nightWork
   };
 
@@ -1237,6 +1251,7 @@ function getEmailTableRows(entries) {
   const columns = [
     { label: "Job", width: 24 },
     { label: "Job #", width: 10 },
+    { label: "Lunch", width: 7 },
     { label: "Night", width: 7 },
     { label: "Time", width: 13 },
     { label: "Hours", width: 6 }
@@ -1254,6 +1269,7 @@ function getEmailTableRows(entries) {
     const values = [
       entry.jobName,
       entry.jobNumber,
+      entry.tookLunch ? "Yes" : "No",
       entry.nightWork ? "Yes" : "No",
       entry.timeIn + "-" + entry.timeOut,
       Number(entry.hours).toFixed(2)
@@ -1315,6 +1331,7 @@ function renderPreviousWeeks() {
           <tr>
             <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
             <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
+            <td data-label="Lunch"><input type="checkbox" disabled ${entry.tookLunch ? "checked" : ""} /></td>
             <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
             <td data-label="Time">${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
             <td data-label="Hours"><b>${Number(entry.hours).toFixed(2)}</b></td>
@@ -1330,6 +1347,7 @@ function renderPreviousWeeks() {
               <tr>
                 <th>Job Name</th>
                 <th>Job Number</th>
+                <th>Lunch</th>
                 <th>Night Work</th>
                 <th>Time</th>
                 <th>Hours</th>
