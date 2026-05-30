@@ -5,6 +5,13 @@ const inspectionSupabaseClient = window.supabase
     ? window.supabase.createClient(INSPECTION_SUPABASE_URL, INSPECTION_SUPABASE_KEY)
     : null;
 
+function setInspectionSaveStatus(message) {
+    const status = document.getElementById("inspectionSaveStatus");
+    if (status) {
+        status.textContent = message || "";
+    }
+}
+
 function getCurrentWorker() {
     return {
         key: localStorage.getItem("currentWorker"),
@@ -135,6 +142,7 @@ function buildInspectionEmail(type, fields, rows) {
 
 async function saveInspection(type) {
     const worker = getCurrentWorker();
+    setInspectionSaveStatus("Saving inspection...");
 
     if (!worker.key) {
         window.location.href = "index.html";
@@ -142,6 +150,7 @@ async function saveInspection(type) {
     }
 
     if (!inspectionSupabaseClient) {
+        setInspectionSaveStatus("");
         alert("Supabase is not available right now. Please try again.");
         return;
     }
@@ -173,11 +182,12 @@ async function saveInspection(type) {
         .insert(record);
 
     if (error) {
-        alert("This inspection could not be saved. Please try again.");
+        setInspectionSaveStatus("");
+        alert("This inspection could not be saved. Please try again. " + (error.message || ""));
         return;
     }
 
-    alert("Inspection saved.");
+    setInspectionSaveStatus("Inspection saved.");
     window.location.href = "previous-inspections.html";
 }
 
