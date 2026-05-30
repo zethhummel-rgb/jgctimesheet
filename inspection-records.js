@@ -20,6 +20,11 @@ function getCurrentWorker() {
 }
 
 function getFieldLabel(field) {
+    const parentLabel = field.closest("label");
+    if (parentLabel) {
+        return parentLabel.innerText.trim();
+    }
+
     const id = field.getAttribute("id");
     if (id) {
         const label = document.querySelector(`label[for="${id}"]`);
@@ -84,7 +89,9 @@ function collectTableRows() {
     const rows = [];
     document.querySelectorAll("table").forEach((table, tableIndex) => {
         table.querySelectorAll("tbody tr, table > tr").forEach((row) => {
-            const cells = Array.from(row.children).map((cell) => {
+            const cells = Array.from(row.children)
+            .filter((cell) => !cell.classList.contains("delete-cell") && !cell.classList.contains("delete-column"))
+            .map((cell) => {
                 const values = [];
                 cell.querySelectorAll("input, select, textarea").forEach((field) => {
                     if (field.type === "hidden") {
