@@ -71,6 +71,19 @@
       background: #48514a;
     }
 
+    .home-button {
+      width: auto;
+      padding: 5px 10px;
+      margin-left: 8px;
+      margin-bottom: 0;
+      background: #5f6a62;
+      font-size: 12px;
+    }
+
+    .home-button:hover {
+      background: #48514a;
+    }
+
     h2 {
       margin-top: 0;
       margin-bottom: 5px;
@@ -427,7 +440,12 @@ if (!currentUser) {
 function showCurrentUser() {
   document.getElementById("currentUser").innerHTML =
     'Signed in as: ' + escapeHtml(currentUserDisplay || currentUser) +
+    ' <button type="button" class="home-button" onclick="goHome()">Home</button>' +
     ' <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>';
+}
+
+function goHome() {
+  window.location.href = "home.html";
 }
 
 function signOut() {
