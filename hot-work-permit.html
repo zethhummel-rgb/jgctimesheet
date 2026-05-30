@@ -210,50 +210,50 @@ button:hover {
 
 <div class="grid">
     <div>
-        <label>Date</label>
-        <input type="date">
+        <label for="hotWorkDate">Date</label>
+        <input id="hotWorkDate" type="date">
     </div>
 
     <div>
-        <label>Location / Building / Floor</label>
-        <input type="text">
+        <label for="hotWorkLocation">Location / Building / Floor</label>
+        <input id="hotWorkLocation" type="text">
     </div>
 
     <div>
-        <label>Time Started</label>
-        <input type="time">
+        <label for="hotWorkStart">Time Started</label>
+        <input id="hotWorkStart" type="time">
     </div>
 
     <div>
-        <label>Time Completed</label>
-        <input type="time">
+        <label for="hotWorkEnd">Time Completed</label>
+        <input id="hotWorkEnd" type="time">
     </div>
 </div>
 
 <br>
 
-<label>Work To Be Done</label>
-<textarea></textarea>
+<label for="hotWorkDescription">Work To Be Done</label>
+<textarea id="hotWorkDescription"></textarea>
 
 <br>
 <br>
 
 <label>Hot Work By</label>
 <div class="radio-stack">
-    <label><input type="radio" name="workerType">Employee</label>
-    <label><input type="radio" name="workerType">Contractor</label>
+    <label><input type="radio" name="workerType" value="Employee">Employee</label>
+    <label><input type="radio" name="workerType" value="Contractor">Contractor</label>
 </div>
 
 <br>
 
-<label>Name of Person Doing Hot Work</label>
-<input type="text">
+<label for="hotWorkPerson">Name of Person Doing Hot Work</label>
+<input id="hotWorkPerson" type="text">
 
 <br>
 <br>
 
-<label>Permit Authorizing Individual</label>
-<input type="text">
+<label for="hotWorkAuthorizer">Permit Authorizing Individual</label>
+<input id="hotWorkAuthorizer" type="text">
 
 <div class="section">
 <h3>General Requirements</h3>
@@ -298,8 +298,8 @@ button:hover {
 <div class="section">
 <h3>Extended Monitoring Required?</h3>
 <div class="radio-stack">
-    <label><input type="radio" name="extended">Yes</label>
-    <label><input type="radio" name="extended">No</label>
+    <label><input type="radio" name="extended" value="Yes">Yes</label>
+    <label><input type="radio" name="extended" value="No">No</label>
 </div>
 </div>
 
