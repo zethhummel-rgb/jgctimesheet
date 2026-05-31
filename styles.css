@@ -1,0 +1,55 @@
+:root {
+  --jgc-green: #3f7d4d;
+  --jgc-green-dark: #0b5e3b;
+  --jgc-ink: #1f2a24;
+  --jgc-muted: #58635c;
+  --jgc-page: #8f9691;
+  --jgc-card: #fbfcf9;
+  --jgc-border: #c6cec5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  color: var(--jgc-ink);
+}
+
+.logo-wrap {
+  text-align: center;
+}
+
+.logo-wrap img {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+}
+
+.jgc-card,
+.card,
+.container,
+.panel {
+  border-radius: 8px;
+}
+
+.jgc-actions,
+.actions,
+.tabs {
+  gap: 8px;
+}
+
+button,
+.file-link {
+  font-family: inherit;
+}
+
+.small,
+.status,
+.user-bar {
+  line-height: 1.35;
+}
+
+.table-wrap {
+  max-width: 100%;
+}
