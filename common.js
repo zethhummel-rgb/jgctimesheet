@@ -418,6 +418,40 @@ function activateJgcContactsFeature() {
   activateAdminContactsTab();
 }
 
+function isValidTimesheetEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+
+  return Boolean(String(entry.jobName || "").trim())
+    && Boolean(String(entry.day || "").trim())
+    && Boolean(String(entry.weekStartValue || entry.weekStart || "").trim())
+    && Number(entry.hours || 0) > 0;
+}
+
+function activateTimesheetEntryCleanupFeature() {
+  if (!/timesheet\.html$/i.test(window.location.pathname) || window.__jgcTimesheetEntryCleanupWrapped) {
+    return;
+  }
+
+  const originalLoadTimesheets = typeof loadTimesheets === "function" ? loadTimesheets : null;
+  const originalSetTimesheets = typeof setTimesheets === "function" ? setTimesheets : null;
+
+  if (originalLoadTimesheets) {
+    window.loadTimesheets = function() {
+      return originalLoadTimesheets().filter(isValidTimesheetEntry);
+    };
+  }
+
+  if (originalSetTimesheets) {
+    window.setTimesheets = function(entries) {
+      originalSetTimesheets(Array.isArray(entries) ? entries.filter(isValidTimesheetEntry) : []);
+    };
+  }
+
+  window.__jgcTimesheetEntryCleanupWrapped = true;
+}
+
 function activateTimesheetDeleteFeature() {
   if (!/timesheet\.html$/i.test(window.location.pathname)) {
     return;
@@ -523,8 +557,15 @@ function activateTimesheetDeleteFeature() {
 
     editTable.querySelectorAll(".edit-button").forEach((button) => {
       const cell = button.closest("td");
+      const row = button.closest("tr");
 
-      if (!cell || cell.querySelector(".delete-entry-button")) {
+      if (!cell || !row || cell.querySelector(".delete-entry-button")) {
+        return;
+      }
+
+      const rowText = row.textContent.replace(/\s+/g, " ").trim();
+
+      if (!rowText || rowText === "Edit" || rowText === "Actions") {
         return;
       }
 
@@ -897,6 +938,7 @@ function activateTimesheetCalendarFeature() {
 
 function activateJgcEnhancements() {
   activateJgcContactsFeature();
+  activateTimesheetEntryCleanupFeature();
   activateTimesheetCalendarFeature();
   activateTimesheetDeleteFeature();
 }
