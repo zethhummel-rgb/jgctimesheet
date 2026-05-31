@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telehandler Inspection Checklist</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1300px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1300px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    margin: 0;
+    text-align: center;
+    color: #2f6f3c;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin: 8px 0 18px;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+input[type=text],
+input[type=date],
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 80px;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+    background: white;
+}
+
+th,
+td {
+    border: 1px solid #999;
+    padding: 6px;
+    text-align: center;
+}
+
+th {
+    background: #e6ece6;
+}
+
+td.item {
+    text-align: left;
+    font-weight: bold;
+    min-width: 250px;
+}
+
+.choice {
+    width: 44px;
+}
+
+.bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .details-grid,
+    .bottom-grid {
+        grid-template-columns: 1fr;
+    }
+
+    table {
+        font-size: 13px;
+    }
+
+    th,
+    td {
+        padding: 5px;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div class="user-bar" id="userBar"></div>
+
+<div class="container">
+<h1>Telehandler Inspection and Daily Checklist</h1>
+<div class="subtitle">All checks must be carried out in line with manufacturer's operator manual.</div>
+
+<div class="details-grid">
+    <div class="field"><label>Make and Model</label><input type="text"></div>
+    <div class="field"><label>Plant or Serial No.</label><input type="text"></div>
+    <div class="field"><label>Machine Hours</label><input type="text"></div>
+    <div class="field"><label>Week Commencing</label><input type="date"></div>
+    <div class="field"><label>Site Location</label><input type="text"></div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Inspection Item</th>
+<th>Monday Defective</th><th>Monday Okay</th>
+<th>Tuesday Defective</th><th>Tuesday Okay</th>
+<th>Wednesday Defective</th><th>Wednesday Okay</th>
+<th>Thursday Defective</th><th>Thursday Okay</th>
+<th>Friday Defective</th><th>Friday Okay</th>
+<th>Saturday Defective</th><th>Saturday Okay</th>
+<th>Sunday Defective</th><th>Sunday Okay</th>
+</tr>
+</thead>
+<tbody id="telehandlerRows"></tbody>
+</table>
+</div>
+
+<div class="bottom-grid">
+    <div class="field"><label>Operator Name</label><input type="text"></div>
+    <div class="field"><label>Signature</label><input type="text"></div>
+</div>
+
+<div class="field">
+    <label>Comments</label>
+    <textarea></textarea>
+</div>
+
+<div class="actions">
+    <button onclick="handleInspectionSave('Tele Handler')">Save</button>
+    <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+<div id="inspectionSaveStatus"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="inspection-records.js?v=3"></script>
+<script>
+const workerName = localStorage.getItem("currentWorker");
+const workerDisplay = localStorage.getItem("currentWorkerDisplay") || workerName;
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const inspectionItems = [
+    "Engine oil level / Leaks",
+    "Fuel Level / Leaks",
+    "Coolant Level / Leaks",
+    "Hydraulic Oil Level / Leaks",
+    "Wheels and Tires",
+    "Boom Sections",
+    "Carriage / Forks / Stabilisers / Attachments",
+    "Bonnet / Covers / Panels",
+    "Counterweight/Counterweight Bolts",
+    "Cab / Seat Belt",
+    "Brakes / Parking Brake",
+    "Control Leavers",
+    "Beacons / Mirrors / Windows / Wipers",
+    "Gauges and Instrumentation",
+    "Rated Capacity Plate Readable",
+    "Reversing/360 Camera"
+];
+
+if (!workerName) {
+    window.location.href = "index.html";
+}
+
+document.getElementById("userBar").textContent = workerDisplay ? "Signed in as: " + workerDisplay : "";
+
+document.getElementById("telehandlerRows").innerHTML = inspectionItems.map((item, itemIndex) => {
+    const dayCells = days.map((day) => `
+        <td class="choice"><input type="radio" name="tele_${itemIndex}_${day}" value="Defective"></td>
+        <td class="choice"><input type="radio" name="tele_${itemIndex}_${day}" value="Okay"></td>
+    `).join("");
+
+    return `<tr><td class="item">${item}</td>${dayCells}</tr>`;
+}).join("");
+
+function handleInspectionSave(type) {
+    if (typeof saveInspection !== "function") {
+        alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    saveInspection(type);
+}
+
+function signOut() {
+    localStorage.removeItem("currentWorker");
+    localStorage.removeItem("currentWorkerDisplay");
+    window.location.href = "index.html";
+}
+</script>
+</body>
+</html>
