@@ -277,6 +277,31 @@ function buildInspectionPdfHtml(record) {
                 <tbody>${inspectionRows}</tbody>
             </table>
         `;
+    } else if (typeKey === "tele handler") {
+        heading = "Telehandler Inspection and Daily Checklist";
+        inspectionRows = rows
+            .filter((row) => (row.cells || [])[0])
+            .map((row) => {
+                const cells = row.cells || [];
+                return `
+                    <tr>
+                        <td>${escapeInspectionHtml(cells[0])}</td>
+                        <td>${escapeInspectionHtml(cells[1])}</td>
+                        <td>${escapeInspectionHtml(cells[3])}</td>
+                        <td>${escapeInspectionHtml(cells[5])}</td>
+                        <td>${escapeInspectionHtml(cells[7])}</td>
+                        <td>${escapeInspectionHtml(cells[9])}</td>
+                        <td>${escapeInspectionHtml(cells[11])}</td>
+                        <td>${escapeInspectionHtml(cells[13])}</td>
+                    </tr>
+                `;
+            }).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>Inspection Item</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
     } else {
         inspectionRows = rows.map((row) => `
             <tr>${(row.cells || []).map((cell) => `<td>${escapeInspectionHtml(cell)}</td>`).join("")}</tr>
