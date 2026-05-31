@@ -189,6 +189,7 @@ button:hover,
     <button id="timesheetsTab" class="tab-button active" onclick="showTab('timesheets')">Timesheets</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
+    <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
@@ -456,9 +457,15 @@ function renderCertificates() {
     `;
 }
 
-function signOut() {
+async function signOut() {
+    if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+    }
+
     localStorage.removeItem("currentWorker");
     localStorage.removeItem("currentWorkerDisplay");
+    localStorage.removeItem("currentUserEmail");
+    localStorage.removeItem("currentUserRole");
     window.location.href = "index.html";
 }
 
