@@ -280,8 +280,8 @@ document.getElementById("userBar").textContent = workerDisplay ? "Signed in as: 
 
 document.getElementById("telehandlerRows").innerHTML = inspectionItems.map((item, itemIndex) => {
     const dayCells = days.map((day) => `
-        <td class="choice"><input type="radio" name="tele_${itemIndex}_${day}" value="Defective"></td>
-        <td class="choice"><input type="radio" name="tele_${itemIndex}_${day}" value="Okay"></td>
+        <td class="choice"><input aria-label="${day} Defective" type="radio" name="tele_${itemIndex}_${day}" value="Defective"></td>
+        <td class="choice"><input aria-label="${day} Okay" type="radio" name="tele_${itemIndex}_${day}" value="Okay"></td>
     `).join("");
 
     return `<tr><td class="item">${item}</td>${dayCells}</tr>`;
