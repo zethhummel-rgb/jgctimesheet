@@ -405,8 +405,155 @@ function activateJgcContactsFeature() {
   activateAdminContactsTab();
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", activateJgcContactsFeature);
-} else {
+function activateTimesheetDeleteFeature() {
+  if (!/timesheet\.html$/i.test(window.location.pathname)) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .delete-entry-button {
+      width: auto;
+      min-width: 72px;
+      padding: 6px 10px;
+      margin: 0 0 0 6px;
+      font-size: 12px;
+      background: #8b2e2e !important;
+      color: #ffffff !important;
+    }
+
+    .delete-entry-button:hover {
+      background: #692222 !important;
+    }
+  `;
+  document.head.appendChild(style);
+
+  window.deleteTimesheetEntry = async function(entryId) {
+    if (typeof loadTimesheets !== "function") {
+      alert("Entries are still loading. Please try again.");
+      return;
+    }
+
+    const entry = loadTimesheets().find(function(item) {
+      return item.id === entryId;
+    });
+
+    if (!entry) {
+      alert("This entry could not be found.");
+      return;
+    }
+
+    if (!confirm("Delete this entry for " + entry.day + " - " + entry.jobName + "?")) {
+      return;
+    }
+
+    const status = document.getElementById("submitStatus");
+
+    if (status) {
+      status.innerText = "Deleting entry...";
+    }
+
+    const client = createJgcSupabaseClient();
+    const worker = normalizeWorkerName(localStorage.getItem("currentWorker"));
+
+    if (client) {
+      const { error } = await client
+        .from("timesheet_entries")
+        .delete()
+        .eq("id", entryId)
+        .eq("worker_name", worker);
+
+      if (error) {
+        if (status) {
+          status.innerText = "Could not delete this entry.";
+        }
+        return;
+      }
+    }
+
+    if (typeof cancelEdit === "function") {
+      cancelEdit();
+    }
+
+    if (typeof setTimesheets === "function") {
+      setTimesheets(loadTimesheets().filter(function(item) {
+        return item.id !== entryId;
+      }));
+    }
+
+    if (status) {
+      status.innerText = "Entry deleted.";
+    }
+
+    if (typeof render === "function") {
+      render();
+    }
+
+    if (typeof updateJobSuggestions === "function") {
+      updateJobSuggestions();
+    }
+  };
+
+  function addDeleteButtons() {
+    const editTable = document.querySelector(".edit-table");
+
+    if (!editTable) {
+      return;
+    }
+
+    const actionHeader = Array.from(editTable.querySelectorAll("th"))
+      .find((header) => header.textContent.trim() === "Edit");
+
+    if (actionHeader) {
+      actionHeader.textContent = "Actions";
+    }
+
+    editTable.querySelectorAll(".edit-button").forEach((button) => {
+      const cell = button.closest("td");
+
+      if (!cell || cell.querySelector(".delete-entry-button")) {
+        return;
+      }
+
+      const match = String(button.getAttribute("onclick") || "").match(/editEntry\('([^']+)'\)/);
+      const entryId = match ? match[1] : "";
+
+      if (!entryId) {
+        return;
+      }
+
+      cell.setAttribute("data-label", "Actions");
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "delete-entry-button";
+      deleteButton.textContent = "Delete";
+      deleteButton.addEventListener("click", function() {
+        window.deleteTimesheetEntry(entryId);
+      });
+      cell.appendChild(deleteButton);
+    });
+  }
+
+  const originalRender = typeof render === "function" ? render : null;
+
+  if (originalRender && !window.__jgcTimesheetDeleteWrapped) {
+    window.render = function() {
+      originalRender();
+      addDeleteButtons();
+    };
+    window.__jgcTimesheetDeleteWrapped = true;
+  }
+
+  addDeleteButtons();
+}
+
+function activateJgcEnhancements() {
   activateJgcContactsFeature();
+  activateTimesheetDeleteFeature();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", activateJgcEnhancements);
+} else {
+  activateJgcEnhancements();
 }
