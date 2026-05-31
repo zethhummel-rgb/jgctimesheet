@@ -2,6 +2,20 @@ const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const JGC_ADMIN_WORKERS = ["zeth hummel", "jeff vandrish"];
 
+function applyJgcTheme() {
+  if (!document.body || document.querySelector(".app-shell")) {
+    return;
+  }
+
+  document.body.classList.add("jgc-theme");
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", applyJgcTheme);
+} else {
+  applyJgcTheme();
+}
+
 function createJgcSupabaseClient() {
   return window.supabase
     ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY)
