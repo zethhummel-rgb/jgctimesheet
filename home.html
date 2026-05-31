@@ -3,7 +3,7 @@
 <head>
   <title>John Gordon Construction</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
   <style>
     :root {
       --app-bg: #07100f;
@@ -390,6 +390,45 @@
       align-items: center;
     }
 
+    .announcement-panel {
+      margin-top: 22px;
+      padding: 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+
+    .announcement-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .announcement-item {
+      display: grid;
+      grid-template-columns: 54px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(199, 221, 211, 0.12);
+    }
+
+    .announcement-item h2 {
+      margin: 0 0 5px;
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1.15;
+    }
+
+    .announcement-file {
+      color: var(--green);
+      font-weight: 800;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
     .footer {
       display: flex;
       justify-content: space-between;
@@ -563,6 +602,18 @@
         grid-template-columns: 54px 1fr auto;
       }
 
+      .announcement-panel {
+        margin-top: 0;
+      }
+
+      .announcement-item {
+        grid-template-columns: 46px 1fr;
+      }
+
+      .announcement-file {
+        grid-column: 2;
+      }
+
       .mobile-bottom-nav {
         position: fixed;
         left: 0;
@@ -731,6 +782,11 @@
         </div>
       </section>
 
+      <section id="announcementsPanel" class="announcement-panel" hidden>
+        <div class="section-title" style="margin:0;">Announcements</div>
+        <div id="announcementsList" class="announcement-list"></div>
+      </section>
+
       <section class="overview">
         <div class="section-title">Today's Overview</div>
         <div class="overview-grid">
@@ -797,14 +853,6 @@
         </button>
       </section>
 
-      <section class="announcement">
-        <span class="info-icon"><i data-lucide="megaphone"></i></span>
-        <div>
-          <div class="section-title" style="margin: 0 0 6px;">Announcement</div>
-          <div>Safety meeting Friday at 7:00 AM in the yard.</div>
-        </div>
-        <i class="arrow" data-lucide="chevron-right"></i>
-      </section>
     </main>
   </div>
 
@@ -832,7 +880,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -840,6 +888,8 @@ const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
 const currentUserRole = worker.role;
 const isAdmin = isAdminWorker(currentWorker, currentUserRole);
+let announcements = [];
+let announcementUrls = {};
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
 document.getElementById("roleText").innerText = isAdmin ? "Administrator" : "Employee";
@@ -853,6 +903,7 @@ if (isAdmin) {
 
 setCurrentDate();
 loadDashboardStats();
+loadAnnouncements();
 renderIcons();
 
 function renderIcons() {
@@ -993,6 +1044,69 @@ function buildVacationQuery() {
     .eq("status", "pending");
 
   return isAdmin ? query : query.eq("worker_name", currentWorker);
+}
+
+async function loadAnnouncements() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("announcements")
+    .select("*")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  if (error) {
+    return;
+  }
+
+  announcements = data || [];
+  await prepareAnnouncementUrls();
+  renderAnnouncements();
+}
+
+async function prepareAnnouncementUrls() {
+  announcementUrls = {};
+
+  for (const announcement of announcements) {
+    if (!announcement.file_path) {
+      continue;
+    }
+
+    const { data } = await supabaseClient
+      .storage
+      .from("announcements")
+      .createSignedUrl(announcement.file_path, 604800);
+
+    if (data && data.signedUrl) {
+      announcementUrls[announcement.id] = data.signedUrl;
+    }
+  }
+}
+
+function renderAnnouncements() {
+  const panel = document.getElementById("announcementsPanel");
+  const list = document.getElementById("announcementsList");
+
+  if (!announcements.length) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  list.innerHTML = announcements.map((announcement) => `
+    <article class="announcement-item">
+      <span class="info-icon"><i data-lucide="megaphone"></i></span>
+      <div>
+        <h2>${escapeHtml(announcement.title)}</h2>
+        <div class="muted">${escapeHtml(announcement.body || "")}</div>
+      </div>
+      ${announcementUrls[announcement.id] ? '<a class="announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : ""}
+    </article>
+  `).join("");
+  renderIcons();
 }
 
 async function signOut() {
