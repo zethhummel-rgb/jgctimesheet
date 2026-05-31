@@ -547,8 +547,344 @@ function activateTimesheetDeleteFeature() {
   addDeleteButtons();
 }
 
+function activateTimesheetCalendarFeature() {
+  if (!/timesheet\.html$/i.test(window.location.pathname) || document.getElementById("timesheetCalendar")) {
+    return;
+  }
+
+  const formCard = document.querySelector(".form-card");
+
+  if (!formCard) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .calendar-card {
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .timesheet-calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .timesheet-calendar-header button {
+      width: auto;
+      min-width: 92px;
+      margin: 0;
+      background: #5f6a62 !important;
+      color: #ffffff !important;
+    }
+
+    .timesheet-calendar-title {
+      font-weight: bold;
+      color: #39c848;
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .timesheet-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .calendar-day-name {
+      padding: 6px 4px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #f5f7f3;
+    }
+
+    .timesheet-day {
+      min-height: 72px;
+      border: 1px solid #c5cec1;
+      border-radius: 6px;
+      background: #ffffff !important;
+      color: #1f2a24 !important;
+      padding: 6px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .timesheet-day:hover {
+      border-color: #3f7d4d;
+      box-shadow: inset 0 0 0 2px #d9ead5;
+    }
+
+    .timesheet-day.outside-month {
+      opacity: 0.38;
+    }
+
+    .timesheet-day.current-week {
+      background: #e8f4e4 !important;
+      border-color: #3f7d4d;
+    }
+
+    .timesheet-day.selected-day {
+      background: #3f7d4d !important;
+      color: #ffffff !important;
+      border-color: #2f6f3c;
+    }
+
+    .timesheet-day-number {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .timesheet-day-meta {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 720px) {
+      .timesheet-calendar-header {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .timesheet-day {
+        min-height: 58px;
+        padding: 5px;
+      }
+
+      .timesheet-day-number {
+        font-size: 13px;
+      }
+
+      .timesheet-day-meta {
+        font-size: 10px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const calendarCard = document.createElement("div");
+  calendarCard.className = "card calendar-card";
+  calendarCard.innerHTML = `
+    <div class="timesheet-calendar-header">
+      <button type="button" id="timesheetCalendarPrevious">Previous</button>
+      <div id="timesheetCalendarTitle" class="timesheet-calendar-title"></div>
+      <button type="button" id="timesheetCalendarNext">Next</button>
+    </div>
+    <div id="timesheetCalendar" class="timesheet-calendar-grid"></div>
+    <div class="small">Pick a date to start an entry for that day. The selected week stays highlighted.</div>
+  `;
+  formCard.parentNode.insertBefore(calendarCard, formCard);
+
+  let calendarMonth = new Date();
+  let selectedCalendarDate = new Date();
+
+  function getDayNames() {
+    return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  }
+
+  function makeDateValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  }
+
+  function makeDateFromValue(value) {
+    const parts = String(value).split("-");
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function getWeekStartDate(date) {
+    const weekStart = new Date(date);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(date.getDate() - date.getDay());
+    return weekStart;
+  }
+
+  function getDateForEntry(entry) {
+    if (!entry.weekStartValue || !entry.day) {
+      return null;
+    }
+
+    const dayIndex = getDayNames().indexOf(entry.day);
+
+    if (dayIndex < 0) {
+      return null;
+    }
+
+    const date = makeDateFromValue(entry.weekStartValue);
+    date.setDate(date.getDate() + dayIndex);
+    return date;
+  }
+
+  function getHoursForDate(date) {
+    if (typeof loadTimesheets !== "function") {
+      return 0;
+    }
+
+    const targetValue = makeDateValue(date);
+
+    return loadTimesheets().reduce(function(total, entry) {
+      const entryDate = getDateForEntry(entry);
+
+      if (!entryDate || makeDateValue(entryDate) !== targetValue) {
+        return total;
+      }
+
+      return total + Number(entry.hours || 0);
+    }, 0);
+  }
+
+  function getSelectedWeekStart() {
+    const input = document.getElementById("weekStart");
+
+    if (input && input.value) {
+      return makeDateFromValue(input.value);
+    }
+
+    return getWeekStartDate(selectedCalendarDate);
+  }
+
+  function getDayHtml(date, visibleMonth, selectedWeekStart, selectedWeekEnd, selectedValue) {
+    const dateValue = makeDateValue(date);
+    const hours = getHoursForDate(date);
+    const classes = ["timesheet-day"];
+
+    if (date.getMonth() !== visibleMonth) {
+      classes.push("outside-month");
+    }
+
+    if (selectedWeekStart.getTime() <= date.getTime() && date.getTime() <= selectedWeekEnd.getTime()) {
+      classes.push("current-week");
+    }
+
+    if (dateValue === selectedValue) {
+      classes.push("selected-day");
+    }
+
+    return `
+      <button type="button" class="${classes.join(" ")}" data-timesheet-date="${dateValue}">
+        <div class="timesheet-day-number">${date.getDate()}</div>
+        <div class="timesheet-day-meta">${hours ? hours.toFixed(2) + " hrs" : ""}</div>
+      </button>
+    `;
+  }
+
+  function renderCalendar() {
+    const calendar = document.getElementById("timesheetCalendar");
+    const title = document.getElementById("timesheetCalendarTitle");
+
+    if (!calendar || !title) {
+      return;
+    }
+
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const selectedWeekStart = getSelectedWeekStart();
+    const selectedWeekEnd = new Date(selectedWeekStart);
+    selectedWeekEnd.setDate(selectedWeekStart.getDate() + 6);
+    const selectedValue = makeDateValue(selectedCalendarDate);
+    const cells = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      .map((name) => '<div class="calendar-day-name">' + name + '</div>');
+
+    title.innerText = firstDay.toLocaleDateString("en-CA", {
+      month: "long",
+      year: "numeric"
+    });
+
+    for (let i = 0; i < firstDay.getDay(); i++) {
+      const date = new Date(year, month, 1 - firstDay.getDay() + i);
+      cells.push(getDayHtml(date, month, selectedWeekStart, selectedWeekEnd, selectedValue));
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      cells.push(getDayHtml(new Date(year, month, day), month, selectedWeekStart, selectedWeekEnd, selectedValue));
+    }
+
+    while ((cells.length - 7) % 7 !== 0) {
+      const date = new Date(year, month, lastDay.getDate() + ((cells.length - 7) % 7) + 1);
+      cells.push(getDayHtml(date, month, selectedWeekStart, selectedWeekEnd, selectedValue));
+    }
+
+    calendar.innerHTML = cells.join("");
+    calendar.querySelectorAll("[data-timesheet-date]").forEach((button) => {
+      button.addEventListener("click", function() {
+        selectCalendarDate(button.dataset.timesheetDate);
+      });
+    });
+  }
+
+  function selectCalendarDate(dateValue) {
+    const date = makeDateFromValue(dateValue);
+    selectedCalendarDate = date;
+    calendarMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+
+    const weekStartInput = document.getElementById("weekStart");
+    weekStartInput.value = dateValue;
+
+    if (typeof validateSunday === "function") {
+      validateSunday(weekStartInput);
+    }
+
+    const daySelect = document.getElementById("day");
+
+    if (daySelect) {
+      daySelect.value = getDayNames()[date.getDay()];
+    }
+
+    renderCalendar();
+    formCard.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  document.getElementById("timesheetCalendarPrevious").addEventListener("click", function() {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    renderCalendar();
+  });
+
+  document.getElementById("timesheetCalendarNext").addEventListener("click", function() {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    renderCalendar();
+  });
+
+  const originalRender = typeof render === "function" ? render : null;
+
+  if (originalRender && !window.__jgcTimesheetCalendarWrapped) {
+    window.render = function() {
+      originalRender();
+      renderCalendar();
+    };
+    window.__jgcTimesheetCalendarWrapped = true;
+  }
+
+  const weekStartInput = document.getElementById("weekStart");
+
+  if (weekStartInput) {
+    weekStartInput.addEventListener("change", function() {
+      if (weekStartInput.value) {
+        selectedCalendarDate = makeDateFromValue(weekStartInput.value);
+        calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
+      }
+
+      renderCalendar();
+    });
+  }
+
+  renderCalendar();
+}
+
 function activateJgcEnhancements() {
   activateJgcContactsFeature();
+  activateTimesheetCalendarFeature();
   activateTimesheetDeleteFeature();
 }
 
