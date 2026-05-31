@@ -164,6 +164,15 @@ function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
 }
 
+function getAppPageUrl(pageName) {
+  const path = window.location.pathname;
+  const folder = path.endsWith("/")
+    ? path
+    : path.substring(0, path.lastIndexOf("/") + 1);
+
+  return window.location.origin + folder + pageName;
+}
+
 async function clearSession() {
   if (supabaseClient) {
     await supabaseClient.auth.signOut();
@@ -291,6 +300,7 @@ async function signUp() {
     email,
     password,
     options: {
+      emailRedirectTo: getAppPageUrl("index.html"),
       data: {
         display_name: displayName,
         worker_key: workerKey
@@ -327,7 +337,7 @@ async function resetPassword() {
   }
 
   const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href.replace(/index\.html.*$/, "reset-password.html")
+    redirectTo: getAppPageUrl("reset-password.html")
   });
 
   if (error) {
