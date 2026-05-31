@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vacation Request</title>
+<link rel="stylesheet" href="styles.css?v=1">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 760px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 760px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    color: #2f6f3c;
+    margin: 0 0 6px;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 18px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.full {
+    grid-column: 1 / -1;
+}
+
+label {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.status {
+    margin-top: 12px;
+    min-height: 20px;
+    font-weight: bold;
+    color: #2f6f3c;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .logo-wrap {
+        max-width: 260px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div id="currentUser" class="user-bar"></div>
+
+<div class="container">
+    <h1>Vacation Request</h1>
+    <div class="subtitle">Submit a request for review</div>
+
+    <div class="grid">
+        <div class="field">
+            <label for="employeeName">Employee Name</label>
+            <input id="employeeName" type="text">
+        </div>
+
+        <div class="field">
+            <label for="requestDate">Request Date</label>
+            <input id="requestDate" type="date">
+        </div>
+
+        <div class="field">
+            <label for="startDate">First Day Off</label>
+            <input id="startDate" type="date" onchange="updateTotalDays()">
+        </div>
+
+        <div class="field">
+            <label for="endDate">Last Day Off</label>
+            <input id="endDate" type="date" onchange="updateTotalDays()">
+        </div>
+
+        <div class="field">
+            <label for="returnDate">Return To Work Date</label>
+            <input id="returnDate" type="date">
+        </div>
+
+        <div class="field">
+            <label for="totalDays">Requested Work Days</label>
+            <input id="totalDays" type="number" min="0" step="0.5">
+        </div>
+
+        <div class="field full">
+            <label for="requestType">Request Type</label>
+            <select id="requestType">
+                <option>Vacation</option>
+                <option>Unpaid Time Off</option>
+                <option>Personal Day</option>
+                <option>Other</option>
+            </select>
+        </div>
+
+        <div class="field full">
+            <label for="reason">Notes</label>
+            <textarea id="reason" placeholder="Optional notes for this request"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="employeeSignature">Employee Signature</label>
+            <input id="employeeSignature" type="text" placeholder="Type your name">
+        </div>
+    </div>
+
+    <div class="actions">
+        <button type="button" onclick="submitVacationRequest()">Submit Vacation Request</button>
+        <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+        <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+    </div>
+
+    <div id="saveStatus" class="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
+<script>
+const VACATION_EMAIL = "zeth@johngordonconstruction.com";
+const VACATION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+
+document.getElementById("currentUser").textContent = "Signed in as: " + worker.display;
+document.getElementById("employeeName").value = worker.display || worker.key || "";
+document.getElementById("employeeSignature").value = worker.display || "";
+document.getElementById("requestDate").value = new Date().toISOString().slice(0, 10);
+
+function getValue(id) {
+    return document.getElementById(id).value.trim();
+}
+
+function countWeekdays(startValue, endValue) {
+    if (!startValue || !endValue) {
+        return 0;
+    }
+
+    const start = new Date(startValue + "T00:00:00");
+    const end = new Date(endValue + "T00:00:00");
+
+    if (end < start) {
+        return 0;
+    }
+
+    let days = 0;
+    const current = new Date(start);
+
+    while (current <= end) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) {
+            days += 1;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+
+    return days;
+}
+
+function updateTotalDays() {
+    const total = countWeekdays(getValue("startDate"), getValue("endDate"));
+    document.getElementById("totalDays").value = total || "";
+}
+
+function buildVacationEmailBody(record) {
+    return [
+        "Vacation Request",
+        "Employee: " + record.worker_display_name,
+        "Request Date: " + record.request_date,
+        "",
+        "First Day Off: " + record.start_date,
+        "Last Day Off: " + record.end_date,
+        "Return To Work Date: " + (record.return_date || ""),
+        "Requested Work Days: " + record.total_days,
+        "Request Type: " + record.request_type,
+        "",
+        "Notes:",
+        record.reason || "",
+        "",
+        "Employee Signature: " + record.employee_signature,
+        "Status: Pending"
+    ].join("\n");
+}
+
+function buildVacationPdfHtml(record) {
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; color: #1f2a24; }
+                h1 { text-align: center; color: #2f6f3c; margin-bottom: 4px; }
+                h2 { text-align: center; margin-top: 0; font-size: 15px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+                th, td { border: 1px solid #777; padding: 8px; font-size: 12px; text-align: left; vertical-align: top; }
+                th { width: 34%; background: #e6ece6; }
+                .signature { height: 42px; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction</h1>
+            <h2>Vacation Request Form</h2>
+            <table>
+                <tr><th>Employee Name</th><td>${escapeHtml(record.worker_display_name)}</td></tr>
+                <tr><th>Request Date</th><td>${escapeHtml(record.request_date)}</td></tr>
+                <tr><th>First Day Off</th><td>${escapeHtml(record.start_date)}</td></tr>
+                <tr><th>Last Day Off</th><td>${escapeHtml(record.end_date)}</td></tr>
+                <tr><th>Return To Work Date</th><td>${escapeHtml(record.return_date || "")}</td></tr>
+                <tr><th>Requested Work Days</th><td>${escapeHtml(record.total_days)}</td></tr>
+                <tr><th>Request Type</th><td>${escapeHtml(record.request_type)}</td></tr>
+                <tr><th>Notes</th><td>${escapeHtml(record.reason || "")}</td></tr>
+                <tr><th>Employee Signature</th><td class="signature">${escapeHtml(record.employee_signature)}</td></tr>
+                <tr><th>Status</th><td>Pending</td></tr>
+            </table>
+        </body>
+        </html>
+    `;
+}
+
+function setStatus(message) {
+    document.getElementById("saveStatus").textContent = message || "";
+}
+
+async function emailVacationRequest(record) {
+    if (!VACATION_EMAIL_SCRIPT_URL) {
+        window.location.href = "mailto:" + VACATION_EMAIL +
+            "?subject=" + encodeURIComponent("Vacation Request - " + record.worker_display_name) +
+            "&body=" + encodeURIComponent(record.email_body);
+        return;
+    }
+
+    await fetch(VACATION_EMAIL_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+            subject: "Vacation Request - " + record.worker_display_name + " - " + record.start_date,
+            body: record.email_body,
+            text: record.email_body,
+            pdfHtml: buildVacationPdfHtml(record),
+            pdfFileName: "vacation-request-" + record.worker_name.replace(/[^a-z0-9]+/g, "-") + "-" + record.start_date + ".pdf"
+        })
+    });
+}
+
+async function submitVacationRequest() {
+    const employeeName = getValue("employeeName");
+    const requestDate = getValue("requestDate");
+    const startDate = getValue("startDate");
+    const endDate = getValue("endDate");
+    const totalDays = Number(getValue("totalDays"));
+    const employeeSignature = getValue("employeeSignature");
+
+    if (!employeeName || !requestDate || !startDate || !endDate || !totalDays || !employeeSignature) {
+        alert("Please fill in employee name, request date, dates off, requested work days, and signature.");
+        return;
+    }
+
+    if (new Date(endDate + "T00:00:00") < new Date(startDate + "T00:00:00")) {
+        alert("Last Day Off cannot be before First Day Off.");
+        return;
+    }
+
+    const record = {
+        worker_name: normalizeWorkerName(worker.key),
+        worker_display_name: employeeName,
+        request_date: requestDate,
+        start_date: startDate,
+        end_date: endDate,
+        return_date: getValue("returnDate") || null,
+        total_days: totalDays,
+        request_type: getValue("requestType"),
+        reason: getValue("reason"),
+        employee_signature: employeeSignature,
+        status: "pending",
+        form_data: {
+            employeeName,
+            requestDate,
+            startDate,
+            endDate,
+            returnDate: getValue("returnDate"),
+            totalDays,
+            requestType: getValue("requestType"),
+            reason: getValue("reason"),
+            employeeSignature
+        }
+    };
+    record.email_body = buildVacationEmailBody(record);
+
+    setStatus("Saving vacation request...");
+
+    const { error } = await supabaseClient
+        .from("vacation_requests")
+        .insert(record);
+
+    if (error) {
+        setStatus("");
+        alert("This vacation request could not be saved. " + (error.message || ""));
+        return;
+    }
+
+    setStatus("Sending vacation request email...");
+
+    try {
+        await emailVacationRequest(record);
+        alert("Vacation request submitted and emailed.");
+    } catch (error) {
+        alert("Vacation request was saved, but the email could not be sent.");
+    }
+
+    window.location.href = "home.html";
+}
+
+async function signOut() {
+    await signOutJgc(supabaseClient);
+}
+</script>
+</body>
+</html>
