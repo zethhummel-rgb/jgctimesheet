@@ -153,6 +153,167 @@ function buildInspectionEmail(type, fields, rows) {
     return lines.join("\n");
 }
 
+function escapeInspectionHtml(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function getInspectionFields(record) {
+    return record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+}
+
+function getInspectionRows(record) {
+    return record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+}
+
+function buildInspectionPdfHtml(record) {
+    const type = String(record.inspection_type || "Inspection");
+    const typeKey = type.toLowerCase();
+    const fields = getInspectionFields(record);
+    const rows = getInspectionRows(record);
+    const fieldRows = fields
+        .filter((field) => field.value)
+        .map((field) => `
+            <tr>
+                <th>${escapeInspectionHtml(field.label)}</th>
+                <td>${escapeInspectionHtml(field.value)}</td>
+            </tr>
+        `).join("");
+
+    let inspectionRows = "";
+    let heading = "Inspection Details";
+
+    if (typeKey === "jsa") {
+        heading = "Job Safety Analysis";
+        inspectionRows = rows
+            .filter((row) => (row.cells || []).slice(0, 3).some(Boolean))
+            .map((row) => `
+                <tr>
+                    <td>${escapeInspectionHtml((row.cells || [])[0])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[1])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[2])}</td>
+                </tr>
+            `).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>Sequence of Basic Job Steps</th><th>Potential Hazards</th><th>Required Action or Procedure</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
+    } else if (typeKey === "aerial lifts") {
+        heading = "Aerial Lift Pre-Use Inspection";
+        inspectionRows = rows
+            .filter((row) => /^\d+$/.test(String((row.cells || [])[0] || "").trim()))
+            .map((row) => `
+                <tr>
+                    <td>${escapeInspectionHtml((row.cells || [])[0])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[1])}</td>
+                    <td>${escapeInspectionHtml((row.cells || []).slice(2).find(Boolean) || "")}</td>
+                </tr>
+            `).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>#</th><th>Inspection Item and Description</th><th>P/F/N/A</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
+    } else if (typeKey === "harness") {
+        heading = "Harness Inspection Checklist";
+        inspectionRows = rows
+            .filter((row) => (row.cells || []).length >= 4)
+            .map((row) => `
+                <tr>
+                    <td>${escapeInspectionHtml((row.cells || [])[0])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[1])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[2])}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[3])}</td>
+                </tr>
+            `).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>Component Part</th><th>Possible Defect</th><th>Current Condition</th><th>Pass / Fail</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
+    } else if (typeKey === "hot work permit") {
+        heading = "Hot Work Permit";
+        inspectionRows = fields
+            .filter((field) => field.value === "Yes" || field.value === "No" || field.value === "Employee" || field.value === "Contractor")
+            .map((field) => `
+                <tr>
+                    <td>${escapeInspectionHtml(field.label)}</td>
+                    <td>${escapeInspectionHtml(field.value)}</td>
+                </tr>
+            `).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>Requirement</th><th>Confirmed</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
+    } else if (typeKey === "fork lift") {
+        heading = "Daily Forklift Inspection";
+        inspectionRows = rows
+            .filter((row) => /^\d+\./.test(String((row.cells || [])[0] || "").trim()) || /^\d+\./.test(String((row.cells || [])[4] || "").trim()))
+            .map((row) => `
+                <tr>
+                    <td>${escapeInspectionHtml((row.cells || [])[0])}</td>
+                    <td>${escapeInspectionHtml((row.cells || []).slice(1, 4).find(Boolean) || "")}</td>
+                    <td>${escapeInspectionHtml((row.cells || [])[4])}</td>
+                    <td>${escapeInspectionHtml((row.cells || []).slice(5, 8).find(Boolean) || "")}</td>
+                </tr>
+            `).join("");
+        inspectionRows = `
+            <table>
+                <thead><tr><th>Visual Inspection</th><th>Result</th><th>Operational Inspection</th><th>Result</th></tr></thead>
+                <tbody>${inspectionRows}</tbody>
+            </table>
+        `;
+    } else {
+        inspectionRows = rows.map((row) => `
+            <tr>${(row.cells || []).map((cell) => `<td>${escapeInspectionHtml(cell)}</td>`).join("")}</tr>
+        `).join("");
+        inspectionRows = `<table><tbody>${inspectionRows}</tbody></table>`;
+    }
+
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; color: #1f2a24; }
+                h1 { color: #2f6f3c; margin-bottom: 4px; }
+                h2 { color: #2f6f3c; margin-top: 18px; }
+                .meta { margin-bottom: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+                th, td { border: 1px solid #999; padding: 6px; font-size: 11px; text-align: left; vertical-align: top; }
+                th { background: #e6ece6; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction</h1>
+            <h2>${escapeInspectionHtml(heading)}</h2>
+            <div class="meta">
+                <div><b>Date:</b> ${escapeInspectionHtml(record.inspection_date || "")}</div>
+                <div><b>Completed By:</b> ${escapeInspectionHtml(record.worker_display_name || record.worker_name || "")}</div>
+            </div>
+            ${fieldRows ? `<h2>Form Details</h2><table><tbody>${fieldRows}</tbody></table>` : ""}
+            <h2>${escapeInspectionHtml(heading)} Items</h2>
+            ${inspectionRows}
+        </body>
+        </html>
+    `;
+}
+
 async function saveInspection(type) {
     const worker = getCurrentWorker();
     setInspectionSaveStatus("Saving inspection...");
@@ -236,6 +397,7 @@ async function emailInspectionRecord(record) {
                 subject,
                 body,
                 text: body,
+                pdfHtml: buildInspectionPdfHtml(record),
                 inspectionType: record.inspection_type || "Inspection",
                 inspectionDate: record.inspection_date || "",
                 completedBy: record.worker_display_name || record.worker_name || "",
