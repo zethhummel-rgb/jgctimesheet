@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Forklift Inspection</title>
+<link rel="stylesheet" href="styles.css?v=1">
 
 <style>
 body {
@@ -275,6 +276,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
@@ -296,15 +298,7 @@ function handleInspectionSave(type) {
 }
 
 async function signOut() {
-    if (inspectionSupabaseClient) {
-        await inspectionSupabaseClient.auth.signOut();
-    }
-
-    localStorage.removeItem("currentWorker");
-    localStorage.removeItem("currentWorkerDisplay");
-    localStorage.removeItem("currentUserEmail");
-    localStorage.removeItem("currentUserRole");
-    window.location.href = "index.html";
+    await signOutJgc(inspectionSupabaseClient);
 }
 </script>
 </body>
