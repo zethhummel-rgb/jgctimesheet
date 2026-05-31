@@ -499,13 +499,13 @@
 
       .topbar {
         grid-template-columns: 1fr 1fr;
-        gap: 18px;
-        min-height: 255px;
-        padding: 28px 22px 30px;
+        gap: 12px;
+        min-height: 128px;
+        padding: 16px 18px;
       }
 
       .logo-wrap img {
-        width: 170px;
+        width: 132px;
       }
 
       .profile-block {
@@ -513,7 +513,7 @@
       }
 
       .profile-name {
-        font-size: 24px;
+        font-size: 20px;
       }
 
       .date-chip,
@@ -646,20 +646,21 @@
     @media (max-width: 620px) {
       .topbar {
         grid-template-columns: 1fr 1.2fr;
-        padding: 28px 18px;
+        min-height: 118px;
+        padding: 14px 14px;
       }
 
       .logo-wrap img {
-        width: 145px;
+        width: 112px;
       }
 
       .profile-icon {
-        width: 42px;
-        height: 42px;
+        width: 34px;
+        height: 34px;
       }
 
       .profile-name {
-        font-size: 22px;
+        font-size: 17px;
       }
 
       .overview-grid {
@@ -731,7 +732,7 @@
         <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i>Inspections</button>
         <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i>Certificates</button>
         <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
-        <button type="button" class="side-link" onclick="comingSoon('Contacts')"><i data-lucide="phone"></i>Contacts</button>
+        <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
         <button id="sideAdminButton" type="button" class="side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
       </nav>
 
@@ -839,7 +840,7 @@
           <p>Request time off and view approvals</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="comingSoon('Contacts')">
+        <button type="button" class="feature-card" onclick="goTo('contacts.html')">
           <span class="card-icon"><i data-lucide="phone"></i></span>
           <h2>Contacts</h2>
           <p>Company and emergency contacts</p>
@@ -873,7 +874,7 @@
 
 <div id="moreSheet" class="more-sheet">
   <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
-  <button type="button" onclick="comingSoon('Contacts')"><i data-lucide="phone"></i>Contacts</button>
+  <button type="button" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
   <button id="mobileAdminButton" type="button" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
   <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
 </div>
