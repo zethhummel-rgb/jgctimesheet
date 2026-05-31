@@ -1,4 +1,5 @@
 const INSPECTION_EMAIL = "zeth@johngordonconstruction.com";
+const INSPECTION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const INSPECTION_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const INSPECTION_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const inspectionSupabaseClient = window.supabase
@@ -203,13 +204,48 @@ async function saveInspection(type) {
     window.location.href = "todays-inspections.html";
 }
 
-function emailInspectionRecord(record) {
+function openInspectionMailto(record) {
+    const subject = encodeURIComponent(`${record.inspection_type} - ${record.inspection_date || ""}`);
+    const body = encodeURIComponent(record.email_body || "");
+    window.location.href = `mailto:${INSPECTION_EMAIL}?subject=${subject}&body=${body}`;
+}
+
+async function emailInspectionRecord(record) {
     if (!record) {
         alert("This inspection could not be found.");
         return;
     }
 
-    const subject = encodeURIComponent(`${record.inspection_type} - ${record.inspection_date || ""}`);
-    const body = encodeURIComponent(record.email_body || "");
-    window.location.href = `mailto:${INSPECTION_EMAIL}?subject=${subject}&body=${body}`;
+    const subject = `${record.inspection_type} - ${record.inspection_date || ""}`;
+    const body = record.email_body || "";
+
+    if (!INSPECTION_EMAIL_SCRIPT_URL) {
+        alert("Automatic inspection email is not set up yet. Your email app will open instead.");
+        openInspectionMailto(record);
+        return;
+    }
+
+    try {
+        await fetch(INSPECTION_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                subject,
+                body,
+                text: body,
+                inspectionType: record.inspection_type || "Inspection",
+                inspectionDate: record.inspection_date || "",
+                completedBy: record.worker_display_name || record.worker_name || "",
+                pdfFileName: `inspection-${String(record.inspection_type || "inspection").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${record.inspection_date || "record"}.pdf`
+            })
+        });
+
+        alert("Inspection email sent.");
+    } catch (error) {
+        alert("Automatic inspection email could not be sent. Your email app will open instead.");
+        openInspectionMailto(record);
+    }
 }
