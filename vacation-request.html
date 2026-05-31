@@ -127,6 +127,14 @@ button:hover {
     background: #354039;
 }
 
+.delete-button {
+    background: #b42318;
+}
+
+.delete-button:hover {
+    background: #8f1d14;
+}
+
 .status {
     margin-top: 12px;
     min-height: 20px;
@@ -626,6 +634,7 @@ function renderVacationHistory() {
                     <th>Type</th>
                     <th>Status</th>
                     <th>Admin Note</th>
+                    <th>Delete</th>
                 </tr>
             </thead>
             <tbody>
@@ -639,11 +648,41 @@ function renderVacationHistory() {
                         <td>${escapeHtml(request.request_type)}</td>
                         <td><span class="status-pill ${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span></td>
                         <td>${escapeHtml(request.admin_note || "")}</td>
+                        <td><button type="button" class="delete-button" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
                     </tr>
                 `).join("")}
             </tbody>
         </table>
     `;
+}
+
+async function deleteVacationRequest(id) {
+    const request = myVacationRequests.find((item) => item.id === id);
+
+    if (!request) {
+        alert("This vacation request could not be found.");
+        return;
+    }
+
+    const confirmed = confirm("Delete this vacation request?");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("vacation_requests")
+        .delete()
+        .eq("id", id)
+        .eq("worker_name", normalizeWorkerName(worker.key));
+
+    if (error) {
+        alert("This vacation request could not be deleted. " + (error.message || ""));
+        return;
+    }
+
+    myVacationRequests = myVacationRequests.filter((item) => item.id !== id);
+    renderVacationHistory();
 }
 
 async function loadMyVacationRequests() {
