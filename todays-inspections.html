@@ -1341,6 +1341,7 @@ function downloadTeleHandlerPdf(record) {
         y += 9;
     });
 
+    const detailBottomY = y + 2;
     let tableY = 25;
     days.forEach((day, index) => {
         drawBoxText(doc, day, tableX + dayW * index, tableY, dayW, 8, { bold: true, fontSize: 7 });
@@ -1348,10 +1349,11 @@ function downloadTeleHandlerPdf(record) {
         drawBoxText(doc, "Okay", tableX + dayW * index + dayW / 2, tableY + 8, dayW / 2, 11, { bold: true, fontSize: 5, maxLines: 2 });
     });
     tableY += 19;
+    const itemStartY = Math.max(tableY, detailBottomY);
 
     const rowH = 6.4;
     rows.forEach((row, rowIndex) => {
-        const rowY = tableY + rowH * rowIndex;
+        const rowY = itemStartY + rowH * rowIndex;
         drawBoxText(doc, row.item, margin, rowY, leftW, rowH, { fontSize: 7, maxLines: 1 });
 
         row.days.forEach((value, dayIndex) => {
@@ -1361,7 +1363,7 @@ function downloadTeleHandlerPdf(record) {
         });
     });
 
-    const bottomY = tableY + rowH * rows.length + 8;
+    const bottomY = itemStartY + rowH * rows.length + 8;
     drawBoxText(doc, `Operator Name:\n${fieldValue("Operator Name")}`, margin, bottomY, leftW, 13, { fontSize: 8 });
     drawBoxText(doc, `Signature:\n${fieldValue("Signature")}`, margin, bottomY + 13, leftW, 13, { fontSize: 8 });
     drawBoxText(doc, `Comments:\n${fieldValue("Comments")}`, tableX, bottomY, usable - leftW - 6, 26, { fontSize: 8, maxLines: 3 });
