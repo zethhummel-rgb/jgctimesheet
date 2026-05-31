@@ -53,3 +53,169 @@ button,
 .table-wrap {
   max-width: 100%;
 }
+
+.jgc-theme {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(31, 126, 56, 0.34), transparent 28rem),
+    linear-gradient(135deg, #050908 0%, #0c1717 45%, #07100f 100%) !important;
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme .logo-wrap img {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+}
+
+.jgc-theme h1,
+.jgc-theme h2,
+.jgc-theme h3,
+.jgc-theme .subtitle,
+.jgc-theme .user-bar {
+  color: #f5f7f3 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.jgc-theme h2,
+.jgc-theme h3 {
+  color: #39c848 !important;
+}
+
+.jgc-theme .card,
+.jgc-theme .container,
+.jgc-theme .panel {
+  background: rgba(15, 27, 27, 0.9) !important;
+  color: #f5f7f3 !important;
+  border: 1px solid rgba(199, 221, 211, 0.16) !important;
+  border-top: 4px solid #39c848 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.34) !important;
+}
+
+.jgc-theme .menu-button,
+.jgc-theme .inspection-card,
+.jgc-theme .record-card,
+.jgc-theme .week-card {
+  background: rgba(15, 27, 27, 0.9) !important;
+  color: #f5f7f3 !important;
+  border: 1px solid rgba(199, 221, 211, 0.16) !important;
+  border-top: 4px solid #39c848 !important;
+  box-shadow: inset 0 -5px 0 rgba(57, 200, 72, 0.42), 0 14px 30px rgba(0, 0, 0, 0.22) !important;
+}
+
+.jgc-theme .small,
+.jgc-theme .status,
+.jgc-theme .muted,
+.jgc-theme .helper,
+.jgc-theme p {
+  color: #bac4bd !important;
+}
+
+.jgc-theme label,
+.jgc-theme strong {
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme input,
+.jgc-theme select,
+.jgc-theme textarea {
+  background: rgba(247, 249, 244, 0.08) !important;
+  color: #f5f7f3 !important;
+  border: 1px solid rgba(199, 221, 211, 0.26) !important;
+}
+
+.jgc-theme input:focus,
+.jgc-theme select:focus,
+.jgc-theme textarea:focus {
+  border-color: #39c848 !important;
+  outline: 2px solid rgba(57, 200, 72, 0.24) !important;
+}
+
+.jgc-theme input::placeholder,
+.jgc-theme textarea::placeholder {
+  color: rgba(245, 247, 243, 0.55) !important;
+}
+
+.jgc-theme table {
+  background: rgba(8, 18, 18, 0.88) !important;
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme th {
+  background: rgba(57, 200, 72, 0.16) !important;
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme td {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme th,
+.jgc-theme td {
+  border-color: rgba(199, 221, 211, 0.18) !important;
+}
+
+.jgc-theme .card button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na),
+.jgc-theme .container button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na),
+.jgc-theme .panel button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na),
+.jgc-theme .tabs button:not(.active):not(.active-tab),
+.jgc-theme .file-link {
+  background: #13843f !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.jgc-theme .card button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na):hover,
+.jgc-theme .container button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na):hover,
+.jgc-theme .panel button:not(.delete-button):not(.status-btn):not(.pass):not(.fail):not(.na):hover,
+.jgc-theme .file-link:hover {
+  background: #0d6a32 !important;
+}
+
+.jgc-theme .secondary,
+.jgc-theme .tabs button,
+.jgc-theme .tab-button {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme .active,
+.jgc-theme .active-tab,
+.jgc-theme .tab-button.active {
+  background: #39c848 !important;
+  color: #07100f !important;
+}
+
+.jgc-theme .delete-button {
+  background: #b42318 !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 720px) {
+  .jgc-theme {
+    padding: 10px !important;
+  }
+
+  .jgc-theme .card,
+  .jgc-theme .container,
+  .jgc-theme .panel {
+    padding: 14px !important;
+  }
+}
+
+@media print {
+  .jgc-theme {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .jgc-theme .card,
+  .jgc-theme .container,
+  .jgc-theme .panel,
+  .jgc-theme table,
+  .jgc-theme th,
+  .jgc-theme td {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+}
