@@ -127,13 +127,21 @@
   <button type="button" class="menu-button" onclick="window.location.href='certificates.html'">Certificates</button>
   <button type="button" class="menu-button" onclick="window.location.href='inspections.html'">Inspections</button>
   <button id="adminButton" type="button" class="menu-button" onclick="window.location.href='admin.html'" hidden>Admin</button>
+  <button id="accountsButton" type="button" class="menu-button" onclick="window.location.href='accounts.html'" hidden>Accounts</button>
 </div>
 
 <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
+const currentUserRole = localStorage.getItem("currentUserRole");
 
 if (!currentWorker) {
   window.location.href = "index.html";
@@ -142,17 +150,25 @@ if (!currentWorker) {
 document.getElementById("currentUser").innerText = "Signed in as: " + currentWorkerDisplay;
 
 const adminNames = ["zeth hummel", "jeff vandrish"];
-if (adminNames.includes(String(currentWorker || "").trim().toLowerCase())) {
+if (currentUserRole === "admin" || adminNames.includes(String(currentWorker || "").trim().toLowerCase())) {
   document.getElementById("adminButton").hidden = false;
+  document.getElementById("accountsButton").hidden = false;
 }
 
 function comingSoon(sectionName) {
   alert(sectionName + " will be added soon.");
 }
 
-function signOut() {
+async function signOut() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+
   localStorage.removeItem("currentWorker");
   localStorage.removeItem("currentWorkerDisplay");
+  localStorage.removeItem("currentUserEmail");
+  localStorage.removeItem("currentUserRole");
+  localStorage.removeItem("currentAccountStatus");
   window.location.href = "index.html";
 }
 </script>
