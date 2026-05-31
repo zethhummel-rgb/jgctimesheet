@@ -76,12 +76,17 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 8px;
     border: 1px solid #bcc7bc;
     border-radius: 4px;
+}
+
+textarea {
+    resize: vertical;
 }
 
 .table-wrap {
@@ -190,6 +195,7 @@ button:hover,
     <button id="timesheetsTab" class="tab-button active" onclick="showTab('timesheets')">Timesheets</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
+    <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
@@ -242,6 +248,26 @@ button:hover,
     <div id="certificatesList" class="small">Loading certificates...</div>
 </div>
 
+<div id="vacationSection" class="card" hidden>
+    <h2>Vacation Requests</h2>
+    <div class="filters">
+        <div>
+            <label>Worker</label>
+            <input id="vacationWorkerFilter" oninput="renderVacationRequests()" placeholder="Filter worker">
+        </div>
+        <div>
+            <label>Status</label>
+            <select id="vacationStatusFilter" onchange="renderVacationRequests()">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="denied">Denied</option>
+            </select>
+        </div>
+    </div>
+    <div id="vacationList" class="small">Loading vacation requests...</div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=1"></script>
 <script>
@@ -252,6 +278,7 @@ const currentWorkerDisplay = worker.display;
 let timesheets = [];
 let inspections = [];
 let certificates = [];
+let vacationRequests = [];
 let certificateUrls = {};
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -262,7 +289,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "inspections", "certificates"].forEach((name) => {
+    ["timesheets", "inspections", "certificates", "vacation"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -299,19 +326,22 @@ async function loadAdminData() {
         return;
     }
 
-    const [timesheetResult, inspectionResult, certificateResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
-        supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true })
+        supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
+        supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false })
     ]);
 
     timesheets = timesheetResult.data || [];
     inspections = inspectionResult.data || [];
     certificates = certificateResult.data || [];
+    vacationRequests = vacationResult.data || [];
     await prepareCertificateUrls();
     renderTimesheets();
     renderInspections();
     renderCertificates();
+    renderVacationRequests();
 }
 
 async function prepareCertificateUrls() {
@@ -432,6 +462,109 @@ function renderCertificates() {
             </table>
         </div>
     `;
+}
+
+function formatVacationStatus(status) {
+    const value = String(status || "pending");
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function renderVacationRequests() {
+    const workerFilter = document.getElementById("vacationWorkerFilter").value.trim().toLowerCase();
+    const statusFilter = document.getElementById("vacationStatusFilter").value;
+    const list = document.getElementById("vacationList");
+    const filtered = vacationRequests.filter((request) => {
+        const worker = String(request.worker_display_name || request.worker_name || "").toLowerCase();
+        const status = String(request.status || "pending");
+        return (!workerFilter || worker.includes(workerFilter)) && (!statusFilter || status === statusFilter);
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No vacation requests found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Worker</th>
+                        <th>Dates</th>
+                        <th>Days</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Admin Note</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((request) => `
+                        <tr>
+                            <td>${escapeHtml(request.worker_display_name || request.worker_name)}</td>
+                            <td>
+                                ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
+                                ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                            </td>
+                            <td>${Number(request.total_days || 0).toFixed(1)}</td>
+                            <td>${escapeHtml(request.request_type)}</td>
+                            <td><b>${escapeHtml(formatVacationStatus(request.status))}</b></td>
+                            <td>${escapeHtml(request.reason || "")}</td>
+                            <td>
+                                <textarea id="vacationNote-${request.id}" rows="3" placeholder="Optional note">${escapeHtml(request.admin_note || "")}</textarea>
+                                ${request.reviewed_by ? '<div class="small">Reviewed by ' + escapeHtml(request.reviewed_by) + ' on ' + escapeHtml(formatDate(request.reviewed_at)) + '</div>' : ""}
+                            </td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
+                                    <button type="button" class="secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function reviewVacationRequest(id, status) {
+    const request = vacationRequests.find((item) => item.id === id);
+
+    if (!request) {
+        alert("This vacation request could not be found.");
+        return;
+    }
+
+    const confirmed = confirm((status === "approved" ? "Approve" : "Deny") + " this vacation request?");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const noteField = document.getElementById("vacationNote-" + id);
+    const adminNote = noteField ? noteField.value.trim() : "";
+    const { data, error } = await supabaseClient
+        .from("vacation_requests")
+        .update({
+            status,
+            admin_note: adminNote,
+            reviewed_by: currentWorkerDisplay,
+            reviewed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+    if (error) {
+        alert("This vacation request could not be updated. " + (error.message || ""));
+        return;
+    }
+
+    vacationRequests = vacationRequests.map((item) => item.id === id ? data : item);
+    renderVacationRequests();
 }
 
 async function signOut() {
