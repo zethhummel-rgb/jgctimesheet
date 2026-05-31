@@ -945,6 +945,77 @@ function downloadForkliftPdf(record) {
     doc.save(`fork-lift-${record.inspection_date || "inspection"}.pdf`);
 }
 
+function getTelehandlerRows(record) {
+    const rows = record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+
+    return rows
+        .map((row) => row.cells || [])
+        .filter((cells) => cells[0])
+        .map((cells) => ({
+            item: cells[0],
+            days: [cells[1], cells[3], cells[5], cells[7], cells[9], cells[11], cells[13]]
+        }));
+}
+
+function downloadTeleHandlerPdf(record) {
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
+    const margin = 8;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usable = pageWidth - margin * 2;
+    let y = 10;
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const fields = record.form_data && Array.isArray(record.form_data.fields) ? record.form_data.fields : [];
+    const rows = getTelehandlerRows(record);
+    const fieldValue = (label) => {
+        const field = fields.find((item) => String(item.label || "").toLowerCase() === label.toLowerCase());
+        return field ? field.value || "" : "";
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    doc.text("TELEHANDLER INSPECTION AND DAILY CHECKLIST", pageWidth / 2, y, { align: "center" });
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("All checks must be carried out in line with Manufacturer's Operators Manual.", pageWidth / 2, y, { align: "center" });
+    y += 7;
+
+    const leftW = 78;
+    const tableX = margin + leftW + 6;
+    const dayW = (usable - leftW - 6) / 7;
+    ["Make and Model", "Plant or Serial No.", "Machine Hours", "Week Commencing", "Site Location"].forEach((label) => {
+        drawBoxText(doc, label, margin, y, 36, 9, { bold: true, fontSize: 7 });
+        drawBoxText(doc, fieldValue(label), margin + 36, y, leftW - 36, 9, { fontSize: 7 });
+        y += 9;
+    });
+
+    let tableY = 25;
+    days.forEach((day, index) => {
+        drawBoxText(doc, day, tableX + dayW * index, tableY, dayW, 8, { bold: true, fontSize: 7 });
+    });
+    tableY += 8;
+
+    const rowH = 6.4;
+    rows.forEach((row, rowIndex) => {
+        const rowY = tableY + rowH * rowIndex;
+        drawBoxText(doc, row.item, margin, rowY, leftW, rowH, { fontSize: 7, maxLines: 1 });
+
+        row.days.forEach((value, dayIndex) => {
+            const x = tableX + dayW * dayIndex;
+            drawBoxText(doc, value === "Defective" ? "X" : "", x, rowY, dayW / 2, rowH, { fontSize: 7 });
+            drawBoxText(doc, value === "Okay" ? "X" : "", x + dayW / 2, rowY, dayW / 2, rowH, { fontSize: 7 });
+        });
+    });
+
+    const bottomY = tableY + rowH * rows.length + 8;
+    drawBoxText(doc, `Operator Name:\n${fieldValue("Operator Name")}`, margin, bottomY, leftW, 13, { fontSize: 8 });
+    drawBoxText(doc, `Signature:\n${fieldValue("Signature")}`, margin, bottomY + 13, leftW, 13, { fontSize: 8 });
+    drawBoxText(doc, `Comments:\n${fieldValue("Comments")}`, tableX, bottomY, usable - leftW - 6, 26, { fontSize: 8, maxLines: 3 });
+    doc.save(`tele-handler-${record.inspection_date || "inspection"}.pdf`);
+}
+
 function downloadInspectionPdf(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -980,6 +1051,11 @@ function downloadInspectionPdf(id) {
 
     if ((record.inspection_type || "").toLowerCase() === "fork lift") {
         downloadForkliftPdf(record);
+        return;
+    }
+
+    if ((record.inspection_type || "").toLowerCase() === "tele handler") {
+        downloadTeleHandlerPdf(record);
         return;
     }
 
