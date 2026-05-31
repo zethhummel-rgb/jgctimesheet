@@ -108,6 +108,33 @@
       color: #2f6f3c;
       min-height: 18px;
     }
+
+    .toggle-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .toggle-button {
+      margin: 0;
+      border-radius: 4px 4px 0 0;
+      background: #fbfcf9;
+      color: #2f6f3c;
+      text-align: left;
+      padding: 14px 15px;
+    }
+
+    .toggle-button:hover {
+      background: #eef4ea;
+    }
+
+    .signup-panel {
+      padding: 15px;
+      border-top: 1px solid #d6ddd4;
+    }
+
+    .signup-panel[hidden] {
+      display: none;
+    }
   </style>
 </head>
 
@@ -133,20 +160,24 @@
   <div id="loginStatus" class="status"></div>
 </div>
 
-<div class="card">
-  <h3>Create Account</h3>
+<div class="card toggle-card">
+  <button id="createAccountToggle" type="button" class="toggle-button" onclick="toggleCreateAccount()">Create Account</button>
 
-  <label>Full Name</label>
-  <input id="signupName" placeholder="Example: Zeth Hummel" />
+  <div id="createAccountPanel" class="signup-panel" hidden>
+    <h3>Create Account</h3>
 
-  <label>Email</label>
-  <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+    <label>Full Name</label>
+    <input id="signupName" placeholder="Example: Zeth Hummel" />
 
-  <label>Password</label>
-  <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+    <label>Email</label>
+    <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
 
-  <button type="button" onclick="signUp()">Create Account</button>
-  <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
+    <label>Password</label>
+    <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+
+    <button type="button" onclick="signUp()">Create Account</button>
+    <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -157,6 +188,15 @@ const supabaseClient = createJgcSupabaseClient();
 
 function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
+}
+
+function toggleCreateAccount() {
+  const panel = document.getElementById("createAccountPanel");
+  const button = document.getElementById("createAccountToggle");
+  const isOpening = panel.hidden;
+
+  panel.hidden = !isOpening;
+  button.textContent = isOpening ? "Hide Create Account" : "Create Account";
 }
 
 async function clearSession() {
@@ -242,11 +282,17 @@ async function signUp() {
 
   if (!data.user) {
     setStatus("Check your email to finish account setup.");
+    alert("Account info sent. Please check your email to finish account setup.");
     return;
   }
 
   await clearSession();
   setStatus("Account request sent. Admin must approve it before you can sign in.");
+  alert("Account info sent. Admin must approve it before you can sign in.");
+  document.getElementById("signupName").value = "";
+  document.getElementById("signupEmail").value = "";
+  document.getElementById("signupPassword").value = "";
+  toggleCreateAccount();
 }
 
 async function resetPassword() {
