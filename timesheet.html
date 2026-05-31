@@ -1057,13 +1057,14 @@ async function emailEntries() {
   const subject = "Timesheet - " + getDisplayWorkerName() + " - " + weekLabel;
   const totalHours = getTotalHours(entries);
   const body = buildTimesheetEmailBody(entries, weekLabel, totalHours, note.trim());
+  const pdfHtml = buildTimesheetPdfHtml(entries, weekLabel, totalHours, note.trim());
   const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
 
   if (archiveResult.warning) {
     alert(archiveResult.warning);
   }
 
-  await sendTimesheetEmail(subject, body, weekLabel);
+  await sendTimesheetEmail(subject, body, weekLabel, pdfHtml);
 }
 
 function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
@@ -1101,6 +1102,71 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
   return lines.join("\n");
 }
 
+function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
+  const groups = getEntriesByEmailDay(entries);
+  const groupHtml = groups.map(function(group) {
+    const rows = group.entries.map(function(entry) {
+      return `
+        <tr>
+          <td>${escapeHtml(entry.jobName)}</td>
+          <td>${escapeHtml(entry.jobNumber || "")}</td>
+          <td>${entry.tookLunch ? "Yes" : "No"}</td>
+          <td>${entry.nightWork ? "Yes" : "No"}</td>
+          <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+          <td>${Number(entry.hours).toFixed(2)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <h2>${escapeHtml(group.day)}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Job Name</th>
+            <th>Job #</th>
+            <th>Lunch</th>
+            <th>Night Work</th>
+            <th>Time</th>
+            <th>Hours</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }).join("");
+
+  return `
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; color: #1f2a24; }
+        h1 { color: #2f6f3c; margin-bottom: 4px; }
+        h2 { margin-top: 22px; margin-bottom: 8px; color: #2f6f3c; }
+        .meta { margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        th, td { border: 1px solid #999; padding: 6px; font-size: 11px; text-align: left; }
+        th { background: #e6ece6; }
+        .total { margin-top: 18px; font-size: 14px; font-weight: bold; }
+        .note { margin-top: 12px; padding: 8px; border: 1px solid #999; }
+      </style>
+    </head>
+    <body>
+      <h1>John Gordon Construction Timesheet</h1>
+      <div class="meta">
+        <div><b>Worker:</b> ${escapeHtml(getDisplayWorkerName())}</div>
+        <div><b>Week:</b> ${escapeHtml(weekLabel)}</div>
+      </div>
+      ${groupHtml}
+      <div class="total">Total Hours: ${totalHours.toFixed(2)}</div>
+      ${note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(note) + '</div>' : ''}
+    </body>
+    </html>
+  `;
+}
+
 async function resubmitPreviousWeek(index) {
   const week = previousWeeks[index];
 
@@ -1118,8 +1184,9 @@ async function resubmitPreviousWeek(index) {
   const totalHours = Number(week.totalHours || getTotalHours(week.entries));
   const subject = "Timesheet - " + getDisplayWorkerName() + " - " + week.weekLabel;
   const body = buildTimesheetEmailBody(week.entries, week.weekLabel, totalHours, week.note || "");
+  const pdfHtml = buildTimesheetPdfHtml(week.entries, week.weekLabel, totalHours, week.note || "");
 
-  await sendTimesheetEmail(subject, body, week.weekLabel);
+  await sendTimesheetEmail(subject, body, week.weekLabel, pdfHtml);
 }
 
 function openTimesheetMailto(subject, body) {
@@ -1129,7 +1196,7 @@ function openTimesheetMailto(subject, body) {
     "&body=" + encodeURIComponent(body);
 }
 
-async function sendTimesheetEmail(subject, body, weekLabel) {
+async function sendTimesheetEmail(subject, body, weekLabel, pdfHtml) {
   const status = document.getElementById("submitStatus");
 
   if (status) {
@@ -1153,6 +1220,8 @@ async function sendTimesheetEmail(subject, body, weekLabel) {
         subject,
         body,
         text: body,
+        pdfHtml,
+        pdfFileName: "timesheet-" + makeSafeEmailFileName(getDisplayWorkerName() + "-" + weekLabel) + ".pdf",
         worker: getDisplayWorkerName(),
         weekLabel
       })
@@ -1167,6 +1236,13 @@ async function sendTimesheetEmail(subject, body, weekLabel) {
     alert("Automatic email could not be sent. Your email app will open instead.");
     openTimesheetMailto(subject, body);
   }
+}
+
+function makeSafeEmailFileName(value) {
+  return String(value || "timesheet")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 async function sendTimesheetEmailWithSupabase(subject, body, weekLabel) {
