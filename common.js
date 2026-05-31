@@ -2,6 +2,55 @@ const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const JGC_ADMIN_WORKERS = ["zeth hummel", "jeff vandrish"];
 
+function applyJgcPortalName() {
+  const pageTitles = {
+    "accounts.html": "Accounts",
+    "admin.html": "Admin",
+    "aerial-lifts.html": "Aerial Lift Inspection",
+    "certificates.html": "Certificates",
+    "contacts.html": "Contacts",
+    "forklift.html": "Forklift Inspection",
+    "harness.html": "Harness Inspection",
+    "home.html": "Home",
+    "hot-work-permit.html": "Hot Work Permit",
+    "index.html": "Login",
+    "inspections.html": "Inspections",
+    "jsa.html": "JSA",
+    "previous-inspections.html": "Previous Inspections",
+    "reset-password.html": "Reset Password",
+    "tele-handler.html": "Telehandler Inspection",
+    "timesheet.html": "Timesheets",
+    "todays-inspections.html": "Today's Inspections",
+    "vacation-request.html": "Vacation Request"
+  };
+  const page = window.location.pathname.split("/").pop() || "index.html";
+  const section = pageTitles[page];
+
+  document.title = section ? "JGC Portal - " + section : "JGC Portal";
+
+  if (page === "index.html") {
+    const loginTitle = document.querySelector("body > h2");
+
+    if (loginTitle) {
+      loginTitle.textContent = "JGC Portal";
+    }
+  }
+
+  if (page === "home.html") {
+    const heroTitle = document.querySelector(".hero h1");
+
+    if (heroTitle) {
+      heroTitle.textContent = "JGC Portal";
+    }
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", applyJgcPortalName);
+} else {
+  applyJgcPortalName();
+}
+
 function applyJgcTheme() {
   if (!document.body || document.querySelector(".app-shell")) {
     return;
