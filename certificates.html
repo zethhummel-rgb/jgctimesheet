@@ -532,9 +532,15 @@ function escapeHtml(value) {
   });
 }
 
-function signOut() {
+async function signOut() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+
   localStorage.removeItem("currentWorker");
   localStorage.removeItem("currentWorkerDisplay");
+  localStorage.removeItem("currentUserEmail");
+  localStorage.removeItem("currentUserRole");
   window.location.href = "index.html";
 }
 
