@@ -309,31 +309,8 @@ async function signUp() {
     return;
   }
 
-  if (!data.session) {
-    await clearSession();
-    setStatus("Account request created. Check your email, then wait for admin approval.");
-    return;
-  }
-
-  const { error: profileError } = await supabaseClient
-    .from("profiles")
-    .insert({
-      id: data.user.id,
-      email,
-      display_name: displayName,
-      worker_key: workerKey,
-      role: "worker",
-      account_status: "pending"
-    });
-
-  if (profileError) {
-    setStatus("");
-    alert("Account was created, but profile setup failed: " + profileError.message);
-    return;
-  }
-
   await clearSession();
-  setStatus("Account request sent. Admin must approve it before you can sign in.");
+  setStatus("Account request sent. Check your email if needed, then wait for admin approval.");
 }
 
 async function resetPassword() {
