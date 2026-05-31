@@ -134,6 +134,151 @@ button:hover {
     color: #2f6f3c;
 }
 
+.history {
+    margin-top: 22px;
+    border-top: 1px solid #d6ddd4;
+    padding-top: 18px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.summary-box {
+    background: #ffffff;
+    border: 1px solid #c6cec5;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+.summary-box strong {
+    display: block;
+    font-size: 20px;
+    color: #2f6f3c;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 7px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 13px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+.calendar-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 8px;
+}
+
+.calendar-controls button {
+    width: auto;
+}
+
+.calendar-title {
+    font-weight: bold;
+    color: #2f6f3c;
+    text-align: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border: 1px solid #c6cec5;
+    background: #ffffff;
+}
+
+.calendar-head,
+.calendar-day {
+    min-height: 58px;
+    border: 1px solid #d6ddd4;
+    padding: 5px;
+    box-sizing: border-box;
+    font-size: 12px;
+}
+
+.calendar-head {
+    min-height: auto;
+    background: #e6ece6;
+    font-weight: bold;
+    text-align: center;
+}
+
+.calendar-day.past {
+    background: #f1f1f1;
+    color: #7a827c;
+}
+
+.calendar-day.approved {
+    background: #dcefe1;
+    border-color: #6ca678;
+}
+
+.calendar-day.pending {
+    background: #fff3cd;
+    border-color: #d8b44b;
+}
+
+.calendar-day.denied {
+    background: #f8d7da;
+    border-color: #d98a92;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.day-label {
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    background: #e6ece6;
+}
+
+.status-pill.approved {
+    background: #dcefe1;
+    color: #245832;
+}
+
+.status-pill.pending {
+    background: #fff3cd;
+    color: #7a5b00;
+}
+
+.status-pill.denied {
+    background: #f8d7da;
+    color: #8f1d14;
+}
+
 @media (max-width: 720px) {
     body {
         padding: 10px;
@@ -149,6 +294,16 @@ button:hover {
 
     .grid {
         grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .calendar-day {
+        min-height: 48px;
+        font-size: 11px;
+        padding: 4px;
     }
 
     button {
@@ -228,6 +383,20 @@ button:hover {
     </div>
 
     <div id="saveStatus" class="status"></div>
+
+    <div class="history">
+        <h2>My Vacation Requests</h2>
+        <div id="vacationSummary" class="summary-grid"></div>
+
+        <div class="calendar-controls">
+            <button type="button" class="secondary" onclick="changeVacationMonth(-1)">Previous</button>
+            <div id="vacationCalendarTitle" class="calendar-title"></div>
+            <button type="button" class="secondary" onclick="changeVacationMonth(1)">Next</button>
+        </div>
+        <div id="vacationCalendar" class="calendar-grid"></div>
+
+        <div id="requestHistory" class="table-wrap" style="margin-top:14px;">Loading vacation requests...</div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -237,6 +406,8 @@ const VACATION_EMAIL = "zeth@johngordonconstruction.com";
 const VACATION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
+let myVacationRequests = [];
+let vacationCalendarMonth = new Date();
 
 document.getElementById("currentUser").textContent = "Signed in as: " + worker.display;
 document.getElementById("employeeName").value = worker.display || worker.key || "";
@@ -338,6 +509,166 @@ function setStatus(message) {
     document.getElementById("saveStatus").textContent = message || "";
 }
 
+function makeDate(value) {
+    return value ? new Date(value + "T00:00:00") : null;
+}
+
+function sameOrBefore(a, b) {
+    return a && b && a.getTime() <= b.getTime();
+}
+
+function statusLabel(status) {
+    const value = String(status || "pending");
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function requestIncludesDate(request, date) {
+    const start = makeDate(request.start_date);
+    const end = makeDate(request.end_date);
+
+    return sameOrBefore(start, date) && sameOrBefore(date, end);
+}
+
+function getRequestSortTime(request) {
+    const date = makeDate(request.start_date);
+    return date ? date.getTime() : 0;
+}
+
+function getBestRequestForDate(requests, date) {
+    const matches = requests.filter((request) => requestIncludesDate(request, date));
+
+    if (!matches.length) {
+        return null;
+    }
+
+    return matches.sort((a, b) => {
+        const rank = { approved: 0, pending: 1, denied: 2 };
+        return (rank[a.status] ?? 3) - (rank[b.status] ?? 3);
+    })[0];
+}
+
+function formatMonthTitle(date) {
+    return date.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
+}
+
+function changeVacationMonth(offset) {
+    vacationCalendarMonth = new Date(vacationCalendarMonth.getFullYear(), vacationCalendarMonth.getMonth() + offset, 1);
+    renderVacationCalendar();
+}
+
+function renderVacationSummary() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const approvedFuture = myVacationRequests.filter((request) => request.status === "approved" && makeDate(request.end_date) >= today).length;
+    const pending = myVacationRequests.filter((request) => request.status === "pending").length;
+    const past = myVacationRequests.filter((request) => makeDate(request.end_date) < today).length;
+
+    document.getElementById("vacationSummary").innerHTML = `
+        <div class="summary-box"><strong>${approvedFuture}</strong>Approved Upcoming</div>
+        <div class="summary-box"><strong>${pending}</strong>Pending</div>
+        <div class="summary-box"><strong>${past}</strong>Past Requests</div>
+    `;
+}
+
+function renderVacationCalendar() {
+    const calendar = document.getElementById("vacationCalendar");
+    const title = document.getElementById("vacationCalendarTitle");
+    const year = vacationCalendarMonth.getFullYear();
+    const month = vacationCalendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let html = dayNames.map((day) => `<div class="calendar-head">${day}</div>`).join("");
+
+    title.textContent = formatMonthTitle(firstDay);
+
+    for (let i = 0; i < firstDay.getDay(); i++) {
+        html += '<div class="calendar-day"></div>';
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const match = getBestRequestForDate(myVacationRequests, date);
+        const statusClass = match ? match.status : "";
+        const pastClass = date < today ? "past" : "";
+        const label = match ? statusLabel(match.status) : "";
+
+        html += `
+            <div class="calendar-day ${statusClass} ${pastClass}">
+                <div class="day-number">${day}</div>
+                <div class="day-label">${escapeHtml(label)}</div>
+            </div>
+        `;
+    }
+
+    calendar.innerHTML = html;
+}
+
+function renderVacationHistory() {
+    const history = document.getElementById("requestHistory");
+    renderVacationSummary();
+    renderVacationCalendar();
+
+    if (!myVacationRequests.length) {
+        history.innerHTML = "No vacation requests submitted yet.";
+        return;
+    }
+
+    const sorted = myVacationRequests.slice().sort((a, b) => getRequestSortTime(b) - getRequestSortTime(a));
+    history.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Dates</th>
+                    <th>Days</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Admin Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sorted.map((request) => `
+                    <tr>
+                        <td>
+                            ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
+                            ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                        </td>
+                        <td>${Number(request.total_days || 0).toFixed(1)}</td>
+                        <td>${escapeHtml(request.request_type)}</td>
+                        <td><span class="status-pill ${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span></td>
+                        <td>${escapeHtml(request.admin_note || "")}</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
+async function loadMyVacationRequests() {
+    const history = document.getElementById("requestHistory");
+
+    if (!supabaseClient) {
+        history.textContent = "Supabase is not available right now.";
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("vacation_requests")
+        .select("*")
+        .eq("worker_name", normalizeWorkerName(worker.key))
+        .order("start_date", { ascending: false });
+
+    if (error) {
+        history.textContent = "Vacation requests could not be loaded.";
+        return;
+    }
+
+    myVacationRequests = data || [];
+    renderVacationHistory();
+}
+
 async function emailVacationRequest(record) {
     if (!VACATION_EMAIL_SCRIPT_URL) {
         window.location.href = "mailto:" + VACATION_EMAIL +
@@ -427,12 +758,20 @@ async function submitVacationRequest() {
         alert("Vacation request was saved, but the email could not be sent.");
     }
 
-    window.location.href = "home.html";
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    document.getElementById("returnDate").value = "";
+    document.getElementById("totalDays").value = "";
+    document.getElementById("reason").value = "";
+    setStatus("Vacation request submitted.");
+    loadMyVacationRequests();
 }
 
 async function signOut() {
     await signOutJgc(supabaseClient);
 }
+
+loadMyVacationRequests();
 </script>
 </body>
 </html>
