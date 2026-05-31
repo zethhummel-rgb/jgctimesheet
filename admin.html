@@ -168,6 +168,116 @@ button:hover,
     color: white;
 }
 
+.calendar-panel {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #d6ddd4;
+}
+
+.calendar-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.calendar-controls button {
+    width: auto;
+}
+
+.calendar-title {
+    font-weight: bold;
+    color: #2f6f3c;
+    text-align: center;
+}
+
+.calendar-legend {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.legend-item {
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid #c6cec5;
+}
+
+.legend-item.approved {
+    background: #dcefe1;
+    color: #245832;
+}
+
+.legend-item.pending {
+    background: #fff3cd;
+    color: #7a5b00;
+}
+
+.legend-item.denied {
+    background: #f8d7da;
+    color: #8f1d14;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border: 1px solid #c6cec5;
+    background: #ffffff;
+}
+
+.calendar-head,
+.calendar-day {
+    min-height: 92px;
+    border: 1px solid #d6ddd4;
+    padding: 5px;
+    box-sizing: border-box;
+    font-size: 12px;
+}
+
+.calendar-head {
+    min-height: auto;
+    background: #e6ece6;
+    font-weight: bold;
+    text-align: center;
+}
+
+.calendar-day.past {
+    background: #f1f1f1;
+    color: #7a827c;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.calendar-request {
+    margin-top: 3px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    line-height: 1.2;
+    font-size: 11px;
+}
+
+.calendar-request.approved {
+    background: #dcefe1;
+    color: #245832;
+}
+
+.calendar-request.pending {
+    background: #fff3cd;
+    color: #7a5b00;
+}
+
+.calendar-request.denied {
+    background: #f8d7da;
+    color: #8f1d14;
+}
+
 @media (max-width: 720px) {
     body {
         padding: 10px;
@@ -178,6 +288,17 @@ button:hover,
         width: 100%;
         box-sizing: border-box;
         text-align: center;
+    }
+
+    .calendar-controls {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .calendar-day {
+        min-height: 70px;
+        font-size: 11px;
+        padding: 4px;
     }
 }
 </style>
@@ -250,6 +371,19 @@ button:hover,
 
 <div id="vacationSection" class="card" hidden>
     <h2>Vacation Requests</h2>
+    <div class="calendar-panel">
+        <div class="calendar-controls">
+            <button type="button" class="secondary" onclick="changeVacationCalendarMonth(-1)">Previous</button>
+            <div id="adminVacationCalendarTitle" class="calendar-title"></div>
+            <button type="button" class="secondary" onclick="changeVacationCalendarMonth(1)">Next</button>
+        </div>
+        <div class="calendar-legend">
+            <span class="legend-item approved">Approved</span>
+            <span class="legend-item pending">Pending</span>
+            <span class="legend-item denied">Denied</span>
+        </div>
+        <div id="adminVacationCalendar" class="calendar-grid"></div>
+    </div>
     <div class="filters">
         <div>
             <label>Worker</label>
@@ -279,6 +413,7 @@ let timesheets = [];
 let inspections = [];
 let certificates = [];
 let vacationRequests = [];
+let vacationCalendarMonth = new Date();
 let certificateUrls = {};
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -469,6 +604,74 @@ function formatVacationStatus(status) {
     return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function makeVacationDate(value) {
+    return value ? new Date(value + "T00:00:00") : null;
+}
+
+function dateIsInsideRequest(request, date) {
+    const start = makeVacationDate(request.start_date);
+    const end = makeVacationDate(request.end_date);
+
+    return start && end && start.getTime() <= date.getTime() && date.getTime() <= end.getTime();
+}
+
+function formatVacationMonthTitle(date) {
+    return date.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
+}
+
+function changeVacationCalendarMonth(offset) {
+    vacationCalendarMonth = new Date(vacationCalendarMonth.getFullYear(), vacationCalendarMonth.getMonth() + offset, 1);
+    renderVacationCalendar();
+}
+
+function renderVacationCalendar() {
+    const calendar = document.getElementById("adminVacationCalendar");
+    const title = document.getElementById("adminVacationCalendarTitle");
+
+    if (!calendar || !title) {
+        return;
+    }
+
+    const year = vacationCalendarMonth.getFullYear();
+    const month = vacationCalendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let html = dayNames.map((day) => `<div class="calendar-head">${day}</div>`).join("");
+
+    title.textContent = formatVacationMonthTitle(firstDay);
+
+    for (let i = 0; i < firstDay.getDay(); i++) {
+        html += '<div class="calendar-day"></div>';
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const matches = vacationRequests
+            .filter((request) => dateIsInsideRequest(request, date))
+            .sort((a, b) => String(a.worker_display_name || a.worker_name || "").localeCompare(String(b.worker_display_name || b.worker_name || "")));
+        const pastClass = date < today ? "past" : "";
+        const requestHtml = matches.slice(0, 4).map((request) => `
+            <div class="calendar-request ${escapeHtml(request.status || "pending")}">
+                ${escapeHtml(request.worker_display_name || request.worker_name)}
+            </div>
+        `).join("");
+        const moreHtml = matches.length > 4 ? `<div class="small">+${matches.length - 4} more</div>` : "";
+
+        html += `
+            <div class="calendar-day ${pastClass}">
+                <div class="day-number">${day}</div>
+                ${requestHtml}
+                ${moreHtml}
+            </div>
+        `;
+    }
+
+    calendar.innerHTML = html;
+}
+
 function renderVacationRequests() {
     const workerFilter = document.getElementById("vacationWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("vacationStatusFilter").value;
@@ -480,9 +683,12 @@ function renderVacationRequests() {
     });
 
     if (!filtered.length) {
+        renderVacationCalendar();
         list.textContent = "No vacation requests found.";
         return;
     }
+
+    renderVacationCalendar();
 
     list.innerHTML = `
         <div class="table-wrap">
@@ -564,6 +770,7 @@ async function reviewVacationRequest(id, status) {
     }
 
     vacationRequests = vacationRequests.map((item) => item.id === id ? data : item);
+    renderVacationCalendar();
     renderVacationRequests();
 }
 
