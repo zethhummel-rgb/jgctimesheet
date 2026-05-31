@@ -104,9 +104,13 @@ function collectTableRows() {
                         if (field.value) {
                             values.push(field.value);
                         }
-                    } else if (field.type === "radio" || field.type === "checkbox") {
+                    } else if (field.type === "radio") {
                         if (field.checked) {
-                            values.push(field.value || "Checked");
+                            values.push(field.value || "Selected");
+                        }
+                    } else if (field.type === "checkbox") {
+                        if (field.checked) {
+                            values.push(field.value && field.value !== "on" ? field.value : "Checked");
                         }
                     } else if (field.value) {
                         values.push(field.value);
@@ -286,19 +290,30 @@ function buildInspectionPdfHtml(record) {
                 return `
                     <tr>
                         <td>${escapeInspectionHtml(cells[0])}</td>
-                        <td>${escapeInspectionHtml(cells[1])}</td>
-                        <td>${escapeInspectionHtml(cells[3])}</td>
-                        <td>${escapeInspectionHtml(cells[5])}</td>
-                        <td>${escapeInspectionHtml(cells[7])}</td>
-                        <td>${escapeInspectionHtml(cells[9])}</td>
-                        <td>${escapeInspectionHtml(cells[11])}</td>
-                        <td>${escapeInspectionHtml(cells[13])}</td>
+                        <td>${cells[1] ? "X" : ""}</td><td>${cells[2] ? "X" : ""}</td>
+                        <td>${cells[3] ? "X" : ""}</td><td>${cells[4] ? "X" : ""}</td>
+                        <td>${cells[5] ? "X" : ""}</td><td>${cells[6] ? "X" : ""}</td>
+                        <td>${cells[7] ? "X" : ""}</td><td>${cells[8] ? "X" : ""}</td>
+                        <td>${cells[9] ? "X" : ""}</td><td>${cells[10] ? "X" : ""}</td>
+                        <td>${cells[11] ? "X" : ""}</td><td>${cells[12] ? "X" : ""}</td>
+                        <td>${cells[13] ? "X" : ""}</td><td>${cells[14] ? "X" : ""}</td>
                     </tr>
                 `;
             }).join("");
         inspectionRows = `
             <table>
-                <thead><tr><th>Inspection Item</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Inspection Item</th>
+                        <th>Mon Def.</th><th>Mon Okay</th>
+                        <th>Tue Def.</th><th>Tue Okay</th>
+                        <th>Wed Def.</th><th>Wed Okay</th>
+                        <th>Thu Def.</th><th>Thu Okay</th>
+                        <th>Fri Def.</th><th>Fri Okay</th>
+                        <th>Sat Def.</th><th>Sat Okay</th>
+                        <th>Sun Def.</th><th>Sun Okay</th>
+                    </tr>
+                </thead>
                 <tbody>${inspectionRows}</tbody>
             </table>
         `;
