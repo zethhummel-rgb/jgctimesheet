@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Accounts</title>
+<link rel="stylesheet" href="styles.css?v=1">
 
 <style>
 body {
@@ -224,50 +225,25 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
 <script>
-const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
-const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
-const supabaseClient = window.supabase
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-    : null;
-
-const currentWorker = String(localStorage.getItem("currentWorker") || "").trim().toLowerCase();
-const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
-const currentUserRole = localStorage.getItem("currentUserRole");
-const adminNames = ["zeth hummel", "jeff vandrish"];
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display;
+const currentUserRole = worker.role;
 let accounts = [];
 let currentUserId = "";
 
-if (!currentWorker) {
-    window.location.href = "index.html";
-}
-
-if (currentUserRole !== "admin" && !adminNames.includes(currentWorker)) {
+if (!isAdminWorker(currentWorker, currentUserRole)) {
     alert("Accounts is only available to authorized users.");
     window.location.href = "home.html";
 }
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
-function escapeHtml(value) {
-    return String(value || "").replace(/[&<>"']/g, function(character) {
-        return {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;"
-        }[character];
-    });
-}
-
 function formatDate(value) {
-    if (!value) {
-        return "";
-    }
-
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+    return formatDisplayDate(value);
 }
 
 function renderAccounts() {
@@ -405,16 +381,7 @@ async function setRole(id, role) {
 }
 
 async function signOut() {
-    if (supabaseClient) {
-        await supabaseClient.auth.signOut();
-    }
-
-    localStorage.removeItem("currentWorker");
-    localStorage.removeItem("currentWorkerDisplay");
-    localStorage.removeItem("currentUserEmail");
-    localStorage.removeItem("currentUserRole");
-    localStorage.removeItem("currentAccountStatus");
-    window.location.href = "index.html";
+    await signOutJgc(supabaseClient);
 }
 
 loadAccounts();
