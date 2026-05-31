@@ -3,6 +3,7 @@
 <head>
   <title>JGC Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css?v=1" />
   <style>
     body {
       font-family: Arial;
@@ -149,28 +150,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
+<script src="auth.js?v=1"></script>
 <script>
-const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
-const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
-const supabaseClient = window.supabase
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-  : null;
-
-function normalizeWorkerName(name) {
-  return String(name || "").trim().toLowerCase();
-}
+const supabaseClient = createJgcSupabaseClient();
 
 function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
-}
-
-function getAppPageUrl(pageName) {
-  const path = window.location.pathname;
-  const folder = path.endsWith("/")
-    ? path
-    : path.substring(0, path.lastIndexOf("/") + 1);
-
-  return window.location.origin + folder + pageName;
 }
 
 async function clearSession() {
@@ -178,67 +164,7 @@ async function clearSession() {
     await supabaseClient.auth.signOut();
   }
 
-  localStorage.removeItem("currentWorker");
-  localStorage.removeItem("currentWorkerDisplay");
-  localStorage.removeItem("currentUserEmail");
-  localStorage.removeItem("currentUserRole");
-  localStorage.removeItem("currentAccountStatus");
-}
-
-async function loadProfileAndEnter(user) {
-  let { data: profile, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (error || !profile) {
-    const displayName = user.user_metadata && user.user_metadata.display_name
-      ? user.user_metadata.display_name
-      : user.email;
-    const workerKey = user.user_metadata && user.user_metadata.worker_key
-      ? user.user_metadata.worker_key
-      : normalizeWorkerName(displayName);
-
-    const { data: createdProfile, error: createProfileError } = await supabaseClient
-      .from("profiles")
-      .insert({
-        id: user.id,
-        email: user.email,
-        display_name: displayName,
-        worker_key: workerKey,
-        role: "worker",
-        account_status: "pending"
-      })
-      .select("*")
-      .single();
-
-    if (createProfileError || !createdProfile) {
-      setStatus("Account found, but profile setup failed. Please ask admin.");
-      return;
-    }
-
-    profile = createdProfile;
-  }
-
-  if (profile.account_status === "pending") {
-    await clearSession();
-    setStatus("Your account is waiting for admin approval.");
-    return;
-  }
-
-  if (profile.account_status === "inactive") {
-    await clearSession();
-    setStatus("This account has been deactivated. Please ask admin.");
-    return;
-  }
-
-  localStorage.setItem("currentWorker", profile.worker_key);
-  localStorage.setItem("currentWorkerDisplay", profile.display_name);
-  localStorage.setItem("currentUserEmail", profile.email);
-  localStorage.setItem("currentUserRole", profile.role || "worker");
-  localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
-  window.location.href = "home.html";
+  clearJgcSession();
 }
 
 async function checkExistingSession() {
@@ -249,7 +175,7 @@ async function checkExistingSession() {
 
   const { data } = await supabaseClient.auth.getSession();
   if (data.session && data.session.user) {
-    await loadProfileAndEnter(data.session.user);
+    await loadJgcProfileAndEnter(supabaseClient, data.session.user, setStatus);
   }
 }
 
@@ -276,7 +202,7 @@ async function signIn() {
     return;
   }
 
-  await loadProfileAndEnter(data.user);
+  await loadJgcProfileAndEnter(supabaseClient, data.user, setStatus);
 }
 
 async function signUp() {
