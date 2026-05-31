@@ -955,7 +955,15 @@ function getTelehandlerRows(record) {
         .filter((cells) => cells[0])
         .map((cells) => ({
             item: cells[0],
-            days: [cells[1], cells[3], cells[5], cells[7], cells[9], cells[11], cells[13]]
+            days: [
+                { defective: cells[1], okay: cells[2] },
+                { defective: cells[3], okay: cells[4] },
+                { defective: cells[5], okay: cells[6] },
+                { defective: cells[7], okay: cells[8] },
+                { defective: cells[9], okay: cells[10] },
+                { defective: cells[11], okay: cells[12] },
+                { defective: cells[13], okay: cells[14] }
+            ]
         }));
 }
 
@@ -994,8 +1002,10 @@ function downloadTeleHandlerPdf(record) {
     let tableY = 25;
     days.forEach((day, index) => {
         drawBoxText(doc, day, tableX + dayW * index, tableY, dayW, 8, { bold: true, fontSize: 7 });
+        drawBoxText(doc, "Defective", tableX + dayW * index, tableY + 8, dayW / 2, 11, { bold: true, fontSize: 5, maxLines: 2 });
+        drawBoxText(doc, "Okay", tableX + dayW * index + dayW / 2, tableY + 8, dayW / 2, 11, { bold: true, fontSize: 5, maxLines: 2 });
     });
-    tableY += 8;
+    tableY += 19;
 
     const rowH = 6.4;
     rows.forEach((row, rowIndex) => {
@@ -1004,8 +1014,8 @@ function downloadTeleHandlerPdf(record) {
 
         row.days.forEach((value, dayIndex) => {
             const x = tableX + dayW * dayIndex;
-            drawBoxText(doc, value === "Defective" ? "X" : "", x, rowY, dayW / 2, rowH, { fontSize: 7 });
-            drawBoxText(doc, value === "Okay" ? "X" : "", x + dayW / 2, rowY, dayW / 2, rowH, { fontSize: 7 });
+            drawBoxText(doc, value.defective ? "X" : "", x, rowY, dayW / 2, rowH, { fontSize: 7 });
+            drawBoxText(doc, value.okay ? "X" : "", x + dayW / 2, rowY, dayW / 2, rowH, { fontSize: 7 });
         });
     });
 
