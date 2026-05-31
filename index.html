@@ -7,7 +7,368 @@
     body {
       font-family: Arial;
       background: #8f9691;
+      padd<!DOCTYPE html>
+<html>
+<head>
+  <title>JGC Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial;
+      background: #8f9691;
       padding: 20px;
+      margin: 0;
+      color: #1f2a24;
+    }
+
+    .logo-wrap {
+      max-width: 347px;
+      margin: 0 auto 2px;
+      text-align: center;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      max-width: 347px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    h2 {
+      max-width: 460px;
+      margin: 0 auto 5px;
+      text-align: center;
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .card {
+      max-width: 460px;
+      background: #fbfcf9;
+      padding: 15px;
+      margin: 0 auto 12px;
+      border-radius: 8px;
+      border-top: 4px solid #3f7d4d;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    }
+
+    h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #2f6f3c;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+
+    input {
+      background: #f7f9f4;
+      border: 1px solid #b8c2b2;
+      border-radius: 5px;
+    }
+
+    input:focus {
+      border-color: #3f7d4d;
+      outline: 2px solid #d9ead5;
+    }
+
+    button {
+      background: #3f7d4d;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #315f3c;
+    }
+
+    .secondary {
+      background: #5f6a62;
+    }
+
+    .secondary:hover {
+      background: #48514a;
+    }
+
+    .small {
+      font-size: 13px;
+      color: #58635c;
+      line-height: 1.35;
+    }
+
+    .status {
+      font-size: 13px;
+      font-weight: bold;
+      color: #2f6f3c;
+      min-height: 18px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="logo-wrap">
+  <img src="logo.png" alt="John Gordon Construction" />
+</div>
+
+<h2>John Gordon Construction</h2>
+
+<div class="card">
+  <h3>Sign In</h3>
+
+  <label>Email</label>
+  <input id="email" type="email" autocomplete="email" placeholder="name@example.com" onkeydown="submitOnEnter(event)" />
+
+  <label>Password</label>
+  <input id="password" type="password" autocomplete="current-password" placeholder="Password" onkeydown="submitOnEnter(event)" />
+
+  <button type="button" onclick="signIn()">Sign In</button>
+  <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
+  <div id="loginStatus" class="status"></div>
+</div>
+
+<div class="card">
+  <h3>Create Account</h3>
+
+  <label>Full Name</label>
+  <input id="signupName" placeholder="Example: Zeth Hummel" />
+
+  <label>Email</label>
+  <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+
+  <label>Password</label>
+  <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+
+  <button type="button" onclick="signUp()">Create Account</button>
+  <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+function normalizeWorkerName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function setStatus(message) {
+  document.getElementById("loginStatus").innerText = message || "";
+}
+
+function getAppPageUrl(pageName) {
+  const path = window.location.pathname;
+  const folder = path.endsWith("/")
+    ? path
+    : path.substring(0, path.lastIndexOf("/") + 1);
+
+  return window.location.origin + folder + pageName;
+}
+
+async function clearSession() {
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+
+  localStorage.removeItem("currentWorker");
+  localStorage.removeItem("currentWorkerDisplay");
+  localStorage.removeItem("currentUserEmail");
+  localStorage.removeItem("currentUserRole");
+  localStorage.removeItem("currentAccountStatus");
+}
+
+async function loadProfileAndEnter(user) {
+  let { data: profile, error } = await supabaseClient
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !profile) {
+    const displayName = user.user_metadata && user.user_metadata.display_name
+      ? user.user_metadata.display_name
+      : user.email;
+    const workerKey = user.user_metadata && user.user_metadata.worker_key
+      ? user.user_metadata.worker_key
+      : normalizeWorkerName(displayName);
+
+    const { data: createdProfile, error: createProfileError } = await supabaseClient
+      .from("profiles")
+      .insert({
+        id: user.id,
+        email: user.email,
+        display_name: displayName,
+        worker_key: workerKey,
+        role: "worker",
+        account_status: "pending"
+      })
+      .select("*")
+      .single();
+
+    if (createProfileError || !createdProfile) {
+      setStatus("Account found, but profile setup failed. Please ask admin.");
+      return;
+    }
+
+    profile = createdProfile;
+  }
+
+  if (profile.account_status === "pending") {
+    await clearSession();
+    setStatus("Your account is waiting for admin approval.");
+    return;
+  }
+
+  if (profile.account_status === "inactive") {
+    await clearSession();
+    setStatus("This account has been deactivated. Please ask admin.");
+    return;
+  }
+
+  localStorage.setItem("currentWorker", profile.worker_key);
+  localStorage.setItem("currentWorkerDisplay", profile.display_name);
+  localStorage.setItem("currentUserEmail", profile.email);
+  localStorage.setItem("currentUserRole", profile.role || "worker");
+  localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
+  window.location.href = "home.html";
+}
+
+async function checkExistingSession() {
+  if (!supabaseClient) {
+    setStatus("Supabase is not available right now.");
+    return;
+  }
+
+  const { data } = await supabaseClient.auth.getSession();
+  if (data.session && data.session.user) {
+    await loadProfileAndEnter(data.session.user);
+  }
+}
+
+async function signIn() {
+  if (!supabaseClient) {
+    alert("Supabase is not available right now.");
+    return;
+  }
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    alert("Enter your email and password.");
+    return;
+  }
+
+  setStatus("Signing in...");
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    setStatus("");
+    alert(error.message || "Sign in failed.");
+    return;
+  }
+
+  await loadProfileAndEnter(data.user);
+}
+
+async function signUp() {
+  if (!supabaseClient) {
+    alert("Supabase is not available right now.");
+    return;
+  }
+
+  const displayName = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const workerKey = normalizeWorkerName(displayName);
+
+  if (!displayName || !email || !password) {
+    alert("Enter your name, email, and password.");
+    return;
+  }
+
+  setStatus("Creating account...");
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: getAppPageUrl("index.html"),
+      data: {
+        display_name: displayName,
+        worker_key: workerKey
+      }
+    }
+  });
+
+  if (error) {
+    setStatus("");
+    alert(error.message || "Account could not be created.");
+    return;
+  }
+
+  if (!data.user) {
+    setStatus("Check your email to finish account setup.");
+    return;
+  }
+
+  await clearSession();
+  setStatus("Account request sent. Admin must approve it before you can sign in.");
+}
+
+async function resetPassword() {
+  if (!supabaseClient) {
+    alert("Supabase is not available right now.");
+    return;
+  }
+
+  const email = document.getElementById("email").value.trim();
+
+  if (!email) {
+    alert("Enter your email first, then tap Forgot Password.");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: getAppPageUrl("reset-password.html")
+  });
+
+  if (error) {
+    alert(error.message || "Could not send password reset.");
+    return;
+  }
+
+  setStatus("Password reset email sent.");
+}
+
+function submitOnEnter(event) {
+  if (event.key === "Enter") {
+    signIn();
+  }
+}
+
+checkExistingSession();
+</script>
+
+</body>
+</html>
+ing: 20px;
       margin: 0;
       color: #1f2a24;
     }
