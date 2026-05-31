@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Inspections</title>
+<link rel="stylesheet" href="styles.css?v=1">
 
 <style>
 body {
@@ -201,12 +202,9 @@ h1 {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
 <script>
-const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
-const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
-const supabaseClient = window.supabase
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-    : null;
+const supabaseClient = createJgcSupabaseClient();
 
 const workerName = localStorage.getItem('currentWorker');
 const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
@@ -222,15 +220,7 @@ function comingSoon(formName) {
 }
 
 async function signOut() {
-    if (supabaseClient) {
-        await supabaseClient.auth.signOut();
-    }
-
-    localStorage.removeItem('currentWorker');
-    localStorage.removeItem('currentWorkerDisplay');
-    localStorage.removeItem('currentUserEmail');
-    localStorage.removeItem('currentUserRole');
-    window.location.href = 'index.html';
+    await signOutJgc(supabaseClient);
 }
 </script>
 </body>
