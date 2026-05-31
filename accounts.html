@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Accounts</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0 0 8px;
+}
+
+.user-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.actions {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.panel {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #fbfcf9;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    padding: 16px;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+input,
+select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 840px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 7px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 13px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+.status {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.pending {
+    background: #fff2c2;
+    color: #684d00;
+}
+
+.approved {
+    background: #dcefdc;
+    color: #1d5b28;
+}
+
+.inactive {
+    background: #f4d3d3;
+    color: #7b1f1f;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.danger {
+    background: #8b2e2e;
+}
+
+.danger:hover {
+    background: #692222;
+}
+
+.row-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.small {
+    font-size: 13px;
+    color: #58635c;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    button {
+        width: 100%;
+    }
+
+    .row-actions {
+        min-width: 150px;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<h1>Accounts</h1>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="actions">
+    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
+    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+</div>
+
+<div class="panel">
+    <div class="filters">
+        <div>
+            <label>Search</label>
+            <input id="searchInput" oninput="renderAccounts()" placeholder="Name or email">
+        </div>
+        <div>
+            <label>Status</label>
+            <select id="statusFilter" onchange="renderAccounts()">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+    </div>
+    <div id="accountsList" class="small">Loading accounts...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
+
+const currentWorker = String(localStorage.getItem("currentWorker") || "").trim().toLowerCase();
+const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
+const currentUserRole = localStorage.getItem("currentUserRole");
+const adminNames = ["zeth hummel", "jeff vandrish"];
+let accounts = [];
+let currentUserId = "";
+
+if (!currentWorker) {
+    window.location.href = "index.html";
+}
+
+if (currentUserRole !== "admin" && !adminNames.includes(currentWorker)) {
+    alert("Accounts is only available to authorized users.");
+    window.location.href = "home.html";
+}
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+function escapeHtml(value) {
+    return String(value || "").replace(/[&<>"']/g, function(character) {
+        return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        }[character];
+    });
+}
+
+function formatDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function renderAccounts() {
+    const list = document.getElementById("accountsList");
+    const search = document.getElementById("searchInput").value.trim().toLowerCase();
+    const status = document.getElementById("statusFilter").value;
+
+    const filtered = accounts.filter((account) => {
+        const text = `${account.display_name || ""} ${account.email || ""} ${account.worker_key || ""}`.toLowerCase();
+        return (!search || text.includes(search)) && (!status || account.account_status === status);
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No accounts found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((account) => {
+                        const isSelf = account.id === currentUserId;
+                        const statusClass = account.account_status || "pending";
+                        return `
+                            <tr>
+                                <td>${escapeHtml(account.display_name)}</td>
+                                <td>${escapeHtml(account.email)}</td>
+                                <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusClass)}</span></td>
+                                <td>${escapeHtml(account.role || "worker")}</td>
+                                <td>${escapeHtml(formatDate(account.created_at))}</td>
+                                <td>
+                                    <div class="row-actions">
+                                        ${account.account_status !== "approved" ? `<button type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
+                                        ${account.account_status === "inactive" ? `<button type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
+                                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
+                                        ${account.role !== "admin" ? `<button type="button" class="secondary" onclick="setRole('${account.id}', 'admin')">Make Admin</button>` : ""}
+                                        ${account.role === "admin" && !isSelf ? `<button type="button" class="secondary" onclick="setRole('${account.id}', 'worker')">Make Worker</button>` : ""}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadAccounts() {
+    if (!supabaseClient) {
+        document.getElementById("accountsList").textContent = "Supabase is not available.";
+        return;
+    }
+
+    const sessionResult = await supabaseClient.auth.getSession();
+    currentUserId = sessionResult.data.session && sessionResult.data.session.user
+        ? sessionResult.data.session.user.id
+        : "";
+
+    const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        document.getElementById("accountsList").textContent = "Accounts could not be loaded. Make sure your account has admin approval.";
+        return;
+    }
+
+    accounts = data || [];
+    renderAccounts();
+}
+
+async function updateAccount(id, values) {
+    const { error } = await supabaseClient
+        .from("profiles")
+        .update(values)
+        .eq("id", id);
+
+    if (error) {
+        alert(error.message || "Account could not be updated.");
+        return;
+    }
+
+    await loadAccounts();
+}
+
+async function approveAccount(id) {
+    await updateAccount(id, {
+        account_status: "approved",
+        approved_at: new Date().toISOString(),
+        approved_by: currentUserId,
+        deactivated_at: null
+    });
+}
+
+async function reactivateAccount(id) {
+    await approveAccount(id);
+}
+
+async function deactivateAccount(id) {
+    const account = accounts.find((item) => item.id === id);
+    const name = account ? account.display_name || account.email : "this account";
+
+    if (!confirm("Deactivate " + name + "? This removes app access but keeps their saved records.")) {
+        return;
+    }
+
+    await updateAccount(id, {
+        account_status: "inactive",
+        deactivated_at: new Date().toISOString()
+    });
+}
+
+async function setRole(id, role) {
+    const account = accounts.find((item) => item.id === id);
+    const name = account ? account.display_name || account.email : "this account";
+
+    if (!confirm("Change " + name + " to " + role + "?")) {
+        return;
+    }
+
+    await updateAccount(id, { role });
+}
+
+async function signOut() {
+    if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+    }
+
+    localStorage.removeItem("currentWorker");
+    localStorage.removeItem("currentWorkerDisplay");
+    localStorage.removeItem("currentUserEmail");
+    localStorage.removeItem("currentUserRole");
+    localStorage.removeItem("currentAccountStatus");
+    window.location.href = "index.html";
+}
+
+loadAccounts();
+</script>
+</body>
+</html>
