@@ -501,6 +501,41 @@ function activateTimesheetEntryCleanupFeature() {
   window.__jgcTimesheetEntryCleanupWrapped = true;
 }
 
+function activateTimesheetTableContrastFeature() {
+  if (!/timesheet\.html$/i.test(window.location.pathname) || document.getElementById("jgcTimesheetTableContrast")) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = "jgcTimesheetTableContrast";
+  style.textContent = `
+    body.jgc-theme .entries-card table,
+    body.jgc-theme .entries-card tbody,
+    body.jgc-theme .entries-card tbody tr,
+    body.jgc-theme .entries-card tbody tr:nth-child(even),
+    body.jgc-theme .entries-card tbody tr:nth-child(odd) {
+      background: rgba(8, 18, 18, 0.92) !important;
+      color: #f5f7f3 !important;
+    }
+
+    body.jgc-theme .entries-card tbody td,
+    body.jgc-theme .entries-card tbody tr:nth-child(even) td,
+    body.jgc-theme .entries-card tbody tr:nth-child(odd) td {
+      background: rgba(255, 255, 255, 0.03) !important;
+      color: #f5f7f3 !important;
+    }
+
+    body.jgc-theme .entries-card tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+
+    body.jgc-theme .entries-card .empty-cell {
+      color: #bac4bd !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function activateTimesheetDeleteFeature() {
   if (!/timesheet\.html$/i.test(window.location.pathname)) {
     return;
@@ -987,6 +1022,7 @@ function activateTimesheetCalendarFeature() {
 
 function activateJgcEnhancements() {
   activateJgcContactsFeature();
+  activateTimesheetTableContrastFeature();
   activateTimesheetEntryCleanupFeature();
   activateTimesheetCalendarFeature();
   activateTimesheetDeleteFeature();
