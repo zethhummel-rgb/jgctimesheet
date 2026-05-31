@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Admin</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -86,7 +86,18 @@ textarea {
 }
 
 textarea {
+    min-height: 110px;
     resize: vertical;
+}
+
+.announcement-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.announcement-grid .full {
+    grid-column: 1 / -1;
 }
 
 .table-wrap {
@@ -308,6 +319,14 @@ button:hover,
         font-size: 11px;
         padding: 4px;
     }
+
+    .announcement-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .announcement-grid .full {
+        grid-column: auto;
+    }
 }
 </style>
 </head>
@@ -325,6 +344,7 @@ button:hover,
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
+    <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
@@ -410,8 +430,36 @@ button:hover,
     <div id="vacationList" class="small">Loading vacation requests...</div>
 </div>
 
+<div id="announcementsSection" class="card" hidden>
+    <h2>Announcements</h2>
+    <div class="announcement-grid">
+        <div>
+            <label>Title</label>
+            <input id="announcementTitle" placeholder="Example: Safety meeting Friday">
+        </div>
+        <div>
+            <label>Expires On (optional)</label>
+            <input id="announcementExpires" type="date">
+        </div>
+        <div class="full">
+            <label>Message</label>
+            <textarea id="announcementBody" placeholder="Write the announcement here"></textarea>
+        </div>
+        <div class="full">
+            <label>Attach PDF (optional)</label>
+            <input id="announcementFile" type="file" accept="application/pdf,.pdf">
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button type="button" onclick="publishAnnouncement()">Publish Announcement</button>
+        <button class="secondary" type="button" onclick="loadAnnouncements()">Refresh Announcements</button>
+    </div>
+    <div id="announcementStatus" class="small" style="margin-top:10px;"></div>
+    <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -421,8 +469,13 @@ let timesheets = [];
 let inspections = [];
 let certificates = [];
 let vacationRequests = [];
+let accounts = [];
+let announcements = [];
 let vacationCalendarMonth = new Date();
 let certificateUrls = {};
+let announcementUrls = {};
+let currentUserId = "";
+const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -432,7 +485,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "inspections", "certificates", "vacation"].forEach((name) => {
+    ["timesheets", "inspections", "certificates", "vacation", "announcements"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -469,22 +522,33 @@ async function loadAdminData() {
         return;
     }
 
-    const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
+    const sessionResult = await supabaseClient.auth.getSession();
+    currentUserId = sessionResult.data.session && sessionResult.data.session.user
+        ? sessionResult.data.session.user.id
+        : "";
+
+    const [timesheetResult, inspectionResult, certificateResult, vacationResult, accountResult, announcementResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
-        supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false })
+        supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
+        supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false })
     ]);
 
     timesheets = timesheetResult.data || [];
     inspections = inspectionResult.data || [];
     certificates = certificateResult.data || [];
     vacationRequests = vacationResult.data || [];
+    accounts = accountResult.data || [];
+    announcements = announcementResult.data || [];
     await prepareCertificateUrls();
+    await prepareAnnouncementUrls();
     renderTimesheets();
     renderInspections();
     renderCertificates();
     renderVacationRequests();
+    renderAnnouncements();
 }
 
 async function prepareCertificateUrls() {
@@ -743,6 +807,249 @@ function renderVacationRequests() {
             </table>
         </div>
     `;
+}
+
+function makeSafeFileName(name) {
+    return String(name || "announcement.pdf")
+        .trim()
+        .replace(/[^a-z0-9.\-_]+/gi, "-")
+        .replace(/-+/g, "-")
+        .toLowerCase();
+}
+
+function setAnnouncementStatus(message) {
+    document.getElementById("announcementStatus").textContent = message || "";
+}
+
+function getApprovedEmails() {
+    return accounts
+        .filter((account) => account.account_status === "approved" && account.email)
+        .map((account) => account.email);
+}
+
+async function prepareAnnouncementUrls() {
+    announcementUrls = {};
+
+    for (const announcement of announcements) {
+        if (!announcement.file_path) {
+            continue;
+        }
+
+        const { data } = await supabaseClient
+            .storage
+            .from("announcements")
+            .createSignedUrl(announcement.file_path, 604800);
+
+        if (data && data.signedUrl) {
+            announcementUrls[announcement.id] = data.signedUrl;
+        }
+    }
+}
+
+function renderAnnouncements() {
+    const list = document.getElementById("announcementsList");
+
+    if (!announcements.length) {
+        list.textContent = "No active announcements yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Message</th>
+                        <th>PDF</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${announcements.map((announcement) => `
+                        <tr>
+                            <td>${escapeHtml(announcement.title)}</td>
+                            <td>${escapeHtml(announcement.body || "")}</td>
+                            <td>${announcementUrls[announcement.id] ? '<a class="file-link" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${escapeHtml(formatDate(announcement.created_at))}</td>
+                            <td><button type="button" class="delete-button" onclick="deleteAnnouncement('${escapeHtml(announcement.id)}')">Delete</button></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadAnnouncements() {
+    const { data, error } = await supabaseClient
+        .from("announcements")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        document.getElementById("announcementsList").textContent = "Announcements could not be loaded.";
+        return;
+    }
+
+    announcements = data || [];
+    await prepareAnnouncementUrls();
+    renderAnnouncements();
+}
+
+async function publishAnnouncement() {
+    const title = document.getElementById("announcementTitle").value.trim();
+    const body = document.getElementById("announcementBody").value.trim();
+    const expiresValue = document.getElementById("announcementExpires").value;
+    const fileInput = document.getElementById("announcementFile");
+    const file = fileInput.files[0];
+
+    if (!title || (!body && !file)) {
+        alert("Add a title and either a message or a PDF.");
+        return;
+    }
+
+    if (file && file.type !== "application/pdf") {
+        alert("Please upload a PDF file.");
+        return;
+    }
+
+    setAnnouncementStatus("Publishing announcement...");
+
+    let filePath = null;
+    let fileName = null;
+    let fileType = null;
+    let signedUrl = "";
+
+    if (file) {
+        filePath = "announcements/" + Date.now() + "-" + makeSafeFileName(file.name);
+        fileName = file.name;
+        fileType = file.type || "application/pdf";
+
+        const { error: uploadError } = await supabaseClient
+            .storage
+            .from("announcements")
+            .upload(filePath, file, {
+                cacheControl: "3600",
+                upsert: false,
+                contentType: fileType
+            });
+
+        if (uploadError) {
+            setAnnouncementStatus("PDF upload failed.");
+            return;
+        }
+
+        const { data: signedData } = await supabaseClient
+            .storage
+            .from("announcements")
+            .createSignedUrl(filePath, 604800);
+
+        signedUrl = signedData && signedData.signedUrl ? signedData.signedUrl : "";
+    }
+
+    const record = {
+        title,
+        body,
+        file_path: filePath,
+        file_name: fileName,
+        file_type: fileType,
+        created_by: currentUserId || null,
+        created_by_name: currentWorkerDisplay,
+        expires_at: expiresValue ? expiresValue + "T23:59:59" : null,
+        is_active: true
+    };
+
+    const { data, error } = await supabaseClient
+        .from("announcements")
+        .insert(record)
+        .select()
+        .single();
+
+    if (error) {
+        if (filePath) {
+            await supabaseClient.storage.from("announcements").remove([filePath]);
+        }
+        setAnnouncementStatus("Announcement could not be saved.");
+        return;
+    }
+
+    setAnnouncementStatus("Sending email notification...");
+
+    try {
+        await emailAnnouncement(data, signedUrl);
+        setAnnouncementStatus("Announcement published and email notifications sent.");
+    } catch (error) {
+        setAnnouncementStatus("Announcement published, but email notification could not be sent.");
+    }
+
+    document.getElementById("announcementTitle").value = "";
+    document.getElementById("announcementBody").value = "";
+    document.getElementById("announcementExpires").value = "";
+    fileInput.value = "";
+    await loadAnnouncements();
+}
+
+async function emailAnnouncement(announcement, pdfUrl) {
+    const recipients = getApprovedEmails();
+
+    if (!recipients.length) {
+        return;
+    }
+
+    const body = [
+        "JGC Announcement",
+        "",
+        announcement.title,
+        "",
+        announcement.body || "",
+        "",
+        pdfUrl ? "PDF: " + pdfUrl : ""
+    ].join("\n");
+
+    await fetch(ANNOUNCEMENT_EMAIL_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+            to: recipients.join(","),
+            recipients,
+            subject: "JGC Announcement - " + announcement.title,
+            body,
+            text: body,
+            pdfUrl,
+            pdfFileName: announcement.file_name || ""
+        })
+    });
+}
+
+async function deleteAnnouncement(id) {
+    const announcement = announcements.find((item) => item.id === id);
+
+    if (!announcement) {
+        alert("Announcement could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete this announcement?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("announcements")
+        .update({ is_active: false })
+        .eq("id", id);
+
+    if (error) {
+        alert("Announcement could not be deleted.");
+        return;
+    }
+
+    await loadAnnouncements();
 }
 
 async function reviewVacationRequest(id, status) {
