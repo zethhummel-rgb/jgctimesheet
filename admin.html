@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Admin</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0 0 8px;
+}
+
+.user-bar {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.card {
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    background: #fbfcf9;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    padding: 16px;
+}
+
+h2 {
+    margin: 0 0 12px;
+    color: #2f6f3c;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+input,
+select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 7px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 13px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+.small {
+    font-size: 13px;
+    color: #58635c;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button,
+.file-link {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button:hover,
+.file-link:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.tabs {
+    max-width: 1200px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tab-button {
+    background: #fbfcf9;
+    color: #1f2a24;
+}
+
+.tab-button.active {
+    background: #3f7d4d;
+    color: white;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    button,
+    .file-link {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<h1>Admin</h1>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="tabs">
+    <button id="timesheetsTab" class="tab-button active" onclick="showTab('timesheets')">Timesheets</button>
+    <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
+    <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
+    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" onclick="signOut()">Sign Out</button>
+</div>
+
+<div id="timesheetsSection" class="card">
+    <h2>Submitted Timesheets</h2>
+    <div class="filters">
+        <div>
+            <label>Worker</label>
+            <input id="timesheetWorkerFilter" oninput="renderTimesheets()" placeholder="Filter worker">
+        </div>
+    </div>
+    <div id="timesheetsList" class="small">Loading timesheets...</div>
+</div>
+
+<div id="inspectionsSection" class="card" hidden>
+    <h2>Inspection Reports</h2>
+    <div class="filters">
+        <div>
+            <label>Worker</label>
+            <input id="inspectionWorkerFilter" oninput="renderInspections()" placeholder="Filter worker">
+        </div>
+        <div>
+            <label>Type</label>
+            <input id="inspectionTypeFilter" oninput="renderInspections()" placeholder="Filter type">
+        </div>
+    </div>
+    <div id="inspectionsList" class="small">Loading inspections...</div>
+</div>
+
+<div id="certificatesSection" class="card" hidden>
+    <h2>Certificates</h2>
+    <div class="filters">
+        <div>
+            <label>Worker</label>
+            <input id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
+        </div>
+        <div>
+            <label>Status</label>
+            <select id="certificateStatusFilter" onchange="renderCertificates()">
+                <option value="">All</option>
+                <option value="Expired">Expired</option>
+                <option value="Expiring Soon">Expiring Soon</option>
+                <option value="Valid">Valid</option>
+                <option value="No Expiry">No Expiry</option>
+            </select>
+        </div>
+    </div>
+    <div id="certificatesList" class="small">Loading certificates...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const supabaseClient = window.supabase
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
+const currentWorker = String(localStorage.getItem("currentWorker") || "").trim().toLowerCase();
+const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
+const adminNames = ["zeth hummel", "jeff vandrish"];
+let timesheets = [];
+let inspections = [];
+let certificates = [];
+let certificateUrls = {};
+
+if (!currentWorker) {
+    window.location.href = "index.html";
+}
+
+if (!adminNames.includes(currentWorker)) {
+    alert("Admin is only available to authorized users.");
+    window.location.href = "home.html";
+}
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+function showTab(tab) {
+    ["timesheets", "inspections", "certificates"].forEach((name) => {
+        document.getElementById(name + "Section").hidden = name !== tab;
+        document.getElementById(name + "Tab").classList.toggle("active", name === tab);
+    });
+}
+
+function escapeHtml(value) {
+    return String(value || "").replace(/[&<>"']/g, function(character) {
+        return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        }[character];
+    });
+}
+
+function formatDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function getCertificateStatus(expiryDate) {
+    if (!expiryDate) {
+        return "No Expiry";
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilExpiry < 0) {
+        return "Expired";
+    }
+
+    if (daysUntilExpiry <= 30) {
+        return "Expiring Soon";
+    }
+
+    return "Valid";
+}
+
+async function loadAdminData() {
+    if (!supabaseClient) {
+        document.getElementById("timesheetsList").textContent = "Supabase is not available.";
+        return;
+    }
+
+    const [timesheetResult, inspectionResult, certificateResult] = await Promise.all([
+        supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
+        supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true })
+    ]);
+
+    timesheets = timesheetResult.data || [];
+    inspections = inspectionResult.data || [];
+    certificates = certificateResult.data || [];
+    await prepareCertificateUrls();
+    renderTimesheets();
+    renderInspections();
+    renderCertificates();
+}
+
+async function prepareCertificateUrls() {
+    certificateUrls = {};
+
+    for (const certificate of certificates) {
+        const { data } = await supabaseClient
+            .storage
+            .from("certificates")
+            .createSignedUrl(certificate.file_path, 3600);
+
+        if (data && data.signedUrl) {
+            certificateUrls[certificate.id] = data.signedUrl;
+        }
+    }
+}
+
+function renderTimesheets() {
+    const filter = document.getElementById("timesheetWorkerFilter").value.trim().toLowerCase();
+    const list = document.getElementById("timesheetsList");
+    const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").includes(filter));
+
+    if (!filtered.length) {
+        list.textContent = "No submitted timesheets found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((week) => `
+                        <tr>
+                            <td>${escapeHtml(week.worker_name)}</td>
+                            <td>${escapeHtml(week.week_label)}</td>
+                            <td>${Number(week.total_hours || 0).toFixed(2)}</td>
+                            <td>${escapeHtml(formatDate(week.submitted_at))}</td>
+                            <td>${escapeHtml(week.note || "")}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderInspections() {
+    const workerFilter = document.getElementById("inspectionWorkerFilter").value.trim().toLowerCase();
+    const typeFilter = document.getElementById("inspectionTypeFilter").value.trim().toLowerCase();
+    const list = document.getElementById("inspectionsList");
+    const filtered = inspections.filter((inspection) => {
+        const worker = String(inspection.worker_display_name || inspection.worker_name || "").toLowerCase();
+        const type = String(inspection.inspection_type || "").toLowerCase();
+        return (!workerFilter || worker.includes(workerFilter)) && (!typeFilter || type.includes(typeFilter));
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No inspection reports found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Type</th><th>Completed By</th><th>Saved</th></tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((inspection) => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
+                            <td>${escapeHtml(inspection.inspection_type)}</td>
+                            <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name)}</td>
+                            <td>${escapeHtml(formatDate(inspection.created_at))}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderCertificates() {
+    const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
+    const statusFilter = document.getElementById("certificateStatusFilter").value;
+    const list = document.getElementById("certificatesList");
+    const filtered = certificates.filter((certificate) => {
+        const worker = String(certificate.worker_name || "").toLowerCase();
+        const status = getCertificateStatus(certificate.expiry_date);
+        return (!workerFilter || worker.includes(workerFilter)) && (!statusFilter || status === statusFilter);
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No certificates found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th></tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((certificate) => `
+                        <tr>
+                            <td>${escapeHtml(certificate.worker_name)}</td>
+                            <td>${escapeHtml(certificate.certificate_name)}</td>
+                            <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+                            <td>${escapeHtml(getCertificateStatus(certificate.expiry_date))}</td>
+                            <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function signOut() {
+    localStorage.removeItem("currentWorker");
+    localStorage.removeItem("currentWorkerDisplay");
+    window.location.href = "index.html";
+}
+
+loadAdminData();
+</script>
+</body>
+</html>
