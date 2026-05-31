@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Contacts</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0 0 8px;
+}
+
+.user-bar {
+    max-width: 1000px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.actions {
+    max-width: 1000px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.panel {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fbfcf9;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    padding: 16px;
+}
+
+.contacts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.contact-card {
+    border: 1px solid #d4ddd2;
+    border-radius: 8px;
+    padding: 14px;
+    background: #ffffff;
+}
+
+.contact-card h2 {
+    margin: 0 0 6px;
+    color: #174c2e;
+    font-size: 20px;
+}
+
+.contact-role {
+    margin-bottom: 10px;
+    color: #58635c;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.contact-line {
+    margin: 7px 0;
+    overflow-wrap: anywhere;
+}
+
+.contact-line a {
+    color: #0b5e3b;
+    font-weight: bold;
+}
+
+.small {
+    font-size: 13px;
+    color: #58635c;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<h1>Contacts</h1>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="actions">
+    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+</div>
+
+<div class="panel">
+    <div id="contactsList" class="small">Loading contacts...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display;
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+async function loadContacts() {
+    const list = document.getElementById("contactsList");
+
+    if (!supabaseClient) {
+        list.textContent = "Supabase is not available.";
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("contacts")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+    if (error) {
+        list.textContent = "Contacts could not be loaded.";
+        return;
+    }
+
+    const contacts = data || [];
+
+    if (!contacts.length) {
+        list.textContent = "No contacts have been added yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="contacts-grid">
+            ${contacts.map((contact) => `
+                <article class="contact-card">
+                    <h2>${escapeHtml(contact.name)}</h2>
+                    ${contact.role ? '<div class="contact-role">' + escapeHtml(contact.role) + '</div>' : ""}
+                    ${contact.phone ? '<div class="contact-line"><strong>Phone:</strong> <a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
+                    ${contact.email ? '<div class="contact-line"><strong>Email:</strong> <a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
+                    ${contact.notes ? '<div class="contact-line small">' + escapeHtml(contact.notes) + '</div>' : ""}
+                </article>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function signOut() {
+    await signOutJgc(supabaseClient);
+}
+
+loadContacts();
+</script>
+</body>
+</html>
