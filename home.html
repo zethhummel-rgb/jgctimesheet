@@ -5,159 +5,999 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css?v=1" />
   <style>
+    :root {
+      --app-bg: #07100f;
+      --panel: rgba(15, 27, 27, 0.88);
+      --panel-strong: rgba(20, 34, 34, 0.96);
+      --panel-border: rgba(199, 221, 211, 0.16);
+      --green: #39c848;
+      --green-soft: rgba(57, 200, 72, 0.15);
+      --text: #f5f7f3;
+      --muted: #bac4bd;
+      --line: rgba(255, 255, 255, 0.09);
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial;
-      background: #8f9691;
-      padding: 20px;
+      font-family: Arial, sans-serif;
       margin: 0;
-      color: #1f2a24;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(31, 126, 56, 0.34), transparent 28rem),
+        linear-gradient(135deg, #050908 0%, #0c1717 45%, #07100f 100%);
+      color: var(--text);
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    .app-shell {
+      width: min(1280px, calc(100% - 28px));
+      margin: 18px auto;
+      min-height: calc(100vh - 36px);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(5, 12, 12, 0.84);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      min-height: 150px;
+      padding: 22px 30px;
+      display: grid;
+      grid-template-columns: 260px 1fr auto auto;
+      gap: 28px;
+      align-items: center;
+      background:
+        linear-gradient(90deg, rgba(9, 96, 42, 0.95), rgba(9, 73, 35, 0.92)),
+        radial-gradient(circle at 70% 0%, rgba(83, 221, 91, 0.24), transparent 28rem);
     }
 
     .logo-wrap {
-      max-width: 347px;
-      margin: 0 auto 8px;
-      text-align: center;
-    }
-
-    .logo-wrap img {
-      width: 100%;
-      max-width: 347px;
-      height: auto;
-      display: block;
-      margin: 0 auto;
-    }
-
-    h2 {
-      max-width: 540px;
-      margin: 0 auto 8px;
-      text-align: center;
-      color: #ffffff;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    }
-
-    .user-bar {
-      max-width: 540px;
-      margin: 0 auto 12px;
-      color: #ffffff;
-      text-align: center;
-      font-size: 13px;
-      font-weight: bold;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-    }
-
-    .menu {
-      max-width: 540px;
-      margin: 0 auto;
-      display: grid;
-      gap: 12px;
-    }
-
-    .menu-button {
-      width: 100%;
-      padding: 16px;
-      box-sizing: border-box;
-      border: none;
-      border-radius: 8px;
-      background: #fbfcf9;
-      color: #1f2a24;
-      border-top: 4px solid #3f7d4d;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
       text-align: left;
     }
 
-    .menu-button:hover {
-      background: #f4f7f1;
-    }
-
-    .menu-button.disabled {
-      color: #7a827c;
-      border-top-color: #8b958d;
-      cursor: default;
-    }
-
-    .sign-out {
-      max-width: 540px;
-      width: 100%;
+    .logo-wrap img {
+      width: min(220px, 100%);
+      height: auto;
       display: block;
-      padding: 10px;
-      margin: 14px auto 0;
-      box-sizing: border-box;
-      background: #5f6a62;
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+    }
+
+    .profile-block {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .profile-icon,
+    .stat-icon,
+    .card-icon,
+    .info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .profile-icon {
+      width: 46px;
+      height: 46px;
+      border: 2px solid rgba(57, 200, 72, 0.68);
+      flex: 0 0 auto;
+    }
+
+    .eyebrow,
+    .section-title {
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .profile-name {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .role-text,
+    .date-detail,
+    .muted {
+      color: var(--muted);
+    }
+
+    .role-text {
+      margin-top: 4px;
+      font-weight: 700;
+      color: #55de61;
+    }
+
+    .date-chip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .date-detail {
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .logout-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      background: rgba(5, 18, 15, 0.2);
       color: white;
-      border: none;
       cursor: pointer;
-      border-radius: 5px;
-      font-weight: bold;
+      font-weight: 800;
     }
 
-    .sign-out:hover {
-      background: #48514a;
+    .logout-button:hover {
+      background: rgba(5, 18, 15, 0.36);
     }
 
-    @media (max-width: 720px) {
+    .main-grid {
+      display: grid;
+      grid-template-columns: 275px 1fr;
+      min-height: calc(100vh - 238px);
+    }
+
+    .sidebar {
+      padding: 32px 14px 26px;
+      border-right: 1px solid var(--line);
+      background: rgba(8, 18, 18, 0.72);
+    }
+
+    .side-nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .side-link,
+    .bottom-link {
+      border: 0;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .side-link {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 16px;
+      border-radius: 7px;
+      background: transparent;
+      text-align: left;
+    }
+
+    .side-link:hover,
+    .side-link.active {
+      background: linear-gradient(90deg, rgba(32, 147, 57, 0.88), rgba(15, 91, 39, 0.82));
+    }
+
+    .quick-info {
+      margin: 32px 12px 0;
+      padding-top: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .info-item {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 22px;
+    }
+
+    .info-icon {
+      width: 42px;
+      height: 42px;
+    }
+
+    .info-value {
+      font-size: 22px;
+      font-weight: 900;
+      margin: 4px 0 2px;
+    }
+
+    .content {
+      padding: 32px 24px 34px;
+    }
+
+    .hero {
+      min-height: 270px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 48px 44px;
+      display: flex;
+      align-items: center;
+      background:
+        linear-gradient(90deg, rgba(13, 25, 25, 0.94), rgba(13, 25, 25, 0.72)),
+        linear-gradient(135deg, transparent 0 45%, rgba(50, 188, 67, 0.18) 45% 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero:after {
+      content: "";
+      position: absolute;
+      right: 30px;
+      bottom: 0;
+      width: 360px;
+      height: 230px;
+      opacity: 0.16;
+      background:
+        linear-gradient(to top, rgba(57, 200, 72, 0.5), transparent 58%),
+        repeating-linear-gradient(90deg, transparent 0 34px, rgba(255,255,255,0.24) 35px 37px, transparent 38px 56px);
+      clip-path: polygon(15% 100%, 15% 45%, 28% 45%, 28% 25%, 40% 25%, 40% 100%, 48% 100%, 48% 35%, 61% 35%, 61% 18%, 74% 18%, 74% 100%);
+    }
+
+    .hero-content {
+      max-width: 450px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      margin: 14px 0 22px;
+      font-size: clamp(36px, 5vw, 52px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    .green-line {
+      width: 78px;
+      height: 3px;
+      background: var(--green);
+      margin-bottom: 28px;
+    }
+
+    .overview {
+      display: none;
+      margin-top: 24px;
+      padding: 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      margin-top: 18px;
+    }
+
+    .stat {
+      min-width: 0;
+      text-align: center;
+      padding: 6px 10px;
+      border-left: 1px solid var(--line);
+    }
+
+    .stat:first-child {
+      border-left: 0;
+    }
+
+    .stat-icon {
+      width: 62px;
+      height: 62px;
+      margin: 0 auto 12px;
+    }
+
+    .stat-value {
+      font-size: 34px;
+      font-weight: 900;
+    }
+
+    .stat-label {
+      color: var(--text);
+      line-height: 1.35;
+      margin-top: 6px;
+    }
+
+    .section-title {
+      margin: 26px 0 14px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .feature-card {
+      min-height: 260px;
+      padding: 28px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 -5px 0 rgba(57, 200, 72, 0.46);
+    }
+
+    .feature-card:hover {
+      background: var(--panel-strong);
+      transform: translateY(-1px);
+    }
+
+    .card-icon {
+      width: 88px;
+      height: 88px;
+      margin-bottom: 28px;
+    }
+
+    .feature-card h2 {
+      margin: 0 0 16px;
+      color: var(--text);
+      font-size: 28px;
+      line-height: 1.05;
+    }
+
+    .feature-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .arrow {
+      color: var(--green);
+      margin-top: 28px;
+    }
+
+    .announcement {
+      display: none;
+      margin-top: 22px;
+      padding: 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+      grid-template-columns: 62px 1fr auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      padding: 20px 28px;
+      border-top: 1px solid var(--line);
+      background: rgba(10, 20, 20, 0.9);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer img {
+      width: 120px;
+      height: auto;
+      filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
+    }
+
+    .mobile-bottom-nav {
+      display: none;
+    }
+
+    .more-sheet {
+      position: fixed;
+      inset: auto 12px 82px;
+      display: none;
+      padding: 10px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: rgba(12, 24, 24, 0.98);
+      box-shadow: var(--shadow);
+      z-index: 11;
+    }
+
+    .more-sheet.open {
+      display: grid;
+      gap: 8px;
+    }
+
+    .more-sheet button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px;
+      border: 0;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    @media (max-width: 980px) {
       body {
-        padding: 10px;
+        background: #07100f;
       }
 
-      .logo-wrap {
-        max-width: 260px;
+      .app-shell {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border: 0;
+        padding-bottom: 78px;
       }
 
-      .menu-button {
-        min-height: 56px;
-        font-size: 17px;
+      .topbar {
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        min-height: 255px;
+        padding: 28px 22px 30px;
+      }
+
+      .logo-wrap img {
+        width: 170px;
+      }
+
+      .profile-block {
+        justify-content: flex-end;
+      }
+
+      .profile-name {
+        font-size: 24px;
+      }
+
+      .date-chip,
+      .logout-button {
+        display: none;
+      }
+
+      .main-grid {
+        display: block;
+        min-height: auto;
+      }
+
+      .sidebar,
+      .hero,
+      .footer {
+        display: none;
+      }
+
+      .content {
+        padding: 22px 18px;
+      }
+
+      .overview,
+      .announcement {
+        display: block;
+      }
+
+      .overview-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .stat {
+        padding: 4px 6px;
+      }
+
+      .stat-icon {
+        width: 58px;
+        height: 58px;
+      }
+
+      .stat-value {
+        font-size: 30px;
+      }
+
+      .stat-label {
+        font-size: 13px;
+      }
+
+      .cards-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .feature-card {
+        min-height: 174px;
+        align-items: stretch;
+        text-align: left;
+        padding: 22px;
+        position: relative;
+      }
+
+      .card-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 0 18px;
+      }
+
+      .feature-card h2 {
+        font-size: 21px;
+        margin-bottom: 8px;
+      }
+
+      .feature-card p {
+        font-size: 16px;
+      }
+
+      .arrow {
+        position: absolute;
+        right: 22px;
+        top: 50%;
+        margin-top: -12px;
+      }
+
+      .announcement {
+        display: grid;
+        grid-template-columns: 54px 1fr auto;
+      }
+
+      .mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0;
+        padding: 9px 8px max(9px, env(safe-area-inset-bottom));
+        background: rgba(9, 17, 17, 0.96);
+        border-top: 1px solid var(--line);
+        z-index: 10;
+      }
+
+      .bottom-link {
+        background: transparent;
+        color: var(--muted);
+        display: grid;
+        justify-items: center;
+        gap: 5px;
+        font-size: 12px;
+        padding: 3px;
+      }
+
+      .bottom-link.active {
+        color: var(--green);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .topbar {
+        grid-template-columns: 1fr 1.2fr;
+        padding: 28px 18px;
+      }
+
+      .logo-wrap img {
+        width: 145px;
+      }
+
+      .profile-icon {
+        width: 42px;
+        height: 42px;
+      }
+
+      .profile-name {
+        font-size: 22px;
+      }
+
+      .overview-grid {
+        overflow-x: auto;
+        grid-template-columns: repeat(4, minmax(118px, 1fr));
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .feature-card {
+        min-height: 155px;
+        padding: 18px;
+      }
+
+      .card-icon {
+        width: 56px;
+        height: 56px;
+        margin-bottom: 15px;
+      }
+
+      .feature-card h2 {
+        font-size: 19px;
+      }
+
+      .feature-card p {
+        font-size: 14px;
       }
     }
   </style>
 </head>
 
 <body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="logo-wrap">
+      <img src="logo.png" alt="John Gordon Construction" />
+    </div>
 
-<div class="logo-wrap">
-  <img src="logo.png" alt="John Gordon Construction" />
+    <div class="profile-block">
+      <span class="profile-icon"><i data-lucide="circle-user-round"></i></span>
+      <div>
+        <div class="muted" id="greetingText">Welcome back,</div>
+        <div id="currentUserName" class="profile-name"></div>
+        <div id="roleText" class="role-text"></div>
+      </div>
+    </div>
+
+    <div class="date-chip">
+      <i data-lucide="calendar-days"></i>
+      <div>
+        <div id="currentDateText"></div>
+        <div id="currentDayText" class="date-detail"></div>
+      </div>
+    </div>
+
+    <button type="button" class="logout-button" onclick="signOut()">
+      <i data-lucide="log-out"></i>
+      Logout
+    </button>
+  </header>
+
+  <div class="main-grid">
+    <aside class="sidebar">
+      <nav class="side-nav" aria-label="Main navigation">
+        <button type="button" class="side-link active" onclick="goHome()"><i data-lucide="home"></i>Home</button>
+        <button type="button" class="side-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i>Timesheets</button>
+        <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i>Inspections</button>
+        <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i>Certificates</button>
+        <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
+        <button type="button" class="side-link" onclick="comingSoon('Contacts')"><i data-lucide="phone"></i>Contacts</button>
+        <button id="sideAdminButton" type="button" class="side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
+      </nav>
+
+      <div class="quick-info">
+        <div class="section-title">Quick Info</div>
+        <div class="info-item">
+          <span class="info-icon"><i data-lucide="clock-3"></i></span>
+          <div>
+            <div class="muted">Hours This Week</div>
+            <div id="weekHoursSide" class="info-value">0.00</div>
+            <div id="weekHoursDetail" class="muted">Regular: 0.00</div>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon"><i data-lucide="shield-check"></i></span>
+          <div>
+            <div class="muted">Inspections Today</div>
+            <div id="inspectionsSide" class="info-value">0</div>
+            <div class="muted">Last 24 hours</div>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon"><i data-lucide="badge-alert"></i></span>
+          <div>
+            <div class="muted">Certificates Expiring</div>
+            <div id="certificatesSide" class="info-value">0</div>
+            <div class="muted">Within 30 days</div>
+          </div>
+        </div>
+        <div class="info-item">
+          <span class="info-icon"><i data-lucide="users-round"></i></span>
+          <div>
+            <div class="muted">Vacation Requests</div>
+            <div id="vacationSide" class="info-value">0</div>
+            <div class="muted">Pending approval</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-content">
+          <div class="eyebrow">Welcome to</div>
+          <h1>John Gordon Construction</h1>
+          <div class="green-line"></div>
+          <p class="muted">Your one-stop hub for time tracking, inspections, certificates and more.</p>
+        </div>
+      </section>
+
+      <section class="overview">
+        <div class="section-title">Today's Overview</div>
+        <div class="overview-grid">
+          <div class="stat">
+            <span class="stat-icon"><i data-lucide="clock-3"></i></span>
+            <div id="todayHours" class="stat-value">0.00</div>
+            <div class="stat-label">Hours Logged Today</div>
+          </div>
+          <div class="stat">
+            <span class="stat-icon"><i data-lucide="shield-check"></i></span>
+            <div id="todayInspections" class="stat-value">0</div>
+            <div class="stat-label">Inspections Today</div>
+          </div>
+          <div class="stat">
+            <span class="stat-icon"><i data-lucide="badge-alert"></i></span>
+            <div id="expiringCertificates" class="stat-value">0</div>
+            <div class="stat-label">Certificates Expiring</div>
+          </div>
+          <div class="stat">
+            <span class="stat-icon"><i data-lucide="palmtree"></i></span>
+            <div id="pendingVacations" class="stat-value">0</div>
+            <div class="stat-label">Vacation Request Pending</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="section-title">Quick Access</div>
+      <section class="cards-grid">
+        <button type="button" class="feature-card" onclick="goTo('timesheet.html')">
+          <span class="card-icon"><i data-lucide="clock-3"></i></span>
+          <h2>Timesheets</h2>
+          <p>Record and manage your work hours</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button type="button" class="feature-card" onclick="goTo('inspections.html')">
+          <span class="card-icon"><i data-lucide="shield-check"></i></span>
+          <h2>Inspections</h2>
+          <p>View and complete site inspections</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button type="button" class="feature-card" onclick="goTo('certificates.html')">
+          <span class="card-icon"><i data-lucide="badge-check"></i></span>
+          <h2>Certificates</h2>
+          <p>Manage and track your certifications</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button type="button" class="feature-card" onclick="goTo('vacation-request.html')">
+          <span class="card-icon"><i data-lucide="palmtree"></i></span>
+          <h2>Vacation Requests</h2>
+          <p>Request time off and view approvals</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button type="button" class="feature-card" onclick="comingSoon('Contacts')">
+          <span class="card-icon"><i data-lucide="phone"></i></span>
+          <h2>Contacts</h2>
+          <p>Company and emergency contacts</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button id="adminCard" type="button" class="feature-card" onclick="goTo('admin.html')" hidden>
+          <span class="card-icon"><i data-lucide="settings"></i></span>
+          <h2>Admin</h2>
+          <p>User management and system settings</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+      </section>
+
+      <section class="announcement">
+        <span class="info-icon"><i data-lucide="megaphone"></i></span>
+        <div>
+          <div class="section-title" style="margin: 0 0 6px;">Announcement</div>
+          <div>Safety meeting Friday at 7:00 AM in the yard.</div>
+        </div>
+        <i class="arrow" data-lucide="chevron-right"></i>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <img src="logo.png" alt="JGC" />
+    <div>Built for the field. Backed by JGC.</div>
+    <div>Version 1.0.0</div>
+  </footer>
 </div>
 
-<h2>John Gordon Construction</h2>
-<div id="currentUser" class="user-bar"></div>
+<nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+  <button type="button" class="bottom-link active" onclick="goHome()"><i data-lucide="home"></i><span>Home</span></button>
+  <button type="button" class="bottom-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i><span>Timesheets</span></button>
+  <button type="button" class="bottom-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i><span>Inspections</span></button>
+  <button type="button" class="bottom-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i><span>Certificates</span></button>
+  <button type="button" class="bottom-link" onclick="showMoreMenu()"><i data-lucide="ellipsis"></i><span>More</span></button>
+</nav>
 
-<div class="menu">
-  <button type="button" class="menu-button" onclick="window.location.href='timesheet.html'">Time Sheets</button>
-  <button type="button" class="menu-button" onclick="window.location.href='vacation-request.html'">Vacation Requests</button>
-  <button type="button" class="menu-button" onclick="window.location.href='certificates.html'">Certificates</button>
-  <button type="button" class="menu-button" onclick="window.location.href='inspections.html'">Inspections</button>
-  <button id="adminButton" type="button" class="menu-button" onclick="window.location.href='admin.html'" hidden>Admin</button>
-  <button id="accountsButton" type="button" class="menu-button" onclick="window.location.href='accounts.html'" hidden>Accounts</button>
+<div id="moreSheet" class="more-sheet">
+  <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
+  <button type="button" onclick="comingSoon('Contacts')"><i data-lucide="phone"></i>Contacts</button>
+  <button id="mobileAdminButton" type="button" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
+  <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
 </div>
-
-<button type="button" class="sign-out" onclick="signOut()">Sign Out</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <script src="common.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
-const currentWorker = worker.key;
-const currentWorkerDisplay = worker.display;
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display || worker.key;
 const currentUserRole = worker.role;
+const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 
-document.getElementById("currentUser").innerText = "Signed in as: " + currentWorkerDisplay;
+document.getElementById("currentUserName").innerText = currentWorkerDisplay;
+document.getElementById("roleText").innerText = isAdmin ? "Administrator" : "Employee";
+document.getElementById("greetingText").innerText = getGreeting() + ",";
 
-if (isAdminWorker(currentWorker, currentUserRole)) {
-  document.getElementById("adminButton").hidden = false;
-  document.getElementById("accountsButton").hidden = false;
+if (isAdmin) {
+  document.getElementById("sideAdminButton").hidden = false;
+  document.getElementById("adminCard").hidden = false;
+  document.getElementById("mobileAdminButton").hidden = false;
+}
+
+setCurrentDate();
+loadDashboardStats();
+renderIcons();
+
+function renderIcons() {
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) {
+    return "Good morning";
+  }
+  if (hour < 17) {
+    return "Good afternoon";
+  }
+  return "Good evening";
+}
+
+function setCurrentDate() {
+  const now = new Date();
+  document.getElementById("currentDateText").innerText = now.toLocaleDateString("en-CA", {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+  document.getElementById("currentDayText").innerText = now.toLocaleDateString("en-CA", {
+    weekday: "long"
+  });
+}
+
+function goHome() {
+  window.location.href = "home.html";
+}
+
+function goTo(page) {
+  window.location.href = page;
 }
 
 function comingSoon(sectionName) {
   alert(sectionName + " will be added soon.");
 }
 
+function showMoreMenu() {
+  document.getElementById("moreSheet").classList.toggle("open");
+}
+
+function getTodayBounds() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+  return { start, end };
+}
+
+function getWeekStartValue() {
+  const now = new Date();
+  const day = now.getDay();
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - day);
+  sunday.setHours(0, 0, 0, 0);
+  return sunday.toISOString().slice(0, 10);
+}
+
+function setStat(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.innerText = value;
+  }
+}
+
+async function loadDashboardStats() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const today = getTodayBounds();
+  const weekStart = getWeekStartValue();
+  const nextThirty = new Date();
+  nextThirty.setDate(nextThirty.getDate() + 30);
+  const todayValue = today.start.toISOString().slice(0, 10);
+  const nextThirtyValue = nextThirty.toISOString().slice(0, 10);
+
+  try {
+    const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
+      supabaseClient
+        .from("timesheet_entries")
+        .select("hours,day_of_week,week_start,worker_name,created_at")
+        .eq("worker_name", currentWorker)
+        .eq("week_start", weekStart),
+      buildInspectionQuery(today.start.toISOString()),
+      supabaseClient
+        .from("certificates")
+        .select("expiry_date,worker_name")
+        .eq("worker_name", currentWorker)
+        .gte("expiry_date", todayValue)
+        .lte("expiry_date", nextThirtyValue),
+      buildVacationQuery()
+    ]);
+
+    const entries = timesheetResult.data || [];
+    const todayName = new Date().toLocaleDateString("en-CA", { weekday: "long" });
+    const weekHours = entries.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const todayHours = entries
+      .filter((entry) => String(entry.day_of_week || "").toLowerCase() === todayName.toLowerCase())
+      .reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const inspectionCount = (inspectionResult.data || []).length;
+    const certificateCount = (certificateResult.data || []).length;
+    const vacationCount = (vacationResult.data || []).length;
+
+    setStat("weekHoursSide", weekHours.toFixed(2));
+    setStat("weekHoursDetail", "Regular: " + weekHours.toFixed(2));
+    setStat("todayHours", todayHours.toFixed(2));
+    setStat("todayInspections", inspectionCount);
+    setStat("inspectionsSide", inspectionCount);
+    setStat("expiringCertificates", certificateCount);
+    setStat("certificatesSide", certificateCount);
+    setStat("pendingVacations", vacationCount);
+    setStat("vacationSide", vacationCount);
+  } catch (error) {
+    console.warn("Dashboard stats could not be loaded.", error);
+  }
+}
+
+function buildInspectionQuery(startIso) {
+  const query = supabaseClient
+    .from("inspection_records")
+    .select("id,worker_name,created_at")
+    .gte("created_at", startIso);
+
+  return isAdmin ? query : query.eq("worker_name", currentWorker);
+}
+
+function buildVacationQuery() {
+  const query = supabaseClient
+    .from("vacation_requests")
+    .select("id,worker_name,status")
+    .eq("status", "pending");
+
+  return isAdmin ? query : query.eq("worker_name", currentWorker);
+}
+
 async function signOut() {
   await signOutJgc(supabaseClient);
 }
 </script>
-
 </body>
 </html>
