@@ -3,6 +3,7 @@
 <head>
   <title>Time Sheet App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css?v=1" />
   <style>
     body {
       font-family: Arial;
@@ -422,13 +423,10 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=1"></script>
 <script>
-const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
-const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
-const supabaseClient = window.supabase
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-  : null;
+const supabaseClient = createJgcSupabaseClient();
 
 let currentUser = normalizeWorkerName(localStorage.getItem("currentWorker"));
 let currentUserDisplay = localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker");
@@ -455,15 +453,7 @@ function goHome() {
 }
 
 async function signOut() {
-  if (supabaseClient) {
-    await supabaseClient.auth.signOut();
-  }
-
-  localStorage.removeItem("currentWorker");
-  localStorage.removeItem("currentWorkerDisplay");
-  localStorage.removeItem("currentUserEmail");
-  localStorage.removeItem("currentUserRole");
-  window.location.href = "index.html";
+  await signOutJgc(supabaseClient);
 }
 
 function makeLocalDate(dateString) {
