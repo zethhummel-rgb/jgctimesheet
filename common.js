@@ -101,11 +101,24 @@ function formatDisplayDate(value) {
 
 function activateContactsLinks() {
   document.querySelectorAll("button").forEach((button) => {
-    if (button.textContent.trim() !== "Contacts") {
+    const label = button.textContent.replace(/\s+/g, " ").trim().toLowerCase();
+    const currentAction = String(button.getAttribute("onclick") || "").toLowerCase();
+    const isContactsLink = label === "contacts"
+      || label.includes("contacts")
+      || currentAction.includes("contacts")
+      || currentAction.includes("comingsoon('contacts")
+      || currentAction.includes('comingsoon("contacts');
+
+    if (!isContactsLink) {
       return;
     }
 
-    button.onclick = function() {
+    button.onclick = function(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
       window.location.href = "contacts.html";
     };
   });
