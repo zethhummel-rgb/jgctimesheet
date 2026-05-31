@@ -126,6 +126,7 @@
   <button type="button" class="menu-button" onclick="window.location.href='timesheet.html'">Time Sheets</button>
   <button type="button" class="menu-button" onclick="window.location.href='certificates.html'">Certificates</button>
   <button type="button" class="menu-button" onclick="window.location.href='inspections.html'">Inspections</button>
+  <button id="adminButton" type="button" class="menu-button" onclick="window.location.href='admin.html'" hidden>Admin</button>
 </div>
 
 <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>
@@ -139,6 +140,11 @@ if (!currentWorker) {
 }
 
 document.getElementById("currentUser").innerText = "Signed in as: " + currentWorkerDisplay;
+
+const adminNames = ["zeth hummel", "jeff vandrish"];
+if (adminNames.includes(String(currentWorker || "").trim().toLowerCase())) {
+  document.getElementById("adminButton").hidden = false;
+}
 
 function comingSoon(sectionName) {
   alert(sectionName + " will be added soon.");
