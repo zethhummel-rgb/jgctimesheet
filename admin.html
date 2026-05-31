@@ -150,6 +150,14 @@ button:hover,
     background: #354039;
 }
 
+.delete-button {
+    background: #b42318;
+}
+
+.delete-button:hover {
+    background: #8f1d14;
+}
+
 .tabs {
     max-width: 1200px;
     margin: 0 auto 12px;
@@ -703,6 +711,7 @@ function renderVacationRequests() {
                         <th>Notes</th>
                         <th>Admin Note</th>
                         <th>Actions</th>
+                        <th>Delete</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -727,6 +736,7 @@ function renderVacationRequests() {
                                     <button type="button" class="secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
                                 </div>
                             </td>
+                            <td><button type="button" class="delete-button" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
@@ -770,6 +780,35 @@ async function reviewVacationRequest(id, status) {
     }
 
     vacationRequests = vacationRequests.map((item) => item.id === id ? data : item);
+    renderVacationCalendar();
+    renderVacationRequests();
+}
+
+async function deleteVacationRequest(id) {
+    const request = vacationRequests.find((item) => item.id === id);
+
+    if (!request) {
+        alert("This vacation request could not be found.");
+        return;
+    }
+
+    const confirmed = confirm("Delete this vacation request for " + (request.worker_display_name || request.worker_name) + "?");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("vacation_requests")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("This vacation request could not be deleted. " + (error.message || ""));
+        return;
+    }
+
+    vacationRequests = vacationRequests.filter((item) => item.id !== id);
     renderVacationCalendar();
     renderVacationRequests();
 }
