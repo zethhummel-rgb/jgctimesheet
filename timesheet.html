@@ -566,15 +566,17 @@
     <option>Saturday</option>
   </select>
 
+  <label>Job</label>
   <input
     id="jobName"
-    placeholder="Job Name"
+    placeholder="Search/select job"
     list="jobNameOptions"
     onchange="fillJobNumberForSelectedJob()"
     oninput="fillJobNumberForSelectedJob()"
   />
   <datalist id="jobNameOptions"></datalist>
-  <input id="jobNumber" placeholder="Job Number (optional)" />
+  <input id="jobNumber" type="hidden" />
+  <div id="jobStatus" class="small">Loading active jobs...</div>
 
   <label>Time In</label>
   <select id="timeIn">
@@ -626,6 +628,7 @@ let entriesTab = "current";
 let previousWeeks = [];
 let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
+let activeJobs = [];
 
 if (!currentUser) {
   window.location.href = "index.html";
@@ -1178,61 +1181,84 @@ function getSelectedWeekStart() {
   return document.getElementById("weekStart").value;
 }
 
-function getJobsForSelectedWeek() {
-  const selectedWeekStart = getSelectedWeekStart();
+function getJobDisplay(job) {
+  return String(job.job_number || "") + " - " + String(job.job_name || "");
+}
 
-  if (!selectedWeekStart) {
-    return [];
+function sortJobsByNumber(a, b) {
+  return String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true });
+}
+
+function findSelectedActiveJob() {
+  const selectedValue = document.getElementById("jobName").value.trim().toLowerCase();
+
+  if (!selectedValue) {
+    return null;
   }
 
-  const selectedWeekLabel = formatDate(makeLocalDate(selectedWeekStart));
-  const jobs = {};
-
-  for (let entry of loadTimesheets()) {
-    const entryWeekStart = entry.weekStartValue || entry.weekStart;
-
-    if (entryWeekStart !== selectedWeekStart && entryWeekStart !== selectedWeekLabel) {
-      continue;
-    }
-
-    const key = entry.jobName.toLowerCase() + "|" + entry.jobNumber;
-
-    if (!jobs[key]) {
-      jobs[key] = {
-        jobName: entry.jobName,
-        jobNumber: entry.jobNumber
-      };
-    }
-  }
-
-  return Object.values(jobs).sort(function(a, b) {
-    return a.jobName.localeCompare(b.jobName);
-  });
+  return activeJobs.find(function(job) {
+    return getJobDisplay(job).toLowerCase() === selectedValue;
+  }) || null;
 }
 
 function updateJobSuggestions() {
-  const options = getJobsForSelectedWeek().map(function(job) {
-    return '<option value="' + escapeHtml(job.jobName) + '" label="#' + escapeHtml(job.jobNumber) + '"></option>';
-  }).join("");
+  const options = activeJobs
+    .slice()
+    .sort(sortJobsByNumber)
+    .map(function(job) {
+      const display = getJobDisplay(job);
+      return '<option value="' + escapeHtml(display) + '"></option>';
+    }).join("");
 
   document.getElementById("jobNameOptions").innerHTML = options;
+
+  const jobStatus = document.getElementById("jobStatus");
+
+  if (jobStatus) {
+    jobStatus.textContent = activeJobs.length
+      ? activeJobs.length + " active jobs available."
+      : "No active jobs available. Ask an admin to import the job list.";
+  }
 }
 
 function fillJobNumberForSelectedJob() {
-  const jobName = document.getElementById("jobName").value.trim().toLowerCase();
   const jobNumberInput = document.getElementById("jobNumber");
+  const match = findSelectedActiveJob();
+  jobNumberInput.value = match ? match.job_number : "";
+}
 
-  if (!jobName) {
+async function loadActiveJobs() {
+  const jobStatus = document.getElementById("jobStatus");
+
+  if (!supabaseClient) {
+    if (jobStatus) {
+      jobStatus.textContent = "Jobs could not be loaded because Supabase is unavailable.";
+    }
+    updateJobSuggestions();
     return;
   }
 
-  const match = getJobsForSelectedWeek().find(function(job) {
-    return job.jobName.toLowerCase() === jobName;
-  });
-
-  if (match) {
-    jobNumberInput.value = match.jobNumber;
+  if (jobStatus) {
+    jobStatus.textContent = "Loading active jobs...";
   }
+
+  const { data, error } = await supabaseClient
+    .from("jobs")
+    .select("id, job_number, job_name, active")
+    .eq("active", true)
+    .order("job_number", { ascending: true });
+
+  if (error) {
+    activeJobs = [];
+    if (jobStatus) {
+      jobStatus.textContent = "Active jobs could not be loaded.";
+    }
+    updateJobSuggestions();
+    return;
+  }
+
+  activeJobs = data || [];
+  updateJobSuggestions();
 }
 
 function resetTimeEntryFields() {
@@ -1277,7 +1303,9 @@ function editEntry(entryId) {
   document.getElementById("weekStart").value = entry.weekStartValue;
   validateSunday(document.getElementById("weekStart"));
   document.getElementById("day").value = entry.day;
-  document.getElementById("jobName").value = entry.jobName;
+  document.getElementById("jobName").value = entry.jobNumber
+    ? entry.jobNumber + " - " + entry.jobName
+    : entry.jobName;
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("timeIn").value = entry.timeIn;
   document.getElementById("timeOut").value = entry.timeOut;
@@ -1346,16 +1374,22 @@ async function submitTime() {
   }
 
   const weekStart = document.getElementById("weekStart").value;
-  const jobName = document.getElementById("jobName").value.trim();
-  const jobNumber = document.getElementById("jobNumber").value.trim();
+  const selectedJob = findSelectedActiveJob();
+  const jobName = selectedJob ? String(selectedJob.job_name || "").trim() : "";
+  const jobNumber = selectedJob ? String(selectedJob.job_number || "").trim() : "";
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
   const timeOut = document.getElementById("timeOut").value;
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (!weekStart || !jobName || !day || !timeIn || !timeOut) {
+  if (!weekStart || !document.getElementById("jobName").value.trim() || !day || !timeIn || !timeOut) {
     alert("Fill in all fields");
+    return;
+  }
+
+  if (!selectedJob) {
+    alert("Please select an active job from the job dropdown.");
     return;
   }
 
@@ -2141,6 +2175,7 @@ if (currentUser) {
   selectedCalendarDate = new Date();
   calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
   render();
+  loadActiveJobs();
   loadTimesheetsFromSupabase();
   loadPreviousWeeksFromSupabase({ render: false }).then(function() {
     renderTimesheetCalendar();
