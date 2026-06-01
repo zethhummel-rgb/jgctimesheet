@@ -129,6 +129,28 @@ th {
     color: #58635c;
 }
 
+.timesheet-edit-panel {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #c6cec5;
+    border-radius: 8px;
+    background: #f2f6ef;
+}
+
+.timesheet-edit-panel h3 {
+    margin-top: 0;
+    color: #2f6f3c;
+}
+
+.timesheet-edit-table input,
+.timesheet-edit-table select {
+    min-width: 90px;
+}
+
+.timesheet-edit-table .job-name-input {
+    min-width: 160px;
+}
+
 .actions {
     display: flex;
     gap: 10px;
@@ -361,6 +383,7 @@ button:hover,
         </div>
     </div>
     <div id="timesheetsList" class="small">Loading timesheets...</div>
+    <div id="timesheetEditPanel" class="timesheet-edit-panel" hidden></div>
 </div>
 
 <div id="inspectionsSection" class="card" hidden>
@@ -581,6 +604,7 @@ let announcementUrls = {};
 let policyUrls = {};
 let currentUserId = "";
 let editingContactId = "";
+let editingTimesheetId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
@@ -855,6 +879,7 @@ function renderTimesheets() {
                             <td>${escapeHtml(week.note || "")}</td>
                             <td>
                                 <div class="actions">
+                                    <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
                                     <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
                                     <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
                                 </div>
@@ -1006,6 +1031,270 @@ function getAdminTimesheetTotalHours(week) {
     }
 
     return (Array.isArray(week.entries) ? week.entries : []).reduce((total, entry) => total + Number(getTimesheetEntryValue(entry, "hours", "hours", 0)), 0);
+}
+
+function calculateAdminTimesheetHours(inTime, outTime, tookLunch) {
+    if (!inTime || !outTime) {
+        return 0;
+    }
+
+    const start = new Date("1970-01-01T" + inTime + ":00");
+    const end = new Date("1970-01-01T" + outTime + ":00");
+    let diff = (end - start) / 1000 / 60 / 60;
+
+    if (diff < 0) {
+        diff += 24;
+    }
+
+    if (tookLunch) {
+        diff -= 0.5;
+    }
+
+    return Math.max(diff, 0);
+}
+
+function getAdminTimesheetWeekStart(week) {
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    const firstEntry = entries.find((entry) => getTimesheetEntryValue(entry, "weekStartValue", "week_start", ""));
+
+    if (firstEntry) {
+        return getTimesheetEntryValue(firstEntry, "weekStartValue", "week_start", "");
+    }
+
+    const weekStartText = String(week.week_label || "").split(" to ")[0];
+    const parsed = new Date(weekStartText);
+    return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function getAdminTimesheetWeekEnd(week, weekStart) {
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    const firstEntry = entries.find((entry) => getTimesheetEntryValue(entry, "weekEnd", "week_end", ""));
+
+    if (firstEntry) {
+        return getTimesheetEntryValue(firstEntry, "weekEnd", "week_end", "");
+    }
+
+    if (!weekStart) {
+        return "";
+    }
+
+    const endDate = makeLocalDate(weekStart);
+    endDate.setDate(endDate.getDate() + 6);
+    return formatTimesheetPdfDate(endDate);
+}
+
+function normalizeAdminTimesheetEntry(entry, week) {
+    const weekStart = getTimesheetEntryValue(entry, "weekStartValue", "week_start", "") || getAdminTimesheetWeekStart(week);
+    const weekEnd = getTimesheetEntryValue(entry, "weekEnd", "week_end", "") || getAdminTimesheetWeekEnd(week, weekStart);
+    const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
+    const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+    const tookLunch = Boolean(getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false));
+
+    return {
+        user: week.worker_name,
+        weekStartValue: weekStart,
+        weekStart: getTimesheetEntryValue(entry, "weekStart", "week_start_label", weekStart ? formatTimesheetPdfDate(makeLocalDate(weekStart)) : ""),
+        weekEnd,
+        jobName: getTimesheetEntryValue(entry, "jobName", "job_name", ""),
+        jobNumber: getTimesheetEntryValue(entry, "jobNumber", "job_number", ""),
+        day: getTimesheetEntryValue(entry, "day", "day_of_week", ""),
+        timeIn,
+        timeOut,
+        hours: Number(getTimesheetEntryValue(entry, "hours", "hours", calculateAdminTimesheetHours(timeIn, timeOut, tookLunch))).toFixed(2),
+        tookLunch,
+        nightWork: Boolean(getTimesheetEntryValue(entry, "nightWork", "night_work", false))
+    };
+}
+
+function getAdminTimeOptions(selectedValue) {
+    let options = '<option value="">Select</option>';
+
+    for (let hour = 0; hour < 24; hour++) {
+        for (let minute of [0, 30]) {
+            const value = String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+            options += '<option value="' + value + '"' + (value === selectedValue ? " selected" : "") + ">" + value + "</option>";
+        }
+    }
+
+    return options;
+}
+
+function editSubmittedTimesheet(id) {
+    const week = timesheets.find((item) => item.id === id);
+
+    if (!week) {
+        alert("Submitted timesheet could not be found.");
+        return;
+    }
+
+    editingTimesheetId = id;
+    renderTimesheetEditPanel(week);
+    document.getElementById("timesheetEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderTimesheetEditPanel(week) {
+    const panel = document.getElementById("timesheetEditPanel");
+    const entries = (Array.isArray(week.entries) ? week.entries : []).map((entry) => normalizeAdminTimesheetEntry(entry, week));
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h3>Edit Submitted Timesheet</h3>
+        <div class="small"><strong>${escapeHtml(week.worker_name || "")}</strong> - ${escapeHtml(week.week_label || "")}</div>
+        <label style="margin-top:10px;">Admin Note</label>
+        <textarea id="adminTimesheetNote">${escapeHtml(week.note || "")}</textarea>
+        <div class="table-wrap" style="margin-top:10px;">
+            <table class="timesheet-edit-table">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Job Name</th>
+                        <th>Job #</th>
+                        <th>Time In</th>
+                        <th>Time Out</th>
+                        <th>Lunch</th>
+                        <th>Night</th>
+                        <th>Hours</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTimesheetEditRows">
+                    ${entries.map((entry) => getTimesheetEditRowHtml(entry)).join("")}
+                </tbody>
+            </table>
+        </div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="addAdminTimesheetEditRow()">Add Entry</button>
+            <button type="button" onclick="saveSubmittedTimesheetEdits()">Save Changes</button>
+            <button type="button" class="secondary" onclick="cancelSubmittedTimesheetEdit()">Cancel</button>
+        </div>
+        <div id="timesheetEditStatus" class="small" style="margin-top:8px;"></div>
+    `;
+}
+
+function getTimesheetEditRowHtml(entry) {
+    const dayOptions = getTimesheetDayNames().map((day) => {
+        return '<option value="' + day + '"' + (entry.day === day ? " selected" : "") + ">" + day + "</option>";
+    }).join("");
+
+    return `
+        <tr>
+            <td><select data-field="day"><option value="">Day</option>${dayOptions}</select></td>
+            <td><input class="job-name-input" data-field="jobName" value="${escapeHtml(entry.jobName || "")}"></td>
+            <td><input data-field="jobNumber" value="${escapeHtml(entry.jobNumber || "")}"></td>
+            <td><select data-field="timeIn">${getAdminTimeOptions(entry.timeIn || "")}</select></td>
+            <td><select data-field="timeOut">${getAdminTimeOptions(entry.timeOut || "")}</select></td>
+            <td><input type="checkbox" data-field="tookLunch"${entry.tookLunch ? " checked" : ""}></td>
+            <td><input type="checkbox" data-field="nightWork"${entry.nightWork ? " checked" : ""}></td>
+            <td><input data-field="hours" type="number" step="0.25" min="0" value="${Number(entry.hours || 0).toFixed(2)}"></td>
+            <td><button type="button" class="delete-button" onclick="removeAdminTimesheetEditRow(this)">Delete</button></td>
+        </tr>
+    `;
+}
+
+function addAdminTimesheetEditRow() {
+    const week = timesheets.find((item) => item.id === editingTimesheetId);
+
+    if (!week) {
+        return;
+    }
+
+    document.getElementById("adminTimesheetEditRows").insertAdjacentHTML("beforeend", getTimesheetEditRowHtml(normalizeAdminTimesheetEntry({}, week)));
+}
+
+function removeAdminTimesheetEditRow(button) {
+    button.closest("tr").remove();
+}
+
+function collectAdminTimesheetEntries(week) {
+    const rows = Array.from(document.querySelectorAll("#adminTimesheetEditRows tr"));
+    const weekStart = getAdminTimesheetWeekStart(week);
+    const weekEnd = getAdminTimesheetWeekEnd(week, weekStart);
+
+    return rows.map((row) => {
+        const getValue = (field) => {
+            const input = row.querySelector('[data-field="' + field + '"]');
+            return input ? input.value.trim() : "";
+        };
+        const getChecked = (field) => {
+            const input = row.querySelector('[data-field="' + field + '"]');
+            return input ? input.checked : false;
+        };
+        const tookLunch = getChecked("tookLunch");
+        const timeIn = getValue("timeIn");
+        const timeOut = getValue("timeOut");
+        const calculatedHours = calculateAdminTimesheetHours(timeIn, timeOut, tookLunch);
+        const enteredHours = Number(getValue("hours"));
+        const hours = Number.isFinite(enteredHours) && enteredHours > 0 ? enteredHours : calculatedHours;
+
+        return {
+            user: week.worker_name,
+            weekStartValue: weekStart,
+            weekStart: weekStart ? formatTimesheetPdfDate(makeLocalDate(weekStart)) : "",
+            weekEnd,
+            jobName: getValue("jobName"),
+            jobNumber: getValue("jobNumber"),
+            day: getValue("day"),
+            timeIn,
+            timeOut,
+            hours: Number(hours || 0).toFixed(2),
+            tookLunch,
+            nightWork: getChecked("nightWork")
+        };
+    }).filter((entry) => entry.day || entry.jobName || entry.timeIn || entry.timeOut || Number(entry.hours) > 0);
+}
+
+async function saveSubmittedTimesheetEdits() {
+    const week = timesheets.find((item) => item.id === editingTimesheetId);
+
+    if (!week) {
+        alert("Submitted timesheet could not be found.");
+        return;
+    }
+
+    const entries = collectAdminTimesheetEntries(week);
+
+    if (!entries.length) {
+        alert("Add at least one timesheet entry before saving.");
+        return;
+    }
+
+    const invalid = entries.find((entry) => !entry.day || !entry.jobName || !entry.timeIn || !entry.timeOut);
+
+    if (invalid) {
+        alert("Each entry needs a day, job name, time in, and time out.");
+        return;
+    }
+
+    const totalHours = entries.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const note = document.getElementById("adminTimesheetNote").value.trim();
+    document.getElementById("timesheetEditStatus").textContent = "Saving changes...";
+
+    const { error } = await supabaseClient
+        .from("previous_timesheet_weeks")
+        .update({
+            entries,
+            total_hours: totalHours,
+            note
+        })
+        .eq("id", week.id);
+
+    if (error) {
+        document.getElementById("timesheetEditStatus").textContent = "Timesheet could not be saved.";
+        return;
+    }
+
+    week.entries = entries;
+    week.total_hours = totalHours;
+    week.note = note;
+    cancelSubmittedTimesheetEdit();
+    renderTimesheets();
+}
+
+function cancelSubmittedTimesheetEdit() {
+    editingTimesheetId = "";
+    const panel = document.getElementById("timesheetEditPanel");
+    panel.hidden = true;
+    panel.innerHTML = "";
 }
 
 function buildAdminTimesheetEmailBody(week, totalHours) {
