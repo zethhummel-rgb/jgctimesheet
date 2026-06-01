@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Equipment / Vehicles</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0 0 8px;
+}
+
+.user-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.actions {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.panel {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: #fbfcf9;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+    padding: 16px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 13px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+.status-pill {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.valid {
+    background: #dcefdc;
+    color: #1d5b28;
+}
+
+.expiring {
+    background: #fff2c2;
+    color: #684d00;
+}
+
+.expired {
+    background: #f4d3d3;
+    color: #7b1f1f;
+}
+
+.small {
+    font-size: 13px;
+    color: #58635c;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<h1>Equipment / Vehicles</h1>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="actions">
+    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+</div>
+
+<div class="panel">
+    <div id="equipmentList" class="small">Loading equipment and vehicles...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+
+document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key);
+
+function getEquipmentStatus(expiryDate) {
+    if (!expiryDate) {
+        return { text: "No Expiry", className: "valid" };
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    const days = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+    if (days < 0) {
+        return { text: "Expired", className: "expired" };
+    }
+
+    if (days <= 30) {
+        return { text: "Expiring Soon", className: "expiring" };
+    }
+
+    return { text: "Valid", className: "valid" };
+}
+
+async function loadEquipment() {
+    const list = document.getElementById("equipmentList");
+
+    if (!supabaseClient) {
+        list.textContent = "Supabase is not available.";
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("equipment_vehicles")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+    if (error) {
+        list.textContent = "Equipment and vehicles could not be loaded.";
+        return;
+    }
+
+    const items = data || [];
+
+    if (!items.length) {
+        list.textContent = "No equipment or vehicles have been added yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name of Equipment / Vehicle</th>
+                        <th>Identification #</th>
+                        <th>Operator</th>
+                        <th>Yearly Inspection Expiry</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.map((item) => {
+                        const status = getEquipmentStatus(item.yearly_inspection_expiry);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.identification_number || "")}</td>
+                                <td>${escapeHtml(item.operator_name || "")}</td>
+                                <td>${item.yearly_inspection_expiry ? escapeHtml(item.yearly_inspection_expiry) : "-"}</td>
+                                <td><span class="status-pill ${status.className}">${status.text}</span></td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function signOut() {
+    await signOutJgc(supabaseClient);
+}
+
+loadEquipment();
+</script>
+</body>
+</html>
