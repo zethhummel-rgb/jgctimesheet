@@ -67,6 +67,54 @@ if (document.readyState === "loading") {
   applyJgcTheme();
 }
 
+function activateJgcPwa() {
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const manifest = document.createElement("link");
+    manifest.rel = "manifest";
+    manifest.href = "manifest.json";
+    document.head.appendChild(manifest);
+  }
+
+  const metaTags = [
+    { name: "theme-color", content: "#0b5e3b" },
+    { name: "apple-mobile-web-app-capable", content: "yes" },
+    { name: "apple-mobile-web-app-title", content: "JGC Portal" },
+    { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" }
+  ];
+
+  metaTags.forEach((tag) => {
+    if (document.querySelector('meta[name="' + tag.name + '"]')) {
+      return;
+    }
+
+    const meta = document.createElement("meta");
+    meta.name = tag.name;
+    meta.content = tag.content;
+    document.head.appendChild(meta);
+  });
+
+  if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+    const appleIcon = document.createElement("link");
+    appleIcon.rel = "apple-touch-icon";
+    appleIcon.href = "icon-192.png";
+    document.head.appendChild(appleIcon);
+  }
+
+  if ("serviceWorker" in navigator && window.location.protocol.startsWith("http")) {
+    window.addEventListener("load", function() {
+      navigator.serviceWorker.register("service-worker.js").catch(function(error) {
+        console.warn("JGC Portal service worker could not be registered.", error);
+      });
+    });
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", activateJgcPwa);
+} else {
+  activateJgcPwa();
+}
+
 function createJgcSupabaseClient() {
   return window.supabase
     ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY)
