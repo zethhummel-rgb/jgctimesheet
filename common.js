@@ -121,7 +121,7 @@ function requireJgcWorker() {
 
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
-  const excludedPages = ["index.html", "reset-password.html"];
+  const excludedPages = ["index.html", "reset-password.html", "home.html"];
 
   if (excludedPages.includes(page) || document.getElementById("jgcGlobalTopNav")) {
     return;
