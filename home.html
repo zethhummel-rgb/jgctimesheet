@@ -295,11 +295,21 @@
       grid-template-columns: 42px 1fr;
       gap: 12px;
       align-items: center;
+      min-width: 0;
       margin-top: 0;
       padding: 10px 12px;
       border: 1px solid rgba(199, 221, 211, 0.13);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.035);
+    }
+
+    .info-item > div {
+      min-width: 0;
+    }
+
+    .info-item .muted {
+      overflow-wrap: anywhere;
+      line-height: 1.25;
     }
 
     .info-icon {
@@ -582,7 +592,7 @@
         margin: 0;
         border-radius: 0;
         border: 0;
-        padding-bottom: 78px;
+        padding-bottom: 0;
       }
 
       .topbar {
@@ -615,13 +625,29 @@
       }
 
       .quick-info {
-        grid-template-columns: repeat(4, minmax(142px, 1fr));
-        overflow-x: auto;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: visible;
         padding: 10px 12px;
+        gap: 8px;
       }
 
       .quick-info .section-title {
         display: none;
+      }
+
+      .info-item {
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 8px;
+        padding: 9px;
+      }
+
+      .info-icon {
+        width: 34px;
+        height: 34px;
+      }
+
+      .info-value {
+        font-size: 18px;
       }
 
       .main-grid {
@@ -629,10 +655,51 @@
         min-height: auto;
       }
 
-      .sidebar,
       .hero,
       .footer {
         display: none;
+      }
+
+      .sidebar {
+        display: none;
+        position: fixed;
+        top: 52px;
+        left: 10px;
+        right: 10px;
+        z-index: 30;
+        max-height: calc(100vh - 68px);
+        overflow-y: auto;
+        padding: 12px;
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        background: rgba(8, 18, 18, 0.98);
+        box-shadow: var(--shadow);
+      }
+
+      .app-shell:not(.sidebar-collapsed) .sidebar {
+        display: flex;
+      }
+
+      .app-shell:not(.sidebar-collapsed)::after {
+        content: "";
+        position: fixed;
+        inset: 52px 0 0;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.42);
+      }
+
+      .app-shell.sidebar-collapsed .side-link,
+      .side-link {
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 13px 14px;
+        font-size: 15px;
+      }
+
+      .app-shell.sidebar-collapsed .side-link svg,
+      .side-link svg {
+        width: 20px;
+        height: 20px;
       }
 
       .content {
@@ -718,17 +785,7 @@
       }
 
       .mobile-bottom-nav {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0;
-        padding: 9px 8px max(9px, env(safe-area-inset-bottom));
-        background: rgba(9, 17, 17, 0.96);
-        border-top: 1px solid var(--line);
-        z-index: 10;
+        display: none;
       }
 
       .bottom-link {
@@ -774,13 +831,18 @@
         grid-template-columns: repeat(4, minmax(118px, 1fr));
       }
 
+      .quick-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .cards-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 10px;
       }
 
       .feature-card {
         min-height: 155px;
-        padding: 18px;
+        padding: 14px;
       }
 
       .card-icon {
@@ -790,11 +852,23 @@
       }
 
       .feature-card h2 {
-        font-size: 19px;
+        font-size: 17px;
+        overflow-wrap: anywhere;
       }
 
       .feature-card p {
-        font-size: 14px;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .quick-info {
+        grid-template-columns: 1fr;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -803,7 +877,7 @@
 <body>
 <div class="app-shell sidebar-collapsed">
   <header class="topbar">
-    <button id="sidebarToggle" type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Collapse sidebar">
+    <button id="sidebarToggle" type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Expand sidebar">
       <i data-lucide="menu"></i>
     </button>
 
@@ -999,6 +1073,7 @@ const currentUserRole = worker.role;
 const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 let announcements = [];
 let announcementUrls = {};
+let currentUserId = "";
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
 document.getElementById("roleText").innerText = "Employee";
@@ -1052,6 +1127,49 @@ function goTo(page) {
 
 function comingSoon(sectionName) {
   alert(sectionName + " will be added soon.");
+}
+
+async function getCurrentUserId() {
+  if (currentUserId) {
+    return currentUserId;
+  }
+
+  if (!supabaseClient) {
+    return "";
+  }
+
+  const sessionResult = await supabaseClient.auth.getSession();
+  currentUserId = sessionResult.data.session && sessionResult.data.session.user
+    ? sessionResult.data.session.user.id
+    : "";
+
+  return currentUserId;
+}
+
+async function acknowledgeAnnouncement(announcementId, source) {
+  if (!supabaseClient || !announcementId) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("announcement_acknowledgements")
+    .insert({
+      announcement_id: announcementId,
+      worker_id: userId,
+      worker_name: currentWorkerDisplay || currentWorker,
+      worker_email: worker.email || "",
+      read_source: source || "announcement"
+    });
+
+  if (error && error.code !== "23505") {
+    console.warn("Announcement acknowledgement could not be saved.", error);
+  }
 }
 
 function showMoreMenu() {
@@ -1212,15 +1330,29 @@ function renderAnnouncements() {
 
   panel.hidden = false;
   list.innerHTML = announcements.map((announcement) => `
-    <article class="announcement-item">
+    <article class="announcement-item" role="button" tabindex="0" data-announcement-read="${escapeHtml(announcement.id)}">
       <span class="info-icon"><i data-lucide="megaphone"></i></span>
       <div>
         <h2>${escapeHtml(announcement.title)}</h2>
         <div class="muted">${escapeHtml(announcement.body || "")}</div>
       </div>
-      ${announcementUrls[announcement.id] ? '<a class="announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : ""}
+      ${announcementUrls[announcement.id] ? '<a class="announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener" data-announcement-pdf="' + escapeHtml(announcement.id) + '">Open PDF</a>' : ""}
     </article>
   `).join("");
+
+  list.querySelectorAll("[data-announcement-read]").forEach((card) => {
+    card.addEventListener("click", () => acknowledgeAnnouncement(card.dataset.announcementRead, "home_card"));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        acknowledgeAnnouncement(card.dataset.announcementRead, "home_card");
+      }
+    });
+  });
+
+  list.querySelectorAll("[data-announcement-pdf]").forEach((link) => {
+    link.addEventListener("click", () => acknowledgeAnnouncement(link.dataset.announcementPdf, "home_pdf"));
+  });
+
   renderIcons();
 }
 
