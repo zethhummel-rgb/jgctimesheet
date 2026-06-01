@@ -583,6 +583,7 @@ let currentUserId = "";
 let editingContactId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -852,13 +853,302 @@ function renderTimesheets() {
                             <td>${Number(week.total_hours || 0).toFixed(2)}</td>
                             <td>${escapeHtml(formatDate(week.submitted_at))}</td>
                             <td>${escapeHtml(week.note || "")}</td>
-                            <td><button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button></td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
+                                    <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
+                                </div>
+                            </td>
                         </tr>
                     `).join("")}
                 </tbody>
             </table>
         </div>
     `;
+}
+
+function makeLocalDate(dateString) {
+    const parts = String(dateString || "").split("-");
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function formatTimesheetPdfDate(date) {
+    return date.toLocaleDateString("en-CA", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function getTimesheetDayNames() {
+    return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+}
+
+function getTimesheetEntryValue(entry, camelName, snakeName, fallback) {
+    return entry && entry[camelName] !== undefined ? entry[camelName] : entry && entry[snakeName] !== undefined ? entry[snakeName] : fallback;
+}
+
+function getTimesheetEntryDate(entry) {
+    const weekStart = getTimesheetEntryValue(entry, "weekStartValue", "week_start", "");
+    const day = getTimesheetEntryValue(entry, "day", "day_of_week", "");
+
+    if (!weekStart || !day) {
+        return null;
+    }
+
+    const dayIndex = getTimesheetDayNames().indexOf(day);
+
+    if (dayIndex < 0) {
+        return null;
+    }
+
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(weekStart)
+        ? makeLocalDate(weekStart)
+        : new Date(weekStart);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    date.setDate(date.getDate() + dayIndex);
+    return date;
+}
+
+function getTimesheetEmailDayOrder() {
+    return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+}
+
+function sortTimesheetEntriesForEmail(entries) {
+    const dayOrder = getTimesheetEmailDayOrder();
+
+    return entries.slice().sort((a, b) => {
+        const dayA = getTimesheetEntryValue(a, "day", "day_of_week", "");
+        const dayB = getTimesheetEntryValue(b, "day", "day_of_week", "");
+        const dayDifference = dayOrder.indexOf(dayA) - dayOrder.indexOf(dayB);
+
+        if (dayDifference !== 0) {
+            return dayDifference;
+        }
+
+        const jobA = getTimesheetEntryValue(a, "jobName", "job_name", "");
+        const jobB = getTimesheetEntryValue(b, "jobName", "job_name", "");
+        const jobDifference = jobA.localeCompare(jobB);
+
+        if (jobDifference !== 0) {
+            return jobDifference;
+        }
+
+        return String(getTimesheetEntryValue(a, "timeIn", "time_in", "")).localeCompare(String(getTimesheetEntryValue(b, "timeIn", "time_in", "")));
+    });
+}
+
+function getTimesheetEmailDayHeading(day, entries) {
+    const entryDate = entries.length ? getTimesheetEntryDate(entries[0]) : null;
+    return entryDate ? day + " - " + formatTimesheetPdfDate(entryDate) : day;
+}
+
+function getTimesheetEntriesByEmailDay(entries) {
+    const sortedEntries = sortTimesheetEntriesForEmail(entries);
+
+    return getTimesheetEmailDayOrder().map((day) => {
+        const dayEntries = sortedEntries.filter((entry) => getTimesheetEntryValue(entry, "day", "day_of_week", "") === day);
+
+        if (!dayEntries.length) {
+            return null;
+        }
+
+        return {
+            day,
+            heading: getTimesheetEmailDayHeading(day, dayEntries),
+            entries: dayEntries,
+            table: getAdminTimesheetEmailTableRows(dayEntries)
+        };
+    }).filter(Boolean);
+}
+
+function padTimesheetCell(value, width) {
+    const text = String(value || "");
+    return text.length > width ? text.slice(0, width - 1) + "." : text + " ".repeat(width - text.length);
+}
+
+function getAdminTimesheetEmailTableRows(entries) {
+    const columns = [
+        { label: "Job", width: 24 },
+        { label: "Job #", width: 10 },
+        { label: "Lunch", width: 7 },
+        { label: "Night", width: 7 },
+        { label: "Time", width: 13 },
+        { label: "Hours", width: 6 }
+    ];
+    const header = columns.map((column) => padTimesheetCell(column.label, column.width)).join(" | ");
+    const divider = columns.map((column) => "-".repeat(column.width)).join("-+-");
+    const rows = entries.map((entry) => {
+        const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
+        const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+        const values = [
+            getTimesheetEntryValue(entry, "jobName", "job_name", ""),
+            getTimesheetEntryValue(entry, "jobNumber", "job_number", ""),
+            getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No",
+            getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No",
+            timeIn + "-" + timeOut,
+            Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)
+        ];
+
+        return values.map((value, index) => padTimesheetCell(value, columns[index].width)).join(" | ");
+    });
+
+    return { header, divider, rows };
+}
+
+function getAdminTimesheetTotalHours(week) {
+    if (week.total_hours !== undefined && week.total_hours !== null) {
+        return Number(week.total_hours);
+    }
+
+    return (Array.isArray(week.entries) ? week.entries : []).reduce((total, entry) => total + Number(getTimesheetEntryValue(entry, "hours", "hours", 0)), 0);
+}
+
+function buildAdminTimesheetEmailBody(week, totalHours) {
+    const lines = [
+        "Worker: " + (week.worker_name || ""),
+        "Week: " + (week.week_label || ""),
+        "",
+        "Timesheet Entries:",
+        ""
+    ];
+
+    for (const group of getTimesheetEntriesByEmailDay(Array.isArray(week.entries) ? week.entries : [])) {
+        lines.push(group.heading);
+        lines.push(group.table.header);
+        lines.push(group.table.divider);
+
+        for (const row of group.table.rows) {
+            lines.push(row);
+        }
+
+        lines.push("");
+        lines.push("");
+    }
+
+    lines.push("Total Hours: " + totalHours.toFixed(2));
+
+    if (week.note) {
+        lines.push("");
+        lines.push("Note:");
+        lines.push(week.note);
+    }
+
+    return lines.join("\n");
+}
+
+function buildAdminTimesheetPdfHtml(week, totalHours) {
+    const groups = getTimesheetEntriesByEmailDay(Array.isArray(week.entries) ? week.entries : []);
+    const groupHtml = groups.map((group) => {
+        const rows = group.entries.map((entry) => {
+            const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
+            const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+
+            return `
+                <tr>
+                    <td>${escapeHtml(getTimesheetEntryValue(entry, "jobName", "job_name", ""))}</td>
+                    <td>${escapeHtml(getTimesheetEntryValue(entry, "jobNumber", "job_number", ""))}</td>
+                    <td>${getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No"}</td>
+                    <td>${getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No"}</td>
+                    <td>${escapeHtml(timeIn)}-${escapeHtml(timeOut)}</td>
+                    <td>${Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)}</td>
+                </tr>
+            `;
+        }).join("");
+
+        return `
+            <h2>${escapeHtml(group.heading)}</h2>
+            <table>
+                <thead>
+                    <tr><th>Job Name</th><th>Job #</th><th>Lunch</th><th>Night Work</th><th>Time</th><th>Hours</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    }).join("");
+
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; color: #1f2a24; }
+                h1 { color: #2f6f3c; margin-bottom: 4px; }
+                h2 { margin-top: 22px; margin-bottom: 8px; color: #2f6f3c; }
+                .meta { margin-bottom: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+                th, td { border: 1px solid #999; padding: 6px; font-size: 11px; text-align: left; }
+                th { background: #e6ece6; }
+                .total { margin-top: 18px; font-size: 14px; font-weight: bold; }
+                .note { margin-top: 12px; padding: 8px; border: 1px solid #999; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction Timesheet</h1>
+            <div class="meta">
+                <div><b>Worker:</b> ${escapeHtml(week.worker_name || "")}</div>
+                <div><b>Week:</b> ${escapeHtml(week.week_label || "")}</div>
+            </div>
+            ${groupHtml}
+            <div class="total">Total Hours: ${totalHours.toFixed(2)}</div>
+            ${week.note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(week.note) + '</div>' : ''}
+        </body>
+        </html>
+    `;
+}
+
+function makeSafeEmailFileName(value) {
+    return String(value || "timesheet")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+async function resubmitSubmittedTimesheet(id) {
+    const week = timesheets.find((item) => item.id === id);
+
+    if (!week || !Array.isArray(week.entries) || !week.entries.length) {
+        alert("This submitted timesheet has no entries to resubmit.");
+        return;
+    }
+
+    if (!confirm("Resubmit this timesheet for " + week.worker_name + " - " + week.week_label + "?")) {
+        return;
+    }
+
+    const totalHours = getAdminTimesheetTotalHours(week);
+    const subject = "Timesheet - " + week.worker_name + " - " + week.week_label;
+    const body = buildAdminTimesheetEmailBody(week, totalHours);
+    const pdfHtml = buildAdminTimesheetPdfHtml(week, totalHours);
+
+    try {
+        await fetch(TIMESHEET_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                subject,
+                body,
+                text: body,
+                pdfHtml,
+                pdfFileName: "timesheet-" + makeSafeEmailFileName(week.worker_name + "-" + week.week_label) + ".pdf",
+                worker: week.worker_name,
+                weekLabel: week.week_label,
+                source: "admin_resubmit"
+            })
+        });
+
+        alert("Timesheet resubmitted.");
+    } catch (error) {
+        alert("Timesheet could not be resubmitted.");
+    }
 }
 
 async function deleteSubmittedTimesheet(id) {
