@@ -9,6 +9,7 @@ function applyJgcPortalName() {
     "aerial-lifts.html": "Aerial Lift Inspection",
     "certificates.html": "Certificates",
     "contacts.html": "Contacts",
+    "equipment-vehicles.html": "Equipment / Vehicles",
     "forklift.html": "Forklift Inspection",
     "harness.html": "Harness Inspection",
     "home.html": "Home",
@@ -132,6 +133,7 @@ function activateGlobalTopNavigation() {
     { label: "Inspections", href: "inspections.html" },
     { label: "Certificates", href: "certificates.html" },
     { label: "Vacation", href: "vacation-request.html" },
+    { label: "Equipment", href: "equipment-vehicles.html" },
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" }
   ];
@@ -354,7 +356,13 @@ function formatDisplayDate(value) {
 }
 
 function activateContactsLinks() {
+  const isAdminPage = /admin\.html$/i.test(window.location.pathname);
+
   document.querySelectorAll("button").forEach((button) => {
+    if (isAdminPage && (button.id === "contactsTab" || button.closest(".tabs"))) {
+      return;
+    }
+
     const label = button.textContent.replace(/\s+/g, " ").trim().toLowerCase();
     const currentAction = String(button.getAttribute("onclick") || "").toLowerCase();
     const isContactsLink = label === "contacts"
