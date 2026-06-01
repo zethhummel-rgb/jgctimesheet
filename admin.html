@@ -586,7 +586,7 @@ button:hover,
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel columns used: Job No and Job Name. Rows highlighted yellow or red are skipped and treated as inactive.</div>
+            <div class="small">Excel layout used: job name from columns A-E and job number from column F. Rows highlighted yellow or red are skipped and treated as inactive.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -2905,38 +2905,36 @@ async function importJobsFromExcel() {
         const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellStyles: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-        const headerIndex = rows.findIndex((row) => row.some((value) => normalizeExcelHeader(value) === "jobno" || normalizeExcelHeader(value) === "jobnumber"));
-
-        if (headerIndex < 0) {
-            status.textContent = "No header row found. Check for columns named Job No and Job Name.";
-            return;
-        }
-
-        const headers = rows[headerIndex].map(normalizeExcelHeader);
-        const jobNumberColumn = headers.findIndex((header) => header === "jobno" || header === "jobnumber");
-        const jobNameColumn = headers.findIndex((header) => header === "jobname");
-
-        if (jobNumberColumn < 0 || jobNameColumn < 0) {
-            status.textContent = "Missing required columns. Use Job No and Job Name.";
-            return;
-        }
-
         const jobMap = new Map();
         let skippedHighlighted = 0;
         let skippedIncomplete = 0;
+        const jobNameColumns = [0, 1, 2, 3, 4];
+        const jobNumberColumn = 5;
+        const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5];
 
-        rows.slice(headerIndex + 1).forEach((row, index) => {
-            const sheetRowIndex = headerIndex + 1 + index;
-
-            if (isHighlightedInactiveRow(sheet, sheetRowIndex, [jobNumberColumn, jobNameColumn])) {
+        rows.forEach((row, sheetRowIndex) => {
+            if (isHighlightedInactiveRow(sheet, sheetRowIndex, columnsToCheckForHighlight)) {
                 skippedHighlighted++;
                 return;
             }
 
             const jobNumber = String(row[jobNumberColumn] || "").trim();
-            const jobName = String(row[jobNameColumn] || "").trim();
+            const jobName = jobNameColumns
+                .map((columnIndex) => String(row[columnIndex] || "").trim())
+                .filter(Boolean)
+                .join(" ")
+                .replace(/\s+/g, " ")
+                .trim();
 
             if (!jobNumber || !jobName) {
+                skippedIncomplete++;
+                return;
+            }
+
+            const normalizedNumber = normalizeExcelHeader(jobNumber);
+            const normalizedName = normalizeExcelHeader(jobName);
+
+            if (["jobno", "jobnumber"].includes(normalizedNumber) || normalizedName === "jobname") {
                 skippedIncomplete++;
                 return;
             }
@@ -2952,7 +2950,7 @@ async function importJobsFromExcel() {
         const records = Array.from(jobMap.values()).sort((a, b) => a.job_number.localeCompare(b.job_number, undefined, { numeric: true }));
 
         if (!records.length) {
-            status.textContent = "No valid active jobs found. Check the Job No and Job Name columns and highlighted rows.";
+            status.textContent = "No valid active jobs found. Check that job names are in columns A-E and job numbers are in column F.";
             return;
         }
 
