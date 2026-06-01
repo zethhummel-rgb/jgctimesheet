@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>John Gordon Construction</title>
+  <title>JGC Portal - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css?v=2" />
   <style>
@@ -48,15 +48,32 @@
     }
 
     .topbar {
-      min-height: 150px;
-      padding: 22px 30px;
+      min-height: 96px;
+      padding: 12px 24px;
       display: grid;
-      grid-template-columns: 260px 1fr auto auto;
-      gap: 28px;
+      grid-template-columns: auto auto 1fr auto auto auto;
+      gap: 18px;
       align-items: center;
       background:
         linear-gradient(90deg, rgba(9, 96, 42, 0.95), rgba(9, 73, 35, 0.92)),
         radial-gradient(circle at 70% 0%, rgba(83, 221, 91, 0.24), transparent 28rem);
+    }
+
+    .sidebar-toggle {
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 7px;
+      background: rgba(5, 18, 15, 0.18);
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(5, 18, 15, 0.34);
     }
 
     .logo-wrap {
@@ -64,7 +81,7 @@
     }
 
     .logo-wrap img {
-      width: min(220px, 100%);
+      width: min(270px, 26vw);
       height: auto;
       display: block;
       filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
@@ -74,6 +91,10 @@
       display: flex;
       align-items: center;
       gap: 14px;
+      min-width: 0;
+    }
+
+    .top-spacer {
       min-width: 0;
     }
 
@@ -90,8 +111,8 @@
     }
 
     .profile-icon {
-      width: 46px;
-      height: 46px;
+      width: 30px;
+      height: 30px;
       border: 2px solid rgba(57, 200, 72, 0.68);
       flex: 0 0 auto;
     }
@@ -106,7 +127,7 @@
     }
 
     .profile-name {
-      font-size: 24px;
+      font-size: 15px;
       font-weight: 800;
       line-height: 1.1;
       white-space: nowrap;
@@ -121,8 +142,9 @@
     }
 
     .role-text {
-      margin-top: 4px;
+      margin-top: 2px;
       font-weight: 700;
+      font-size: 11px;
       color: #55de61;
     }
 
@@ -162,13 +184,19 @@
     .main-grid {
       display: grid;
       grid-template-columns: 275px 1fr;
-      min-height: calc(100vh - 238px);
+      min-height: calc(100vh - 230px);
+      transition: grid-template-columns 0.18s ease;
+    }
+
+    .app-shell.sidebar-collapsed .main-grid {
+      grid-template-columns: 78px 1fr;
     }
 
     .sidebar {
-      padding: 32px 14px 26px;
+      padding: 24px 14px 26px;
       border-right: 1px solid var(--line);
       background: rgba(8, 18, 18, 0.72);
+      overflow: hidden;
     }
 
     .side-nav {
@@ -190,9 +218,25 @@
       gap: 14px;
       width: 100%;
       padding: 16px;
+      min-height: 54px;
       border-radius: 7px;
       background: transparent;
       text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .side-link {
+      justify-content: center;
+      gap: 0;
+      padding: 16px 10px;
+      font-size: 0;
+    }
+
+    .app-shell.sidebar-collapsed .side-link svg {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
     }
 
     .side-link:hover,
@@ -201,9 +245,19 @@
     }
 
     .quick-info {
-      margin: 32px 12px 0;
-      padding-top: 28px;
-      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      display: grid;
+      grid-template-columns: auto repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8, 18, 18, 0.76);
+    }
+
+    .quick-info .section-title {
+      margin: 0;
+      align-self: center;
+      white-space: nowrap;
     }
 
     .info-item {
@@ -211,7 +265,11 @@
       grid-template-columns: 42px 1fr;
       gap: 12px;
       align-items: center;
-      margin-top: 22px;
+      margin-top: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(199, 221, 211, 0.13);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
     }
 
     .info-icon {
@@ -226,7 +284,7 @@
     }
 
     .content {
-      padding: 32px 24px 34px;
+      padding: 26px 24px 34px;
     }
 
     .hero {
@@ -498,18 +556,22 @@
       }
 
       .topbar {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: auto 1fr auto;
         gap: 12px;
-        min-height: 128px;
-        padding: 16px 18px;
+        min-height: 74px;
+        padding: 10px 14px;
       }
 
       .logo-wrap img {
-        width: 132px;
+        width: 148px;
       }
 
       .profile-block {
         justify-content: flex-end;
+      }
+
+      .top-spacer {
+        display: none;
       }
 
       .profile-name {
@@ -518,6 +580,16 @@
 
       .date-chip,
       .logout-button {
+        display: none;
+      }
+
+      .quick-info {
+        grid-template-columns: repeat(4, minmax(142px, 1fr));
+        overflow-x: auto;
+        padding: 10px 12px;
+      }
+
+      .quick-info .section-title {
         display: none;
       }
 
@@ -645,22 +717,25 @@
 
     @media (max-width: 620px) {
       .topbar {
-        grid-template-columns: 1fr 1.2fr;
-        min-height: 118px;
-        padding: 14px 14px;
+        min-height: 66px;
+        padding: 8px 12px;
       }
 
       .logo-wrap img {
-        width: 112px;
+        width: 132px;
       }
 
       .profile-icon {
-        width: 34px;
-        height: 34px;
+        display: none;
       }
 
       .profile-name {
-        font-size: 17px;
+        font-size: 12px;
+      }
+
+      .role-text,
+      #greetingText {
+        font-size: 10px;
       }
 
       .overview-grid {
@@ -695,20 +770,17 @@
 </head>
 
 <body>
-<div class="app-shell">
+<div class="app-shell sidebar-collapsed">
   <header class="topbar">
+    <button id="sidebarToggle" type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Collapse sidebar">
+      <i data-lucide="menu"></i>
+    </button>
+
     <div class="logo-wrap">
       <img src="logo.png" alt="John Gordon Construction" />
     </div>
 
-    <div class="profile-block">
-      <span class="profile-icon"><i data-lucide="circle-user-round"></i></span>
-      <div>
-        <div class="muted" id="greetingText">Welcome back,</div>
-        <div id="currentUserName" class="profile-name"></div>
-        <div id="roleText" class="role-text"></div>
-      </div>
-    </div>
+    <div class="top-spacer"></div>
 
     <div class="date-chip">
       <i data-lucide="calendar-days"></i>
@@ -722,7 +794,52 @@
       <i data-lucide="log-out"></i>
       Logout
     </button>
+
+    <div class="profile-block">
+      <span class="profile-icon"><i data-lucide="circle-user-round"></i></span>
+      <div>
+        <div class="muted" id="greetingText">Welcome back,</div>
+        <div id="currentUserName" class="profile-name"></div>
+        <div id="roleText" class="role-text"></div>
+      </div>
+    </div>
   </header>
+
+  <section class="quick-info" aria-label="Quick information">
+    <div class="section-title">Quick Info</div>
+    <div class="info-item">
+      <span class="info-icon"><i data-lucide="clock-3"></i></span>
+      <div>
+        <div class="muted">Hours This Week</div>
+        <div id="weekHoursSide" class="info-value">0.00</div>
+        <div id="weekHoursDetail" class="muted">Regular: 0.00</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <span class="info-icon"><i data-lucide="shield-check"></i></span>
+      <div>
+        <div class="muted">Inspections Today</div>
+        <div id="inspectionsSide" class="info-value">0</div>
+        <div class="muted">Last 24 hours</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <span class="info-icon"><i data-lucide="badge-alert"></i></span>
+      <div>
+        <div class="muted">Certificates Expiring</div>
+        <div id="certificatesSide" class="info-value">0</div>
+        <div class="muted">Within 30 days</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <span class="info-icon"><i data-lucide="users-round"></i></span>
+      <div>
+        <div class="muted">Vacation Requests</div>
+        <div id="vacationSide" class="info-value">0</div>
+        <div class="muted">Pending approval</div>
+      </div>
+    </div>
+  </section>
 
   <div class="main-grid">
     <aside class="sidebar">
@@ -736,48 +853,13 @@
         <button id="sideAdminButton" type="button" class="side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
       </nav>
 
-      <div class="quick-info">
-        <div class="section-title">Quick Info</div>
-        <div class="info-item">
-          <span class="info-icon"><i data-lucide="clock-3"></i></span>
-          <div>
-            <div class="muted">Hours This Week</div>
-            <div id="weekHoursSide" class="info-value">0.00</div>
-            <div id="weekHoursDetail" class="muted">Regular: 0.00</div>
-          </div>
-        </div>
-        <div class="info-item">
-          <span class="info-icon"><i data-lucide="shield-check"></i></span>
-          <div>
-            <div class="muted">Inspections Today</div>
-            <div id="inspectionsSide" class="info-value">0</div>
-            <div class="muted">Last 24 hours</div>
-          </div>
-        </div>
-        <div class="info-item">
-          <span class="info-icon"><i data-lucide="badge-alert"></i></span>
-          <div>
-            <div class="muted">Certificates Expiring</div>
-            <div id="certificatesSide" class="info-value">0</div>
-            <div class="muted">Within 30 days</div>
-          </div>
-        </div>
-        <div class="info-item">
-          <span class="info-icon"><i data-lucide="users-round"></i></span>
-          <div>
-            <div class="muted">Vacation Requests</div>
-            <div id="vacationSide" class="info-value">0</div>
-            <div class="muted">Pending approval</div>
-          </div>
-        </div>
-      </div>
     </aside>
 
     <main class="content">
       <section class="hero">
         <div class="hero-content">
           <div class="eyebrow">Welcome to</div>
-          <h1>John Gordon Construction</h1>
+          <h1>JGC Portal</h1>
           <div class="green-line"></div>
           <p class="muted">Your one-stop hub for time tracking, inspections, certificates and more.</p>
         </div>
@@ -950,6 +1032,14 @@ function comingSoon(sectionName) {
 
 function showMoreMenu() {
   document.getElementById("moreSheet").classList.toggle("open");
+}
+
+function toggleSidebar() {
+  const shell = document.querySelector(".app-shell");
+  shell.classList.toggle("sidebar-collapsed");
+  const collapsed = shell.classList.contains("sidebar-collapsed");
+  const button = document.getElementById("sidebarToggle");
+  button.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
 }
 
 function getTodayBounds() {

@@ -195,10 +195,6 @@ p {
       <i data-lucide="home"></i>
       Home
     </button>
-    <button id="managePoliciesButton" type="button" onclick="window.location.href='policies-admin.html'" hidden>
-      <i data-lucide="settings"></i>
-      Manage Policies
-    </button>
   </div>
 
   <section class="hero-card">
@@ -246,10 +242,6 @@ let policyUrls = {};
 let announcementUrls = {};
 
 document.getElementById("workerName").textContent = worker.display || worker.key || "";
-
-if (isAdminWorker(worker.key, worker.role)) {
-  document.getElementById("managePoliciesButton").hidden = false;
-}
 
 if (window.lucide) {
   window.lucide.createIcons();
