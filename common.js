@@ -214,29 +214,57 @@ function activateGlobalTopNavigation() {
 
     @media (max-width: 780px) {
       body.jgc-has-global-nav {
-        padding-top: 102px !important;
+        padding-top: 142px !important;
       }
 
       .jgc-global-top-nav {
-        min-height: 92px;
-        padding: 48px 8px 8px;
+        min-height: 124px;
+        padding: 44px 8px 10px;
+        align-items: flex-start;
       }
 
       .jgc-nav-home,
       .jgc-nav-logout {
         top: 8px;
+        padding: 8px 12px !important;
+        min-height: 34px !important;
       }
 
       .jgc-global-top-nav button,
       .jgc-global-top-nav a {
-        padding: 8px 10px;
-        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 7px 8px;
+        font-size: 11px;
+        line-height: 1.15;
+        text-align: center;
+        white-space: normal;
+        overflow: hidden;
+        word-break: normal;
       }
 
       .jgc-nav-center {
-        justify-content: flex-start;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
         width: 100%;
-        padding: 0 4px;
+        padding: 0;
+        overflow: visible;
+      }
+
+      .jgc-nav-center a {
+        width: 100% !important;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .jgc-global-top-nav button,
+      .jgc-global-top-nav a {
+        font-size: 10px;
+        padding-left: 5px;
+        padding-right: 5px;
       }
     }
   `;
