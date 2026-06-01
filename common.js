@@ -119,6 +119,188 @@ function requireJgcWorker() {
   return worker;
 }
 
+function activateGlobalTopNavigation() {
+  const page = window.location.pathname.split("/").pop() || "index.html";
+  const excludedPages = ["index.html", "reset-password.html"];
+
+  if (excludedPages.includes(page) || document.getElementById("jgcGlobalTopNav")) {
+    return;
+  }
+
+  const worker = getCurrentWorkerRecord();
+  const isAdmin = isAdminWorker(worker.key, worker.role);
+  const links = [
+    { label: "Timesheets", href: "timesheet.html" },
+    { label: "Inspections", href: "inspections.html" },
+    { label: "Certificates", href: "certificates.html" },
+    { label: "Vacation", href: "vacation-request.html" },
+    { label: "Policies", href: "policies-announcements.html" },
+    { label: "Contacts", href: "contacts.html" }
+  ];
+
+  if (isAdmin) {
+    links.push({ label: "Admin", href: "admin.html" });
+  }
+
+  const style = document.createElement("style");
+  style.id = "jgcGlobalTopNavStyles";
+  style.textContent = `
+    body.jgc-has-global-nav {
+      padding-top: 66px !important;
+    }
+
+    .jgc-global-top-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      min-height: 56px;
+      padding: 8px 132px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(90deg, rgba(7, 55, 28, 0.98), rgba(11, 94, 59, 0.98));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+      font-family: Arial, sans-serif;
+    }
+
+    .jgc-global-top-nav button,
+    .jgc-global-top-nav a {
+      width: auto !important;
+      min-width: 0 !important;
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 7px;
+      padding: 9px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 800;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .jgc-global-top-nav button:hover,
+    .jgc-global-top-nav a:hover,
+    .jgc-global-top-nav a.active {
+      background: rgba(57, 200, 72, 0.28);
+    }
+
+    .jgc-nav-home,
+    .jgc-nav-logout {
+      position: absolute;
+      top: 8px;
+    }
+
+    .jgc-nav-home {
+      left: 14px;
+    }
+
+    .jgc-nav-logout {
+      right: 14px;
+    }
+
+    .jgc-nav-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .jgc-old-nav-hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 780px) {
+      body.jgc-has-global-nav {
+        padding-top: 102px !important;
+      }
+
+      .jgc-global-top-nav {
+        min-height: 92px;
+        padding: 48px 8px 8px;
+      }
+
+      .jgc-nav-home,
+      .jgc-nav-logout {
+        top: 8px;
+      }
+
+      .jgc-global-top-nav button,
+      .jgc-global-top-nav a {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      .jgc-nav-center {
+        justify-content: flex-start;
+        width: 100%;
+        padding: 0 4px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const nav = document.createElement("nav");
+  nav.id = "jgcGlobalTopNav";
+  nav.className = "jgc-global-top-nav";
+  nav.setAttribute("aria-label", "JGC Portal navigation");
+  nav.innerHTML = `
+    <button type="button" class="jgc-nav-home">Home</button>
+    <div class="jgc-nav-center">
+      ${links.map((link) => '<a href="' + link.href + '"' + (page === link.href ? ' class="active"' : "") + ">" + link.label + "</a>").join("")}
+    </div>
+    <button type="button" class="jgc-nav-logout">Logout</button>
+  `;
+
+  document.body.classList.add("jgc-has-global-nav");
+  document.body.prepend(nav);
+
+  nav.querySelector(".jgc-nav-home").addEventListener("click", function() {
+    window.location.href = "home.html";
+  });
+
+  nav.querySelector(".jgc-nav-logout").addEventListener("click", async function() {
+    await signOutJgc(createJgcSupabaseClient());
+  });
+
+  hideOldNavigationButtons();
+
+  const observer = new MutationObserver(function() {
+    hideOldNavigationButtons();
+  });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+}
+
+function hideOldNavigationButtons() {
+  const nav = document.getElementById("jgcGlobalTopNav");
+
+  document.querySelectorAll("button, a").forEach(function(element) {
+    if (nav && nav.contains(element)) {
+      return;
+    }
+
+    const text = String(element.textContent || "").trim().toLowerCase();
+    const action = String(element.getAttribute("onclick") || "").toLowerCase();
+    const isOldHome = text === "home" && action.includes("home");
+    const isOldLogout = (text === "sign out" || text === "logout") && action.includes("signout");
+
+    if (isOldHome || isOldLogout) {
+      element.classList.add("jgc-old-nav-hidden");
+    }
+  });
+}
+
 function getAppPageUrl(pageName) {
   const path = window.location.pathname;
   const folder = path.endsWith("/")
@@ -466,6 +648,297 @@ function activateAdminContactsTab() {
 function activateJgcContactsFeature() {
   activateContactsLinks();
   activateAdminContactsTab();
+}
+
+function activateAdminPoliciesTab() {
+  if (!/admin\.html$/i.test(window.location.pathname) || document.getElementById("policiesTab")) {
+    return;
+  }
+
+  const worker = getCurrentWorkerRecord();
+
+  if (!isAdminWorker(worker.key, worker.role)) {
+    return;
+  }
+
+  const tabs = document.querySelector(".tabs");
+  const contactsTab = document.getElementById("contactsTab");
+  const signOutButton = Array.from(tabs ? tabs.querySelectorAll("button") : [])
+    .find((button) => button.textContent.trim() === "Sign Out");
+
+  if (!tabs || !signOutButton) {
+    return;
+  }
+
+  const policyTab = document.createElement("button");
+  policyTab.id = "policiesTab";
+  policyTab.className = "tab-button";
+  policyTab.type = "button";
+  policyTab.textContent = "Policies";
+  tabs.insertBefore(policyTab, contactsTab || signOutButton);
+
+  const section = document.createElement("div");
+  section.id = "policiesSection";
+  section.className = "card";
+  section.hidden = true;
+  section.innerHTML = `
+    <h2>Policies</h2>
+    <div class="announcement-grid">
+      <div>
+        <label>Policy Title</label>
+        <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+      </div>
+      <div>
+        <label>Category</label>
+        <input id="policyCategory" placeholder="Example: Safety" value="General">
+      </div>
+      <div>
+        <label>Display Order</label>
+        <input id="policyOrder" type="number" value="0">
+      </div>
+      <div class="full">
+        <label>Description</label>
+        <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+      </div>
+      <div class="full">
+        <label>Policy PDF</label>
+        <input id="policyFile" type="file" accept="application/pdf,.pdf">
+      </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+      <button id="policySaveButton" type="button">Add Policy</button>
+      <button id="policyRefreshButton" class="secondary" type="button">Refresh Policies</button>
+    </div>
+    <div id="policyStatus" class="small" style="margin-top:10px;"></div>
+    <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
+  `;
+  document.body.insertBefore(section, document.querySelector("script"));
+
+  const client = createJgcSupabaseClient();
+  let policies = [];
+  let policyUrls = {};
+  let currentUserId = "";
+
+  function showPoliciesTab() {
+    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "contacts"].forEach((name) => {
+      const panel = document.getElementById(name + "Section");
+      const tab = document.getElementById(name + "Tab");
+
+      if (panel) {
+        panel.hidden = name !== "policies";
+      }
+
+      if (tab) {
+        tab.classList.toggle("active", name === "policies");
+      }
+    });
+
+    loadPolicies();
+  }
+
+  function setPolicyStatus(message) {
+    document.getElementById("policyStatus").textContent = message || "";
+  }
+
+  function makePolicyFileName(name) {
+    return String(name || "policy.pdf")
+      .trim()
+      .replace(/[^a-z0-9.\-_]+/gi, "-")
+      .replace(/-+/g, "-")
+      .toLowerCase();
+  }
+
+  async function preparePolicyUrls() {
+    policyUrls = {};
+
+    for (const policy of policies) {
+      if (!policy.file_path) {
+        continue;
+      }
+
+      const { data } = await client
+        .storage
+        .from("policies")
+        .createSignedUrl(policy.file_path, 604800);
+
+      if (data && data.signedUrl) {
+        policyUrls[policy.id] = data.signedUrl;
+      }
+    }
+  }
+
+  function renderPolicies() {
+    const list = document.getElementById("policiesList");
+
+    if (!policies.length) {
+      list.textContent = "No active policies yet.";
+      return;
+    }
+
+    list.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>PDF</th>
+              <th>Order</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${policies.map((policy) => `
+              <tr>
+                <td>${escapeHtml(policy.title)}</td>
+                <td>${escapeHtml(policy.category || "General")}</td>
+                <td>${escapeHtml(policy.description || "")}</td>
+                <td>${policyUrls[policy.id] ? '<a class="file-link" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                <td>${Number(policy.sort_order || 0)}</td>
+                <td>${escapeHtml(formatDisplayDate(policy.created_at))}</td>
+                <td><button type="button" class="delete-button" data-policy-delete="${escapeHtml(policy.id)}">Delete</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    list.querySelectorAll("[data-policy-delete]").forEach((button) => {
+      button.addEventListener("click", () => deletePolicy(button.dataset.policyDelete));
+    });
+  }
+
+  async function loadPolicies() {
+    const { data, error } = await client
+      .from("policies")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true });
+
+    if (error) {
+      document.getElementById("policiesList").textContent = "Policies could not be loaded.";
+      return;
+    }
+
+    policies = data || [];
+    await preparePolicyUrls();
+    renderPolicies();
+  }
+
+  async function publishPolicy() {
+    const title = document.getElementById("policyTitle").value.trim();
+    const description = document.getElementById("policyDescription").value.trim();
+    const category = document.getElementById("policyCategory").value.trim() || "General";
+    const sortOrder = Number(document.getElementById("policyOrder").value || 0);
+    const fileInput = document.getElementById("policyFile");
+    const file = fileInput.files[0];
+
+    if (!title || !file) {
+      alert("Add a policy title and PDF.");
+      return;
+    }
+
+    if (file.type && file.type !== "application/pdf") {
+      alert("Please upload a PDF file.");
+      return;
+    }
+
+    setPolicyStatus("Uploading policy PDF...");
+
+    const filePath = "policies/" + Date.now() + "-" + makePolicyFileName(file.name);
+    const fileType = file.type || "application/pdf";
+    const { error: uploadError } = await client
+      .storage
+      .from("policies")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: fileType
+      });
+
+    if (uploadError) {
+      setPolicyStatus("Policy PDF upload failed.");
+      return;
+    }
+
+    setPolicyStatus("Saving policy...");
+
+    const { error } = await client
+      .from("policies")
+      .insert({
+        title,
+        description,
+        category,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+        file_path: filePath,
+        file_name: file.name,
+        file_type: fileType,
+        created_by: currentUserId || null,
+        created_by_name: worker.display || worker.key
+      });
+
+    if (error) {
+      await client.storage.from("policies").remove([filePath]);
+      setPolicyStatus("Policy could not be saved.");
+      return;
+    }
+
+    document.getElementById("policyTitle").value = "";
+    document.getElementById("policyDescription").value = "";
+    document.getElementById("policyCategory").value = "General";
+    document.getElementById("policyOrder").value = "0";
+    fileInput.value = "";
+    setPolicyStatus("Policy added.");
+    await loadPolicies();
+  }
+
+  async function deletePolicy(id) {
+    const policy = policies.find((item) => item.id === id);
+
+    if (!policy) {
+      alert("Policy could not be found.");
+      return;
+    }
+
+    if (!confirm("Delete this policy?")) {
+      return;
+    }
+
+    const { error } = await client
+      .from("policies")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Policy could not be deleted.");
+      return;
+    }
+
+    await loadPolicies();
+  }
+
+  policyTab.addEventListener("click", showPoliciesTab);
+  section.querySelector("#policySaveButton").addEventListener("click", publishPolicy);
+  section.querySelector("#policyRefreshButton").addEventListener("click", loadPolicies);
+
+  if (client) {
+    client.auth.getSession().then((result) => {
+      currentUserId = result.data.session && result.data.session.user
+        ? result.data.session.user.id
+        : "";
+    });
+  }
+}
+
+function activateJgcPoliciesFeature() {
+  activateAdminPoliciesTab();
 }
 
 function activatePoliciesAnnouncementsTile() {
@@ -1135,7 +1608,9 @@ function activateTimesheetCalendarFeature() {
 }
 
 function activateJgcEnhancements() {
+  activateGlobalTopNavigation();
   activateJgcContactsFeature();
+  activateJgcPoliciesFeature();
   activatePoliciesAnnouncementsTile();
   activateTimesheetTableContrastFeature();
   activateTimesheetEntryCleanupFeature();
