@@ -1530,7 +1530,7 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
   const dayGroups = getEntriesByEmailDay(entries);
 
   for (let group of dayGroups) {
-    lines.push(group.day);
+    lines.push(group.heading);
     lines.push(group.table.header);
     lines.push(group.table.divider);
 
@@ -1570,7 +1570,7 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
     }).join("");
 
     return `
-      <h2>${escapeHtml(group.day)}</h2>
+      <h2>${escapeHtml(group.heading)}</h2>
       <table>
         <thead>
           <tr>
@@ -1847,10 +1847,21 @@ function getEntriesByEmailDay(entries) {
 
     return {
       day,
+      heading: getEmailDayHeading(day, dayEntries),
       entries: dayEntries,
       table: getEmailTableRows(dayEntries)
     };
   }).filter(Boolean);
+}
+
+function getEmailDayHeading(day, entries) {
+  const entryDate = entries.length ? getDateForEntry(entries[0]) : null;
+
+  if (!entryDate) {
+    return day;
+  }
+
+  return day + " - " + formatDate(entryDate);
 }
 
 function padCell(value, width) {
