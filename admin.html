@@ -368,6 +368,7 @@ button:hover,
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
+    <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Jobs Management</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
     <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
@@ -579,6 +580,24 @@ button:hover,
     <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
 </div>
 
+<div id="jobsSection" class="card" hidden>
+    <h2>Jobs Management</h2>
+    <div class="announcement-grid">
+        <div class="full">
+            <label>Upload Excel Job List</label>
+            <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <div class="small">Excel columns used: Job No and Job Name. Rows highlighted yellow or red are skipped and treated as inactive.</div>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button type="button" onclick="importJobsFromExcel()">Upload & Import</button>
+        <button class="secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
+    </div>
+    <div id="jobsImportStatus" class="small" style="margin-top:10px;"></div>
+    <div id="jobsSummary" class="small" style="margin-top:12px;">Loading job summary...</div>
+    <div id="jobsList" class="small" style="margin-top:12px;">Loading jobs...</div>
+</div>
+
 <div id="contactsSection" class="card" hidden>
     <h2>Contacts</h2>
     <div class="filters">
@@ -617,6 +636,7 @@ button:hover,
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="common.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -631,6 +651,7 @@ let vacationRequests = [];
 let accounts = [];
 let announcements = [];
 let policies = [];
+let jobs = [];
 let equipmentItems = [];
 let equipmentNotifications = [];
 let contacts = [];
@@ -656,7 +677,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "equipment", "contacts"].forEach((name) => {
+    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -671,6 +692,10 @@ function showTab(tab) {
 
     if (tab === "equipment") {
         renderEquipment();
+    }
+
+    if (tab === "jobs") {
+        renderJobsManagement();
     }
 }
 
@@ -739,7 +764,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
@@ -749,6 +774,7 @@ async function loadAdminData() {
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
+        supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
@@ -763,6 +789,7 @@ async function loadAdminData() {
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
     policies = policyResult.data || [];
+    jobs = jobsResult.data || [];
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
     contacts = contactResult.data || [];
@@ -778,6 +805,7 @@ async function loadAdminData() {
     renderVacationRequests();
     renderAnnouncements();
     renderPolicies();
+    renderJobsManagement();
     renderEquipment();
     renderContacts();
 }
@@ -2711,6 +2739,272 @@ async function deletePolicy(id) {
     }
 
     await loadPolicies();
+}
+
+function getExcelCell(row, name) {
+    const normalizedName = name.toLowerCase().replace(/\s+/g, "");
+    const key = Object.keys(row).find((item) => item.toLowerCase().replace(/\s+/g, "") === normalizedName);
+    return key ? row[key] : "";
+}
+
+function normalizeExcelHeader(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isYellowOrRedFill(cell) {
+    if (!cell || !cell.s) {
+        return false;
+    }
+
+    const fill = cell.s.fill || {};
+    const colors = [fill.fgColor, fill.bgColor, fill.patternColor].filter(Boolean);
+
+    return colors.some((color) => {
+        const value = String(color.rgb || color.indexed || color.theme || "").toUpperCase();
+
+        if (!value) {
+            return false;
+        }
+
+        return value.includes("FFFF00") ||
+            value.includes("FFD966") ||
+            value.includes("FFF2CC") ||
+            value.includes("FF0000") ||
+            value.includes("CC0000") ||
+            value.includes("F4CCCC");
+    });
+}
+
+function isHighlightedInactiveRow(sheet, rowIndex, columnIndexes) {
+    return columnIndexes.some((columnIndex) => {
+        const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+        return isYellowOrRedFill(sheet[address]);
+    });
+}
+
+function getJobsSummary() {
+    const totalJobs = jobs.length;
+    const activeJobs = jobs.filter((job) => Boolean(job.active)).length;
+    const inactiveJobs = totalJobs - activeJobs;
+    const lastImport = jobs.reduce((latest, job) => {
+        const updated = job.updated_at ? new Date(job.updated_at).getTime() : 0;
+        return updated > latest ? updated : latest;
+    }, 0);
+
+    return {
+        totalJobs,
+        activeJobs,
+        inactiveJobs,
+        lastImport
+    };
+}
+
+function renderJobsManagement() {
+    const summaryPanel = document.getElementById("jobsSummary");
+    const list = document.getElementById("jobsList");
+
+    if (!summaryPanel || !list) {
+        return;
+    }
+
+    const summary = getJobsSummary();
+    summaryPanel.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Total Jobs</th><th>Active Jobs</th><th>Inactive Jobs</th><th>Last Import Date</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>${summary.totalJobs}</td>
+                        <td>${summary.activeJobs}</td>
+                        <td>${summary.inactiveJobs}</td>
+                        <td>${summary.lastImport ? escapeHtml(formatDate(new Date(summary.lastImport).toISOString())) : "No imports yet"}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    if (!jobs.length) {
+        list.textContent = "No jobs imported yet.";
+        return;
+    }
+
+    const rows = jobs.map((job) => `
+        <tr>
+            <td>${escapeHtml(job.job_number || "")}</td>
+            <td>${escapeHtml(job.job_name || "")}</td>
+            <td>${job.active ? "Active" : "Inactive"}</td>
+            <td>${escapeHtml(formatDate(job.updated_at))}</td>
+        </tr>
+    `).join("");
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Job Number</th><th>Job Name</th><th>Status</th><th>Updated</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadJobsManagement() {
+    const status = document.getElementById("jobsImportStatus");
+
+    if (status) {
+        status.textContent = "Refreshing jobs...";
+    }
+
+    const { data, error } = await supabaseClient
+        .from("jobs")
+        .select("*")
+        .order("job_number", { ascending: true });
+
+    if (error) {
+        if (status) {
+            status.textContent = "Jobs could not be loaded.";
+        }
+        return;
+    }
+
+    jobs = data || [];
+    renderJobsManagement();
+
+    if (status) {
+        status.textContent = "Jobs refreshed.";
+    }
+}
+
+async function importJobsFromExcel() {
+    const fileInput = document.getElementById("jobsExcelFile");
+    const status = document.getElementById("jobsImportStatus");
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert("Please choose an Excel file first.");
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+        alert("Please upload an .xlsx file.");
+        return;
+    }
+
+    if (!window.XLSX) {
+        status.textContent = "Excel reader could not be loaded. Please refresh and try again.";
+        return;
+    }
+
+    status.textContent = "Reading Excel file...";
+
+    try {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellStyles: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        const headerIndex = rows.findIndex((row) => row.some((value) => normalizeExcelHeader(value) === "jobno" || normalizeExcelHeader(value) === "jobnumber"));
+
+        if (headerIndex < 0) {
+            status.textContent = "No header row found. Check for columns named Job No and Job Name.";
+            return;
+        }
+
+        const headers = rows[headerIndex].map(normalizeExcelHeader);
+        const jobNumberColumn = headers.findIndex((header) => header === "jobno" || header === "jobnumber");
+        const jobNameColumn = headers.findIndex((header) => header === "jobname");
+
+        if (jobNumberColumn < 0 || jobNameColumn < 0) {
+            status.textContent = "Missing required columns. Use Job No and Job Name.";
+            return;
+        }
+
+        const jobMap = new Map();
+        let skippedHighlighted = 0;
+        let skippedIncomplete = 0;
+
+        rows.slice(headerIndex + 1).forEach((row, index) => {
+            const sheetRowIndex = headerIndex + 1 + index;
+
+            if (isHighlightedInactiveRow(sheet, sheetRowIndex, [jobNumberColumn, jobNameColumn])) {
+                skippedHighlighted++;
+                return;
+            }
+
+            const jobNumber = String(row[jobNumberColumn] || "").trim();
+            const jobName = String(row[jobNameColumn] || "").trim();
+
+            if (!jobNumber || !jobName) {
+                skippedIncomplete++;
+                return;
+            }
+
+            jobMap.set(jobNumber, {
+                job_number: jobNumber,
+                job_name: jobName,
+                active: true,
+                updated_at: new Date().toISOString()
+            });
+        });
+
+        const records = Array.from(jobMap.values()).sort((a, b) => a.job_number.localeCompare(b.job_number, undefined, { numeric: true }));
+
+        if (!records.length) {
+            status.textContent = "No valid active jobs found. Check the Job No and Job Name columns and highlighted rows.";
+            return;
+        }
+
+        status.textContent = "Importing " + records.length + " jobs...";
+
+        const { error } = await supabaseClient
+            .from("jobs")
+            .upsert(records, { onConflict: "job_number" });
+
+        if (error) {
+            status.textContent = "Job import failed: " + error.message;
+            return;
+        }
+
+        const importedJobNumbers = new Set(records.map((record) => record.job_number));
+        const { data: existingJobs, error: existingError } = await supabaseClient
+            .from("jobs")
+            .select("job_number");
+
+        if (existingError) {
+            status.textContent = "Jobs imported, but old jobs could not be checked for inactive status.";
+            await loadJobsManagement();
+            return;
+        }
+
+        const inactiveJobNumbers = (existingJobs || [])
+            .map((job) => job.job_number)
+            .filter((jobNumber) => !importedJobNumbers.has(jobNumber));
+
+        if (inactiveJobNumbers.length) {
+            const { error: inactiveError } = await supabaseClient
+                .from("jobs")
+                .update({
+                    active: false,
+                    updated_at: new Date().toISOString()
+                })
+                .in("job_number", inactiveJobNumbers);
+
+            if (inactiveError) {
+                status.textContent = "Jobs imported, but old jobs could not be marked inactive: " + inactiveError.message;
+                await loadJobsManagement();
+                return;
+            }
+        }
+
+        fileInput.value = "";
+        status.textContent = "Import complete: " + records.length + " active jobs imported. " + skippedHighlighted + " highlighted rows skipped. " + skippedIncomplete + " incomplete rows skipped.";
+        await loadJobsManagement();
+    } catch (error) {
+        status.textContent = "Could not import this Excel file.";
+        console.warn("Job import failed.", error);
+    }
 }
 
 function setContactStatus(message) {
