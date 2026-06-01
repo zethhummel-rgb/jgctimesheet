@@ -345,6 +345,8 @@ button:hover,
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
+    <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
+    <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
@@ -458,6 +460,75 @@ button:hover,
     <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
 </div>
 
+<div id="policiesSection" class="card" hidden>
+    <h2>Policies</h2>
+    <div class="announcement-grid">
+        <div>
+            <label>Policy Title</label>
+            <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+        </div>
+        <div>
+            <label>Category</label>
+            <input id="policyCategory" placeholder="Example: Safety" value="General">
+        </div>
+        <div>
+            <label>Display Order</label>
+            <input id="policyOrder" type="number" value="0">
+        </div>
+        <div class="full">
+            <label>Description</label>
+            <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+        </div>
+        <div class="full">
+            <label>Policy PDF</label>
+            <input id="policyFile" type="file" accept="application/pdf,.pdf">
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button type="button" onclick="publishPolicy()">Add Policy</button>
+        <button class="secondary" type="button" onclick="loadPolicies()">Refresh Policies</button>
+    </div>
+    <div id="policyStatus" class="small" style="margin-top:10px;"></div>
+    <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
+</div>
+
+<div id="contactsSection" class="card" hidden>
+    <h2>Contacts</h2>
+    <div class="filters">
+        <div>
+            <label>Name</label>
+            <input id="contactName" placeholder="Name">
+        </div>
+        <div>
+            <label>Role / Description</label>
+            <input id="contactRole" placeholder="Example: Safety, Payroll, Supervisor">
+        </div>
+        <div>
+            <label>Phone</label>
+            <input id="contactPhone" placeholder="Phone number">
+        </div>
+        <div>
+            <label>Email</label>
+            <input id="contactEmail" type="email" placeholder="Email address">
+        </div>
+        <div>
+            <label>Order</label>
+            <input id="contactOrder" type="number" value="0">
+        </div>
+        <div>
+            <label>Notes</label>
+            <input id="contactNotes" placeholder="Optional note">
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button id="contactSaveButton" type="button" onclick="saveContact()">Add Contact</button>
+        <button class="secondary" type="button" onclick="clearContactForm()">Clear</button>
+        <button class="secondary" type="button" onclick="loadContacts()">Refresh Contacts</button>
+    </div>
+    <div id="contactStatus" class="small" style="margin-top:10px;"></div>
+    <div id="contactsList" class="small" style="margin-top:12px;">Loading contacts...</div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=2"></script>
 <script>
@@ -471,10 +542,14 @@ let certificates = [];
 let vacationRequests = [];
 let accounts = [];
 let announcements = [];
+let policies = [];
+let contacts = [];
 let vacationCalendarMonth = new Date();
 let certificateUrls = {};
 let announcementUrls = {};
+let policyUrls = {};
 let currentUserId = "";
+let editingContactId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -485,7 +560,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "inspections", "certificates", "vacation", "announcements"].forEach((name) => {
+    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -527,13 +602,15 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, vacationResult, accountResult, announcementResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, vacationResult, accountResult, announcementResult, policyResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
-        supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false })
+        supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
+        supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
+        supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
     ]);
 
     timesheets = timesheetResult.data || [];
@@ -542,13 +619,18 @@ async function loadAdminData() {
     vacationRequests = vacationResult.data || [];
     accounts = accountResult.data || [];
     announcements = announcementResult.data || [];
+    policies = policyResult.data || [];
+    contacts = contactResult.data || [];
     await prepareCertificateUrls();
     await prepareAnnouncementUrls();
+    await preparePolicyUrls();
     renderTimesheets();
     renderInspections();
     renderCertificates();
     renderVacationRequests();
     renderAnnouncements();
+    renderPolicies();
+    renderContacts();
 }
 
 async function prepareCertificateUrls() {
@@ -1050,6 +1132,370 @@ async function deleteAnnouncement(id) {
     }
 
     await loadAnnouncements();
+}
+
+function setPolicyStatus(message) {
+    document.getElementById("policyStatus").textContent = message || "";
+}
+
+async function preparePolicyUrls() {
+    policyUrls = {};
+
+    for (const policy of policies) {
+        if (!policy.file_path) {
+            continue;
+        }
+
+        const { data } = await supabaseClient
+            .storage
+            .from("policies")
+            .createSignedUrl(policy.file_path, 604800);
+
+        if (data && data.signedUrl) {
+            policyUrls[policy.id] = data.signedUrl;
+        }
+    }
+}
+
+function renderPolicies() {
+    const list = document.getElementById("policiesList");
+
+    if (!policies.length) {
+        list.textContent = "No active policies yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>PDF</th>
+                        <th>Order</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${policies.map((policy) => `
+                        <tr>
+                            <td>${escapeHtml(policy.title)}</td>
+                            <td>${escapeHtml(policy.category || "General")}</td>
+                            <td>${escapeHtml(policy.description || "")}</td>
+                            <td>${policyUrls[policy.id] ? '<a class="file-link" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${Number(policy.sort_order || 0)}</td>
+                            <td>${escapeHtml(formatDate(policy.created_at))}</td>
+                            <td><button type="button" class="delete-button" onclick="deletePolicy('${escapeHtml(policy.id)}')">Delete</button></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadPolicies() {
+    const { data, error } = await supabaseClient
+        .from("policies")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("title", { ascending: true });
+
+    if (error) {
+        document.getElementById("policiesList").textContent = "Policies could not be loaded.";
+        return;
+    }
+
+    policies = data || [];
+    await preparePolicyUrls();
+    renderPolicies();
+}
+
+async function publishPolicy() {
+    const title = document.getElementById("policyTitle").value.trim();
+    const description = document.getElementById("policyDescription").value.trim();
+    const category = document.getElementById("policyCategory").value.trim() || "General";
+    const sortOrder = Number(document.getElementById("policyOrder").value || 0);
+    const fileInput = document.getElementById("policyFile");
+    const file = fileInput.files[0];
+
+    if (!title || !file) {
+        alert("Add a policy title and PDF.");
+        return;
+    }
+
+    if (file.type && file.type !== "application/pdf") {
+        alert("Please upload a PDF file.");
+        return;
+    }
+
+    setPolicyStatus("Uploading policy PDF...");
+
+    const filePath = "policies/" + Date.now() + "-" + makeSafeFileName(file.name);
+    const fileType = file.type || "application/pdf";
+
+    const { error: uploadError } = await supabaseClient
+        .storage
+        .from("policies")
+        .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: fileType
+        });
+
+    if (uploadError) {
+        setPolicyStatus("Policy PDF upload failed.");
+        return;
+    }
+
+    setPolicyStatus("Saving policy...");
+
+    const { error } = await supabaseClient
+        .from("policies")
+        .insert({
+            title,
+            description,
+            category,
+            sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+            file_path: filePath,
+            file_name: file.name,
+            file_type: fileType,
+            created_by: currentUserId || null,
+            created_by_name: currentWorkerDisplay
+        });
+
+    if (error) {
+        await supabaseClient.storage.from("policies").remove([filePath]);
+        setPolicyStatus("Policy could not be saved.");
+        return;
+    }
+
+    document.getElementById("policyTitle").value = "";
+    document.getElementById("policyDescription").value = "";
+    document.getElementById("policyCategory").value = "General";
+    document.getElementById("policyOrder").value = "0";
+    fileInput.value = "";
+    setPolicyStatus("Policy added.");
+    await loadPolicies();
+}
+
+async function deletePolicy(id) {
+    const policy = policies.find((item) => item.id === id);
+
+    if (!policy) {
+        alert("Policy could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete this policy?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("policies")
+        .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Policy could not be deleted.");
+        return;
+    }
+
+    await loadPolicies();
+}
+
+function setContactStatus(message) {
+    document.getElementById("contactStatus").textContent = message || "";
+}
+
+function clearContactForm() {
+    editingContactId = "";
+    document.getElementById("contactName").value = "";
+    document.getElementById("contactRole").value = "";
+    document.getElementById("contactPhone").value = "";
+    document.getElementById("contactEmail").value = "";
+    document.getElementById("contactOrder").value = "0";
+    document.getElementById("contactNotes").value = "";
+    document.getElementById("contactSaveButton").textContent = "Add Contact";
+    setContactStatus("");
+}
+
+function editContact(id) {
+    const contact = contacts.find((item) => item.id === id);
+
+    if (!contact) {
+        alert("Contact could not be found.");
+        return;
+    }
+
+    editingContactId = id;
+    document.getElementById("contactName").value = contact.name || "";
+    document.getElementById("contactRole").value = contact.role || "";
+    document.getElementById("contactPhone").value = contact.phone || "";
+    document.getElementById("contactEmail").value = contact.email || "";
+    document.getElementById("contactOrder").value = contact.sort_order || 0;
+    document.getElementById("contactNotes").value = contact.notes || "";
+    document.getElementById("contactSaveButton").textContent = "Update Contact";
+    setContactStatus("Editing " + (contact.name || "contact") + ".");
+}
+
+function renderContacts() {
+    const list = document.getElementById("contactsList");
+
+    if (!contacts.length) {
+        list.textContent = "No contacts added yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role / Description</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Notes</th>
+                        <th>Order</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${contacts.map((contact) => `
+                        <tr>
+                            <td>${escapeHtml(contact.name)}</td>
+                            <td>${escapeHtml(contact.role || "")}</td>
+                            <td>${escapeHtml(contact.phone || "")}</td>
+                            <td>${contact.email ? '<a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a>' : ""}</td>
+                            <td>${escapeHtml(contact.notes || "")}</td>
+                            <td>${Number(contact.sort_order || 0)}</td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" class="secondary" onclick="editContact('${escapeHtml(contact.id)}')">Edit</button>
+                                    <button type="button" class="delete-button" onclick="deleteContact('${escapeHtml(contact.id)}')">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadContacts() {
+    const { data, error } = await supabaseClient
+        .from("contacts")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+    if (error) {
+        document.getElementById("contactsList").textContent = "Contacts could not be loaded.";
+        return;
+    }
+
+    contacts = data || [];
+    renderContacts();
+}
+
+async function saveContact() {
+    const name = document.getElementById("contactName").value.trim();
+    const role = document.getElementById("contactRole").value.trim();
+    const phone = document.getElementById("contactPhone").value.trim();
+    const email = document.getElementById("contactEmail").value.trim();
+    const notes = document.getElementById("contactNotes").value.trim();
+    const sortOrder = Number(document.getElementById("contactOrder").value || 0);
+
+    if (!name) {
+        alert("Add a contact name.");
+        return;
+    }
+
+    if (!phone && !email) {
+        alert("Add at least a phone number or email address.");
+        return;
+    }
+
+    setContactStatus(editingContactId ? "Updating contact..." : "Adding contact...");
+
+    const values = {
+        name,
+        role,
+        phone,
+        email,
+        notes,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+        updated_at: new Date().toISOString()
+    };
+
+    let result;
+
+    if (editingContactId) {
+        result = await supabaseClient
+            .from("contacts")
+            .update(values)
+            .eq("id", editingContactId);
+    } else {
+        result = await supabaseClient
+            .from("contacts")
+            .insert({
+                ...values,
+                created_by: currentUserId || null,
+                created_by_name: currentWorkerDisplay,
+                is_active: true
+            });
+    }
+
+    if (result.error) {
+        setContactStatus("Contact could not be saved.");
+        return;
+    }
+
+    clearContactForm();
+    setContactStatus("Contact saved.");
+    await loadContacts();
+}
+
+async function deleteContact(id) {
+    const contact = contacts.find((item) => item.id === id);
+
+    if (!contact) {
+        alert("Contact could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete " + (contact.name || "this contact") + "?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("contacts")
+        .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Contact could not be deleted.");
+        return;
+    }
+
+    if (editingContactId === id) {
+        clearContactForm();
+    }
+
+    await loadContacts();
 }
 
 async function reviewVacationRequest(id, status) {
