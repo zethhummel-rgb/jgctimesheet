@@ -240,6 +240,7 @@ let policies = [];
 let announcements = [];
 let policyUrls = {};
 let announcementUrls = {};
+let currentUserId = "";
 
 document.getElementById("workerName").textContent = worker.display || worker.key || "";
 
@@ -249,6 +250,49 @@ if (window.lucide) {
 
 loadPolicies();
 loadAnnouncements();
+
+async function getCurrentUserId() {
+  if (currentUserId) {
+    return currentUserId;
+  }
+
+  if (!supabaseClient) {
+    return "";
+  }
+
+  const sessionResult = await supabaseClient.auth.getSession();
+  currentUserId = sessionResult.data.session && sessionResult.data.session.user
+    ? sessionResult.data.session.user.id
+    : "";
+
+  return currentUserId;
+}
+
+async function acknowledgeAnnouncement(announcementId, source) {
+  if (!supabaseClient || !announcementId) {
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+
+  if (!userId) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("announcement_acknowledgements")
+    .insert({
+      announcement_id: announcementId,
+      worker_id: userId,
+      worker_name: worker.display || worker.key || "",
+      worker_email: worker.email || "",
+      read_source: source || "announcement"
+    });
+
+  if (error && error.code !== "23505") {
+    console.warn("Announcement acknowledgement could not be saved.", error);
+  }
+}
 
 async function loadPolicies() {
   const list = document.getElementById("policyList");
@@ -378,11 +422,11 @@ function renderAnnouncements() {
   status.hidden = true;
   list.innerHTML = announcements.map((announcement) => {
     const fileLink = announcementUrls[announcement.id]
-      ? '<a class="button-link announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener"><i data-lucide="file-text"></i>Open PDF</a>'
+      ? '<a class="button-link announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener" data-announcement-pdf="' + escapeHtml(announcement.id) + '"><i data-lucide="file-text"></i>Open PDF</a>'
       : "";
 
     return `
-      <article class="announcement-card">
+      <article class="announcement-card" role="button" tabindex="0" data-announcement-read="${escapeHtml(announcement.id)}">
         <h3>${escapeHtml(announcement.title || "Announcement")}</h3>
         <div class="announcement-meta">${escapeHtml(formatDisplayDate(announcement.created_at))}</div>
         <p class="muted">${escapeHtml(announcement.body || "")}</p>
@@ -390,6 +434,19 @@ function renderAnnouncements() {
       </article>
     `;
   }).join("");
+
+  list.querySelectorAll("[data-announcement-read]").forEach((card) => {
+    card.addEventListener("click", () => acknowledgeAnnouncement(card.dataset.announcementRead, "policies_card"));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        acknowledgeAnnouncement(card.dataset.announcementRead, "policies_card");
+      }
+    });
+  });
+
+  list.querySelectorAll("[data-announcement-pdf]").forEach((link) => {
+    link.addEventListener("click", () => acknowledgeAnnouncement(link.dataset.announcementPdf, "policies_pdf"));
+  });
 
   if (window.lucide) {
     window.lucide.createIcons();
