@@ -21,7 +21,8 @@ function applyJgcPortalName() {
     "tele-handler.html": "Telehandler Inspection",
     "timesheet.html": "Timesheets",
     "todays-inspections.html": "Today's Inspections",
-    "vacation-request.html": "Vacation Request"
+    "vacation-request.html": "Vacation Request",
+    "policies-announcements.html": "Policies/Announcements"
   };
   const page = window.location.pathname.split("/").pop() || "index.html";
   const section = pageTitles[page];
@@ -465,6 +466,44 @@ function activateAdminContactsTab() {
 function activateJgcContactsFeature() {
   activateContactsLinks();
   activateAdminContactsTab();
+}
+
+function activatePoliciesAnnouncementsTile() {
+  if (!/home\.html$/i.test(window.location.pathname) || document.getElementById("policiesAnnouncementsCard")) {
+    return;
+  }
+
+  const grid = document.querySelector(".cards-grid");
+
+  if (!grid) {
+    return;
+  }
+
+  const card = document.createElement("button");
+  card.id = "policiesAnnouncementsCard";
+  card.type = "button";
+  card.className = "feature-card";
+  card.onclick = function() {
+    window.location.href = "policies-announcements.html";
+  };
+  card.innerHTML = `
+    <span class="card-icon"><i data-lucide="file-text"></i></span>
+    <h2>JGC Policies/Announcements</h2>
+    <p>Review policies and previous announcements</p>
+    <i class="arrow" data-lucide="arrow-right"></i>
+  `;
+
+  const adminCard = document.getElementById("adminCard");
+
+  if (adminCard && adminCard.parentElement === grid) {
+    grid.insertBefore(card, adminCard);
+  } else {
+    grid.appendChild(card);
+  }
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 }
 
 function isValidTimesheetEntry(entry) {
@@ -1022,6 +1061,7 @@ function activateTimesheetCalendarFeature() {
 
 function activateJgcEnhancements() {
   activateJgcContactsFeature();
+  activatePoliciesAnnouncementsTile();
   activateTimesheetTableContrastFeature();
   activateTimesheetEntryCleanupFeature();
   activateTimesheetCalendarFeature();
