@@ -368,6 +368,7 @@ button:hover,
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
+    <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
     <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
@@ -544,6 +545,40 @@ button:hover,
     <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
 </div>
 
+<div id="equipmentSection" class="card" hidden>
+    <h2>Equipment / Vehicles</h2>
+    <div id="equipmentExpiryAlerts" class="small" style="margin-bottom:12px;">Checking inspection expiry notifications...</div>
+    <div class="announcement-grid">
+        <div>
+            <label>Name of Equipment / Vehicle</label>
+            <input id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
+        </div>
+        <div>
+            <label>Identification Number</label>
+            <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
+        </div>
+        <div>
+            <label>Operator Name</label>
+            <input id="equipmentOperator" placeholder="Operator name">
+        </div>
+        <div>
+            <label>Yearly Inspection Expiry</label>
+            <input id="equipmentExpiry" type="date">
+        </div>
+        <div class="full">
+            <label>Notes</label>
+            <textarea id="equipmentNotes" placeholder="Optional notes"></textarea>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button id="equipmentSaveButton" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
+        <button class="secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
+        <button class="secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
+    </div>
+    <div id="equipmentStatus" class="small" style="margin-top:10px;"></div>
+    <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
+</div>
+
 <div id="contactsSection" class="card" hidden>
     <h2>Contacts</h2>
     <div class="filters">
@@ -596,6 +631,8 @@ let vacationRequests = [];
 let accounts = [];
 let announcements = [];
 let policies = [];
+let equipmentItems = [];
+let equipmentNotifications = [];
 let contacts = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
@@ -605,8 +642,10 @@ let policyUrls = {};
 let currentUserId = "";
 let editingContactId = "";
 let editingTimesheetId = "";
+let editingEquipmentId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -617,7 +656,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "contacts"].forEach((name) => {
+    ["timesheets", "inspections", "certificates", "vacation", "announcements", "policies", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -628,6 +667,10 @@ function showTab(tab) {
 
     if (tab === "contacts") {
         loadContacts();
+    }
+
+    if (tab === "equipment") {
+        renderEquipment();
     }
 }
 
@@ -696,7 +739,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, contactResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
@@ -706,6 +749,8 @@ async function loadAdminData() {
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
+        supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
+        supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
     ]);
 
@@ -718,9 +763,12 @@ async function loadAdminData() {
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
     policies = policyResult.data || [];
+    equipmentItems = equipmentResult.data || [];
+    equipmentNotifications = equipmentNotificationResult.data || [];
     contacts = contactResult.data || [];
     await prepareCertificateUrls();
     await processCertificateExpiryNotifications();
+    await processEquipmentExpiryNotifications();
     await prepareAnnouncementUrls();
     await preparePolicyUrls();
     renderTimesheets();
@@ -730,6 +778,7 @@ async function loadAdminData() {
     renderVacationRequests();
     renderAnnouncements();
     renderPolicies();
+    renderEquipment();
     renderContacts();
 }
 
@@ -851,6 +900,362 @@ async function sendCertificateExpiryEmail(certificate) {
     } catch (error) {
         console.warn("Certificate expiry email could not be sent.", error);
     }
+}
+
+function getEquipmentStatus(expiryDate) {
+    if (!expiryDate) {
+        return "No Expiry";
+    }
+
+    const daysUntilExpiry = getEquipmentDaysUntilExpiry(expiryDate);
+
+    if (daysUntilExpiry < 0) {
+        return "Expired";
+    }
+
+    if (daysUntilExpiry <= 30) {
+        return "Expiring Soon";
+    }
+
+    return "Valid";
+}
+
+function getEquipmentDaysUntilExpiry(expiryDate) {
+    if (!expiryDate) {
+        return null;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+}
+
+function getEquipmentExpiryAlerts() {
+    return equipmentItems
+        .map((item) => ({
+            ...item,
+            daysUntilExpiry: getEquipmentDaysUntilExpiry(item.yearly_inspection_expiry)
+        }))
+        .filter((item) => item.yearly_inspection_expiry && item.daysUntilExpiry !== null && item.daysUntilExpiry >= 0 && item.daysUntilExpiry <= 30)
+        .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+}
+
+function hasEquipmentNotification(item) {
+    return equipmentNotifications.some((notification) =>
+        notification.equipment_id === item.id &&
+        notification.expiry_date === item.yearly_inspection_expiry &&
+        notification.notification_type === "30_day"
+    );
+}
+
+function renderEquipmentExpiryAlerts() {
+    const panel = document.getElementById("equipmentExpiryAlerts");
+
+    if (!panel) {
+        return;
+    }
+
+    const alerts = getEquipmentExpiryAlerts();
+
+    if (!alerts.length) {
+        panel.innerHTML = "<strong>Expiry Notifications:</strong> No equipment or vehicles expiring in the next 30 days.";
+        return;
+    }
+
+    panel.innerHTML = `
+        <strong>Expiry Notifications:</strong> ${alerts.length} equipment/vehicle inspection${alerts.length === 1 ? "" : "s"} expiring within 30 days.
+        <div class="table-wrap" style="margin-top:8px;">
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
+                </thead>
+                <tbody>
+                    ${alerts.map((item) => {
+                        const sent = hasEquipmentNotification(item);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.identification_number || "")}</td>
+                                <td>${escapeHtml(item.operator_name || "")}</td>
+                                <td>${escapeHtml(item.yearly_inspection_expiry)}</td>
+                                <td>${item.daysUntilExpiry}</td>
+                                <td>${sent ? "Email sent" : "Email pending"}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function processEquipmentExpiryNotifications() {
+    renderEquipmentExpiryAlerts();
+
+    const alertsToSend = getEquipmentExpiryAlerts().filter((item) => !hasEquipmentNotification(item));
+
+    for (const item of alertsToSend) {
+        await sendEquipmentExpiryEmail(item);
+    }
+
+    renderEquipmentExpiryAlerts();
+}
+
+async function sendEquipmentExpiryEmail(item) {
+    const subject = "JGC Equipment Inspection Expiry Notice - " + item.name;
+    const body = [
+        "JGC Equipment Inspection Expiry Notice",
+        "",
+        "Equipment / Vehicle: " + item.name,
+        "Identification Number: " + (item.identification_number || "Not entered"),
+        "Operator: " + (item.operator_name || "Not entered"),
+        "Yearly Inspection Expiry: " + item.yearly_inspection_expiry,
+        "Days Until Expiry: " + item.daysUntilExpiry,
+        "",
+        "Please review this item in the JGC Portal admin equipment tab."
+    ].join("\n");
+
+    try {
+        await fetch(EQUIPMENT_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                subject,
+                body,
+                text: body,
+                source: "equipment_expiry",
+                equipmentId: item.id,
+                equipmentName: item.name,
+                identificationNumber: item.identification_number || "",
+                operatorName: item.operator_name || "",
+                expiryDate: item.yearly_inspection_expiry
+            })
+        });
+
+        const { data, error } = await supabaseClient
+            .from("equipment_expiry_notifications")
+            .insert({
+                equipment_id: item.id,
+                equipment_name: item.name,
+                identification_number: item.identification_number || "",
+                operator_name: item.operator_name || "",
+                expiry_date: item.yearly_inspection_expiry,
+                notification_type: "30_day",
+                emailed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (!error && data) {
+            equipmentNotifications.unshift(data);
+        }
+    } catch (error) {
+        console.warn("Equipment expiry email could not be sent.", error);
+    }
+}
+
+function setEquipmentStatus(message, isError = false) {
+    const status = document.getElementById("equipmentStatus");
+
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message;
+    status.style.color = isError ? "#ffb4b4" : "";
+}
+
+function clearEquipmentForm() {
+    editingEquipmentId = "";
+    document.getElementById("equipmentName").value = "";
+    document.getElementById("equipmentIdentification").value = "";
+    document.getElementById("equipmentOperator").value = "";
+    document.getElementById("equipmentExpiry").value = "";
+    document.getElementById("equipmentNotes").value = "";
+    document.getElementById("equipmentSaveButton").textContent = "Add Equipment / Vehicle";
+    setEquipmentStatus("");
+}
+
+function renderEquipment() {
+    const list = document.getElementById("equipmentList");
+
+    renderEquipmentExpiryAlerts();
+
+    if (!list) {
+        return;
+    }
+
+    if (!equipmentItems.length) {
+        list.textContent = "No equipment or vehicles have been added yet.";
+        return;
+    }
+
+    const rows = equipmentItems
+        .slice()
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+        .map((item) => {
+            const status = getEquipmentStatus(item.yearly_inspection_expiry);
+
+            return `
+                <tr>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.identification_number || "")}</td>
+                    <td>${escapeHtml(item.operator_name || "")}</td>
+                    <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
+                    <td>${escapeHtml(status)}</td>
+                    <td>${escapeHtml(item.notes || "")}</td>
+                    <td>
+                        <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
+                        <button type="button" class="delete-button" onclick="deleteEquipment('${item.id}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function editEquipment(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        alert("Equipment or vehicle could not be found.");
+        return;
+    }
+
+    editingEquipmentId = id;
+    document.getElementById("equipmentName").value = item.name || "";
+    document.getElementById("equipmentIdentification").value = item.identification_number || "";
+    document.getElementById("equipmentOperator").value = item.operator_name || "";
+    document.getElementById("equipmentExpiry").value = item.yearly_inspection_expiry || "";
+    document.getElementById("equipmentNotes").value = item.notes || "";
+    document.getElementById("equipmentSaveButton").textContent = "Update Equipment / Vehicle";
+    setEquipmentStatus("Editing " + item.name + ".");
+    document.getElementById("equipmentName").focus();
+}
+
+async function saveEquipment() {
+    const name = document.getElementById("equipmentName").value.trim();
+    const identificationNumber = document.getElementById("equipmentIdentification").value.trim();
+    const operatorName = document.getElementById("equipmentOperator").value.trim();
+    const expiry = document.getElementById("equipmentExpiry").value || null;
+    const notes = document.getElementById("equipmentNotes").value.trim();
+
+    if (!name) {
+        setEquipmentStatus("Please enter the equipment or vehicle name.", true);
+        return;
+    }
+
+    setEquipmentStatus("Saving equipment...");
+
+    const payload = {
+        name,
+        identification_number: identificationNumber,
+        operator_name: operatorName,
+        yearly_inspection_expiry: expiry,
+        notes,
+        updated_at: new Date().toISOString()
+    };
+
+    let result;
+
+    if (editingEquipmentId) {
+        result = await supabaseClient
+            .from("equipment_vehicles")
+            .update(payload)
+            .eq("id", editingEquipmentId)
+            .select()
+            .single();
+    } else {
+        result = await supabaseClient
+            .from("equipment_vehicles")
+            .insert({
+                ...payload,
+                created_by: currentUserId || null,
+                created_by_name: currentWorkerDisplay
+            })
+            .select()
+            .single();
+    }
+
+    if (result.error) {
+        setEquipmentStatus("Equipment could not be saved: " + result.error.message, true);
+        return;
+    }
+
+    if (editingEquipmentId) {
+        equipmentItems = equipmentItems.map((item) => item.id === editingEquipmentId ? result.data : item);
+    } else {
+        equipmentItems.push(result.data);
+    }
+
+    clearEquipmentForm();
+    renderEquipment();
+    await processEquipmentExpiryNotifications();
+    setEquipmentStatus("Equipment saved.");
+}
+
+async function deleteEquipment(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        alert("Equipment or vehicle could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete " + item.name + " from Equipment / Vehicles?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("equipment_vehicles")
+        .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Equipment could not be deleted: " + error.message);
+        return;
+    }
+
+    equipmentItems = equipmentItems.filter((entry) => entry.id !== id);
+    clearEquipmentForm();
+    renderEquipment();
+}
+
+async function loadEquipment() {
+    setEquipmentStatus("Refreshing equipment...");
+
+    const [equipmentResult, notificationResult] = await Promise.all([
+        supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
+        supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false })
+    ]);
+
+    if (equipmentResult.error) {
+        setEquipmentStatus("Equipment could not be loaded: " + equipmentResult.error.message, true);
+        return;
+    }
+
+    equipmentItems = equipmentResult.data || [];
+    equipmentNotifications = notificationResult.data || [];
+    await processEquipmentExpiryNotifications();
+    renderEquipment();
+    setEquipmentStatus("Equipment refreshed.");
 }
 
 function renderTimesheets() {
