@@ -127,8 +127,6 @@ function activateGlobalTopNavigation() {
     return;
   }
 
-  const worker = getCurrentWorkerRecord();
-  const isAdmin = isAdminWorker(worker.key, worker.role);
   const links = [
     { label: "Timesheets", href: "timesheet.html" },
     { label: "Inspections", href: "inspections.html" },
@@ -137,10 +135,6 @@ function activateGlobalTopNavigation() {
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" }
   ];
-
-  if (isAdmin) {
-    links.push({ label: "Admin", href: "admin.html" });
-  }
 
   const style = document.createElement("style");
   style.id = "jgcGlobalTopNavStyles";
