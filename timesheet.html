@@ -3,7 +3,7 @@
 <head>
   <title>Time Sheet App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
   <style>
     body {
       font-family: Arial;
@@ -246,6 +246,25 @@
       font-size: 12px;
     }
 
+    .edit-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .delete-entry-button {
+      width: auto;
+      min-width: 72px;
+      padding: 6px 10px;
+      margin: 0;
+      font-size: 12px;
+      background: #8b2e2e;
+    }
+
+    .delete-entry-button:hover {
+      background: #692222;
+    }
+
     .cancel-edit {
       display: none;
       background: #5f6a62;
@@ -273,6 +292,143 @@
       margin-top: 14px;
     }
 
+    .calendar-card {
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .timesheet-calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .timesheet-calendar-header button {
+      width: auto;
+      min-width: 92px;
+      margin: 0;
+      background: #5f6a62;
+    }
+
+    .timesheet-calendar-title {
+      font-weight: bold;
+      color: #2f6f3c;
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .timesheet-calendar-quick {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 10px;
+    }
+
+    .timesheet-calendar-quick button {
+      width: auto;
+      min-width: 110px;
+      margin: 0;
+      padding: 7px 12px;
+      background: #3f7d4d;
+    }
+
+    .timesheet-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .calendar-day-name {
+      padding: 6px 4px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: #365540;
+    }
+
+    .timesheet-day {
+      min-height: 72px;
+      border: 1px solid #c5cec1;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #1f2a24;
+      padding: 6px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .timesheet-day:hover {
+      border-color: #3f7d4d;
+      box-shadow: inset 0 0 0 2px #d9ead5;
+    }
+
+    .timesheet-day.outside-month {
+      opacity: 0.38;
+    }
+
+    .timesheet-day.current-week {
+      background: #edf7ea;
+      border-color: #9bc596;
+    }
+
+    .timesheet-day.today-day {
+      box-shadow: inset 0 0 0 2px #8ed26f;
+    }
+
+    .timesheet-day.has-current-entry {
+      border-color: #3f7d4d;
+    }
+
+    .timesheet-day.has-previous-submission {
+      background: #eef6fa;
+      border-color: #4f86a0;
+    }
+
+    .timesheet-day.selected-day {
+      background: #3f7d4d;
+      color: #ffffff;
+      border-color: #2f6f3c;
+    }
+
+    .timesheet-day.selected-day .calendar-pill {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+    }
+
+    .timesheet-day-number {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .timesheet-day-meta {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .calendar-pill {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 5px;
+      border-radius: 999px;
+      font-size: 10px;
+      line-height: 1.25;
+    }
+
+    .draft-pill {
+      background: #dfeeda;
+      color: #245832;
+    }
+
+    .submitted-pill {
+      background: #dceaf1;
+      color: #24516b;
+    }
+
     @media (max-width: 720px) {
       body {
         padding: 10px;
@@ -296,13 +452,15 @@
       }
 
       .sign-out,
-      .edit-button {
+      .edit-button,
+      .delete-entry-button {
         min-height: 34px;
         font-size: 13px;
       }
 
       .tab-buttons,
-      .email-actions {
+      .email-actions,
+      .timesheet-calendar-header {
         display: grid;
         grid-template-columns: 1fr;
       }
@@ -338,6 +496,24 @@
       .edit-table td {
         font-size: 14px;
       }
+
+      .timesheet-day {
+        min-height: 58px;
+        padding: 5px;
+      }
+
+      .timesheet-day-number {
+        font-size: 13px;
+      }
+
+      .timesheet-day-meta {
+        font-size: 10px;
+      }
+
+      .calendar-pill {
+        font-size: 9px;
+        padding: 2px 4px;
+      }
     }
   </style>
 </head>
@@ -351,6 +527,20 @@
 <h2 class="page-title">Construction Time Sheet</h2>
 
 <div id="currentUser" class="user-bar"></div>
+
+<div class="card calendar-card">
+  <div class="timesheet-calendar-header">
+    <button type="button" onclick="changeCalendarMonth(-1)">Previous</button>
+    <div id="timesheetCalendarTitle" class="timesheet-calendar-title"></div>
+    <button type="button" onclick="changeCalendarMonth(1)">Next</button>
+  </div>
+  <div class="timesheet-calendar-quick">
+    <button type="button" onclick="selectThisWeek()">This Week</button>
+    <button type="button" onclick="selectLastWeek()">Last Week</button>
+  </div>
+  <div id="timesheetCalendar" class="timesheet-calendar-grid"></div>
+  <div class="small">Pick a date to start an entry for that day. Soft green shows the selected week and blue marks submitted weeks.</div>
+</div>
 
 <div class="card form-card">
   <h3>Submit Time Entry</h3>
@@ -423,7 +613,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -434,6 +624,8 @@ let memoryTimesheets = [];
 let editingEntryId = null;
 let entriesTab = "current";
 let previousWeeks = [];
+let calendarMonth = new Date();
+let selectedCalendarDate = new Date();
 
 if (!currentUser) {
   window.location.href = "index.html";
@@ -469,16 +661,224 @@ function formatDateValue(date) {
   return year + "-" + month + "-" + day;
 }
 
+function getDayNames() {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+}
+
+function getWeekStartDate(date) {
+  const weekStart = new Date(date);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(date.getDate() - date.getDay());
+  return weekStart;
+}
+
+function getDateForEntry(entry) {
+  const weekStartText = entry.weekStartValue || entry.week_start || entry.weekStart;
+
+  if (!weekStartText || !entry.day) {
+    return null;
+  }
+
+  const dayIndex = getDayNames().indexOf(entry.day);
+
+  if (dayIndex < 0) {
+    return null;
+  }
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(weekStartText)
+    ? makeLocalDate(weekStartText)
+    : new Date(weekStartText);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setDate(date.getDate() + dayIndex);
+  return date;
+}
+
+function getHoursForDate(date) {
+  const targetValue = formatDateValue(date);
+
+  return loadTimesheets().reduce(function(total, entry) {
+    const entryDate = getDateForEntry(entry);
+
+    if (!entryDate || formatDateValue(entryDate) !== targetValue) {
+      return total;
+    }
+
+    return total + Number(entry.hours || 0);
+  }, 0);
+}
+
+function getPreviousSubmissionForDate(date) {
+  const targetValue = formatDateValue(date);
+
+  for (let week of previousWeeks) {
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    const matchingEntries = entries.filter(function(entry) {
+      const entryDate = getDateForEntry(entry);
+      return entryDate && formatDateValue(entryDate) === targetValue;
+    });
+
+    if (matchingEntries.length > 0) {
+      return {
+        week: week,
+        hours: matchingEntries.reduce(function(total, entry) {
+          return total + Number(entry.hours || 0);
+        }, 0)
+      };
+    }
+  }
+
+  return null;
+}
+
+function changeCalendarMonth(offset) {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
+  renderTimesheetCalendar();
+}
+
+function selectThisWeek() {
+  selectCalendarDate(formatDateValue(new Date()));
+}
+
+function selectLastWeek() {
+  const date = new Date();
+  date.setDate(date.getDate() - 7);
+  selectCalendarDate(formatDateValue(date));
+}
+
+function selectCalendarDate(dateValue) {
+  const date = makeLocalDate(dateValue);
+  selectedCalendarDate = date;
+  calendarMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+
+  const weekStartInput = document.getElementById("weekStart");
+  weekStartInput.value = dateValue;
+  validateSunday(weekStartInput);
+  document.getElementById("day").value = getDayNames()[date.getDay()];
+  renderTimesheetCalendar();
+
+  document.querySelector(".form-card").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+function getCalendarSelectedWeekStart() {
+  const inputValue = document.getElementById("weekStart").value;
+
+  if (inputValue) {
+    return makeLocalDate(inputValue);
+  }
+
+  return getWeekStartDate(selectedCalendarDate);
+}
+
+function renderTimesheetCalendar() {
+  const calendar = document.getElementById("timesheetCalendar");
+  const title = document.getElementById("timesheetCalendarTitle");
+
+  if (!calendar || !title) {
+    return;
+  }
+
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const selectedWeekStart = getCalendarSelectedWeekStart();
+  const selectedWeekEnd = new Date(selectedWeekStart);
+  selectedWeekEnd.setDate(selectedWeekStart.getDate() + 6);
+  const selectedValue = formatDateValue(selectedCalendarDate);
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const cells = [];
+
+  title.innerText = firstDay.toLocaleDateString("en-CA", {
+    month: "long",
+    year: "numeric"
+  });
+
+  for (let name of dayNames) {
+    cells.push('<div class="calendar-day-name">' + name + '</div>');
+  }
+
+  for (let i = 0; i < firstDay.getDay(); i++) {
+    const date = new Date(year, month, 1 - firstDay.getDay() + i);
+    cells.push(getCalendarDayHtml(date, month, selectedWeekStart, selectedWeekEnd, selectedValue));
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const date = new Date(year, month, day);
+    cells.push(getCalendarDayHtml(date, month, selectedWeekStart, selectedWeekEnd, selectedValue));
+  }
+
+  while ((cells.length - 7) % 7 !== 0) {
+    const date = new Date(year, month, lastDay.getDate() + ((cells.length - 7) % 7) + 1);
+    cells.push(getCalendarDayHtml(date, month, selectedWeekStart, selectedWeekEnd, selectedValue));
+  }
+
+  calendar.innerHTML = cells.join("");
+}
+
+function getCalendarDayHtml(date, visibleMonth, selectedWeekStart, selectedWeekEnd, selectedValue) {
+  const dateValue = formatDateValue(date);
+  const hours = getHoursForDate(date);
+  const previousSubmission = getPreviousSubmissionForDate(date);
+  const todayValue = formatDateValue(new Date());
+  const classes = ["timesheet-day"];
+  const metaItems = [];
+
+  if (date.getMonth() !== visibleMonth) {
+    classes.push("outside-month");
+  }
+
+  if (selectedWeekStart.getTime() <= date.getTime() && date.getTime() <= selectedWeekEnd.getTime()) {
+    classes.push("current-week");
+  }
+
+  if (dateValue === todayValue) {
+    classes.push("today-day");
+  }
+
+  if (hours) {
+    classes.push("has-current-entry");
+    metaItems.push('<span class="calendar-pill draft-pill">' + hours.toFixed(2) + ' draft</span>');
+  }
+
+  if (previousSubmission) {
+    classes.push("has-previous-submission");
+    const submittedText = previousSubmission.hours
+      ? previousSubmission.hours.toFixed(2) + " submitted"
+      : "Submitted";
+    metaItems.push('<span class="calendar-pill submitted-pill">' + submittedText + '</span>');
+  }
+
+  if (dateValue === selectedValue) {
+    classes.push("selected-day");
+  }
+
+  return `
+    <button type="button" class="${classes.join(" ")}" onclick="selectCalendarDate('${dateValue}')">
+      <div class="timesheet-day-number">${date.getDate()}</div>
+      <div class="timesheet-day-meta">${metaItems.join("")}</div>
+    </button>
+  `;
+}
+
 function validateSunday(input) {
   if (!input.value) {
     document.getElementById("weekDisplay").innerText = "";
     updateJobSuggestions();
+    renderTimesheetCalendar();
     return;
   }
 
   const date = makeLocalDate(input.value);
-  const weekStart = new Date(date);
-  weekStart.setDate(date.getDate() - date.getDay());
+  selectedCalendarDate = date;
+  calendarMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const weekStart = getWeekStartDate(date);
   input.value = formatDateValue(weekStart);
 
   const weekEnd = new Date(weekStart);
@@ -489,6 +889,7 @@ function validateSunday(input) {
 
   updateJobSuggestions();
   fillJobNumberForSelectedJob();
+  renderTimesheetCalendar();
 }
 
 function formatDate(date) {
@@ -670,10 +1071,14 @@ async function loadTimesheetsFromSupabase() {
   updateJobSuggestions();
 }
 
-async function loadPreviousWeeksFromSupabase() {
+async function loadPreviousWeeksFromSupabase(options) {
+  const shouldRender = !options || options.render !== false;
+
   if (!supabaseClient) {
     previousWeeks = loadFallbackPreviousWeeks();
-    render();
+    if (shouldRender) {
+      render();
+    }
     return;
   }
 
@@ -685,7 +1090,9 @@ async function loadPreviousWeeksFromSupabase() {
 
   if (error) {
     previousWeeks = loadFallbackPreviousWeeks();
-    render();
+    if (shouldRender) {
+      render();
+    }
     return;
   }
 
@@ -702,7 +1109,9 @@ async function loadPreviousWeeksFromSupabase() {
   }).sort(sortPreviousWeeksByDate).slice(0, 3);
 
   saveFallbackPreviousWeeks(previousWeeks);
-  render();
+  if (shouldRender) {
+    render();
+  }
 }
 
 function loadFallbackPreviousWeeks() {
@@ -876,6 +1285,52 @@ function editEntry(entryId) {
   document.getElementById("nightWork").checked = Boolean(entry.nightWork);
   setEditMode(entry);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteEntry(entryId) {
+  const entry = loadTimesheets().find(function(item) {
+    return item.id === entryId;
+  });
+
+  if (!entry) {
+    alert("This entry could not be found.");
+    return;
+  }
+
+  const confirmed = confirm("Delete this entry for " + entry.day + " - " + entry.jobName + "?");
+
+  if (!confirmed) {
+    return;
+  }
+
+  const status = document.getElementById("submitStatus");
+  status.innerText = "Deleting entry...";
+
+  if (supabaseClient) {
+    const { error } = await supabaseClient
+      .from("timesheet_entries")
+      .delete()
+      .eq("id", entryId)
+      .eq("worker_name", currentUser);
+
+    if (error) {
+      status.innerText = "Could not delete this entry.";
+      return;
+    }
+  }
+
+  if (editingEntryId === entryId) {
+    clearEditMode();
+    resetTimeEntryFields();
+  }
+
+  setTimesheets(loadTimesheets().filter(function(item) {
+    return item.id !== entryId;
+  }));
+
+  status.innerText = "Entry deleted.";
+  render();
+  updateJobSuggestions();
 }
 
 function replaceStoredEntry(entries, updatedEntry) {
@@ -1471,7 +1926,12 @@ function renderEditRows(entries) {
         <td data-label="Day">${escapeHtml(entry.day)}</td>
         <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
         <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
-        <td data-label="Edit"><button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button></td>
+        <td data-label="Actions">
+          <div class="edit-actions">
+            <button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button>
+            <button type="button" class="delete-entry-button" onclick="deleteEntry('${escapeHtml(entry.id)}')">Delete</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join("");
@@ -1550,6 +2010,8 @@ function escapeHtml(value) {
 }
 
 function render() {
+  renderTimesheetCalendar();
+
   if (entriesTab === "previous") {
     renderPreviousWeeks();
     return;
@@ -1645,7 +2107,7 @@ function render() {
             <th>Day</th>
             <th>Job Name</th>
             <th>Job Number</th>
-            <th>Edit</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -1664,8 +2126,14 @@ if (currentUser) {
   showCurrentUser();
   fillTimeOptions();
   setTimesheets(loadFallbackTimesheets());
+  previousWeeks = loadFallbackPreviousWeeks();
+  selectedCalendarDate = new Date();
+  calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
   render();
   loadTimesheetsFromSupabase();
+  loadPreviousWeeksFromSupabase({ render: false }).then(function() {
+    renderTimesheetCalendar();
+  });
 }
 </script>
 
