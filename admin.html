@@ -546,6 +546,7 @@ let accounts = [];
 let announcements = [];
 let policies = [];
 let contacts = [];
+let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
 let certificateUrls = {};
 let announcementUrls = {};
@@ -634,7 +635,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, policyResult, contactResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
@@ -642,6 +643,7 @@ async function loadAdminData() {
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
+        supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
     ]);
@@ -653,6 +655,7 @@ async function loadAdminData() {
     vacationRequests = vacationResult.data || [];
     accounts = accountResult.data || [];
     announcements = announcementResult.data || [];
+    announcementAcknowledgements = announcementAcknowledgementResult.data || [];
     policies = policyResult.data || [];
     contacts = contactResult.data || [];
     await prepareCertificateUrls();
@@ -802,7 +805,7 @@ function renderTimesheets() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th></tr>
+                    <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${filtered.map((week) => `
@@ -812,12 +815,39 @@ function renderTimesheets() {
                             <td>${Number(week.total_hours || 0).toFixed(2)}</td>
                             <td>${escapeHtml(formatDate(week.submitted_at))}</td>
                             <td>${escapeHtml(week.note || "")}</td>
+                            <td><button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
             </table>
         </div>
     `;
+}
+
+async function deleteSubmittedTimesheet(id) {
+    const week = timesheets.find((item) => item.id === id);
+
+    if (!week) {
+        alert("Submitted timesheet could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete this submitted timesheet for " + week.worker_name + " - " + week.week_label + "?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("previous_timesheet_weeks")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("Timesheet could not be deleted.");
+        return;
+    }
+
+    timesheets = timesheets.filter((item) => item.id !== id);
+    renderTimesheets();
 }
 
 function renderInspections() {
@@ -1069,6 +1099,54 @@ async function prepareAnnouncementUrls() {
     }
 }
 
+function getApprovedAccounts() {
+    return accounts.filter((account) => account.account_status === "approved");
+}
+
+function getAnnouncementAcknowledgements(announcementId) {
+    return announcementAcknowledgements.filter((receipt) => receipt.announcement_id === announcementId);
+}
+
+function renderAnnouncementReadDetails(announcement) {
+    const approvedAccounts = getApprovedAccounts();
+    const receipts = getAnnouncementAcknowledgements(announcement.id);
+    const receiptByWorkerId = {};
+
+    receipts.forEach((receipt) => {
+        receiptByWorkerId[receipt.worker_id] = receipt;
+    });
+
+    if (!approvedAccounts.length) {
+        return "No approved accounts found.";
+    }
+
+    return `
+        <details>
+            <summary>${receipts.length}/${approvedAccounts.length} read</summary>
+            <div class="table-wrap" style="margin-top:8px;">
+                <table>
+                    <thead>
+                        <tr><th>Worker</th><th>Email</th><th>Status</th><th>Read At</th></tr>
+                    </thead>
+                    <tbody>
+                        ${approvedAccounts.map((account) => {
+                            const receipt = receiptByWorkerId[account.id];
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(account.display_name || account.worker_key || receipt && receipt.worker_name || "")}</td>
+                                    <td>${escapeHtml(account.email || receipt && receipt.worker_email || "")}</td>
+                                    <td>${receipt ? "Read" : "Not read"}</td>
+                                    <td>${receipt ? escapeHtml(formatDate(receipt.read_at)) : "-"}</td>
+                                </tr>
+                            `;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    `;
+}
+
 function renderAnnouncements() {
     const list = document.getElementById("announcementsList");
 
@@ -1085,6 +1163,7 @@ function renderAnnouncements() {
                         <th>Title</th>
                         <th>Message</th>
                         <th>PDF</th>
+                        <th>Read Status</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
@@ -1095,6 +1174,7 @@ function renderAnnouncements() {
                             <td>${escapeHtml(announcement.title)}</td>
                             <td>${escapeHtml(announcement.body || "")}</td>
                             <td>${announcementUrls[announcement.id] ? '<a class="file-link" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${renderAnnouncementReadDetails(announcement)}</td>
                             <td>${escapeHtml(formatDate(announcement.created_at))}</td>
                             <td><button type="button" class="delete-button" onclick="deleteAnnouncement('${escapeHtml(announcement.id)}')">Delete</button></td>
                         </tr>
@@ -1106,18 +1186,25 @@ function renderAnnouncements() {
 }
 
 async function loadAnnouncements() {
-    const { data, error } = await supabaseClient
-        .from("announcements")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+    const [announcementResult, acknowledgementResult] = await Promise.all([
+        supabaseClient
+            .from("announcements")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+        supabaseClient
+            .from("announcement_acknowledgements")
+            .select("*")
+            .order("read_at", { ascending: false })
+    ]);
 
-    if (error) {
+    if (announcementResult.error) {
         document.getElementById("announcementsList").textContent = "Announcements could not be loaded.";
         return;
     }
 
-    announcements = data || [];
+    announcements = announcementResult.data || [];
+    announcementAcknowledgements = acknowledgementResult.data || [];
     await prepareAnnouncementUrls();
     renderAnnouncements();
 }
