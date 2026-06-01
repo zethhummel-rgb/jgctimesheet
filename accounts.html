@@ -201,6 +201,7 @@ button:hover {
 <div id="currentUser" class="user-bar"></div>
 
 <div class="actions">
+    <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
     <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
     <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
@@ -235,6 +236,7 @@ const currentWorkerDisplay = worker.display;
 const currentUserRole = worker.role;
 let accounts = [];
 let currentUserId = "";
+let accountsLoadStarted = false;
 
 if (!isAdminWorker(currentWorker, currentUserRole)) {
     alert("Accounts is only available to authorized users.");
@@ -310,10 +312,23 @@ async function loadAccounts() {
         return;
     }
 
+    const list = document.getElementById("accountsList");
+    list.textContent = "Loading accounts...";
+
     const sessionResult = await supabaseClient.auth.getSession();
     currentUserId = sessionResult.data.session && sessionResult.data.session.user
         ? sessionResult.data.session.user.id
         : "";
+
+    if (!currentUserId) {
+        const userResult = await supabaseClient.auth.getUser();
+        currentUserId = userResult.data.user ? userResult.data.user.id : "";
+    }
+
+    if (!currentUserId) {
+        list.textContent = "Accounts could not be loaded. Please sign in again.";
+        return;
+    }
 
     const { data, error } = await supabaseClient
         .from("profiles")
@@ -321,11 +336,17 @@ async function loadAccounts() {
         .order("created_at", { ascending: false });
 
     if (error) {
-        document.getElementById("accountsList").textContent = "Accounts could not be loaded. Make sure your account has admin approval.";
+        list.textContent = "Accounts could not be loaded. Make sure your account has admin approval.";
         return;
     }
 
     accounts = data || [];
+
+    if (!accounts.length) {
+        list.textContent = "No accounts found. Try Refresh Accounts if this page just opened.";
+        return;
+    }
+
     renderAccounts();
 }
 
@@ -385,7 +406,24 @@ async function signOut() {
     await signOutJgc(supabaseClient);
 }
 
-loadAccounts();
+function startAccountsPage() {
+    if (accountsLoadStarted) {
+        loadAccounts();
+        return;
+    }
+
+    accountsLoadStarted = true;
+    loadAccounts();
+
+    setTimeout(() => {
+        if (!accounts.length) {
+            loadAccounts();
+        }
+    }, 900);
+}
+
+window.addEventListener("pageshow", startAccountsPage);
+startAccountsPage();
 </script>
 </body>
 </html>
