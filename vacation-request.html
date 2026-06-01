@@ -410,7 +410,11 @@ th {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=2"></script>
 <script>
-const VACATION_EMAIL = "zeth@johngordonconstruction.com";
+const VACATION_EMAIL_RECIPIENTS = [
+    "zeth@johngordonconstruction.com",
+    "Jeff@johngordonconstruction.com"
+];
+const VACATION_EMAIL = VACATION_EMAIL_RECIPIENTS.join(",");
 const VACATION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -723,6 +727,8 @@ async function emailVacationRequest(record) {
             "Content-Type": "text/plain;charset=utf-8"
         },
         body: JSON.stringify({
+            to: VACATION_EMAIL,
+            recipients: VACATION_EMAIL_RECIPIENTS,
             subject: "Vacation Request - " + record.worker_display_name + " - " + record.start_date,
             body: record.email_body,
             text: record.email_body,
