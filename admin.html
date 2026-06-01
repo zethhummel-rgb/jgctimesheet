@@ -586,11 +586,12 @@ button:hover,
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: job name from columns A-E and job number from column F. Rows highlighted yellow or red are skipped and treated as inactive.</div>
+            <div class="small">Excel layout used: tabs 2024-present only, job name from columns A-E, and job number from column F. Rows highlighted yellow or red are skipped and treated as inactive.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
         <button type="button" onclick="importJobsFromExcel()">Upload & Import</button>
+        <button class="delete-button" type="button" onclick="clearJobsExcelFile()">Delete File</button>
         <button class="secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobsImportStatus" class="small" style="margin-top:10px;"></div>
@@ -2782,6 +2783,18 @@ function isHighlightedInactiveRow(sheet, rowIndex, columnIndexes) {
     });
 }
 
+function isJobImportSheet(sheetName) {
+    const currentYear = new Date().getFullYear();
+    const yearMatch = String(sheetName || "").match(/\b(20\d{2})\b/);
+
+    if (!yearMatch) {
+        return false;
+    }
+
+    const year = Number(yearMatch[1]);
+    return year >= 2024 && year <= currentYear;
+}
+
 function getJobsSummary() {
     const totalJobs = jobs.length;
     const activeJobs = jobs.filter((job) => Boolean(job.active)).length;
@@ -2903,8 +2916,13 @@ async function importJobsFromExcel() {
 
     try {
         const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellStyles: true });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        const sheetNames = workbook.SheetNames.filter(isJobImportSheet);
+
+        if (!sheetNames.length) {
+            status.textContent = "No 2024-present tabs found in this Excel file.";
+            return;
+        }
+
         const jobMap = new Map();
         let skippedHighlighted = 0;
         let skippedIncomplete = 0;
@@ -2912,38 +2930,43 @@ async function importJobsFromExcel() {
         const jobNumberColumn = 5;
         const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5];
 
-        rows.forEach((row, sheetRowIndex) => {
-            if (isHighlightedInactiveRow(sheet, sheetRowIndex, columnsToCheckForHighlight)) {
-                skippedHighlighted++;
-                return;
-            }
+        sheetNames.forEach((sheetName) => {
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
 
-            const jobNumber = String(row[jobNumberColumn] || "").trim();
-            const jobName = jobNameColumns
-                .map((columnIndex) => String(row[columnIndex] || "").trim())
-                .filter(Boolean)
-                .join(" ")
-                .replace(/\s+/g, " ")
-                .trim();
+            rows.forEach((row, sheetRowIndex) => {
+                if (isHighlightedInactiveRow(sheet, sheetRowIndex, columnsToCheckForHighlight)) {
+                    skippedHighlighted++;
+                    return;
+                }
 
-            if (!jobNumber || !jobName) {
-                skippedIncomplete++;
-                return;
-            }
+                const jobNumber = String(row[jobNumberColumn] || "").trim();
+                const jobName = jobNameColumns
+                    .map((columnIndex) => String(row[columnIndex] || "").trim())
+                    .filter(Boolean)
+                    .join(" ")
+                    .replace(/\s+/g, " ")
+                    .trim();
 
-            const normalizedNumber = normalizeExcelHeader(jobNumber);
-            const normalizedName = normalizeExcelHeader(jobName);
+                if (!jobNumber || !jobName) {
+                    skippedIncomplete++;
+                    return;
+                }
 
-            if (["jobno", "jobnumber"].includes(normalizedNumber) || normalizedName === "jobname") {
-                skippedIncomplete++;
-                return;
-            }
+                const normalizedNumber = normalizeExcelHeader(jobNumber);
+                const normalizedName = normalizeExcelHeader(jobName);
 
-            jobMap.set(jobNumber, {
-                job_number: jobNumber,
-                job_name: jobName,
-                active: true,
-                updated_at: new Date().toISOString()
+                if (["jobno", "jobnumber"].includes(normalizedNumber) || normalizedName === "jobname") {
+                    skippedIncomplete++;
+                    return;
+                }
+
+                jobMap.set(jobNumber, {
+                    job_number: jobNumber,
+                    job_name: jobName,
+                    active: true,
+                    updated_at: new Date().toISOString()
+                });
             });
         });
 
@@ -2954,7 +2977,7 @@ async function importJobsFromExcel() {
             return;
         }
 
-        status.textContent = "Importing " + records.length + " jobs...";
+        status.textContent = "Importing " + records.length + " jobs from " + sheetNames.length + " tab" + (sheetNames.length === 1 ? "" : "s") + "...";
 
         const { error } = await supabaseClient
             .from("jobs")
@@ -2997,11 +3020,24 @@ async function importJobsFromExcel() {
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " active jobs imported. " + skippedHighlighted + " highlighted rows skipped. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";
         console.warn("Job import failed.", error);
+    }
+}
+
+function clearJobsExcelFile() {
+    const fileInput = document.getElementById("jobsExcelFile");
+    const status = document.getElementById("jobsImportStatus");
+
+    if (fileInput) {
+        fileInput.value = "";
+    }
+
+    if (status) {
+        status.textContent = "Selected Excel file removed.";
     }
 }
 
