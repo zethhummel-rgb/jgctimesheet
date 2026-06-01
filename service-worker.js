@@ -1,0 +1,103 @@
+const JGC_CACHE_NAME = "jgc-portal-v1";
+const JGC_APP_SHELL = [
+  "./",
+  "./index.html",
+  "./home.html",
+  "./timesheet.html",
+  "./inspections.html",
+  "./todays-inspections.html",
+  "./previous-inspections.html",
+  "./certificates.html",
+  "./vacation-request.html",
+  "./contacts.html",
+  "./policies-announcements.html",
+  "./equipment-vehicles.html",
+  "./admin.html",
+  "./accounts.html",
+  "./reset-password.html",
+  "./aerial-lifts.html",
+  "./forklift.html",
+  "./harness.html",
+  "./hot-work-permit.html",
+  "./jsa.html",
+  "./tele-handler.html",
+  "./styles.css?v=2",
+  "./common.js?v=2",
+  "./auth.js",
+  "./inspection-records.js",
+  "./manifest.json",
+  "./logo.png",
+  "./login-background.jpeg",
+  "./icon-192.png",
+  "./icon-512.png"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(JGC_CACHE_NAME)
+      .then((cache) => cache.addAll(JGC_APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== JGC_CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+
+  if (request.method !== "GET") {
+    return;
+  }
+
+  const url = new URL(request.url);
+
+  if (url.hostname.includes("supabase.co") || url.hostname.includes("script.google.com")) {
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          return cached;
+        }
+
+        return fetch(request).then((response) => {
+          const copy = response.clone();
+          caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+      const copy = response.clone();
+      caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+      return response;
+    }))
+  );
+});
