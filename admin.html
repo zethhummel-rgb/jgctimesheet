@@ -600,6 +600,10 @@ function showTab(tab) {
     if (tab === "certificates") {
         renderAdminCertificateWorkerOptions();
     }
+
+    if (tab === "contacts") {
+        loadContacts();
+    }
 }
 
 function formatDate(value) {
