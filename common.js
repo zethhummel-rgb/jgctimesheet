@@ -71,7 +71,7 @@ function activateJgcPwa() {
   if (!document.querySelector('link[rel="manifest"]')) {
     const manifest = document.createElement("link");
     manifest.rel = "manifest";
-    manifest.href = "manifest.json";
+    manifest.href = "manifest.json?v=3";
     document.head.appendChild(manifest);
   }
 
@@ -96,7 +96,7 @@ function activateJgcPwa() {
   if (!document.querySelector('link[rel="apple-touch-icon"]')) {
     const appleIcon = document.createElement("link");
     appleIcon.rel = "apple-touch-icon";
-    appleIcon.href = "icon-192.png";
+    appleIcon.href = "icon-180.png?v=3";
     document.head.appendChild(appleIcon);
   }
 
