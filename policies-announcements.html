@@ -195,6 +195,10 @@ p {
       <i data-lucide="home"></i>
       Home
     </button>
+    <button id="managePoliciesButton" type="button" onclick="window.location.href='policies-admin.html'" hidden>
+      <i data-lucide="settings"></i>
+      Manage Policies
+    </button>
   </div>
 
   <section class="hero-card">
@@ -236,16 +240,95 @@ p {
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
+let policies = [];
 let announcements = [];
+let policyUrls = {};
 let announcementUrls = {};
 
 document.getElementById("workerName").textContent = worker.display || worker.key || "";
+
+if (isAdminWorker(worker.key, worker.role)) {
+  document.getElementById("managePoliciesButton").hidden = false;
+}
 
 if (window.lucide) {
   window.lucide.createIcons();
 }
 
+loadPolicies();
 loadAnnouncements();
+
+async function loadPolicies() {
+  const list = document.getElementById("policyList");
+
+  if (!supabaseClient) {
+    list.innerHTML = '<div class="empty-state">Policies could not be loaded.</div>';
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("policies")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error) {
+    list.innerHTML = '<div class="empty-state">Policies could not be loaded.</div>';
+    return;
+  }
+
+  policies = data || [];
+  await preparePolicyUrls();
+  renderPolicies();
+}
+
+async function preparePolicyUrls() {
+  policyUrls = {};
+
+  for (const policy of policies) {
+    if (!policy.file_path) {
+      continue;
+    }
+
+    const { data } = await supabaseClient
+      .storage
+      .from("policies")
+      .createSignedUrl(policy.file_path, 604800);
+
+    if (data && data.signedUrl) {
+      policyUrls[policy.id] = data.signedUrl;
+    }
+  }
+}
+
+function renderPolicies() {
+  const list = document.getElementById("policyList");
+
+  if (!policies.length) {
+    list.innerHTML = '<div class="empty-state">No policies have been added yet.</div>';
+    return;
+  }
+
+  list.innerHTML = policies.map((policy) => {
+    const fileLink = policyUrls[policy.id]
+      ? '<a class="button-link announcement-file" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener"><i data-lucide="file-text"></i>Open PDF</a>'
+      : "";
+
+    return `
+      <article class="policy-card">
+        <h3>${escapeHtml(policy.title || "Policy")}</h3>
+        <div class="announcement-meta">${escapeHtml(policy.category || "General")}</div>
+        <p class="muted">${escapeHtml(policy.description || "")}</p>
+        ${fileLink}
+      </article>
+    `;
+  }).join("");
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
 
 async function loadAnnouncements() {
   const status = document.getElementById("announcementsStatus");
