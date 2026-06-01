@@ -381,6 +381,34 @@ button:hover,
 <div id="certificatesSection" class="card" hidden>
     <h2>Certificates</h2>
     <div id="certificateExpiryAlerts" class="small" style="margin-bottom:12px;">Checking expiry notifications...</div>
+    <h3>Add Certificate For Employee</h3>
+    <div class="announcement-grid">
+        <div>
+            <label>Employee</label>
+            <select id="adminCertificateWorker"></select>
+        </div>
+        <div>
+            <label>Certificate Name</label>
+            <input id="adminCertificateName" placeholder="Example: Working at Heights">
+        </div>
+        <div>
+            <label>Expiry Date</label>
+            <input id="adminCertificateExpiry" type="date">
+        </div>
+        <div>
+            <label>Certificate File</label>
+            <input id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+        </div>
+        <div class="full">
+            <label>Notes</label>
+            <textarea id="adminCertificateNotes" placeholder="Optional notes"></textarea>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button type="button" onclick="uploadAdminCertificate()">Upload Certificate</button>
+    </div>
+    <div id="adminCertificateStatus" class="small" style="margin-top:10px;"></div>
+    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
     <div class="filters">
         <div>
             <label>Worker</label>
@@ -664,6 +692,7 @@ async function loadAdminData() {
     await preparePolicyUrls();
     renderTimesheets();
     renderInspections();
+    renderAdminCertificateWorkerOptions();
     renderCertificates();
     renderVacationRequests();
     renderAnnouncements();
@@ -906,7 +935,7 @@ function renderCertificates() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th></tr>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${filtered.map((certificate) => `
@@ -916,12 +945,136 @@ function renderCertificates() {
                             <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
                             <td>${escapeHtml(getCertificateStatus(certificate.expiry_date))}</td>
                             <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                            <td><button type="button" class="delete-button" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
             </table>
         </div>
     `;
+}
+
+function renderAdminCertificateWorkerOptions() {
+    const select = document.getElementById("adminCertificateWorker");
+
+    if (!select) {
+        return;
+    }
+
+    const approvedAccounts = accounts.filter((account) => account.account_status === "approved");
+
+    if (!approvedAccounts.length) {
+        select.innerHTML = '<option value="">No approved employees found</option>';
+        return;
+    }
+
+    select.innerHTML = '<option value="">Select Employee</option>' + approvedAccounts.map((account) => {
+        const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
+        const label = account.display_name || account.worker_key || account.email;
+        return '<option value="' + escapeHtml(workerKey) + '">' + escapeHtml(label) + '</option>';
+    }).join("");
+}
+
+function setAdminCertificateStatus(message) {
+    document.getElementById("adminCertificateStatus").textContent = message || "";
+}
+
+async function uploadAdminCertificate() {
+    const workerName = document.getElementById("adminCertificateWorker").value;
+    const certificateName = document.getElementById("adminCertificateName").value.trim();
+    const expiryDate = document.getElementById("adminCertificateExpiry").value || null;
+    const notes = document.getElementById("adminCertificateNotes").value.trim();
+    const fileInput = document.getElementById("adminCertificateFile");
+    const file = fileInput.files[0];
+
+    if (!workerName || !certificateName || !file) {
+        alert("Choose an employee, enter a certificate name, and choose a file.");
+        return;
+    }
+
+    setAdminCertificateStatus("Uploading certificate...");
+
+    const filePath = workerName + "/" + Date.now() + "-" + makeSafeFileName(file.name);
+    const fileType = file.type || "application/octet-stream";
+
+    const { error: uploadError } = await supabaseClient
+        .storage
+        .from("certificates")
+        .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: fileType
+        });
+
+    if (uploadError) {
+        setAdminCertificateStatus("Certificate file upload failed.");
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("certificates")
+        .insert({
+            worker_name: workerName,
+            certificate_name: certificateName,
+            expiry_date: expiryDate,
+            notes,
+            file_path: filePath,
+            file_name: file.name,
+            file_type: fileType
+        })
+        .select()
+        .single();
+
+    if (error) {
+        await supabaseClient.storage.from("certificates").remove([filePath]);
+        setAdminCertificateStatus("Certificate record could not be saved.");
+        return;
+    }
+
+    certificates.push(data);
+    document.getElementById("adminCertificateName").value = "";
+    document.getElementById("adminCertificateExpiry").value = "";
+    document.getElementById("adminCertificateNotes").value = "";
+    fileInput.value = "";
+    setAdminCertificateStatus("Certificate uploaded.");
+    await prepareCertificateUrls();
+    renderCertificates();
+}
+
+async function deleteAdminCertificate(certificateId) {
+    const certificate = certificates.find((item) => item.id === certificateId);
+
+    if (!certificate) {
+        alert("Certificate could not be found.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Delete this certificate permanently?\n\n" +
+        certificate.worker_name + " - " + certificate.certificate_name +
+        "\n\nThis will remove the file and cannot be undone."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    await supabaseClient.storage.from("certificates").remove([certificate.file_path]);
+
+    const { error } = await supabaseClient
+        .from("certificates")
+        .delete()
+        .eq("id", certificateId);
+
+    if (error) {
+        alert("Certificate could not be deleted.");
+        return;
+    }
+
+    certificates = certificates.filter((item) => item.id !== certificateId);
+    delete certificateUrls[certificateId];
+    certificateNotifications = certificateNotifications.filter((notification) => notification.certificate_id !== certificateId);
+    renderCertificates();
 }
 
 function formatVacationStatus(status) {
