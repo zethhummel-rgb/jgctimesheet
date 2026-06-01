@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Manage Policies</title>
+<link rel="stylesheet" href="styles.css?v=2">
+<style>
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(49, 198, 74, 0.18), transparent 34%),
+    linear-gradient(135deg, #06110f, #0b1717 52%, #07100f);
+  color: #f5f7f3;
+  font-family: Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.page-shell {
+  width: min(1120px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 22px 0 42px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand img {
+  width: 110px;
+  height: auto;
+}
+
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 10px;
+  background: rgba(13, 27, 27, 0.92);
+  padding: 20px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  margin-bottom: 16px;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+}
+
+h2 {
+  color: #31c64a;
+}
+
+.muted,
+.small {
+  color: #bac4bd;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 160px;
+  gap: 10px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid #b8c2b2;
+  border-radius: 6px;
+  padding: 9px;
+  background: #f7f9f4;
+  color: #1f2a24;
+}
+
+textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+button,
+.file-link {
+  border: 0;
+  border-radius: 7px;
+  background: #13843f;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.secondary {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.delete-button {
+  background: #b42318;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  background: rgba(8, 18, 18, 0.88);
+}
+
+th,
+td {
+  border: 1px solid rgba(199, 221, 211, 0.18);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+th {
+  background: rgba(57, 200, 72, 0.16);
+}
+
+@media (max-width: 760px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full {
+    grid-column: auto;
+  }
+
+  button,
+  .file-link {
+    width: 100%;
+    justify-content: center;
+  }
+}
+</style>
+</head>
+<body>
+<div class="page-shell">
+  <div class="top-actions">
+    <div class="brand">
+      <img src="logo.png" alt="John Gordon Construction">
+      <div>
+        <h1>Manage Policies</h1>
+        <div class="muted" id="workerName"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" onclick="window.location.href='policies-announcements.html'">Policies Page</button>
+      <button class="secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
+      <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>Add Policy PDF</h2>
+    <div class="form-grid">
+      <div>
+        <label>Policy Title</label>
+        <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+      </div>
+      <div>
+        <label>Category</label>
+        <input id="policyCategory" placeholder="Example: Safety" value="General">
+      </div>
+      <div>
+        <label>Display Order</label>
+        <input id="policyOrder" type="number" value="0">
+      </div>
+      <div class="full">
+        <label>Description</label>
+        <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+      </div>
+      <div class="full">
+        <label>Policy PDF</label>
+        <input id="policyFile" type="file" accept="application/pdf,.pdf">
+      </div>
+    </div>
+    <div class="actions">
+      <button id="policySaveButton" type="button">Add Policy</button>
+      <button id="policyRefreshButton" class="secondary" type="button">Refresh Policies</button>
+    </div>
+    <div id="policyStatus" class="small" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="card">
+    <h2>Current Policies</h2>
+    <div id="policiesList" class="small">Loading policies...</div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+let policies = [];
+let policyUrls = {};
+let currentUserId = "";
+
+if (!isAdminWorker(worker.key, worker.role)) {
+  alert("Policy management is only available to authorized admins.");
+  window.location.href = "home.html";
+}
+
+document.getElementById("workerName").textContent = "Signed in as: " + (worker.display || worker.key || "");
+
+loadPolicies();
+
+if (supabaseClient) {
+  supabaseClient.auth.getSession().then((result) => {
+    currentUserId = result.data.session && result.data.session.user
+      ? result.data.session.user.id
+      : "";
+  });
+}
+
+document.getElementById("policySaveButton").addEventListener("click", publishPolicy);
+document.getElementById("policyRefreshButton").addEventListener("click", loadPolicies);
+
+function setPolicyStatus(message) {
+  document.getElementById("policyStatus").textContent = message || "";
+}
+
+function makeSafeFileName(name) {
+  return String(name || "policy.pdf")
+    .trim()
+    .replace(/[^a-z0-9.\-_]+/gi, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
+async function preparePolicyUrls() {
+  policyUrls = {};
+
+  for (const policy of policies) {
+    if (!policy.file_path) {
+      continue;
+    }
+
+    const { data } = await supabaseClient
+      .storage
+      .from("policies")
+      .createSignedUrl(policy.file_path, 604800);
+
+    if (data && data.signedUrl) {
+      policyUrls[policy.id] = data.signedUrl;
+    }
+  }
+}
+
+function renderPolicies() {
+  const list = document.getElementById("policiesList");
+
+  if (!policies.length) {
+    list.textContent = "No active policies yet.";
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>PDF</th>
+            <th>Order</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${policies.map((policy) => `
+            <tr>
+              <td>${escapeHtml(policy.title)}</td>
+              <td>${escapeHtml(policy.category || "General")}</td>
+              <td>${escapeHtml(policy.description || "")}</td>
+              <td>${policyUrls[policy.id] ? '<a class="file-link" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+              <td>${Number(policy.sort_order || 0)}</td>
+              <td>${escapeHtml(formatDisplayDate(policy.created_at))}</td>
+              <td><button type="button" class="delete-button" data-policy-delete="${escapeHtml(policy.id)}">Delete</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  list.querySelectorAll("[data-policy-delete]").forEach((button) => {
+    button.addEventListener("click", () => deletePolicy(button.dataset.policyDelete));
+  });
+}
+
+async function loadPolicies() {
+  const { data, error } = await supabaseClient
+    .from("policies")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("title", { ascending: true });
+
+  if (error) {
+    document.getElementById("policiesList").textContent = "Policies could not be loaded.";
+    return;
+  }
+
+  policies = data || [];
+  await preparePolicyUrls();
+  renderPolicies();
+}
+
+async function publishPolicy() {
+  const title = document.getElementById("policyTitle").value.trim();
+  const description = document.getElementById("policyDescription").value.trim();
+  const category = document.getElementById("policyCategory").value.trim() || "General";
+  const sortOrder = Number(document.getElementById("policyOrder").value || 0);
+  const fileInput = document.getElementById("policyFile");
+  const file = fileInput.files[0];
+
+  if (!title || !file) {
+    alert("Add a policy title and PDF.");
+    return;
+  }
+
+  if (file.type && file.type !== "application/pdf") {
+    alert("Please upload a PDF file.");
+    return;
+  }
+
+  setPolicyStatus("Uploading policy PDF...");
+
+  const filePath = "policies/" + Date.now() + "-" + makeSafeFileName(file.name);
+  const fileType = file.type || "application/pdf";
+  const { error: uploadError } = await supabaseClient
+    .storage
+    .from("policies")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: fileType
+    });
+
+  if (uploadError) {
+    setPolicyStatus("Policy PDF upload failed.");
+    return;
+  }
+
+  setPolicyStatus("Saving policy...");
+
+  const { error } = await supabaseClient
+    .from("policies")
+    .insert({
+      title,
+      description,
+      category,
+      sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+      file_path: filePath,
+      file_name: file.name,
+      file_type: fileType,
+      created_by: currentUserId || null,
+      created_by_name: worker.display || worker.key
+    });
+
+  if (error) {
+    await supabaseClient.storage.from("policies").remove([filePath]);
+    setPolicyStatus("Policy could not be saved.");
+    return;
+  }
+
+  document.getElementById("policyTitle").value = "";
+  document.getElementById("policyDescription").value = "";
+  document.getElementById("policyCategory").value = "General";
+  document.getElementById("policyOrder").value = "0";
+  fileInput.value = "";
+  setPolicyStatus("Policy added.");
+  await loadPolicies();
+}
+
+async function deletePolicy(id) {
+  const policy = policies.find((item) => item.id === id);
+
+  if (!policy) {
+    alert("Policy could not be found.");
+    return;
+  }
+
+  if (!confirm("Delete this policy?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("policies")
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert("Policy could not be deleted.");
+    return;
+  }
+
+  await loadPolicies();
+}
+</script>
+</body>
+</html>
