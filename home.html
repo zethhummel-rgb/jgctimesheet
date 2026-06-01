@@ -84,7 +84,7 @@
     }
 
     .logo-wrap img {
-      width: min(190px, 22vw);
+      width: min(300px, 30vw);
       height: auto;
       display: block;
       filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
@@ -212,11 +212,18 @@
       border-right: 1px solid var(--line);
       background: rgba(8, 18, 18, 0.72);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .side-nav {
       display: grid;
       gap: 10px;
+    }
+
+    .side-admin-wrap {
+      margin-top: auto;
+      padding-top: 18px;
     }
 
     .side-link,
@@ -257,6 +264,14 @@
     .side-link:hover,
     .side-link.active {
       background: linear-gradient(90deg, rgba(32, 147, 57, 0.88), rgba(15, 91, 39, 0.82));
+    }
+
+    .admin-side-link {
+      opacity: 0.72;
+    }
+
+    .admin-side-link:hover {
+      opacity: 1;
     }
 
     .quick-info {
@@ -576,7 +591,7 @@
       }
 
       .logo-wrap img {
-        width: 118px;
+        width: 170px;
       }
 
       .profile-block {
@@ -738,7 +753,7 @@
       }
 
       .logo-wrap img {
-        width: 96px;
+        width: 142px;
       }
 
       .profile-icon {
@@ -868,6 +883,9 @@
         <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
       </nav>
 
+      <div class="side-admin-wrap">
+        <button id="sideAdminButton" type="button" class="side-link admin-side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
+      </div>
     </aside>
 
     <main class="content">
@@ -977,12 +995,18 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
+const currentUserRole = worker.role;
+const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 let announcements = [];
 let announcementUrls = {};
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
 document.getElementById("roleText").innerText = "Employee";
 document.getElementById("greetingText").innerText = getGreeting() + ",";
+
+if (isAdmin) {
+  document.getElementById("sideAdminButton").hidden = false;
+}
 
 setCurrentDate();
 loadDashboardStats();
