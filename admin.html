@@ -596,6 +596,10 @@ function showTab(tab) {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
+
+    if (tab === "certificates") {
+        renderAdminCertificateWorkerOptions();
+    }
 }
 
 function formatDate(value) {
@@ -961,18 +965,47 @@ function renderAdminCertificateWorkerOptions() {
         return;
     }
 
-    const approvedAccounts = accounts.filter((account) => account.account_status === "approved");
+    const existingValue = select.value;
+    const workersByKey = {};
 
-    if (!approvedAccounts.length) {
-        select.innerHTML = '<option value="">No approved employees found</option>';
+    accounts
+        .filter((account) => String(account.account_status || "").toLowerCase() !== "inactive")
+        .forEach((account) => {
+            const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
+
+            if (!workerKey) {
+                return;
+            }
+
+            workersByKey[workerKey] = account.display_name || account.worker_key || account.email || workerKey;
+        });
+
+    certificates.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name);
+
+        if (workerKey && !workersByKey[workerKey]) {
+            workersByKey[workerKey] = certificate.worker_name;
+        }
+    });
+
+    if (currentWorker && !workersByKey[currentWorker]) {
+        workersByKey[currentWorker] = currentWorkerDisplay || currentWorker;
+    }
+
+    const workerOptions = Object.keys(workersByKey).sort((a, b) => workersByKey[a].localeCompare(workersByKey[b]));
+
+    if (!workerOptions.length) {
+        select.innerHTML = '<option value="">No employees found</option>';
         return;
     }
 
-    select.innerHTML = '<option value="">Select Employee</option>' + approvedAccounts.map((account) => {
-        const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
-        const label = account.display_name || account.worker_key || account.email;
-        return '<option value="' + escapeHtml(workerKey) + '">' + escapeHtml(label) + '</option>';
+    select.innerHTML = '<option value="">Select Employee</option>' + workerOptions.map((workerKey) => {
+        return '<option value="' + escapeHtml(workerKey) + '">' + escapeHtml(workersByKey[workerKey]) + '</option>';
     }).join("");
+
+    if (existingValue && workersByKey[existingValue]) {
+        select.value = existingValue;
+    }
 }
 
 function setAdminCertificateStatus(message) {
