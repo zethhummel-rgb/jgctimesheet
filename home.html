@@ -48,20 +48,20 @@
     }
 
     .topbar {
-      min-height: 96px;
-      padding: 12px 24px;
-      display: grid;
-      grid-template-columns: auto auto 1fr auto auto auto;
-      gap: 18px;
+      min-height: 52px;
+      padding: 5px 120px 5px 64px;
+      display: flex;
       align-items: center;
+      justify-content: center;
       background:
         linear-gradient(90deg, rgba(9, 96, 42, 0.95), rgba(9, 73, 35, 0.92)),
         radial-gradient(circle at 70% 0%, rgba(83, 221, 91, 0.24), transparent 28rem);
+      position: relative;
     }
 
     .sidebar-toggle {
-      width: 42px;
-      height: 42px;
+      width: 32px;
+      height: 32px;
       border: 1px solid rgba(255, 255, 255, 0.18);
       border-radius: 7px;
       background: rgba(5, 18, 15, 0.18);
@@ -70,6 +70,9 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      position: absolute;
+      left: 14px;
+      bottom: 10px;
     }
 
     .sidebar-toggle:hover {
@@ -81,7 +84,7 @@
     }
 
     .logo-wrap img {
-      width: min(270px, 26vw);
+      width: min(190px, 22vw);
       height: auto;
       display: block;
       filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
@@ -90,8 +93,12 @@
     .profile-block {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 8px;
       min-width: 0;
+      position: absolute;
+      right: 12px;
+      top: 5px;
+      max-width: 220px;
     }
 
     .top-spacer {
@@ -111,8 +118,8 @@
     }
 
     .profile-icon {
-      width: 30px;
-      height: 30px;
+      width: 22px;
+      height: 22px;
       border: 2px solid rgba(57, 200, 72, 0.68);
       flex: 0 0 auto;
     }
@@ -127,7 +134,7 @@
     }
 
     .profile-name {
-      font-size: 15px;
+      font-size: 12px;
       font-weight: 800;
       line-height: 1.1;
       white-space: nowrap;
@@ -144,37 +151,45 @@
     .role-text {
       margin-top: 2px;
       font-weight: 700;
-      font-size: 11px;
+      font-size: 9px;
       color: #55de61;
     }
 
     .date-chip {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 6px;
       color: var(--text);
       font-weight: 800;
       white-space: nowrap;
+      position: absolute;
+      left: 12px;
+      top: 5px;
+      font-size: 11px;
     }
 
     .date-detail {
-      font-size: 13px;
+      font-size: 10px;
       font-weight: 700;
-      margin-top: 2px;
+      margin-top: 0;
     }
 
     .logout-button {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 13px 16px;
+      gap: 5px;
+      padding: 5px 8px;
       border: 1px solid rgba(255, 255, 255, 0.18);
       border-radius: 6px;
       background: rgba(5, 18, 15, 0.2);
       color: white;
       cursor: pointer;
       font-weight: 800;
+      font-size: 11px;
+      position: absolute;
+      right: 12px;
+      bottom: 5px;
     }
 
     .logout-button:hover {
@@ -556,14 +571,12 @@
       }
 
       .topbar {
-        grid-template-columns: auto 1fr auto;
-        gap: 12px;
-        min-height: 74px;
-        padding: 10px 14px;
+        min-height: 52px;
+        padding: 5px 96px 5px 50px;
       }
 
       .logo-wrap img {
-        width: 148px;
+        width: 118px;
       }
 
       .profile-block {
@@ -575,12 +588,15 @@
       }
 
       .profile-name {
-        font-size: 20px;
+        font-size: 11px;
       }
 
-      .date-chip,
+      .date-chip {
+        display: flex;
+      }
+
       .logout-button {
-        display: none;
+        display: flex;
       }
 
       .quick-info {
@@ -717,12 +733,12 @@
 
     @media (max-width: 620px) {
       .topbar {
-        min-height: 66px;
-        padding: 8px 12px;
+        min-height: 48px;
+        padding: 5px 86px 5px 46px;
       }
 
       .logo-wrap img {
-        width: 132px;
+        width: 96px;
       }
 
       .profile-icon {
@@ -730,12 +746,12 @@
       }
 
       .profile-name {
-        font-size: 12px;
+        font-size: 10px;
       }
 
       .role-text,
       #greetingText {
-        font-size: 10px;
+        font-size: 8px;
       }
 
       .overview-grid {
@@ -850,7 +866,6 @@
         <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i>Certificates</button>
         <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
         <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-        <button id="sideAdminButton" type="button" class="side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
       </nav>
 
     </aside>
@@ -928,12 +943,6 @@
           <p>Company and emergency contacts</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button id="adminCard" type="button" class="feature-card" onclick="goTo('admin.html')" hidden>
-          <span class="card-icon"><i data-lucide="settings"></i></span>
-          <h2>Admin</h2>
-          <p>User management and system settings</p>
-          <i class="arrow" data-lucide="arrow-right"></i>
-        </button>
       </section>
 
     </main>
@@ -957,7 +966,6 @@
 <div id="moreSheet" class="more-sheet">
   <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="palmtree"></i>Vacation Requests</button>
   <button type="button" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-  <button id="mobileAdminButton" type="button" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
   <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
 </div>
 
@@ -969,20 +977,12 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
-const currentUserRole = worker.role;
-const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 let announcements = [];
 let announcementUrls = {};
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
-document.getElementById("roleText").innerText = isAdmin ? "Administrator" : "Employee";
+document.getElementById("roleText").innerText = "Employee";
 document.getElementById("greetingText").innerText = getGreeting() + ",";
-
-if (isAdmin) {
-  document.getElementById("sideAdminButton").hidden = false;
-  document.getElementById("adminCard").hidden = false;
-  document.getElementById("mobileAdminButton").hidden = false;
-}
 
 setCurrentDate();
 loadDashboardStats();
@@ -1125,7 +1125,7 @@ function buildInspectionQuery(startIso) {
     .select("id,worker_name,created_at")
     .gte("created_at", startIso);
 
-  return isAdmin ? query : query.eq("worker_name", currentWorker);
+  return query.eq("worker_name", currentWorker);
 }
 
 function buildVacationQuery() {
@@ -1134,7 +1134,7 @@ function buildVacationQuery() {
     .select("id,worker_name,status")
     .eq("status", "pending");
 
-  return isAdmin ? query : query.eq("worker_name", currentWorker);
+  return query.eq("worker_name", currentWorker);
 }
 
 async function loadAnnouncements() {
