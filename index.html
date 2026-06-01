@@ -1,184 +1,429 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>JGC Login</title>
+  <title>JGC Portal - Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css?v=2" />
   <style>
+    :root {
+      --green: #5ee12f;
+      --green-dark: #2d8f1f;
+      --panel: rgba(8, 13, 13, 0.86);
+      --panel-border: rgba(94, 225, 47, 0.58);
+      --text: #f6f7f4;
+      --muted: #c2c9c4;
+      --field: rgba(9, 15, 17, 0.76);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial;
-      background: #8f9691;
-      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #050807;
+      padding: 0;
       margin: 0;
-      color: #1f2a24;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(2, 5, 5, 0.2), rgba(2, 5, 5, 0.78)),
+        radial-gradient(circle at 38% 36%, rgba(224, 143, 54, 0.28), transparent 19rem),
+        linear-gradient(118deg, transparent 0 34%, rgba(205, 122, 42, 0.26) 34.2% 36%, transparent 36.2%),
+        linear-gradient(64deg, transparent 0 42%, rgba(242, 171, 87, 0.24) 42.2% 43.6%, transparent 43.8%),
+        repeating-linear-gradient(90deg, transparent 0 54px, rgba(255, 255, 255, 0.035) 55px 57px, transparent 58px 112px);
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    body:after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.58)),
+        url("login-background.jpeg") center center / cover no-repeat;
+      filter: grayscale(0.9) contrast(1.16) brightness(0.48);
+      transform: scale(1.02);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-shell {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(360px, 0.82fr);
+      gap: clamp(24px, 5vw, 80px);
+      align-items: center;
+      padding: clamp(26px, 5vw, 58px);
+    }
+
+    .brand-panel {
+      min-height: calc(100vh - 116px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px 0;
     }
 
     .logo-wrap {
-      max-width: 347px;
-      margin: 0 auto 2px;
-      text-align: center;
+      max-width: 300px;
+      margin: 0;
+      text-align: left;
     }
 
     .logo-wrap img {
       width: 100%;
-      max-width: 347px;
+      max-width: 300px;
       height: auto;
       display: block;
-      margin: 0 auto;
+      margin: 0;
+      filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.5));
     }
 
-    h2 {
-      max-width: 460px;
-      margin: 0 auto 5px;
-      text-align: center;
+    .portal-label {
+      margin-top: 14px;
       color: #ffffff;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+
+    .brand-line {
+      width: 170px;
+      height: 2px;
+      margin-top: 18px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+    }
+
+    .hero-copy {
+      max-width: 620px;
+      margin-bottom: 26px;
+    }
+
+    .hero-copy h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: clamp(52px, 8vw, 96px);
+      line-height: 0.92;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      text-shadow: 0 7px 24px rgba(0, 0, 0, 0.55);
+    }
+
+    .hero-copy .green {
+      color: var(--green);
+    }
+
+    .trust-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 650px;
+    }
+
+    .trust-item {
+      min-height: 74px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.34);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .trust-icon {
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--green);
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-size: 23px;
+      flex: 0 0 auto;
     }
 
     .card {
-      max-width: 460px;
-      background: #fbfcf9;
-      padding: 15px;
-      margin: 0 auto 12px;
-      border-radius: 8px;
-      border-top: 4px solid #3f7d4d;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      width: min(100%, 560px);
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 48%),
+        var(--panel);
+      padding: clamp(24px, 4.5vw, 52px);
+      margin: 0 auto;
+      border-radius: 20px;
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(10px);
+    }
+
+    .login-card-logo {
+      max-width: 280px;
+      margin: 0 auto 26px;
+    }
+
+    .login-card-logo img {
+      width: 100%;
+      display: block;
+      filter: drop-shadow(0 15px 24px rgba(0, 0, 0, 0.45));
     }
 
     h3 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      color: #2f6f3c;
+      margin: 0 0 8px;
+      color: #ffffff;
+      text-align: center;
+      font-size: clamp(34px, 4vw, 48px);
+      line-height: 1;
+    }
+
+    .login-subtitle {
+      margin: 0 0 28px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .divider {
+      width: 120px;
+      height: 2px;
+      margin: 0 auto 28px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
     }
 
     label {
       font-size: 13px;
       font-weight: bold;
+      color: #ffffff;
+      display: block;
+      margin-bottom: 5px;
     }
 
     input, button {
       width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      margin-bottom: 8px;
+      padding: 15px;
+      margin-top: 0;
+      margin-bottom: 14px;
       box-sizing: border-box;
     }
 
     input {
-      background: #f7f9f4;
-      border: 1px solid #b8c2b2;
-      border-radius: 5px;
+      background: var(--field);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 16px;
+    }
+
+    input::placeholder {
+      color: #aeb7b1;
     }
 
     input:focus {
-      border-color: #3f7d4d;
-      outline: 2px solid #d9ead5;
+      border-color: var(--green);
+      outline: 2px solid rgba(94, 225, 47, 0.22);
     }
 
     button {
-      background: #3f7d4d;
+      background: linear-gradient(135deg, #68d43b, #2f8f21);
       color: white;
       border: none;
       cursor: pointer;
-      border-radius: 5px;
-      font-weight: bold;
+      border-radius: 8px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      min-height: 54px;
     }
 
     button:hover {
-      background: #315f3c;
+      background: linear-gradient(135deg, #72e245, #247c18);
     }
 
     .secondary {
-      background: #5f6a62;
+      background: transparent;
+      border: 1px solid rgba(94, 225, 47, 0.68);
+      color: var(--green);
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     .secondary:hover {
-      background: #48514a;
+      background: rgba(94, 225, 47, 0.1);
     }
 
     .small {
       font-size: 13px;
-      color: #58635c;
+      color: var(--muted);
       line-height: 1.35;
     }
 
     .status {
       font-size: 13px;
       font-weight: bold;
-      color: #2f6f3c;
+      color: var(--green);
       min-height: 18px;
+      text-align: center;
     }
 
     .toggle-card {
+      margin-top: 16px;
       padding: 0;
       overflow: hidden;
     }
 
     .toggle-button {
       margin: 0;
-      border-radius: 4px 4px 0 0;
-      background: #fbfcf9;
-      color: #2f6f3c;
-      text-align: left;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #ffffff;
+      text-align: center;
       padding: 14px 15px;
+      min-height: 50px;
     }
 
     .toggle-button:hover {
-      background: #eef4ea;
+      background: rgba(94, 225, 47, 0.12);
     }
 
     .signup-panel {
-      padding: 15px;
-      border-top: 1px solid #d6ddd4;
+      padding: 22px 0 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      margin-top: 18px;
     }
 
     .signup-panel[hidden] {
       display: none;
+    }
+
+    .security-note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    @media (max-width: 940px) {
+      .login-shell {
+        grid-template-columns: 1fr;
+        padding: 18px;
+      }
+
+      .brand-panel {
+        min-height: auto;
+        gap: 28px;
+      }
+
+      .hero-copy h1 {
+        font-size: clamp(42px, 14vw, 68px);
+      }
+
+      .trust-row {
+        grid-template-columns: 1fr;
+      }
+
+      .login-card-logo {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .login-shell {
+        padding: 14px;
+      }
+
+      .brand-panel {
+        display: none;
+      }
+
+      .card {
+        border-radius: 14px;
+        padding: 22px;
+      }
     }
   </style>
 </head>
 
 <body>
 
-<div class="logo-wrap">
-  <img src="logo.png" alt="John Gordon Construction" />
-</div>
+<main class="login-shell">
+  <section class="brand-panel">
+    <div>
+      <div class="logo-wrap">
+        <img src="logo.png" alt="John Gordon Construction" />
+      </div>
+      <div class="portal-label">Employee Portal</div>
+      <div class="brand-line"></div>
+    </div>
 
-<h2>John Gordon Construction</h2>
+    <div class="hero-copy">
+      <h1>Built on<br>teamwork.<br><span class="green">Built to last.</span></h1>
+    </div>
 
-<div class="card">
-  <h3>Sign In</h3>
+    <div class="trust-row">
+      <div class="trust-item"><span class="trust-icon">S</span><span>Safety<br>First</span></div>
+      <div class="trust-item"><span class="trust-icon">T</span><span>One Team<br>One Goal</span></div>
+      <div class="trust-item"><span class="trust-icon">Q</span><span>Quality<br>Always</span></div>
+    </div>
+  </section>
 
-  <label>Email</label>
-  <input id="email" type="email" autocomplete="email" placeholder="name@example.com" onkeydown="submitOnEnter(event)" />
+  <section>
+    <div class="card">
+      <div class="login-card-logo">
+        <img src="logo.png" alt="John Gordon Construction" />
+      </div>
+      <div class="divider"></div>
+      <h3>Welcome Back</h3>
+      <p class="login-subtitle">Sign in to access your employee portal</p>
 
-  <label>Password</label>
-  <input id="password" type="password" autocomplete="current-password" placeholder="Password" onkeydown="submitOnEnter(event)" />
+      <label>Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="Email address" onkeydown="submitOnEnter(event)" />
 
-  <button type="button" onclick="signIn()">Sign In</button>
-  <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
-  <div id="loginStatus" class="status"></div>
-</div>
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password" onkeydown="submitOnEnter(event)" />
 
-<div class="card toggle-card">
-  <button id="createAccountToggle" type="button" class="toggle-button" onclick="toggleCreateAccount()">Create Account</button>
+      <button type="button" onclick="signIn()">Sign In</button>
+      <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
+      <div id="loginStatus" class="status"></div>
+      <div class="security-note">Secure. Private. Trusted.</div>
 
-  <div id="createAccountPanel" class="signup-panel" hidden>
-    <h3>Create Account</h3>
+      <div class="toggle-card">
+        <button id="createAccountToggle" type="button" class="toggle-button" onclick="toggleCreateAccount()">Create Account</button>
 
-    <label>Full Name</label>
-    <input id="signupName" placeholder="Example: Zeth Hummel" />
+        <div id="createAccountPanel" class="signup-panel" hidden>
+          <h3>Create Account</h3>
 
-    <label>Email</label>
-    <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+          <label>Full Name</label>
+          <input id="signupName" placeholder="Example: Zeth Hummel" />
 
-    <label>Password</label>
-    <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+          <label>Email</label>
+          <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
 
-    <button type="button" onclick="signUp()">Create Account</button>
-    <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
-  </div>
-</div>
+          <label>Password</label>
+          <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+
+          <button type="button" onclick="signUp()">Create Account</button>
+          <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=2"></script>
