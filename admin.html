@@ -380,6 +380,7 @@ button:hover,
 
 <div id="certificatesSection" class="card" hidden>
     <h2>Certificates</h2>
+    <div id="certificateExpiryAlerts" class="small" style="margin-bottom:12px;">Checking expiry notifications...</div>
     <div class="filters">
         <div>
             <label>Worker</label>
@@ -539,6 +540,7 @@ const currentWorkerDisplay = worker.display;
 let timesheets = [];
 let inspections = [];
 let certificates = [];
+let certificateNotifications = [];
 let vacationRequests = [];
 let accounts = [];
 let announcements = [];
@@ -551,6 +553,7 @@ let policyUrls = {};
 let currentUserId = "";
 let editingContactId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -591,6 +594,35 @@ function getCertificateStatus(expiryDate) {
     return "Valid";
 }
 
+function getCertificateDaysUntilExpiry(expiryDate) {
+    if (!expiryDate) {
+        return null;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+}
+
+function getCertificateExpiryAlerts() {
+    return certificates
+        .map((certificate) => ({
+            ...certificate,
+            daysUntilExpiry: getCertificateDaysUntilExpiry(certificate.expiry_date)
+        }))
+        .filter((certificate) => certificate.expiry_date && certificate.daysUntilExpiry !== null && certificate.daysUntilExpiry >= 0 && certificate.daysUntilExpiry <= 30)
+        .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+}
+
+function hasCertificateNotification(certificate) {
+    return certificateNotifications.some((notification) =>
+        notification.certificate_id === certificate.id &&
+        notification.expiry_date === certificate.expiry_date &&
+        notification.notification_type === "30_day"
+    );
+}
+
 async function loadAdminData() {
     if (!supabaseClient) {
         document.getElementById("timesheetsList").textContent = "Supabase is not available.";
@@ -602,10 +634,11 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, vacationResult, accountResult, announcementResult, policyResult, contactResult] = await Promise.all([
+    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, policyResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
+        supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
@@ -616,12 +649,14 @@ async function loadAdminData() {
     timesheets = timesheetResult.data || [];
     inspections = inspectionResult.data || [];
     certificates = certificateResult.data || [];
+    certificateNotifications = certificateNotificationResult.data || [];
     vacationRequests = vacationResult.data || [];
     accounts = accountResult.data || [];
     announcements = announcementResult.data || [];
     policies = policyResult.data || [];
     contacts = contactResult.data || [];
     await prepareCertificateUrls();
+    await processCertificateExpiryNotifications();
     await prepareAnnouncementUrls();
     await preparePolicyUrls();
     renderTimesheets();
@@ -645,6 +680,111 @@ async function prepareCertificateUrls() {
         if (data && data.signedUrl) {
             certificateUrls[certificate.id] = data.signedUrl;
         }
+    }
+}
+
+function renderCertificateExpiryAlerts() {
+    const panel = document.getElementById("certificateExpiryAlerts");
+
+    if (!panel) {
+        return;
+    }
+
+    const alerts = getCertificateExpiryAlerts();
+
+    if (!alerts.length) {
+        panel.innerHTML = '<strong>Expiry Notifications:</strong> No certificates expiring in the next 30 days.';
+        return;
+    }
+
+    panel.innerHTML = `
+        <strong>Expiry Notifications:</strong> ${alerts.length} certificate${alerts.length === 1 ? "" : "s"} expiring within 30 days.
+        <div class="table-wrap" style="margin-top:8px;">
+            <table>
+                <thead>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
+                </thead>
+                <tbody>
+                    ${alerts.map((certificate) => {
+                        const sent = hasCertificateNotification(certificate);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(certificate.worker_name)}</td>
+                                <td>${escapeHtml(certificate.certificate_name)}</td>
+                                <td>${escapeHtml(certificate.expiry_date)}</td>
+                                <td>${certificate.daysUntilExpiry}</td>
+                                <td>${sent ? "Email sent" : "Email pending"}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function processCertificateExpiryNotifications() {
+    renderCertificateExpiryAlerts();
+
+    const alertsToSend = getCertificateExpiryAlerts().filter((certificate) => !hasCertificateNotification(certificate));
+
+    for (const certificate of alertsToSend) {
+        await sendCertificateExpiryEmail(certificate);
+    }
+
+    renderCertificateExpiryAlerts();
+}
+
+async function sendCertificateExpiryEmail(certificate) {
+    const subject = "JGC Certificate Expiry Notice - " + certificate.worker_name + " - " + certificate.certificate_name;
+    const body = [
+        "JGC Certificate Expiry Notice",
+        "",
+        "Worker: " + certificate.worker_name,
+        "Certificate: " + certificate.certificate_name,
+        "Expiry Date: " + certificate.expiry_date,
+        "Days Until Expiry: " + certificate.daysUntilExpiry,
+        "",
+        "Please review this certificate in the JGC Portal admin certificates tab."
+    ].join("\n");
+
+    try {
+        await fetch(CERTIFICATE_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                subject,
+                body,
+                text: body,
+                source: "certificate_expiry",
+                certificateId: certificate.id,
+                workerName: certificate.worker_name,
+                certificateName: certificate.certificate_name,
+                expiryDate: certificate.expiry_date
+            })
+        });
+
+        const { data, error } = await supabaseClient
+            .from("certificate_expiry_notifications")
+            .insert({
+                certificate_id: certificate.id,
+                worker_name: certificate.worker_name,
+                certificate_name: certificate.certificate_name,
+                expiry_date: certificate.expiry_date,
+                notification_type: "30_day",
+                emailed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (!error && data) {
+            certificateNotifications.unshift(data);
+        }
+    } catch (error) {
+        console.warn("Certificate expiry email could not be sent.", error);
     }
 }
 
@@ -720,6 +860,7 @@ function renderCertificates() {
     const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("certificateStatusFilter").value;
     const list = document.getElementById("certificatesList");
+    renderCertificateExpiryAlerts();
     const filtered = certificates.filter((certificate) => {
         const worker = String(certificate.worker_name || "").toLowerCase();
         const status = getCertificateStatus(certificate.expiry_date);
