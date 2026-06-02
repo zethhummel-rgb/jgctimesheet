@@ -1677,6 +1677,7 @@ function updateEntryTypeFields() {
     halfDayFields.classList.toggle("field-hidden", leaveType.value !== "half_day");
   } else {
     leaveType.value = "";
+    document.getElementById("leaveNote").value = "";
     leaveType.classList.add("field-hidden");
     leaveTypeLabel.classList.add("field-hidden");
     halfDayFields.classList.add("field-hidden");
