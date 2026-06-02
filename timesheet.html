@@ -566,17 +566,23 @@
     <option>Saturday</option>
   </select>
 
-  <label>Job</label>
+  <label>Job Name</label>
   <input
     id="jobName"
-    placeholder="Search/select job"
+    placeholder="Search jobs or type job name"
     list="jobNameOptions"
     onchange="fillJobNumberForSelectedJob()"
     oninput="fillJobNumberForSelectedJob()"
   />
   <datalist id="jobNameOptions"></datalist>
-  <input id="jobNumber" type="hidden" />
-  <div id="jobStatus" class="small">Loading active jobs...</div>
+  <label>Job Number</label>
+  <input
+    id="jobNumber"
+    type="text"
+    placeholder="Job number if available"
+    oninput="markManualJobNumber()"
+  />
+  <div id="jobStatus" class="small">Loading active jobs. You can still type a job manually.</div>
 
   <label>Time In</label>
   <select id="timeIn">
@@ -1182,7 +1188,9 @@ function getSelectedWeekStart() {
 }
 
 function getJobDisplay(job) {
-  return String(job.job_number || "") + " - " + String(job.job_name || "");
+  const jobNumber = String(job.job_number || "").trim();
+  const jobName = String(job.job_name || "").trim();
+  return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
 function sortJobsByNumber(a, b) {
@@ -1191,13 +1199,20 @@ function sortJobsByNumber(a, b) {
 
 function findSelectedActiveJob() {
   const selectedValue = document.getElementById("jobName").value.trim().toLowerCase();
+  const selectedJobNumber = document.getElementById("jobNumber").value.trim().toLowerCase();
 
-  if (!selectedValue) {
+  if (!selectedValue && !selectedJobNumber) {
     return null;
   }
 
   return activeJobs.find(function(job) {
-    return getJobDisplay(job).toLowerCase() === selectedValue;
+    const jobName = String(job.job_name || "").trim().toLowerCase();
+    const jobNumber = String(job.job_number || "").trim().toLowerCase();
+    const display = getJobDisplay(job).toLowerCase();
+
+    return display === selectedValue ||
+      (jobName && jobName === selectedValue) ||
+      (selectedJobNumber && jobNumber && jobNumber === selectedJobNumber);
   }) || null;
 }
 
@@ -1216,15 +1231,42 @@ function updateJobSuggestions() {
 
   if (jobStatus) {
     jobStatus.textContent = activeJobs.length
-      ? activeJobs.length + " active jobs available."
-      : "No active jobs available. Ask an admin to import the job list.";
+      ? activeJobs.length + " active jobs available. You can also type a job manually."
+      : "No active jobs available yet. You can still type a job manually.";
   }
 }
 
+function markManualJobNumber() {
+  const jobNumberInput = document.getElementById("jobNumber");
+  jobNumberInput.dataset.autoJobNumber = "false";
+}
+
 function fillJobNumberForSelectedJob() {
+  const jobNameInput = document.getElementById("jobName");
   const jobNumberInput = document.getElementById("jobNumber");
   const match = findSelectedActiveJob();
-  jobNumberInput.value = match ? match.job_number : "";
+
+  if (match) {
+    const display = getJobDisplay(match);
+    const jobName = String(match.job_name || "").trim();
+    const jobNumber = String(match.job_number || "").trim();
+
+    if (!jobNumberInput.value || jobNumberInput.dataset.autoJobNumber === "true" || jobNumberInput.value === jobNumber) {
+      jobNumberInput.value = jobNumber;
+      jobNumberInput.dataset.autoJobNumber = "true";
+    }
+
+    if (jobNameInput.value.trim() === display) {
+      jobNameInput.value = jobName;
+    }
+
+    return;
+  }
+
+  if (jobNumberInput.dataset.autoJobNumber === "true") {
+    jobNumberInput.value = "";
+    jobNumberInput.dataset.autoJobNumber = "false";
+  }
 }
 
 async function loadActiveJobs() {
@@ -1264,6 +1306,7 @@ async function loadActiveJobs() {
 function resetTimeEntryFields() {
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
+  document.getElementById("jobNumber").dataset.autoJobNumber = "false";
   document.getElementById("day").value = "";
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
@@ -1303,10 +1346,9 @@ function editEntry(entryId) {
   document.getElementById("weekStart").value = entry.weekStartValue;
   validateSunday(document.getElementById("weekStart"));
   document.getElementById("day").value = entry.day;
-  document.getElementById("jobName").value = entry.jobNumber
-    ? entry.jobNumber + " - " + entry.jobName
-    : entry.jobName;
+  document.getElementById("jobName").value = entry.jobName;
   document.getElementById("jobNumber").value = entry.jobNumber;
+  document.getElementById("jobNumber").dataset.autoJobNumber = "false";
   document.getElementById("timeIn").value = entry.timeIn;
   document.getElementById("timeOut").value = entry.timeOut;
   document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
@@ -1375,21 +1417,18 @@ async function submitTime() {
 
   const weekStart = document.getElementById("weekStart").value;
   const selectedJob = findSelectedActiveJob();
-  const jobName = selectedJob ? String(selectedJob.job_name || "").trim() : "";
-  const jobNumber = selectedJob ? String(selectedJob.job_number || "").trim() : "";
+  const typedJobName = document.getElementById("jobName").value.trim();
+  const typedJobNumber = document.getElementById("jobNumber").value.trim();
+  const jobName = selectedJob ? String(selectedJob.job_name || "").trim() : typedJobName;
+  const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
   const timeOut = document.getElementById("timeOut").value;
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (!weekStart || !document.getElementById("jobName").value.trim() || !day || !timeIn || !timeOut) {
+  if (!weekStart || !typedJobName || !day || !timeIn || !timeOut) {
     alert("Fill in all fields");
-    return;
-  }
-
-  if (!selectedJob) {
-    alert("Please select an active job from the job dropdown.");
     return;
   }
 
