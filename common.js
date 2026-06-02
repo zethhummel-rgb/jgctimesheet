@@ -102,7 +102,66 @@ function activateJgcPwa() {
 
   if ("serviceWorker" in navigator && window.location.protocol.startsWith("http")) {
     window.addEventListener("load", function() {
-      navigator.serviceWorker.register("service-worker.js").catch(function(error) {
+      let refreshing = false;
+
+      function askWorkerToActivate(worker) {
+        if (worker) {
+          worker.postMessage({ type: "SKIP_WAITING" });
+        }
+      }
+
+      function checkForUpdate(registration) {
+        if (registration && typeof registration.update === "function") {
+          registration.update().catch(function(error) {
+            console.warn("JGC Portal update check failed.", error);
+          });
+        }
+      }
+
+      navigator.serviceWorker.addEventListener("controllerchange", function() {
+        if (refreshing) {
+          return;
+        }
+
+        refreshing = true;
+        window.location.reload();
+      });
+
+      navigator.serviceWorker.register("service-worker.js", { updateViaCache: "none" }).then(function(registration) {
+        checkForUpdate(registration);
+
+        if (registration.waiting) {
+          askWorkerToActivate(registration.waiting);
+        }
+
+        registration.addEventListener("updatefound", function() {
+          const newWorker = registration.installing;
+
+          if (!newWorker) {
+            return;
+          }
+
+          newWorker.addEventListener("statechange", function() {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              askWorkerToActivate(newWorker);
+            }
+          });
+        });
+
+        window.setInterval(function() {
+          checkForUpdate(registration);
+        }, 5 * 60 * 1000);
+
+        document.addEventListener("visibilitychange", function() {
+          if (document.visibilityState === "visible") {
+            checkForUpdate(registration);
+          }
+        });
+
+        window.addEventListener("focus", function() {
+          checkForUpdate(registration);
+        });
+      }).catch(function(error) {
         console.warn("JGC Portal service worker could not be registered.", error);
       });
     });
