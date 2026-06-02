@@ -1201,12 +1201,19 @@ function normalizeWorkerName(name) {
 }
 
 function getCurrentUserAliases() {
-  return Array.from(new Set([
+  const email = String(localStorage.getItem("currentUserEmail") || "").trim().toLowerCase();
+  const aliases = [
     currentUser,
     currentUserDisplay,
     normalizeWorkerName(currentUser),
     normalizeWorkerName(currentUserDisplay)
-  ].filter(Boolean)));
+  ];
+
+  if (email === "zethhummel@gmail.com") {
+    aliases.push("zeth hummel");
+  }
+
+  return Array.from(new Set(aliases.filter(Boolean)));
 }
 
 function isCurrentUserEntry(entry) {
