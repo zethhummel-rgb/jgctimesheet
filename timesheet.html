@@ -1144,9 +1144,11 @@ function saveFallbackTimesheets(entries) {
 
 function loadTimesheets() {
   return memoryTimesheets.filter(function(entry) {
-    return normalizeWorkerName(entry.user) === normalizeWorkerName(currentUser);
+    return isCurrentUserEntry(entry);
   }).map(function(entry) {
     return normalizeTimesheetEntry(entry);
+  }).filter(function(entry) {
+    return entry.day && entry.jobName;
   });
 }
 
@@ -1196,6 +1198,20 @@ function normalizeTimesheetEntry(entry) {
 
 function normalizeWorkerName(name) {
   return String(name || "").trim().toLowerCase();
+}
+
+function getCurrentUserAliases() {
+  return Array.from(new Set([
+    currentUser,
+    currentUserDisplay,
+    normalizeWorkerName(currentUser),
+    normalizeWorkerName(currentUserDisplay)
+  ].filter(Boolean)));
+}
+
+function isCurrentUserEntry(entry) {
+  const aliases = getCurrentUserAliases().map(normalizeWorkerName);
+  return aliases.includes(normalizeWorkerName(entry && (entry.user || entry.worker_name)));
 }
 
 function mergeFallbackTimesheets(currentWorkerEntries) {
@@ -1270,10 +1286,11 @@ async function loadTimesheetsFromSupabase() {
 
   status.innerText = "Loading saved entries...";
 
+  const userAliases = getCurrentUserAliases();
   const { data, error } = await supabaseClient
     .from("timesheet_entries")
     .select("*")
-    .eq("worker_name", currentUser)
+    .in("worker_name", userAliases)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -1298,7 +1315,7 @@ async function loadTimesheetsFromSupabase() {
   });
 
   setTimesheets(mergedEntries);
-  status.innerText = "";
+  status.innerText = "Loaded " + loadTimesheets().length + " current entr" + (loadTimesheets().length === 1 ? "y." : "ies.");
   render();
   updateJobSuggestions();
 }
