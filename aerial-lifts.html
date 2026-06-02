@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aerial Lift Pre-Use Inspection</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -224,7 +224,8 @@ button:hover {
 
     <div class="field">
         <label>Lift ID #</label>
-        <input type="text">
+        <input id="aerialLiftEquipment" type="text" list="aerialLiftEquipmentOptions" placeholder="Select lift or type rented unit" onchange="fillAerialLiftDetails()" oninput="fillAerialLiftDetails()">
+        <datalist id="aerialLiftEquipmentOptions"></datalist>
     </div>
 
     <div class="field">
@@ -239,7 +240,7 @@ button:hover {
 
     <div class="field">
         <label>Unit Type</label>
-        <select>
+        <select id="aerialLiftUnitType">
             <option>Scissor Lift</option>
             <option>Articulating Boom</option>
             <option>Man Lift</option>
@@ -316,17 +317,97 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
 const workerDisplay = localStorage.getItem('currentWorkerDisplay') || workerName;
+let aerialLiftEquipmentItems = [];
 
 if (!workerName) {
     window.location.href = 'index.html';
 }
 
 document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+function getAerialLiftDisplay(item) {
+    const name = String(item.name || "").trim();
+    const id = String(item.identification_number || "").trim();
+    return id ? id + " - " + name : name;
+}
+
+function isAerialLiftEquipment(item) {
+    const text = [
+        item.name,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    return /\b(aerial|scissor|boom|man lift|manlift|lift)\b/.test(text);
+}
+
+function getAerialLiftUnitType(item) {
+    const text = [
+        item.name,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    if (text.includes("scissor")) {
+        return "Scissor Lift";
+    }
+
+    if (text.includes("boom")) {
+        return "Articulating Boom";
+    }
+
+    if (text.includes("man lift") || text.includes("manlift")) {
+        return "Man Lift";
+    }
+
+    return "Other";
+}
+
+function updateAerialLiftOptions() {
+    const options = aerialLiftEquipmentItems
+        .slice()
+        .sort((a, b) => getAerialLiftDisplay(a).localeCompare(getAerialLiftDisplay(b), undefined, { numeric: true }))
+        .map((item) => '<option value="' + escapeHtml(getAerialLiftDisplay(item)) + '"></option>')
+        .join("");
+
+    document.getElementById("aerialLiftEquipmentOptions").innerHTML = options;
+}
+
+function fillAerialLiftDetails() {
+    const selectedValue = document.getElementById("aerialLiftEquipment").value.trim().toLowerCase();
+    const match = aerialLiftEquipmentItems.find((item) => getAerialLiftDisplay(item).toLowerCase() === selectedValue);
+
+    if (!match) {
+        return;
+    }
+
+    document.getElementById("aerialLiftUnitType").value = getAerialLiftUnitType(match);
+}
+
+async function loadAerialLiftEquipmentOptions() {
+    if (!inspectionSupabaseClient) {
+        return;
+    }
+
+    const { data, error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+    if (error) {
+        console.warn("Aerial lift equipment could not be loaded.", error);
+        return;
+    }
+
+    aerialLiftEquipmentItems = (data || []).filter(isAerialLiftEquipment);
+    updateAerialLiftOptions();
+}
 
 function handleInspectionSave(type) {
     if (typeof saveInspection !== "function") {
@@ -340,6 +421,8 @@ function handleInspectionSave(type) {
 async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
+
+loadAerialLiftEquipmentOptions();
 </script>
 </body>
 </html>
