@@ -1299,6 +1299,7 @@ function renderTimesheets() {
     }
 
     list.innerHTML = `
+        ${renderSubmittedEntriesByDay(filtered)}
         <div class="table-wrap">
             <table>
                 <thead>
@@ -1324,6 +1325,87 @@ function renderTimesheets() {
                 </tbody>
             </table>
         </div>
+    `;
+}
+
+function renderSubmittedEntriesByDay(weeks) {
+    const rows = [];
+
+    weeks.forEach((week) => {
+        const entries = Array.isArray(week.entries) ? week.entries : [];
+
+        entries.forEach((entry) => {
+            const normalizedEntry = normalizeAdminTimesheetEntry(entry, week);
+            rows.push({
+                worker: week.worker_name || "",
+                week: week.week_label || "",
+                day: normalizedEntry.day || "",
+                date: getTimesheetEntryDate(normalizedEntry),
+                jobName: normalizedEntry.jobName || "",
+                jobNumber: normalizedEntry.jobNumber || "",
+                timeIn: normalizedEntry.timeIn || "",
+                timeOut: normalizedEntry.timeOut || "",
+                hours: Number(normalizedEntry.hours || 0),
+                submitted: week.submitted_at || ""
+            });
+        });
+    });
+
+    if (!rows.length) {
+        return '<h3>Submitted Entries By Day</h3><div class="small">No individual submitted entries found.</div>';
+    }
+
+    const dayOrder = getTimesheetDayNames();
+    rows.sort((a, b) => {
+        const dateA = a.date ? a.date.getTime() : 0;
+        const dateB = b.date ? b.date.getTime() : 0;
+
+        if (dateA !== dateB) {
+            return dateB - dateA;
+        }
+
+        const dayDifference = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+
+        if (dayDifference !== 0) {
+            return dayDifference;
+        }
+
+        return String(a.worker).localeCompare(String(b.worker));
+    });
+
+    return `
+        <h3>Submitted Entries By Day</h3>
+        <div class="table-wrap" style="margin-bottom:14px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Date</th>
+                        <th>Worker</th>
+                        <th>Job</th>
+                        <th>Job Number</th>
+                        <th>Time</th>
+                        <th>Hours</th>
+                        <th>Week</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `
+                        <tr>
+                            <td>${escapeHtml(row.day)}</td>
+                            <td>${row.date ? escapeHtml(formatTimesheetPdfDate(row.date)) : ""}</td>
+                            <td>${escapeHtml(row.worker)}</td>
+                            <td>${escapeHtml(row.jobName)}</td>
+                            <td>${escapeHtml(row.jobNumber)}</td>
+                            <td>${escapeHtml(row.timeIn)} - ${escapeHtml(row.timeOut)}</td>
+                            <td>${row.hours.toFixed(2)}</td>
+                            <td>${escapeHtml(row.week)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+        <h3>Submitted Weeks</h3>
     `;
 }
 
@@ -2817,6 +2899,56 @@ function normalizeExcelValue(value) {
     return String(value || "").trim();
 }
 
+function cleanRepeatedExcelText(value) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    const words = text.split(" ").filter(Boolean);
+
+    if (words.length < 2) {
+        return text;
+    }
+
+    for (let size = 1; size <= Math.floor(words.length / 2); size++) {
+        if (words.length % size !== 0) {
+            continue;
+        }
+
+        const pattern = words.slice(0, size).join(" ");
+        let repeated = true;
+
+        for (let index = size; index < words.length; index += size) {
+            if (words.slice(index, index + size).join(" ").toLowerCase() !== pattern.toLowerCase()) {
+                repeated = false;
+                break;
+            }
+        }
+
+        if (repeated) {
+            return pattern;
+        }
+    }
+
+    return text;
+}
+
+function getExcelJobName(row, jobNameColumns) {
+    const seen = new Set();
+    const parts = [];
+
+    jobNameColumns.forEach((columnIndex) => {
+        const value = cleanRepeatedExcelText(normalizeExcelValue(row.getCell(columnIndex + 1).value));
+        const key = normalizeExcelHeader(value);
+
+        if (!value || seen.has(key)) {
+            return;
+        }
+
+        seen.add(key);
+        parts.push(value);
+    });
+
+    return cleanRepeatedExcelText(parts.join(" "));
+}
+
 function isExcelJsHighlightedCell(cell) {
     const fill = cell && cell.fill ? cell.fill : null;
 
@@ -3017,12 +3149,7 @@ async function importJobsFromExcel() {
                 }
 
                 const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
-                const jobName = jobNameColumns
-                    .map((columnIndex) => normalizeExcelValue(row.getCell(columnIndex + 1).value))
-                    .filter(Boolean)
-                    .join(" ")
-                    .replace(/\s+/g, " ")
-                    .trim();
+                const jobName = getExcelJobName(row, jobNameColumns);
 
                 if (!jobNumber || !jobName) {
                     skippedIncomplete++;
