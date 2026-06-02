@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Site Report</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    color: #2f6f3c;
+    margin: 0 0 18px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.full {
+    grid-column: 1 / -1;
+}
+
+label {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+input,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+    background: #ffffff;
+    color: #1f2a24;
+}
+
+textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.photo-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.photo-preview img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #c6cec5;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.status {
+    min-height: 20px;
+    margin-top: 12px;
+    font-weight: bold;
+    color: #2f6f3c;
+}
+
+.small {
+    font-size: 13px;
+    color: #58635c;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div id="userBar" class="user-bar"></div>
+
+<div class="container">
+    <h1>Daily Site Report</h1>
+
+    <div class="grid">
+        <div class="field">
+            <label for="reportDate">Date</label>
+            <input id="reportDate" type="date">
+        </div>
+
+        <div class="field">
+            <label for="project">Project</label>
+            <input id="project" placeholder="Project / site name">
+        </div>
+
+        <div class="field">
+            <label for="weather">Weather</label>
+            <input id="weather" placeholder="Example: Sunny, 18C, light wind">
+        </div>
+
+        <div class="field">
+            <label for="crew">Crew</label>
+            <input id="crew" placeholder="Crew members on site">
+        </div>
+
+        <div class="field full">
+            <label for="workCompleted">Work Completed</label>
+            <textarea id="workCompleted" placeholder="Describe work completed today"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="deliveries">Deliveries</label>
+            <textarea id="deliveries" placeholder="Materials, equipment, or deliveries received"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="visitors">Visitors</label>
+            <textarea id="visitors" placeholder="Visitors, inspectors, subcontractors, owner reps"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="delays">Delays</label>
+            <textarea id="delays" placeholder="Weather, material, access, coordination, safety, or other delays"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="photos">Photos</label>
+            <input id="photos" type="file" accept="image/*" multiple onchange="previewPhotos()">
+            <div class="small">Photos will be included in the emailed PDF.</div>
+            <div id="photoPreview" class="photo-preview"></div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button type="button" onclick="submitDailySiteReport()">Save & Email PDF</button>
+        <button type="button" class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+        <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+    </div>
+
+    <div id="reportStatus" class="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const DAILY_REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+let selectedPhotoData = [];
+
+document.getElementById("userBar").textContent = "Signed in as: " + (worker.display || worker.key);
+document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
+
+function setReportStatus(message) {
+    document.getElementById("reportStatus").textContent = message || "";
+}
+
+function getValue(id) {
+    return document.getElementById(id).value.trim();
+}
+
+function makeSafeFileName(value) {
+    return String(value || "daily-site-report")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "daily-site-report";
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function getPhotoData() {
+    const files = Array.from(document.getElementById("photos").files || []);
+    const limitedFiles = files.slice(0, 8);
+
+    return Promise.all(limitedFiles.map(async (file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: await readFileAsDataUrl(file)
+    })));
+}
+
+async function previewPhotos() {
+    selectedPhotoData = await getPhotoData();
+    document.getElementById("photoPreview").innerHTML = selectedPhotoData
+        .map((photo) => '<img src="' + photo.dataUrl + '" alt="' + escapeHtml(photo.name) + '">')
+        .join("");
+}
+
+function buildReportRecord() {
+    return {
+        worker_name: worker.key,
+        worker_display_name: worker.display || worker.key,
+        report_date: getValue("reportDate"),
+        project: getValue("project"),
+        weather: getValue("weather"),
+        crew: getValue("crew"),
+        work_completed: getValue("workCompleted"),
+        deliveries: getValue("deliveries"),
+        visitors: getValue("visitors"),
+        delays: getValue("delays"),
+        photos: selectedPhotoData.map((photo) => ({
+            name: photo.name,
+            type: photo.type,
+            size: photo.size
+        }))
+    };
+}
+
+function buildEmailBody(record) {
+    return [
+        "Daily Site Report",
+        "Completed by: " + (record.worker_display_name || ""),
+        "Date: " + record.report_date,
+        "Project: " + record.project,
+        "",
+        "Weather: " + (record.weather || ""),
+        "Crew: " + (record.crew || ""),
+        "",
+        "Work Completed:",
+        record.work_completed || "",
+        "",
+        "Deliveries:",
+        record.deliveries || "",
+        "",
+        "Visitors:",
+        record.visitors || "",
+        "",
+        "Delays:",
+        record.delays || "",
+        "",
+        "Photos: " + selectedPhotoData.length
+    ].join("\n");
+}
+
+function reportSection(title, value) {
+    return `
+        <tr>
+            <th>${escapeHtml(title)}</th>
+            <td>${escapeHtml(value || "")}</td>
+        </tr>
+    `;
+}
+
+function buildReportPdfHtml(record) {
+    const photoHtml = selectedPhotoData.length
+        ? `
+            <h2>Photos</h2>
+            <div class="photos">
+                ${selectedPhotoData.map((photo) => `
+                    <figure>
+                        <img src="${photo.dataUrl}" alt="${escapeHtml(photo.name)}">
+                        <figcaption>${escapeHtml(photo.name)}</figcaption>
+                    </figure>
+                `).join("")}
+            </div>
+        `
+        : "";
+
+    return `
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; color: #1f2a24; }
+                h1 { text-align: center; color: #2f6f3c; margin-bottom: 4px; }
+                h2 { color: #2f6f3c; margin-top: 22px; }
+                .subtitle { text-align: center; margin-bottom: 18px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+                th, td { border: 1px solid #777; padding: 8px; text-align: left; vertical-align: top; font-size: 12px; }
+                th { width: 26%; background: #e6ece6; }
+                .photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+                figure { margin: 0 0 12px; page-break-inside: avoid; }
+                img { width: 100%; max-height: 360px; object-fit: contain; border: 1px solid #aaa; }
+                figcaption { font-size: 11px; margin-top: 4px; color: #4b554e; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction</h1>
+            <div class="subtitle"><strong>Daily Site Report</strong></div>
+            <table>
+                ${reportSection("Completed By", record.worker_display_name)}
+                ${reportSection("Date", record.report_date)}
+                ${reportSection("Project", record.project)}
+                ${reportSection("Weather", record.weather)}
+                ${reportSection("Crew", record.crew)}
+                ${reportSection("Work Completed", record.work_completed)}
+                ${reportSection("Deliveries", record.deliveries)}
+                ${reportSection("Visitors", record.visitors)}
+                ${reportSection("Delays", record.delays)}
+            </table>
+            ${photoHtml}
+        </body>
+        </html>
+    `;
+}
+
+async function submitDailySiteReport() {
+    if (!getValue("reportDate") || !getValue("project")) {
+        alert("Add the report date and project.");
+        return;
+    }
+
+    setReportStatus("Preparing report...");
+    selectedPhotoData = await getPhotoData();
+    const record = buildReportRecord();
+
+    if (supabaseClient) {
+        setReportStatus("Saving report...");
+        const { error } = await supabaseClient
+            .from("daily_site_reports")
+            .insert(record);
+
+        if (error) {
+            setReportStatus("Report could not be saved online: " + error.message);
+            return;
+        }
+    }
+
+    const subject = "Daily Site Report - " + record.project + " - " + record.report_date;
+    const body = buildEmailBody(record);
+    const pdfHtml = buildReportPdfHtml(record);
+
+    setReportStatus("Emailing PDF...");
+
+    try {
+        await fetch(DAILY_REPORT_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+                subject,
+                body,
+                pdfHtml,
+                pdfFileName: makeSafeFileName(subject) + ".pdf",
+                source: "daily_site_report"
+            })
+        });
+
+        setReportStatus("Daily site report saved and emailed.");
+    } catch (error) {
+        setReportStatus("Report saved, but email could not be sent.");
+    }
+}
+</script>
+</body>
+</html>
