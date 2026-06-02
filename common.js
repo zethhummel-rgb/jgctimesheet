@@ -150,7 +150,7 @@ function activateJgcPwa() {
 
         window.setInterval(function() {
           checkForUpdate(registration);
-        }, 5 * 60 * 1000);
+        }, 3 * 60 * 1000);
 
         document.addEventListener("visibilitychange", function() {
           if (document.visibilityState === "visible") {
