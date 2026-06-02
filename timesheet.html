@@ -653,7 +653,7 @@
     <textarea id="leaveNote" rows="3" placeholder="Add reason or note"></textarea>
   </div>
 
-  <button id="submitButton" type="button" onclick="submitTime()">Submit Entry</button>
+  <button id="submitButton" type="button" onclick="submitTime().catch(function(error){ showSubmitError('Save crashed: ' + (error && error.message ? error.message : error)); })">Submit Entry</button>
   <button id="cancelEditButton" class="cancel-edit" type="button" onclick="cancelEdit()">Cancel Edit</button>
   <div id="submitStatus" class="status"></div>
 </div>
@@ -1712,6 +1712,9 @@ function showSubmitError(message) {
 }
 
 async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart, day, startDate, endDate) {
+  const status = document.getElementById("submitStatus");
+  status.innerText = "Saving special day...";
+
   const vacationTimeIn = document.getElementById("vacationTimeIn").value;
   const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
   const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
@@ -1756,7 +1759,6 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     leaveNote
   };
 
-  const status = document.getElementById("submitStatus");
   let stored = loadTimesheets();
   status.innerText = editingEntryId ? "Updating entry..." : "Saving entry...";
 
@@ -1822,59 +1824,11 @@ async function submitTime() {
   const entryType = document.getElementById("entryType").value || "work";
   const leaveType = document.getElementById("leaveType").value || "";
   const leaveNote = document.getElementById("leaveNote").value.trim();
-  const vacationTimeIn = document.getElementById("vacationTimeIn").value;
-  const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
-  const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
-  const isWorkEntry = entryType === "work";
-  const selectedJob = findSelectedActiveJob();
-  const typedJobName = document.getElementById("jobName").value.trim();
-  const typedJobNumber = document.getElementById("jobNumber").value.trim();
-  const selectedDisplay = selectedJob ? getJobDisplay(selectedJob) : "";
-  const jobName = cleanRepeatedJobName(
-    selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
-      ? selectedJob.job_name
-      : typedJobName
-  );
-  const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
   const day = document.getElementById("day").value;
-  const timeIn = document.getElementById("timeIn").value;
-  const rawTimeOut = document.getElementById("timeOut").value;
-  const timeOut = normalizeTimeForStorage(rawTimeOut);
-  const tookLunch = document.getElementById("tookLunch").checked;
-  const nightWork = document.getElementById("nightWork").checked;
+  const isWorkEntry = entryType === "work";
 
   if (!weekStart || !day) {
     alert("Fill in all fields");
-    return;
-  }
-
-  if (entryType === "sick" && !leaveNote) {
-    alert("Please add a reason for the sick day.");
-    return;
-  }
-
-  if (entryType === "vacation" && !leaveType) {
-    alert("Please choose Paid, Unpaid, or Half Day for the vacation day.");
-    return;
-  }
-
-  if (entryType === "vacation" && leaveType === "half_day" && (!vacationTimeIn || !rawVacationTimeOut)) {
-    alert("Please choose the time for the half vacation day.");
-    return;
-  }
-
-  if (entryType === "vacation" && leaveType === "half_day" && (!isHalfHourTime(vacationTimeIn) || !isHalfHourTime(rawVacationTimeOut))) {
-    alert("Half day vacation time must be in 30 minute intervals.");
-    return;
-  }
-
-  if (isWorkEntry && (!typedJobName || !timeIn || !rawTimeOut)) {
-    alert("Fill in all work entry fields");
-    return;
-  }
-
-  if (isWorkEntry && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
-    alert("Time In and Time Out must be in 30 minute intervals.");
     return;
   }
 
@@ -1887,6 +1841,32 @@ async function submitTime() {
     return;
   }
 
+  const selectedJob = findSelectedActiveJob();
+  const typedJobName = document.getElementById("jobName").value.trim();
+  const typedJobNumber = document.getElementById("jobNumber").value.trim();
+  const selectedDisplay = selectedJob ? getJobDisplay(selectedJob) : "";
+  const jobName = cleanRepeatedJobName(
+    selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
+      ? selectedJob.job_name
+      : typedJobName
+  );
+  const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
+  const timeIn = document.getElementById("timeIn").value;
+  const rawTimeOut = document.getElementById("timeOut").value;
+  const timeOut = normalizeTimeForStorage(rawTimeOut);
+  const tookLunch = document.getElementById("tookLunch").checked;
+  const nightWork = document.getElementById("nightWork").checked;
+
+  if (isWorkEntry && (!typedJobName || !timeIn || !rawTimeOut)) {
+    alert("Fill in all work entry fields");
+    return;
+  }
+
+  if (isWorkEntry && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
+    alert("Time In and Time Out must be in 30 minute intervals.");
+    return;
+  }
+
   const entry = {
     id: editingEntryId || "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
     user: currentUser,
@@ -1896,9 +1876,9 @@ async function submitTime() {
     jobName: isWorkEntry ? jobName : getSpecialEntryJobName(entryType, leaveType),
     jobNumber: isWorkEntry ? jobNumber : "",
     day,
-    timeIn: isWorkEntry ? timeIn : (entryType === "vacation" && leaveType === "half_day" ? vacationTimeIn : "00:00"),
-    timeOut: isWorkEntry ? timeOut : (entryType === "vacation" && leaveType === "half_day" ? vacationTimeOut : "00:00"),
-    hours: isWorkEntry ? calculateHours(timeIn, rawTimeOut, tookLunch) : (entryType === "vacation" && leaveType === "half_day" ? calculateHours(vacationTimeIn, rawVacationTimeOut, false) : 0),
+    timeIn,
+    timeOut,
+    hours: calculateHours(timeIn, rawTimeOut, tookLunch),
     tookLunch: isWorkEntry ? tookLunch : false,
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
