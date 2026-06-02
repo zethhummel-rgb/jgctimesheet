@@ -613,7 +613,7 @@
   <h3>Submitted Entries</h3>
   <div class="tab-buttons">
     <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
-    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Previous Weeks</button>
+    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
     <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
   </div>
   <button type="button" onclick="clearEntries()">Clear My Entries</button>
@@ -636,6 +636,7 @@ let previousWeeks = [];
 let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
 let activeJobs = [];
+const PREVIOUS_TIMESHEET_RETENTION_MONTHS = 2;
 
 if (!currentUser) {
   window.location.href = "index.html";
@@ -1150,6 +1151,7 @@ async function loadPreviousWeeksFromSupabase(options) {
     .from("previous_timesheet_weeks")
     .select("*")
     .eq("worker_name", currentUser)
+    .gte("submitted_at", getPreviousTimesheetCutoffIso())
     .order("submitted_at", { ascending: false });
 
   if (error) {
@@ -1170,7 +1172,8 @@ async function loadPreviousWeeksFromSupabase(options) {
       note: week.note || "",
       submittedAt: week.submitted_at
     };
-  }).sort(sortPreviousWeeksByDate).slice(0, 3);
+  }).sort(sortPreviousWeeksByDate);
+  previousWeeks = filterPreviousWeeksForRetention(previousWeeks);
 
   saveFallbackPreviousWeeks(previousWeeks);
   if (shouldRender) {
@@ -1186,9 +1189,11 @@ function loadFallbackPreviousWeeks() {
       return [];
     }
 
-    return saved.filter(function(week) {
+    const workerWeeks = saved.filter(function(week) {
       return normalizeWorkerName(week.workerName) === normalizeWorkerName(currentUser);
-    }).sort(sortPreviousWeeksByDate).slice(0, 3);
+    });
+
+    return filterPreviousWeeksForRetention(workerWeeks).sort(sortPreviousWeeksByDate);
   } catch (error) {
     return [];
   }
@@ -1198,7 +1203,7 @@ function saveFallbackPreviousWeeks(weeks) {
   const otherWorkers = loadAllFallbackPreviousWeeks().filter(function(week) {
     return normalizeWorkerName(week.workerName) !== normalizeWorkerName(currentUser);
   });
-  const currentWorkerWeeks = weeks.slice(0, 3);
+  const currentWorkerWeeks = filterPreviousWeeksForRetention(weeks).sort(sortPreviousWeeksByDate);
 
   localStorage.setItem("previousTimesheetWeeks", JSON.stringify(otherWorkers.concat(currentWorkerWeeks)));
 }
@@ -1224,6 +1229,29 @@ function getPreviousWeekStartTime(week) {
 
 function sortPreviousWeeksByDate(a, b) {
   return getPreviousWeekStartTime(b) - getPreviousWeekStartTime(a);
+}
+
+function getPreviousTimesheetCutoffTime() {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - PREVIOUS_TIMESHEET_RETENTION_MONTHS);
+  cutoff.setHours(0, 0, 0, 0);
+  return cutoff.getTime();
+}
+
+function getPreviousTimesheetCutoffIso() {
+  return new Date(getPreviousTimesheetCutoffTime()).toISOString();
+}
+
+function getPreviousWeekSavedTime(week) {
+  const submittedTime = week && week.submittedAt ? new Date(week.submittedAt).getTime() : 0;
+  return Number.isNaN(submittedTime) || !submittedTime ? getPreviousWeekStartTime(week) : submittedTime;
+}
+
+function filterPreviousWeeksForRetention(weeks) {
+  const cutoffTime = getPreviousTimesheetCutoffTime();
+  return weeks.filter(function(week) {
+    return getPreviousWeekSavedTime(week) >= cutoffTime;
+  });
 }
 
 function showEntriesTab(tabName) {
@@ -1914,18 +1942,29 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
     } else {
       const { data: archives, error: archiveError } = await supabaseClient
         .from("previous_timesheet_weeks")
-        .select("id, week_label, entries")
+        .select("id, week_label, entries, submitted_at")
         .eq("worker_name", currentUser);
 
-      if (!archiveError && archives && archives.length > 3) {
-        const oldIds = archives.sort(sortPreviousWeeksByDate).slice(3).map(function(archive) {
+      if (!archiveError && archives) {
+        const cutoffTime = getPreviousTimesheetCutoffTime();
+        const oldIds = archives.filter(function(archive) {
+          const archiveRecord = {
+            weekLabel: archive.week_label,
+            entries: Array.isArray(archive.entries) ? archive.entries : [],
+            submittedAt: archive.submitted_at
+          };
+
+          return getPreviousWeekSavedTime(archiveRecord) < cutoffTime;
+        }).map(function(archive) {
           return archive.id;
         });
 
-        await supabaseClient
-          .from("previous_timesheet_weeks")
-          .delete()
-          .in("id", oldIds);
+        if (oldIds.length) {
+          await supabaseClient
+            .from("previous_timesheet_weeks")
+            .delete()
+            .in("id", oldIds);
+        }
       }
     }
 
@@ -1939,7 +1978,7 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
     }
   }
 
-  previousWeeks = [archiveRecord].concat(previousWeeks).sort(sortPreviousWeeksByDate).slice(0, 3);
+  previousWeeks = filterPreviousWeeksForRetention([archiveRecord].concat(previousWeeks)).sort(sortPreviousWeeksByDate);
   saveFallbackPreviousWeeks(previousWeeks);
   memoryTimesheets = [];
   saveFallbackTimesheets(mergeFallbackTimesheets([]));
@@ -2149,10 +2188,11 @@ function renderEditEntriesTab(entries) {
 function renderPreviousWeeks() {
   if (previousWeeks.length === 0) {
     document.getElementById("entries").innerHTML =
-      '<div class="small">No previous weeks saved yet.</div>';
+      '<div class="small">No previous timesheets saved in the last 2 months.</div>';
     return;
   }
 
+  const retentionNote = '<div class="small" style="margin-bottom:12px;">Showing submitted timesheets from the last 2 months.</div>';
   const weeksHtml = previousWeeks.map(function(week) {
     const weekIndex = previousWeeks.indexOf(week);
     const groups = getEntriesByEmailDay(week.entries || []);
@@ -2203,7 +2243,7 @@ function renderPreviousWeeks() {
     `;
   }).join("");
 
-  document.getElementById("entries").innerHTML = weeksHtml;
+  document.getElementById("entries").innerHTML = retentionNote + weeksHtml;
 }
 
 function escapeHtml(value) {
