@@ -135,11 +135,25 @@ th {
     border: 1px solid #c6cec5;
     border-radius: 8px;
     background: #f2f6ef;
+    color: #1f2a24;
 }
 
 .timesheet-edit-panel h3 {
     margin-top: 0;
     color: #2f6f3c;
+}
+
+.timesheet-edit-panel label,
+.timesheet-edit-panel .small {
+    color: #1f2a24;
+}
+
+.timesheet-edit-panel input,
+.timesheet-edit-panel select,
+.timesheet-edit-panel textarea {
+    background: #ffffff;
+    color: #1f2a24;
+    border: 1px solid #8fa08f;
 }
 
 .timesheet-edit-table input,
@@ -1469,7 +1483,12 @@ function renderLiveTimesheetEntries(filter) {
                                             <td>${row.nightWork ? "Yes" : "No"}</td>
                                             <td>${row.hours.toFixed(2)}</td>
                                             <td>${escapeHtml(row.weekStart)}</td>
-                                            <td><button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button></td>
+                                            <td>
+                                                <div class="actions">
+                                                    <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
+                                                    <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     `).join("")}
                                 </tbody>
@@ -1494,6 +1513,43 @@ function editLiveTimesheetEntry(id) {
     editingLiveTimesheetEntryId = id;
     renderLiveTimesheetEditPanel(entry);
     document.getElementById("timesheetEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function deleteLiveTimesheetEntry(id) {
+    const entry = liveTimesheetEntries.find((item) => item.id === id);
+
+    if (!entry) {
+        alert("Live timesheet entry could not be found.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Delete this live timesheet entry?\n\n" +
+        (entry.worker_name || "") + " - " +
+        (entry.day_of_week || "") + " - " +
+        (entry.job_name || "")
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("timesheet_entries")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("Live entry could not be deleted.");
+        return;
+    }
+
+    if (editingLiveTimesheetEntryId === id) {
+        cancelLiveTimesheetEntryEdit();
+    }
+
+    liveTimesheetEntries = liveTimesheetEntries.filter((item) => item.id !== id);
+    renderTimesheets();
 }
 
 function renderLiveTimesheetEditPanel(entry) {
