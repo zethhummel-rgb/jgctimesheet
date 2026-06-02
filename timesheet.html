@@ -1235,7 +1235,20 @@ async function loadTimesheetsFromSupabase() {
     return;
   }
 
-  setTimesheets((data || []).map(rowToEntry));
+  const onlineEntries = (data || []).map(rowToEntry);
+  const mergedEntries = onlineEntries.slice();
+
+  loadFallbackTimesheets().forEach(function(localEntry) {
+    const existsOnline = mergedEntries.some(function(onlineEntry) {
+      return onlineEntry.id === localEntry.id;
+    });
+
+    if (!existsOnline && String(localEntry.id || "").startsWith("local-")) {
+      mergedEntries.push(localEntry);
+    }
+  });
+
+  setTimesheets(mergedEntries);
   status.innerText = "";
   render();
   updateJobSuggestions();
@@ -1796,6 +1809,10 @@ async function submitTime() {
     return;
   }
 
+  stored.push(entry);
+  setTimesheets(stored);
+  status.innerText = supabaseClient ? "Entry submitted." : "Entry submitted for this browser session.";
+
   if (supabaseClient) {
     const { data, error } = await supabaseClient
       .from("timesheet_entries")
@@ -1804,18 +1821,17 @@ async function submitTime() {
       .single();
 
     if (error) {
-      stored.push(entry);
-      setTimesheets(stored);
       status.innerText = "Entry saved in this browser only. Supabase save failed.";
-    } else {
-      stored.push(rowToEntry(data));
-      setTimesheets(stored);
-      status.innerText = "Entry submitted.";
+    } else if (data) {
+      try {
+        const savedEntry = rowToEntry(data);
+        setTimesheets(loadTimesheets().map(function(item) {
+          return item.id === entry.id ? savedEntry : item;
+        }));
+      } catch (error) {
+        status.innerText = "Entry submitted. It may refresh from Supabase on reload.";
+      }
     }
-  } else {
-    stored.push(entry);
-    setTimesheets(stored);
-    status.innerText = "Entry submitted for this browser session.";
   }
 
   const holidayCount = await addOntarioHolidayEntriesForWeek(weekStart, day);
