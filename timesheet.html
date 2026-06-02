@@ -1143,12 +1143,8 @@ function saveFallbackTimesheets(entries) {
 }
 
 function loadTimesheets() {
-  return memoryTimesheets.filter(function(entry) {
-    return isCurrentUserEntry(entry);
-  }).map(function(entry) {
+  return memoryTimesheets.map(function(entry) {
     return normalizeTimesheetEntry(entry);
-  }).filter(function(entry) {
-    return entry.day && entry.jobName;
   });
 }
 
@@ -1293,11 +1289,9 @@ async function loadTimesheetsFromSupabase() {
 
   status.innerText = "Loading saved entries...";
 
-  const userAliases = getCurrentUserAliases();
   const { data, error } = await supabaseClient
     .from("timesheet_entries")
     .select("*")
-    .in("worker_name", userAliases)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -1322,7 +1316,7 @@ async function loadTimesheetsFromSupabase() {
   });
 
   setTimesheets(mergedEntries);
-  status.innerText = "Loaded " + loadTimesheets().length + " current entr" + (loadTimesheets().length === 1 ? "y." : "ies.");
+  status.innerText = "Loaded " + loadTimesheets().length + " raw current entr" + (loadTimesheets().length === 1 ? "y." : "ies.");
   render();
   updateJobSuggestions();
 }
@@ -3090,22 +3084,19 @@ function render() {
     return String(a.jobName || "").localeCompare(String(b.jobName || ""));
   });
 
-  const dailyRows = sortedEntries.map(function(entry) {
-    const isLeave = isLeaveEntry(entry);
-    const note = getEntryLeaveNote(entry);
-    const hours = getEntryHours(entry);
-    const hasZeroPlaceholderTime = entry.timeIn === "00:00" && entry.timeOut === "00:00" && hours === 0;
-    const timeText = (isLeave && entry.leaveType !== "half_day") || hasZeroPlaceholderTime
-      ? ""
-      : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut);
-
+  const rawRows = sortedEntries.map(function(entry) {
     return `
       <tr>
+        <td>${escapeHtml(entry.user || "")}</td>
+        <td>${escapeHtml(entry.weekStartValue || "")}</td>
         <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(entry.jobName)}</td>
-        <td>${escapeHtml(isLeave ? (entry.jobNumber || note) : entry.jobNumber)}</td>
-        <td>${timeText}</td>
-        <td>${getEntryHoursLabel(entry)}</td>
+        <td>${escapeHtml(entry.jobName || "")}</td>
+        <td>${escapeHtml(entry.jobNumber || "")}</td>
+        <td>${escapeHtml(entry.timeIn || "")}</td>
+        <td>${escapeHtml(entry.timeOut || "")}</td>
+        <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
+        <td>${escapeHtml(getEntryType(entry))}</td>
+        <td>${escapeHtml(entry.leaveNote || "")}</td>
       </tr>
     `;
   }).join("");
@@ -3125,6 +3116,7 @@ function render() {
 
     return `
       <tr>
+        <td data-label="Worker">${escapeHtml(entry.user || "")}</td>
         <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
         <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
         <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
@@ -3134,20 +3126,25 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
-    <h3>Daily Entries</h3>
+    <h3>Raw Loaded Entries</h3>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
+            <th>Worker</th>
+            <th>Week Start</th>
             <th>Day</th>
-            <th>Entry</th>
-            <th>Job # / Note</th>
-            <th>Time</th>
+            <th>Job Name</th>
+            <th>Job Number</th>
+            <th>Time In</th>
+            <th>Time Out</th>
             <th>Hours</th>
+            <th>Type</th>
+            <th>Note</th>
           </tr>
         </thead>
         <tbody>
-          ${dailyRows}
+          ${rawRows}
         </tbody>
       </table>
     </div>
@@ -3156,6 +3153,7 @@ function render() {
       <table>
         <thead>
           <tr>
+            <th>Worker</th>
             <th>Job Name</th>
             <th>Job Number</th>
             <th>Night Work</th>
