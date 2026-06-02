@@ -1929,11 +1929,10 @@ async function submitTime() {
   const rawWeekStart = document.getElementById("weekStart").value;
   const normalizedWeekStartDate = rawWeekStart ? getWeekStartDate(makeLocalDate(rawWeekStart)) : null;
   const weekStart = normalizedWeekStartDate ? formatDateValue(normalizedWeekStartDate) : "";
-  const entryType = document.getElementById("entryType").value || "work";
+  const selectedEntryType = document.getElementById("entryType").value || "work";
   const leaveType = document.getElementById("leaveType").value || "";
   const leaveNote = document.getElementById("leaveNote").value.trim();
   const day = document.getElementById("day").value;
-  const isWorkEntry = entryType === "work";
 
   if (!weekStart || !day) {
     alert("Fill in all fields");
@@ -1948,11 +1947,14 @@ async function submitTime() {
   const typedJobName = document.getElementById("jobName").value.trim();
   const typedJobNumber = document.getElementById("jobNumber").value.trim();
   const selectedDisplay = selectedJob ? getJobDisplay(selectedJob) : "";
+  const preliminaryEntryType = getEntryType({ entryType: selectedEntryType, jobName: typedJobName });
+  const isWorkEntry = preliminaryEntryType === "work";
   const jobName = cleanRepeatedJobName(
     isWorkEntry && selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
       ? selectedJob.job_name
       : typedJobName
   );
+  const entryType = getEntryType({ entryType: selectedEntryType, jobName });
   const jobNumber = isWorkEntry
     ? (typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : ""))
     : getSpecialJobNumberValue(entryType, leaveType, typedJobNumber);
@@ -1989,7 +1991,7 @@ async function submitTime() {
     return;
   }
 
-  if (entryType === "vacation" && !leaveType) {
+  if (selectedEntryType === "vacation" && !leaveType) {
     alert("Please choose Paid, Unpaid, or Half Day for the vacation day.");
     return;
   }
