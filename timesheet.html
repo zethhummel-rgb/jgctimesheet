@@ -1178,11 +1178,12 @@ function loadAllFallbackTimesheets() {
 }
 
 function rowToEntry(row) {
-  const inferredEntryType = row.entry_type || (String(row.job_name || "").toLowerCase().includes("sick day")
+  const rowJobName = String(row.job_name || "").toLowerCase();
+  const inferredEntryType = row.entry_type || (rowJobName === "sick" || rowJobName.includes("sick day")
     ? "sick"
-    : String(row.job_name || "").toLowerCase().includes("vacation day")
+    : rowJobName === "vacation" || rowJobName.includes("vacation day")
       ? "vacation"
-      : String(row.job_name || "").toLowerCase().includes("holiday")
+      : rowJobName.includes("holiday")
         ? "civic_holiday"
         : "work");
 
@@ -1747,7 +1748,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     weekStart: formatDate(startDate),
     weekEnd: formatDate(endDate),
     jobName: getSpecialEntryJobName(entryType, leaveType),
-    jobNumber: "",
+    jobNumber: leaveNote || (entryType === "vacation" ? capitalizeWords(leaveType) : ""),
     day,
     timeIn: isHalfDayVacation ? vacationTimeIn : "00:00",
     timeOut: isHalfDayVacation ? vacationTimeOut : "00:00",
@@ -2342,11 +2343,11 @@ function getEntryType(entry) {
     return explicitType;
   }
 
-  if (jobName.includes("sick day")) {
+  if (jobName === "sick" || jobName.includes("sick day")) {
     return "sick";
   }
 
-  if (jobName.includes("vacation day")) {
+  if (jobName === "vacation" || jobName.includes("vacation day")) {
     return "vacation";
   }
 
@@ -2396,11 +2397,11 @@ function capitalizeWords(value) {
 
 function getSpecialEntryJobName(entryType, leaveType) {
   if (entryType === "sick") {
-    return "Sick Day";
+    return "Sick";
   }
 
   if (entryType === "vacation") {
-    return "Vacation Day" + (leaveType ? " - " + capitalizeWords(leaveType) : "");
+    return "Vacation";
   }
 
   if (entryType === "civic_holiday") {
@@ -2896,8 +2897,8 @@ function render() {
     return `
       <tr>
         <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(isLeave ? getEntryTypeLabel(entry) : entry.jobName)}</td>
-        <td>${escapeHtml(isLeave ? note : entry.jobNumber)}</td>
+        <td>${escapeHtml(entry.jobName)}</td>
+        <td>${escapeHtml(isLeave ? (entry.jobNumber || note) : entry.jobNumber)}</td>
         <td>${timeText}</td>
         <td>${Number(entry.hours || 0).toFixed(2)}</td>
       </tr>
@@ -2911,9 +2912,7 @@ function render() {
       }
 
       if (isLeaveEntry(entry)) {
-        const note = getEntryLeaveNote(entry);
-        const timeText = entry.leaveType === "half_day" ? '<div class="small">' + escapeHtml(entry.timeIn) + '-' + escapeHtml(entry.timeOut) + '</div>' : "";
-        return '<td data-label="' + day + '"><b>' + escapeHtml(getEntryTypeLabel(entry)) + '</b>' + timeText + (note ? '<div class="small">' + escapeHtml(note) + '</div>' : "") + '</td>';
+        return '<td data-label="' + day + '"><b>' + (Number(entry.hours || 0) ? Number(entry.hours || 0).toFixed(2) : "0") + '</b></td>';
       }
 
       return '<td data-label="' + day + '"><b>' + Number(entry.hours || 0).toFixed(2) + "</b></td>";
@@ -2921,8 +2920,8 @@ function render() {
 
     return `
       <tr>
-        <td data-label="Job Name">${escapeHtml(isLeaveEntry(entry) ? getEntryTypeLabel(entry) : entry.jobName)}</td>
-        <td data-label="Job Number">${escapeHtml(isLeaveEntry(entry) ? "" : entry.jobNumber)}</td>
+        <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
+        <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
         <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
         ${dayCells}
       </tr>
