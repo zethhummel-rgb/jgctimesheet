@@ -377,12 +377,15 @@ button:hover,
 </div>
 
 <div id="timesheetsSection" class="card">
-    <h2>Submitted Timesheets</h2>
+    <h2>Timesheets</h2>
     <div class="filters">
         <div>
             <label>Worker</label>
             <input id="timesheetWorkerFilter" oninput="renderTimesheets()" placeholder="Filter worker">
         </div>
+    </div>
+    <div class="actions" style="margin-bottom:10px;">
+        <button type="button" class="secondary" onclick="loadLiveTimesheetEntries()">Refresh Live Entries</button>
     </div>
     <div id="timesheetsList" class="small">Loading timesheets...</div>
     <div id="timesheetEditPanel" class="timesheet-edit-panel" hidden></div>
@@ -646,6 +649,7 @@ const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display;
 let timesheets = [];
+let liveTimesheetEntries = [];
 let inspections = [];
 let certificates = [];
 let certificateNotifications = [];
@@ -766,8 +770,9 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
+        supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
@@ -783,6 +788,7 @@ async function loadAdminData() {
     ]);
 
     timesheets = timesheetResult.data || [];
+    liveTimesheetEntries = liveTimesheetResult.data || [];
     inspections = inspectionResult.data || [];
     certificates = certificateResult.data || [];
     certificateNotifications = certificateNotificationResult.data || [];
@@ -1291,40 +1297,164 @@ async function loadEquipment() {
 function renderTimesheets() {
     const filter = document.getElementById("timesheetWorkerFilter").value.trim().toLowerCase();
     const list = document.getElementById("timesheetsList");
-    const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").includes(filter));
+    const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").toLowerCase().includes(filter));
 
-    if (!filtered.length) {
-        list.textContent = "No submitted timesheets found.";
+    const submittedWeeksHtml = filtered.length
+        ? `
+            ${renderSubmittedEntriesByDay(filtered)}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map((week) => `
+                            <tr>
+                                <td>${escapeHtml(week.worker_name)}</td>
+                                <td>${escapeHtml(week.week_label)}</td>
+                                <td>${Number(week.total_hours || 0).toFixed(2)}</td>
+                                <td>${escapeHtml(formatDate(week.submitted_at))}</td>
+                                <td>${escapeHtml(week.note || "")}</td>
+                                <td>
+                                    <div class="actions">
+                                        <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
+                                        <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
+                                        <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `
+        : '<h3>Submitted Weeks</h3><div class="small">No finalized submitted timesheets found.</div>';
+
+    list.innerHTML = `
+        ${renderLiveTimesheetEntries(filter)}
+        ${submittedWeeksHtml}
+    `;
+}
+
+async function loadLiveTimesheetEntries() {
+    const list = document.getElementById("timesheetsList");
+
+    if (list) {
+        list.textContent = "Refreshing live timesheet entries...";
+    }
+
+    const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .select("*")
+        .order("week_start", { ascending: false })
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        if (list) {
+            list.textContent = "Live timesheet entries could not be loaded.";
+        }
         return;
     }
 
-    list.innerHTML = `
-        ${renderSubmittedEntriesByDay(filtered)}
+    liveTimesheetEntries = data || [];
+    renderTimesheets();
+}
+
+function getLiveTimesheetEntryDate(entry) {
+    const weekStart = entry.week_start || "";
+    const day = entry.day_of_week || "";
+
+    if (!weekStart || !day) {
+        return null;
+    }
+
+    const date = makeLocalDate(weekStart);
+    const dayIndex = getTimesheetDayNames().indexOf(day);
+
+    if (dayIndex < 0 || Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    date.setDate(date.getDate() + dayIndex);
+    return date;
+}
+
+function renderLiveTimesheetEntries(filter) {
+    const rows = liveTimesheetEntries
+        .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
+        .map((entry) => ({
+            worker: entry.worker_name || "",
+            weekStart: entry.week_start || "",
+            day: entry.day_of_week || "",
+            date: getLiveTimesheetEntryDate(entry),
+            jobName: entry.job_name || "",
+            jobNumber: entry.job_number || "",
+            timeIn: String(entry.time_in || "").slice(0, 5),
+            timeOut: String(entry.time_out || "").slice(0, 5),
+            lunch: Boolean(entry.took_lunch),
+            nightWork: Boolean(entry.night_work),
+            hours: Number(entry.hours || 0),
+            createdAt: entry.created_at || ""
+        }));
+
+    rows.sort((a, b) => {
+        const weekDifference = String(b.weekStart).localeCompare(String(a.weekStart));
+
+        if (weekDifference !== 0) {
+            return weekDifference;
+        }
+
+        const dayDifference = getTimesheetDayNames().indexOf(a.day) - getTimesheetDayNames().indexOf(b.day);
+
+        if (dayDifference !== 0) {
+            return dayDifference;
+        }
+
+        return String(a.worker).localeCompare(String(b.worker));
+    });
+
+    if (!rows.length) {
+        return '<h3>Live Entries Before Weekly Submit</h3><div class="small" style="margin-bottom:14px;">No current live entries found.</div>';
+    }
+
+    return `
+        <h3>Live Entries Before Weekly Submit</h3>
+        <div class="small" style="margin-bottom:8px;">These are entries currently saved on employee timesheets before they submit/email the full week.</div>
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th><th>Actions</th></tr>
+                    <tr>
+                        <th>Day</th>
+                        <th>Date</th>
+                        <th>Worker</th>
+                        <th>Job</th>
+                        <th>Job Number</th>
+                        <th>Time</th>
+                        <th>Lunch</th>
+                        <th>Night</th>
+                        <th>Hours</th>
+                        <th>Week Start</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    ${filtered.map((week) => `
+                    ${rows.map((row) => `
                         <tr>
-                            <td>${escapeHtml(week.worker_name)}</td>
-                            <td>${escapeHtml(week.week_label)}</td>
-                            <td>${Number(week.total_hours || 0).toFixed(2)}</td>
-                            <td>${escapeHtml(formatDate(week.submitted_at))}</td>
-                            <td>${escapeHtml(week.note || "")}</td>
-                            <td>
-                                <div class="actions">
-                                    <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
-                                    <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
-                                    <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
-                                </div>
-                            </td>
+                            <td>${escapeHtml(row.day)}</td>
+                            <td>${row.date ? escapeHtml(formatTimesheetPdfDate(row.date)) : ""}</td>
+                            <td>${escapeHtml(row.worker)}</td>
+                            <td>${escapeHtml(row.jobName)}</td>
+                            <td>${escapeHtml(row.jobNumber)}</td>
+                            <td>${escapeHtml(row.timeIn)} - ${escapeHtml(row.timeOut)}</td>
+                            <td>${row.lunch ? "Yes" : "No"}</td>
+                            <td>${row.nightWork ? "Yes" : "No"}</td>
+                            <td>${row.hours.toFixed(2)}</td>
+                            <td>${escapeHtml(row.weekStart)}</td>
                         </tr>
                     `).join("")}
                 </tbody>
             </table>
         </div>
+        <h3>Final Submitted Timesheets</h3>
     `;
 }
 
