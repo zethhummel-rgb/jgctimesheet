@@ -928,6 +928,12 @@ function formatTimeOption(hour, minute) {
   return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
 }
 
+function formatTimeLabel(hour, minute) {
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+}
+
 function fillTimeOptions() {
   const timeInputs = [
     document.getElementById("timeIn"),
@@ -939,8 +945,8 @@ function fillTimeOptions() {
     let options = '<option value="">' + placeholder + '</option>';
 
     for (let hour = 0; hour < 24; hour++) {
-      options += '<option value="' + formatTimeOption(hour, 0) + '">' + formatTimeOption(hour, 0) + '</option>';
-      options += '<option value="' + formatTimeOption(hour, 30) + '">' + formatTimeOption(hour, 30) + '</option>';
+      options += '<option value="' + formatTimeOption(hour, 0) + '">' + formatTimeLabel(hour, 0) + '</option>';
+      options += '<option value="' + formatTimeOption(hour, 30) + '">' + formatTimeLabel(hour, 30) + '</option>';
     }
 
     input.innerHTML = options;
