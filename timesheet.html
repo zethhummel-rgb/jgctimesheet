@@ -911,12 +911,16 @@ function formatDate(date) {
 }
 
 function calculateHours(inTime, outTime, tookLunch) {
-  const start = new Date("1970-01-01T" + inTime + ":00");
-  const end = new Date("1970-01-01T" + outTime + ":00");
+  const start = getTimeMinutes(inTime);
+  let end = getTimeMinutes(outTime);
 
-  let diff = (end - start) / 1000 / 60 / 60;
+  if (start === null || end === null) {
+    return "0.00";
+  }
 
-  if (diff < 0) diff += 24;
+  if (end < start) end += 24 * 60;
+
+  let diff = (end - start) / 60;
 
   if (tookLunch) diff -= 0.5;
   if (diff < 0) diff = 0;
@@ -928,10 +932,42 @@ function formatTimeOption(hour, minute) {
   return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
 }
 
+function normalizeTimeForStorage(time) {
+  return String(time || "").replace(/^next-/, "");
+}
+
+function getTimeMinutes(time) {
+  const raw = String(time || "");
+  const isNextDay = raw.startsWith("next-");
+  const clockTime = normalizeTimeForStorage(raw);
+  const parts = clockTime.split(":").map(Number);
+
+  if (parts.length !== 2 || parts.some((part) => Number.isNaN(part))) {
+    return null;
+  }
+
+  return (isNextDay ? 24 * 60 : 0) + (parts[0] * 60) + parts[1];
+}
+
 function formatTimeLabel(hour, minute) {
   const suffix = hour >= 12 ? "PM" : "AM";
   const displayHour = hour % 12 || 12;
   return displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+}
+
+function buildTimeOptions(startHour, endHour, valuePrefix, labelSuffix, includeEndHalfHour) {
+  let options = "";
+
+  for (let hour = startHour; hour <= endHour; hour++) {
+    const minuteOptions = hour === endHour && !includeEndHalfHour ? [0] : [0, 30];
+
+    minuteOptions.forEach(function(minute) {
+      const value = formatTimeOption(hour, minute);
+      options += '<option value="' + valuePrefix + value + '">' + formatTimeLabel(hour, minute) + labelSuffix + '</option>';
+    });
+  }
+
+  return options;
 }
 
 function fillTimeOptions() {
@@ -944,9 +980,15 @@ function fillTimeOptions() {
     const placeholder = input.id === "timeIn" ? "Select Time In" : "Select Time Out";
     let options = '<option value="">' + placeholder + '</option>';
 
-    for (let hour = 0; hour < 24; hour++) {
-      options += '<option value="' + formatTimeOption(hour, 0) + '">' + formatTimeLabel(hour, 0) + '</option>';
-      options += '<option value="' + formatTimeOption(hour, 30) + '">' + formatTimeLabel(hour, 30) + '</option>';
+    if (input.id === "timeOut") {
+      options += '<optgroup label="Same Day">';
+      options += buildTimeOptions(0, 23, "", "", true);
+      options += '</optgroup>';
+      options += '<optgroup label="Next Morning">';
+      options += buildTimeOptions(0, 7, "next-", " Next Day", false);
+      options += '</optgroup>';
+    } else {
+      options += buildTimeOptions(0, 23, "", "", true);
     }
 
     input.innerHTML = options;
@@ -954,7 +996,8 @@ function fillTimeOptions() {
 }
 
 function isHalfHourTime(time) {
-  return /^\d{2}:\d{2}$/.test(time) && (time.endsWith(":00") || time.endsWith(":30"));
+  const clockTime = normalizeTimeForStorage(time);
+  return /^\d{2}:\d{2}$/.test(clockTime) && (clockTime.endsWith(":00") || clockTime.endsWith(":30"));
 }
 
 function loadFallbackTimesheets() {
@@ -1394,7 +1437,9 @@ function editEntry(entryId) {
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
   document.getElementById("timeIn").value = entry.timeIn;
-  document.getElementById("timeOut").value = entry.timeOut;
+  document.getElementById("timeOut").value = getTimeMinutes(entry.timeOut) < getTimeMinutes(entry.timeIn)
+    ? "next-" + entry.timeOut
+    : entry.timeOut;
   document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
   document.getElementById("nightWork").checked = Boolean(entry.nightWork);
   setEditMode(entry);
@@ -1472,16 +1517,17 @@ async function submitTime() {
   const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
-  const timeOut = document.getElementById("timeOut").value;
+  const rawTimeOut = document.getElementById("timeOut").value;
+  const timeOut = normalizeTimeForStorage(rawTimeOut);
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (!weekStart || !typedJobName || !day || !timeIn || !timeOut) {
+  if (!weekStart || !typedJobName || !day || !timeIn || !rawTimeOut) {
     alert("Fill in all fields");
     return;
   }
 
-  if (!isHalfHourTime(timeIn) || !isHalfHourTime(timeOut)) {
+  if (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut)) {
     alert("Time In and Time Out must be in 30 minute intervals.");
     return;
   }
@@ -1501,7 +1547,7 @@ async function submitTime() {
     day,
     timeIn,
     timeOut,
-    hours: calculateHours(timeIn, timeOut, tookLunch),
+    hours: calculateHours(timeIn, rawTimeOut, tookLunch),
     tookLunch,
     nightWork
   };
