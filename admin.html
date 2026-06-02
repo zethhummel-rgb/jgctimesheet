@@ -586,7 +586,7 @@ button:hover,
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2024-present only, job name from columns A-E, and job number from column F. Rows highlighted yellow or red are skipped and treated as inactive.</div>
+            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, and job number from column F. Highlighted rows are skipped.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -2752,13 +2752,18 @@ function normalizeExcelHeader(value) {
     return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function isYellowOrRedFill(cell) {
+function isHighlightedFill(cell) {
     if (!cell || !cell.s) {
         return false;
     }
 
     const fill = cell.s.fill || {};
+    const patternType = String(fill.patternType || "").toLowerCase();
     const colors = [fill.fgColor, fill.bgColor, fill.patternColor].filter(Boolean);
+
+    if (patternType && patternType !== "none") {
+        return true;
+    }
 
     return colors.some((color) => {
         const value = String(color.rgb || color.indexed || color.theme || "").toUpperCase();
@@ -2767,19 +2772,21 @@ function isYellowOrRedFill(cell) {
             return false;
         }
 
-        return value.includes("FFFF00") ||
-            value.includes("FFD966") ||
-            value.includes("FFF2CC") ||
-            value.includes("FF0000") ||
-            value.includes("CC0000") ||
-            value.includes("F4CCCC");
+        return ![
+            "FFFFFF",
+            "FFFFFFFF",
+            "000000",
+            "FF000000",
+            "64",
+            "65"
+        ].includes(value);
     });
 }
 
 function isHighlightedInactiveRow(sheet, rowIndex, columnIndexes) {
     return columnIndexes.some((columnIndex) => {
         const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
-        return isYellowOrRedFill(sheet[address]);
+        return isHighlightedFill(sheet[address]);
     });
 }
 
@@ -2792,7 +2799,7 @@ function isJobImportSheet(sheetName) {
     }
 
     const year = Number(yearMatch[1]);
-    return year >= 2024 && year <= currentYear;
+    return year >= 2025 && year <= currentYear;
 }
 
 function getJobsSummary() {
@@ -2919,7 +2926,7 @@ async function importJobsFromExcel() {
         const sheetNames = workbook.SheetNames.filter(isJobImportSheet);
 
         if (!sheetNames.length) {
-            status.textContent = "No 2024-present tabs found in this Excel file.";
+            status.textContent = "No 2025-present tabs found in this Excel file.";
             return;
         }
 
