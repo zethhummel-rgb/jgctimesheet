@@ -687,6 +687,23 @@ let selectedCalendarDate = new Date();
 let activeJobs = [];
 const PREVIOUS_TIMESHEET_RETENTION_MONTHS = 2;
 
+window.addEventListener("error", function(event) {
+  const status = document.getElementById("submitStatus");
+
+  if (status) {
+    status.innerText = "Page error: " + (event.message || "Unknown error");
+  }
+});
+
+window.addEventListener("unhandledrejection", function(event) {
+  const status = document.getElementById("submitStatus");
+  const reason = event.reason && event.reason.message ? event.reason.message : String(event.reason || "Unknown error");
+
+  if (status) {
+    status.innerText = "Save error: " + reason;
+  }
+});
+
 if (!currentUser) {
   window.location.href = "index.html";
 } else {
@@ -1684,6 +1701,115 @@ function replaceStoredEntry(entries, updatedEntry) {
   });
 }
 
+function showSubmitError(message) {
+  const status = document.getElementById("submitStatus");
+
+  if (status) {
+    status.innerText = message;
+  }
+
+  alert(message);
+}
+
+async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart, day, startDate, endDate) {
+  const vacationTimeIn = document.getElementById("vacationTimeIn").value;
+  const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
+  const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
+  const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
+
+  if (entryType === "sick" && !leaveNote) {
+    showSubmitError("Please add a reason for the sick day.");
+    return false;
+  }
+
+  if (entryType === "vacation" && !leaveType) {
+    showSubmitError("Please choose Paid, Unpaid, or Half Day for the vacation day.");
+    return false;
+  }
+
+  if (isHalfDayVacation && (!vacationTimeIn || !rawVacationTimeOut)) {
+    showSubmitError("Please choose the time for the half vacation day.");
+    return false;
+  }
+
+  if (isHalfDayVacation && (!isHalfHourTime(vacationTimeIn) || !isHalfHourTime(rawVacationTimeOut))) {
+    showSubmitError("Half day vacation time must be in 30 minute intervals.");
+    return false;
+  }
+
+  const entry = {
+    id: editingEntryId || "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    user: currentUser,
+    weekStartValue: weekStart,
+    weekStart: formatDate(startDate),
+    weekEnd: formatDate(endDate),
+    jobName: getSpecialEntryJobName(entryType, leaveType),
+    jobNumber: "",
+    day,
+    timeIn: isHalfDayVacation ? vacationTimeIn : "00:00",
+    timeOut: isHalfDayVacation ? vacationTimeOut : "00:00",
+    hours: isHalfDayVacation ? calculateHours(vacationTimeIn, rawVacationTimeOut, false) : 0,
+    tookLunch: false,
+    nightWork: false,
+    entryType,
+    leaveType: entryType === "vacation" ? leaveType : "",
+    leaveNote
+  };
+
+  const status = document.getElementById("submitStatus");
+  let stored = loadTimesheets();
+  status.innerText = editingEntryId ? "Updating entry..." : "Saving entry...";
+
+  if (editingEntryId) {
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .update(entryToRow(entry))
+        .eq("id", editingEntryId)
+        .eq("worker_name", currentUser)
+        .select()
+        .single();
+
+      if (error) {
+        showSubmitError("Special day could not update online: " + error.message);
+        return false;
+      }
+
+      setTimesheets(replaceStoredEntry(stored, rowToEntry(data)));
+    } else {
+      setTimesheets(replaceStoredEntry(stored, entry));
+    }
+
+    clearEditMode();
+  } else {
+    stored.push(entry);
+    setTimesheets(stored);
+
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .insert(entryToRow(entry))
+        .select()
+        .single();
+
+      if (error) {
+        status.innerText = "Special day saved in this browser only. Supabase save failed: " + error.message;
+      } else if (data) {
+        const savedEntry = rowToEntry(data);
+        setTimesheets(loadTimesheets().map(function(item) {
+          return item.id === entry.id ? savedEntry : item;
+        }));
+      }
+    }
+  }
+
+  resetTimeEntryFields();
+  render();
+  renderTimesheetCalendar();
+  status.innerText = "Special day saved. Current entries shown: " + loadTimesheets().length + ".";
+  return true;
+}
+
 async function submitTime() {
   if (!currentUser) {
     alert("You must sign in first");
@@ -1728,7 +1854,7 @@ async function submitTime() {
   }
 
   if (entryType === "vacation" && !leaveType) {
-    alert("Please choose Paid or Unpaid for the vacation day.");
+    alert("Please choose Paid, Unpaid, or Half Day for the vacation day.");
     return;
   }
 
@@ -1755,6 +1881,11 @@ async function submitTime() {
   const startDate = makeLocalDate(weekStart);
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 6);
+
+  if (!isWorkEntry) {
+    await submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart, day, startDate, endDate);
+    return;
+  }
 
   const entry = {
     id: editingEntryId || "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
