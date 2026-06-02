@@ -1499,7 +1499,7 @@ async function submitTime() {
 
     if (error) {
       stored.push(entry);
-      saveFallbackTimesheets(mergeFallbackTimesheets(stored));
+      setTimesheets(stored);
       status.innerText = "Entry saved in this browser only. Supabase save failed.";
     } else {
       stored.push(rowToEntry(data));
@@ -1508,7 +1508,7 @@ async function submitTime() {
     }
   } else {
     stored.push(entry);
-    saveFallbackTimesheets(mergeFallbackTimesheets(stored));
+    setTimesheets(stored);
     status.innerText = "Entry submitted for this browser session.";
   }
 
