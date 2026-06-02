@@ -589,7 +589,7 @@
   </select>
 
   <div id="workEntryFields">
-    <label>Job Name</label>
+    <label id="jobNameLabel">Job Name</label>
     <input
       id="jobName"
       placeholder="Search jobs or type job name"
@@ -598,7 +598,7 @@
       oninput="fillJobNumberForSelectedJob()"
     />
     <datalist id="jobNameOptions"></datalist>
-    <label>Job Number</label>
+    <label id="jobNumberLabel">Job Number</label>
     <input
       id="jobNumber"
       type="text"
@@ -607,25 +607,27 @@
     />
     <div id="jobStatus" class="small">Loading active jobs. You can still type a job manually.</div>
 
-    <label>Time In</label>
-    <select id="timeIn">
-      <option value="">Select Time In</option>
-    </select>
+    <div id="timeEntryFields">
+      <label>Time In</label>
+      <select id="timeIn">
+        <option value="">Select Time In</option>
+      </select>
 
-    <label class="check-row">
-      <input id="tookLunch" type="checkbox" />
-      Did you take Lunch? This will subtract 30 minutes from this input only
-    </label>
+      <label class="check-row">
+        <input id="tookLunch" type="checkbox" />
+        Did you take Lunch? This will subtract 30 minutes from this input only
+      </label>
 
-    <label>Time Out</label>
-    <select id="timeOut">
-      <option value="">Select Time Out</option>
-    </select>
+      <label>Time Out</label>
+      <select id="timeOut">
+        <option value="">Select Time Out</option>
+      </select>
 
-    <label class="check-row">
-      <input id="nightWork" type="checkbox" />
-      Night Work
-    </label>
+      <label class="check-row">
+        <input id="nightWork" type="checkbox" />
+        Night Work
+      </label>
+    </div>
   </div>
 
   <div id="leaveEntryFields" class="field-hidden">
@@ -1571,31 +1573,114 @@ function resetTimeEntryFields() {
   updateEntryTypeFields();
 }
 
+function isAutoSpecialJobName(value) {
+  const normalizedValue = String(value || "").trim().toLowerCase();
+  return normalizedValue === "sick" || normalizedValue === "vacation" || normalizedValue === "civic holiday";
+}
+
+function setSpecialJobDefaults(entryType) {
+  const jobNameInput = document.getElementById("jobName");
+  const jobNumberInput = document.getElementById("jobNumber");
+  const jobName = jobNameInput.value.trim();
+
+  jobNumberInput.dataset.autoJobNumber = "false";
+
+  if (entryType === "sick") {
+    if (!jobName || isAutoSpecialJobName(jobName)) {
+      jobNameInput.value = "Sick";
+    }
+
+    jobNumberInput.placeholder = "Reason why";
+    return;
+  }
+
+  if (entryType === "vacation") {
+    if (!jobName || isAutoSpecialJobName(jobName)) {
+      jobNameInput.value = "Vacation";
+    }
+
+    jobNumberInput.placeholder = "Paid, unpaid, half day, or note";
+    return;
+  }
+
+  if (entryType === "civic_holiday") {
+    if (!jobName || isAutoSpecialJobName(jobName)) {
+      jobNameInput.value = "Civic Holiday";
+    }
+
+    jobNumberInput.placeholder = "Holiday name or note";
+  }
+}
+
+function getSpecialJobNumberValue(entryType, leaveType, typedJobNumber) {
+  const note = String(typedJobNumber || "").trim();
+
+  if (entryType === "vacation") {
+    const vacationType = leaveType ? capitalizeWords(leaveType) : "";
+    return note || vacationType;
+  }
+
+  return note;
+}
+
 function updateEntryTypeFields() {
   const entryType = document.getElementById("entryType").value;
   const isWork = entryType === "work";
-  const workFields = document.getElementById("workEntryFields");
+  const timeFields = document.getElementById("timeEntryFields");
   const leaveFields = document.getElementById("leaveEntryFields");
   const leaveType = document.getElementById("leaveType");
   const leaveTypeLabel = document.getElementById("leaveTypeLabel");
   const leaveNoteLabel = document.getElementById("leaveNoteLabel");
   const halfDayFields = document.getElementById("vacationHalfDayFields");
+  const jobNameLabel = document.getElementById("jobNameLabel");
+  const jobNumberLabel = document.getElementById("jobNumberLabel");
+  const jobNameInput = document.getElementById("jobName");
+  const jobNumberInput = document.getElementById("jobNumber");
+  const jobStatus = document.getElementById("jobStatus");
 
-  workFields.classList.toggle("field-hidden", !isWork);
-  leaveFields.classList.toggle("field-hidden", isWork);
+  timeFields.classList.toggle("field-hidden", !isWork);
+  leaveFields.classList.toggle("field-hidden", entryType !== "vacation");
+
+  if (isWork) {
+    jobNameLabel.textContent = "Job Name";
+    jobNumberLabel.textContent = "Job Number";
+    jobNameInput.placeholder = "Search jobs or type job name";
+    jobNumberInput.placeholder = "Job number if available";
+    jobStatus.style.display = "";
+
+    if (isAutoSpecialJobName(jobNameInput.value)) {
+      jobNameInput.value = "";
+      jobNumberInput.value = "";
+    }
+
+    leaveType.value = "";
+    leaveType.classList.add("field-hidden");
+    leaveTypeLabel.classList.add("field-hidden");
+    halfDayFields.classList.add("field-hidden");
+    return;
+  }
+
+  jobNameLabel.textContent = "Entry";
+  jobNumberLabel.textContent = "Reason / Note";
+  jobNameInput.placeholder = "Sick, Vacation, or Civic Holiday";
+  jobStatus.style.display = "none";
+  document.getElementById("tookLunch").checked = false;
+  document.getElementById("nightWork").checked = false;
+
+  setSpecialJobDefaults(entryType);
 
   if (entryType === "vacation") {
     leaveType.classList.remove("field-hidden");
     leaveTypeLabel.classList.remove("field-hidden");
     leaveTypeLabel.textContent = "Vacation Type";
-    leaveNoteLabel.textContent = "Note";
+    leaveNoteLabel.textContent = "Extra Note";
     halfDayFields.classList.toggle("field-hidden", leaveType.value !== "half_day");
   } else {
     leaveType.value = "";
     leaveType.classList.add("field-hidden");
     leaveTypeLabel.classList.add("field-hidden");
     halfDayFields.classList.add("field-hidden");
-    leaveNoteLabel.textContent = entryType === "sick" ? "Sick Reason" : "Note";
+    leaveNoteLabel.textContent = "Extra Note";
   }
 }
 
@@ -1646,6 +1731,8 @@ function editEntry(entryId) {
   document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
   document.getElementById("nightWork").checked = Boolean(entry.nightWork);
   updateEntryTypeFields();
+  document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
+  document.getElementById("jobNumber").value = entry.jobNumber || getEntryLeaveNote(entry);
   setEditMode(entry);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1837,24 +1924,28 @@ async function submitTime() {
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 6);
 
-  if (!isWorkEntry) {
-    await submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart, day, startDate, endDate);
-    return;
-  }
-
   const selectedJob = findSelectedActiveJob();
   const typedJobName = document.getElementById("jobName").value.trim();
   const typedJobNumber = document.getElementById("jobNumber").value.trim();
   const selectedDisplay = selectedJob ? getJobDisplay(selectedJob) : "";
   const jobName = cleanRepeatedJobName(
-    selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
+    isWorkEntry && selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
       ? selectedJob.job_name
       : typedJobName
   );
-  const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
+  const jobNumber = isWorkEntry
+    ? (typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : ""))
+    : getSpecialJobNumberValue(entryType, leaveType, typedJobNumber);
   const timeIn = document.getElementById("timeIn").value;
   const rawTimeOut = document.getElementById("timeOut").value;
   const timeOut = normalizeTimeForStorage(rawTimeOut);
+  const vacationTimeIn = document.getElementById("vacationTimeIn").value;
+  const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
+  const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
+  const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
+  const finalTimeIn = isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? timeIn : "00:00");
+  const finalRawTimeOut = isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? rawTimeOut : "00:00");
+  const finalTimeOut = isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? timeOut : "00:00");
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
@@ -1868,23 +1959,48 @@ async function submitTime() {
     return;
   }
 
+  if (!isWorkEntry && !jobName) {
+    alert("Fill in the entry name.");
+    return;
+  }
+
+  if (entryType === "sick" && !jobNumber) {
+    alert("Please add the sick reason in the Reason / Note box.");
+    return;
+  }
+
+  if (entryType === "vacation" && !leaveType) {
+    alert("Please choose Paid, Unpaid, or Half Day for the vacation day.");
+    return;
+  }
+
+  if (isHalfDayVacation && (!vacationTimeIn || !rawVacationTimeOut)) {
+    alert("Please choose the time for the half vacation day.");
+    return;
+  }
+
+  if (isHalfDayVacation && (!isHalfHourTime(vacationTimeIn) || !isHalfHourTime(rawVacationTimeOut))) {
+    alert("Half day vacation time must be in 30 minute intervals.");
+    return;
+  }
+
   const entry = {
     id: editingEntryId || "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
     user: currentUser,
     weekStartValue: weekStart,
     weekStart: formatDate(startDate),
     weekEnd: formatDate(endDate),
-    jobName: isWorkEntry ? jobName : getSpecialEntryJobName(entryType, leaveType),
-    jobNumber: isWorkEntry ? jobNumber : "",
+    jobName,
+    jobNumber,
     day,
-    timeIn,
-    timeOut,
-    hours: calculateHours(timeIn, rawTimeOut, tookLunch),
+    timeIn: finalTimeIn,
+    timeOut: finalTimeOut,
+    hours: isWorkEntry || isHalfDayVacation ? calculateHours(finalTimeIn, finalRawTimeOut, tookLunch && isWorkEntry) : 0,
     tookLunch: isWorkEntry ? tookLunch : false,
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
     leaveType: entryType === "vacation" ? leaveType : "",
-    leaveNote
+    leaveNote: leaveNote || (!isWorkEntry ? jobNumber : "")
   };
 
   const status = document.getElementById("submitStatus");
@@ -2380,7 +2496,17 @@ function getEntryTypeLabel(entry) {
 }
 
 function getEntryLeaveNote(entry) {
-  return (entry && (entry.leaveNote || entry.leave_note)) || "";
+  if (!entry) {
+    return "";
+  }
+
+  const note = entry.leaveNote || entry.leave_note;
+
+  if (note) {
+    return note;
+  }
+
+  return getEntryType(entry) !== "work" ? (entry.jobNumber || entry.job_number || "") : "";
 }
 
 function isLeaveEntry(entry) {
