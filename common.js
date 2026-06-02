@@ -9,6 +9,7 @@ function applyJgcPortalName() {
     "aerial-lifts.html": "Aerial Lift Inspection",
     "certificates.html": "Certificates",
     "contacts.html": "Contacts",
+    "daily-site-report.html": "Daily Site Report",
     "equipment-vehicles.html": "Equipment / Vehicles",
     "forklift.html": "Forklift Inspection",
     "harness.html": "Harness Inspection",
