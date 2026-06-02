@@ -3108,7 +3108,26 @@ function render() {
     `;
   }).join("");
 
-  const rows = sortedEntries.map(function(entry) {
+  const sickEntries = sortedEntries.filter(function(entry) {
+    return getEntryType(entry) === "sick";
+  });
+
+  const sickRows = sickEntries.map(function(entry) {
+    return `
+      <tr>
+        <td>${escapeHtml(entry.day || "")}</td>
+        <td>${escapeHtml(entry.jobNumber || entry.leaveNote || "")}</td>
+        <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
+        <td>${escapeHtml(entry.leaveNote || "")}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const summaryEntries = sortedEntries.filter(function(entry) {
+    return getEntryType(entry) !== "sick";
+  });
+
+  const rows = summaryEntries.map(function(entry) {
     const dayCells = days.map(function(day) {
       if (entry.day !== day) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
@@ -3147,6 +3166,24 @@ function render() {
         </tbody>
       </table>
     </div>
+    ${sickEntries.length ? `
+      <h3>Sick Days</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Reason</th>
+              <th>Hours</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sickRows}
+          </tbody>
+        </table>
+      </div>
+    ` : ""}
     <h3>Weekly Summary</h3>
     <div class="table-wrap">
       <table>
