@@ -1146,16 +1146,42 @@ function loadTimesheets() {
   return memoryTimesheets.filter(function(entry) {
     return normalizeWorkerName(entry.user) === normalizeWorkerName(currentUser);
   }).map(function(entry) {
-    return {
-      ...entry,
-      jobName: cleanRepeatedJobName(entry.jobName)
-    };
+    return normalizeTimesheetEntry(entry);
   });
 }
 
 function setTimesheets(entries) {
-  memoryTimesheets = entries;
-  saveFallbackTimesheets(mergeFallbackTimesheets(entries));
+  const normalizedEntries = entries.map(normalizeTimesheetEntry);
+  memoryTimesheets = normalizedEntries;
+  saveFallbackTimesheets(mergeFallbackTimesheets(normalizedEntries));
+}
+
+function normalizeEntryHours(value) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue.toFixed(2) : "0.00";
+}
+
+function normalizeTimesheetEntry(entry) {
+  const normalizedEntry = {
+    ...entry,
+    jobName: cleanRepeatedJobName(entry.jobName || entry.job_name || ""),
+    jobNumber: entry.jobNumber || entry.job_number || "",
+    day: entry.day || entry.day_of_week || "",
+    timeIn: entry.timeIn || entry.time_in || "00:00",
+    timeOut: entry.timeOut || entry.time_out || "00:00",
+    hours: normalizeEntryHours(entry.hours),
+    tookLunch: Boolean(entry.tookLunch || entry.took_lunch),
+    nightWork: Boolean(entry.nightWork || entry.night_work),
+    entryType: getEntryType(entry),
+    leaveType: entry.leaveType || entry.leave_type || "",
+    leaveNote: entry.leaveNote || entry.leave_note || ""
+  };
+
+  if (isLeaveEntry(normalizedEntry) && !normalizedEntry.hours) {
+    normalizedEntry.hours = "0.00";
+  }
+
+  return normalizedEntry;
 }
 
 function normalizeWorkerName(name) {
@@ -1180,16 +1206,7 @@ function loadAllFallbackTimesheets() {
 }
 
 function rowToEntry(row) {
-  const rowJobName = String(row.job_name || "").toLowerCase();
-  const inferredEntryType = row.entry_type || (rowJobName === "sick" || rowJobName.includes("sick day")
-    ? "sick"
-    : rowJobName === "vacation" || rowJobName.includes("vacation day")
-      ? "vacation"
-      : rowJobName.includes("holiday")
-        ? "civic_holiday"
-        : "work");
-
-  return {
+  return normalizeTimesheetEntry({
     id: row.id,
     user: row.worker_name,
     weekStartValue: row.week_start,
@@ -1200,31 +1217,33 @@ function rowToEntry(row) {
     day: row.day_of_week,
     timeIn: String(row.time_in).slice(0, 5),
     timeOut: String(row.time_out).slice(0, 5),
-    hours: Number(row.hours).toFixed(2),
+    hours: row.hours,
     tookLunch: Boolean(row.took_lunch),
     nightWork: Boolean(row.night_work),
-    entryType: inferredEntryType,
+    entryType: row.entry_type || "",
     leaveType: row.leave_type || "",
     leaveNote: row.leave_note || ""
-  };
+  });
 }
 
 function entryToRow(entry) {
+  const normalizedEntry = normalizeTimesheetEntry(entry);
+
   return {
-    worker_name: entry.user,
-    week_start: entry.weekStartValue,
-    week_end: entry.weekEnd,
-    job_name: entry.jobName,
-    job_number: entry.jobNumber,
-    day_of_week: entry.day,
-    time_in: entry.timeIn,
-    time_out: entry.timeOut,
-    hours: Number(entry.hours),
-    took_lunch: Boolean(entry.tookLunch),
-    night_work: Boolean(entry.nightWork),
-    entry_type: getEntryType(entry),
-    leave_type: entry.leaveType || "",
-    leave_note: entry.leaveNote || ""
+    worker_name: normalizedEntry.user,
+    week_start: normalizedEntry.weekStartValue,
+    week_end: normalizedEntry.weekEnd,
+    job_name: normalizedEntry.jobName,
+    job_number: normalizedEntry.jobNumber,
+    day_of_week: normalizedEntry.day,
+    time_in: normalizedEntry.timeIn,
+    time_out: normalizedEntry.timeOut,
+    hours: Number(normalizedEntry.hours),
+    took_lunch: Boolean(normalizedEntry.tookLunch),
+    night_work: Boolean(normalizedEntry.nightWork),
+    entry_type: getEntryType(normalizedEntry),
+    leave_type: normalizedEntry.leaveType || "",
+    leave_note: normalizedEntry.leaveNote || ""
   };
 }
 
