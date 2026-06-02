@@ -1161,6 +1161,16 @@ function normalizeEntryHours(value) {
   return Number.isFinite(numberValue) ? numberValue.toFixed(2) : "0.00";
 }
 
+function getEntryHours(entry) {
+  const numberValue = Number(entry && entry.hours);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function getEntryHoursLabel(entry) {
+  const hours = getEntryHours(entry);
+  return hours === 0 ? "0" : hours.toFixed(2);
+}
+
 function normalizeTimesheetEntry(entry) {
   const normalizedEntry = {
     ...entry,
@@ -1215,8 +1225,8 @@ function rowToEntry(row) {
     jobName: cleanRepeatedJobName(row.job_name),
     jobNumber: row.job_number,
     day: row.day_of_week,
-    timeIn: String(row.time_in).slice(0, 5),
-    timeOut: String(row.time_out).slice(0, 5),
+    timeIn: row.time_in ? String(row.time_in).slice(0, 5) : "00:00",
+    timeOut: row.time_out ? String(row.time_out).slice(0, 5) : "00:00",
     hours: row.hours,
     tookLunch: Boolean(row.took_lunch),
     nightWork: Boolean(row.night_work),
@@ -1885,7 +1895,9 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
         return false;
       }
 
-      setTimesheets(replaceStoredEntry(stored, rowToEntry(data)));
+      const savedEntry = rowToEntry(data);
+      savedEntry.user = currentUser;
+      setTimesheets(replaceStoredEntry(stored, savedEntry));
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -1906,6 +1918,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
         status.innerText = "Special day saved in this browser only. Supabase save failed: " + error.message;
       } else if (data) {
         const savedEntry = rowToEntry(data);
+        savedEntry.user = currentUser;
         setTimesheets(loadTimesheets().map(function(item) {
           return item.id === entry.id ? savedEntry : item;
         }));
@@ -1965,18 +1978,25 @@ async function submitTime() {
   const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
   const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
   const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
-  const finalTimeIn = isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? timeIn : "00:00");
-  const finalRawTimeOut = isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? rawTimeOut : "00:00");
-  const finalTimeOut = isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? timeOut : "00:00");
+  const hasWorkTime = Boolean(timeIn || rawTimeOut);
+  const hasCompleteWorkTime = Boolean(timeIn && rawTimeOut);
+  const finalTimeIn = isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? (timeIn || "00:00") : "00:00");
+  const finalRawTimeOut = isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? (rawTimeOut || "00:00") : "00:00");
+  const finalTimeOut = isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? normalizeTimeForStorage(rawTimeOut || "00:00") : "00:00");
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (isWorkEntry && (!typedJobName || !timeIn || !rawTimeOut)) {
-    alert("Fill in all work entry fields");
+  if (isWorkEntry && !typedJobName) {
+    alert("Fill in the job name.");
     return;
   }
 
-  if (isWorkEntry && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
+  if (isWorkEntry && hasWorkTime && !hasCompleteWorkTime) {
+    alert("Choose both Time In and Time Out, or leave both blank for 0 hours.");
+    return;
+  }
+
+  if (isWorkEntry && hasCompleteWorkTime && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
     alert("Time In and Time Out must be in 30 minute intervals.");
     return;
   }
@@ -2017,7 +2037,9 @@ async function submitTime() {
     day,
     timeIn: finalTimeIn,
     timeOut: finalTimeOut,
-    hours: isWorkEntry || isHalfDayVacation ? calculateHours(finalTimeIn, finalRawTimeOut, tookLunch && isWorkEntry) : 0,
+    hours: isHalfDayVacation || (isWorkEntry && hasCompleteWorkTime)
+      ? calculateHours(finalTimeIn, finalRawTimeOut, tookLunch && isWorkEntry)
+      : 0,
     tookLunch: isWorkEntry ? tookLunch : false,
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
@@ -2046,7 +2068,9 @@ async function submitTime() {
         return;
       }
 
-      setTimesheets(replaceStoredEntry(stored, rowToEntry(data)));
+      const savedEntry = rowToEntry(data);
+      savedEntry.user = currentUser;
+      setTimesheets(replaceStoredEntry(stored, savedEntry));
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -2075,6 +2099,7 @@ async function submitTime() {
     } else if (data) {
       try {
         const savedEntry = rowToEntry(data);
+        savedEntry.user = currentUser;
         setTimesheets(loadTimesheets().map(function(item) {
           return item.id === entry.id ? savedEntry : item;
         }));
@@ -3044,7 +3069,11 @@ function render() {
   const dailyRows = sortedEntries.map(function(entry) {
     const isLeave = isLeaveEntry(entry);
     const note = getEntryLeaveNote(entry);
-    const timeText = isLeave && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut);
+    const hours = getEntryHours(entry);
+    const hasZeroPlaceholderTime = entry.timeIn === "00:00" && entry.timeOut === "00:00" && hours === 0;
+    const timeText = (isLeave && entry.leaveType !== "half_day") || hasZeroPlaceholderTime
+      ? ""
+      : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut);
 
     return `
       <tr>
@@ -3052,7 +3081,7 @@ function render() {
         <td>${escapeHtml(entry.jobName)}</td>
         <td>${escapeHtml(isLeave ? (entry.jobNumber || note) : entry.jobNumber)}</td>
         <td>${timeText}</td>
-        <td>${Number(entry.hours || 0).toFixed(2)}</td>
+        <td>${getEntryHoursLabel(entry)}</td>
       </tr>
     `;
   }).join("");
@@ -3064,10 +3093,10 @@ function render() {
       }
 
       if (isLeaveEntry(entry)) {
-        return '<td data-label="' + day + '"><b>' + (Number(entry.hours || 0) ? Number(entry.hours || 0).toFixed(2) : "0") + '</b></td>';
+        return '<td data-label="' + day + '"><b>' + getEntryHoursLabel(entry) + '</b></td>';
       }
 
-      return '<td data-label="' + day + '"><b>' + Number(entry.hours || 0).toFixed(2) + "</b></td>";
+      return '<td data-label="' + day + '"><b>' + getEntryHoursLabel(entry) + "</b></td>";
     }).join("");
 
     return `
