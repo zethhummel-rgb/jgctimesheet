@@ -1391,7 +1391,26 @@ function renderTimesheets() {
 }
 
 function getAdminTimesheetEntryType(entry) {
-    return getTimesheetEntryValue(entry, "entryType", "entry_type", "work") || "work";
+    const explicitType = getTimesheetEntryValue(entry, "entryType", "entry_type", "");
+    const jobName = String(getTimesheetEntryValue(entry, "jobName", "job_name", "") || "").toLowerCase();
+
+    if (explicitType) {
+        return explicitType;
+    }
+
+    if (jobName.includes("sick day")) {
+        return "sick";
+    }
+
+    if (jobName.includes("vacation day")) {
+        return "vacation";
+    }
+
+    if (jobName.includes("civic holiday") || jobName.includes("holiday")) {
+        return "civic_holiday";
+    }
+
+    return "work";
 }
 
 function getAdminTimesheetLeaveNote(entry) {
@@ -1405,13 +1424,14 @@ function getAdminTimesheetLeaveType(entry) {
 function getAdminTimesheetEntryLabel(entry) {
     const type = getAdminTimesheetEntryType(entry);
     const leaveType = getAdminTimesheetLeaveType(entry);
+    const leaveTypeLabel = leaveType === "half_day" ? "Half Day" : capitalizeWords(leaveType);
 
     if (type === "sick") {
         return "Sick Day";
     }
 
     if (type === "vacation") {
-        return "Vacation Day" + (leaveType ? " - " + capitalizeWords(leaveType) : "");
+        return "Vacation Day" + (leaveType ? " - " + leaveTypeLabel : "");
     }
 
     if (type === "civic_holiday") {
@@ -1427,7 +1447,7 @@ function getAdminSpecialEntryJobName(entryType, leaveType) {
     }
 
     if (entryType === "vacation") {
-        return "Vacation Day" + (leaveType ? " - " + capitalizeWords(leaveType) : "");
+        return "Vacation Day" + (leaveType ? " - " + (leaveType === "half_day" ? "Half Day" : capitalizeWords(leaveType)) : "");
     }
 
     if (entryType === "civic_holiday") {
@@ -1450,7 +1470,7 @@ function buildAdminSickDayRows() {
             worker: entry.worker_name || "",
             day: entry.day_of_week || "",
             date: getLiveTimesheetEntryDate(entry),
-            reason: entry.leave_note || "",
+            reason: getAdminTimesheetLeaveNote(entry),
             status: "Current Week",
             submitted: entry.created_at || ""
         }));
@@ -1576,6 +1596,7 @@ async function loadLiveTimesheetEntries() {
 
     liveTimesheetEntries = data || [];
     renderTimesheets();
+    renderSickDays();
 }
 
 function getLiveTimesheetEntryDate(entry) {
@@ -1765,6 +1786,7 @@ async function deleteLiveTimesheetEntry(id) {
 
     liveTimesheetEntries = liveTimesheetEntries.filter((item) => item.id !== id);
     renderTimesheets();
+    renderSickDays();
 }
 
 function renderLiveTimesheetEditPanel(entry) {
@@ -1803,6 +1825,7 @@ function renderLiveTimesheetEditPanel(entry) {
                     <option value="">None</option>
                     <option value="paid" ${entry.leave_type === "paid" ? "selected" : ""}>Paid</option>
                     <option value="unpaid" ${entry.leave_type === "unpaid" ? "selected" : ""}>Unpaid</option>
+                    <option value="half_day" ${entry.leave_type === "half_day" ? "selected" : ""}>Half Day</option>
                 </select>
             </div>
             <div>
@@ -1877,6 +1900,11 @@ async function saveLiveTimesheetEntryEdit() {
         return;
     }
 
+    if (entryType === "vacation" && leaveType === "half_day" && (!timeIn || !timeOut)) {
+        alert("Choose time in and time out for the half vacation day.");
+        return;
+    }
+
     status.textContent = "Saving live entry...";
 
     const weekEndDate = makeLocalDate(weekStart);
@@ -1888,11 +1916,11 @@ async function saveLiveTimesheetEntryEdit() {
         day_of_week: day,
         job_name: entryType === "work" ? jobName : getAdminSpecialEntryJobName(entryType, leaveType),
         job_number: entryType === "work" ? jobNumber : "",
-        time_in: entryType === "work" ? timeIn : "00:00",
-        time_out: entryType === "work" ? timeOut : "00:00",
+        time_in: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00",
+        time_out: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00",
         took_lunch: entryType === "work" ? tookLunch : false,
         night_work: entryType === "work" ? nightWork : false,
-        hours: entryType === "work" ? calculateAdminTimesheetHours(timeIn, timeOut, tookLunch) : 0,
+        hours: entryType === "work" ? calculateAdminTimesheetHours(timeIn, timeOut, tookLunch) : (entryType === "vacation" && leaveType === "half_day" ? calculateAdminTimesheetHours(timeIn, timeOut, false) : 0),
         entry_type: entryType,
         leave_type: entryType === "vacation" ? leaveType : "",
         leave_note: leaveNote
@@ -1913,6 +1941,7 @@ async function saveLiveTimesheetEntryEdit() {
     liveTimesheetEntries = liveTimesheetEntries.map((item) => item.id === editingLiveTimesheetEntryId ? data : item);
     cancelLiveTimesheetEntryEdit();
     renderTimesheets();
+    renderSickDays();
 }
 
 function cancelLiveTimesheetEntryEdit() {
@@ -2049,7 +2078,7 @@ function getAdminTimesheetEmailTableRows(entries) {
             getAdminTimesheetLeaveNote(entry),
             getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No",
             getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No",
-            getAdminTimesheetEntryType(entry) === "work" ? timeIn + "-" + timeOut : "",
+            getAdminTimesheetEntryType(entry) === "work" || getAdminTimesheetLeaveType(entry) === "half_day" ? timeIn + "-" + timeOut : "",
             Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)
         ];
 
@@ -2231,6 +2260,7 @@ function getTimesheetEditRowHtml(entry) {
                     <option value="">None</option>
                     <option value="paid"${entry.leaveType === "paid" ? " selected" : ""}>Paid</option>
                     <option value="unpaid"${entry.leaveType === "unpaid" ? " selected" : ""}>Unpaid</option>
+                    <option value="half_day"${entry.leaveType === "half_day" ? " selected" : ""}>Half Day</option>
                 </select>
             </td>
             <td><input class="job-name-input" data-field="jobName" value="${escapeHtml(entry.jobName || "")}"></td>
@@ -2292,9 +2322,9 @@ function collectAdminTimesheetEntries(week) {
             jobName: entryType === "work" ? getValue("jobName") : getAdminSpecialEntryJobName(entryType, leaveType),
             jobNumber: entryType === "work" ? getValue("jobNumber") : "",
             day: getValue("day"),
-            timeIn: entryType === "work" ? timeIn : "00:00",
-            timeOut: entryType === "work" ? timeOut : "00:00",
-            hours: entryType === "work" ? Number(hours || 0).toFixed(2) : "0.00",
+            timeIn: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00",
+            timeOut: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00",
+            hours: entryType === "work" ? Number(hours || 0).toFixed(2) : (entryType === "vacation" && leaveType === "half_day" ? Number(hours || 0).toFixed(2) : "0.00"),
             tookLunch: entryType === "work" ? tookLunch : false,
             nightWork: entryType === "work" ? getChecked("nightWork") : false,
             entryType,
@@ -2333,7 +2363,7 @@ async function saveSubmittedTimesheetEdits() {
         }
 
         if (entry.entryType === "vacation") {
-            return !entry.leaveType;
+            return !entry.leaveType || (entry.leaveType === "half_day" && (!entry.timeIn || !entry.timeOut));
         }
 
         return false;
@@ -2424,7 +2454,7 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                     <td>${escapeHtml(getAdminTimesheetLeaveNote(entry))}</td>
                     <td>${getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No"}</td>
                     <td>${getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No"}</td>
-                    <td>${getAdminTimesheetEntryType(entry) === "work" ? escapeHtml(timeIn) + "-" + escapeHtml(timeOut) : ""}</td>
+                    <td>${getAdminTimesheetEntryType(entry) === "work" || getAdminTimesheetLeaveType(entry) === "half_day" ? escapeHtml(timeIn) + "-" + escapeHtml(timeOut) : ""}</td>
                     <td>${Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)}</td>
                 </tr>
             `;
