@@ -2454,9 +2454,9 @@ function getWeekdayNames() {
 
 function getEntryType(entry) {
   const explicitType = entry && (entry.entryType || entry.entry_type);
-  const jobName = String((entry && (entry.jobName || entry.job_name)) || "").toLowerCase();
+  const jobName = String((entry && (entry.jobName || entry.job_name)) || "").trim().toLowerCase();
 
-  if (explicitType) {
+  if (explicitType && explicitType !== "work") {
     return explicitType;
   }
 
@@ -2470,6 +2470,10 @@ function getEntryType(entry) {
 
   if (jobName.includes("civic holiday") || jobName.includes("holiday")) {
     return "civic_holiday";
+  }
+
+  if (explicitType) {
+    return explicitType;
   }
 
   return "work";
