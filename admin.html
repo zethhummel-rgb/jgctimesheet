@@ -1467,6 +1467,8 @@ function buildAdminSickDayRows() {
     const liveRows = liveTimesheetEntries
         .filter((entry) => getAdminTimesheetEntryType(entry) === "sick")
         .map((entry) => ({
+            id: entry.id || "",
+            source: "live",
             worker: entry.worker_name || "",
             day: entry.day_of_week || "",
             date: getLiveTimesheetEntryDate(entry),
@@ -1481,9 +1483,15 @@ function buildAdminSickDayRows() {
         const entries = Array.isArray(week.entries) ? week.entries : [];
 
         entries
-            .filter((entry) => getAdminTimesheetEntryType(entry) === "sick")
-            .forEach((entry) => {
+            .map((entry, index) => ({ entry, index }))
+            .filter((item) => getAdminTimesheetEntryType(item.entry) === "sick")
+            .forEach((item) => {
+                const entry = item.entry;
                 submittedRows.push({
+                    id: week.id + "::" + item.index,
+                    source: "submitted",
+                    weekId: week.id,
+                    entryIndex: item.index,
                     worker: week.worker_name || getTimesheetEntryValue(entry, "user", "worker_name", ""),
                     day: getTimesheetEntryValue(entry, "day", "day_of_week", ""),
                     date: getTimesheetEntryDateFromEntry(entry),
@@ -1555,6 +1563,7 @@ function renderSickDays() {
                             <th>Reason</th>
                             <th>Status</th>
                             <th>Saved / Submitted</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1565,6 +1574,7 @@ function renderSickDays() {
                                 <td>${escapeHtml(row.reason)}</td>
                                 <td>${escapeHtml(row.status)}</td>
                                 <td>${escapeHtml(formatDate(row.submitted))}</td>
+                                <td><button type="button" class="delete-button" onclick="deleteAdminSickDay('${escapeHtml(row.id)}')">Delete</button></td>
                             </tr>
                         `).join("")}
                     </tbody>
@@ -1572,6 +1582,65 @@ function renderSickDays() {
             </div>
         `;
     }).join("");
+}
+
+async function deleteAdminSickDay(rowId) {
+    const row = buildAdminSickDayRows().find((item) => item.id === rowId);
+
+    if (!row) {
+        alert("Sick day could not be found.");
+        return;
+    }
+
+    const confirmed = confirm("Delete this sick day?\n\n" + row.worker + " - " + row.day + "\n" + (row.reason || ""));
+
+    if (!confirmed) {
+        return;
+    }
+
+    if (row.source === "live") {
+        const { error } = await supabaseClient
+            .from("timesheet_entries")
+            .delete()
+            .eq("id", row.id);
+
+        if (error) {
+            alert("Sick day could not be deleted.");
+            return;
+        }
+
+        liveTimesheetEntries = liveTimesheetEntries.filter((entry) => entry.id !== row.id);
+        renderTimesheets();
+        renderSickDays();
+        return;
+    }
+
+    const week = timesheets.find((item) => item.id === row.weekId);
+
+    if (!week || !Array.isArray(week.entries)) {
+        alert("Submitted sick day could not be found.");
+        return;
+    }
+
+    const entries = week.entries.filter((entry, index) => index !== row.entryIndex);
+    const totalHours = entries.reduce((total, entry) => total + Number(getTimesheetEntryValue(entry, "hours", "hours", 0)), 0);
+    const { error } = await supabaseClient
+        .from("previous_timesheet_weeks")
+        .update({
+            entries,
+            total_hours: totalHours
+        })
+        .eq("id", row.weekId);
+
+    if (error) {
+        alert("Submitted sick day could not be deleted.");
+        return;
+    }
+
+    week.entries = entries;
+    week.total_hours = totalHours;
+    renderTimesheets();
+    renderSickDays();
 }
 
 async function loadLiveTimesheetEntries() {
