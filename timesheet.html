@@ -1827,6 +1827,7 @@ async function submitTime() {
   updateJobSuggestions();
   resetTimeEntryFields();
   render();
+  status.innerText += " Current entries shown: " + loadTimesheets().length + ".";
 }
 
 async function clearEntries() {
@@ -2750,7 +2751,7 @@ function render() {
     return;
   }
 
-  const rows = entries.slice().sort(function(a, b) {
+  const sortedEntries = entries.slice().sort(function(a, b) {
     const dayDifference = days.indexOf(a.day) - days.indexOf(b.day);
 
     if (dayDifference !== 0) {
@@ -2758,7 +2759,25 @@ function render() {
     }
 
     return String(a.jobName || "").localeCompare(String(b.jobName || ""));
-  }).map(function(entry) {
+  });
+
+  const dailyRows = sortedEntries.map(function(entry) {
+    const isLeave = isLeaveEntry(entry);
+    const note = getEntryLeaveNote(entry);
+    const timeText = isLeave && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut);
+
+    return `
+      <tr>
+        <td>${escapeHtml(entry.day || "")}</td>
+        <td>${escapeHtml(isLeave ? getEntryTypeLabel(entry) : entry.jobName)}</td>
+        <td>${escapeHtml(isLeave ? note : entry.jobNumber)}</td>
+        <td>${timeText}</td>
+        <td>${Number(entry.hours || 0).toFixed(2)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const rows = sortedEntries.map(function(entry) {
     const dayCells = days.map(function(day) {
       if (entry.day !== day) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
@@ -2784,6 +2803,24 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
+    <h3>Daily Entries</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Entry</th>
+            <th>Job # / Note</th>
+            <th>Time</th>
+            <th>Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dailyRows}
+        </tbody>
+      </table>
+    </div>
+    <h3>Weekly Summary</h3>
     <div class="table-wrap">
       <table>
         <thead>
