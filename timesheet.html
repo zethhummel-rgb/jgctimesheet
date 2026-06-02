@@ -1193,6 +1193,10 @@ function normalizeTimesheetEntry(entry) {
     normalizedEntry.hours = "0.00";
   }
 
+  if (getEntryType(normalizedEntry) === "sick" && normalizedEntry.timeIn === "00:00" && normalizedEntry.timeOut === "00:00") {
+    normalizedEntry.timeOut = "12:00";
+  }
+
   return normalizedEntry;
 }
 
@@ -2001,12 +2005,13 @@ async function submitTime() {
   const vacationTimeIn = document.getElementById("vacationTimeIn").value;
   const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
   const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
+  const isSickEntry = entryType === "sick";
   const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
   const hasWorkTime = Boolean(timeIn || rawTimeOut);
   const hasCompleteWorkTime = Boolean(timeIn && rawTimeOut);
-  const finalTimeIn = isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? (timeIn || "00:00") : "00:00");
-  const finalRawTimeOut = isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? (rawTimeOut || "00:00") : "00:00");
-  const finalTimeOut = isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? normalizeTimeForStorage(rawTimeOut || "00:00") : "00:00");
+  const finalTimeIn = isSickEntry ? "00:00" : (isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? (timeIn || "00:00") : "00:00"));
+  const finalRawTimeOut = isSickEntry ? "12:00" : (isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? (rawTimeOut || "00:00") : "00:00"));
+  const finalTimeOut = isSickEntry ? "12:00" : (isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? normalizeTimeForStorage(rawTimeOut || "00:00") : "00:00"));
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
@@ -2061,7 +2066,7 @@ async function submitTime() {
     day,
     timeIn: finalTimeIn,
     timeOut: finalTimeOut,
-    hours: isHalfDayVacation || (isWorkEntry && hasCompleteWorkTime)
+    hours: !isSickEntry && (isHalfDayVacation || (isWorkEntry && hasCompleteWorkTime))
       ? calculateHours(finalTimeIn, finalRawTimeOut, tookLunch && isWorkEntry)
       : 0,
     tookLunch: isWorkEntry ? tookLunch : false,
@@ -3092,8 +3097,9 @@ function render() {
 
   const currentRows = sortedEntries.map(function(entry) {
     const entryTypeLabel = getEntryTypeLabel(entry);
+    const isSickRow = getEntryType(entry) === "sick";
     const isZeroPlaceholderTime = entry.timeIn === "00:00" && entry.timeOut === "00:00" && getEntryHours(entry) === 0;
-    const timeText = isZeroPlaceholderTime ? "" : entry.timeIn + "-" + entry.timeOut;
+    const timeText = isSickRow || isZeroPlaceholderTime ? "" : entry.timeIn + "-" + entry.timeOut;
 
     return `
       <tr>
