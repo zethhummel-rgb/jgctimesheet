@@ -614,6 +614,7 @@
   <div class="tab-buttons">
     <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
     <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Previous Weeks</button>
+    <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
   </div>
   <button type="button" onclick="clearEntries()">Clear My Entries</button>
   <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
@@ -984,6 +985,11 @@ function saveFallbackTimesheets(entries) {
 function loadTimesheets() {
   return memoryTimesheets.filter(function(entry) {
     return normalizeWorkerName(entry.user) === normalizeWorkerName(currentUser);
+  }).map(function(entry) {
+    return {
+      ...entry,
+      jobName: cleanRepeatedJobName(entry.jobName)
+    };
   });
 }
 
@@ -1020,7 +1026,7 @@ function rowToEntry(row) {
     weekStartValue: row.week_start,
     weekStart: formatDate(makeLocalDate(row.week_start)),
     weekEnd: row.week_end,
-    jobName: row.job_name,
+    jobName: cleanRepeatedJobName(row.job_name),
     jobNumber: row.job_number,
     day: row.day_of_week,
     timeIn: String(row.time_in).slice(0, 5),
@@ -1175,6 +1181,7 @@ function showEntriesTab(tabName) {
   entriesTab = tabName;
   document.getElementById("currentTabButton").classList.toggle("active-tab", tabName === "current");
   document.getElementById("previousTabButton").classList.toggle("active-tab", tabName === "previous");
+  document.getElementById("editEntriesTabButton").classList.toggle("active-tab", tabName === "edit");
 
   if (tabName === "previous") {
     loadPreviousWeeksFromSupabase();
@@ -1187,9 +1194,40 @@ function getSelectedWeekStart() {
   return document.getElementById("weekStart").value;
 }
 
+function cleanRepeatedJobName(value) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const words = text.split(" ").filter(Boolean);
+
+  if (words.length < 2) {
+    return text;
+  }
+
+  for (let size = 1; size <= Math.floor(words.length / 2); size++) {
+    if (words.length % size !== 0) {
+      continue;
+    }
+
+    const pattern = words.slice(0, size).join(" ");
+    let repeated = true;
+
+    for (let index = size; index < words.length; index += size) {
+      if (words.slice(index, index + size).join(" ").toLowerCase() !== pattern.toLowerCase()) {
+        repeated = false;
+        break;
+      }
+    }
+
+    if (repeated) {
+      return pattern;
+    }
+  }
+
+  return text;
+}
+
 function getJobDisplay(job) {
   const jobNumber = String(job.job_number || "").trim();
-  const jobName = String(job.job_name || "").trim();
+  const jobName = cleanRepeatedJobName(job.job_name);
   return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
@@ -1206,7 +1244,7 @@ function findSelectedActiveJob() {
   }
 
   return activeJobs.find(function(job) {
-    const jobName = String(job.job_name || "").trim().toLowerCase();
+    const jobName = cleanRepeatedJobName(job.job_name).toLowerCase();
     const jobNumber = String(job.job_number || "").trim().toLowerCase();
     const display = getJobDisplay(job).toLowerCase();
 
@@ -1248,7 +1286,7 @@ function fillJobNumberForSelectedJob() {
 
   if (match) {
     const display = getJobDisplay(match);
-    const jobName = String(match.job_name || "").trim();
+    const jobName = cleanRepeatedJobName(match.job_name);
     const jobNumber = String(match.job_number || "").trim();
 
     if (!jobNumberInput.value || jobNumberInput.dataset.autoJobNumber === "true" || jobNumberInput.value === jobNumber) {
@@ -1346,7 +1384,7 @@ function editEntry(entryId) {
   document.getElementById("weekStart").value = entry.weekStartValue;
   validateSunday(document.getElementById("weekStart"));
   document.getElementById("day").value = entry.day;
-  document.getElementById("jobName").value = entry.jobName;
+  document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
   document.getElementById("timeIn").value = entry.timeIn;
@@ -1419,7 +1457,12 @@ async function submitTime() {
   const selectedJob = findSelectedActiveJob();
   const typedJobName = document.getElementById("jobName").value.trim();
   const typedJobNumber = document.getElementById("jobNumber").value.trim();
-  const jobName = selectedJob ? String(selectedJob.job_name || "").trim() : typedJobName;
+  const selectedDisplay = selectedJob ? getJobDisplay(selectedJob) : "";
+  const jobName = cleanRepeatedJobName(
+    selectedJob && typedJobName.toLowerCase() === selectedDisplay.toLowerCase()
+      ? selectedJob.job_name
+      : typedJobName
+  );
   const jobNumber = typedJobNumber || (selectedJob ? String(selectedJob.job_number || "").trim() : "");
   const day = document.getElementById("day").value;
   const timeIn = document.getElementById("timeIn").value;
@@ -1442,6 +1485,7 @@ async function submitTime() {
   endDate.setDate(startDate.getDate() + 6);
 
   const entry = {
+    id: editingEntryId || "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
     user: currentUser,
     weekStartValue: weekStart,
     weekStart: formatDate(startDate),
@@ -2021,6 +2065,33 @@ function renderEditRows(entries) {
   }).join("");
 }
 
+function renderEditEntriesTab(entries) {
+  if (entries.length === 0) {
+    document.getElementById("entries").innerHTML =
+      '<div class="small">No entries available to edit yet.</div>';
+    return;
+  }
+
+  document.getElementById("entries").innerHTML = `
+    <h3>Edit Entries</h3>
+    <div class="table-wrap edit-table-wrap">
+      <table class="edit-table">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Job Name</th>
+            <th>Job Number</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderEditRows(entries)}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderPreviousWeeks() {
   if (previousWeeks.length === 0) {
     document.getElementById("entries").innerHTML =
@@ -2104,6 +2175,11 @@ function render() {
   const entries = loadTimesheets();
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+  if (entriesTab === "edit") {
+    renderEditEntriesTab(entries);
+    return;
+  }
+
   if (entries.length === 0) {
     document.getElementById("entries").innerHTML =
       '<div class="small">No entries submitted yet.</div>';
@@ -2180,22 +2256,6 @@ function render() {
         </thead>
         <tbody>
           ${rows}
-        </tbody>
-      </table>
-    </div>
-    <h3>Edit Entries</h3>
-    <div class="table-wrap edit-table-wrap">
-      <table class="edit-table">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Job Name</th>
-            <th>Job Number</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${renderEditRows(entries)}
         </tbody>
       </table>
     </div>
