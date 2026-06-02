@@ -620,11 +620,24 @@
 
   <div id="leaveEntryFields" class="field-hidden">
     <label id="leaveTypeLabel">Day Type</label>
-    <select id="leaveType">
+    <select id="leaveType" onchange="updateEntryTypeFields()">
       <option value="">Select Type</option>
       <option value="paid">Paid</option>
       <option value="unpaid">Unpaid</option>
+      <option value="half_day">Half Day</option>
     </select>
+
+    <div id="vacationHalfDayFields" class="field-hidden">
+      <label>Vacation Time Start</label>
+      <select id="vacationTimeIn">
+        <option value="">Select Start</option>
+      </select>
+
+      <label>Vacation Time End</label>
+      <select id="vacationTimeOut">
+        <option value="">Select End</option>
+      </select>
+    </div>
 
     <label id="leaveNoteLabel">Note / Reason</label>
     <textarea id="leaveNote" rows="3" placeholder="Add reason or note"></textarea>
@@ -748,6 +761,41 @@ function getHoursForDate(date) {
   }, 0);
 }
 
+function getEntriesForDate(date) {
+  const targetValue = formatDateValue(date);
+
+  return loadTimesheets().filter(function(entry) {
+    const entryDate = getDateForEntry(entry);
+    return entryDate && formatDateValue(entryDate) === targetValue;
+  });
+}
+
+function getCurrentStatusForDate(date) {
+  const entries = getEntriesForDate(date);
+  const leaveEntry = entries.find(function(entry) {
+    return isLeaveEntry(entry);
+  });
+  const hours = entries.reduce(function(total, entry) {
+    return total + Number(entry.hours || 0);
+  }, 0);
+
+  if (leaveEntry) {
+    return {
+      label: getEntryTypeLabel(leaveEntry),
+      isLeave: true
+    };
+  }
+
+  if (hours) {
+    return {
+      label: hours.toFixed(2) + " draft",
+      isLeave: false
+    };
+  }
+
+  return null;
+}
+
 function getPreviousSubmissionForDate(date) {
   const targetValue = formatDateValue(date);
 
@@ -759,8 +807,13 @@ function getPreviousSubmissionForDate(date) {
     });
 
     if (matchingEntries.length > 0) {
+      const leaveEntry = matchingEntries.find(function(entry) {
+        return isLeaveEntry(entry);
+      });
+
       return {
         week: week,
+        label: leaveEntry ? getEntryTypeLabel(leaveEntry) : "",
         hours: matchingEntries.reduce(function(total, entry) {
           return total + Number(entry.hours || 0);
         }, 0)
@@ -861,7 +914,7 @@ function renderTimesheetCalendar() {
 
 function getCalendarDayHtml(date, visibleMonth, selectedWeekStart, selectedWeekEnd, selectedValue) {
   const dateValue = formatDateValue(date);
-  const hours = getHoursForDate(date);
+  const currentStatus = getCurrentStatusForDate(date);
   const previousSubmission = getPreviousSubmissionForDate(date);
   const todayValue = formatDateValue(new Date());
   const classes = ["timesheet-day"];
@@ -879,16 +932,16 @@ function getCalendarDayHtml(date, visibleMonth, selectedWeekStart, selectedWeekE
     classes.push("today-day");
   }
 
-  if (hours) {
+  if (currentStatus) {
     classes.push("has-current-entry");
-    metaItems.push('<span class="calendar-pill draft-pill">' + hours.toFixed(2) + ' draft</span>');
+    metaItems.push('<span class="calendar-pill draft-pill">' + escapeHtml(currentStatus.label) + '</span>');
   }
 
   if (previousSubmission) {
     classes.push("has-previous-submission");
-    const submittedText = previousSubmission.hours
+    const submittedText = previousSubmission.label || (previousSubmission.hours
       ? previousSubmission.hours.toFixed(2) + " submitted"
-      : "Submitted";
+      : "Submitted");
     metaItems.push('<span class="calendar-pill submitted-pill">' + submittedText + '</span>');
   }
 
@@ -1000,11 +1053,13 @@ function buildTimeOptions(startHour, endHour, valuePrefix, labelSuffix, includeE
 function fillTimeOptions() {
   const timeInputs = [
     document.getElementById("timeIn"),
-    document.getElementById("timeOut")
+    document.getElementById("timeOut"),
+    document.getElementById("vacationTimeIn"),
+    document.getElementById("vacationTimeOut")
   ];
 
   for (let input of timeInputs) {
-    const placeholder = input.id === "timeIn" ? "Select Time In" : "Select Time Out";
+    const placeholder = input.id === "timeIn" || input.id === "vacationTimeIn" ? "Select Time In" : "Select Time Out";
     let options = '<option value="">' + placeholder + '</option>';
 
     if (input.id === "timeOut") {
@@ -1454,6 +1509,8 @@ function resetTimeEntryFields() {
   document.getElementById("entryType").value = "work";
   document.getElementById("leaveType").value = "";
   document.getElementById("leaveNote").value = "";
+  document.getElementById("vacationTimeIn").value = "";
+  document.getElementById("vacationTimeOut").value = "";
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
@@ -1473,6 +1530,7 @@ function updateEntryTypeFields() {
   const leaveType = document.getElementById("leaveType");
   const leaveTypeLabel = document.getElementById("leaveTypeLabel");
   const leaveNoteLabel = document.getElementById("leaveNoteLabel");
+  const halfDayFields = document.getElementById("vacationHalfDayFields");
 
   workFields.classList.toggle("field-hidden", !isWork);
   leaveFields.classList.toggle("field-hidden", isWork);
@@ -1482,10 +1540,12 @@ function updateEntryTypeFields() {
     leaveTypeLabel.classList.remove("field-hidden");
     leaveTypeLabel.textContent = "Vacation Type";
     leaveNoteLabel.textContent = "Note";
+    halfDayFields.classList.toggle("field-hidden", leaveType.value !== "half_day");
   } else {
     leaveType.value = "";
     leaveType.classList.add("field-hidden");
     leaveTypeLabel.classList.add("field-hidden");
+    halfDayFields.classList.add("field-hidden");
     leaveNoteLabel.textContent = entryType === "sick" ? "Sick Reason" : "Note";
   }
 }
@@ -1525,6 +1585,8 @@ function editEntry(entryId) {
   document.getElementById("entryType").value = getEntryType(entry);
   document.getElementById("leaveType").value = entry.leaveType || "";
   document.getElementById("leaveNote").value = entry.leaveNote || "";
+  document.getElementById("vacationTimeIn").value = getEntryType(entry) === "vacation" && entry.leaveType === "half_day" ? entry.timeIn : "";
+  document.getElementById("vacationTimeOut").value = getEntryType(entry) === "vacation" && entry.leaveType === "half_day" ? entry.timeOut : "";
   document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
@@ -1603,6 +1665,9 @@ async function submitTime() {
   const entryType = document.getElementById("entryType").value || "work";
   const leaveType = document.getElementById("leaveType").value || "";
   const leaveNote = document.getElementById("leaveNote").value.trim();
+  const vacationTimeIn = document.getElementById("vacationTimeIn").value;
+  const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
+  const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
   const isWorkEntry = entryType === "work";
   const selectedJob = findSelectedActiveJob();
   const typedJobName = document.getElementById("jobName").value.trim();
@@ -1636,6 +1701,16 @@ async function submitTime() {
     return;
   }
 
+  if (entryType === "vacation" && leaveType === "half_day" && (!vacationTimeIn || !rawVacationTimeOut)) {
+    alert("Please choose the time for the half vacation day.");
+    return;
+  }
+
+  if (entryType === "vacation" && leaveType === "half_day" && (!isHalfHourTime(vacationTimeIn) || !isHalfHourTime(rawVacationTimeOut))) {
+    alert("Half day vacation time must be in 30 minute intervals.");
+    return;
+  }
+
   if (isWorkEntry && (!typedJobName || !timeIn || !rawTimeOut)) {
     alert("Fill in all work entry fields");
     return;
@@ -1659,9 +1734,9 @@ async function submitTime() {
     jobName: isWorkEntry ? jobName : getSpecialEntryJobName(entryType, leaveType),
     jobNumber: isWorkEntry ? jobNumber : "",
     day,
-    timeIn: isWorkEntry ? timeIn : "00:00",
-    timeOut: isWorkEntry ? timeOut : "00:00",
-    hours: isWorkEntry ? calculateHours(timeIn, rawTimeOut, tookLunch) : 0,
+    timeIn: isWorkEntry ? timeIn : (entryType === "vacation" && leaveType === "half_day" ? vacationTimeIn : "00:00"),
+    timeOut: isWorkEntry ? timeOut : (entryType === "vacation" && leaveType === "half_day" ? vacationTimeOut : "00:00"),
+    hours: isWorkEntry ? calculateHours(timeIn, rawTimeOut, tookLunch) : (entryType === "vacation" && leaveType === "half_day" ? calculateHours(vacationTimeIn, rawVacationTimeOut, false) : 0),
     tookLunch: isWorkEntry ? tookLunch : false,
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
@@ -1723,6 +1798,12 @@ async function submitTime() {
     stored.push(entry);
     setTimesheets(stored);
     status.innerText = "Entry submitted for this browser session.";
+  }
+
+  const holidayCount = await addOntarioHolidayEntriesForWeek(weekStart, day);
+
+  if (holidayCount) {
+    status.innerText += " Ontario holiday added automatically.";
   }
 
   updateJobSuggestions();
@@ -1858,7 +1939,7 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
           <td>${escapeHtml(entry.leaveNote || "")}</td>
           <td>${entry.tookLunch ? "Yes" : "No"}</td>
           <td>${entry.nightWork ? "Yes" : "No"}</td>
-          <td>${isLeaveEntry(entry) ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
+          <td>${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
           <td>${Number(entry.hours).toFixed(2)}</td>
         </tr>
       `;
@@ -2108,12 +2189,33 @@ function getWeekdayNames() {
 }
 
 function getEntryType(entry) {
-  return entry && entry.entryType ? entry.entryType : "work";
+  const explicitType = entry && (entry.entryType || entry.entry_type);
+  const jobName = String((entry && (entry.jobName || entry.job_name)) || "").toLowerCase();
+
+  if (explicitType) {
+    return explicitType;
+  }
+
+  if (jobName.includes("sick day")) {
+    return "sick";
+  }
+
+  if (jobName.includes("vacation day")) {
+    return "vacation";
+  }
+
+  if (jobName.includes("civic holiday") || jobName.includes("holiday")) {
+    return "civic_holiday";
+  }
+
+  return "work";
 }
 
 function getEntryTypeLabel(entry) {
   const type = getEntryType(entry);
-  const leaveType = entry && entry.leaveType ? " - " + capitalizeWords(entry.leaveType) : "";
+  const rawLeaveType = entry && (entry.leaveType || entry.leave_type);
+  const leaveTypeLabel = rawLeaveType === "half_day" ? "Half Day" : capitalizeWords(rawLeaveType);
+  const leaveType = rawLeaveType ? " - " + leaveTypeLabel : "";
 
   if (type === "sick") {
     return "Sick Day";
@@ -2156,6 +2258,173 @@ function getSpecialEntryJobName(entryType, leaveType) {
   }
 
   return "";
+}
+
+function getNthWeekdayOfMonth(year, monthIndex, weekday, nth) {
+  const date = new Date(year, monthIndex, 1);
+  const offset = (weekday - date.getDay() + 7) % 7;
+  date.setDate(1 + offset + ((nth - 1) * 7));
+  return date;
+}
+
+function getLastWeekdayOfMonth(year, monthIndex, weekday) {
+  const date = new Date(year, monthIndex + 1, 0);
+  const offset = (date.getDay() - weekday + 7) % 7;
+  date.setDate(date.getDate() - offset);
+  return date;
+}
+
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+function observedWeekdayHoliday(year, monthIndex, day) {
+  const date = new Date(year, monthIndex, day);
+
+  if (date.getDay() === 6) {
+    date.setDate(date.getDate() + 2);
+  } else if (date.getDay() === 0) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  return date;
+}
+
+function getVictoriaDay(year) {
+  const date = new Date(year, 4, 24);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return date;
+}
+
+function getChristmasAndBoxingDay(year) {
+  const christmas = observedWeekdayHoliday(year, 11, 25);
+  const boxingDay = observedWeekdayHoliday(year, 11, 26);
+
+  if (formatDateValue(christmas) === formatDateValue(boxingDay)) {
+    boxingDay.setDate(boxingDay.getDate() + 1);
+  }
+
+  return [
+    { name: "Christmas Day", date: christmas },
+    { name: "Boxing Day", date: boxingDay }
+  ];
+}
+
+function getOntarioHolidaysForYear(year) {
+  const easter = getEasterSunday(year);
+  const goodFriday = new Date(easter);
+  goodFriday.setDate(easter.getDate() - 2);
+
+  return [
+    { name: "New Year's Day", date: observedWeekdayHoliday(year, 0, 1) },
+    { name: "Family Day", date: getNthWeekdayOfMonth(year, 1, 1, 3) },
+    { name: "Good Friday", date: goodFriday },
+    { name: "Victoria Day", date: getVictoriaDay(year) },
+    { name: "Canada Day", date: observedWeekdayHoliday(year, 6, 1) },
+    { name: "Civic Holiday", date: getNthWeekdayOfMonth(year, 7, 1, 1) },
+    { name: "Labour Day", date: getNthWeekdayOfMonth(year, 8, 1, 1) },
+    { name: "Thanksgiving Day", date: getNthWeekdayOfMonth(year, 9, 1, 2) }
+  ].concat(getChristmasAndBoxingDay(year));
+}
+
+function getOntarioHolidayEntriesForWeek(weekStart, selectedDate) {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const years = [...new Set([weekStart.getFullYear(), weekEnd.getFullYear()])];
+  const existingDays = new Set(loadTimesheets().map(function(entry) {
+    return entry.day;
+  }));
+
+  return years.flatMap(getOntarioHolidaysForYear).filter(function(holiday) {
+    const holidayTime = holiday.date.getTime();
+
+    return holiday.date.getDay() >= 1 &&
+      holiday.date.getDay() <= 5 &&
+      holidayTime >= weekStart.getTime() &&
+      holidayTime <= weekEnd.getTime() &&
+      holidayTime < selectedDate.getTime() &&
+      !existingDays.has(getDayNames()[holiday.date.getDay()]);
+  });
+}
+
+async function addOntarioHolidayEntriesForWeek(weekStartValue, selectedDay) {
+  const weekStart = makeLocalDate(weekStartValue);
+  const selectedDate = new Date(weekStart);
+  const selectedDayIndex = getDayNames().indexOf(selectedDay);
+
+  if (selectedDayIndex < 0) {
+    return 0;
+  }
+
+  selectedDate.setDate(weekStart.getDate() + selectedDayIndex);
+
+  const holidays = getOntarioHolidayEntriesForWeek(weekStart, selectedDate);
+
+  if (!holidays.length) {
+    return 0;
+  }
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  let stored = loadTimesheets();
+  let addedCount = 0;
+
+  for (let holiday of holidays) {
+    const holidayEntry = {
+      id: "holiday-" + formatDateValue(holiday.date) + "-" + Math.random().toString(36).slice(2, 8),
+      user: currentUser,
+      weekStartValue,
+      weekStart: formatDate(weekStart),
+      weekEnd: formatDate(weekEnd),
+      jobName: "Civic Holiday",
+      jobNumber: "",
+      day: getDayNames()[holiday.date.getDay()],
+      timeIn: "00:00",
+      timeOut: "00:00",
+      hours: 0,
+      tookLunch: false,
+      nightWork: false,
+      entryType: "civic_holiday",
+      leaveType: "",
+      leaveNote: holiday.name
+    };
+
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .insert(entryToRow(holidayEntry))
+        .select()
+        .single();
+
+      if (!error && data) {
+        stored.push(rowToEntry(data));
+        addedCount++;
+      }
+    } else {
+      stored.push(holidayEntry);
+      addedCount++;
+    }
+  }
+
+  if (addedCount) {
+    setTimesheets(stored);
+  }
+
+  return addedCount;
 }
 
 function getMissingMandatoryWeekdays(entries) {
@@ -2281,7 +2550,7 @@ function getEmailTableRows(entries) {
       entry.leaveNote || "",
       entry.tookLunch ? "Yes" : "No",
       entry.nightWork ? "Yes" : "No",
-      isLeaveEntry(entry) ? "" : entry.timeIn + "-" + entry.timeOut,
+      isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : entry.timeIn + "-" + entry.timeOut,
       Number(entry.hours).toFixed(2)
     ];
 
@@ -2381,7 +2650,7 @@ function renderPreviousWeeks() {
             <td data-label="Note">${escapeHtml(entry.leaveNote || "")}</td>
             <td data-label="Lunch"><input type="checkbox" disabled ${entry.tookLunch ? "checked" : ""} /></td>
             <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
-            <td data-label="Time">${isLeaveEntry(entry) ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
+            <td data-label="Time">${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
             <td data-label="Hours"><b>${Number(entry.hours).toFixed(2)}</b></td>
           </tr>
         `;
