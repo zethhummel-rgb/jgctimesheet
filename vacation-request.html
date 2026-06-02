@@ -168,7 +168,17 @@ button:hover {
 .summary-box strong {
     display: block;
     font-size: 20px;
-    color: #2f6f3c;
+    color: #0b5e3b;
+}
+
+.summary-box {
+    font-weight: 500;
+}
+
+.empty-history-message {
+    color: #f4fff6;
+    font-weight: bold;
+    margin-top: 12px;
 }
 
 .table-wrap {
@@ -635,7 +645,7 @@ function renderVacationHistory() {
     renderVacationCalendar();
 
     if (!myVacationRequests.length) {
-        history.innerHTML = "No vacation requests submitted yet.";
+        history.innerHTML = '<div class="empty-history-message">No vacation requests submitted yet.</div>';
         return;
     }
 
