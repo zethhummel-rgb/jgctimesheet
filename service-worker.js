@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v13";
+const JGC_CACHE_NAME = "jgc-portal-v14";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -97,9 +97,27 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(JGC_CACHE_NAME)
-      .then((cache) => cache.addAll(JGC_APP_SHELL))
+      .then((cache) => Promise.all(
+        JGC_APP_SHELL.map((url) => {
+          const request = new Request(url, { cache: "reload" });
+          return fetch(request)
+            .then((response) => {
+              if (response && response.ok) {
+                return cache.put(url, response);
+              }
+              return Promise.resolve();
+            })
+            .catch(() => Promise.resolve());
+        })
+      ))
       .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -154,10 +172,14 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) {
+          fetch(request, { cache: "reload" }).then((response) => {
+            const copy = response.clone();
+            caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+          }).catch(() => {});
           return cached;
         }
 
-        return fetch(request).then((response) => {
+        return fetch(request, { cache: "reload" }).then((response) => {
           const copy = response.clone();
           caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
