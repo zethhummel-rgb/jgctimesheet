@@ -270,6 +270,10 @@
       background: #5f6a62;
     }
 
+    .field-hidden {
+      display: none !important;
+    }
+
     .tab-buttons {
       display: flex;
       gap: 8px;
@@ -566,43 +570,65 @@
     <option>Saturday</option>
   </select>
 
-  <label>Job Name</label>
-  <input
-    id="jobName"
-    placeholder="Search jobs or type job name"
-    list="jobNameOptions"
-    onchange="fillJobNumberForSelectedJob()"
-    oninput="fillJobNumberForSelectedJob()"
-  />
-  <datalist id="jobNameOptions"></datalist>
-  <label>Job Number</label>
-  <input
-    id="jobNumber"
-    type="text"
-    placeholder="Job number if available"
-    oninput="markManualJobNumber()"
-  />
-  <div id="jobStatus" class="small">Loading active jobs. You can still type a job manually.</div>
-
-  <label>Time In</label>
-  <select id="timeIn">
-    <option value="">Select Time In</option>
+  <label>Entry Type</label>
+  <select id="entryType" onchange="updateEntryTypeFields()">
+    <option value="work">Work</option>
+    <option value="sick">Sick Day</option>
+    <option value="vacation">Vacation Day</option>
+    <option value="civic_holiday">Civic Holiday</option>
   </select>
 
-  <label class="check-row">
-    <input id="tookLunch" type="checkbox" />
-    Did you take Lunch? This will subtract 30 minutes from this input only
-  </label>
+  <div id="workEntryFields">
+    <label>Job Name</label>
+    <input
+      id="jobName"
+      placeholder="Search jobs or type job name"
+      list="jobNameOptions"
+      onchange="fillJobNumberForSelectedJob()"
+      oninput="fillJobNumberForSelectedJob()"
+    />
+    <datalist id="jobNameOptions"></datalist>
+    <label>Job Number</label>
+    <input
+      id="jobNumber"
+      type="text"
+      placeholder="Job number if available"
+      oninput="markManualJobNumber()"
+    />
+    <div id="jobStatus" class="small">Loading active jobs. You can still type a job manually.</div>
 
-  <label>Time Out</label>
-  <select id="timeOut">
-    <option value="">Select Time Out</option>
-  </select>
+    <label>Time In</label>
+    <select id="timeIn">
+      <option value="">Select Time In</option>
+    </select>
 
-  <label class="check-row">
-    <input id="nightWork" type="checkbox" />
-    Night Work
-  </label>
+    <label class="check-row">
+      <input id="tookLunch" type="checkbox" />
+      Did you take Lunch? This will subtract 30 minutes from this input only
+    </label>
+
+    <label>Time Out</label>
+    <select id="timeOut">
+      <option value="">Select Time Out</option>
+    </select>
+
+    <label class="check-row">
+      <input id="nightWork" type="checkbox" />
+      Night Work
+    </label>
+  </div>
+
+  <div id="leaveEntryFields" class="field-hidden">
+    <label id="leaveTypeLabel">Day Type</label>
+    <select id="leaveType">
+      <option value="">Select Type</option>
+      <option value="paid">Paid</option>
+      <option value="unpaid">Unpaid</option>
+    </select>
+
+    <label id="leaveNoteLabel">Note / Reason</label>
+    <textarea id="leaveNote" rows="3" placeholder="Add reason or note"></textarea>
+  </div>
 
   <button id="submitButton" type="button" onclick="submitTime()">Submit Entry</button>
   <button id="cancelEditButton" class="cancel-edit" type="button" onclick="cancelEdit()">Cancel Edit</button>
@@ -1083,7 +1109,10 @@ function rowToEntry(row) {
     timeOut: String(row.time_out).slice(0, 5),
     hours: Number(row.hours).toFixed(2),
     tookLunch: Boolean(row.took_lunch),
-    nightWork: Boolean(row.night_work)
+    nightWork: Boolean(row.night_work),
+    entryType: row.entry_type || "work",
+    leaveType: row.leave_type || "",
+    leaveNote: row.leave_note || ""
   };
 }
 
@@ -1099,7 +1128,10 @@ function entryToRow(entry) {
     time_out: entry.timeOut,
     hours: Number(entry.hours),
     took_lunch: Boolean(entry.tookLunch),
-    night_work: Boolean(entry.nightWork)
+    night_work: Boolean(entry.nightWork),
+    entry_type: getEntryType(entry),
+    leave_type: entry.leaveType || "",
+    leave_note: entry.leaveNote || ""
   };
 }
 
@@ -1419,6 +1451,9 @@ async function loadActiveJobs() {
 }
 
 function resetTimeEntryFields() {
+  document.getElementById("entryType").value = "work";
+  document.getElementById("leaveType").value = "";
+  document.getElementById("leaveNote").value = "";
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
@@ -1427,6 +1462,32 @@ function resetTimeEntryFields() {
   document.getElementById("timeOut").value = "";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
+  updateEntryTypeFields();
+}
+
+function updateEntryTypeFields() {
+  const entryType = document.getElementById("entryType").value;
+  const isWork = entryType === "work";
+  const workFields = document.getElementById("workEntryFields");
+  const leaveFields = document.getElementById("leaveEntryFields");
+  const leaveType = document.getElementById("leaveType");
+  const leaveTypeLabel = document.getElementById("leaveTypeLabel");
+  const leaveNoteLabel = document.getElementById("leaveNoteLabel");
+
+  workFields.classList.toggle("field-hidden", !isWork);
+  leaveFields.classList.toggle("field-hidden", isWork);
+
+  if (entryType === "vacation") {
+    leaveType.classList.remove("field-hidden");
+    leaveTypeLabel.classList.remove("field-hidden");
+    leaveTypeLabel.textContent = "Vacation Type";
+    leaveNoteLabel.textContent = "Note";
+  } else {
+    leaveType.value = "";
+    leaveType.classList.add("field-hidden");
+    leaveTypeLabel.classList.add("field-hidden");
+    leaveNoteLabel.textContent = entryType === "sick" ? "Sick Reason" : "Note";
+  }
 }
 
 function setEditMode(entry) {
@@ -1461,6 +1522,9 @@ function editEntry(entryId) {
   document.getElementById("weekStart").value = entry.weekStartValue;
   validateSunday(document.getElementById("weekStart"));
   document.getElementById("day").value = entry.day;
+  document.getElementById("entryType").value = getEntryType(entry);
+  document.getElementById("leaveType").value = entry.leaveType || "";
+  document.getElementById("leaveNote").value = entry.leaveNote || "";
   document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
@@ -1470,6 +1534,7 @@ function editEntry(entryId) {
     : entry.timeOut;
   document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
   document.getElementById("nightWork").checked = Boolean(entry.nightWork);
+  updateEntryTypeFields();
   setEditMode(entry);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1535,6 +1600,10 @@ async function submitTime() {
   const rawWeekStart = document.getElementById("weekStart").value;
   const normalizedWeekStartDate = rawWeekStart ? getWeekStartDate(makeLocalDate(rawWeekStart)) : null;
   const weekStart = normalizedWeekStartDate ? formatDateValue(normalizedWeekStartDate) : "";
+  const entryType = document.getElementById("entryType").value || "work";
+  const leaveType = document.getElementById("leaveType").value || "";
+  const leaveNote = document.getElementById("leaveNote").value.trim();
+  const isWorkEntry = entryType === "work";
   const selectedJob = findSelectedActiveJob();
   const typedJobName = document.getElementById("jobName").value.trim();
   const typedJobNumber = document.getElementById("jobNumber").value.trim();
@@ -1552,12 +1621,27 @@ async function submitTime() {
   const tookLunch = document.getElementById("tookLunch").checked;
   const nightWork = document.getElementById("nightWork").checked;
 
-  if (!weekStart || !typedJobName || !day || !timeIn || !rawTimeOut) {
+  if (!weekStart || !day) {
     alert("Fill in all fields");
     return;
   }
 
-  if (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut)) {
+  if (entryType === "sick" && !leaveNote) {
+    alert("Please add a reason for the sick day.");
+    return;
+  }
+
+  if (entryType === "vacation" && !leaveType) {
+    alert("Please choose Paid or Unpaid for the vacation day.");
+    return;
+  }
+
+  if (isWorkEntry && (!typedJobName || !timeIn || !rawTimeOut)) {
+    alert("Fill in all work entry fields");
+    return;
+  }
+
+  if (isWorkEntry && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
     alert("Time In and Time Out must be in 30 minute intervals.");
     return;
   }
@@ -1572,14 +1656,17 @@ async function submitTime() {
     weekStartValue: weekStart,
     weekStart: formatDate(startDate),
     weekEnd: formatDate(endDate),
-    jobName,
-    jobNumber,
+    jobName: isWorkEntry ? jobName : getSpecialEntryJobName(entryType, leaveType),
+    jobNumber: isWorkEntry ? jobNumber : "",
     day,
-    timeIn,
-    timeOut,
-    hours: calculateHours(timeIn, rawTimeOut, tookLunch),
-    tookLunch,
-    nightWork
+    timeIn: isWorkEntry ? timeIn : "00:00",
+    timeOut: isWorkEntry ? timeOut : "00:00",
+    hours: isWorkEntry ? calculateHours(timeIn, rawTimeOut, tookLunch) : 0,
+    tookLunch: isWorkEntry ? tookLunch : false,
+    nightWork: isWorkEntry ? nightWork : false,
+    entryType,
+    leaveType: entryType === "vacation" ? leaveType : "",
+    leaveNote
   };
 
   const status = document.getElementById("submitStatus");
@@ -1691,6 +1778,13 @@ async function emailEntries() {
     return;
   }
 
+  const missingWeekdays = getMissingMandatoryWeekdays(entries);
+
+  if (missingWeekdays.length) {
+    alert("Please account for every weekday before submitting. Missing: " + missingWeekdays.join(", ") + ".");
+    return;
+  }
+
   const note = prompt("Add a note to your timesheet? Leave blank if no note is needed.", "");
 
   if (note === null) {
@@ -1760,9 +1854,11 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         <tr>
           <td>${escapeHtml(entry.jobName)}</td>
           <td>${escapeHtml(entry.jobNumber || "")}</td>
+          <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
+          <td>${escapeHtml(entry.leaveNote || "")}</td>
           <td>${entry.tookLunch ? "Yes" : "No"}</td>
           <td>${entry.nightWork ? "Yes" : "No"}</td>
-          <td>${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+          <td>${isLeaveEntry(entry) ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
           <td>${Number(entry.hours).toFixed(2)}</td>
         </tr>
       `;
@@ -1775,6 +1871,8 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
           <tr>
             <th>Job Name</th>
             <th>Job #</th>
+            <th>Type</th>
+            <th>Note</th>
             <th>Lunch</th>
             <th>Night Work</th>
             <th>Time</th>
@@ -2005,6 +2103,77 @@ function getDisplayWorkerName() {
   return currentUserDisplay || currentUser;
 }
 
+function getWeekdayNames() {
+  return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+}
+
+function getEntryType(entry) {
+  return entry && entry.entryType ? entry.entryType : "work";
+}
+
+function getEntryTypeLabel(entry) {
+  const type = getEntryType(entry);
+  const leaveType = entry && entry.leaveType ? " - " + capitalizeWords(entry.leaveType) : "";
+
+  if (type === "sick") {
+    return "Sick Day";
+  }
+
+  if (type === "vacation") {
+    return "Vacation Day" + leaveType;
+  }
+
+  if (type === "civic_holiday") {
+    return "Civic Holiday";
+  }
+
+  return "Work";
+}
+
+function isLeaveEntry(entry) {
+  return getEntryType(entry) !== "work";
+}
+
+function capitalizeWords(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, function(letter) {
+      return letter.toUpperCase();
+    });
+}
+
+function getSpecialEntryJobName(entryType, leaveType) {
+  if (entryType === "sick") {
+    return "Sick Day";
+  }
+
+  if (entryType === "vacation") {
+    return "Vacation Day" + (leaveType ? " - " + capitalizeWords(leaveType) : "");
+  }
+
+  if (entryType === "civic_holiday") {
+    return "Civic Holiday";
+  }
+
+  return "";
+}
+
+function getMissingMandatoryWeekdays(entries) {
+  const coveredDays = new Set(
+    entries
+      .filter(function(entry) {
+        return getWeekdayNames().includes(entry.day);
+      })
+      .map(function(entry) {
+        return entry.day;
+      })
+  );
+
+  return getWeekdayNames().filter(function(day) {
+    return !coveredDays.has(day);
+  });
+}
+
 function getWeekLabel(entries) {
   const weeks = [];
 
@@ -2086,8 +2255,10 @@ function padCell(value, width) {
 
 function getEmailTableRows(entries) {
   const columns = [
-    { label: "Job", width: 24 },
-    { label: "Job #", width: 10 },
+    { label: "Job / Day", width: 22 },
+    { label: "Job #", width: 8 },
+    { label: "Type", width: 16 },
+    { label: "Note", width: 18 },
     { label: "Lunch", width: 7 },
     { label: "Night", width: 7 },
     { label: "Time", width: 13 },
@@ -2106,9 +2277,11 @@ function getEmailTableRows(entries) {
     const values = [
       entry.jobName,
       entry.jobNumber,
+      getEntryTypeLabel(entry),
+      entry.leaveNote || "",
       entry.tookLunch ? "Yes" : "No",
       entry.nightWork ? "Yes" : "No",
-      entry.timeIn + "-" + entry.timeOut,
+      isLeaveEntry(entry) ? "" : entry.timeIn + "-" + entry.timeOut,
       Number(entry.hours).toFixed(2)
     ];
 
@@ -2145,6 +2318,7 @@ function renderEditRows(entries) {
     return `
       <tr>
         <td data-label="Day">${escapeHtml(entry.day)}</td>
+        <td data-label="Type">${escapeHtml(getEntryTypeLabel(entry))}</td>
         <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
         <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
         <td data-label="Actions">
@@ -2172,6 +2346,7 @@ function renderEditEntriesTab(entries) {
         <thead>
           <tr>
             <th>Day</th>
+            <th>Type</th>
             <th>Job Name</th>
             <th>Job Number</th>
             <th>Actions</th>
@@ -2202,9 +2377,11 @@ function renderPreviousWeeks() {
           <tr>
             <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
             <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
+            <td data-label="Type">${escapeHtml(getEntryTypeLabel(entry))}</td>
+            <td data-label="Note">${escapeHtml(entry.leaveNote || "")}</td>
             <td data-label="Lunch"><input type="checkbox" disabled ${entry.tookLunch ? "checked" : ""} /></td>
             <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
-            <td data-label="Time">${escapeHtml(entry.timeIn)}-${escapeHtml(entry.timeOut)}</td>
+            <td data-label="Time">${isLeaveEntry(entry) ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
             <td data-label="Hours"><b>${Number(entry.hours).toFixed(2)}</b></td>
           </tr>
         `;
@@ -2218,6 +2395,8 @@ function renderPreviousWeeks() {
               <tr>
                 <th>Job Name</th>
                 <th>Job Number</th>
+                <th>Type</th>
+                <th>Note</th>
                 <th>Lunch</th>
                 <th>Night Work</th>
                 <th>Time</th>
@@ -2283,23 +2462,33 @@ function render() {
   const jobs = {};
 
   for (let entry of entries) {
-    const key = entry.jobName + "|" + entry.jobNumber;
+    const key = isLeaveEntry(entry)
+      ? getEntryTypeLabel(entry) + "|" + (entry.leaveNote || "")
+      : entry.jobName + "|" + entry.jobNumber;
 
     if (!jobs[key]) {
       jobs[key] = {
-        jobName: entry.jobName,
-        jobNumber: entry.jobNumber,
+        jobName: isLeaveEntry(entry) ? getEntryTypeLabel(entry) : entry.jobName,
+        jobNumber: isLeaveEntry(entry) ? "" : entry.jobNumber,
+        leaveNote: isLeaveEntry(entry) ? entry.leaveNote || "" : "",
         nightWork: false,
         firstDayIndex: days.length,
-        days: {}
+        days: {},
+        labels: {}
       };
 
       for (let day of days) {
         jobs[key].days[day] = 0;
+        jobs[key].labels[day] = "";
       }
     }
 
-    jobs[key].days[entry.day] += Number(entry.hours);
+    if (isLeaveEntry(entry)) {
+      jobs[key].labels[entry.day] = getEntryTypeLabel(entry);
+    } else {
+      jobs[key].days[entry.day] += Number(entry.hours);
+    }
+
     jobs[key].nightWork = jobs[key].nightWork || Boolean(entry.nightWork);
     jobs[key].firstDayIndex = Math.min(jobs[key].firstDayIndex, days.indexOf(entry.day));
   }
@@ -2313,6 +2502,11 @@ function render() {
   }).map(function(job) {
     const dayCells = days.map(function(day) {
       const hours = job.days[day];
+      const label = job.labels[day];
+
+      if (label) {
+        return '<td data-label="' + day + '"><b>' + escapeHtml(label) + '</b></td>';
+      }
 
       if (!hours) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
@@ -2328,6 +2522,7 @@ function render() {
         <td data-label="Night Work"><input type="checkbox" disabled ${job.nightWork ? "checked" : ""} /></td>
         ${dayCells}
       </tr>
+      ${job.leaveNote ? '<tr><td colspan="10" class="small"><b>Note:</b> ' + escapeHtml(job.leaveNote) + '</td></tr>' : ''}
     `;
   }).join("");
 
@@ -2363,6 +2558,7 @@ function render() {
 if (currentUser) {
   showCurrentUser();
   fillTimeOptions();
+  updateEntryTypeFields();
   setTimesheets(loadFallbackTimesheets());
   previousWeeks = loadFallbackPreviousWeeks();
   selectedCalendarDate = new Date();
