@@ -1145,38 +1145,61 @@ function renderEquipment() {
         return;
     }
 
-    const rows = equipmentItems
-        .slice()
-        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-        .map((item) => {
-            const status = getEquipmentStatus(item.yearly_inspection_expiry);
+    const groups = ["Vehicles", "Trailers", "Equipment"].map((category) => ({
+        category,
+        items: equipmentItems
+            .filter((item) => getEquipmentCategory(item) === category)
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+    }));
 
-            return `
-                <tr>
-                    <td>${escapeHtml(item.name)}</td>
-                    <td>${escapeHtml(item.identification_number || "")}</td>
-                    <td>${escapeHtml(item.operator_name || "")}</td>
-                    <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
-                    <td>${escapeHtml(status)}</td>
-                    <td>${escapeHtml(item.notes || "")}</td>
-                    <td>
-                        <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
-                        <button type="button" class="delete-button" onclick="deleteEquipment('${item.id}')">Delete</button>
-                    </td>
-                </tr>
-            `;
-        }).join("");
-
-    list.innerHTML = `
+    list.innerHTML = groups.map((group) => `
+        <h3 style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h3>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>
+                    ${group.items.length ? group.items.map((item) => {
+                        const status = getEquipmentStatus(item.yearly_inspection_expiry);
+
+                        return `
+                            <tr>
+                                <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.identification_number || "")}</td>
+                                <td>${escapeHtml(item.operator_name || "")}</td>
+                                <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
+                                <td>${escapeHtml(status)}</td>
+                                <td>${escapeHtml(item.notes || "")}</td>
+                                <td>
+                                    <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
+                                    <button type="button" class="delete-button" onclick="deleteEquipment('${item.id}')">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join("") : '<tr><td colspan="7">No items in this group.</td></tr>'}
+                </tbody>
             </table>
         </div>
-    `;
+    `).join("");
+}
+
+function getEquipmentCategory(item) {
+    const text = [
+        item.name,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    if (/\b(trailer|trl|float)\b/.test(text)) {
+        return "Trailers";
+    }
+
+    if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
+        return "Vehicles";
+    }
+
+    return "Equipment";
 }
 
 function editEquipment(id) {
