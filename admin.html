@@ -1412,6 +1412,10 @@ function getLiveTimesheetEntryDate(entry) {
         return null;
     }
 
+    if (date.getDay() !== 0 && getTimesheetDayNames()[date.getDay()] === day) {
+        return date;
+    }
+
     date.setDate(date.getDate() + dayIndex);
     return date;
 }
