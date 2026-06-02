@@ -591,7 +591,7 @@ button:hover,
     </div>
     <div class="actions" style="margin-top:10px;">
         <button type="button" onclick="importJobsFromExcel()">Upload & Import</button>
-        <button class="delete-button" type="button" onclick="clearJobsExcelFile()">Delete File</button>
+        <button class="delete-button" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
         <button class="secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobsImportStatus" class="small" style="margin-top:10px;"></div>
@@ -3038,6 +3038,45 @@ function clearJobsExcelFile() {
 
     if (status) {
         status.textContent = "Selected Excel file removed.";
+    }
+}
+
+async function deleteImportedJobs() {
+    const fileInput = document.getElementById("jobsExcelFile");
+    const status = document.getElementById("jobsImportStatus");
+
+    const confirmed = confirm("Delete all imported jobs from the portal? This will clear the jobs dropdown until a new Excel file is imported.");
+
+    if (!confirmed) {
+        return;
+    }
+
+    if (status) {
+        status.textContent = "Deleting imported jobs...";
+    }
+
+    const { error } = await supabaseClient
+        .from("jobs")
+        .delete()
+        .not("id", "is", null);
+
+    if (error) {
+        if (status) {
+            status.textContent = "Imported jobs could not be deleted: " + error.message;
+        }
+        return;
+    }
+
+    jobs = [];
+
+    if (fileInput) {
+        fileInput.value = "";
+    }
+
+    renderJobsManagement();
+
+    if (status) {
+        status.textContent = "All imported jobs were deleted.";
     }
 }
 
