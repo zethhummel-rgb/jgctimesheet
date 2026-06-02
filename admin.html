@@ -669,6 +669,7 @@ let policyUrls = {};
 let currentUserId = "";
 let editingContactId = "";
 let editingTimesheetId = "";
+let editingLiveTimesheetEntryId = "";
 let editingEquipmentId = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -1301,7 +1302,6 @@ function renderTimesheets() {
 
     const submittedWeeksHtml = filtered.length
         ? `
-            ${renderSubmittedEntriesByDay(filtered)}
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -1383,6 +1383,7 @@ function renderLiveTimesheetEntries(filter) {
     const rows = liveTimesheetEntries
         .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
         .map((entry) => ({
+            id: entry.id || "",
             worker: entry.worker_name || "",
             weekStart: entry.week_start || "",
             day: entry.day_of_week || "",
@@ -1398,6 +1399,12 @@ function renderLiveTimesheetEntries(filter) {
         }));
 
     rows.sort((a, b) => {
+        const workerDifference = String(a.worker).localeCompare(String(b.worker));
+
+        if (workerDifference !== 0) {
+            return workerDifference;
+        }
+
         const weekDifference = String(b.weekStart).localeCompare(String(a.weekStart));
 
         if (weekDifference !== 0) {
@@ -1410,133 +1417,194 @@ function renderLiveTimesheetEntries(filter) {
             return dayDifference;
         }
 
-        return String(a.worker).localeCompare(String(b.worker));
+        return String(a.timeIn).localeCompare(String(b.timeIn));
     });
 
     if (!rows.length) {
         return '<h3>Live Entries Before Weekly Submit</h3><div class="small" style="margin-bottom:14px;">No current live entries found.</div>';
     }
 
+    const workers = [...new Set(rows.map((row) => row.worker || "Unknown Worker"))];
+
     return `
         <h3>Live Entries Before Weekly Submit</h3>
         <div class="small" style="margin-bottom:8px;">These are entries currently saved on employee timesheets before they submit/email the full week.</div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Day</th>
-                        <th>Date</th>
-                        <th>Worker</th>
-                        <th>Job</th>
-                        <th>Job Number</th>
-                        <th>Time</th>
-                        <th>Lunch</th>
-                        <th>Night</th>
-                        <th>Hours</th>
-                        <th>Week Start</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.map((row) => `
-                        <tr>
-                            <td>${escapeHtml(row.day)}</td>
-                            <td>${row.date ? escapeHtml(formatTimesheetPdfDate(row.date)) : ""}</td>
-                            <td>${escapeHtml(row.worker)}</td>
-                            <td>${escapeHtml(row.jobName)}</td>
-                            <td>${escapeHtml(row.jobNumber)}</td>
-                            <td>${escapeHtml(row.timeIn)} - ${escapeHtml(row.timeOut)}</td>
-                            <td>${row.lunch ? "Yes" : "No"}</td>
-                            <td>${row.nightWork ? "Yes" : "No"}</td>
-                            <td>${row.hours.toFixed(2)}</td>
-                            <td>${escapeHtml(row.weekStart)}</td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
+        ${workers.map((worker) => {
+            const workerRows = rows.filter((row) => (row.worker || "Unknown Worker") === worker);
+            const workerTotal = workerRows.reduce((total, row) => total + row.hours, 0);
+            const days = getTimesheetDayNames().filter((day) => workerRows.some((row) => row.day === day));
+
+            return `
+                <h4 style="margin:14px 0 6px;color:#2f6f3c;">${escapeHtml(worker)} - ${workerTotal.toFixed(2)} hrs</h4>
+                ${days.map((day) => {
+                    const dayRows = workerRows.filter((row) => row.day === day);
+                    const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
+                    const dayDate = dayRows.find((row) => row.date);
+
+                    return `
+                        <div style="margin:10px 0 4px;font-weight:bold;color:#ffffff;">
+                            ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Job</th>
+                                        <th>Job Number</th>
+                                        <th>Time</th>
+                                        <th>Lunch</th>
+                                        <th>Night</th>
+                                        <th>Hours</th>
+                                        <th>Week Start</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${dayRows.map((row) => `
+                                        <tr>
+                                            <td>${escapeHtml(row.jobName)}</td>
+                                            <td>${escapeHtml(row.jobNumber)}</td>
+                                            <td>${escapeHtml(row.timeIn)} - ${escapeHtml(row.timeOut)}</td>
+                                            <td>${row.lunch ? "Yes" : "No"}</td>
+                                            <td>${row.nightWork ? "Yes" : "No"}</td>
+                                            <td>${row.hours.toFixed(2)}</td>
+                                            <td>${escapeHtml(row.weekStart)}</td>
+                                            <td><button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button></td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }).join("")}
+            `;
+        }).join("")}
         <h3>Final Submitted Timesheets</h3>
     `;
 }
 
-function renderSubmittedEntriesByDay(weeks) {
-    const rows = [];
+function editLiveTimesheetEntry(id) {
+    const entry = liveTimesheetEntries.find((item) => item.id === id);
 
-    weeks.forEach((week) => {
-        const entries = Array.isArray(week.entries) ? week.entries : [];
-
-        entries.forEach((entry) => {
-            const normalizedEntry = normalizeAdminTimesheetEntry(entry, week);
-            rows.push({
-                worker: week.worker_name || "",
-                week: week.week_label || "",
-                day: normalizedEntry.day || "",
-                date: getTimesheetEntryDate(normalizedEntry),
-                jobName: normalizedEntry.jobName || "",
-                jobNumber: normalizedEntry.jobNumber || "",
-                timeIn: normalizedEntry.timeIn || "",
-                timeOut: normalizedEntry.timeOut || "",
-                hours: Number(normalizedEntry.hours || 0),
-                submitted: week.submitted_at || ""
-            });
-        });
-    });
-
-    if (!rows.length) {
-        return '<h3>Submitted Entries By Day</h3><div class="small">No individual submitted entries found.</div>';
+    if (!entry) {
+        alert("Live timesheet entry could not be found.");
+        return;
     }
 
-    const dayOrder = getTimesheetDayNames();
-    rows.sort((a, b) => {
-        const dateA = a.date ? a.date.getTime() : 0;
-        const dateB = b.date ? b.date.getTime() : 0;
+    editingLiveTimesheetEntryId = id;
+    renderLiveTimesheetEditPanel(entry);
+    document.getElementById("timesheetEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-        if (dateA !== dateB) {
-            return dateB - dateA;
-        }
+function renderLiveTimesheetEditPanel(entry) {
+    const panel = document.getElementById("timesheetEditPanel");
+    const dayOptions = getTimesheetDayNames().map((day) => {
+        return '<option value="' + escapeHtml(day) + '"' + (entry.day_of_week === day ? " selected" : "") + ">" + escapeHtml(day) + "</option>";
+    }).join("");
 
-        const dayDifference = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
-
-        if (dayDifference !== 0) {
-            return dayDifference;
-        }
-
-        return String(a.worker).localeCompare(String(b.worker));
-    });
-
-    return `
-        <h3>Submitted Entries By Day</h3>
-        <div class="table-wrap" style="margin-bottom:14px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Day</th>
-                        <th>Date</th>
-                        <th>Worker</th>
-                        <th>Job</th>
-                        <th>Job Number</th>
-                        <th>Time</th>
-                        <th>Hours</th>
-                        <th>Week</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.map((row) => `
-                        <tr>
-                            <td>${escapeHtml(row.day)}</td>
-                            <td>${row.date ? escapeHtml(formatTimesheetPdfDate(row.date)) : ""}</td>
-                            <td>${escapeHtml(row.worker)}</td>
-                            <td>${escapeHtml(row.jobName)}</td>
-                            <td>${escapeHtml(row.jobNumber)}</td>
-                            <td>${escapeHtml(row.timeIn)} - ${escapeHtml(row.timeOut)}</td>
-                            <td>${row.hours.toFixed(2)}</td>
-                            <td>${escapeHtml(row.week)}</td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h3>Edit Live Timesheet Entry</h3>
+        <div class="small" style="margin-bottom:10px;">${escapeHtml(entry.worker_name || "")}</div>
+        <div class="announcement-grid">
+            <div>
+                <label>Week Start</label>
+                <input id="liveTimesheetWeekStart" type="date" value="${escapeHtml(entry.week_start || "")}">
+            </div>
+            <div>
+                <label>Day</label>
+                <select id="liveTimesheetDay">${dayOptions}</select>
+            </div>
+            <div>
+                <label>Job Name</label>
+                <input id="liveTimesheetJobName" value="${escapeHtml(entry.job_name || "")}">
+            </div>
+            <div>
+                <label>Job Number</label>
+                <input id="liveTimesheetJobNumber" value="${escapeHtml(entry.job_number || "")}">
+            </div>
+            <div>
+                <label>Time In</label>
+                <input id="liveTimesheetTimeIn" type="time" step="1800" value="${escapeHtml(String(entry.time_in || "").slice(0, 5))}">
+            </div>
+            <div>
+                <label>Time Out</label>
+                <input id="liveTimesheetTimeOut" type="time" step="1800" value="${escapeHtml(String(entry.time_out || "").slice(0, 5))}">
+            </div>
+            <label><input id="liveTimesheetLunch" type="checkbox" ${entry.took_lunch ? "checked" : ""}> Lunch</label>
+            <label><input id="liveTimesheetNight" type="checkbox" ${entry.night_work ? "checked" : ""}> Night Work</label>
         </div>
-        <h3>Submitted Weeks</h3>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="saveLiveTimesheetEntryEdit()">Save Live Entry</button>
+            <button type="button" class="secondary" onclick="cancelLiveTimesheetEntryEdit()">Cancel</button>
+        </div>
+        <div id="liveTimesheetEditStatus" class="small" style="margin-top:8px;"></div>
     `;
+}
+
+async function saveLiveTimesheetEntryEdit() {
+    const entry = liveTimesheetEntries.find((item) => item.id === editingLiveTimesheetEntryId);
+
+    if (!entry) {
+        alert("Live timesheet entry could not be found.");
+        return;
+    }
+
+    const weekStart = document.getElementById("liveTimesheetWeekStart").value;
+    const day = document.getElementById("liveTimesheetDay").value;
+    const jobName = document.getElementById("liveTimesheetJobName").value.trim();
+    const jobNumber = document.getElementById("liveTimesheetJobNumber").value.trim();
+    const timeIn = document.getElementById("liveTimesheetTimeIn").value;
+    const timeOut = document.getElementById("liveTimesheetTimeOut").value;
+    const tookLunch = document.getElementById("liveTimesheetLunch").checked;
+    const nightWork = document.getElementById("liveTimesheetNight").checked;
+    const status = document.getElementById("liveTimesheetEditStatus");
+
+    if (!weekStart || !day || !jobName || !timeIn || !timeOut) {
+        alert("Fill in week, day, job name, time in, and time out.");
+        return;
+    }
+
+    status.textContent = "Saving live entry...";
+
+    const weekEndDate = makeLocalDate(weekStart);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+    const values = {
+        week_start: weekStart,
+        week_end: formatTimesheetPdfDate(weekEndDate),
+        day_of_week: day,
+        job_name: jobName,
+        job_number: jobNumber,
+        time_in: timeIn,
+        time_out: timeOut,
+        took_lunch: tookLunch,
+        night_work: nightWork,
+        hours: calculateAdminTimesheetHours(timeIn, timeOut, tookLunch)
+    };
+
+    const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .update(values)
+        .eq("id", editingLiveTimesheetEntryId)
+        .select()
+        .single();
+
+    if (error) {
+        status.textContent = "Live entry could not be saved.";
+        return;
+    }
+
+    liveTimesheetEntries = liveTimesheetEntries.map((item) => item.id === editingLiveTimesheetEntryId ? data : item);
+    cancelLiveTimesheetEntryEdit();
+    renderTimesheets();
+}
+
+function cancelLiveTimesheetEntryEdit() {
+    editingLiveTimesheetEntryId = "";
+    const panel = document.getElementById("timesheetEditPanel");
+    panel.hidden = true;
+    panel.innerHTML = "";
 }
 
 function makeLocalDate(dateString) {
