@@ -638,6 +638,7 @@ button:hover,
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="common.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -2790,6 +2791,75 @@ function isHighlightedInactiveRow(sheet, rowIndex, columnIndexes) {
     });
 }
 
+function normalizeExcelValue(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    if (typeof value === "object") {
+        if (Array.isArray(value.richText)) {
+            return value.richText.map((part) => part.text || "").join("").trim();
+        }
+
+        if (value.text !== undefined) {
+            return String(value.text || "").trim();
+        }
+
+        if (value.result !== undefined) {
+            return String(value.result || "").trim();
+        }
+
+        if (value.formula !== undefined) {
+            return String(value.result || value.formula || "").trim();
+        }
+    }
+
+    return String(value || "").trim();
+}
+
+function isExcelJsHighlightedCell(cell) {
+    const fill = cell && cell.fill ? cell.fill : null;
+
+    if (!fill) {
+        return false;
+    }
+
+    const type = String(fill.type || "").toLowerCase();
+    const pattern = String(fill.pattern || "").toLowerCase();
+    const colors = [fill.fgColor, fill.bgColor].filter(Boolean);
+
+    const hasNonDefaultColor = colors.some((color) => {
+        const value = String(color.argb || color.rgb || color.indexed || color.theme || "").toUpperCase();
+
+        if (!value) {
+            return false;
+        }
+
+        return ![
+            "FFFFFF",
+            "FFFFFFFF",
+            "000000",
+            "FF000000",
+            "64",
+            "65"
+        ].includes(value);
+    });
+
+    if (hasNonDefaultColor) {
+        return true;
+    }
+
+    return Boolean(type && type !== "none" && pattern && pattern !== "none" && !colors.length);
+}
+
+function isExcelJsHighlightedRow(row, columnIndexes) {
+    if (isExcelJsHighlightedCell({ fill: row.fill })) {
+        return true;
+    }
+
+    return columnIndexes.some((columnIndex) => isExcelJsHighlightedCell(row.getCell(columnIndex + 1)));
+}
+
 function isJobImportSheet(sheetName) {
     const currentYear = new Date().getFullYear();
     const yearMatch = String(sheetName || "").match(/\b(20\d{2})\b/);
@@ -2914,7 +2984,7 @@ async function importJobsFromExcel() {
         return;
     }
 
-    if (!window.XLSX) {
+    if (!window.ExcelJS) {
         status.textContent = "Excel reader could not be loaded. Please refresh and try again.";
         return;
     }
@@ -2922,8 +2992,10 @@ async function importJobsFromExcel() {
     status.textContent = "Reading Excel file...";
 
     try {
-        const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellStyles: true });
-        const sheetNames = workbook.SheetNames.filter(isJobImportSheet);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(await file.arrayBuffer());
+        const worksheets = workbook.worksheets.filter((worksheet) => isJobImportSheet(worksheet.name));
+        const sheetNames = worksheets.map((worksheet) => worksheet.name);
 
         if (!sheetNames.length) {
             status.textContent = "No 2025-present tabs found in this Excel file.";
@@ -2937,19 +3009,16 @@ async function importJobsFromExcel() {
         const jobNumberColumn = 5;
         const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5];
 
-        sheetNames.forEach((sheetName) => {
-            const sheet = workbook.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
-            rows.forEach((row, sheetRowIndex) => {
-                if (isHighlightedInactiveRow(sheet, sheetRowIndex, columnsToCheckForHighlight)) {
+        worksheets.forEach((worksheet) => {
+            worksheet.eachRow({ includeEmpty: false }, (row) => {
+                if (isExcelJsHighlightedRow(row, columnsToCheckForHighlight)) {
                     skippedHighlighted++;
                     return;
                 }
 
-                const jobNumber = String(row[jobNumberColumn] || "").trim();
+                const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
                 const jobName = jobNameColumns
-                    .map((columnIndex) => String(row[columnIndex] || "").trim())
+                    .map((columnIndex) => normalizeExcelValue(row.getCell(columnIndex + 1).value))
                     .filter(Boolean)
                     .join(" ")
                     .replace(/\s+/g, " ")
@@ -3006,28 +3075,25 @@ async function importJobsFromExcel() {
             return;
         }
 
-        const inactiveJobNumbers = (existingJobs || [])
+        const removedJobNumbers = (existingJobs || [])
             .map((job) => job.job_number)
             .filter((jobNumber) => !importedJobNumbers.has(jobNumber));
 
-        if (inactiveJobNumbers.length) {
-            const { error: inactiveError } = await supabaseClient
+        if (removedJobNumbers.length) {
+            const { error: removeError } = await supabaseClient
                 .from("jobs")
-                .update({
-                    active: false,
-                    updated_at: new Date().toISOString()
-                })
-                .in("job_number", inactiveJobNumbers);
+                .delete()
+                .in("job_number", removedJobNumbers);
 
-            if (inactiveError) {
-                status.textContent = "Jobs imported, but old jobs could not be marked inactive: " + inactiveError.message;
+            if (removeError) {
+                status.textContent = "Jobs imported, but old/highlighted jobs could not be removed: " + removeError.message;
                 await loadJobsManagement();
                 return;
             }
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + removedJobNumbers.length + " old/highlighted jobs removed. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";
