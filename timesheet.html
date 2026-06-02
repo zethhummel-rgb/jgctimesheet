@@ -719,6 +719,38 @@ function showCurrentUser() {
     ' <button type="button" class="sign-out" onclick="signOut()">Sign Out</button>';
 }
 
+async function refreshCurrentWorkerFromSupabase() {
+  if (!supabaseClient) {
+    return;
+  }
+
+  const { data: authData, error: authError } = await supabaseClient.auth.getUser();
+  const signedInUser = authData && authData.user;
+
+  if (authError || !signedInUser) {
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabaseClient
+    .from("profiles")
+    .select("email, display_name, worker_key, role, account_status")
+    .eq("id", signedInUser.id)
+    .single();
+
+  if (profileError || !profile || profile.account_status !== "approved") {
+    return;
+  }
+
+  currentUser = normalizeWorkerName(profile.worker_key || profile.display_name || signedInUser.email);
+  currentUserDisplay = profile.display_name || profile.worker_key || signedInUser.email;
+  localStorage.setItem("currentWorker", currentUser);
+  localStorage.setItem("currentWorkerDisplay", currentUserDisplay);
+  localStorage.setItem("currentUserEmail", profile.email || signedInUser.email || "");
+  localStorage.setItem("currentUserRole", profile.role || "worker");
+  localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
+  showCurrentUser();
+}
+
 function goHome() {
   window.location.href = "home.html";
 }
@@ -1173,6 +1205,25 @@ function getEntryHoursLabel(entry) {
   return hours === 0 ? "0" : hours.toFixed(2);
 }
 
+function getEntryTimeText(entry) {
+  const type = getEntryType(entry);
+  const hours = getEntryHours(entry);
+
+  if (type === "sick" || type === "civic_holiday") {
+    return "";
+  }
+
+  if (type === "vacation" && entry.leaveType !== "half_day") {
+    return "";
+  }
+
+  if (entry.timeIn === "00:00" && entry.timeOut === "00:00" && hours === 0) {
+    return "";
+  }
+
+  return (entry.timeIn || "") && (entry.timeOut || "") ? entry.timeIn + "-" + entry.timeOut : "";
+}
+
 function normalizeTimesheetEntry(entry) {
   const normalizedEntry = {
     ...entry,
@@ -1213,7 +1264,11 @@ function getCurrentUserAliases() {
     normalizeWorkerName(currentUserDisplay)
   ];
 
-  if (email === "zethhummel@gmail.com") {
+  if (
+    email === "zethhummel@gmail.com" ||
+    normalizeWorkerName(currentUser) === "test account" ||
+    normalizeWorkerName(currentUserDisplay) === "test account"
+  ) {
     aliases.push("zeth hummel");
   }
 
@@ -1326,7 +1381,7 @@ async function loadTimesheetsFromSupabase() {
   });
 
   setTimesheets(mergedEntries);
-  status.innerText = "Loaded " + loadTimesheets().length + " current entr" + (loadTimesheets().length === 1 ? "y." : "ies.");
+  status.innerText = "Loaded " + loadTimesheets().length + " current entr" + (loadTimesheets().length === 1 ? "y" : "ies") + " for: " + getCurrentUserAliases().join(", ");
   render();
   updateJobSuggestions();
 }
@@ -3095,45 +3150,42 @@ function render() {
     return String(a.jobName || "").localeCompare(String(b.jobName || ""));
   });
 
-  const currentRows = sortedEntries.map(function(entry) {
-    const entryTypeLabel = getEntryTypeLabel(entry);
-    const isSickRow = getEntryType(entry) === "sick";
-    const isZeroPlaceholderTime = entry.timeIn === "00:00" && entry.timeOut === "00:00" && getEntryHours(entry) === 0;
-    const timeText = isSickRow || isZeroPlaceholderTime ? "" : entry.timeIn + "-" + entry.timeOut;
-
+  const allEntryRows = sortedEntries.map(function(entry) {
     return `
       <tr>
         <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(entryTypeLabel)}</td>
+        <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
         <td>${escapeHtml(entry.jobName || "")}</td>
         <td>${escapeHtml(entry.jobNumber || "")}</td>
-        <td>${escapeHtml(timeText)}</td>
+        <td>${escapeHtml(getEntryTimeText(entry))}</td>
         <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
-        <td>${escapeHtml(entry.leaveNote || "")}</td>
+        <td>${escapeHtml(getEntryLeaveNote(entry))}</td>
       </tr>
     `;
   }).join("");
 
-  const sickEntries = sortedEntries.filter(function(entry) {
-    return getEntryType(entry) === "sick";
+  const leaveEntries = sortedEntries.filter(function(entry) {
+    return getEntryType(entry) !== "work";
   });
 
-  const sickRows = sickEntries.map(function(entry) {
+  const leaveRows = leaveEntries.map(function(entry) {
     return `
       <tr>
         <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(entry.jobNumber || entry.leaveNote || "")}</td>
+        <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
+        <td>${escapeHtml(entry.jobNumber || getEntryLeaveNote(entry) || "")}</td>
+        <td>${escapeHtml(getEntryTimeText(entry))}</td>
         <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
-        <td>${escapeHtml(entry.leaveNote || "")}</td>
+        <td>${escapeHtml(getEntryLeaveNote(entry))}</td>
       </tr>
     `;
   }).join("");
 
-  const summaryEntries = sortedEntries.filter(function(entry) {
-    return getEntryType(entry) !== "sick";
+  const workEntries = sortedEntries.filter(function(entry) {
+    return getEntryType(entry) === "work";
   });
 
-  const rows = summaryEntries.map(function(entry) {
+  const rows = workEntries.map(function(entry) {
     const dayCells = days.map(function(day) {
       if (entry.day !== day) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
@@ -3144,7 +3196,6 @@ function render() {
 
     return `
       <tr>
-        <td data-label="Type">${escapeHtml(getEntryTypeLabel(entry))}</td>
         <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
         <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
         ${dayCells}
@@ -3153,7 +3204,7 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
-    <h3>Current Entries</h3>
+    <h3>All Current Entries</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -3168,32 +3219,33 @@ function render() {
           </tr>
         </thead>
         <tbody>
-          ${currentRows}
+          ${allEntryRows}
         </tbody>
       </table>
     </div>
-    <h3>Sick Days</h3>
+    <h3>Sick / Vacation / Holiday Entries</h3>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Day</th>
-            <th>Reason</th>
+            <th>Type</th>
+            <th>Reason / Pay Type</th>
+            <th>Time</th>
             <th>Hours</th>
             <th>Note</th>
           </tr>
         </thead>
         <tbody>
-          ${sickRows || '<tr><td colspan="4">No sick days entered.</td></tr>'}
+          ${leaveRows || '<tr><td colspan="6">No sick, vacation, or holiday entries.</td></tr>'}
         </tbody>
       </table>
     </div>
-    <h3>Weekly Summary</h3>
+    <h3>Weekly Work Hours Summary</h3>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Type</th>
             <th>Job Name</th>
             <th>Job Number</th>
             <th>Sunday</th>
@@ -3217,10 +3269,11 @@ function render() {
   `;
 }
 
-if (currentUser) {
+async function startTimesheetPage() {
   showCurrentUser();
   fillTimeOptions();
   updateEntryTypeFields();
+  await refreshCurrentWorkerFromSupabase();
   setTimesheets(loadFallbackTimesheets());
   previousWeeks = loadFallbackPreviousWeeks();
   selectedCalendarDate = new Date();
@@ -3231,6 +3284,10 @@ if (currentUser) {
   loadPreviousWeeksFromSupabase({ render: false }).then(function() {
     renderTimesheetCalendar();
   });
+}
+
+if (currentUser) {
+  startTimesheetPage();
 }
 </script>
 
