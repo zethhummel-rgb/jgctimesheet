@@ -791,7 +791,7 @@ function getCurrentStatusForDate(date) {
 
   if (leaveEntry) {
     return {
-      label: getEntryTypeLabel(leaveEntry),
+      label: getEntryTypeLabel(leaveEntry) + (getEntryLeaveNote(leaveEntry) ? ": " + getEntryLeaveNote(leaveEntry) : ""),
       isLeave: true
     };
   }
@@ -1161,6 +1161,14 @@ function loadAllFallbackTimesheets() {
 }
 
 function rowToEntry(row) {
+  const inferredEntryType = row.entry_type || (String(row.job_name || "").toLowerCase().includes("sick day")
+    ? "sick"
+    : String(row.job_name || "").toLowerCase().includes("vacation day")
+      ? "vacation"
+      : String(row.job_name || "").toLowerCase().includes("holiday")
+        ? "civic_holiday"
+        : "work");
+
   return {
     id: row.id,
     user: row.worker_name,
@@ -1175,7 +1183,7 @@ function rowToEntry(row) {
     hours: Number(row.hours).toFixed(2),
     tookLunch: Boolean(row.took_lunch),
     nightWork: Boolean(row.night_work),
-    entryType: row.entry_type || "work",
+    entryType: inferredEntryType,
     leaveType: row.leave_type || "",
     leaveNote: row.leave_note || ""
   };
@@ -2742,71 +2750,36 @@ function render() {
     return;
   }
 
-  const jobs = {};
+  const rows = entries.slice().sort(function(a, b) {
+    const dayDifference = days.indexOf(a.day) - days.indexOf(b.day);
 
-  for (let entry of entries) {
-    const key = isLeaveEntry(entry)
-      ? entry.day + "|" + getEntryTypeLabel(entry) + "|" + getEntryLeaveNote(entry)
-      : entry.jobName + "|" + entry.jobNumber;
-
-    if (!jobs[key]) {
-      jobs[key] = {
-        jobName: isLeaveEntry(entry) ? getEntryTypeLabel(entry) : entry.jobName,
-        jobNumber: isLeaveEntry(entry) ? "" : entry.jobNumber,
-        leaveNote: isLeaveEntry(entry) ? getEntryLeaveNote(entry) : "",
-        nightWork: false,
-        firstDayIndex: days.length,
-        days: {},
-        labels: {}
-      };
-
-      for (let day of days) {
-        jobs[key].days[day] = 0;
-        jobs[key].labels[day] = "";
-      }
+    if (dayDifference !== 0) {
+      return dayDifference;
     }
 
-    if (isLeaveEntry(entry)) {
-      jobs[key].labels[entry.day] = getEntryTypeLabel(entry);
-      jobs[key].days[entry.day] += Number(entry.hours || 0);
-    } else {
-      jobs[key].days[entry.day] += Number(entry.hours);
-    }
-
-    jobs[key].nightWork = jobs[key].nightWork || Boolean(entry.nightWork);
-    jobs[key].firstDayIndex = Math.min(jobs[key].firstDayIndex, days.indexOf(entry.day));
-  }
-
-  const rows = Object.values(jobs).sort(function(a, b) {
-    if (a.firstDayIndex !== b.firstDayIndex) {
-      return a.firstDayIndex - b.firstDayIndex;
-    }
-
-    return a.jobName.localeCompare(b.jobName);
-  }).map(function(job) {
+    return String(a.jobName || "").localeCompare(String(b.jobName || ""));
+  }).map(function(entry) {
     const dayCells = days.map(function(day) {
-      const hours = job.days[day];
-      const label = job.labels[day];
-
-      if (label) {
-        return '<td data-label="' + day + '"><b>' + escapeHtml(label) + '</b></td>';
-      }
-
-      if (!hours) {
+      if (entry.day !== day) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
       }
 
-      return '<td data-label="' + day + '"><b>' + hours.toFixed(2) + "</b></td>";
+      if (isLeaveEntry(entry)) {
+        const note = getEntryLeaveNote(entry);
+        const timeText = entry.leaveType === "half_day" ? '<div class="small">' + escapeHtml(entry.timeIn) + '-' + escapeHtml(entry.timeOut) + '</div>' : "";
+        return '<td data-label="' + day + '"><b>' + escapeHtml(getEntryTypeLabel(entry)) + '</b>' + timeText + (note ? '<div class="small">' + escapeHtml(note) + '</div>' : "") + '</td>';
+      }
+
+      return '<td data-label="' + day + '"><b>' + Number(entry.hours || 0).toFixed(2) + "</b></td>";
     }).join("");
 
     return `
       <tr>
-        <td data-label="Job Name">${escapeHtml(job.jobName)}</td>
-        <td data-label="Job Number">${escapeHtml(job.jobNumber)}</td>
-        <td data-label="Night Work"><input type="checkbox" disabled ${job.nightWork ? "checked" : ""} /></td>
+        <td data-label="Job Name">${escapeHtml(isLeaveEntry(entry) ? getEntryTypeLabel(entry) : entry.jobName)}</td>
+        <td data-label="Job Number">${escapeHtml(isLeaveEntry(entry) ? "" : entry.jobNumber)}</td>
+        <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
         ${dayCells}
       </tr>
-      ${job.leaveNote ? '<tr><td colspan="10" class="small"><b>Note:</b> ' + escapeHtml(job.leaveNote) + '</td></tr>' : ''}
     `;
   }).join("");
 
