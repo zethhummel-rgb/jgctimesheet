@@ -1504,7 +1504,9 @@ async function submitTime() {
     return;
   }
 
-  const weekStart = document.getElementById("weekStart").value;
+  const rawWeekStart = document.getElementById("weekStart").value;
+  const normalizedWeekStartDate = rawWeekStart ? getWeekStartDate(makeLocalDate(rawWeekStart)) : null;
+  const weekStart = normalizedWeekStartDate ? formatDateValue(normalizedWeekStartDate) : "";
   const selectedJob = findSelectedActiveJob();
   const typedJobName = document.getElementById("jobName").value.trim();
   const typedJobNumber = document.getElementById("jobNumber").value.trim();
