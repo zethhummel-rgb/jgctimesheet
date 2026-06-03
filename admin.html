@@ -907,6 +907,10 @@ function showTab(tab) {
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
 
+    if (tab !== "summary") {
+        markAdminTabViewed(tab);
+    }
+
     if (tab === "summary") {
         renderPortalSummary();
     }
@@ -1060,6 +1064,7 @@ async function loadAdminData() {
     await prepareAnnouncementUrls();
     await prepareToolboxTalkUrls();
     await preparePolicyUrls();
+    initializeAdminSummaryBaselines();
     renderTimesheets();
     renderSickDays();
     renderInspections();
@@ -1096,6 +1101,52 @@ function countRecentReportsToday(todayValue) {
     const toolboxCount = toolboxReports.filter((report) => isSameLocalDay(report.report_date || report.created_at, todayValue)).length;
 
     return dailyCount + incidentCount + accidentCount + injuryCount + toolboxCount;
+}
+
+function getAdminViewedKey(tab) {
+    return "jgcAdminLastViewed_" + tab;
+}
+
+function initializeAdminSummaryBaselines() {
+    const now = new Date().toISOString();
+
+    ["timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "equipment", "contacts", "accounts"].forEach((tab) => {
+        const key = getAdminViewedKey(tab);
+
+        if (!localStorage.getItem(key)) {
+            localStorage.setItem(key, now);
+        }
+    });
+}
+
+function getAdminLastViewed(tab) {
+    return localStorage.getItem(getAdminViewedKey(tab)) || "1970-01-01T00:00:00.000Z";
+}
+
+function markAdminTabViewed(tab) {
+    localStorage.setItem(getAdminViewedKey(tab), new Date().toISOString());
+    renderPortalSummary();
+}
+
+function openAdminSummaryTile(tab) {
+    markAdminTabViewed(tab);
+    showTab(tab);
+}
+
+function openAccountsFromSummary() {
+    localStorage.setItem(getAdminViewedKey("accounts"), new Date().toISOString());
+    window.location.href = "accounts.html";
+}
+
+function isNewForAdminTab(item, tab, fields) {
+    const lastViewed = getAdminLastViewed(tab);
+    const fieldList = fields || ["created_at", "updated_at", "submitted_at", "approved_at"];
+
+    return fieldList.some((field) => item && item[field] && String(item[field]) > lastViewed);
+}
+
+function countNewForAdminTab(items, tab, fields) {
+    return (items || []).filter((item) => isNewForAdminTab(item, tab, fields)).length;
 }
 
 function countEquipmentExpiryAlerts() {
@@ -1166,98 +1217,103 @@ function renderPortalSummary() {
     const activeJobs = jobs.filter((job) => job.active !== false).length;
     const activeEquipment = equipmentItems.length;
     const activeContacts = contacts.length;
+    const reportsForBadge = dailySiteReports
+        .concat(incidentReports)
+        .concat(accidentReports)
+        .concat(employeeInjuryReports)
+        .concat(toolboxReports);
 
     const tiles = [
         {
             title: "Timesheet Updates",
             value: liveEntriesThisWeek,
-            badgeCount: liveEntriesThisWeek,
+            badgeCount: countNewForAdminTab(liveTimesheetEntries, "timesheets", ["created_at", "updated_at"]),
             detail: "Live entries saved this week",
-            action: "showTab('timesheets')"
+            action: "openAdminSummaryTile('timesheets')"
         },
         {
             title: "Sick Days",
             value: sickDaysThisWeek,
-            badgeCount: sickDaysThisWeek,
+            badgeCount: countNewForAdminTab(liveTimesheetEntries.filter((entry) => String(entry.entry_type || "").toLowerCase() === "sick"), "sickDays", ["created_at", "updated_at"]),
             detail: "Sick entries logged this week",
-            action: "showTab('sickDays')"
+            action: "openAdminSummaryTile('sickDays')"
         },
         {
             title: "Inspections Today",
             value: inspectionsToday,
-            badgeCount: inspectionsToday,
+            badgeCount: countNewForAdminTab(inspections, "inspections", ["created_at", "updated_at"]),
             detail: "Inspection records completed today",
-            action: "showTab('inspections')"
+            action: "openAdminSummaryTile('inspections')"
         },
         {
             title: "Reports Completed",
             value: reportsToday,
-            badgeCount: reportsToday,
+            badgeCount: countNewForAdminTab(reportsForBadge, "reports", ["created_at", "updated_at", "submitted_at"]),
             detail: "Reports submitted today",
-            action: "showTab('reports')"
+            action: "openAdminSummaryTile('reports')"
         },
         {
             title: "Expiring Certificates",
             value: expiringCertificates,
-            badgeCount: expiringCertificates,
+            badgeCount: countNewForAdminTab(certificates, "certificates", ["created_at", "updated_at"]),
             detail: "Certificates expiring within 30 days",
-            action: "showTab('certificates')"
+            action: "openAdminSummaryTile('certificates')"
         },
         {
             title: "Vacation Requests",
             value: pendingVacations,
-            badgeCount: pendingVacations,
+            badgeCount: countNewForAdminTab(vacationRequests, "vacation", ["created_at", "updated_at"]),
             detail: "Pending approvals",
-            action: "showTab('vacation')"
+            action: "openAdminSummaryTile('vacation')"
         },
         {
             title: "Announcements",
             value: activeAnnouncements,
-            badgeCount: activeAnnouncements,
+            badgeCount: countNewForAdminTab(announcementAcknowledgements, "announcements", ["read_at", "created_at"]),
             detail: "Active announcements",
-            action: "showTab('announcements')"
+            action: "openAdminSummaryTile('announcements')"
         },
         {
             title: "Tool Box Talks",
             value: toolboxReports.length,
-            badgeCount: toolboxAttendance.filter((item) => !item.acknowledged_at).length,
-            detail: "Badge shows pending acknowledgements",
-            action: "showTab('toolboxTalks')"
+            badgeCount: countNewForAdminTab(toolboxReports.concat(toolboxAttendance), "toolboxTalks", ["created_at", "acknowledged_at"]),
+            detail: "New reports or acknowledgements",
+            action: "openAdminSummaryTile('toolboxTalks')"
         },
         {
             title: "Policies",
             value: policies.length,
-            badgeCount: policies.length,
+            badgeCount: countNewForAdminTab(policies, "policies", ["created_at", "updated_at"]),
             detail: "Active policies available to employees",
-            action: "showTab('policies')"
+            action: "openAdminSummaryTile('policies')"
         },
         {
             title: "Jobs",
             value: activeJobs,
-            badgeCount: activeJobs,
+            badgeCount: countNewForAdminTab(jobs, "jobs", ["created_at", "updated_at"]),
             detail: "Active jobs available for timesheets",
-            action: "showTab('jobs')"
+            action: "openAdminSummaryTile('jobs')"
         },
         {
             title: "Equipment Expiries",
             value: equipmentExpiring,
-            badgeCount: equipmentExpiring,
+            badgeCount: countNewForAdminTab(equipmentItems, "equipment", ["created_at", "updated_at"]),
             detail: "Inspections expiring within 30 days",
-            action: "showTab('equipment')"
+            action: "openAdminSummaryTile('equipment')"
         },
         {
             title: "Contacts",
             value: activeContacts,
-            badgeCount: activeContacts,
+            badgeCount: countNewForAdminTab(contacts, "contacts", ["created_at", "updated_at"]),
             detail: "Active company contacts",
-            action: "showTab('contacts')"
+            action: "openAdminSummaryTile('contacts')"
         },
         {
             title: "New Account Requests",
             value: pendingAccounts,
-            badgeCount: pendingAccounts,
+            badgeCount: countNewForAdminTab(accounts.filter((account) => String(account.account_status || "").toLowerCase() === "pending"), "accounts", ["created_at"]),
             detail: "Accounts waiting for approval",
-            action: "window.location.href='accounts.html'"
+            action: "openAccountsFromSummary()"
         }
     ];
 
