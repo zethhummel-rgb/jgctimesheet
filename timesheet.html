@@ -681,6 +681,7 @@ const supabaseClient = createJgcSupabaseClient();
 let currentUser = normalizeWorkerName(localStorage.getItem("currentWorker"));
 let currentUserDisplay = localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker");
 let memoryTimesheets = [];
+let rawSupabaseTimesheetRows = [];
 let editingEntryId = null;
 let entriesTab = "current";
 let previousWeeks = [];
@@ -1264,10 +1265,16 @@ function getCurrentUserAliases() {
     normalizeWorkerName(currentUserDisplay)
   ];
 
+  const currentUserText = normalizeWorkerName(currentUser);
+  const displayText = normalizeWorkerName(currentUserDisplay);
+
   if (
     email === "zethhummel@gmail.com" ||
-    normalizeWorkerName(currentUser) === "test account" ||
-    normalizeWorkerName(currentUserDisplay) === "test account"
+    email.includes("zeth") ||
+    currentUserText.includes("zeth") ||
+    displayText.includes("zeth") ||
+    currentUserText === "test account" ||
+    displayText === "test account"
   ) {
     aliases.push("zeth hummel");
   }
@@ -1352,14 +1359,13 @@ async function loadTimesheetsFromSupabase() {
 
   status.innerText = "Loading saved entries...";
 
-  const userAliases = getCurrentUserAliases();
   const { data, error } = await supabaseClient
     .from("timesheet_entries")
     .select("*")
-    .in("worker_name", userAliases)
     .order("created_at", { ascending: true });
 
   if (error) {
+    rawSupabaseTimesheetRows = [];
     setTimesheets(loadFallbackTimesheets());
     status.innerText = "Could not reach Supabase. Using browser storage for now.";
     render();
@@ -1367,6 +1373,7 @@ async function loadTimesheetsFromSupabase() {
     return;
   }
 
+  rawSupabaseTimesheetRows = data || [];
   const onlineEntries = (data || []).map(rowToEntry);
   const mergedEntries = onlineEntries.slice();
 
@@ -1381,7 +1388,8 @@ async function loadTimesheetsFromSupabase() {
   });
 
   setTimesheets(mergedEntries);
-  status.innerText = "Loaded " + loadTimesheets().length + " current entr" + (loadTimesheets().length === 1 ? "y" : "ies") + " for: " + getCurrentUserAliases().join(", ");
+  const shownCount = loadTimesheets().length;
+  status.innerText = "Loaded " + shownCount + " shown / " + rawSupabaseTimesheetRows.length + " database rows. Worker match: " + getCurrentUserAliases().join(", ");
   render();
   updateJobSuggestions();
 }
@@ -3150,6 +3158,23 @@ function render() {
     return String(a.jobName || "").localeCompare(String(b.jobName || ""));
   });
 
+  const rawDatabaseRows = rawSupabaseTimesheetRows.map(function(row) {
+    return `
+      <tr>
+        <td>${escapeHtml(row.worker_name || "")}</td>
+        <td>${escapeHtml(row.week_start || "")}</td>
+        <td>${escapeHtml(row.day_of_week || "")}</td>
+        <td>${escapeHtml(row.job_name || "")}</td>
+        <td>${escapeHtml(row.job_number || "")}</td>
+        <td>${escapeHtml(row.time_in || "")}</td>
+        <td>${escapeHtml(row.time_out || "")}</td>
+        <td>${escapeHtml(row.hours || "")}</td>
+        <td>${escapeHtml(row.entry_type || "")}</td>
+        <td>${escapeHtml(row.leave_note || "")}</td>
+      </tr>
+    `;
+  }).join("");
+
   const allEntryRows = sortedEntries.map(function(entry) {
     return `
       <tr>
@@ -3204,6 +3229,28 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
+    <h3>Database Rows</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Week</th>
+            <th>Day</th>
+            <th>Job Name</th>
+            <th>Job Number</th>
+            <th>Time In</th>
+            <th>Time Out</th>
+            <th>Hours</th>
+            <th>Type</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rawDatabaseRows || '<tr><td colspan="10">No database rows loaded yet. Press Refresh Entries.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
     <h3>All Current Entries</h3>
     <div class="table-wrap">
       <table>
