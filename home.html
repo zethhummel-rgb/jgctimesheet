@@ -1089,6 +1089,7 @@ const currentUserRole = worker.role;
 const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 let announcements = [];
 let announcementUrls = {};
+let toolboxAcknowledgements = [];
 let currentUserId = "";
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
@@ -1310,18 +1311,28 @@ async function loadAnnouncements() {
     return;
   }
 
-  const { data, error } = await supabaseClient
-    .from("announcements")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(3);
+  const [announcementResult, toolboxResult] = await Promise.all([
+    supabaseClient
+      .from("announcements")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(3),
+    supabaseClient
+      .from("toolbox_talk_attendance")
+      .select("*, toolbox_talk_reports(*)")
+      .eq("worker_name", currentWorker)
+      .is("acknowledged_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5)
+  ]);
 
-  if (error) {
+  if (announcementResult.error) {
     return;
   }
 
-  announcements = data || [];
+  announcements = announcementResult.data || [];
+  toolboxAcknowledgements = toolboxResult.data || [];
   await prepareAnnouncementUrls();
   renderAnnouncements();
 }
@@ -1348,14 +1359,29 @@ async function prepareAnnouncementUrls() {
 function renderAnnouncements() {
   const panel = document.getElementById("announcementsPanel");
   const list = document.getElementById("announcementsList");
+  const toolboxCards = toolboxAcknowledgements.map((ack) => {
+    const report = ack.toolbox_talk_reports || {};
 
-  if (!announcements.length) {
+    return `
+      <article class="announcement-item">
+        <span class="info-icon"><i data-lucide="clipboard-check"></i></span>
+        <div>
+          <h2>Tool Box Talk Acknowledgement Required</h2>
+          <div class="muted">${escapeHtml(report.talk_title || "Tool Box Talk")}</div>
+          <div class="muted">${escapeHtml(report.project || "")}${report.report_date ? " - " + escapeHtml(formatDisplayDate(report.report_date)) : ""}</div>
+        </div>
+        <button type="button" class="announcement-file" onclick="acknowledgeToolboxAttendance('${escapeHtml(ack.id)}')">Acknowledge</button>
+      </article>
+    `;
+  });
+
+  if (!announcements.length && !toolboxCards.length) {
     panel.hidden = true;
     return;
   }
 
   panel.hidden = false;
-  list.innerHTML = announcements.map((announcement) => `
+  const announcementCards = announcements.map((announcement) => `
     <article class="announcement-item" role="button" tabindex="0" data-announcement-read="${escapeHtml(announcement.id)}">
       <span class="info-icon"><i data-lucide="megaphone"></i></span>
       <div>
@@ -1364,7 +1390,9 @@ function renderAnnouncements() {
       </div>
       ${announcementUrls[announcement.id] ? '<a class="announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener" data-announcement-pdf="' + escapeHtml(announcement.id) + '">Open PDF</a>' : ""}
     </article>
-  `).join("");
+  `);
+
+  list.innerHTML = toolboxCards.concat(announcementCards).join("");
 
   list.querySelectorAll("[data-announcement-read]").forEach((card) => {
     card.addEventListener("click", () => acknowledgeAnnouncement(card.dataset.announcementRead, "home_card"));
@@ -1380,6 +1408,28 @@ function renderAnnouncements() {
   });
 
   renderIcons();
+}
+
+async function acknowledgeToolboxAttendance(id) {
+  if (!confirm("Acknowledge you were present for this toolbox talk?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("toolbox_talk_attendance")
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledgement_name: currentWorkerDisplay
+    })
+    .eq("id", id)
+    .eq("worker_name", currentWorker);
+
+  if (error) {
+    alert("Toolbox talk acknowledgement could not be saved.");
+    return;
+  }
+
+  await loadAnnouncements();
 }
 
 async function signOut() {
