@@ -383,6 +383,7 @@ button:hover,
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
+    <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Tool Box Talks</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
     <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Jobs Management</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
@@ -546,7 +547,24 @@ button:hover,
 
 <div id="reportsSection" class="card" hidden>
     <h2>Reports</h2>
-    <h3>Toolbox Talks</h3>
+    <div class="announcement-grid">
+        <div>
+            <h3>Daily Site Reports</h3>
+            <div id="dailySiteReportsList" class="small">Loading daily site reports...</div>
+        </div>
+        <div>
+            <h3>JSA Reports</h3>
+            <div id="jsaReportsList" class="small">Loading JSA reports...</div>
+        </div>
+        <div>
+            <h3>Near Miss Reports</h3>
+            <div id="nearMissReportsList" class="small">Near Miss Reporting has not been built yet.</div>
+        </div>
+    </div>
+</div>
+
+<div id="toolboxTalksSection" class="card" hidden>
+    <h2>Tool Box Talks</h2>
     <div class="announcement-grid">
         <div>
             <label>Title</label>
@@ -560,17 +578,9 @@ button:hover,
             <label>Description</label>
             <textarea id="toolboxTalkDescription" placeholder="Optional notes for this toolbox talk"></textarea>
         </div>
-        <div class="full">
-            <label>Assign To Workers</label>
-            <div class="actions" style="margin:0 0 8px;">
-                <button type="button" class="secondary" onclick="selectAllToolboxWorkers(true)">Select All</button>
-                <button type="button" class="secondary" onclick="selectAllToolboxWorkers(false)">Clear</button>
-            </div>
-            <div id="toolboxWorkerList" class="small">Loading workers...</div>
-        </div>
     </div>
     <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="publishToolboxTalk()">Upload & Assign Toolbox Talk</button>
+        <button type="button" onclick="publishToolboxTalk()">Upload Toolbox Talk PDF</button>
         <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Talks</button>
     </div>
     <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
@@ -625,6 +635,10 @@ button:hover,
         <div>
             <label>Operator Name</label>
             <input id="equipmentOperator" placeholder="Operator name">
+        </div>
+        <div>
+            <label>Current Hours</label>
+            <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
         </div>
         <div>
             <label>Yearly Inspection Expiry</label>
@@ -718,7 +732,9 @@ let vacationRequests = [];
 let accounts = [];
 let announcements = [];
 let toolboxTalks = [];
-let toolboxAssignments = [];
+let toolboxReports = [];
+let toolboxAttendance = [];
+let dailySiteReports = [];
 let policies = [];
 let jobs = [];
 let equipmentItems = [];
@@ -748,7 +764,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
+    ["timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -766,7 +782,10 @@ function showTab(tab) {
     }
 
     if (tab === "reports") {
-        renderToolboxWorkers();
+        renderReports();
+    }
+
+    if (tab === "toolboxTalks") {
         renderToolboxTalks();
     }
 
@@ -844,7 +863,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxAssignmentResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -855,7 +874,9 @@ async function loadAdminData() {
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }),
-        supabaseClient.from("toolbox_talk_assignments").select("*").order("assigned_at", { ascending: false }),
+        supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
@@ -873,7 +894,9 @@ async function loadAdminData() {
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
     toolboxTalks = toolboxTalkResult.data || [];
-    toolboxAssignments = toolboxAssignmentResult.data || [];
+    toolboxReports = toolboxReportResult.data || [];
+    toolboxAttendance = toolboxAttendanceResult.data || [];
+    dailySiteReports = dailySiteReportResult.data || [];
     policies = policyResult.data || [];
     jobs = jobsResult.data || [];
     equipmentItems = equipmentResult.data || [];
@@ -892,7 +915,7 @@ async function loadAdminData() {
     renderCertificates();
     renderVacationRequests();
     renderAnnouncements();
-    renderToolboxWorkers();
+    renderReports();
     renderToolboxTalks();
     renderPolicies();
     renderJobsManagement();
@@ -1192,6 +1215,7 @@ function clearEquipmentForm() {
     document.getElementById("equipmentName").value = "";
     document.getElementById("equipmentIdentification").value = "";
     document.getElementById("equipmentOperator").value = "";
+    document.getElementById("equipmentHours").value = "";
     document.getElementById("equipmentExpiry").value = "";
     document.getElementById("equipmentNotes").value = "";
     document.getElementById("equipmentSaveButton").textContent = "Add Equipment / Vehicle";
@@ -1224,7 +1248,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -1235,6 +1259,7 @@ function renderEquipment() {
                                 <td>${escapeHtml(item.name)}</td>
                                 <td>${escapeHtml(item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
+                                <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
                                 <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
                                 <td>${escapeHtml(status)}</td>
                                 <td>${escapeHtml(item.notes || "")}</td>
@@ -1244,7 +1269,7 @@ function renderEquipment() {
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="7">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="8">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -1281,6 +1306,7 @@ function editEquipment(id) {
     document.getElementById("equipmentName").value = item.name || "";
     document.getElementById("equipmentIdentification").value = item.identification_number || "";
     document.getElementById("equipmentOperator").value = item.operator_name || "";
+    document.getElementById("equipmentHours").value = item.current_hours !== null && item.current_hours !== undefined ? item.current_hours : "";
     document.getElementById("equipmentExpiry").value = item.yearly_inspection_expiry || "";
     document.getElementById("equipmentNotes").value = item.notes || "";
     document.getElementById("equipmentSaveButton").textContent = "Update Equipment / Vehicle";
@@ -1292,11 +1318,18 @@ async function saveEquipment() {
     const name = document.getElementById("equipmentName").value.trim();
     const identificationNumber = document.getElementById("equipmentIdentification").value.trim();
     const operatorName = document.getElementById("equipmentOperator").value.trim();
+    const currentHoursValue = document.getElementById("equipmentHours").value;
+    const currentHours = currentHoursValue === "" ? null : Number(currentHoursValue);
     const expiry = document.getElementById("equipmentExpiry").value || null;
     const notes = document.getElementById("equipmentNotes").value.trim();
 
     if (!name) {
         setEquipmentStatus("Please enter the equipment or vehicle name.", true);
+        return;
+    }
+
+    if (currentHoursValue !== "" && (!Number.isFinite(currentHours) || currentHours < 0)) {
+        setEquipmentStatus("Current hours must be a valid number.", true);
         return;
     }
 
@@ -1306,6 +1339,7 @@ async function saveEquipment() {
         name,
         identification_number: identificationNumber,
         operator_name: operatorName,
+        current_hours: currentHours,
         yearly_inspection_expiry: expiry,
         notes,
         updated_at: new Date().toISOString()
@@ -2732,6 +2766,65 @@ function renderInspections() {
     `;
 }
 
+function renderReports() {
+    const dailyList = document.getElementById("dailySiteReportsList");
+    const jsaList = document.getElementById("jsaReportsList");
+    const jsaReports = inspections.filter((inspection) =>
+        String(inspection.inspection_type || "").toLowerCase().includes("jsa")
+    );
+
+    if (dailyList) {
+        if (!dailySiteReports.length) {
+            dailyList.textContent = "No daily site reports found.";
+        } else {
+            dailyList.innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Project</th><th>Submitted By</th><th>Saved</th></tr>
+                        </thead>
+                        <tbody>
+                            ${dailySiteReports.slice(0, 50).map((report) => `
+                                <tr>
+                                    <td>${escapeHtml(formatDate(report.report_date))}</td>
+                                    <td>${escapeHtml(report.project || "")}</td>
+                                    <td>${escapeHtml(report.worker_display_name || report.worker_name || "")}</td>
+                                    <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    }
+
+    if (jsaList) {
+        if (!jsaReports.length) {
+            jsaList.textContent = "No JSA reports found.";
+        } else {
+            jsaList.innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Completed By</th><th>Saved</th></tr>
+                        </thead>
+                        <tbody>
+                            ${jsaReports.slice(0, 50).map((inspection) => `
+                                <tr>
+                                    <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
+                                    <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name || "")}</td>
+                                    <td>${escapeHtml(formatDate(inspection.created_at))}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    }
+}
+
 function renderCertificates() {
     const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("certificateStatusFilter").value;
@@ -3365,45 +3458,6 @@ function setToolboxTalkStatus(message) {
     document.getElementById("toolboxTalkStatus").textContent = message || "";
 }
 
-function getApprovedWorkers() {
-    return accounts
-        .filter((account) => account.account_status === "approved")
-        .map((account) => ({
-            workerName: normalizeWorkerName(account.worker_key || account.display_name || account.email),
-            displayName: account.display_name || account.worker_key || account.email || "",
-            email: account.email || ""
-        }))
-        .filter((account) => account.workerName);
-}
-
-function renderToolboxWorkers() {
-    const list = document.getElementById("toolboxWorkerList");
-
-    if (!list) {
-        return;
-    }
-
-    const workers = getApprovedWorkers();
-
-    if (!workers.length) {
-        list.textContent = "No approved workers found.";
-        return;
-    }
-
-    list.innerHTML = workers.map((worker) => `
-        <label style="display:block;margin:4px 0;font-weight:normal;">
-            <input class="toolbox-worker-checkbox" type="checkbox" value="${escapeHtml(worker.workerName)}" data-display="${escapeHtml(worker.displayName)}">
-            ${escapeHtml(worker.displayName)}${worker.email ? " - " + escapeHtml(worker.email) : ""}
-        </label>
-    `).join("");
-}
-
-function selectAllToolboxWorkers(checked) {
-    document.querySelectorAll(".toolbox-worker-checkbox").forEach((box) => {
-        box.checked = checked;
-    });
-}
-
 async function prepareToolboxTalkUrls() {
     toolboxTalkUrls = {};
 
@@ -3421,30 +3475,6 @@ async function prepareToolboxTalkUrls() {
             toolboxTalkUrls[talk.id] = data.signedUrl;
         }
     }
-}
-
-function getToolboxAssignments(talkId) {
-    return toolboxAssignments.filter((assignment) => assignment.talk_id === talkId);
-}
-
-function renderToolboxAssignmentDetails(talk) {
-    const assignments = getToolboxAssignments(talk.id);
-
-    if (!assignments.length) {
-        return "No workers assigned.";
-    }
-
-    const acknowledged = assignments.filter((assignment) => assignment.acknowledged_at).length;
-    const details = assignments
-        .map((assignment) => {
-            const status = assignment.acknowledged_at
-                ? "Acknowledged " + formatDate(assignment.acknowledged_at)
-                : "Pending";
-            return escapeHtml(assignment.worker_display_name || assignment.worker_name) + " - " + status;
-        })
-        .join("<br>");
-
-    return `<b>${acknowledged}/${assignments.length} acknowledged</b><br>${details}`;
 }
 
 function renderToolboxTalks() {
@@ -3467,7 +3497,7 @@ function renderToolboxTalks() {
                         <th>Title</th>
                         <th>Description</th>
                         <th>PDF</th>
-                        <th>Assigned / Acknowledged</th>
+                        <th>Uploaded</th>
                         <th>Expires</th>
                         <th>Actions</th>
                     </tr>
@@ -3478,7 +3508,7 @@ function renderToolboxTalks() {
                             <td>${escapeHtml(talk.title)}</td>
                             <td>${escapeHtml(talk.description || "")}</td>
                             <td>${toolboxTalkUrls[talk.id] ? '<a class="file-link" href="' + toolboxTalkUrls[talk.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
-                            <td>${renderToolboxAssignmentDetails(talk)}</td>
+                            <td>${escapeHtml(formatDate(talk.created_at))}</td>
                             <td>${escapeHtml(formatDate(talk.expires_at))}</td>
                             <td><button type="button" class="delete-button" onclick="deleteToolboxTalk('${escapeHtml(talk.id)}')">Delete</button></td>
                         </tr>
@@ -3490,27 +3520,19 @@ function renderToolboxTalks() {
 }
 
 async function loadToolboxTalks() {
-    const [talkResult, assignmentResult] = await Promise.all([
-        supabaseClient
-            .from("toolbox_talks")
-            .select("*")
-            .eq("is_active", true)
-            .order("created_at", { ascending: false }),
-        supabaseClient
-            .from("toolbox_talk_assignments")
-            .select("*")
-            .order("assigned_at", { ascending: false })
-    ]);
+    const { data, error } = await supabaseClient
+        .from("toolbox_talks")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
 
-    if (talkResult.error) {
+    if (error) {
         setToolboxTalkStatus("Toolbox talks could not be loaded.");
         return;
     }
 
-    toolboxTalks = talkResult.data || [];
-    toolboxAssignments = assignmentResult.data || [];
+    toolboxTalks = data || [];
     await prepareToolboxTalkUrls();
-    renderToolboxWorkers();
     renderToolboxTalks();
     setToolboxTalkStatus("");
 }
@@ -3520,10 +3542,6 @@ async function publishToolboxTalk() {
     const description = document.getElementById("toolboxTalkDescription").value.trim();
     const fileInput = document.getElementById("toolboxTalkFile");
     const file = fileInput.files[0];
-    const selectedWorkers = Array.from(document.querySelectorAll(".toolbox-worker-checkbox:checked")).map((box) => ({
-        workerName: box.value,
-        displayName: box.dataset.display || box.value
-    }));
 
     if (!title || !file) {
         alert("Add a title and PDF for the toolbox talk.");
@@ -3532,11 +3550,6 @@ async function publishToolboxTalk() {
 
     if (file.type && file.type !== "application/pdf") {
         alert("Please upload a PDF file.");
-        return;
-    }
-
-    if (!selectedWorkers.length) {
-        alert("Choose at least one worker to assign.");
         return;
     }
 
@@ -3557,7 +3570,7 @@ async function publishToolboxTalk() {
         return;
     }
 
-    const { data: talk, error: talkError } = await supabaseClient
+    const { error: talkError } = await supabaseClient
         .from("toolbox_talks")
         .insert({
             title,
@@ -3576,27 +3589,10 @@ async function publishToolboxTalk() {
         return;
     }
 
-    const assignments = selectedWorkers.map((selectedWorker) => ({
-        talk_id: talk.id,
-        worker_name: selectedWorker.workerName,
-        worker_display_name: selectedWorker.displayName,
-        assigned_by_name: currentWorkerDisplay
-    }));
-
-    const { error: assignmentError } = await supabaseClient
-        .from("toolbox_talk_assignments")
-        .insert(assignments);
-
-    if (assignmentError) {
-        setToolboxTalkStatus("Toolbox talk uploaded, but assignments could not be saved.");
-        return;
-    }
-
     document.getElementById("toolboxTalkTitle").value = "";
     document.getElementById("toolboxTalkDescription").value = "";
     fileInput.value = "";
-    selectAllToolboxWorkers(false);
-    setToolboxTalkStatus("Toolbox talk uploaded and assigned.");
+    setToolboxTalkStatus("Toolbox talk PDF uploaded.");
     await loadToolboxTalks();
 }
 
