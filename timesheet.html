@@ -1327,6 +1327,7 @@ function rowToEntry(row) {
 
 function entryToRow(entry) {
   const normalizedEntry = normalizeTimesheetEntry(entry);
+  const entryType = getEntryType(normalizedEntry);
 
   return {
     worker_name: normalizedEntry.user,
@@ -1340,9 +1341,9 @@ function entryToRow(entry) {
     hours: Number(normalizedEntry.hours),
     took_lunch: Boolean(normalizedEntry.tookLunch),
     night_work: Boolean(normalizedEntry.nightWork),
-    entry_type: getEntryType(normalizedEntry),
+    entry_type: entryType,
     leave_type: normalizedEntry.leaveType || "",
-    leave_note: normalizedEntry.leaveNote || ""
+    leave_note: entryType === "sick" ? "" : (normalizedEntry.leaveNote || "")
   };
 }
 
@@ -1929,11 +1930,6 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
   const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
   const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
 
-  if (entryType === "sick" && !leaveNote) {
-    showSubmitError("Please add a reason for the sick day.");
-    return false;
-  }
-
   if (entryType === "vacation" && !leaveType) {
     showSubmitError("Please choose Paid, Unpaid, or Half Day for the vacation day.");
     return false;
@@ -1965,7 +1961,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     nightWork: false,
     entryType,
     leaveType: entryType === "vacation" ? leaveType : "",
-    leaveNote
+    leaveNote: entryType === "sick" ? "" : leaveNote
   };
 
   let stored = loadTimesheets();
@@ -2098,11 +2094,6 @@ async function submitTime() {
     return;
   }
 
-  if (entryType === "sick" && !jobNumber) {
-    alert("Please add the sick reason in the Reason / Note box.");
-    return;
-  }
-
   if (selectedEntryType === "vacation" && !leaveType) {
     alert("Please choose Paid, Unpaid, or Half Day for the vacation day.");
     return;
@@ -2136,7 +2127,7 @@ async function submitTime() {
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
     leaveType: entryType === "vacation" ? leaveType : "",
-    leaveNote: leaveNote || (!isWorkEntry ? jobNumber : "")
+    leaveNote: entryType === "sick" ? "" : (leaveNote || (!isWorkEntry ? jobNumber : ""))
   };
 
   const status = document.getElementById("submitStatus");
@@ -2644,6 +2635,10 @@ function getEntryLeaveNote(entry) {
   }
 
   const note = entry.leaveNote || entry.leave_note;
+
+  if (getEntryType(entry) === "sick") {
+    return note || "";
+  }
 
   if (note) {
     return note;
@@ -3206,11 +3201,10 @@ function render() {
     `;
   }).join("");
 
-  const workEntries = sortedEntries.filter(function(entry) {
-    return getEntryType(entry) === "work";
-  });
-
-  const rows = workEntries.map(function(entry) {
+  const rows = sortedEntries.map(function(entry) {
+    const entryType = getEntryType(entry);
+    const summaryName = entryType === "work" ? entry.jobName : getEntryTypeLabel(entry);
+    const summaryNumber = entryType === "work" ? entry.jobNumber : (entry.jobNumber || getEntryLeaveNote(entry) || "");
     const dayCells = days.map(function(day) {
       if (entry.day !== day) {
         return '<td data-label="' + day + '" class="empty-cell">-</td>';
@@ -3221,8 +3215,8 @@ function render() {
 
     return `
       <tr>
-        <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
-        <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
+        <td data-label="Job Name">${escapeHtml(summaryName)}</td>
+        <td data-label="Job Number">${escapeHtml(summaryNumber)}</td>
         ${dayCells}
       </tr>
     `;
