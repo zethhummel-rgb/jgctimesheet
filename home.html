@@ -1239,7 +1239,7 @@ async function loadDashboardStats() {
     const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
       supabaseClient
         .from("timesheet_entries")
-        .select("hours,day_of_week,week_start,worker_name,created_at")
+        .select("hours,day_of_week,week_start,worker_name,created_at,entry_type,leave_type")
         .eq("worker_name", currentWorker)
         .eq("week_start", weekStart),
       buildInspectionQuery(today.start.toISOString()),
@@ -1254,10 +1254,20 @@ async function loadDashboardStats() {
 
     const entries = timesheetResult.data || [];
     const todayName = new Date().toLocaleDateString("en-CA", { weekday: "long" });
-    const weekHours = entries.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const getDashboardHours = (entry) => {
+      const entryType = String(entry.entry_type || "").toLowerCase();
+      const leaveType = String(entry.leave_type || "").toLowerCase();
+
+      if (entryType === "sick" || entryType === "civic_holiday" || (entryType === "vacation" && leaveType !== "half_day")) {
+        return 0;
+      }
+
+      return Number(entry.hours || 0);
+    };
+    const weekHours = entries.reduce((total, entry) => total + getDashboardHours(entry), 0);
     const todayHours = entries
       .filter((entry) => String(entry.day_of_week || "").toLowerCase() === todayName.toLowerCase())
-      .reduce((total, entry) => total + Number(entry.hours || 0), 0);
+      .reduce((total, entry) => total + getDashboardHours(entry), 0);
     const inspectionCount = (inspectionResult.data || []).length;
     const certificateCount = (certificateResult.data || []).length;
     const vacationCount = (vacationResult.data || []).length;
