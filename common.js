@@ -22,6 +22,7 @@ function applyJgcPortalName() {
     "reset-password.html": "Reset Password",
     "tele-handler.html": "Telehandler Inspection",
     "timesheet.html": "Timesheets",
+    "toolbox-talks.html": "Tool Box Talks",
     "todays-inspections.html": "Today's Inspections",
     "vacation-request.html": "Vacation Request",
     "policies-announcements.html": "Policies/Announcements",
