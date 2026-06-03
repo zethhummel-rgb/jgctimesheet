@@ -819,7 +819,7 @@ function getHoursForDate(date) {
       return total;
     }
 
-    return total + Number(entry.hours || 0);
+    return total + getEntryTotalHours(entry);
   }, 0);
 }
 
@@ -838,7 +838,7 @@ function getCurrentStatusForDate(date) {
     return isLeaveEntry(entry);
   });
   const hours = entries.reduce(function(total, entry) {
-    return total + Number(entry.hours || 0);
+    return total + getEntryTotalHours(entry);
   }, 0);
 
   if (leaveEntry) {
@@ -877,7 +877,7 @@ function getPreviousSubmissionForDate(date) {
         week: week,
         label: leaveEntry ? getEntryTypeLabel(leaveEntry) : "",
         hours: matchingEntries.reduce(function(total, entry) {
-          return total + Number(entry.hours || 0);
+          return total + getEntryTotalHours(entry);
         }, 0)
       };
     }
@@ -1201,8 +1201,17 @@ function getEntryHours(entry) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+function isFullDayLeaveEntry(entry) {
+  const type = getEntryType(entry);
+  return type === "sick" || type === "civic_holiday" || (type === "vacation" && (entry.leaveType || entry.leave_type) !== "half_day");
+}
+
+function getEntryTotalHours(entry) {
+  return isFullDayLeaveEntry(entry) ? 0 : getEntryHours(entry);
+}
+
 function getEntryHoursLabel(entry) {
-  const hours = getEntryHours(entry);
+  const hours = getEntryTotalHours(entry);
   return hours === 0 ? "0" : hours.toFixed(2);
 }
 
@@ -1241,11 +1250,14 @@ function normalizeTimesheetEntry(entry) {
     leaveNote: entry.leaveNote || entry.leave_note || ""
   };
 
-  if (isLeaveEntry(normalizedEntry) && !normalizedEntry.hours) {
+  if (isFullDayLeaveEntry(normalizedEntry) && Number(normalizedEntry.hours) <= 0) {
+    normalizedEntry.hours = "0.01";
+  } else if (isLeaveEntry(normalizedEntry) && !normalizedEntry.hours) {
     normalizedEntry.hours = "0.00";
   }
 
   if (getEntryType(normalizedEntry) === "sick" && normalizedEntry.timeIn === "00:00" && normalizedEntry.timeOut === "00:00") {
+    normalizedEntry.timeIn = "07:00";
     normalizedEntry.timeOut = "12:00";
   }
 
@@ -1338,7 +1350,7 @@ function entryToRow(entry) {
     day_of_week: normalizedEntry.day,
     time_in: normalizedEntry.timeIn,
     time_out: normalizedEntry.timeOut,
-    hours: Number(normalizedEntry.hours),
+    hours: isFullDayLeaveEntry(normalizedEntry) ? 0.01 : Number(normalizedEntry.hours),
     took_lunch: Boolean(normalizedEntry.tookLunch),
     night_work: Boolean(normalizedEntry.nightWork),
     entry_type: entryType,
@@ -1954,9 +1966,9 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     jobName: getSpecialEntryJobName(entryType, leaveType),
     jobNumber: leaveNote || (entryType === "vacation" ? capitalizeWords(leaveType) : ""),
     day,
-    timeIn: isHalfDayVacation ? vacationTimeIn : "00:00",
-    timeOut: isHalfDayVacation ? vacationTimeOut : "00:00",
-    hours: isHalfDayVacation ? calculateHours(vacationTimeIn, rawVacationTimeOut, false) : 0,
+    timeIn: entryType === "sick" ? "07:00" : (isHalfDayVacation ? vacationTimeIn : "00:00"),
+    timeOut: entryType === "sick" ? "12:00" : (isHalfDayVacation ? vacationTimeOut : "00:00"),
+    hours: isHalfDayVacation ? calculateHours(vacationTimeIn, rawVacationTimeOut, false) : 0.01,
     tookLunch: false,
     nightWork: false,
     entryType,
@@ -2068,7 +2080,7 @@ async function submitTime() {
   const isHalfDayVacation = entryType === "vacation" && leaveType === "half_day";
   const hasWorkTime = Boolean(timeIn || rawTimeOut);
   const hasCompleteWorkTime = Boolean(timeIn && rawTimeOut);
-  const finalTimeIn = isSickEntry ? "00:00" : (isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? (timeIn || "00:00") : "00:00"));
+  const finalTimeIn = isSickEntry ? "07:00" : (isHalfDayVacation ? vacationTimeIn : (isWorkEntry ? (timeIn || "00:00") : "00:00"));
   const finalRawTimeOut = isSickEntry ? "12:00" : (isHalfDayVacation ? rawVacationTimeOut : (isWorkEntry ? (rawTimeOut || "00:00") : "00:00"));
   const finalTimeOut = isSickEntry ? "12:00" : (isHalfDayVacation ? vacationTimeOut : (isWorkEntry ? normalizeTimeForStorage(rawTimeOut || "00:00") : "00:00"));
   const tookLunch = document.getElementById("tookLunch").checked;
@@ -2120,7 +2132,9 @@ async function submitTime() {
     day,
     timeIn: finalTimeIn,
     timeOut: finalTimeOut,
-    hours: !isSickEntry && (isHalfDayVacation || (isWorkEntry && hasCompleteWorkTime))
+    hours: isFullDayLeaveEntry({ entryType, leaveType })
+      ? 0.01
+      : !isSickEntry && (isHalfDayVacation || (isWorkEntry && hasCompleteWorkTime))
       ? calculateHours(finalTimeIn, finalRawTimeOut, tookLunch && isWorkEntry)
       : 0,
     tookLunch: isWorkEntry ? tookLunch : false,
@@ -2333,7 +2347,7 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
           <td>${entry.tookLunch ? "Yes" : "No"}</td>
           <td>${entry.nightWork ? "Yes" : "No"}</td>
           <td>${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
-          <td>${Number(entry.hours).toFixed(2)}</td>
+          <td>${getEntryHoursLabel(entry)}</td>
         </tr>
       `;
     }).join("");
@@ -2569,7 +2583,7 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
 
 function getTotalHours(entries) {
   return entries.reduce(function(total, entry) {
-    return total + Number(entry.hours);
+    return total + getEntryTotalHours(entry);
   }, 0);
 }
 
@@ -2810,7 +2824,7 @@ async function addOntarioHolidayEntriesForWeek(weekStartValue, selectedDay) {
       day: getDayNames()[holiday.date.getDay()],
       timeIn: "00:00",
       timeOut: "00:00",
-      hours: 0,
+      hours: 0.01,
       tookLunch: false,
       nightWork: false,
       entryType: "civic_holiday",
@@ -2966,7 +2980,7 @@ function getEmailTableRows(entries) {
       entry.tookLunch ? "Yes" : "No",
       entry.nightWork ? "Yes" : "No",
       isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : entry.timeIn + "-" + entry.timeOut,
-      Number(entry.hours).toFixed(2)
+      getEntryHoursLabel(entry)
     ];
 
     return values.map(function(value, index) {
@@ -3066,7 +3080,7 @@ function renderPreviousWeeks() {
             <td data-label="Lunch"><input type="checkbox" disabled ${entry.tookLunch ? "checked" : ""} /></td>
             <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
             <td data-label="Time">${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
-            <td data-label="Hours"><b>${Number(entry.hours).toFixed(2)}</b></td>
+            <td data-label="Hours"><b>${getEntryHoursLabel(entry)}</b></td>
           </tr>
         `;
       }).join("");
