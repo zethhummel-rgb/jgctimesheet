@@ -24,7 +24,8 @@ function applyJgcPortalName() {
     "timesheet.html": "Timesheets",
     "todays-inspections.html": "Today's Inspections",
     "vacation-request.html": "Vacation Request",
-    "policies-announcements.html": "Policies/Announcements"
+    "policies-announcements.html": "Policies/Announcements",
+    "reports.html": "Reports"
   };
   const page = window.location.pathname.split("/").pop() || "index.html";
   const section = pageTitles[page];
@@ -242,6 +243,7 @@ function activateGlobalTopNavigation() {
     { label: "Certificates", href: "certificates.html" },
     { label: "Vacation", href: "vacation-request.html" },
     { label: "Equipment", href: "equipment-vehicles.html" },
+    { label: "Reports", href: "reports.html" },
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" }
   ];
