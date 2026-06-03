@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Report of Injury</title>
+<link rel="stylesheet" href="styles.css?v=2">
+<style>
+body{font-family:Arial,sans-serif;background:#8f9691;margin:0;padding:20px;color:#1f2a24}.logo-wrap{max-width:347px;margin:0 auto 8px;text-align:center}.logo-wrap img{width:100%;max-width:347px;display:block;margin:auto}.user-bar{max-width:900px;margin:0 auto 12px;color:#fff;text-align:center;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,.25)}.container{max-width:900px;margin:auto;background:#fbfcf9;padding:20px;border-radius:8px;border-top:4px solid #b42318;box-shadow:0 3px 10px rgba(0,0,0,.18)}h1{text-align:center;color:#0b7a24;margin:0}h2{margin:4px 0 18px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}.field{display:flex;flex-direction:column;gap:5px}label{font-weight:bold;font-size:13px}input,select,textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid #bcc7bc;border-radius:4px;font-size:15px;background:#fff;color:#1f2a24}textarea{min-height:92px;resize:vertical}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}button{background:#0b5e3b;color:#fff;border:none;border-radius:4px;padding:11px 16px;font-weight:bold;cursor:pointer}.secondary{background:#47534b}.status{min-height:20px;margin-top:12px;font-weight:bold;color:#8f1d14}@media(max-width:760px){body{padding:10px}.grid{grid-template-columns:1fr}.full{grid-column:auto}button{width:100%}}
+</style>
+</head>
+<body>
+<div class="logo-wrap"><img src="logo.png" alt="John Gordon Construction logo"></div>
+<div id="currentUser" class="user-bar"></div>
+<div class="container">
+  <h1>John Gordon Construction</h1>
+  <h2>Employee's Report of Injury</h2>
+  <div class="grid">
+    <div class="field"><label>Employee's Name</label><select id="employeeWorker"></select></div>
+    <div class="field"><label>Gender</label><select id="gender"><option></option><option>Male</option><option>Female</option></select></div>
+    <div class="field"><label>Date of Birth</label><input id="dateOfBirth" type="date"></div>
+    <div class="field"><label>Job Classification</label><input id="jobClassification"></div>
+    <div class="field full"><label>Location of Accident</label><input id="accidentLocation"></div>
+    <div class="field"><label>Date of Accident</label><input id="accidentDate" type="date"></div>
+    <div class="field"><label>Time of Accident</label><input id="accidentTime" type="time"></div>
+    <div class="field full"><label>Describe Fully How the Accident Occurred</label><textarea id="accidentDescription"></textarea></div>
+    <div class="field full"><label>Describe Bodily Injury Sustained</label><textarea id="bodilyInjury"></textarea></div>
+    <div class="field full"><label>Recommendation on How to Prevent This Accident From Recurring</label><textarea id="preventionRecommendation"></textarea></div>
+    <div class="field"><label>Name of Supervisor</label><input id="supervisorName"></div>
+    <div class="field"><label>Name(s) of Witness(es)</label><input id="witnesses"></div>
+    <div class="field full"><label>When Did You Report the Accident to Your Supervisor?</label><input id="reportedToSupervisorAt"></div>
+    <div class="field"><label>Signature of Employee</label><input id="employeeSignature"></div>
+    <div class="field"><label>Date</label><input id="signatureDate" type="date"></div>
+  </div>
+  <div class="actions">
+    <button type="button" onclick="submitEmployeeInjuryReport()">Save & Email Report</button>
+    <button type="button" class="secondary" onclick="window.location.href='reports.html'">Reports</button>
+    <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+  </div>
+  <div id="saveStatus" class="status"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const REPORT_EMAIL_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const supabaseClient=createJgcSupabaseClient();const worker=requireJgcWorker();const currentWorker=normalizeWorkerName(worker.key);const currentWorkerDisplay=worker.display||worker.key;let employees=[];
+document.getElementById("currentUser").textContent="Signed in as: "+currentWorkerDisplay;document.getElementById("accidentDate").value=new Date().toISOString().slice(0,10);document.getElementById("signatureDate").value=new Date().toISOString().slice(0,10);
+function getValue(id){return document.getElementById(id).value.trim()}function setStatus(m){document.getElementById("saveStatus").textContent=m||""}function makeSafeFileName(n){return String(n||"employee-injury-report").trim().replace(/[^a-z0-9.\-_]+/gi,"-").replace(/-+/g,"-").toLowerCase()}
+async function loadEmployees(){const {data}=await supabaseClient.from("profiles").select("display_name,worker_key,email,account_status").eq("account_status","approved").order("display_name",{ascending:true});employees=(data||[]).map((p)=>({workerName:normalizeWorkerName(p.worker_key||p.display_name||p.email),displayName:p.display_name||p.worker_key||p.email||""})).filter((e)=>e.workerName);document.getElementById("employeeWorker").innerHTML='<option value="">Select Employee</option>'+employees.map((e)=>`<option value="${escapeHtml(e.workerName)}" data-display="${escapeHtml(e.displayName)}">${escapeHtml(e.displayName)}</option>`).join("");const match=employees.find((e)=>e.workerName===currentWorker||normalizeWorkerName(e.displayName)===normalizeWorkerName(currentWorkerDisplay));if(match){document.getElementById("employeeWorker").value=match.workerName;}}
+function selectedEmployee(){const select=document.getElementById("employeeWorker");const option=select.options[select.selectedIndex];return{workerName:select.value,displayName:option?option.dataset.display||option.textContent||select.value:select.value};}
+function buildBody(r){return["Employee Report of Injury","","Employee: "+r.employee_name,"Date: "+r.accident_date,"Time: "+r.accident_time,"Location: "+r.accident_location,"","How Accident Occurred:",r.accident_description,"","Injury:",r.bodily_injury,"","Prevention Recommendation:",r.prevention_recommendation].join("\n")}
+function row(l,v){return`<tr><th>${escapeHtml(l)}</th><td>${escapeHtml(v||"")}</td></tr>`}
+function buildPdfHtml(r){return`<!doctype html><html><head><meta charset="UTF-8"><style>body{font-family:Georgia,serif;color:#111}h1{text-align:center;color:#087622;margin:0}h2{margin:8px 0 16px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:7px;font-size:12px;text-align:left;vertical-align:top}th{width:30%;background:#f5f5f5}td{white-space:pre-wrap;min-height:24px}</style></head><body><h1>JOHN GORDON<br>CONSTRUCTION</h1><h2>Employee's Report of Injury</h2><table>${row("Employee's Name",r.employee_name)}${row("Gender",r.gender)}${row("Date of Birth",r.date_of_birth)}${row("Job Classification",r.job_classification)}${row("Location of Accident",r.accident_location)}${row("Date of Accident",r.accident_date)}${row("Time of Accident",r.accident_time)}${row("Describe How Accident Occurred",r.accident_description)}${row("Bodily Injury Sustained",r.bodily_injury)}${row("Recommendation to Prevent Recurring",r.prevention_recommendation)}${row("Name of Supervisor",r.supervisor_name)}${row("Witnesses",r.witnesses)}${row("Reported to Supervisor",r.reported_to_supervisor_at)}${row("Signature of Employee",r.employee_signature)}${row("Date",r.signature_date)}</table></body></html>`}
+async function submitEmployeeInjuryReport(){const employee=selectedEmployee();if(!employee.workerName||!getValue("accidentLocation")||!getValue("accidentDate")||!getValue("accidentDescription")){alert("Add the employee, accident location, date, and how it happened.");return}const record={employee_worker:employee.workerName,employee_display:employee.displayName,employee_name:employee.displayName,gender:getValue("gender"),date_of_birth:getValue("dateOfBirth")||null,job_classification:getValue("jobClassification"),accident_location:getValue("accidentLocation"),accident_date:getValue("accidentDate"),accident_time:getValue("accidentTime"),accident_description:getValue("accidentDescription"),bodily_injury:getValue("bodilyInjury"),prevention_recommendation:getValue("preventionRecommendation"),supervisor_name:getValue("supervisorName"),witnesses:getValue("witnesses"),reported_to_supervisor_at:getValue("reportedToSupervisorAt"),employee_signature:getValue("employeeSignature"),signature_date:getValue("signatureDate")||null,created_by_worker:currentWorker,created_by_name:currentWorkerDisplay};setStatus("Saving employee injury report...");const {data,error}=await supabaseClient.from("employee_injury_reports").insert(record).select().single();if(error){setStatus("Employee injury report could not be saved.");return}await supabaseClient.from("employee_injury_acknowledgements").insert({employee_injury_report_id:data.id,worker_name:employee.workerName,worker_display_name:employee.displayName});setStatus("Emailing employee injury report...");const subject="Employee Injury Report - "+employee.displayName+" - "+record.accident_date;try{await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({subject,body:buildBody(record),text:buildBody(record),pdfHtml:buildPdfHtml(record),pdfFileName:makeSafeFileName(subject)+".pdf",source:"employee_injury_report"})});setStatus("Employee injury report saved and emailed.");alert("Employee injury report saved and emailed.");}catch(error){setStatus("Report saved, but email could not be sent.");}}
+async function signOut(){await signOutJgc(supabaseClient)}loadEmployees();
+</script>
+</body>
+</html>
