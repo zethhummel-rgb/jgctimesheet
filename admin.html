@@ -271,6 +271,72 @@ button:hover,
     color: white;
 }
 
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.summary-tile {
+    position: relative;
+    min-height: 132px;
+    padding: 16px;
+    border: 1px solid #c6cec5;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2a24;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.summary-tile:hover {
+    border-color: #2f6f3c;
+    transform: translateY(-1px);
+}
+
+.summary-tile h3 {
+    margin: 0 44px 10px 0;
+    color: #0b5e3b;
+    font-size: 16px;
+}
+
+.summary-value {
+    font-size: 34px;
+    font-weight: 900;
+    color: #1f2a24;
+    line-height: 1;
+}
+
+.summary-detail {
+    margin-top: 8px;
+    color: #58635c;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.summary-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #b42318;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 13px;
+}
+
+.summary-badge.clear {
+    background: #3f7d4d;
+}
+
 .calendar-panel {
     margin-bottom: 16px;
     padding-bottom: 16px;
@@ -424,7 +490,8 @@ button:hover,
 <div id="currentUser" class="user-bar"></div>
 
 <div class="tabs">
-    <button id="timesheetsTab" class="tab-button active" onclick="showTab('timesheets')">Timesheets</button>
+    <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
+    <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick Days</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
@@ -441,7 +508,14 @@ button:hover,
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
 
-<div id="timesheetsSection" class="card">
+<div id="summarySection" class="card">
+    <h2>Portal Summary</h2>
+    <div id="portalSummaryGrid" class="summary-grid">
+        <div class="small">Loading portal summary...</div>
+    </div>
+</div>
+
+<div id="timesheetsSection" class="card" hidden>
     <h2>Timesheets</h2>
     <div class="filters">
         <div>
@@ -828,10 +902,14 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
+    ["summary", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
+
+    if (tab === "summary") {
+        renderPortalSummary();
+    }
 
     if (tab === "sickDays") {
         renderSickDays();
@@ -995,6 +1073,195 @@ async function loadAdminData() {
     renderJobsManagement();
     renderEquipment();
     renderContacts();
+    renderPortalSummary();
+}
+
+function getLocalDateValue(date) {
+    return date.toISOString().slice(0, 10);
+}
+
+function isSameLocalDay(value, dateValue) {
+    if (!value) {
+        return false;
+    }
+
+    return String(value).slice(0, 10) === dateValue;
+}
+
+function countRecentReportsToday(todayValue) {
+    const dailyCount = dailySiteReports.filter((report) => isSameLocalDay(report.report_date || report.created_at, todayValue)).length;
+    const incidentCount = incidentReports.filter((report) => isSameLocalDay(report.report_date || report.created_at, todayValue)).length;
+    const accidentCount = accidentReports.filter((report) => isSameLocalDay(report.accident_date || report.created_at, todayValue)).length;
+    const injuryCount = employeeInjuryReports.filter((report) => isSameLocalDay(report.accident_date || report.created_at, todayValue)).length;
+    const toolboxCount = toolboxReports.filter((report) => isSameLocalDay(report.report_date || report.created_at, todayValue)).length;
+
+    return dailyCount + incidentCount + accidentCount + injuryCount + toolboxCount;
+}
+
+function countEquipmentExpiryAlerts() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextThirty = new Date(today);
+    nextThirty.setDate(today.getDate() + 30);
+
+    return equipmentItems.filter((item) => {
+        if (!item.yearly_inspection_expiry) {
+            return false;
+        }
+
+        const expiry = new Date(item.yearly_inspection_expiry + "T00:00:00");
+        return expiry >= today && expiry <= nextThirty;
+    }).length;
+}
+
+function countPendingAccounts() {
+    return accounts.filter((account) => {
+        const status = String(account.account_status || "").toLowerCase();
+        return status === "pending" || status === "requested" || status === "new" || status === "awaiting_approval";
+    }).length;
+}
+
+function getCurrentWeekStartForSummary() {
+    const now = new Date();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    sunday.setHours(0, 0, 0, 0);
+    return sunday.toISOString().slice(0, 10);
+}
+
+function renderSummaryTile(tile) {
+    const badgeClass = tile.badgeCount > 0 ? "" : " clear";
+
+    return `
+        <button type="button" class="summary-tile" onclick="${tile.action}">
+            <span class="summary-badge${badgeClass}">${escapeHtml(String(tile.badgeCount))}</span>
+            <h3>${escapeHtml(tile.title)}</h3>
+            <div class="summary-value">${escapeHtml(String(tile.value))}</div>
+            <div class="summary-detail">${escapeHtml(tile.detail)}</div>
+        </button>
+    `;
+}
+
+function renderPortalSummary() {
+    const grid = document.getElementById("portalSummaryGrid");
+
+    if (!grid) {
+        return;
+    }
+
+    const todayValue = getLocalDateValue(new Date());
+    const weekStart = getCurrentWeekStartForSummary();
+    const inspectionsToday = inspections.filter((inspection) => isSameLocalDay(inspection.inspection_date || inspection.created_at, todayValue)).length;
+    const reportsToday = countRecentReportsToday(todayValue);
+    const expiringCertificates = getCertificateExpiryAlerts().length;
+    const equipmentExpiring = countEquipmentExpiryAlerts();
+    const pendingAccounts = countPendingAccounts();
+    const pendingVacations = vacationRequests.filter((request) => String(request.status || "").toLowerCase() === "pending").length;
+    const liveEntriesThisWeek = liveTimesheetEntries.filter((entry) => String(entry.week_start || "") === weekStart).length;
+    const sickDaysThisWeek = liveTimesheetEntries.filter((entry) =>
+        String(entry.week_start || "") === weekStart &&
+        String(entry.entry_type || "").toLowerCase() === "sick"
+    ).length;
+    const activeAnnouncements = announcements.length;
+    const activeJobs = jobs.filter((job) => job.active !== false).length;
+    const activeEquipment = equipmentItems.length;
+    const activeContacts = contacts.length;
+
+    const tiles = [
+        {
+            title: "Timesheet Updates",
+            value: liveEntriesThisWeek,
+            badgeCount: liveEntriesThisWeek,
+            detail: "Live entries saved this week",
+            action: "showTab('timesheets')"
+        },
+        {
+            title: "Sick Days",
+            value: sickDaysThisWeek,
+            badgeCount: sickDaysThisWeek,
+            detail: "Sick entries logged this week",
+            action: "showTab('sickDays')"
+        },
+        {
+            title: "Inspections Today",
+            value: inspectionsToday,
+            badgeCount: inspectionsToday,
+            detail: "Inspection records completed today",
+            action: "showTab('inspections')"
+        },
+        {
+            title: "Reports Completed",
+            value: reportsToday,
+            badgeCount: reportsToday,
+            detail: "Reports submitted today",
+            action: "showTab('reports')"
+        },
+        {
+            title: "Expiring Certificates",
+            value: expiringCertificates,
+            badgeCount: expiringCertificates,
+            detail: "Certificates expiring within 30 days",
+            action: "showTab('certificates')"
+        },
+        {
+            title: "Vacation Requests",
+            value: pendingVacations,
+            badgeCount: pendingVacations,
+            detail: "Pending approvals",
+            action: "showTab('vacation')"
+        },
+        {
+            title: "Announcements",
+            value: activeAnnouncements,
+            badgeCount: activeAnnouncements,
+            detail: "Active announcements",
+            action: "showTab('announcements')"
+        },
+        {
+            title: "Tool Box Talks",
+            value: toolboxReports.length,
+            badgeCount: toolboxAttendance.filter((item) => !item.acknowledged_at).length,
+            detail: "Badge shows pending acknowledgements",
+            action: "showTab('toolboxTalks')"
+        },
+        {
+            title: "Policies",
+            value: policies.length,
+            badgeCount: policies.length,
+            detail: "Active policies available to employees",
+            action: "showTab('policies')"
+        },
+        {
+            title: "Jobs",
+            value: activeJobs,
+            badgeCount: activeJobs,
+            detail: "Active jobs available for timesheets",
+            action: "showTab('jobs')"
+        },
+        {
+            title: "Equipment Expiries",
+            value: equipmentExpiring,
+            badgeCount: equipmentExpiring,
+            detail: "Inspections expiring within 30 days",
+            action: "showTab('equipment')"
+        },
+        {
+            title: "Contacts",
+            value: activeContacts,
+            badgeCount: activeContacts,
+            detail: "Active company contacts",
+            action: "showTab('contacts')"
+        },
+        {
+            title: "New Account Requests",
+            value: pendingAccounts,
+            badgeCount: pendingAccounts,
+            detail: "Accounts waiting for approval",
+            action: "window.location.href='accounts.html'"
+        }
+    ];
+
+    grid.innerHTML = tiles.map(renderSummaryTile).join("");
 }
 
 async function prepareCertificateUrls() {
