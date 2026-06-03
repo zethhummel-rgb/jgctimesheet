@@ -382,6 +382,7 @@ button:hover,
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
+    <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
     <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Jobs Management</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
@@ -543,6 +544,40 @@ button:hover,
     <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
 </div>
 
+<div id="reportsSection" class="card" hidden>
+    <h2>Reports</h2>
+    <h3>Toolbox Talks</h3>
+    <div class="announcement-grid">
+        <div>
+            <label>Title</label>
+            <input id="toolboxTalkTitle" placeholder="Example: Ladder Safety">
+        </div>
+        <div>
+            <label>PDF</label>
+            <input id="toolboxTalkFile" type="file" accept="application/pdf,.pdf">
+        </div>
+        <div class="full">
+            <label>Description</label>
+            <textarea id="toolboxTalkDescription" placeholder="Optional notes for this toolbox talk"></textarea>
+        </div>
+        <div class="full">
+            <label>Assign To Workers</label>
+            <div class="actions" style="margin:0 0 8px;">
+                <button type="button" class="secondary" onclick="selectAllToolboxWorkers(true)">Select All</button>
+                <button type="button" class="secondary" onclick="selectAllToolboxWorkers(false)">Clear</button>
+            </div>
+            <div id="toolboxWorkerList" class="small">Loading workers...</div>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button type="button" onclick="publishToolboxTalk()">Upload & Assign Toolbox Talk</button>
+        <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Talks</button>
+    </div>
+    <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
+    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+    <div id="toolboxTalkList" class="small">Loading toolbox talks...</div>
+</div>
+
 <div id="policiesSection" class="card" hidden>
     <h2>Policies</h2>
     <div class="announcement-grid">
@@ -682,6 +717,8 @@ let certificateNotifications = [];
 let vacationRequests = [];
 let accounts = [];
 let announcements = [];
+let toolboxTalks = [];
+let toolboxAssignments = [];
 let policies = [];
 let jobs = [];
 let equipmentItems = [];
@@ -691,6 +728,7 @@ let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
 let certificateUrls = {};
 let announcementUrls = {};
+let toolboxTalkUrls = {};
 let policyUrls = {};
 let currentUserId = "";
 let editingContactId = "";
@@ -710,7 +748,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
+    ["timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -725,6 +763,11 @@ function showTab(tab) {
 
     if (tab === "contacts") {
         loadContacts();
+    }
+
+    if (tab === "reports") {
+        renderToolboxWorkers();
+        renderToolboxTalks();
     }
 
     if (tab === "equipment") {
@@ -801,7 +844,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxAssignmentResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -811,6 +854,8 @@ async function loadAdminData() {
         supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
+        supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }),
+        supabaseClient.from("toolbox_talk_assignments").select("*").order("assigned_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
@@ -827,6 +872,8 @@ async function loadAdminData() {
     accounts = accountResult.data || [];
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
+    toolboxTalks = toolboxTalkResult.data || [];
+    toolboxAssignments = toolboxAssignmentResult.data || [];
     policies = policyResult.data || [];
     jobs = jobsResult.data || [];
     equipmentItems = equipmentResult.data || [];
@@ -836,6 +883,7 @@ async function loadAdminData() {
     await processCertificateExpiryNotifications();
     await processEquipmentExpiryNotifications();
     await prepareAnnouncementUrls();
+    await prepareToolboxTalkUrls();
     await preparePolicyUrls();
     renderTimesheets();
     renderSickDays();
@@ -844,6 +892,8 @@ async function loadAdminData() {
     renderCertificates();
     renderVacationRequests();
     renderAnnouncements();
+    renderToolboxWorkers();
+    renderToolboxTalks();
     renderPolicies();
     renderJobsManagement();
     renderEquipment();
@@ -3309,6 +3359,270 @@ async function deleteAnnouncement(id) {
     }
 
     await loadAnnouncements();
+}
+
+function setToolboxTalkStatus(message) {
+    document.getElementById("toolboxTalkStatus").textContent = message || "";
+}
+
+function getApprovedWorkers() {
+    return accounts
+        .filter((account) => account.account_status === "approved")
+        .map((account) => ({
+            workerName: normalizeWorkerName(account.worker_key || account.display_name || account.email),
+            displayName: account.display_name || account.worker_key || account.email || "",
+            email: account.email || ""
+        }))
+        .filter((account) => account.workerName);
+}
+
+function renderToolboxWorkers() {
+    const list = document.getElementById("toolboxWorkerList");
+
+    if (!list) {
+        return;
+    }
+
+    const workers = getApprovedWorkers();
+
+    if (!workers.length) {
+        list.textContent = "No approved workers found.";
+        return;
+    }
+
+    list.innerHTML = workers.map((worker) => `
+        <label style="display:block;margin:4px 0;font-weight:normal;">
+            <input class="toolbox-worker-checkbox" type="checkbox" value="${escapeHtml(worker.workerName)}" data-display="${escapeHtml(worker.displayName)}">
+            ${escapeHtml(worker.displayName)}${worker.email ? " - " + escapeHtml(worker.email) : ""}
+        </label>
+    `).join("");
+}
+
+function selectAllToolboxWorkers(checked) {
+    document.querySelectorAll(".toolbox-worker-checkbox").forEach((box) => {
+        box.checked = checked;
+    });
+}
+
+async function prepareToolboxTalkUrls() {
+    toolboxTalkUrls = {};
+
+    for (const talk of toolboxTalks) {
+        if (!talk.file_path) {
+            continue;
+        }
+
+        const { data } = await supabaseClient
+            .storage
+            .from("toolbox-talks")
+            .createSignedUrl(talk.file_path, 604800);
+
+        if (data && data.signedUrl) {
+            toolboxTalkUrls[talk.id] = data.signedUrl;
+        }
+    }
+}
+
+function getToolboxAssignments(talkId) {
+    return toolboxAssignments.filter((assignment) => assignment.talk_id === talkId);
+}
+
+function renderToolboxAssignmentDetails(talk) {
+    const assignments = getToolboxAssignments(talk.id);
+
+    if (!assignments.length) {
+        return "No workers assigned.";
+    }
+
+    const acknowledged = assignments.filter((assignment) => assignment.acknowledged_at).length;
+    const details = assignments
+        .map((assignment) => {
+            const status = assignment.acknowledged_at
+                ? "Acknowledged " + formatDate(assignment.acknowledged_at)
+                : "Pending";
+            return escapeHtml(assignment.worker_display_name || assignment.worker_name) + " - " + status;
+        })
+        .join("<br>");
+
+    return `<b>${acknowledged}/${assignments.length} acknowledged</b><br>${details}`;
+}
+
+function renderToolboxTalks() {
+    const list = document.getElementById("toolboxTalkList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!toolboxTalks.length) {
+        list.textContent = "No toolbox talks uploaded yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Description</th>
+                        <th>PDF</th>
+                        <th>Assigned / Acknowledged</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${toolboxTalks.map((talk) => `
+                        <tr>
+                            <td>${escapeHtml(talk.title)}</td>
+                            <td>${escapeHtml(talk.description || "")}</td>
+                            <td>${toolboxTalkUrls[talk.id] ? '<a class="file-link" href="' + toolboxTalkUrls[talk.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${renderToolboxAssignmentDetails(talk)}</td>
+                            <td>${escapeHtml(formatDate(talk.expires_at))}</td>
+                            <td><button type="button" class="delete-button" onclick="deleteToolboxTalk('${escapeHtml(talk.id)}')">Delete</button></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadToolboxTalks() {
+    const [talkResult, assignmentResult] = await Promise.all([
+        supabaseClient
+            .from("toolbox_talks")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+        supabaseClient
+            .from("toolbox_talk_assignments")
+            .select("*")
+            .order("assigned_at", { ascending: false })
+    ]);
+
+    if (talkResult.error) {
+        setToolboxTalkStatus("Toolbox talks could not be loaded.");
+        return;
+    }
+
+    toolboxTalks = talkResult.data || [];
+    toolboxAssignments = assignmentResult.data || [];
+    await prepareToolboxTalkUrls();
+    renderToolboxWorkers();
+    renderToolboxTalks();
+    setToolboxTalkStatus("");
+}
+
+async function publishToolboxTalk() {
+    const title = document.getElementById("toolboxTalkTitle").value.trim();
+    const description = document.getElementById("toolboxTalkDescription").value.trim();
+    const fileInput = document.getElementById("toolboxTalkFile");
+    const file = fileInput.files[0];
+    const selectedWorkers = Array.from(document.querySelectorAll(".toolbox-worker-checkbox:checked")).map((box) => ({
+        workerName: box.value,
+        displayName: box.dataset.display || box.value
+    }));
+
+    if (!title || !file) {
+        alert("Add a title and PDF for the toolbox talk.");
+        return;
+    }
+
+    if (file.type && file.type !== "application/pdf") {
+        alert("Please upload a PDF file.");
+        return;
+    }
+
+    if (!selectedWorkers.length) {
+        alert("Choose at least one worker to assign.");
+        return;
+    }
+
+    setToolboxTalkStatus("Uploading toolbox talk...");
+
+    const filePath = "toolbox-talks/" + Date.now() + "-" + makeSafeFileName(file.name);
+    const { error: uploadError } = await supabaseClient
+        .storage
+        .from("toolbox-talks")
+        .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type || "application/pdf"
+        });
+
+    if (uploadError) {
+        setToolboxTalkStatus("Toolbox talk PDF upload failed.");
+        return;
+    }
+
+    const { data: talk, error: talkError } = await supabaseClient
+        .from("toolbox_talks")
+        .insert({
+            title,
+            description,
+            file_path: filePath,
+            file_name: file.name,
+            created_by_name: currentWorkerDisplay,
+            is_active: true
+        })
+        .select()
+        .single();
+
+    if (talkError) {
+        await supabaseClient.storage.from("toolbox-talks").remove([filePath]);
+        setToolboxTalkStatus("Toolbox talk could not be saved.");
+        return;
+    }
+
+    const assignments = selectedWorkers.map((selectedWorker) => ({
+        talk_id: talk.id,
+        worker_name: selectedWorker.workerName,
+        worker_display_name: selectedWorker.displayName,
+        assigned_by_name: currentWorkerDisplay
+    }));
+
+    const { error: assignmentError } = await supabaseClient
+        .from("toolbox_talk_assignments")
+        .insert(assignments);
+
+    if (assignmentError) {
+        setToolboxTalkStatus("Toolbox talk uploaded, but assignments could not be saved.");
+        return;
+    }
+
+    document.getElementById("toolboxTalkTitle").value = "";
+    document.getElementById("toolboxTalkDescription").value = "";
+    fileInput.value = "";
+    selectAllToolboxWorkers(false);
+    setToolboxTalkStatus("Toolbox talk uploaded and assigned.");
+    await loadToolboxTalks();
+}
+
+async function deleteToolboxTalk(id) {
+    const talk = toolboxTalks.find((item) => item.id === id);
+
+    if (!talk) {
+        alert("Toolbox talk could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete this toolbox talk?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("toolbox_talks")
+        .update({ is_active: false })
+        .eq("id", id);
+
+    if (error) {
+        alert("Toolbox talk could not be deleted.");
+        return;
+    }
+
+    await loadToolboxTalks();
 }
 
 function setPolicyStatus(message) {
