@@ -5,12 +5,14 @@ const JGC_ADMIN_WORKERS = ["zeth hummel", "jeff vandrish"];
 function applyJgcPortalName() {
   const pageTitles = {
     "accounts.html": "Accounts",
+    "accident-report.html": "Supervisor Accident Investigation",
     "admin.html": "Admin",
     "aerial-lifts.html": "Aerial Lift Inspection",
     "certificates.html": "Certificates",
     "contacts.html": "Contacts",
     "daily-site-report.html": "Daily Site Report",
     "equipment-vehicles.html": "Equipment / Vehicles",
+    "employee-injury-report.html": "Employee Injury Report",
     "forklift.html": "Forklift Inspection",
     "harness.html": "Harness Inspection",
     "home.html": "Home",
