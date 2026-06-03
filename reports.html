@@ -203,9 +203,9 @@ button:hover,
             <p>Job Safety Analysis form for reviewing work steps, hazards, controls, and crew sign-off.</p>
         </button>
 
-        <button type="button" class="report-card" onclick="document.getElementById('toolboxTalksPanel').scrollIntoView({ behavior: 'smooth' })">
+        <button type="button" class="report-card" onclick="window.location.href='toolbox-talks.html'">
             <h2>Toolbox Talks</h2>
-            <p>Review assigned safety talks and acknowledge that you have read them.</p>
+            <p>Select a toolbox talk PDF, complete the report, and collect crew acknowledgements.</p>
         </button>
 
         <div class="report-card pending">
@@ -219,11 +219,6 @@ button:hover,
         <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
     </div>
 
-    <section id="toolboxTalksPanel" class="toolbox-panel">
-        <h2>My Toolbox Talks</h2>
-        <div id="toolboxTalkStatus" class="status">Loading toolbox talks...</div>
-        <div id="toolboxTalkList"></div>
-    </section>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -233,132 +228,11 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
-let toolboxAssignments = [];
-let toolboxUrls = {};
-
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
-
-function setToolboxStatus(message) {
-    document.getElementById("toolboxTalkStatus").textContent = message || "";
-}
-
-function formatDate(value) {
-    return formatDisplayDate(value);
-}
-
-async function prepareToolboxUrls() {
-    toolboxUrls = {};
-
-    for (const assignment of toolboxAssignments) {
-        const talk = assignment.toolbox_talks;
-
-        if (!talk || !talk.file_path) {
-            continue;
-        }
-
-        const { data } = await supabaseClient
-            .storage
-            .from("toolbox-talks")
-            .createSignedUrl(talk.file_path, 604800);
-
-        if (data && data.signedUrl) {
-            toolboxUrls[talk.id] = data.signedUrl;
-        }
-    }
-}
-
-function renderToolboxTalks() {
-    const list = document.getElementById("toolboxTalkList");
-
-    if (!toolboxAssignments.length) {
-        list.innerHTML = '<div class="small">No toolbox talks assigned right now.</div>';
-        return;
-    }
-
-    list.innerHTML = `
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Toolbox Talk</th>
-                        <th>Description</th>
-                        <th>PDF</th>
-                        <th>Assigned</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${toolboxAssignments.map((assignment) => {
-                        const talk = assignment.toolbox_talks || {};
-                        const acknowledged = Boolean(assignment.acknowledged_at);
-                        const url = toolboxUrls[talk.id] || "";
-
-                        return `
-                            <tr>
-                                <td>${escapeHtml(talk.title || "")}</td>
-                                <td>${escapeHtml(talk.description || "")}</td>
-                                <td>${url ? '<a class="file-link" href="' + url + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
-                                <td>${escapeHtml(formatDate(assignment.assigned_at))}</td>
-                                <td>${acknowledged ? "Acknowledged " + escapeHtml(formatDate(assignment.acknowledged_at)) : "Needs acknowledgement"}</td>
-                                <td>${acknowledged ? "-" : "<button type='button' onclick='acknowledgeToolboxTalk(\"" + escapeHtml(assignment.id) + "\")'>Acknowledge</button>"}</td>
-                            </tr>
-                        `;
-                    }).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-async function loadToolboxTalks() {
-    const { data, error } = await supabaseClient
-        .from("toolbox_talk_assignments")
-        .select("*, toolbox_talks!inner(*)")
-        .eq("worker_name", currentWorker)
-        .eq("toolbox_talks.is_active", true)
-        .order("assigned_at", { ascending: false });
-
-    if (error) {
-        setToolboxStatus("Toolbox talks could not be loaded.");
-        return;
-    }
-
-    toolboxAssignments = (data || []).filter((assignment) => assignment.toolbox_talks);
-    await prepareToolboxUrls();
-    setToolboxStatus("");
-    renderToolboxTalks();
-}
-
-async function acknowledgeToolboxTalk(id) {
-    const confirmed = confirm("Acknowledge that you have read this toolbox talk?");
-
-    if (!confirmed) {
-        return;
-    }
-
-    const { error } = await supabaseClient
-        .from("toolbox_talk_assignments")
-        .update({
-            acknowledged_at: new Date().toISOString(),
-            acknowledgement_name: currentWorkerDisplay
-        })
-        .eq("id", id)
-        .eq("worker_name", currentWorker);
-
-    if (error) {
-        alert("This toolbox talk could not be acknowledged.");
-        return;
-    }
-
-    await loadToolboxTalks();
-}
 
 async function signOut() {
     await signOutJgc(supabaseClient);
 }
-
-loadToolboxTalks();
 </script>
 </body>
 </html>
