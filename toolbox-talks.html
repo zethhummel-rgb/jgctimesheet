@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool Box Talks</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    color: #2f6f3c;
+    margin: 0 0 6px;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 18px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.full {
+    grid-column: 1 / -1;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+label {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.card {
+    border-top: 1px solid #d6ddd4;
+    margin-top: 20px;
+    padding-top: 18px;
+}
+
+.talk-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px;
+}
+
+.talk-card {
+    background: #ffffff;
+    border: 1px solid #c6cec5;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.talk-card h3 {
+    margin: 0 0 6px;
+    color: #0b5e3b;
+}
+
+.crew-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 6px 12px;
+    background: #ffffff;
+    border: 1px solid #c6cec5;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.crew-list label {
+    font-weight: normal;
+}
+
+.crew-list input {
+    width: auto;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+button,
+.file-link {
+    background: #0b5e3b;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button:hover,
+.file-link:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.status {
+    min-height: 20px;
+    margin-top: 10px;
+    font-weight: bold;
+    color: #2f6f3c;
+}
+
+.small {
+    font-size: 12px;
+    color: #47534b;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+th,
+td {
+    border: 1px solid #c6cec5;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 13px;
+}
+
+th {
+    background: #e6ece6;
+}
+
+@media (max-width: 760px) {
+    body {
+        padding: 10px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .full {
+        grid-column: auto;
+    }
+
+    button,
+    .file-link {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div id="currentUser" class="user-bar"></div>
+
+<div class="container">
+    <h1>Tool Box Talks</h1>
+    <div class="subtitle">Choose a talk, complete the report, and submit crew acknowledgement records</div>
+
+    <section class="card" style="border-top:0;margin-top:0;padding-top:0;">
+        <h2>Available Toolbox Talk PDFs</h2>
+        <div id="talkLibrary" class="talk-list">Loading toolbox talks...</div>
+    </section>
+
+    <section class="card">
+        <h2>Tool Box Talk Report</h2>
+        <div class="grid">
+            <div class="field full">
+                <label>Talk Selected</label>
+                <input id="selectedTalkTitle" readonly placeholder="Choose a PDF above">
+            </div>
+
+            <div class="field">
+                <label>Date</label>
+                <input id="reportDate" type="date">
+            </div>
+
+            <div class="field">
+                <label>Presenter / Supervisor</label>
+                <input id="presenterName">
+            </div>
+
+            <div class="field">
+                <label>Project / Job</label>
+                <input id="projectName">
+            </div>
+
+            <div class="field">
+                <label>Location</label>
+                <input id="location">
+            </div>
+
+            <div class="field full">
+                <label>What Was Talked About</label>
+                <textarea id="discussionNotes" placeholder="This will start with the selected PDF title. Add notes from the talk."></textarea>
+            </div>
+
+            <div class="field full">
+                <label>Hazards Discussed</label>
+                <textarea id="hazardsDiscussed"></textarea>
+            </div>
+
+            <div class="field full">
+                <label>Corrective Actions / Follow Up</label>
+                <textarea id="correctiveActions"></textarea>
+            </div>
+
+            <div class="field full">
+                <label>Crew Onsite</label>
+                <div id="crewList" class="crew-list">Loading employees...</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="button" onclick="submitToolboxTalkReport()">Save & Email Report</button>
+            <button type="button" class="secondary" onclick="window.location.href='reports.html'">Reports</button>
+            <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+        </div>
+        <div id="reportStatus" class="status"></div>
+    </section>
+
+    <section class="card">
+        <h2>My Toolbox Talk Acknowledgements</h2>
+        <div id="acknowledgementList">Loading acknowledgements...</div>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const TOOLBOX_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display || worker.key;
+let toolboxTalks = [];
+let toolboxTalkUrls = {};
+let employees = [];
+let selectedTalk = null;
+let acknowledgements = [];
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+document.getElementById("presenterName").value = currentWorkerDisplay;
+document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
+
+function setReportStatus(message) {
+    document.getElementById("reportStatus").textContent = message || "";
+}
+
+function getValue(id) {
+    return document.getElementById(id).value.trim();
+}
+
+function makeSafeFileName(name) {
+    return String(name || "toolbox-talk-report")
+        .trim()
+        .replace(/[^a-z0-9.\-_]+/gi, "-")
+        .replace(/-+/g, "-")
+        .toLowerCase();
+}
+
+async function loadToolboxData() {
+    const [talkResult, profileResult, acknowledgementResult] = await Promise.all([
+        supabaseClient
+            .from("toolbox_talks")
+            .select("*")
+            .eq("is_active", true)
+            .order("title", { ascending: true }),
+        supabaseClient
+            .from("profiles")
+            .select("display_name,worker_key,email,account_status")
+            .eq("account_status", "approved")
+            .order("display_name", { ascending: true }),
+        supabaseClient
+            .from("toolbox_talk_attendance")
+            .select("*, toolbox_talk_reports(*)")
+            .eq("worker_name", currentWorker)
+            .order("created_at", { ascending: false })
+    ]);
+
+    toolboxTalks = talkResult.data || [];
+    employees = (profileResult.data || []).map((profile) => ({
+        workerName: normalizeWorkerName(profile.worker_key || profile.display_name || profile.email),
+        displayName: profile.display_name || profile.worker_key || profile.email || ""
+    })).filter((employee) => employee.workerName);
+    acknowledgements = acknowledgementResult.data || [];
+    await prepareToolboxTalkUrls();
+    renderTalkLibrary();
+    renderCrewList();
+    renderAcknowledgements();
+}
+
+async function prepareToolboxTalkUrls() {
+    toolboxTalkUrls = {};
+
+    for (const talk of toolboxTalks) {
+        if (!talk.file_path) {
+            continue;
+        }
+
+        const { data } = await supabaseClient
+            .storage
+            .from("toolbox-talks")
+            .createSignedUrl(talk.file_path, 604800);
+
+        if (data && data.signedUrl) {
+            toolboxTalkUrls[talk.id] = data.signedUrl;
+        }
+    }
+}
+
+function renderTalkLibrary() {
+    const library = document.getElementById("talkLibrary");
+
+    if (!toolboxTalks.length) {
+        library.innerHTML = '<div class="small">No toolbox talk PDFs uploaded yet.</div>';
+        return;
+    }
+
+    library.innerHTML = toolboxTalks.map((talk) => `
+        <article class="talk-card">
+            <h3>${escapeHtml(talk.title)}</h3>
+            <div class="small">${escapeHtml(talk.description || "")}</div>
+            <div class="actions">
+                <button type="button" onclick="selectToolboxTalk('${escapeHtml(talk.id)}')">Use This Talk</button>
+                ${toolboxTalkUrls[talk.id] ? "<a class='file-link' href='" + toolboxTalkUrls[talk.id] + "' target='_blank' rel='noopener' onclick='selectToolboxTalk(\"" + escapeHtml(talk.id) + "\")'>Open PDF</a>" : ""}
+            </div>
+        </article>
+    `).join("");
+}
+
+function renderCrewList() {
+    const list = document.getElementById("crewList");
+
+    if (!employees.length) {
+        list.textContent = "No approved employees found.";
+        return;
+    }
+
+    list.innerHTML = employees.map((employee) => `
+        <label>
+            <input class="crew-checkbox" type="checkbox" value="${escapeHtml(employee.workerName)}" data-display="${escapeHtml(employee.displayName)}">
+            ${escapeHtml(employee.displayName)}
+        </label>
+    `).join("");
+}
+
+function selectToolboxTalk(id) {
+    selectedTalk = toolboxTalks.find((talk) => talk.id === id) || null;
+
+    if (!selectedTalk) {
+        return;
+    }
+
+    document.getElementById("selectedTalkTitle").value = selectedTalk.title || "";
+    document.getElementById("discussionNotes").value = "Toolbox Talk: " + (selectedTalk.title || "") + (selectedTalk.description ? "\n\n" + selectedTalk.description : "");
+}
+
+function getSelectedCrew() {
+    return Array.from(document.querySelectorAll(".crew-checkbox:checked")).map((box) => ({
+        workerName: box.value,
+        displayName: box.dataset.display || box.value
+    }));
+}
+
+function buildEmailBody(record) {
+    return [
+        "Tool Box Talk Report",
+        "",
+        "Talk: " + record.talk_title,
+        "Date: " + record.report_date,
+        "Project: " + record.project,
+        "Location: " + record.location,
+        "Presenter: " + record.presenter_name,
+        "",
+        "Crew Onsite:",
+        record.crew.map((person) => "- " + person.displayName).join("\n"),
+        "",
+        "What Was Talked About:",
+        record.discussion_notes,
+        "",
+        "Hazards Discussed:",
+        record.hazards_discussed,
+        "",
+        "Corrective Actions / Follow Up:",
+        record.corrective_actions
+    ].join("\n");
+}
+
+function buildPdfHtml(record) {
+    const crewRows = record.crew.map((person) => `<tr><td>${escapeHtml(person.displayName)}</td><td></td></tr>`).join("");
+
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; color: #111; }
+                h1 { text-align: center; margin-bottom: 4px; }
+                h2 { text-align: center; margin-top: 0; font-size: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+                th, td { border: 1px solid #555; padding: 7px; font-size: 12px; text-align: left; vertical-align: top; }
+                th { background: #e8ece8; width: 30%; }
+                .section { white-space: pre-wrap; min-height: 70px; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction</h1>
+            <h2>Tool Box Talk Report</h2>
+            <table>
+                <tr><th>Talk</th><td>${escapeHtml(record.talk_title)}</td></tr>
+                <tr><th>Date</th><td>${escapeHtml(record.report_date)}</td></tr>
+                <tr><th>Project / Job</th><td>${escapeHtml(record.project)}</td></tr>
+                <tr><th>Location</th><td>${escapeHtml(record.location)}</td></tr>
+                <tr><th>Presenter / Supervisor</th><td>${escapeHtml(record.presenter_name)}</td></tr>
+                <tr><th>What Was Talked About</th><td class="section">${escapeHtml(record.discussion_notes)}</td></tr>
+                <tr><th>Hazards Discussed</th><td class="section">${escapeHtml(record.hazards_discussed)}</td></tr>
+                <tr><th>Corrective Actions / Follow Up</th><td class="section">${escapeHtml(record.corrective_actions)}</td></tr>
+            </table>
+            <h3>Crew Onsite</h3>
+            <table>
+                <tr><th>Name</th><th>Signature / Acknowledgement</th></tr>
+                ${crewRows}
+            </table>
+        </body>
+        </html>
+    `;
+}
+
+async function emailToolboxReport(record) {
+    const subject = "Tool Box Talk Report - " + record.talk_title + " - " + record.report_date;
+    const body = buildEmailBody(record);
+
+    await fetch(TOOLBOX_EMAIL_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+            subject,
+            body,
+            text: body,
+            pdfHtml: buildPdfHtml(record),
+            pdfFileName: makeSafeFileName(subject) + ".pdf"
+        })
+    });
+}
+
+async function submitToolboxTalkReport() {
+    const crew = getSelectedCrew();
+
+    if (!selectedTalk) {
+        alert("Choose the toolbox talk PDF first.");
+        return;
+    }
+
+    if (!getValue("reportDate") || !getValue("projectName") || !getValue("presenterName")) {
+        alert("Add the date, project, and presenter.");
+        return;
+    }
+
+    if (!crew.length) {
+        alert("Select the crew onsite.");
+        return;
+    }
+
+    const record = {
+        talk_id: selectedTalk.id,
+        talk_title: selectedTalk.title,
+        talk_file_path: selectedTalk.file_path || "",
+        report_date: getValue("reportDate"),
+        project: getValue("projectName"),
+        location: getValue("location"),
+        presenter_name: getValue("presenterName"),
+        submitted_by_worker: currentWorker,
+        submitted_by_name: currentWorkerDisplay,
+        discussion_notes: getValue("discussionNotes"),
+        hazards_discussed: getValue("hazardsDiscussed"),
+        corrective_actions: getValue("correctiveActions"),
+        crew
+    };
+
+    setReportStatus("Saving toolbox talk report...");
+
+    const { data, error } = await supabaseClient
+        .from("toolbox_talk_reports")
+        .insert(record)
+        .select()
+        .single();
+
+    if (error) {
+        setReportStatus("Toolbox talk report could not be saved.");
+        return;
+    }
+
+    const attendanceRows = crew.map((person) => ({
+        report_id: data.id,
+        talk_id: selectedTalk.id,
+        worker_name: person.workerName,
+        worker_display_name: person.displayName
+    }));
+
+    const { error: attendanceError } = await supabaseClient
+        .from("toolbox_talk_attendance")
+        .insert(attendanceRows);
+
+    if (attendanceError) {
+        setReportStatus("Report saved, but attendance acknowledgements could not be created.");
+        return;
+    }
+
+    setReportStatus("Emailing toolbox talk report...");
+
+    try {
+        await emailToolboxReport(record);
+        setReportStatus("Toolbox talk report saved and emailed.");
+    } catch (error) {
+        setReportStatus("Report saved, but email could not be sent.");
+    }
+
+    document.getElementById("projectName").value = "";
+    document.getElementById("location").value = "";
+    document.getElementById("discussionNotes").value = "";
+    document.getElementById("hazardsDiscussed").value = "";
+    document.getElementById("correctiveActions").value = "";
+    document.querySelectorAll(".crew-checkbox").forEach((box) => {
+        box.checked = false;
+    });
+    await loadToolboxData();
+}
+
+function renderAcknowledgements() {
+    const list = document.getElementById("acknowledgementList");
+
+    if (!acknowledgements.length) {
+        list.innerHTML = '<div class="small">No toolbox talk acknowledgements yet.</div>';
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Talk</th><th>Date</th><th>Project</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    ${acknowledgements.map((ack) => {
+                        const report = ack.toolbox_talk_reports || {};
+                        const acknowledged = Boolean(ack.acknowledged_at);
+
+                        return `
+                            <tr>
+                                <td>${escapeHtml(report.talk_title || "")}</td>
+                                <td>${escapeHtml(formatDisplayDate(report.report_date))}</td>
+                                <td>${escapeHtml(report.project || "")}</td>
+                                <td>${acknowledged ? "Acknowledged " + escapeHtml(formatDisplayDate(ack.acknowledged_at)) : "Needs acknowledgement"}</td>
+                                <td>${acknowledged ? "-" : "<button type='button' onclick='acknowledgeAttendance(\"" + escapeHtml(ack.id) + "\")'>Acknowledge Present</button>"}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function acknowledgeAttendance(id) {
+    if (!confirm("Acknowledge you were present for this toolbox talk?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("toolbox_talk_attendance")
+        .update({
+            acknowledged_at: new Date().toISOString(),
+            acknowledgement_name: currentWorkerDisplay
+        })
+        .eq("id", id)
+        .eq("worker_name", currentWorker);
+
+    if (error) {
+        alert("Acknowledgement could not be saved.");
+        return;
+    }
+
+    await loadToolboxData();
+}
+
+loadToolboxData();
+</script>
+</body>
+</html>
