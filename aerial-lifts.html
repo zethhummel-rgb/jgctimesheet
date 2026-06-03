@@ -247,6 +247,11 @@ button:hover {
             <option>Other</option>
         </select>
     </div>
+
+    <div class="field" id="aerialLiftHoursField" hidden>
+        <label for="aerialLiftHours">Current Unit Hours</label>
+        <input id="aerialLiftHours" type="number" min="0" step="0.1" placeholder="Enter current hours">
+    </div>
 </div>
 
 <div class="table-wrap">
@@ -379,14 +384,24 @@ function updateAerialLiftOptions() {
 }
 
 function fillAerialLiftDetails() {
-    const selectedValue = document.getElementById("aerialLiftEquipment").value.trim().toLowerCase();
-    const match = aerialLiftEquipmentItems.find((item) => getAerialLiftDisplay(item).toLowerCase() === selectedValue);
+    const match = getSelectedAerialLiftEquipment();
+    const hoursField = document.getElementById("aerialLiftHoursField");
+    const hoursInput = document.getElementById("aerialLiftHours");
 
     if (!match) {
+        hoursField.hidden = true;
+        hoursInput.value = "";
         return;
     }
 
     document.getElementById("aerialLiftUnitType").value = getAerialLiftUnitType(match);
+    hoursField.hidden = false;
+    hoursInput.value = match.current_hours !== null && match.current_hours !== undefined ? match.current_hours : "";
+}
+
+function getSelectedAerialLiftEquipment() {
+    const selectedValue = document.getElementById("aerialLiftEquipment").value.trim().toLowerCase();
+    return aerialLiftEquipmentItems.find((item) => getAerialLiftDisplay(item).toLowerCase() === selectedValue) || null;
 }
 
 async function loadAerialLiftEquipmentOptions() {
@@ -409,9 +424,45 @@ async function loadAerialLiftEquipmentOptions() {
     updateAerialLiftOptions();
 }
 
-function handleInspectionSave(type) {
+async function updateSelectedAerialLiftHours() {
+    const match = getSelectedAerialLiftEquipment();
+
+    if (!match) {
+        return true;
+    }
+
+    const hoursValue = Number(document.getElementById("aerialLiftHours").value);
+
+    if (!Number.isFinite(hoursValue) || hoursValue < 0) {
+        alert("Enter the current hours for this lift.");
+        return false;
+    }
+
+    const { error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .update({
+            current_hours: hoursValue,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", match.id);
+
+    if (error) {
+        alert("The lift hours could not be updated. " + (error.message || ""));
+        return false;
+    }
+
+    return true;
+}
+
+async function handleInspectionSave(type) {
     if (typeof saveInspection !== "function") {
         alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    const hoursUpdated = await updateSelectedAerialLiftHours();
+
+    if (!hoursUpdated) {
         return;
     }
 
