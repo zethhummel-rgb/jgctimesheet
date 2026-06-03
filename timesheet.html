@@ -3167,54 +3167,6 @@ function render() {
     return String(a.jobName || "").localeCompare(String(b.jobName || ""));
   });
 
-  const rawDatabaseRows = rawSupabaseTimesheetRows.map(function(row) {
-    return `
-      <tr>
-        <td>${escapeHtml(row.worker_name || "")}</td>
-        <td>${escapeHtml(row.week_start || "")}</td>
-        <td>${escapeHtml(row.day_of_week || "")}</td>
-        <td>${escapeHtml(row.job_name || "")}</td>
-        <td>${escapeHtml(row.job_number || "")}</td>
-        <td>${escapeHtml(row.time_in || "")}</td>
-        <td>${escapeHtml(row.time_out || "")}</td>
-        <td>${escapeHtml(row.hours || "")}</td>
-        <td>${escapeHtml(row.entry_type || "")}</td>
-        <td>${escapeHtml(row.leave_note || "")}</td>
-      </tr>
-    `;
-  }).join("");
-
-  const allEntryRows = sortedEntries.map(function(entry) {
-    return `
-      <tr>
-        <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
-        <td>${escapeHtml(entry.jobName || "")}</td>
-        <td>${escapeHtml(entry.jobNumber || "")}</td>
-        <td>${escapeHtml(getEntryTimeText(entry))}</td>
-        <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
-        <td>${escapeHtml(getEntryLeaveNote(entry))}</td>
-      </tr>
-    `;
-  }).join("");
-
-  const leaveEntries = sortedEntries.filter(function(entry) {
-    return getEntryType(entry) !== "work";
-  });
-
-  const leaveRows = leaveEntries.map(function(entry) {
-    return `
-      <tr>
-        <td>${escapeHtml(entry.day || "")}</td>
-        <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
-        <td>${escapeHtml(entry.jobNumber || getEntryLeaveNote(entry) || "")}</td>
-        <td>${escapeHtml(getEntryTimeText(entry))}</td>
-        <td>${escapeHtml(getEntryHoursLabel(entry))}</td>
-        <td>${escapeHtml(getEntryLeaveNote(entry))}</td>
-      </tr>
-    `;
-  }).join("");
-
   const rows = sortedEntries.map(function(entry) {
     const entryType = getEntryType(entry);
     const summaryName = entryType === "work" ? entry.jobName : getEntryTypeLabel(entry);
@@ -3237,65 +3189,6 @@ function render() {
   }).join("");
 
   document.getElementById("entries").innerHTML = `
-    <h3>Database Rows</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Worker</th>
-            <th>Week</th>
-            <th>Day</th>
-            <th>Job Name</th>
-            <th>Job Number</th>
-            <th>Time In</th>
-            <th>Time Out</th>
-            <th>Hours</th>
-            <th>Type</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rawDatabaseRows || '<tr><td colspan="10">No database rows loaded yet. Press Refresh Entries.</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-    <h3>All Current Entries</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Type</th>
-            <th>Job Name</th>
-            <th>Job Number</th>
-            <th>Time</th>
-            <th>Hours</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allEntryRows}
-        </tbody>
-      </table>
-    </div>
-    <h3>Sick / Vacation / Holiday Entries</h3>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Type</th>
-            <th>Reason / Pay Type</th>
-            <th>Time</th>
-            <th>Hours</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${leaveRows || '<tr><td colspan="6">No sick, vacation, or holiday entries.</td></tr>'}
-        </tbody>
-      </table>
-    </div>
     <h3>Weekly Work Hours Summary</h3>
     <div class="table-wrap">
       <table>
