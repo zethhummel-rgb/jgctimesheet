@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident / Near Miss Report</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.user-bar {
+    max-width: 1100px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border-radius: 8px;
+    border-top: 4px solid #b42318;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+h1 {
+    text-align: center;
+    color: #8f1d14;
+    margin: 0 0 6px;
+}
+
+.subtitle {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 18px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.full {
+    grid-column: 1 / -1;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+label {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+    background: #ffffff;
+    color: #1f2a24;
+}
+
+textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #65736a;
+    opacity: 1;
+}
+
+.check-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.check-row input {
+    width: auto;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+button {
+    background: #0b5e3b;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 11px 16px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+.status {
+    min-height: 20px;
+    margin-top: 12px;
+    font-weight: bold;
+    color: #8f1d14;
+}
+
+.small {
+    font-size: 12px;
+    color: #47534b;
+}
+
+.photo-list {
+    margin-top: 6px;
+    color: #47534b;
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    body {
+        padding: 10px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .full {
+        grid-column: auto;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+</div>
+
+<div id="currentUser" class="user-bar"></div>
+
+<div class="container">
+    <h1>Incident / Near Miss Report</h1>
+    <div class="subtitle">Report near misses, injuries, property damage, and environmental incidents</div>
+
+    <div class="grid">
+        <div class="field">
+            <label for="incidentType">Report Type</label>
+            <select id="incidentType">
+                <option>Near Miss</option>
+                <option>Injury</option>
+                <option>Property Damage</option>
+                <option>Environmental Incident</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="severity">Severity / Urgency</label>
+            <select id="severity">
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+                <option>Emergency</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="reportDate">Date</label>
+            <input id="reportDate" type="date">
+        </div>
+
+        <div class="field">
+            <label for="incidentTime">Time</label>
+            <input id="incidentTime" type="time">
+        </div>
+
+        <div class="field">
+            <label for="project">Project / Job</label>
+            <input id="project" placeholder="Project or job name">
+        </div>
+
+        <div class="field">
+            <label for="location">Exact Location</label>
+            <input id="location" placeholder="Area, floor, room, yard, road, etc.">
+        </div>
+
+        <div class="field">
+            <label for="peopleInvolved">People Involved</label>
+            <input id="peopleInvolved" placeholder="Names if applicable">
+        </div>
+
+        <div class="field">
+            <label for="witnesses">Witnesses</label>
+            <input id="witnesses" placeholder="Names if applicable">
+        </div>
+
+        <div class="field full">
+            <label for="description">What Happened?</label>
+            <textarea id="description" placeholder="Describe what happened, what almost happened, or what was observed."></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="immediateAction">Immediate Action Taken</label>
+            <textarea id="immediateAction" placeholder="First aid, area secured, work stopped, spill contained, supervisor notified, etc."></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="injuryDetails">Injury Details</label>
+            <textarea id="injuryDetails" placeholder="Body part, first aid, medical attention, lost time, etc. Leave blank if not applicable."></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="propertyDamageDetails">Property Damage Details</label>
+            <textarea id="propertyDamageDetails" placeholder="Equipment/material damaged, estimated severity, owner, etc. Leave blank if not applicable."></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="environmentalDetails">Environmental Details</label>
+            <textarea id="environmentalDetails" placeholder="Spill/release type, amount, containment, cleanup, etc. Leave blank if not applicable."></textarea>
+        </div>
+
+        <label class="field check-row full">
+            <input id="followUpRequired" type="checkbox">
+            Follow-up required
+        </label>
+
+        <div class="field full">
+            <label for="followUpNotes">Follow-up Notes / Corrective Action</label>
+            <textarea id="followUpNotes" placeholder="What needs to happen next and who should follow up?"></textarea>
+        </div>
+
+        <div class="field full">
+            <label for="photos">Photos</label>
+            <input id="photos" type="file" accept="image/*" multiple onchange="showPhotoList()">
+            <div id="photoList" class="photo-list"></div>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button type="button" onclick="submitIncidentReport()">Save & Email Report</button>
+        <button type="button" class="secondary" onclick="window.location.href='reports.html'">Reports</button>
+        <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+        <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+    </div>
+
+    <div id="saveStatus" class="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const INCIDENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display || worker.key;
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
+
+function getValue(id) {
+    return document.getElementById(id).value.trim();
+}
+
+function setStatus(message) {
+    document.getElementById("saveStatus").textContent = message || "";
+}
+
+function makeSafeFileName(name) {
+    return String(name || "incident-report")
+        .trim()
+        .replace(/[^a-z0-9.\-_]+/gi, "-")
+        .replace(/-+/g, "-")
+        .toLowerCase();
+}
+
+function showPhotoList() {
+    const files = Array.from(document.getElementById("photos").files || []);
+    document.getElementById("photoList").textContent = files.length
+        ? files.map((file) => file.name).join(", ")
+        : "";
+}
+
+async function uploadPhotos(reportId) {
+    const files = Array.from(document.getElementById("photos").files || []);
+    const uploaded = [];
+
+    for (const file of files) {
+        const path = reportId + "/" + Date.now() + "-" + makeSafeFileName(file.name);
+        const { error } = await supabaseClient
+            .storage
+            .from("incident-photos")
+            .upload(path, file, {
+                cacheControl: "3600",
+                upsert: false,
+                contentType: file.type || "image/jpeg"
+            });
+
+        if (!error) {
+            uploaded.push({
+                name: file.name,
+                path,
+                type: file.type || "",
+                size: file.size
+            });
+        }
+    }
+
+    return uploaded;
+}
+
+function buildEmailBody(record) {
+    return [
+        "Incident / Near Miss Report",
+        "",
+        "Type: " + record.incident_type,
+        "Severity: " + record.severity,
+        "Date: " + record.report_date,
+        "Time: " + record.incident_time,
+        "Project: " + record.project,
+        "Location: " + record.location,
+        "Reported By: " + record.reported_by_name,
+        "",
+        "People Involved: " + record.people_involved,
+        "Witnesses: " + record.witnesses,
+        "",
+        "What Happened:",
+        record.description,
+        "",
+        "Immediate Action Taken:",
+        record.immediate_action,
+        "",
+        "Injury Details:",
+        record.injury_details,
+        "",
+        "Property Damage Details:",
+        record.property_damage_details,
+        "",
+        "Environmental Details:",
+        record.environmental_details,
+        "",
+        "Follow-up Required: " + (record.follow_up_required ? "Yes" : "No"),
+        "Follow-up Notes:",
+        record.follow_up_notes,
+        "",
+        "Photos: " + (record.photos.length ? record.photos.map((photo) => photo.name).join(", ") : "None")
+    ].join("\n");
+}
+
+function buildPdfHtml(record) {
+    const rows = [
+        ["Type", record.incident_type],
+        ["Severity / Urgency", record.severity],
+        ["Date", record.report_date],
+        ["Time", record.incident_time],
+        ["Project / Job", record.project],
+        ["Location", record.location],
+        ["Reported By", record.reported_by_name],
+        ["People Involved", record.people_involved],
+        ["Witnesses", record.witnesses],
+        ["What Happened", record.description],
+        ["Immediate Action Taken", record.immediate_action],
+        ["Injury Details", record.injury_details],
+        ["Property Damage Details", record.property_damage_details],
+        ["Environmental Details", record.environmental_details],
+        ["Follow-up Required", record.follow_up_required ? "Yes" : "No"],
+        ["Follow-up Notes / Corrective Action", record.follow_up_notes],
+        ["Photos", record.photos.length ? record.photos.map((photo) => photo.name).join(", ") : "None"]
+    ];
+
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; color: #111; }
+                h1 { text-align: center; margin-bottom: 4px; color: #8f1d14; }
+                h2 { text-align: center; margin-top: 0; font-size: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+                th, td { border: 1px solid #555; padding: 7px; font-size: 12px; text-align: left; vertical-align: top; }
+                th { background: #f4d3d3; width: 30%; }
+                td { white-space: pre-wrap; }
+            </style>
+        </head>
+        <body>
+            <h1>John Gordon Construction</h1>
+            <h2>Incident / Near Miss Report</h2>
+            <table>
+                ${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value || "")}</td></tr>`).join("")}
+            </table>
+        </body>
+        </html>
+    `;
+}
+
+async function emailIncidentReport(record) {
+    const subject = record.incident_type + " Report - " + record.project + " - " + record.report_date;
+    const body = buildEmailBody(record);
+
+    await fetch(INCIDENT_EMAIL_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+            subject,
+            body,
+            text: body,
+            pdfHtml: buildPdfHtml(record),
+            pdfFileName: makeSafeFileName(subject) + ".pdf",
+            source: "incident_report"
+        })
+    });
+}
+
+async function submitIncidentReport() {
+    if (!getValue("reportDate") || !getValue("project") || !getValue("location") || !getValue("description")) {
+        alert("Add the date, project, location, and what happened.");
+        return;
+    }
+
+    const baseRecord = {
+        incident_type: getValue("incidentType"),
+        severity: getValue("severity"),
+        report_date: getValue("reportDate"),
+        incident_time: getValue("incidentTime"),
+        project: getValue("project"),
+        location: getValue("location"),
+        reported_by_worker: currentWorker,
+        reported_by_name: currentWorkerDisplay,
+        people_involved: getValue("peopleInvolved"),
+        witnesses: getValue("witnesses"),
+        description: getValue("description"),
+        immediate_action: getValue("immediateAction"),
+        injury_details: getValue("injuryDetails"),
+        property_damage_details: getValue("propertyDamageDetails"),
+        environmental_details: getValue("environmentalDetails"),
+        follow_up_required: document.getElementById("followUpRequired").checked,
+        follow_up_notes: getValue("followUpNotes"),
+        photos: []
+    };
+
+    setStatus("Saving report...");
+
+    const { data, error } = await supabaseClient
+        .from("incident_reports")
+        .insert(baseRecord)
+        .select()
+        .single();
+
+    if (error) {
+        setStatus("Incident report could not be saved.");
+        return;
+    }
+
+    const uploadedPhotos = await uploadPhotos(data.id);
+    const record = {
+        ...baseRecord,
+        id: data.id,
+        photos: uploadedPhotos
+    };
+
+    if (uploadedPhotos.length) {
+        await supabaseClient
+            .from("incident_reports")
+            .update({ photos: uploadedPhotos })
+            .eq("id", data.id);
+    }
+
+    setStatus("Emailing report...");
+
+    try {
+        await emailIncidentReport(record);
+        setStatus("Incident report saved and emailed.");
+        alert("Incident report saved and emailed.");
+    } catch (error) {
+        setStatus("Report saved, but email could not be sent.");
+    }
+
+    document.querySelectorAll("textarea").forEach((field) => {
+        field.value = "";
+    });
+    ["project", "location", "peopleInvolved", "witnesses", "incidentTime"].forEach((id) => {
+        document.getElementById(id).value = "";
+    });
+    document.getElementById("photos").value = "";
+    document.getElementById("photoList").textContent = "";
+    document.getElementById("followUpRequired").checked = false;
+}
+
+async function signOut() {
+    await signOutJgc(supabaseClient);
+}
+</script>
+</body>
+</html>
