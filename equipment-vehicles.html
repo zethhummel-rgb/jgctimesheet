@@ -227,6 +227,7 @@ function renderEquipmentTable(items) {
                         <th>Name of Equipment / Vehicle</th>
                         <th>Identification #</th>
                         <th>Operator</th>
+                        <th>Current Hours</th>
                         <th>Yearly Inspection Expiry</th>
                         <th>Status</th>
                     </tr>
@@ -239,6 +240,7 @@ function renderEquipmentTable(items) {
                                 <td>${escapeHtml(item.name)}</td>
                                 <td>${escapeHtml(item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
+                                <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : "-"}</td>
                                 <td>${item.yearly_inspection_expiry ? escapeHtml(item.yearly_inspection_expiry) : "-"}</td>
                                 <td><span class="status-pill ${status.className}">${status.text}</span></td>
                             </tr>
