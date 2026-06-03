@@ -560,6 +560,14 @@ button:hover,
             <h3>Near Miss Reports</h3>
             <div id="nearMissReportsList" class="small">Loading incident reports...</div>
         </div>
+        <div>
+            <h3>Accident Reports</h3>
+            <div id="accidentReportsList" class="small">Loading accident reports...</div>
+        </div>
+        <div>
+            <h3>Employee Injury Reports</h3>
+            <div id="employeeInjuryReportsList" class="small">Loading employee injury reports...</div>
+        </div>
     </div>
 </div>
 
@@ -736,6 +744,10 @@ let toolboxReports = [];
 let toolboxAttendance = [];
 let dailySiteReports = [];
 let incidentReports = [];
+let accidentReports = [];
+let accidentAcknowledgements = [];
+let employeeInjuryReports = [];
+let employeeInjuryAcknowledgements = [];
 let policies = [];
 let jobs = [];
 let equipmentItems = [];
@@ -864,7 +876,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -879,6 +891,10 @@ async function loadAdminData() {
         supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("accident_report_acknowledgements").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("employee_injury_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
@@ -900,6 +916,10 @@ async function loadAdminData() {
     toolboxAttendance = toolboxAttendanceResult.data || [];
     dailySiteReports = dailySiteReportResult.data || [];
     incidentReports = incidentReportResult.data || [];
+    accidentReports = accidentReportResult.data || [];
+    accidentAcknowledgements = accidentAcknowledgementResult.data || [];
+    employeeInjuryReports = employeeInjuryReportResult.data || [];
+    employeeInjuryAcknowledgements = employeeInjuryAcknowledgementResult.data || [];
     policies = policyResult.data || [];
     jobs = jobsResult.data || [];
     equipmentItems = equipmentResult.data || [];
@@ -2773,6 +2793,8 @@ function renderReports() {
     const dailyList = document.getElementById("dailySiteReportsList");
     const jsaList = document.getElementById("jsaReportsList");
     const incidentList = document.getElementById("nearMissReportsList");
+    const accidentList = document.getElementById("accidentReportsList");
+    const employeeInjuryList = document.getElementById("employeeInjuryReportsList");
     const jsaReports = inspections.filter((inspection) =>
         String(inspection.inspection_type || "").toLowerCase().includes("jsa")
     );
@@ -2850,6 +2872,76 @@ function renderReports() {
                                     <td>${escapeHtml(formatDate(report.created_at))}</td>
                                 </tr>
                             `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    }
+
+    if (accidentList) {
+        if (!accidentReports.length) {
+            accidentList.textContent = "No accident reports found.";
+        } else {
+            accidentList.innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Injured Employee</th><th>Location</th><th>Report Maker</th><th>Acknowledgement</th><th>Saved</th></tr>
+                        </thead>
+                        <tbody>
+                            ${accidentReports.slice(0, 50).map((report) => {
+                                const acks = accidentAcknowledgements.filter((ack) => ack.accident_report_id === report.id);
+                                const ackStatus = acks.length
+                                    ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
+                                    : "-";
+
+                                return `
+                                    <tr>
+                                        <td>${escapeHtml(formatDate(report.accident_date))}</td>
+                                        <td>${escapeHtml(report.injured_worker_display || report.injured_worker || "")}</td>
+                                        <td>${escapeHtml(report.site_location || "")}</td>
+                                        <td>${escapeHtml(report.report_maker_display || report.report_maker_worker || "")}</td>
+                                        <td>${ackStatus}</td>
+                                        <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                    </tr>
+                                `;
+                            }).join("")}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    }
+
+    if (employeeInjuryList) {
+        if (!employeeInjuryReports.length) {
+            employeeInjuryList.textContent = "No employee injury reports found.";
+        } else {
+            employeeInjuryList.innerHTML = `
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Employee</th><th>Location</th><th>Supervisor</th><th>Acknowledgement</th><th>Saved</th></tr>
+                        </thead>
+                        <tbody>
+                            ${employeeInjuryReports.slice(0, 50).map((report) => {
+                                const acks = employeeInjuryAcknowledgements.filter((ack) => ack.employee_injury_report_id === report.id);
+                                const ackStatus = acks.length
+                                    ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
+                                    : "-";
+
+                                return `
+                                    <tr>
+                                        <td>${escapeHtml(formatDate(report.accident_date))}</td>
+                                        <td>${escapeHtml(report.employee_name || report.employee_display || "")}</td>
+                                        <td>${escapeHtml(report.accident_location || "")}</td>
+                                        <td>${escapeHtml(report.supervisor_name || "")}</td>
+                                        <td>${ackStatus}</td>
+                                        <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                    </tr>
+                                `;
+                            }).join("")}
                         </tbody>
                     </table>
                 </div>
