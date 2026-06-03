@@ -636,7 +636,6 @@
       <option value="">Select Type</option>
       <option value="paid">Paid</option>
       <option value="unpaid">Unpaid</option>
-      <option value="half_day">Half Day</option>
     </select>
 
     <div id="vacationHalfDayFields" class="field-hidden">
@@ -1732,7 +1731,7 @@ function setSpecialJobDefaults(entryType) {
       jobNameInput.value = "Vacation";
     }
 
-    jobNumberInput.placeholder = "Paid, unpaid, half day, or note";
+    jobNumberInput.placeholder = "Optional note";
     return;
   }
 
@@ -1749,8 +1748,7 @@ function getSpecialJobNumberValue(entryType, leaveType, typedJobNumber) {
   const note = String(typedJobNumber || "").trim();
 
   if (entryType === "vacation") {
-    const vacationType = leaveType ? capitalizeWords(leaveType) : "";
-    return note || vacationType;
+    return note;
   }
 
   return note;
@@ -1775,6 +1773,10 @@ function updateEntryTypeFields() {
   leaveFields.classList.toggle("field-hidden", entryType !== "vacation");
 
   if (isWork) {
+    jobNameLabel.classList.remove("field-hidden");
+    jobNameInput.classList.remove("field-hidden");
+    leaveNoteLabel.classList.remove("field-hidden");
+    document.getElementById("leaveNote").classList.remove("field-hidden");
     jobNameLabel.textContent = "Job Name";
     jobNumberLabel.textContent = "Job Number";
     jobNameInput.placeholder = "Search jobs or type job name";
@@ -1793,20 +1795,29 @@ function updateEntryTypeFields() {
     return;
   }
 
-  jobNameLabel.textContent = "Entry";
+  jobNameLabel.classList.add("field-hidden");
+  jobNameInput.classList.add("field-hidden");
   jobNumberLabel.textContent = "Reason / Note";
-  jobNameInput.placeholder = "Sick, Vacation, or Civic Holiday";
   jobStatus.style.display = "none";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
 
   setSpecialJobDefaults(entryType);
 
+  if (entryType === "sick") {
+    jobNumberLabel.textContent = "Reason";
+  } else if (entryType === "vacation") {
+    jobNumberLabel.textContent = "Optional Note";
+  } else if (entryType === "civic_holiday") {
+    jobNumberLabel.textContent = "Holiday Name / Note";
+  }
+
   if (entryType === "vacation") {
     leaveType.classList.remove("field-hidden");
     leaveTypeLabel.classList.remove("field-hidden");
     leaveTypeLabel.textContent = "Vacation Type";
-    leaveNoteLabel.textContent = "Extra Note";
+    leaveNoteLabel.classList.add("field-hidden");
+    document.getElementById("leaveNote").classList.add("field-hidden");
     halfDayFields.classList.toggle("field-hidden", leaveType.value !== "half_day");
   } else {
     leaveType.value = "";
@@ -1814,7 +1825,8 @@ function updateEntryTypeFields() {
     leaveType.classList.add("field-hidden");
     leaveTypeLabel.classList.add("field-hidden");
     halfDayFields.classList.add("field-hidden");
-    leaveNoteLabel.textContent = "Extra Note";
+    leaveNoteLabel.classList.add("field-hidden");
+    document.getElementById("leaveNote").classList.add("field-hidden");
   }
 }
 
@@ -1964,7 +1976,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     weekStart: formatDate(startDate),
     weekEnd: formatDate(endDate),
     jobName: getSpecialEntryJobName(entryType, leaveType),
-    jobNumber: leaveNote || (entryType === "vacation" ? capitalizeWords(leaveType) : ""),
+    jobNumber: leaveNote || "",
     day,
     timeIn: entryType === "sick" ? "07:00" : (isHalfDayVacation ? vacationTimeIn : "00:00"),
     timeOut: entryType === "sick" ? "12:00" : (isHalfDayVacation ? vacationTimeOut : "00:00"),
