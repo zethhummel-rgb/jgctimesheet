@@ -1,4 +1,5 @@
-async function loadJgcProfileAndEnter(supabaseClient, user, setStatus) {
+async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) {
+  const stayLoggedIn = !options || options.stayLoggedIn !== false;
   let { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("*")
@@ -53,5 +54,12 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus) {
   localStorage.setItem("currentUserEmail", profile.email);
   localStorage.setItem("currentUserRole", profile.role || "worker");
   localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
+  localStorage.setItem("jgcStayLoggedIn", stayLoggedIn ? "true" : "false");
+  sessionStorage.setItem("jgcActiveSession", "true");
+
+  if (!stayLoggedIn) {
+    await supabaseClient.auth.signOut();
+  }
+
   window.location.href = isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html";
 }
