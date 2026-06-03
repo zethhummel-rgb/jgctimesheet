@@ -53,5 +53,5 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus) {
   localStorage.setItem("currentUserEmail", profile.email);
   localStorage.setItem("currentUserRole", profile.role || "worker");
   localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
-  window.location.href = "home.html";
+  window.location.href = isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html";
 }
