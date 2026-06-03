@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Forklift Inspection</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -42,11 +42,17 @@ body {
 .container {
     max-width: 1200px;
     margin: auto;
-    background: #fbfcf9;
+    background: #fbfcf9 !important;
+    color: #1f2a24 !important;
     padding: 20px;
     border-radius: 8px;
     border-top: 4px solid #3f7d4d;
     box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+.container,
+.container * {
+    color: #1f2a24;
 }
 
 h1,
@@ -74,6 +80,7 @@ table {
     min-width: 850px;
     border-collapse: collapse;
     background: white;
+    color: #1f2a24;
 }
 
 th,
@@ -81,6 +88,7 @@ td {
     border: 1px solid #999;
     padding: 7px;
     vertical-align: middle;
+    color: #1f2a24;
 }
 
 th {
@@ -103,12 +111,14 @@ th {
     border: 1px solid #999;
     padding: 8px;
     background: white;
+    color: #1f2a24;
 }
 
 label {
     display: block;
     font-weight: bold;
     margin-bottom: 4px;
+    color: #111 !important;
 }
 
 input[type=text],
@@ -118,9 +128,17 @@ textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 8px;
-    border: 1px solid #bcc7bc;
+    border: 1px solid #8fa08f;
     border-radius: 4px;
     font-size: 15px;
+    background: #ffffff !important;
+    color: #111111 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #58635c !important;
+    opacity: 1;
 }
 
 textarea {
@@ -138,6 +156,7 @@ textarea {
     padding: 10px;
     background: white;
     border: 1px solid #999;
+    color: #1f2a24;
 }
 
 .actions {
@@ -149,7 +168,7 @@ textarea {
 
 button {
     background: #0b5e3b;
-    color: white;
+    color: white !important;
     border: none;
     padding: 12px 18px;
     border-radius: 4px;
@@ -276,7 +295,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
