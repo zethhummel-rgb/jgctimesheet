@@ -140,19 +140,32 @@ textarea {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 6px 12px;
-    background: #ffffff;
+    background: #ffffff !important;
     border: 1px solid #c6cec5;
     border-radius: 6px;
     padding: 10px;
-    color: #1f2a24;
+    color: #1f2a24 !important;
 }
 
 .crew-list label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: normal;
+    color: #1f2a24 !important;
+    background: #ffffff !important;
+    min-height: 32px;
 }
 
 .crew-list input {
     width: auto;
+    flex: 0 0 auto;
+    accent-color: #0b5e3b;
+}
+
+#crewList,
+#crewList * {
+    color: #1f2a24 !important;
 }
 
 .actions {
@@ -279,8 +292,8 @@ th {
             </div>
 
             <div class="field">
-                <label>Presenter / Supervisor</label>
-                <input id="presenterName">
+                <label>Presenter / Reader</label>
+                <select id="presenterName"></select>
             </div>
 
             <div class="field">
@@ -343,7 +356,6 @@ let selectedTalk = null;
 let acknowledgements = [];
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
-document.getElementById("presenterName").value = currentWorkerDisplay;
 document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
 
 function setReportStatus(message) {
@@ -389,6 +401,7 @@ async function loadToolboxData() {
     acknowledgements = acknowledgementResult.data || [];
     await prepareToolboxTalkUrls();
     renderTalkLibrary();
+    renderPresenterOptions();
     renderCrewList();
     renderAcknowledgements();
 }
@@ -446,6 +459,28 @@ function renderCrewList() {
             ${escapeHtml(employee.displayName)}
         </label>
     `).join("");
+}
+
+function renderPresenterOptions() {
+    const select = document.getElementById("presenterName");
+
+    if (!employees.length) {
+        select.innerHTML = '<option value="">No approved employees found</option>';
+        return;
+    }
+
+    select.innerHTML = '<option value="">Select Presenter / Reader</option>' + employees.map((employee) => `
+        <option value="${escapeHtml(employee.displayName)}">${escapeHtml(employee.displayName)}</option>
+    `).join("");
+
+    const currentMatch = employees.find((employee) =>
+        normalizeWorkerName(employee.workerName) === currentWorker ||
+        normalizeWorkerName(employee.displayName) === normalizeWorkerName(currentWorkerDisplay)
+    );
+
+    if (currentMatch) {
+        select.value = currentMatch.displayName;
+    }
 }
 
 function selectToolboxTalk(id) {
