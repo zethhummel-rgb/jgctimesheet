@@ -668,6 +668,7 @@
   </div>
   <button type="button" onclick="clearEntries()">Clear My Entries</button>
   <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
+  <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
   <div id="entries"></div>
 </div>
 
@@ -688,6 +689,7 @@ let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
 let activeJobs = [];
 const PREVIOUS_TIMESHEET_RETENTION_MONTHS = 2;
+const OFFLINE_TIMESHEET_QUEUE_KEY = "pendingTimesheetSyncQueue";
 
 window.addEventListener("error", function(event) {
   const status = document.getElementById("submitStatus");
@@ -704,6 +706,14 @@ window.addEventListener("unhandledrejection", function(event) {
   if (status) {
     status.innerText = "Save error: " + reason;
   }
+});
+
+window.addEventListener("online", function() {
+  syncPendingTimesheetEntries({ showStatus: true });
+});
+
+window.addEventListener("focus", function() {
+  syncPendingTimesheetEntries({ showStatus: false });
 });
 
 if (!currentUser) {
@@ -1358,16 +1368,131 @@ function entryToRow(entry) {
   };
 }
 
+function getPendingTimesheetQueue() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OFFLINE_TIMESHEET_QUEUE_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function savePendingTimesheetQueue(queue) {
+  localStorage.setItem(OFFLINE_TIMESHEET_QUEUE_KEY, JSON.stringify(queue || []));
+}
+
+function getPendingTimesheetCount() {
+  return getPendingTimesheetQueue().filter(function(item) {
+    return normalizeWorkerName(item.workerName) === normalizeWorkerName(currentUser);
+  }).length;
+}
+
+function queueTimesheetEntryForSync(entry, action) {
+  const queue = getPendingTimesheetQueue();
+  const localId = entry.id || ("local-" + Date.now());
+  const existingIndex = queue.findIndex(function(item) {
+    return item.localId === localId && normalizeWorkerName(item.workerName) === normalizeWorkerName(currentUser);
+  });
+  const queueItem = {
+    localId,
+    workerName: currentUser,
+    action: action || "insert",
+    row: entryToRow(entry),
+    queuedAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    queue[existingIndex] = queueItem;
+  } else {
+    queue.push(queueItem);
+  }
+
+  savePendingTimesheetQueue(queue);
+}
+
+function replaceLocalSyncedEntry(localId, savedEntry) {
+  setTimesheets(loadTimesheets().map(function(item) {
+    return item.id === localId ? savedEntry : item;
+  }));
+}
+
+async function syncPendingTimesheetEntries(options) {
+  const shouldShowStatus = options && options.showStatus;
+  const status = document.getElementById("submitStatus");
+
+  if (!supabaseClient || !navigator.onLine) {
+    if (shouldShowStatus && status) {
+      status.innerText = "Offline. Entries will sync when signal returns.";
+    }
+    return;
+  }
+
+  let queue = getPendingTimesheetQueue();
+  const currentWorkerItems = queue.filter(function(item) {
+    return normalizeWorkerName(item.workerName) === normalizeWorkerName(currentUser);
+  });
+
+  if (!currentWorkerItems.length) {
+    return;
+  }
+
+  if (shouldShowStatus && status) {
+    status.innerText = "Syncing " + currentWorkerItems.length + " offline entr" + (currentWorkerItems.length === 1 ? "y" : "ies") + "...";
+  }
+
+  const syncedLocalIds = [];
+
+  for (const item of currentWorkerItems) {
+    const { data, error } = await supabaseClient
+      .from("timesheet_entries")
+      .insert(item.row)
+      .select()
+      .single();
+
+    if (error) {
+      if (shouldShowStatus && status) {
+        status.innerText = "Some offline entries could not sync yet. They will retry later.";
+      }
+      break;
+    }
+
+    if (data) {
+      const savedEntry = rowToEntry(data);
+      savedEntry.user = currentUser;
+      replaceLocalSyncedEntry(item.localId, savedEntry);
+      syncedLocalIds.push(item.localId);
+    }
+  }
+
+  if (syncedLocalIds.length) {
+    queue = getPendingTimesheetQueue().filter(function(item) {
+      return !syncedLocalIds.includes(item.localId);
+    });
+    savePendingTimesheetQueue(queue);
+  }
+
+  if (shouldShowStatus && status) {
+    const remaining = getPendingTimesheetCount();
+    status.innerText = remaining
+      ? remaining + " offline entr" + (remaining === 1 ? "y" : "ies") + " still waiting to sync."
+      : "Offline entries synced.";
+  }
+
+  render();
+}
+
 async function loadTimesheetsFromSupabase() {
   const status = document.getElementById("submitStatus");
 
   if (!supabaseClient) {
     setTimesheets(loadFallbackTimesheets());
-    status.innerText = "Using browser storage until Supabase loads.";
+    status.innerText = "Using browser storage until Supabase loads. Pending sync: " + getPendingTimesheetCount() + ".";
     render();
     updateJobSuggestions();
     return;
   }
+
+  await syncPendingTimesheetEntries({ showStatus: false });
 
   status.innerText = "Loading saved entries...";
 
@@ -1379,7 +1504,7 @@ async function loadTimesheetsFromSupabase() {
   if (error) {
     rawSupabaseTimesheetRows = [];
     setTimesheets(loadFallbackTimesheets());
-    status.innerText = "Could not reach Supabase. Using browser storage for now.";
+    status.innerText = "Could not reach Supabase. Using browser storage for now. Pending sync: " + getPendingTimesheetCount() + ".";
     render();
     updateJobSuggestions();
     return;
@@ -1401,7 +1526,7 @@ async function loadTimesheetsFromSupabase() {
 
   setTimesheets(mergedEntries);
   const shownCount = loadTimesheets().length;
-  status.innerText = "Loaded " + shownCount + " shown / " + rawSupabaseTimesheetRows.length + " database rows. Worker match: " + getCurrentUserAliases().join(", ");
+  status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + ".";
   render();
   updateJobSuggestions();
 }
@@ -1992,7 +2117,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
   status.innerText = editingEntryId ? "Updating entry..." : "Saving entry...";
 
   if (editingEntryId) {
-    if (supabaseClient) {
+    if (supabaseClient && navigator.onLine) {
       const { data, error } = await supabaseClient
         .from("timesheet_entries")
         .update(entryToRow(entry))
@@ -2018,7 +2143,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
     stored.push(entry);
     setTimesheets(stored);
 
-    if (supabaseClient) {
+    if (supabaseClient && navigator.onLine) {
       const { data, error } = await supabaseClient
         .from("timesheet_entries")
         .insert(entryToRow(entry))
@@ -2026,6 +2151,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
         .single();
 
       if (error) {
+        queueTimesheetEntryForSync(entry, "insert");
         status.innerText = "Special day saved in this browser only. Supabase save failed: " + error.message;
       } else if (data) {
         const savedEntry = rowToEntry(data);
@@ -2034,13 +2160,16 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
           return item.id === entry.id ? savedEntry : item;
         }));
       }
+    } else {
+      queueTimesheetEntryForSync(entry, "insert");
+      status.innerText = "Special day saved offline. It will sync when signal returns.";
     }
   }
 
   resetTimeEntryFields();
   render();
   renderTimesheetCalendar();
-  status.innerText = "Special day saved. Current entries shown: " + loadTimesheets().length + ".";
+  status.innerText = "Special day saved. Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
   return true;
 }
 
@@ -2194,9 +2323,9 @@ async function submitTime() {
 
   stored.push(entry);
   setTimesheets(stored);
-  status.innerText = supabaseClient ? "Entry submitted." : "Entry submitted for this browser session.";
+  status.innerText = supabaseClient && navigator.onLine ? "Entry submitted." : "Entry saved offline. It will sync when signal returns.";
 
-  if (supabaseClient) {
+  if (supabaseClient && navigator.onLine) {
     const { data, error } = await supabaseClient
       .from("timesheet_entries")
       .insert(entryToRow(entry))
@@ -2204,7 +2333,8 @@ async function submitTime() {
       .single();
 
     if (error) {
-      status.innerText = "Entry saved in this browser only. Supabase save failed.";
+      queueTimesheetEntryForSync(entry, "insert");
+      status.innerText = "Entry saved offline. It will sync when signal returns.";
     } else if (data) {
       try {
         const savedEntry = rowToEntry(data);
@@ -2216,6 +2346,8 @@ async function submitTime() {
         status.innerText = "Entry submitted. It may refresh from Supabase on reload.";
       }
     }
+  } else {
+    queueTimesheetEntryForSync(entry, "insert");
   }
 
   const holidayCount = await addOntarioHolidayEntriesForWeek(weekStart, day);
@@ -2227,7 +2359,7 @@ async function submitTime() {
   updateJobSuggestions();
   resetTimeEntryFields();
   render();
-  status.innerText += " Current entries shown: " + loadTimesheets().length + ".";
+  status.innerText += " Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
 }
 
 async function clearEntries() {
@@ -3240,7 +3372,7 @@ async function startTimesheetPage() {
   calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
   render();
   loadActiveJobs();
-  loadTimesheetsFromSupabase();
+  await loadTimesheetsFromSupabase();
   loadPreviousWeeksFromSupabase({ render: false }).then(function() {
     renderTimesheetCalendar();
   });
