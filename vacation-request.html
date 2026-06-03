@@ -77,6 +77,20 @@ h1 {
     grid-column: 1 / -1;
 }
 
+.check-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.check-row input {
+    width: auto;
+}
+
+.field-hidden {
+    display: none;
+}
+
 label {
     font-weight: bold;
     font-size: 13px;
@@ -384,6 +398,18 @@ th {
             <input id="totalDays" type="number" min="0" step="0.5">
         </div>
 
+        <label class="field check-row full">
+            <input id="halfDayRequest" type="checkbox" onchange="toggleHalfDayRequest()">
+            Half day request
+        </label>
+
+        <div id="halfDayFinishWrap" class="field field-hidden">
+            <label for="halfDayFinishTime">Finish Time</label>
+            <select id="halfDayFinishTime">
+                <option value="">Select Finish Time</option>
+            </select>
+        </div>
+
         <div class="field full">
             <label for="requestType">Request Type</label>
             <select id="requestType">
@@ -446,6 +472,7 @@ document.getElementById("currentUser").textContent = "Signed in as: " + worker.d
 document.getElementById("employeeName").value = worker.display || worker.key || "";
 document.getElementById("employeeSignature").value = worker.display || "";
 document.getElementById("requestDate").value = new Date().toISOString().slice(0, 10);
+fillHalfDayFinishOptions();
 
 function getValue(id) {
     return document.getElementById(id).value.trim();
@@ -478,11 +505,67 @@ function countWeekdays(startValue, endValue) {
 }
 
 function updateTotalDays() {
+    if (document.getElementById("halfDayRequest").checked) {
+        document.getElementById("totalDays").value = "0.5";
+        const startDate = getValue("startDate");
+
+        if (startDate) {
+            document.getElementById("endDate").value = startDate;
+        }
+
+        return;
+    }
+
     const total = countWeekdays(getValue("startDate"), getValue("endDate"));
     document.getElementById("totalDays").value = total || "";
 }
 
+function formatHalfDayTime(hour, minute) {
+    const suffix = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+}
+
+function fillHalfDayFinishOptions() {
+    const select = document.getElementById("halfDayFinishTime");
+
+    for (let hour = 7; hour <= 18; hour++) {
+        [0, 30].forEach((minute) => {
+            if (hour === 18 && minute > 0) {
+                return;
+            }
+
+            const value = String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = formatHalfDayTime(hour, minute);
+            select.appendChild(option);
+        });
+    }
+}
+
+function toggleHalfDayRequest() {
+    const checked = document.getElementById("halfDayRequest").checked;
+    const finishWrap = document.getElementById("halfDayFinishWrap");
+    const startDate = getValue("startDate");
+
+    finishWrap.classList.toggle("field-hidden", !checked);
+
+    if (checked) {
+        document.getElementById("totalDays").value = "0.5";
+
+        if (startDate) {
+            document.getElementById("endDate").value = startDate;
+        }
+    } else {
+        document.getElementById("halfDayFinishTime").value = "";
+        updateTotalDays();
+    }
+}
+
 function buildVacationEmailBody(record) {
+    const details = record.form_data || {};
+
     return [
         "Vacation Request",
         "Employee: " + record.worker_display_name,
@@ -493,6 +576,8 @@ function buildVacationEmailBody(record) {
         "Return To Work Date: " + (record.return_date || ""),
         "Requested Work Days: " + record.total_days,
         "Request Type: " + record.request_type,
+        "Half Day: " + (details.halfDayRequest ? "Yes" : "No"),
+        "Finish Time: " + (details.halfDayFinishTimeLabel || ""),
         "",
         "Notes:",
         record.reason || "",
@@ -503,6 +588,8 @@ function buildVacationEmailBody(record) {
 }
 
 function buildVacationPdfHtml(record) {
+    const details = record.form_data || {};
+
     return `
         <!doctype html>
         <html>
@@ -529,6 +616,8 @@ function buildVacationPdfHtml(record) {
                 <tr><th>Return To Work Date</th><td>${escapeHtml(record.return_date || "")}</td></tr>
                 <tr><th>Requested Work Days</th><td>${escapeHtml(record.total_days)}</td></tr>
                 <tr><th>Request Type</th><td>${escapeHtml(record.request_type)}</td></tr>
+                <tr><th>Half Day</th><td>${details.halfDayRequest ? "Yes" : "No"}</td></tr>
+                <tr><th>Finish Time</th><td>${escapeHtml(details.halfDayFinishTimeLabel || "")}</td></tr>
                 <tr><th>Notes</th><td>${escapeHtml(record.reason || "")}</td></tr>
                 <tr><th>Employee Signature</th><td class="signature">${escapeHtml(record.employee_signature)}</td></tr>
                 <tr><th>Status</th><td>Pending</td></tr>
@@ -639,6 +728,19 @@ function renderVacationCalendar() {
     calendar.innerHTML = html;
 }
 
+function formatVacationDateCell(request) {
+    const details = request.form_data || {};
+    const halfDayText = details.halfDayRequest
+        ? '<br>Half Day' + (details.halfDayFinishTimeLabel ? ': until ' + escapeHtml(details.halfDayFinishTimeLabel) : '')
+        : '';
+
+    return `
+        ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
+        ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+        ${halfDayText}
+    `;
+}
+
 function renderVacationHistory() {
     const history = document.getElementById("requestHistory");
     renderVacationSummary();
@@ -666,8 +768,7 @@ function renderVacationHistory() {
                 ${sorted.map((request) => `
                     <tr>
                         <td>
-                            ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
-                            ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                            ${formatVacationDateCell(request)}
                         </td>
                         <td>${Number(request.total_days || 0).toFixed(1)}</td>
                         <td>${escapeHtml(request.request_type)}</td>
@@ -766,9 +867,19 @@ async function submitVacationRequest() {
     const endDate = getValue("endDate");
     const totalDays = Number(getValue("totalDays"));
     const employeeSignature = getValue("employeeSignature");
+    const halfDayRequest = document.getElementById("halfDayRequest").checked;
+    const halfDayFinishTime = getValue("halfDayFinishTime");
+    const halfDayFinishTimeLabel = halfDayFinishTime
+        ? document.getElementById("halfDayFinishTime").selectedOptions[0].textContent
+        : "";
 
     if (!employeeName || !requestDate || !startDate || !endDate || !totalDays || !employeeSignature) {
         alert("Please fill in employee name, request date, dates off, requested work days, and signature.");
+        return;
+    }
+
+    if (halfDayRequest && !halfDayFinishTime) {
+        alert("Please choose a finish time for the half day request.");
         return;
     }
 
@@ -797,6 +908,9 @@ async function submitVacationRequest() {
             returnDate: getValue("returnDate"),
             totalDays,
             requestType: getValue("requestType"),
+            halfDayRequest,
+            halfDayFinishTime,
+            halfDayFinishTimeLabel,
             reason: getValue("reason"),
             employeeSignature
         }
@@ -828,6 +942,9 @@ async function submitVacationRequest() {
     document.getElementById("endDate").value = "";
     document.getElementById("returnDate").value = "";
     document.getElementById("totalDays").value = "";
+    document.getElementById("halfDayRequest").checked = false;
+    document.getElementById("halfDayFinishTime").value = "";
+    document.getElementById("halfDayFinishWrap").classList.add("field-hidden");
     document.getElementById("reason").value = "";
     setStatus("Vacation request submitted.");
     loadMyVacationRequests();
