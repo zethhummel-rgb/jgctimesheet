@@ -1090,6 +1090,8 @@ const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 let announcements = [];
 let announcementUrls = {};
 let toolboxAcknowledgements = [];
+let accidentAcknowledgements = [];
+let employeeInjuryAcknowledgements = [];
 let currentUserId = "";
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
@@ -1311,7 +1313,7 @@ async function loadAnnouncements() {
     return;
   }
 
-  const [announcementResult, toolboxResult] = await Promise.all([
+  const [announcementResult, toolboxResult, accidentResult, employeeInjuryResult] = await Promise.all([
     supabaseClient
       .from("announcements")
       .select("*")
@@ -1324,6 +1326,20 @@ async function loadAnnouncements() {
       .eq("worker_name", currentWorker)
       .is("acknowledged_at", null)
       .order("created_at", { ascending: false })
+      .limit(5),
+    supabaseClient
+      .from("accident_report_acknowledgements")
+      .select("*, accident_reports(*)")
+      .eq("worker_name", currentWorker)
+      .is("acknowledged_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabaseClient
+      .from("employee_injury_acknowledgements")
+      .select("*, employee_injury_reports(*)")
+      .eq("worker_name", currentWorker)
+      .is("acknowledged_at", null)
+      .order("created_at", { ascending: false })
       .limit(5)
   ]);
 
@@ -1333,6 +1349,8 @@ async function loadAnnouncements() {
 
   announcements = announcementResult.data || [];
   toolboxAcknowledgements = toolboxResult.data || [];
+  accidentAcknowledgements = accidentResult.data || [];
+  employeeInjuryAcknowledgements = employeeInjuryResult.data || [];
   await prepareAnnouncementUrls();
   renderAnnouncements();
 }
@@ -1374,8 +1392,38 @@ function renderAnnouncements() {
       </article>
     `;
   });
+  const accidentCards = accidentAcknowledgements.map((ack) => {
+    const report = ack.accident_reports || {};
 
-  if (!announcements.length && !toolboxCards.length) {
+    return `
+      <article class="announcement-item">
+        <span class="info-icon"><i data-lucide="file-warning"></i></span>
+        <div>
+          <h2>Accident Report Acknowledgement Required</h2>
+          <div class="muted">${escapeHtml(report.site_location || "Supervisor Accident Investigation")}</div>
+          <div class="muted">${report.accident_date ? escapeHtml(formatDisplayDate(report.accident_date)) : ""}</div>
+        </div>
+        <button type="button" class="announcement-file" onclick="acknowledgeAccidentReport('${escapeHtml(ack.id)}')">Acknowledge</button>
+      </article>
+    `;
+  });
+  const injuryCards = employeeInjuryAcknowledgements.map((ack) => {
+    const report = ack.employee_injury_reports || {};
+
+    return `
+      <article class="announcement-item">
+        <span class="info-icon"><i data-lucide="file-heart"></i></span>
+        <div>
+          <h2>Employee Injury Report Acknowledgement Required</h2>
+          <div class="muted">${escapeHtml(report.accident_location || "Employee Injury Report")}</div>
+          <div class="muted">${report.accident_date ? escapeHtml(formatDisplayDate(report.accident_date)) : ""}</div>
+        </div>
+        <button type="button" class="announcement-file" onclick="acknowledgeEmployeeInjuryReport('${escapeHtml(ack.id)}')">Acknowledge</button>
+      </article>
+    `;
+  });
+
+  if (!announcements.length && !toolboxCards.length && !accidentCards.length && !injuryCards.length) {
     panel.hidden = true;
     return;
   }
@@ -1392,7 +1440,7 @@ function renderAnnouncements() {
     </article>
   `);
 
-  list.innerHTML = toolboxCards.concat(announcementCards).join("");
+  list.innerHTML = accidentCards.concat(injuryCards).concat(toolboxCards).concat(announcementCards).join("");
 
   list.querySelectorAll("[data-announcement-read]").forEach((card) => {
     card.addEventListener("click", () => acknowledgeAnnouncement(card.dataset.announcementRead, "home_card"));
@@ -1426,6 +1474,50 @@ async function acknowledgeToolboxAttendance(id) {
 
   if (error) {
     alert("Toolbox talk acknowledgement could not be saved.");
+    return;
+  }
+
+  await loadAnnouncements();
+}
+
+async function acknowledgeAccidentReport(id) {
+  if (!confirm("Acknowledge this accident report?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("accident_report_acknowledgements")
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledgement_name: currentWorkerDisplay
+    })
+    .eq("id", id)
+    .eq("worker_name", currentWorker);
+
+  if (error) {
+    alert("Accident report acknowledgement could not be saved.");
+    return;
+  }
+
+  await loadAnnouncements();
+}
+
+async function acknowledgeEmployeeInjuryReport(id) {
+  if (!confirm("Acknowledge this employee injury report?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("employee_injury_acknowledgements")
+    .update({
+      acknowledged_at: new Date().toISOString(),
+      acknowledgement_name: currentWorkerDisplay
+    })
+    .eq("id", id)
+    .eq("worker_name", currentWorker);
+
+  if (error) {
+    alert("Employee injury report acknowledgement could not be saved.");
     return;
   }
 
