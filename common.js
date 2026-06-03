@@ -17,6 +17,7 @@ function applyJgcPortalName() {
     "hot-work-permit.html": "Hot Work Permit",
     "index.html": "Login",
     "inspections.html": "Inspections",
+    "incident-report.html": "Incident / Near Miss Report",
     "jsa.html": "JSA",
     "previous-inspections.html": "Previous Inspections",
     "reset-password.html": "Reset Password",
