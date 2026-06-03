@@ -194,6 +194,10 @@ function normalizeWorkerName(name) {
 }
 
 function getCurrentWorkerRecord() {
+  if (localStorage.getItem("jgcStayLoggedIn") === "false" && sessionStorage.getItem("jgcActiveSession") !== "true") {
+    clearJgcSession();
+  }
+
   const key = localStorage.getItem("currentWorker");
 
   return {
@@ -216,6 +220,8 @@ function clearJgcSession() {
   localStorage.removeItem("currentUserEmail");
   localStorage.removeItem("currentUserRole");
   localStorage.removeItem("currentAccountStatus");
+  localStorage.removeItem("jgcStayLoggedIn");
+  sessionStorage.removeItem("jgcActiveSession");
 }
 
 async function signOutJgc(client) {
