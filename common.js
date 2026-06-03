@@ -407,7 +407,8 @@ function activateGlobalTopNavigation() {
   document.body.prepend(nav);
 
   nav.querySelector(".jgc-nav-home").addEventListener("click", function() {
-    window.location.href = "home.html";
+    const worker = getCurrentWorkerRecord();
+    window.location.href = isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html" : "home.html";
   });
 
   nav.querySelector(".jgc-nav-logout").addEventListener("click", async function() {
