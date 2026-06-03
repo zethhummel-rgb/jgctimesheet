@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hot Work Permit</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -306,7 +306,7 @@ button:hover {
 
 <div class="actions">
     <button onclick="handleInspectionSave('Hot Work Permit')">Save</button>
-    <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+    <button class="secondary" onclick="window.location.href='permits.html'">Permits</button>
     <button class="secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
@@ -315,7 +315,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
