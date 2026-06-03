@@ -321,6 +321,23 @@
       font-size: 15px;
     }
 
+    .stay-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 16px;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stay-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+      flex: 0 0 auto;
+    }
+
     @media (max-width: 940px) {
       .login-shell {
         grid-template-columns: 1fr;
@@ -400,6 +417,11 @@
       <label>Password</label>
       <input id="password" type="password" autocomplete="current-password" placeholder="Password" onkeydown="submitOnEnter(event)" />
 
+      <label class="stay-row">
+        <input id="stayLoggedIn" type="checkbox" checked />
+        Stay logged in
+      </label>
+
       <button type="button" onclick="signIn()">Sign In</button>
       <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
       <div id="loginStatus" class="status"></div>
@@ -430,7 +452,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=2"></script>
-<script src="auth.js?v=3"></script>
+<script src="auth.js?v=4"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 
@@ -490,7 +512,8 @@ async function signIn() {
     return;
   }
 
-  await loadJgcProfileAndEnter(supabaseClient, data.user, setStatus);
+  const stayLoggedIn = document.getElementById("stayLoggedIn").checked;
+  await loadJgcProfileAndEnter(supabaseClient, data.user, setStatus, { stayLoggedIn });
 }
 
 async function signUp() {
