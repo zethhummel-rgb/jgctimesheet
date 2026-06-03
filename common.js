@@ -1,6 +1,6 @@
 const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
-const JGC_ADMIN_WORKERS = ["zeth hummel", "jeff vandrish"];
+const JGC_ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
 
 function applyJgcPortalName() {
   const pageTitles = {
@@ -205,8 +205,9 @@ function getCurrentWorkerRecord() {
   };
 }
 
-function isAdminWorker(workerKey, role) {
-  return role === "admin" || JGC_ADMIN_WORKERS.includes(normalizeWorkerName(workerKey));
+function isAdminWorker(workerKey, role, email) {
+  const storedEmail = normalizeWorkerName(email || localStorage.getItem("currentUserEmail"));
+  return role === "admin" || JGC_ADMIN_EMAILS.includes(storedEmail);
 }
 
 function clearJgcSession() {
