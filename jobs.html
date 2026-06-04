@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Jobs</title>
+<link rel="stylesheet" href="styles.css?v=2">
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #061411;
+  color: #ffffff;
+  margin: 0;
+  padding: 20px;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.logo-wrap {
+  max-width: 260px;
+  margin: 0 auto 10px;
+}
+
+.logo-wrap img {
+  width: 100%;
+  display: block;
+}
+
+.top-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.card {
+  background: #102018;
+  border: 1px solid rgba(99, 205, 107, 0.28);
+  border-top: 4px solid #37d650;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+
+h1,
+h2 {
+  color: #37d650;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.small {
+  color: #d7e6d6;
+  font-size: 13px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px;
+  border-radius: 6px;
+  border: 1px solid #6d7d70;
+  background: #f7faf6;
+  color: #102018;
+  font-size: 16px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  background: #0b1714;
+}
+
+th,
+td {
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #12371e;
+  color: #ffffff;
+}
+
+button {
+  background: #14883f;
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #26352d;
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #dcefdc;
+  color: #102018;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 12px;
+  }
+
+  .top-actions button {
+    flex: 1 1 40%;
+  }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+  </div>
+
+  <h1>Job Lookup</h1>
+  <div id="currentUser" class="small" style="text-align:center;margin-bottom:12px;"></div>
+
+  <div class="top-actions">
+    <button type="button" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary" onclick="loadJobs()">Refresh Jobs</button>
+    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  </div>
+
+  <section class="card">
+    <h2>Jobs</h2>
+    <div class="small" style="margin-bottom:12px;">Search job names, job numbers, or Contract / T&M status. This list is read-only and comes from the admin Excel import.</div>
+    <label for="jobSearch">Search Jobs</label>
+    <input id="jobSearch" type="search" placeholder="Example: Cornwall, 24-001, T&M" oninput="renderJobs()">
+    <div id="jobsStatus" class="small" style="margin-top:10px;">Loading jobs...</div>
+    <div id="jobsList"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+let jobs = [];
+
+document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
+
+function getJobTypeLabel(value) {
+  const text = String(value || "").trim();
+  return text || "-";
+}
+
+function renderJobs() {
+  const list = document.getElementById("jobsList");
+  const status = document.getElementById("jobsStatus");
+  const search = document.getElementById("jobSearch").value.trim().toLowerCase();
+  const filtered = jobs.filter((job) => {
+    const text = [
+      job.job_number || "",
+      job.job_name || "",
+      job.job_type || ""
+    ].join(" ").toLowerCase();
+
+    return !search || text.includes(search);
+  });
+
+  status.textContent = filtered.length + " job" + (filtered.length === 1 ? "" : "s") + " shown.";
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="small" style="margin-top:14px;">No jobs match that search.</div>';
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job Number</th>
+            <th>Job Name</th>
+            <th>Contract / T&M</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map((job) => `
+            <tr>
+              <td>${escapeHtml(job.job_number || "")}</td>
+              <td>${escapeHtml(job.job_name || "")}</td>
+              <td><span class="pill">${escapeHtml(getJobTypeLabel(job.job_type))}</span></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function loadJobs() {
+  const status = document.getElementById("jobsStatus");
+  status.textContent = "Loading jobs...";
+
+  const { data, error } = await supabaseClient
+    .from("jobs")
+    .select("id, job_number, job_name, job_type, active, updated_at")
+    .eq("active", true)
+    .order("job_number", { ascending: true });
+
+  if (error) {
+    jobs = [];
+    status.textContent = "Jobs could not be loaded.";
+    renderJobs();
+    return;
+  }
+
+  jobs = data || [];
+  renderJobs();
+}
+
+async function signOut() {
+  await signOutJgc(supabaseClient);
+}
+
+loadJobs();
+</script>
+</body>
+</html>
