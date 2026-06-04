@@ -344,6 +344,72 @@ button:hover,
     color: #ffffff !important;
 }
 
+.profile-header {
+    display: grid;
+    grid-template-columns: minmax(220px, 340px) 1fr;
+    gap: 14px;
+    align-items: end;
+    margin-bottom: 16px;
+}
+
+.profile-hero {
+    padding: 16px;
+    border-radius: 8px;
+    background: #102018;
+    color: #ffffff;
+    border: 1px solid #2f6f3c;
+}
+
+.profile-hero h3 {
+    margin: 0 0 4px;
+    color: #ffffff;
+    font-size: 24px;
+}
+
+.profile-hero .small {
+    color: #dfe9df;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.profile-tile {
+    border: 1px solid #c6cec5;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 12px;
+}
+
+.profile-tile h4 {
+    margin: 0 0 8px;
+    color: #2f6f3c;
+    font-size: 14px;
+}
+
+.profile-tile .profile-number {
+    font-size: 28px;
+    font-weight: 900;
+    color: #102018;
+}
+
+.profile-section {
+    margin-top: 16px;
+}
+
+.profile-section h3 {
+    color: #2f6f3c;
+    margin: 0 0 8px;
+}
+
+.profile-two-column {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+}
+
 .calendar-panel {
     margin-bottom: 16px;
     padding-bottom: 16px;
@@ -498,6 +564,7 @@ button:hover,
 
 <div class="tabs">
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
+    <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Employee Profile</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick Days</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
@@ -520,6 +587,21 @@ button:hover,
     <div id="portalSummaryGrid" class="summary-grid">
         <div class="small">Loading portal summary...</div>
     </div>
+</div>
+
+<div id="employeeProfileSection" class="card" hidden>
+    <h2>Employee Profile</h2>
+    <div class="profile-header">
+        <div>
+            <label>Select Employee</label>
+            <select id="employeeProfileSelect" onchange="renderEmployeeProfile()"></select>
+        </div>
+        <div id="employeeProfileHero" class="profile-hero">
+            <h3>Select an employee</h3>
+            <div class="small">Choose an employee to view their complete portal dashboard.</div>
+        </div>
+    </div>
+    <div id="employeeProfileDashboard" class="small">Loading employee profile...</div>
 </div>
 
 <div id="timesheetsSection" class="card" hidden>
@@ -909,7 +991,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["summary", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
+    ["summary", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -920,6 +1002,10 @@ function showTab(tab) {
 
     if (tab === "summary") {
         renderPortalSummary();
+    }
+
+    if (tab === "employeeProfile") {
+        renderEmployeeProfile();
     }
 
     if (tab === "sickDays") {
@@ -1023,7 +1109,7 @@ async function loadAdminData() {
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
-        supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
+        supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }),
@@ -1085,6 +1171,8 @@ async function loadAdminData() {
     renderJobsManagement();
     renderEquipment();
     renderContacts();
+    renderEmployeeProfileOptions();
+    renderEmployeeProfile();
     renderPortalSummary();
 }
 
@@ -1117,7 +1205,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "equipment", "contacts", "accounts"].forEach((tab) => {
+    ["employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "equipment", "contacts", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -1229,8 +1317,28 @@ function renderPortalSummary() {
         .concat(accidentReports)
         .concat(employeeInjuryReports)
         .concat(toolboxReports);
+    const employeeProfileBadge = countNewForAdminTab(
+        liveTimesheetEntries
+            .concat(timesheets)
+            .concat(vacationRequests)
+            .concat(certificates)
+            .concat(inspections)
+            .concat(reportsForBadge)
+            .concat(toolboxAttendance)
+            .concat(announcementAcknowledgements)
+            .concat(equipmentItems),
+        "employeeProfile",
+        ["created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
+    );
 
     const tiles = [
+        {
+            title: "Employee Profiles",
+            value: getApprovedAccounts().length,
+            badgeCount: employeeProfileBadge,
+            detail: "Complete employee dashboard",
+            action: "openAdminSummaryTile('employeeProfile')"
+        },
         {
             title: "Timesheet Updates",
             value: liveEntriesThisWeek,
@@ -1325,6 +1433,432 @@ function renderPortalSummary() {
     ];
 
     grid.innerHTML = tiles.map(renderSummaryTile).join("");
+}
+
+function getEmployeeProfileAccounts() {
+    return accounts
+        .filter((account) => account.display_name || account.worker_key || account.email)
+        .slice()
+        .sort((a, b) => String(a.display_name || a.worker_key || a.email || "").localeCompare(String(b.display_name || b.worker_key || b.email || "")));
+}
+
+function getEmployeeAccountKey(account) {
+    return normalizeWorkerName(account && (account.worker_key || account.display_name || account.email || ""));
+}
+
+function getEmployeeAccountDisplay(account) {
+    return account && (account.display_name || account.worker_key || account.email || "Unknown Employee");
+}
+
+function renderEmployeeProfileOptions() {
+    const select = document.getElementById("employeeProfileSelect");
+
+    if (!select) {
+        return;
+    }
+
+    const previousValue = select.value;
+    const employeeAccounts = getEmployeeProfileAccounts();
+
+    select.innerHTML = employeeAccounts.length
+        ? employeeAccounts.map((account) => {
+            const key = getEmployeeAccountKey(account);
+            return `<option value="${escapeHtml(key)}">${escapeHtml(getEmployeeAccountDisplay(account))}</option>`;
+        }).join("")
+        : '<option value="">No employees found</option>';
+
+    if (previousValue && employeeAccounts.some((account) => getEmployeeAccountKey(account) === previousValue)) {
+        select.value = previousValue;
+    }
+}
+
+function getSelectedEmployeeProfileAccount() {
+    const select = document.getElementById("employeeProfileSelect");
+    const employeeAccounts = getEmployeeProfileAccounts();
+    const selectedKey = select && select.value ? select.value : getEmployeeAccountKey(employeeAccounts[0]);
+    return employeeAccounts.find((account) => getEmployeeAccountKey(account) === selectedKey) || employeeAccounts[0] || null;
+}
+
+function employeeMatchesValue(account, value) {
+    const text = normalizeWorkerName(value || "");
+    const accountKey = getEmployeeAccountKey(account);
+    const displayKey = normalizeWorkerName(account && account.display_name);
+    const emailKey = normalizeWorkerName(account && account.email);
+
+    return Boolean(text && (text === accountKey || text === displayKey || text === emailKey));
+}
+
+function employeeMatchesAny(account, item, fields) {
+    return fields.some((field) => employeeMatchesValue(account, item && item[field]));
+}
+
+function profileDateValue(value) {
+    if (!value) {
+        return null;
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isDateInCurrentMonth(value) {
+    const date = profileDateValue(value);
+    const now = new Date();
+    return Boolean(date && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth());
+}
+
+function isDateInCurrentYear(value) {
+    const date = profileDateValue(value);
+    const now = new Date();
+    return Boolean(date && date.getFullYear() === now.getFullYear());
+}
+
+function getEmployeeProfileTimesheetEntries(account) {
+    const rows = [];
+
+    liveTimesheetEntries
+        .filter((entry) => employeeMatchesAny(account, entry, ["worker_name", "user"]))
+        .forEach((entry) => {
+            rows.push({
+                source: "Live",
+                date: getLiveTimesheetEntryDate(entry),
+                day: entry.day_of_week || "",
+                job: entry.job_name || "",
+                jobNumber: entry.job_number || "",
+                type: getAdminTimesheetEntryType(entry),
+                note: getAdminTimesheetLeaveNote(entry),
+                hours: Number(entry.hours || 0),
+                savedAt: entry.created_at || entry.updated_at || ""
+            });
+        });
+
+    timesheets
+        .filter((week) => employeeMatchesAny(account, week, ["worker_name"]))
+        .forEach((week) => {
+            (Array.isArray(week.entries) ? week.entries : []).forEach((entry) => {
+                rows.push({
+                    source: "Submitted",
+                    date: getTimesheetEntryDate(entry),
+                    day: getTimesheetEntryValue(entry, "day", "day_of_week", ""),
+                    job: getTimesheetEntryValue(entry, "jobName", "job_name", ""),
+                    jobNumber: getTimesheetEntryValue(entry, "jobNumber", "job_number", ""),
+                    type: getAdminTimesheetEntryType(entry),
+                    note: getAdminTimesheetLeaveNote(entry),
+                    hours: Number(getTimesheetEntryValue(entry, "hours", "hours", 0)),
+                    savedAt: week.submitted_at || week.created_at || ""
+                });
+            });
+        });
+
+    return rows.sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
+}
+
+function getEmployeeProfileEntryType(entry) {
+    return entry && entry.type ? entry.type : getAdminTimesheetEntryType(entry);
+}
+
+function getEmployeeProfileEntryLabel(entry) {
+    const type = getEmployeeProfileEntryType(entry);
+
+    if (type === "sick") {
+        return "Sick Day";
+    }
+
+    if (type === "vacation") {
+        return "Vacation Day";
+    }
+
+    if (type === "civic_holiday") {
+        return "Civic Holiday";
+    }
+
+    return "Work";
+}
+
+function sumEmployeeHours(entries, predicate) {
+    return entries
+        .filter((entry) => getEmployeeProfileEntryType(entry) === "work")
+        .filter(predicate)
+        .reduce((total, entry) => total + Number(entry.hours || 0), 0);
+}
+
+function getEmployeeCurrentWeekRange() {
+    const start = makeLocalDate(getCurrentWeekStartForSummary());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+}
+
+function isDateInRange(value, start, end) {
+    const date = profileDateValue(value);
+    return Boolean(date && date >= start && date <= end);
+}
+
+function getEmployeeProfileVacationRequests(account) {
+    return vacationRequests
+        .filter((request) => employeeMatchesAny(account, request, ["worker_name", "worker_display_name"]))
+        .sort((a, b) => String(b.created_at || b.start_date || "").localeCompare(String(a.created_at || a.start_date || "")));
+}
+
+function getEmployeeProfileCertificates(account) {
+    return certificates
+        .filter((certificate) => employeeMatchesAny(account, certificate, ["worker_name"]))
+        .sort((a, b) => String(a.expiry_date || "9999-12-31").localeCompare(String(b.expiry_date || "9999-12-31")));
+}
+
+function getEmployeeProfileInspections(account) {
+    return inspections
+        .filter((inspection) => employeeMatchesAny(account, inspection, ["worker_name", "worker_display_name"]))
+        .sort((a, b) => String(b.created_at || b.inspection_date || "").localeCompare(String(a.created_at || a.inspection_date || "")));
+}
+
+function getEmployeeProfileDailyReports(account) {
+    return dailySiteReports
+        .filter((report) => employeeMatchesAny(account, report, ["worker_name", "worker_display_name"]))
+        .sort((a, b) => String(b.created_at || b.report_date || "").localeCompare(String(a.created_at || a.report_date || "")));
+}
+
+function getEmployeeProfileToolboxAttendance(account) {
+    return toolboxAttendance
+        .filter((ack) => employeeMatchesAny(account, ack, ["worker_name", "worker_display_name"]))
+        .sort((a, b) => String(b.created_at || b.acknowledged_at || "").localeCompare(String(a.created_at || a.acknowledged_at || "")));
+}
+
+function getEmployeeProfileAnnouncementReceipts(account) {
+    return announcementAcknowledgements
+        .filter((receipt) => receipt.worker_id === account.id || employeeMatchesAny(account, receipt, ["worker_name", "worker_email"]))
+        .sort((a, b) => String(b.read_at || b.created_at || "").localeCompare(String(a.read_at || a.created_at || "")));
+}
+
+function getEmployeeProfileEquipment(account) {
+    return equipmentItems
+        .filter((item) => employeeMatchesAny(account, item, ["operator_name"]))
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+}
+
+function getLatestEmployeeProfileActivity(items, fields) {
+    const dates = [];
+
+    items.forEach((item) => {
+        fields.forEach((field) => {
+            const date = profileDateValue(item && item[field]);
+
+            if (date) {
+                dates.push(date);
+            }
+        });
+    });
+
+    if (!dates.length) {
+        return "";
+    }
+
+    return new Date(Math.max(...dates.map((date) => date.getTime()))).toISOString();
+}
+
+function renderEmployeeProfileTile(title, value, detail) {
+    return `
+        <div class="profile-tile">
+            <h4>${escapeHtml(title)}</h4>
+            <div class="profile-number">${escapeHtml(String(value))}</div>
+            <div class="small">${escapeHtml(detail || "")}</div>
+        </div>
+    `;
+}
+
+function renderEmployeeProfileTable(columns, rows, emptyText) {
+    if (!rows.length) {
+        return `<div class="small">${escapeHtml(emptyText)}</div>`;
+    }
+
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `
+                        <tr>
+                            ${columns.map((column) => `<td>${escapeHtml(column.value(row))}</td>`).join("")}
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderEmployeeProfile() {
+    const hero = document.getElementById("employeeProfileHero");
+    const dashboard = document.getElementById("employeeProfileDashboard");
+
+    if (!hero || !dashboard) {
+        return;
+    }
+
+    renderEmployeeProfileOptions();
+
+    const account = getSelectedEmployeeProfileAccount();
+
+    if (!account) {
+        hero.innerHTML = '<h3>No employees found</h3><div class="small">Approve employee accounts to build profile dashboards.</div>';
+        dashboard.innerHTML = "";
+        return;
+    }
+
+    const employeeName = getEmployeeAccountDisplay(account);
+    const status = account.account_status || "unknown";
+    const timesheetEntries = getEmployeeProfileTimesheetEntries(account);
+    const vacationRows = getEmployeeProfileVacationRequests(account);
+    const certificateRows = getEmployeeProfileCertificates(account);
+    const inspectionRows = getEmployeeProfileInspections(account);
+    const dailyReportRows = getEmployeeProfileDailyReports(account);
+    const toolboxRows = getEmployeeProfileToolboxAttendance(account);
+    const announcementRows = getEmployeeProfileAnnouncementReceipts(account);
+    const equipmentRows = getEmployeeProfileEquipment(account);
+    const weekRange = getEmployeeCurrentWeekRange();
+    const hoursThisWeek = sumEmployeeHours(timesheetEntries, (entry) => isDateInRange(entry.date, weekRange.start, weekRange.end));
+    const hoursThisMonth = sumEmployeeHours(timesheetEntries, (entry) => isDateInCurrentMonth(entry.date));
+    const hoursThisYear = sumEmployeeHours(timesheetEntries, (entry) => isDateInCurrentYear(entry.date));
+    const sickMonth = timesheetEntries.filter((entry) => getEmployeeProfileEntryType(entry) === "sick" && isDateInCurrentMonth(entry.date)).length;
+    const sickYear = timesheetEntries.filter((entry) => getEmployeeProfileEntryType(entry) === "sick" && isDateInCurrentYear(entry.date)).length;
+    const vacationMonth = timesheetEntries.filter((entry) => getEmployeeProfileEntryType(entry) === "vacation" && isDateInCurrentMonth(entry.date)).length;
+    const vacationYear = timesheetEntries.filter((entry) => getEmployeeProfileEntryType(entry) === "vacation" && isDateInCurrentYear(entry.date)).length;
+    const pendingVacations = vacationRows.filter((request) => String(request.status || "").toLowerCase() === "pending");
+    const approvedVacations = vacationRows.filter((request) => String(request.status || "").toLowerCase() === "approved");
+    const activeCertificates = certificateRows.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Valid" || getCertificateStatus(certificate.expiry_date) === "No Expiry");
+    const expiringCertificates = certificateRows.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Expiring Soon");
+    const expiredCertificates = certificateRows.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Expired");
+    const inspectionsThisMonth = inspectionRows.filter((inspection) => isDateInCurrentMonth(inspection.inspection_date || inspection.created_at)).length;
+    const dailyReportsThisMonth = dailyReportRows.filter((report) => isDateInCurrentMonth(report.report_date || report.created_at)).length;
+    const toolboxCompleted = toolboxRows.filter((ack) => ack.acknowledged_at).length;
+    const toolboxOutstanding = toolboxRows.filter((ack) => !ack.acknowledged_at).length;
+    const announcementReadIds = new Set(announcementRows.map((receipt) => receipt.announcement_id));
+    const unreadAnnouncements = announcements.filter((announcement) => !announcementReadIds.has(announcement.id)).length;
+    const lastTimesheet = timesheets
+        .filter((week) => employeeMatchesAny(account, week, ["worker_name"]))
+        .sort((a, b) => String(b.submitted_at || "").localeCompare(String(a.submitted_at || "")))[0];
+    const lastActivity = getLatestEmployeeProfileActivity(
+        timesheetEntries
+            .concat(vacationRows)
+            .concat(certificateRows)
+            .concat(inspectionRows)
+            .concat(dailyReportRows)
+            .concat(toolboxRows)
+            .concat(announcementRows)
+            .concat(equipmentRows),
+        ["savedAt", "created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
+    );
+
+    hero.innerHTML = `
+        <h3>${escapeHtml(employeeName)}</h3>
+        <div class="small"><strong>Status:</strong> ${escapeHtml(capitalizeWords(status))}</div>
+        <div class="small"><strong>Email:</strong> ${escapeHtml(account.email || "Not added")}</div>
+        <div class="small"><strong>Phone:</strong> ${escapeHtml(account.phone || "Not added")}</div>
+        <div class="small"><strong>Emergency Contact:</strong> ${escapeHtml(account.emergency_contact || "Not added")}</div>
+    `;
+
+    dashboard.innerHTML = `
+        <div class="profile-grid">
+            ${renderEmployeeProfileTile("Hours This Week", hoursThisWeek.toFixed(2), "Live and submitted work hours")}
+            ${renderEmployeeProfileTile("Hours This Month", hoursThisMonth.toFixed(2), "Work hours this month")}
+            ${renderEmployeeProfileTile("Hours This Year", hoursThisYear.toFixed(2), "Work hours this year")}
+            ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year")}
+            ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year")}
+            ${renderEmployeeProfileTile("Vacation Remaining", "Not set", "Balance tracking not stored yet")}
+            ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review")}
+            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates")}
+            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention")}
+            ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month")}
+            ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month")}
+            ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding")}
+            ${renderEmployeeProfileTile("Policies", "Not tracked", "Policy acknowledgement table not added yet")}
+            ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread")}
+            ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles")}
+            ${renderEmployeeProfileTile("Last Login", "Not tracked", "Portal login timestamp is not stored yet")}
+            ${renderEmployeeProfileTile("Last Activity", lastActivity ? formatDate(lastActivity) : "None", "Latest saved portal activity")}
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div>
+                <h3>Vacation</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Dates", value: (row) => (row.start_date || "") + (row.end_date && row.end_date !== row.start_date ? " to " + row.end_date : "") },
+                    { label: "Status", value: (row) => formatVacationStatus(row.status) },
+                    { label: "Type", value: (row) => row.leave_type || row.vacation_type || "" }
+                ], vacationRows.slice(0, 8), "No vacation requests found.")}
+            </div>
+            <div>
+                <h3>Certificates</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Certificate", value: (row) => row.certificate_name || "" },
+                    { label: "Expiry", value: (row) => row.expiry_date || "No expiry" },
+                    { label: "Status", value: (row) => getCertificateStatus(row.expiry_date) }
+                ], certificateRows.slice(0, 8), "No certificates found.")}
+            </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div>
+                <h3>Timesheets</h3>
+                <div class="small" style="margin-bottom:8px;"><strong>Last Timesheet Submitted:</strong> ${escapeHtml(lastTimesheet ? formatDate(lastTimesheet.submitted_at) : "None")}</div>
+                ${renderEmployeeProfileTable([
+                    { label: "Date", value: (row) => row.date ? formatTimesheetPdfDate(row.date) : "" },
+                    { label: "Entry", value: (row) => row.job || getEmployeeProfileEntryLabel(row) },
+                    { label: "Hours", value: (row) => Number(row.hours || 0).toFixed(2) },
+                    { label: "Source", value: (row) => row.source }
+                ], timesheetEntries.slice(0, 10), "No timesheet history found.")}
+            </div>
+            <div>
+                <h3>Inspections</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Date", value: (row) => formatDate(row.inspection_date || row.created_at) },
+                    { label: "Type", value: (row) => row.inspection_type || "" },
+                    { label: "Saved", value: (row) => formatDate(row.created_at) }
+                ], inspectionRows.slice(0, 10), "No inspections found.")}
+            </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div>
+                <h3>Daily Reports</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Date", value: (row) => formatDate(row.report_date || row.created_at) },
+                    { label: "Project", value: (row) => row.project || "" },
+                    { label: "Saved", value: (row) => formatDate(row.created_at) }
+                ], dailyReportRows.slice(0, 8), "No daily reports found.")}
+            </div>
+            <div>
+                <h3>Toolbox Talks</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Talk", value: (row) => row.talk_title || row.toolbox_talk_title || row.title || "" },
+                    { label: "Status", value: (row) => row.acknowledged_at ? "Acknowledged" : "Outstanding" },
+                    { label: "Date", value: (row) => formatDate(row.acknowledged_at || row.created_at) }
+                ], toolboxRows.slice(0, 8), "No toolbox talk records found.")}
+            </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div>
+                <h3>Announcements</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Announcement", value: (row) => row.announcement_title || row.title || row.announcement_id || "" },
+                    { label: "Read", value: (row) => row.read_at ? "Read" : "Unread" },
+                    { label: "Date", value: (row) => formatDate(row.read_at || row.created_at) }
+                ], announcementRows.slice(0, 8), "No announcement reads found.")}
+            </div>
+            <div>
+                <h3>Equipment</h3>
+                ${renderEmployeeProfileTable([
+                    { label: "Name", value: (row) => row.name || "" },
+                    { label: "ID", value: (row) => row.identification_number || "" },
+                    { label: "Expiry", value: (row) => row.yearly_inspection_expiry || "" }
+                ], equipmentRows.slice(0, 8), "No assigned equipment found.")}
+            </div>
+        </div>
+    `;
 }
 
 async function prepareCertificateUrls() {
