@@ -886,7 +886,7 @@ button:hover,
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, and job number from column F. Highlighted rows are skipped.</div>
+            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, and Contract / T&M from column K. Highlighted rows are skipped.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -5197,6 +5197,7 @@ function renderJobsManagement() {
         <tr>
             <td>${escapeHtml(job.job_number || "")}</td>
             <td>${escapeHtml(job.job_name || "")}</td>
+            <td>${escapeHtml(job.job_type || "")}</td>
             <td>${job.active ? "Active" : "Inactive"}</td>
             <td>${escapeHtml(formatDate(job.updated_at))}</td>
         </tr>
@@ -5206,7 +5207,7 @@ function renderJobsManagement() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Job Number</th><th>Job Name</th><th>Status</th><th>Updated</th></tr>
+                    <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Status</th><th>Updated</th></tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
@@ -5279,7 +5280,8 @@ async function importJobsFromExcel() {
         let skippedIncomplete = 0;
         const jobNameColumns = [0, 1, 2, 3, 4];
         const jobNumberColumn = 5;
-        const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5];
+        const jobTypeColumn = 10;
+        const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
         worksheets.forEach((worksheet) => {
             worksheet.eachRow({ includeEmpty: false }, (row) => {
@@ -5290,6 +5292,7 @@ async function importJobsFromExcel() {
 
                 const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
                 const jobName = getExcelJobName(row, jobNameColumns);
+                const jobType = normalizeExcelValue(row.getCell(jobTypeColumn + 1).value);
 
                 if (!jobNumber || !jobName) {
                     skippedIncomplete++;
@@ -5307,6 +5310,7 @@ async function importJobsFromExcel() {
                 jobMap.set(jobNumber, {
                     job_number: jobNumber,
                     job_name: jobName,
+                    job_type: jobType,
                     active: true,
                     updated_at: new Date().toISOString()
                 });
