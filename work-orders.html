@@ -272,6 +272,16 @@ th {
   font-weight: bold;
 }
 
+.locked-note {
+  padding: 10px;
+  border: 1px solid rgba(255, 191, 105, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 191, 105, 0.12);
+  color: #ffdda8;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
 @media (max-width: 920px) {
   body {
     padding: 12px;
@@ -313,7 +323,7 @@ th {
   <div class="top-actions">
     <button type="button" onclick="window.location.href='home.html'">Home</button>
     <button type="button" class="secondary" onclick="resetWorkOrderForm()">New Work Order</button>
-    <button type="button" class="secondary" onclick="loadWorkOrders()">Refresh</button>
+    <button type="button" class="secondary" onclick="refreshWorkOrders()">Refresh</button>
     <button type="button" class="secondary" onclick="signOut()">Logout</button>
   </div>
 
@@ -321,6 +331,7 @@ th {
     <section class="card">
       <h2 id="formTitle">New Work Order</h2>
       <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
+      <div id="lockedNotice" class="locked-note" style="display:none;">This Work Order has been submitted and is locked.</div>
 
       <div class="form-grid">
         <div>
@@ -340,7 +351,7 @@ th {
           <select id="woStatus">
             <option value="draft">Draft</option>
             <option value="ready_for_submission">Ready For Submission</option>
-            <option value="submitted" disabled>Submitted - locked later</option>
+            <option value="submitted" disabled>Submitted - locked</option>
           </select>
         </div>
         <div class="full">
@@ -404,6 +415,7 @@ th {
 
       <div class="actions" style="margin-top:14px;">
         <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
+        <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
         <button id="pdfButton" type="button" class="secondary" onclick="downloadCurrentWorkOrderPdf()" disabled>Save PDF</button>
         <button id="emailButton" type="button" class="secondary" onclick="emailCurrentWorkOrderPdf()" disabled>Email PDF</button>
         <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
@@ -564,10 +576,14 @@ function collectSelectedEmployees() {
 }
 
 function getLabourMatchesForEmployee(employee, jobNumber, workDate) {
+  return getLabourMatches(employee, jobNumber, document.getElementById("woJobName").value, workDate);
+}
+
+function getLabourMatches(employee, jobNumber, jobName, workDate) {
   const normalizedEmployeeKey = normalizeText(employee.worker_key);
   const normalizedEmployeeName = normalizeText(employee.employee_name);
   const normalizedJob = normalizeJobNumber(jobNumber);
-  const normalizedJobName = normalizeText(document.getElementById("woJobName").value);
+  const normalizedJobName = normalizeText(jobName);
 
   return timesheetEntries.filter((entry) => {
     if (normalizeText(entry.entry_type || "work") !== "work") {
@@ -736,8 +752,8 @@ function addEquipmentRow(rowData) {
       <label>Transportation By</label>
       <select data-equipment-field="transportation_provider_type">
         <option value=""${providerType ? "" : " selected"}>Not required</option>
-        <option value="JGC"${providerType === "JGC" ? " selected" : ""}>JGC</option>
-        <option value="External"${providerType === "External" ? " selected" : ""}>External</option>
+        <option value="jgc"${providerType === "jgc" || providerType === "JGC" ? " selected" : ""}>JGC</option>
+        <option value="external"${providerType === "external" || providerType === "External" ? " selected" : ""}>External</option>
       </select>
     </div>
     <div>
@@ -798,7 +814,7 @@ function collectEquipmentRows() {
       equipment_name: getValue("equipment_name"),
       identification_number: getValue("identification_number"),
       transportation_required: getValue("transportation_required") === "true",
-      transportation_provider_type: getValue("transportation_provider_type"),
+      transportation_provider_type: getValue("transportation_provider_type") || null,
       trailer_equipment_id: getValue("trailer_equipment_id") || null,
       trailer_name: getValue("trailer_name"),
       transportation_company: getValue("transportation_company"),
@@ -868,7 +884,7 @@ function addMaterialRow(rowData) {
     </div>
     <div>
       <label>Quantity</label>
-      <input data-material-field="quantity" type="number" min="0" step="0.01" value="${escapeHtml(rowData && rowData.quantity !== undefined && rowData.quantity !== null ? rowData.quantity : "")}">
+      <input data-material-field="quantity" placeholder="Example: 12 sheets" value="${escapeHtml(rowData && rowData.quantity !== undefined && rowData.quantity !== null ? rowData.quantity : "")}">
     </div>
     <div class="wide">
       <label>Material Description</label>
@@ -888,7 +904,7 @@ function collectMaterialRows() {
     return {
       purchased_from: getValue("purchased_from"),
       material_description: getValue("material_description"),
-      quantity: Number(getValue("quantity") || 0)
+      quantity: getValue("quantity")
     };
   }).filter((row) => row.purchased_from || row.material_description || row.quantity);
 }
@@ -896,7 +912,10 @@ function collectMaterialRows() {
 function resetWorkOrderForm() {
   editingWorkOrderId = "";
   document.getElementById("formTitle").textContent = "New Work Order";
+  document.getElementById("lockedNotice").style.display = "none";
   document.getElementById("saveButton").textContent = "Save Draft";
+  document.getElementById("saveButton").disabled = false;
+  document.getElementById("submitButton").disabled = false;
   document.getElementById("woNumber").value = makeWorkOrderNumber();
   document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
   document.getElementById("woCustomer").value = "";
@@ -917,9 +936,29 @@ function resetWorkOrderForm() {
   addMaterialRow();
   document.getElementById("pdfButton").disabled = true;
   document.getElementById("emailButton").disabled = true;
+  setFormLocked(false);
   renderEmployeePicker([]);
   renderLabourPreview();
   setFormStatus("");
+}
+
+function setFormLocked(isLocked) {
+  document.getElementById("lockedNotice").style.display = isLocked ? "block" : "none";
+  document.getElementById("saveButton").disabled = isLocked;
+  document.getElementById("submitButton").disabled = isLocked;
+  document.querySelectorAll("section.card:first-of-type input, section.card:first-of-type select, section.card:first-of-type textarea").forEach((field) => {
+    if (field.id === "woStatus") {
+      field.disabled = isLocked;
+      return;
+    }
+    field.disabled = isLocked;
+  });
+  document.querySelectorAll("section.card:first-of-type button").forEach((button) => {
+    if (button.id === "pdfButton" || button.id === "emailButton" || button.textContent === "Clear") {
+      return;
+    }
+    button.disabled = isLocked;
+  });
 }
 
 function setFormStatus(message, isError) {
@@ -982,6 +1021,7 @@ function renderWorkOrders() {
             const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length;
             const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
             const completeCount = woLabourRows.filter((row) => row.complete).length;
+            const isLocked = Boolean(wo.locked || wo.status === "submitted");
             return `
               <tr>
                 <td>${escapeHtml(wo.wo_number || "")}</td>
@@ -994,7 +1034,7 @@ function renderWorkOrders() {
                 <td>${poCount}</td>
                 <td>
                   <div class="actions">
-                    <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">Edit</button>
+                    <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
                     ${isAdmin ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
@@ -1067,11 +1107,20 @@ function editWorkOrder(id) {
   renderLabourPreview();
   document.getElementById("pdfButton").disabled = false;
   document.getElementById("emailButton").disabled = false;
+  setFormLocked(Boolean(wo.locked || wo.status === "submitted"));
   setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-async function saveWorkOrder() {
+async function saveWorkOrder(options) {
+  const settings = options || {};
+  const existingWorkOrder = editingWorkOrderId ? workOrders.find((item) => item.id === editingWorkOrderId) : null;
+
+  if (existingWorkOrder && (existingWorkOrder.locked || existingWorkOrder.status === "submitted") && !settings.allowLocked) {
+    setFormStatus("Submitted Work Orders are locked.", true);
+    return "";
+  }
+
   const selectedJob = getSelectedJob();
   const woNumber = document.getElementById("woNumber").value.trim();
   const workOrderDate = document.getElementById("woDate").value;
@@ -1107,7 +1156,7 @@ async function saveWorkOrder() {
     job_name: jobName,
     job_type: jobType,
     job_address: jobAddress,
-    status,
+    status: settings.forceStatus || status,
     description_of_work: description,
     labour_complete: labourComplete,
     waiting_for: waitingFor,
@@ -1249,9 +1298,16 @@ async function saveWorkOrder() {
     }
   }
 
+  if (settings.silent) {
+    await loadWorkOrders(false);
+    editingWorkOrderId = workOrderId;
+    return workOrderId;
+  }
+
   setFormStatus("Work order saved.");
   await loadWorkOrders(false);
   editWorkOrder(workOrderId);
+  return workOrderId;
 }
 
 async function deleteWorkOrder(id) {
@@ -1280,6 +1336,225 @@ async function deleteWorkOrder(id) {
   }
 
   await loadWorkOrders(false);
+}
+
+function getWorkOrderCompleteness(id) {
+  const bundle = getWorkOrderBundle(id);
+
+  if (!bundle) {
+    return { complete: false, labourComplete: false, waitingFor: ["Work Order not found"] };
+  }
+
+  const { wo, labour } = bundle;
+  const waitingFor = [];
+  const requiredFields = [
+    ["WO Number", wo.wo_number],
+    ["Date", wo.work_order_date],
+    ["Job Number", wo.job_number],
+    ["Job Name", wo.job_name],
+    ["Description of Work", wo.description_of_work]
+  ];
+
+  requiredFields.forEach(([label, value]) => {
+    if (!String(value || "").trim()) {
+      waitingFor.push(label);
+    }
+  });
+
+  if (!labour.length) {
+    waitingFor.push("Labour selection");
+  }
+
+  labour.filter((row) => !row.complete).forEach((row) => {
+    waitingFor.push((row.employee_name || "Employee") + " Timesheet");
+  });
+
+  const labourComplete = labour.length > 0 && labour.every((row) => row.complete);
+
+  return {
+    complete: waitingFor.length === 0 && labourComplete,
+    labourComplete,
+    waitingFor
+  };
+}
+
+async function refreshSavedLabourRowsForWorkOrder(wo) {
+  const rows = labourRows.filter((row) => row.work_order_id === wo.id);
+
+  if (!rows.length) {
+    return;
+  }
+
+  const updates = [];
+  rows.forEach((row) => {
+    const matches = getLabourMatches({
+      worker_key: row.worker_key || normalizeWorkerName(row.employee_name),
+      employee_name: row.employee_name || ""
+    }, wo.job_number || "", wo.job_name || "", wo.work_order_date || "");
+    const hours = matches.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const updatedRow = {
+      ...row,
+      matched_timesheet_entry_id: matches[0] ? matches[0].id : null,
+      hours,
+      complete: hours > 0,
+      notes: matches.length > 1 ? matches.length + " matching entries" : row.notes || "",
+      updated_at: new Date().toISOString()
+    };
+
+    if (
+      String(row.matched_timesheet_entry_id || "") !== String(updatedRow.matched_timesheet_entry_id || "") ||
+      Number(row.hours || 0) !== Number(updatedRow.hours || 0) ||
+      Boolean(row.complete) !== Boolean(updatedRow.complete) ||
+      String(row.notes || "") !== String(updatedRow.notes || "")
+    ) {
+      updates.push(updatedRow);
+    }
+  });
+
+  if (!updates.length) {
+    return;
+  }
+
+  await Promise.all(updates.map((row) => supabaseClient
+    .from("work_order_labour")
+    .update({
+      matched_timesheet_entry_id: row.matched_timesheet_entry_id,
+      hours: row.hours,
+      complete: row.complete,
+      notes: row.notes,
+      updated_at: row.updated_at
+    })
+    .eq("id", row.id)));
+
+  labourRows = labourRows.map((row) => updates.find((updated) => updated.id === row.id) || row);
+}
+
+async function markWorkOrderReady(id, waitingFor) {
+  const { error } = await supabaseClient
+    .from("work_orders")
+    .update({
+      status: "ready_for_submission",
+      labour_complete: false,
+      waiting_for: waitingFor,
+      locked: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    setFormStatus("Work Order could not be marked ready: " + error.message, true);
+    return false;
+  }
+
+  await loadWorkOrders(false);
+  return true;
+}
+
+async function finalizeWorkOrder(id, options) {
+  const settings = options || {};
+
+  const emailSent = await emailWorkOrderPdf(id, { silent: settings.silent });
+
+  if (!emailSent) {
+    if (!settings.silent) {
+      setFormStatus("Work Order was not submitted because the email could not be sent.", true);
+    }
+    return false;
+  }
+
+  const { error } = await supabaseClient
+    .from("work_orders")
+    .update({
+      status: "submitted",
+      labour_complete: true,
+      waiting_for: [],
+      locked: true,
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    if (!settings.silent) {
+      setFormStatus("Email sent, but Work Order could not be locked: " + error.message, true);
+    }
+    return false;
+  }
+
+  await loadWorkOrders(false);
+
+  if (!settings.silent) {
+    editWorkOrder(id);
+    setFormStatus("Work Order submitted, emailed, and locked.");
+    alert("Work Order submitted, emailed, and locked.");
+  }
+
+  return true;
+}
+
+async function submitCurrentWorkOrder() {
+  const workOrderId = await saveWorkOrder({ silent: true });
+
+  if (!workOrderId) {
+    return;
+  }
+
+  const wo = workOrders.find((item) => item.id === workOrderId);
+
+  if (!wo) {
+    setFormStatus("Work Order saved, but could not be reloaded for submission.", true);
+    return;
+  }
+
+  setFormStatus("Checking Work Order for submission...");
+  await refreshSavedLabourRowsForWorkOrder(wo);
+  const check = getWorkOrderCompleteness(workOrderId);
+
+  if (check.complete) {
+    await finalizeWorkOrder(workOrderId);
+    return;
+  }
+
+  const markedReady = await markWorkOrderReady(workOrderId, check.waitingFor);
+
+  if (markedReady) {
+    editWorkOrder(workOrderId);
+    setFormStatus("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
+    alert("Work Order is ready, but not complete yet. Waiting for: " + check.waitingFor.join(", "));
+  }
+}
+
+async function autoSubmitReadyWorkOrders() {
+  const readyWorkOrders = workOrders.filter((wo) => wo.status === "ready_for_submission" && !wo.locked);
+
+  for (const wo of readyWorkOrders) {
+    await refreshSavedLabourRowsForWorkOrder(wo);
+    const check = getWorkOrderCompleteness(wo.id);
+
+    if (check.complete) {
+      await finalizeWorkOrder(wo.id, { silent: true });
+    } else {
+      await supabaseClient
+        .from("work_orders")
+        .update({
+          labour_complete: check.labourComplete,
+          waiting_for: check.waitingFor,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", wo.id);
+    }
+  }
+
+  if (readyWorkOrders.length) {
+    await loadWorkOrders(false);
+  }
+}
+
+async function refreshWorkOrders() {
+  setFormStatus("Refreshing Work Orders...");
+  await Promise.all([loadWorkOrders(false), loadTimesheetEntries()]);
+  await autoSubmitReadyWorkOrders();
+  setFormStatus("Work Orders refreshed.");
 }
 
 async function getCurrentUserId() {
@@ -1453,6 +1728,16 @@ function buildPdfRows(rows, emptyText, cellsBuilder) {
   return rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("");
 }
 
+function formatTransportationProvider(value) {
+  if (value === "jgc") {
+    return "JGC";
+  }
+  if (value === "external") {
+    return "External";
+  }
+  return value || "Required";
+}
+
 function buildWorkOrderPdfHtml(id) {
   const bundle = getWorkOrderBundle(id);
 
@@ -1529,7 +1814,7 @@ function buildWorkOrderPdfHtml(id) {
     <tbody>${buildPdfRows(equipment, "No company equipment entered.", (row) => [
       row.equipment_name || "",
       row.identification_number || "",
-      row.transportation_required ? (row.transportation_provider_type || "Required") : "No",
+      row.transportation_required ? formatTransportationProvider(row.transportation_provider_type) : "No",
       row.trailer_name || "",
       [row.transportation_company, row.transportation_po_number].filter(Boolean).join(" / "),
       row.transportation_notes || ""
@@ -1629,12 +1914,15 @@ function downloadWorkOrderPdf(id) {
   setTimeout(() => pdfWindow.print(), 300);
 }
 
-async function emailWorkOrderPdf(id) {
+async function emailWorkOrderPdf(id, options) {
+  const settings = options || {};
   const bundle = getWorkOrderBundle(id);
 
   if (!bundle) {
-    alert("Work Order could not be found.");
-    return;
+    if (!settings.silent) {
+      alert("Work Order could not be found.");
+    }
+    return false;
   }
 
   const subject = "JGC Work Order " + (bundle.wo.wo_number || "") + " - " + [bundle.wo.job_number, bundle.wo.job_name].filter(Boolean).join(" - ");
@@ -1642,7 +1930,9 @@ async function emailWorkOrderPdf(id) {
   const pdfHtml = buildWorkOrderPdfHtml(id);
   const fileName = safeFileName(subject) + ".pdf";
 
-  setFormStatus("Sending Work Order email...");
+  if (!settings.silent) {
+    setFormStatus("Sending Work Order email...");
+  }
 
   try {
     await fetch(WORK_ORDER_EMAIL_SCRIPT_URL, {
@@ -1658,11 +1948,17 @@ async function emailWorkOrderPdf(id) {
         source: "work_order"
       })
     });
-    setFormStatus("Work Order email sent.");
-    alert("Work Order email sent.");
+    if (!settings.silent) {
+      setFormStatus("Work Order email sent.");
+      alert("Work Order email sent.");
+    }
+    return true;
   } catch (error) {
-    setFormStatus("Work Order email could not be sent.", true);
-    alert("Work Order email could not be sent.");
+    if (!settings.silent) {
+      setFormStatus("Work Order email could not be sent.", true);
+      alert("Work Order email could not be sent.");
+    }
+    return false;
   }
 }
 
@@ -1671,7 +1967,9 @@ async function signOut() {
 }
 
 resetWorkOrderForm();
-Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]);
+Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]).then(() => {
+  autoSubmitReadyWorkOrders();
+});
 </script>
 </body>
 </html>
