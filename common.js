@@ -31,6 +31,7 @@ function applyJgcPortalName() {
     "toolbox-talks.html": "Tool Box Talks",
     "todays-inspections.html": "Today's Inspections",
     "vacation-request.html": "Vacation Request",
+    "work-orders.html": "Work Orders",
     "policies-announcements.html": "Policies/Announcements",
     "reports.html": "Reports"
   };
@@ -1150,6 +1151,26 @@ function activatePoliciesAnnouncementsTile() {
   if (!/home\.html$/i.test(window.location.pathname)) {
     return;
   }
+
+  function normalizeSinglePoliciesItem(selector, id) {
+    const items = Array.from(document.querySelectorAll(selector)).filter((item) => {
+      const target = String(item.getAttribute("onclick") || "").toLowerCase();
+      const text = String(item.textContent || "").toLowerCase();
+      return target.includes("policies-announcements.html") || text.includes("policies/announcements") || text.includes("policies & announcements");
+    });
+
+    items.forEach((item, index) => {
+      if (index === 0) {
+        item.id = id;
+      } else {
+        item.remove();
+      }
+    });
+  }
+
+  normalizeSinglePoliciesItem(".side-nav .side-link", "policiesAnnouncementsSideLink");
+  normalizeSinglePoliciesItem("#moreSheet button", "policiesAnnouncementsMoreLink");
+  normalizeSinglePoliciesItem(".cards-grid .feature-card", "policiesAnnouncementsCard");
 
   const styleId = "jgcPoliciesAnnouncementsStyles";
 
