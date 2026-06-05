@@ -104,6 +104,40 @@ h1 {
   display: none;
 }
 
+.form-section {
+  margin-top: 18px;
+}
+
+.form-section.collapsible {
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255,255,255,0.025);
+}
+
+.form-section-header {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  color: #37d650;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.form-section-header h3 {
+  margin: 0;
+}
+
+.form-section-body {
+  margin-top: 12px;
+}
+
+.form-section-body[hidden] {
+  display: none;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -225,6 +259,14 @@ th {
 .po-row {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1.4fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.misc-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 8px;
   margin-bottom: 8px;
   align-items: center;
@@ -434,35 +476,76 @@ th {
         </div>
       </div>
 
-      <h3>Purchase Orders</h3>
-      <div id="poRows"></div>
-      <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
-
-      <h3>Labour</h3>
-      <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
-      <div id="employeePicker" class="employee-picker small">Loading employees...</div>
-      <div class="actions" style="margin-bottom:10px;">
-        <button type="button" class="secondary" onclick="renderLabourPreview()">Refresh Labour Match</button>
-      </div>
-      <div id="labourPreview" class="small">Select employees to preview labour.</div>
-
-      <h3>Equipment Used</h3>
-      <div class="small" style="margin-bottom:8px;">Add company equipment used on the Work Order. Transportation details can be added when needed.</div>
-      <div id="equipmentRows"></div>
-      <div class="section-actions">
-        <button type="button" class="secondary" onclick="addEquipmentRow()">Add Equipment</button>
+      <div class="form-section">
+        <h3>Labour</h3>
+        <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
+        <div id="employeePicker" class="employee-picker small">Loading employees...</div>
+        <div class="actions" style="margin-bottom:10px;">
+          <button type="button" class="secondary" onclick="renderLabourPreview()">Refresh Labour Match</button>
+        </div>
+        <div id="labourPreview" class="small">Select employees to preview labour.</div>
       </div>
 
-      <h3>Rental Equipment</h3>
-      <div id="rentalRows"></div>
-      <div class="section-actions">
-        <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+      <div class="form-section">
+        <h3>Purchase Orders</h3>
+        <div id="poRows"></div>
+        <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
       </div>
 
-      <h3>Materials Used</h3>
-      <div id="materialRows"></div>
-      <div class="section-actions">
-        <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+      <div class="form-section">
+        <h3>Materials Used From Shop</h3>
+        <div id="materialRows"></div>
+        <div class="section-actions">
+          <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+        </div>
+      </div>
+
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('miscSectionBody', 'miscToggleText')">
+          <h3>Misc. Invoices</h3>
+          <span id="miscToggleText">Show</span>
+        </button>
+        <div id="miscSectionBody" class="form-section-body" hidden>
+          <div id="miscRows"></div>
+          <div class="section-actions">
+            <button type="button" class="secondary" onclick="addMiscRow()">Add Misc. Invoice</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('travelSectionBody', 'travelToggleText')">
+          <h3>Travelling</h3>
+          <span id="travelToggleText">Show</span>
+        </button>
+        <div id="travelSectionBody" class="form-section-body" hidden>
+          <div id="travelRows"></div>
+          <div class="section-actions">
+            <button type="button" class="secondary" onclick="addTravelRow()">Add Vehicle</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('equipmentSectionBody', 'equipmentToggleText')">
+          <h3>Equipment Used</h3>
+          <span id="equipmentToggleText">Show</span>
+        </button>
+        <div id="equipmentSectionBody" class="form-section-body" hidden>
+          <div class="small" style="margin-bottom:8px;">Select lifts and trailers only.</div>
+          <div id="equipmentRows"></div>
+          <div class="section-actions">
+            <button type="button" class="secondary" onclick="addEquipmentRow()">Add Equipment</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Rental Equipment</h3>
+        <div id="rentalRows"></div>
+        <div class="section-actions">
+          <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+        </div>
       </div>
 
       <div class="actions" style="margin-top:14px;">
@@ -492,6 +575,8 @@ let equipmentItems = [];
 let workOrderEquipmentRows = [];
 let rentalRows = [];
 let materialRows = [];
+let miscRows = [];
+let travelRows = [];
 let employees = [];
 let timesheetEntries = [];
 let editingWorkOrderId = "";
@@ -503,6 +588,20 @@ document.getElementById("woNumber").value = "";
 function toggleManagementPanel() {
   const body = document.getElementById("managementBody");
   const toggleText = document.getElementById("managementToggleText");
+  const isHidden = body.hasAttribute("hidden");
+
+  if (isHidden) {
+    body.removeAttribute("hidden");
+    toggleText.textContent = "Hide";
+  } else {
+    body.setAttribute("hidden", "");
+    toggleText.textContent = "Show";
+  }
+}
+
+function toggleFormSection(bodyId, textId) {
+  const body = document.getElementById(bodyId);
+  const toggleText = document.getElementById(textId);
   const isHidden = body.hasAttribute("hidden");
 
   if (isHidden) {
@@ -770,10 +869,29 @@ function collectPoRows() {
   }).filter((po) => po.po_number || po.company_name || po.notes);
 }
 
-function makeEquipmentOptions(selectedId, includeTrailersOnly) {
-  const filtered = includeTrailersOnly
-    ? equipmentItems.filter((item) => /trailer|trl|float/i.test([item.equipment_type, item.name, item.identification_number].join(" ")))
-    : equipmentItems;
+function getEquipmentSearchText(item) {
+  return [item.equipment_type, item.name, item.identification_number, item.notes].join(" ").toLowerCase();
+}
+
+function isVehicleItem(item) {
+  return /\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(getEquipmentSearchText(item));
+}
+
+function isLiftOrTrailerItem(item) {
+  const text = getEquipmentSearchText(item);
+  return /\b(lift|telehandler|tele-handler|skyjack|boom|scissor|aerial|trailer|trl|float)\b/.test(text) && !isVehicleItem(item);
+}
+
+function makeEquipmentOptions(selectedId, filterType) {
+  const filtered = equipmentItems.filter((item) => {
+    if (filterType === "vehicles") {
+      return isVehicleItem(item);
+    }
+    if (filterType === "lifts_trailers") {
+      return isLiftOrTrailerItem(item);
+    }
+    return true;
+  });
 
   return '<option value="">Select equipment</option>' + filtered.map((item) => {
     const label = [item.name, item.identification_number].filter(Boolean).join(" - ");
@@ -784,11 +902,11 @@ function makeEquipmentOptions(selectedId, includeTrailersOnly) {
 function refreshEquipmentSelectOptions() {
   document.querySelectorAll('[data-equipment-field="equipment_id"]').forEach((select) => {
     const selected = select.value;
-    select.innerHTML = makeEquipmentOptions(selected, false);
+    select.innerHTML = makeEquipmentOptions(selected, "lifts_trailers");
   });
-  document.querySelectorAll('[data-equipment-field="trailer_equipment_id"]').forEach((select) => {
+  document.querySelectorAll('[data-travel-field="vehicle_id"]').forEach((select) => {
     const selected = select.value;
-    select.innerHTML = makeEquipmentOptions(selected, true);
+    select.innerHTML = makeEquipmentOptions(selected, "vehicles");
   });
 }
 
@@ -796,57 +914,24 @@ function addEquipmentRow(rowData) {
   const row = document.createElement("div");
   row.className = "item-row equipment-row";
   const selectedEquipmentId = rowData && rowData.equipment_id ? rowData.equipment_id : "";
-  const selectedTrailerId = rowData && rowData.trailer_equipment_id ? rowData.trailer_equipment_id : "";
-  const providerType = rowData && rowData.transportation_provider_type ? rowData.transportation_provider_type : "";
 
   row.innerHTML = `
     <div class="wide">
-      <label>Equipment</label>
+      <label>Lift / Trailer</label>
       <select data-equipment-field="equipment_id" onchange="fillEquipmentRow(this)">
-        ${makeEquipmentOptions(selectedEquipmentId, false)}
+        ${makeEquipmentOptions(selectedEquipmentId, "lifts_trailers")}
       </select>
-    </div>
-    <div>
-      <label>Equipment Name</label>
-      <input data-equipment-field="equipment_name" placeholder="Manual equipment name" value="${escapeHtml(rowData && rowData.equipment_name ? rowData.equipment_name : "")}">
+      <input type="hidden" data-equipment-field="equipment_name" value="${escapeHtml(rowData && rowData.equipment_name ? rowData.equipment_name : "")}">
     </div>
     <div>
       <label>Identification #</label>
       <input data-equipment-field="identification_number" placeholder="Unit / plate / serial" value="${escapeHtml(rowData && rowData.identification_number ? rowData.identification_number : "")}">
     </div>
-    <div>
-      <label>Transportation Required</label>
-      <select data-equipment-field="transportation_required">
-        <option value="false"${rowData && rowData.transportation_required ? "" : " selected"}>No</option>
-        <option value="true"${rowData && rowData.transportation_required ? " selected" : ""}>Yes</option>
-      </select>
-    </div>
-    <div>
-      <label>Transportation By</label>
-      <select data-equipment-field="transportation_provider_type">
-        <option value=""${providerType ? "" : " selected"}>Not required</option>
-        <option value="jgc"${providerType === "jgc" || providerType === "JGC" ? " selected" : ""}>JGC</option>
-        <option value="external"${providerType === "external" || providerType === "External" ? " selected" : ""}>External</option>
-      </select>
-    </div>
-    <div>
-      <label>Trailer</label>
-      <select data-equipment-field="trailer_equipment_id" onchange="fillTrailerRow(this)">
-        ${makeEquipmentOptions(selectedTrailerId, true)}
-      </select>
-      <input type="hidden" data-equipment-field="trailer_name" value="${escapeHtml(rowData && rowData.trailer_name ? rowData.trailer_name : "")}">
-    </div>
-    <div>
-      <label>External Company</label>
-      <input data-equipment-field="transportation_company" placeholder="Transportation company" value="${escapeHtml(rowData && rowData.transportation_company ? rowData.transportation_company : "")}">
-    </div>
-    <div>
-      <label>Transportation PO</label>
-      <input data-equipment-field="transportation_po_number" placeholder="PO number" value="${escapeHtml(rowData && rowData.transportation_po_number ? rowData.transportation_po_number : "")}">
-    </div>
     <div class="wide">
-      <label>Transportation Notes</label>
-      <input data-equipment-field="transportation_notes" placeholder="Pickup, delivery, float, or special notes" value="${escapeHtml(rowData && rowData.transportation_notes ? rowData.transportation_notes : "")}">
+      <label>
+        <input data-equipment-field="transportation_required" type="checkbox" ${rowData && rowData.transportation_required ? "checked" : ""} style="width:auto;margin-right:8px;">
+        Was the lift floated to site by tow truck?
+      </label>
     </div>
     <button type="button" class="delete-button" onclick="this.closest('.equipment-row').remove()">Remove Equipment</button>
   `;
@@ -863,17 +948,6 @@ function fillEquipmentRow(select) {
 
   row.querySelector('[data-equipment-field="equipment_name"]').value = item.name || "";
   row.querySelector('[data-equipment-field="identification_number"]').value = item.identification_number || "";
-  row.querySelector('[data-equipment-field="transportation_required"]').value = item.transportation_required ? "true" : "false";
-}
-
-function fillTrailerRow(select) {
-  const item = equipmentItems.find((equipment) => equipment.id === select.value);
-  const row = select.closest(".equipment-row");
-  const trailerNameInput = row ? row.querySelector('[data-equipment-field="trailer_name"]') : null;
-
-  if (trailerNameInput) {
-    trailerNameInput.value = item ? [item.name, item.identification_number].filter(Boolean).join(" - ") : "";
-  }
 }
 
 function collectEquipmentRows() {
@@ -886,15 +960,15 @@ function collectEquipmentRows() {
       equipment_id: getValue("equipment_id") || null,
       equipment_name: getValue("equipment_name"),
       identification_number: getValue("identification_number"),
-      transportation_required: getValue("transportation_required") === "true",
-      transportation_provider_type: getValue("transportation_provider_type") || null,
-      trailer_equipment_id: getValue("trailer_equipment_id") || null,
-      trailer_name: getValue("trailer_name"),
-      transportation_company: getValue("transportation_company"),
-      transportation_po_number: getValue("transportation_po_number"),
-      transportation_notes: getValue("transportation_notes")
+      transportation_required: Boolean(row.querySelector('[data-equipment-field="transportation_required"]') && row.querySelector('[data-equipment-field="transportation_required"]').checked),
+      transportation_provider_type: null,
+      trailer_equipment_id: null,
+      trailer_name: "",
+      transportation_company: "",
+      transportation_po_number: "",
+      transportation_notes: ""
     };
-  }).filter((row) => row.equipment_id || row.equipment_name || row.identification_number || row.transportation_company || row.transportation_notes);
+  }).filter((row) => row.equipment_id || row.equipment_name || row.identification_number);
 }
 
 function addRentalRow(rowData) {
@@ -952,8 +1026,8 @@ function addMaterialRow(rowData) {
   row.className = "item-row material-row";
   row.innerHTML = `
     <div>
-      <label>Purchased From</label>
-      <input data-material-field="purchased_from" placeholder="Supplier / store" value="${escapeHtml(rowData && rowData.purchased_from ? rowData.purchased_from : "")}">
+      <label>Shop</label>
+      <input data-material-field="purchased_from" placeholder="Shop / source" value="${escapeHtml(rowData && rowData.purchased_from ? rowData.purchased_from : "JGC Shop")}">
     </div>
     <div>
       <label>Quantity</label>
@@ -979,7 +1053,76 @@ function collectMaterialRows() {
       material_description: getValue("material_description"),
       quantity: getValue("quantity")
     };
-  }).filter((row) => row.purchased_from || row.material_description || row.quantity);
+  }).filter((row) => row.material_description || row.quantity);
+}
+
+function addMiscRow(rowData) {
+  const row = document.createElement("div");
+  row.className = "misc-row";
+  row.innerHTML = `
+    <input data-misc-field="invoice_name" placeholder="Name (dump, disposal, etc.)" value="${escapeHtml(rowData && rowData.invoice_name ? rowData.invoice_name : "")}">
+    <button type="button" class="delete-button" onclick="this.closest('.misc-row').remove()">Remove</button>
+  `;
+  document.getElementById("miscRows").appendChild(row);
+}
+
+function collectMiscRows() {
+  return Array.from(document.querySelectorAll(".misc-row")).map((row) => {
+    const input = row.querySelector('[data-misc-field="invoice_name"]');
+    return { invoice_name: input ? input.value.trim() : "" };
+  }).filter((row) => row.invoice_name);
+}
+
+function addTravelRow(rowData) {
+  const row = document.createElement("div");
+  row.className = "item-row travel-row";
+  const selectedVehicleId = rowData && rowData.vehicle_id ? rowData.vehicle_id : "";
+  row.innerHTML = `
+    <div class="wide">
+      <label>Vehicle</label>
+      <select data-travel-field="vehicle_id" onchange="fillTravelRow(this)">
+        ${makeEquipmentOptions(selectedVehicleId, "vehicles")}
+      </select>
+      <input type="hidden" data-travel-field="vehicle_name" value="${escapeHtml(rowData && rowData.vehicle_name ? rowData.vehicle_name : "")}">
+    </div>
+    <div>
+      <label>Identification #</label>
+      <input data-travel-field="identification_number" placeholder="Plate / unit #" value="${escapeHtml(rowData && rowData.identification_number ? rowData.identification_number : "")}">
+    </div>
+    <div>
+      <label>Total KM</label>
+      <input data-travel-field="total_km" type="number" min="0" step="1" value="${escapeHtml(rowData && rowData.total_km !== undefined && rowData.total_km !== null ? rowData.total_km : "")}">
+    </div>
+    <button type="button" class="delete-button" onclick="this.closest('.travel-row').remove()">Remove Vehicle</button>
+  `;
+  document.getElementById("travelRows").appendChild(row);
+}
+
+function fillTravelRow(select) {
+  const item = equipmentItems.find((equipment) => equipment.id === select.value);
+  const row = select.closest(".travel-row");
+
+  if (!item || !row) {
+    return;
+  }
+
+  row.querySelector('[data-travel-field="vehicle_name"]').value = item.name || "";
+  row.querySelector('[data-travel-field="identification_number"]').value = item.identification_number || "";
+}
+
+function collectTravelRows() {
+  return Array.from(document.querySelectorAll(".travel-row")).map((row) => {
+    const getValue = (field) => {
+      const input = row.querySelector('[data-travel-field="' + field + '"]');
+      return input ? input.value.trim() : "";
+    };
+    return {
+      vehicle_id: getValue("vehicle_id") || null,
+      vehicle_name: getValue("vehicle_name"),
+      identification_number: getValue("identification_number"),
+      total_km: Number(getValue("total_km") || 0)
+    };
+  }).filter((row) => row.vehicle_id || row.vehicle_name || row.identification_number || row.total_km);
 }
 
 function resetWorkOrderForm() {
@@ -1007,6 +1150,10 @@ function resetWorkOrderForm() {
   addRentalRow();
   document.getElementById("materialRows").innerHTML = "";
   addMaterialRow();
+  document.getElementById("miscRows").innerHTML = "";
+  addMiscRow();
+  document.getElementById("travelRows").innerHTML = "";
+  addTravelRow();
   document.getElementById("pdfButton").disabled = true;
   document.getElementById("emailButton").disabled = true;
   setFormLocked(false);
@@ -1172,6 +1319,22 @@ function editWorkOrder(id) {
     addMaterialRow();
   }
 
+  document.getElementById("miscRows").innerHTML = "";
+  const selectedMiscRows = miscRows.filter((row) => row.work_order_id === wo.id);
+  if (selectedMiscRows.length) {
+    selectedMiscRows.forEach((row) => addMiscRow(row));
+  } else {
+    addMiscRow();
+  }
+
+  document.getElementById("travelRows").innerHTML = "";
+  const selectedTravelRows = travelRows.filter((row) => row.work_order_id === wo.id);
+  if (selectedTravelRows.length) {
+    selectedTravelRows.forEach((row) => addTravelRow(row));
+  } else {
+    addTravelRow();
+  }
+
   const selectedLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
   renderEmployeePicker(selectedLabourRows.map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
@@ -1206,6 +1369,8 @@ async function saveWorkOrder(options) {
   const selectedEquipmentRows = collectEquipmentRows();
   const selectedRentalRows = collectRentalRows();
   const selectedMaterialRows = collectMaterialRows();
+  const selectedMiscRows = collectMiscRows();
+  const selectedTravelRows = collectTravelRows();
   const labourComplete = previewRows.length > 0 && previewRows.every((row) => row.complete);
   const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.employee_name + " Timesheet");
 
@@ -1338,6 +1503,24 @@ async function saveWorkOrder(options) {
       table: "work_order_materials",
       label: "material",
       rows: selectedMaterialRows.map((row) => ({
+        ...row,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      }))
+    },
+    {
+      table: "work_order_misc_invoices",
+      label: "misc invoice",
+      rows: selectedMiscRows.map((row) => ({
+        ...row,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      }))
+    },
+    {
+      table: "work_order_travel",
+      label: "travel",
+      rows: selectedTravelRows.map((row) => ({
         ...row,
         work_order_id: workOrderId,
         updated_at: new Date().toISOString()
@@ -1652,7 +1835,6 @@ async function loadEmployees() {
   const { data, error } = await supabaseClient
     .from("profiles")
     .select("id, display_name, worker_key, email, account_status")
-    .eq("account_status", "approved")
     .order("display_name", { ascending: true });
 
   if (error) {
@@ -1730,13 +1912,15 @@ async function loadWorkOrders(showLoading = true) {
     document.getElementById("woListStatus").textContent = "Loading work orders...";
   }
 
-  const [woResult, poResult, labourResult, equipmentResult, rentalResult, materialResult] = await Promise.all([
+  const [woResult, poResult, labourResult, equipmentResult, rentalResult, materialResult, miscResult, travelResult] = await Promise.all([
     supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
     supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
     supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
     supabaseClient.from("work_order_equipment").select("*"),
     supabaseClient.from("work_order_rentals").select("*"),
-    supabaseClient.from("work_order_materials").select("*")
+    supabaseClient.from("work_order_materials").select("*"),
+    supabaseClient.from("work_order_misc_invoices").select("*"),
+    supabaseClient.from("work_order_travel").select("*")
   ]);
 
   if (woResult.error) {
@@ -1746,6 +1930,8 @@ async function loadWorkOrders(showLoading = true) {
     workOrderEquipmentRows = [];
     rentalRows = [];
     materialRows = [];
+    miscRows = [];
+    travelRows = [];
     document.getElementById("woListStatus").textContent = "Work orders could not be loaded.";
     renderWorkOrders();
     return;
@@ -1757,6 +1943,8 @@ async function loadWorkOrders(showLoading = true) {
   workOrderEquipmentRows = equipmentResult.data || [];
   rentalRows = rentalResult.data || [];
   materialRows = materialResult.data || [];
+  miscRows = miscResult.data || [];
+  travelRows = travelResult.data || [];
   renderWorkOrders();
 }
 
@@ -1773,7 +1961,9 @@ function getWorkOrderBundle(id) {
     labour: labourRows.filter((row) => row.work_order_id === id),
     equipment: workOrderEquipmentRows.filter((row) => row.work_order_id === id),
     rentals: rentalRows.filter((row) => row.work_order_id === id),
-    materials: materialRows.filter((row) => row.work_order_id === id)
+    materials: materialRows.filter((row) => row.work_order_id === id),
+    misc: miscRows.filter((row) => row.work_order_id === id),
+    travel: travelRows.filter((row) => row.work_order_id === id)
   };
 }
 
@@ -1815,7 +2005,7 @@ function buildWorkOrderPdfHtml(id) {
     return "";
   }
 
-  const { wo, pos, labour, equipment, rentals, materials } = bundle;
+  const { wo, pos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
   const labourComplete = labour.length ? labour.filter((row) => row.complete).length + " / " + labour.length : "No labour selected";
   const waitingFor = Array.isArray(wo.waiting_for) ? wo.waiting_for.join(", ") : "";
@@ -1877,16 +2067,31 @@ function buildWorkOrderPdfHtml(id) {
     </tbody>
   </table>
 
+  <h2>Materials Used From Shop</h2>
+  <table>
+    <thead><tr><th>Shop</th><th>Material Description</th><th>Quantity</th></tr></thead>
+    <tbody>${buildPdfRows(materials, "No shop materials entered.", (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}</tbody>
+  </table>
+
+  <h2>Misc. Invoices</h2>
+  <table>
+    <thead><tr><th>Name</th></tr></thead>
+    <tbody>${buildPdfRows(misc, "No misc. invoices entered.", (row) => [row.invoice_name || ""])}</tbody>
+  </table>
+
+  <h2>Travelling</h2>
+  <table>
+    <thead><tr><th>Vehicle</th><th>Identification #</th><th>Total KM</th></tr></thead>
+    <tbody>${buildPdfRows(travel, "No travelling entered.", (row) => [row.vehicle_name || "", row.identification_number || "", String(row.total_km || "")])}</tbody>
+  </table>
+
   <h2>Equipment Used</h2>
   <table>
-    <thead><tr><th>Equipment</th><th>ID #</th><th>Transportation</th><th>Trailer</th><th>External Company / PO</th><th>Notes</th></tr></thead>
-    <tbody>${buildPdfRows(equipment, "No company equipment entered.", (row) => [
+    <thead><tr><th>Lift / Trailer</th><th>Identification #</th><th>Floated By Tow Truck</th></tr></thead>
+    <tbody>${buildPdfRows(equipment, "No lift or trailer equipment entered.", (row) => [
       row.equipment_name || "",
       row.identification_number || "",
-      row.transportation_required ? formatTransportationProvider(row.transportation_provider_type) : "No",
-      row.trailer_name || "",
-      [row.transportation_company, row.transportation_po_number].filter(Boolean).join(" / "),
-      row.transportation_notes || ""
+      row.transportation_required ? "Yes" : "No"
     ])}</tbody>
   </table>
 
@@ -1901,12 +2106,6 @@ function buildWorkOrderPdfHtml(id) {
       String(row.days_used || ""),
       row.notes || ""
     ])}</tbody>
-  </table>
-
-  <h2>Materials Used</h2>
-  <table>
-    <thead><tr><th>Purchased From</th><th>Material Description</th><th>Quantity</th></tr></thead>
-    <tbody>${buildPdfRows(materials, "No materials entered.", (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}</tbody>
   </table>
 
   <div class="signatures">
@@ -1924,7 +2123,7 @@ function buildWorkOrderEmailBody(id) {
     return "";
   }
 
-  const { wo, labour, equipment, rentals, materials } = bundle;
+  const { wo, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
 
   return [
@@ -1939,6 +2138,8 @@ function buildWorkOrderEmailBody(id) {
     "Equipment Rows: " + equipment.length,
     "Rental Rows: " + rentals.length,
     "Material Rows: " + materials.length,
+    "Misc. Invoice Rows: " + misc.length,
+    "Travel Rows: " + travel.length,
     "",
     "See attached Work Order PDF."
   ].join("\n");
