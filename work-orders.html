@@ -193,6 +193,57 @@ th {
   align-items: center;
 }
 
+.employee-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.employee-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+}
+
+.employee-check input {
+  width: auto;
+}
+
+.labour-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.labour-metric {
+  padding: 10px;
+  border: 1px solid rgba(99, 205, 107, 0.22);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.16);
+}
+
+.labour-metric strong {
+  display: block;
+  color: #37d650;
+  font-size: 20px;
+}
+
+.complete-text {
+  color: #5dff76;
+  font-weight: bold;
+}
+
+.missing-text {
+  color: #ffbf69;
+  font-weight: bold;
+}
+
 @media (max-width: 920px) {
   body {
     padding: 12px;
@@ -205,6 +256,10 @@ th {
   }
 
   .po-row {
+    grid-template-columns: 1fr;
+  }
+
+  .labour-summary {
     grid-template-columns: 1fr;
   }
 
@@ -233,7 +288,7 @@ th {
   <div class="grid">
     <section class="card">
       <h2 id="formTitle">New Work Order</h2>
-      <div class="small" style="margin-bottom:12px;">Phase 1 foundation: create and manage draft WO headers, descriptions, and PO numbers. Labour, equipment, PDF, and email come in the next phases.</div>
+      <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts, PO numbers, and expected labour. Equipment, PDF, and email come in the next phases.</div>
 
       <div class="form-grid">
         <div>
@@ -242,7 +297,7 @@ th {
         </div>
         <div>
           <label>Date</label>
-          <input id="woDate" type="date">
+          <input id="woDate" type="date" onchange="renderLabourPreview()">
         </div>
         <div>
           <label>Customer</label>
@@ -264,7 +319,7 @@ th {
         </div>
         <div>
           <label>Job Number</label>
-          <input id="woJobNumber">
+          <input id="woJobNumber" oninput="renderLabourPreview()">
         </div>
         <div>
           <label>Job Type</label>
@@ -272,7 +327,7 @@ th {
         </div>
         <div class="full">
           <label>Job Name</label>
-          <input id="woJobName">
+          <input id="woJobName" oninput="renderLabourPreview()">
         </div>
         <div class="full">
           <label>Job Address</label>
@@ -287,6 +342,14 @@ th {
       <h3>Purchase Orders</h3>
       <div id="poRows"></div>
       <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
+
+      <h3>Labour</h3>
+      <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
+      <div id="employeePicker" class="employee-picker small">Loading employees...</div>
+      <div class="actions" style="margin-bottom:10px;">
+        <button type="button" class="secondary" onclick="renderLabourPreview()">Refresh Labour Match</button>
+      </div>
+      <div id="labourPreview" class="small">Select employees to preview labour.</div>
 
       <div class="actions" style="margin-top:14px;">
         <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
@@ -322,6 +385,9 @@ const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
 let jobs = [];
 let workOrders = [];
 let purchaseOrders = [];
+let labourRows = [];
+let employees = [];
+let timesheetEntries = [];
 let editingWorkOrderId = "";
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
@@ -355,6 +421,8 @@ function fillSelectedJob() {
   if (!document.getElementById("woCustomer").value.trim()) {
     document.getElementById("woCustomer").value = job.job_name || "";
   }
+
+  renderLabourPreview();
 }
 
 function renderJobOptions() {
@@ -363,6 +431,169 @@ function renderJobOptions() {
     const label = [job.job_number, job.job_name, job.job_type].filter(Boolean).join(" - ");
     return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml(label) + '</option>';
   }).join("");
+}
+
+function getDayNames() {
+  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+}
+
+function makeLocalDate(dateString) {
+  const parts = String(dateString || "").split("-").map(Number);
+
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function formatLocalDate(date) {
+  if (!date || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+function getTimesheetEntryDate(entry) {
+  const weekStart = makeLocalDate(entry.week_start || entry.weekStartValue);
+  const dayIndex = getDayNames().indexOf(entry.day_of_week || entry.day || "");
+
+  if (!weekStart || dayIndex < 0) {
+    return "";
+  }
+
+  weekStart.setDate(weekStart.getDate() + dayIndex);
+  return formatLocalDate(weekStart);
+}
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeJobNumber(value) {
+  return normalizeText(value).replace(/[^a-z0-9]/g, "");
+}
+
+function renderEmployeePicker(selectedKeys) {
+  const picker = document.getElementById("employeePicker");
+  const selected = new Set(selectedKeys || []);
+
+  if (!employees.length) {
+    picker.textContent = "No approved employees found.";
+    return;
+  }
+
+  picker.innerHTML = employees.map((employee) => {
+    const key = employee.worker_key || normalizeWorkerName(employee.display_name || employee.email || employee.id);
+    return `
+      <label class="employee-check">
+        <input type="checkbox" data-employee-id="${escapeHtml(employee.id)}" data-worker-key="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee.display_name || employee.email || "")}" ${selected.has(key) ? "checked" : ""} onchange="renderLabourPreview()">
+        <span>${escapeHtml(employee.display_name || employee.email || "")}</span>
+      </label>
+    `;
+  }).join("");
+}
+
+function collectSelectedEmployees() {
+  return Array.from(document.querySelectorAll("#employeePicker input[type='checkbox']:checked")).map((input) => ({
+    employee_id: input.dataset.employeeId || null,
+    worker_key: input.dataset.workerKey || "",
+    employee_name: input.dataset.employeeName || ""
+  }));
+}
+
+function getLabourMatchesForEmployee(employee, jobNumber, workDate) {
+  const normalizedEmployeeKey = normalizeText(employee.worker_key);
+  const normalizedEmployeeName = normalizeText(employee.employee_name);
+  const normalizedJob = normalizeJobNumber(jobNumber);
+  const normalizedJobName = normalizeText(document.getElementById("woJobName").value);
+
+  return timesheetEntries.filter((entry) => {
+    if (normalizeText(entry.entry_type || "work") !== "work") {
+      return false;
+    }
+
+    const entryWorker = normalizeText(entry.worker_name || entry.user);
+    const entryJobNumber = normalizeJobNumber(entry.job_number || entry.jobNumber);
+    const entryJobName = normalizeText(entry.job_name || entry.jobName);
+    const workerMatches = entryWorker === normalizedEmployeeKey ||
+      entryWorker === normalizedEmployeeName ||
+      normalizedEmployeeName.includes(entryWorker) ||
+      entryWorker.includes(normalizedEmployeeName);
+    const jobMatches = normalizedJob
+      ? entryJobNumber === normalizedJob || (!entryJobNumber && entryJobName === normalizedJobName)
+      : entryJobName === normalizedJobName;
+
+    return workerMatches &&
+      jobMatches &&
+      getTimesheetEntryDate(entry) === workDate;
+  });
+}
+
+function buildLabourPreviewRows() {
+  const selectedEmployees = collectSelectedEmployees();
+  const jobNumber = document.getElementById("woJobNumber").value.trim();
+  const workDate = document.getElementById("woDate").value;
+
+  return selectedEmployees.map((employee) => {
+    const matches = jobNumber && workDate ? getLabourMatchesForEmployee(employee, jobNumber, workDate) : [];
+    const hours = matches.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+
+    return {
+      ...employee,
+      matched_timesheet_entry_id: matches[0] ? matches[0].id : null,
+      hours,
+      complete: hours > 0,
+      notes: matches.length > 1 ? matches.length + " matching entries" : ""
+    };
+  });
+}
+
+function renderLabourPreview() {
+  const panel = document.getElementById("labourPreview");
+  const rows = buildLabourPreviewRows();
+
+  if (!rows.length) {
+    panel.innerHTML = "Select employees to preview labour.";
+    return;
+  }
+
+  const completeCount = rows.filter((row) => row.complete).length;
+  const totalHours = rows.reduce((total, row) => total + row.hours, 0);
+  const labourComplete = completeCount === rows.length;
+
+  panel.innerHTML = `
+    <div class="labour-summary">
+      <div class="labour-metric"><span>Total Labour Hours</span><strong>${totalHours.toFixed(2)}</strong></div>
+      <div class="labour-metric"><span>Labour Complete</span><strong>${labourComplete ? "Yes" : "No"}</strong></div>
+      <div class="labour-metric"><span>Matched Employees</span><strong>${completeCount} / ${rows.length}</strong></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Status</th>
+            <th>Hours</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.employee_name)}</td>
+              <td>${row.complete ? '<span class="complete-text">Complete</span>' : '<span class="missing-text">Missing Timesheet</span>'}</td>
+              <td>${row.complete ? row.hours.toFixed(2) : "-"}</td>
+              <td>${escapeHtml(row.notes || "")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function addPoRow(po) {
@@ -408,6 +639,8 @@ function resetWorkOrderForm() {
   document.getElementById("woDescription").value = "";
   document.getElementById("poRows").innerHTML = "";
   addPoRow();
+  renderEmployeePicker([]);
+  renderLabourPreview();
   setFormStatus("");
 }
 
@@ -461,6 +694,7 @@ function renderWorkOrders() {
             <th>Job</th>
             <th>Type</th>
             <th>Status</th>
+            <th>Labour</th>
             <th>POs</th>
             <th>Actions</th>
           </tr>
@@ -468,6 +702,8 @@ function renderWorkOrders() {
         <tbody>
           ${filtered.map((wo) => {
             const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length;
+            const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
+            const completeCount = woLabourRows.filter((row) => row.complete).length;
             return `
               <tr>
                 <td>${escapeHtml(wo.wo_number || "")}</td>
@@ -476,6 +712,7 @@ function renderWorkOrders() {
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
                 <td>${escapeHtml(wo.job_type || "")}</td>
                 <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getStatusLabel(wo.status))}</span></td>
+                <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
                 <td>
                   <div class="actions">
@@ -520,6 +757,10 @@ function editWorkOrder(id) {
   } else {
     addPoRow();
   }
+
+  const selectedLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
+  renderEmployeePicker(selectedLabourRows.map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  renderLabourPreview();
   setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -536,6 +777,9 @@ async function saveWorkOrder() {
   const jobAddress = document.getElementById("woJobAddress").value.trim();
   const description = document.getElementById("woDescription").value.trim();
   const poRows = collectPoRows();
+  const previewRows = buildLabourPreviewRows();
+  const labourComplete = previewRows.length > 0 && previewRows.every((row) => row.complete);
+  const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.employee_name + " Timesheet");
 
   if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
     setFormStatus("WO number, date, job number, and job name are required.", true);
@@ -556,6 +800,8 @@ async function saveWorkOrder() {
     job_address: jobAddress,
     status,
     description_of_work: description,
+    labour_complete: labourComplete,
+    waiting_for: waitingFor,
     created_by: userId || null,
     created_by_name: worker.display || worker.key || "",
     supervisor_name: worker.display || worker.key || "",
@@ -605,6 +851,38 @@ async function saveWorkOrder() {
 
     if (poInsertError) {
       setFormStatus("Work order saved, but PO rows could not be saved.", true);
+      return;
+    }
+  }
+
+  const { error: labourDeleteError } = await supabaseClient
+    .from("work_order_labour")
+    .delete()
+    .eq("work_order_id", workOrderId);
+
+  if (labourDeleteError) {
+    setFormStatus("Work order saved, but old labour rows could not be cleared.", true);
+    return;
+  }
+
+  if (previewRows.length) {
+    const { error: labourInsertError } = await supabaseClient
+      .from("work_order_labour")
+      .insert(previewRows.map((row) => ({
+        work_order_id: workOrderId,
+        employee_id: row.employee_id || null,
+        employee_name: row.employee_name,
+        worker_key: row.worker_key,
+        expected: true,
+        matched_timesheet_entry_id: row.matched_timesheet_entry_id,
+        hours: row.hours,
+        complete: row.complete,
+        notes: row.notes,
+        updated_at: new Date().toISOString()
+      })));
+
+    if (labourInsertError) {
+      setFormStatus("Work order saved, but labour rows could not be saved.", true);
       return;
     }
   }
@@ -663,19 +941,82 @@ async function loadJobs() {
   renderJobOptions();
 }
 
+async function loadEmployees() {
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id, display_name, worker_key, email, account_status")
+    .eq("account_status", "approved")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    employees = [];
+    renderEmployeePicker([]);
+    return;
+  }
+
+  employees = (data || []).filter((employee) => employee.display_name || employee.email);
+  renderEmployeePicker(labourRows.filter((row) => row.work_order_id === editingWorkOrderId).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  renderLabourPreview();
+}
+
+async function loadTimesheetEntries() {
+  const [liveResult, archivedResult] = await Promise.all([
+    supabaseClient
+      .from("timesheet_entries")
+      .select("id, worker_name, week_start, job_name, job_number, day_of_week, hours, entry_type")
+      .order("week_start", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabaseClient
+      .from("previous_timesheet_weeks")
+      .select("id, worker_name, entries, submitted_at")
+      .order("submitted_at", { ascending: false })
+  ]);
+
+  if (liveResult.error && archivedResult.error) {
+    timesheetEntries = [];
+    renderLabourPreview();
+    return;
+  }
+
+  const liveEntries = liveResult.data || [];
+  const archivedEntries = [];
+
+  (archivedResult.data || []).forEach((week) => {
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    entries.forEach((entry) => {
+      archivedEntries.push({
+        id: entry.id || week.id,
+        worker_name: entry.user || week.worker_name || "",
+        weekStartValue: entry.weekStartValue || "",
+        job_name: entry.jobName || "",
+        job_number: entry.jobNumber || "",
+        day: entry.day || "",
+        hours: entry.hours || 0,
+        entry_type: entry.entryType || "work",
+        archived: true
+      });
+    });
+  });
+
+  timesheetEntries = liveEntries.concat(archivedEntries);
+  renderLabourPreview();
+}
+
 async function loadWorkOrders(showLoading = true) {
   if (showLoading) {
     document.getElementById("woListStatus").textContent = "Loading work orders...";
   }
 
-  const [woResult, poResult] = await Promise.all([
+  const [woResult, poResult, labourResult] = await Promise.all([
     supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
-    supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true })
+    supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
+    supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true })
   ]);
 
   if (woResult.error) {
     workOrders = [];
     purchaseOrders = [];
+    labourRows = [];
     document.getElementById("woListStatus").textContent = "Work orders could not be loaded.";
     renderWorkOrders();
     return;
@@ -683,6 +1024,7 @@ async function loadWorkOrders(showLoading = true) {
 
   workOrders = woResult.data || [];
   purchaseOrders = poResult.data || [];
+  labourRows = labourResult.data || [];
   renderWorkOrders();
 }
 
@@ -691,7 +1033,7 @@ async function signOut() {
 }
 
 resetWorkOrderForm();
-Promise.all([loadJobs(), loadWorkOrders()]);
+Promise.all([loadJobs(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]);
 </script>
 </body>
 </html>
