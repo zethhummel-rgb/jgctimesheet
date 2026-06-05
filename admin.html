@@ -416,6 +416,14 @@ button:hover,
     color: #ffffff;
     font-size: 40px;
     font-weight: 900;
+    overflow: hidden;
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .profile-hero h3 {
@@ -773,6 +781,14 @@ button:hover,
             <div>
                 <label>Employee ID</label>
                 <input id="profileEmployeeId">
+            </div>
+            <div>
+                <label>Email</label>
+                <input id="profileEmail" type="email">
+            </div>
+            <div>
+                <label>Profile Photo</label>
+                <input id="profilePhotoFile" type="file" accept="image/png,image/jpeg,image/webp">
             </div>
             <div>
                 <label>Phone</label>
@@ -1325,7 +1341,7 @@ async function loadAdminData() {
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
-        supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,last_portal_activity").order("display_name", { ascending: true }),
+        supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }),
@@ -1713,6 +1729,33 @@ function getEmployeeInitials(name) {
     return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "JGC";
 }
 
+function makeProfilePhotoFileName(fileName) {
+    return String(fileName || "profile-photo")
+        .toLowerCase()
+        .replace(/[^a-z0-9.]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "profile-photo";
+}
+
+function getProfilePhotoUrl(path) {
+    if (!path) {
+        return "";
+    }
+
+    const result = supabaseClient.storage
+        .from("profile-photos")
+        .getPublicUrl(path);
+
+    return result && result.data ? result.data.publicUrl : "";
+}
+
+function getProfileAvatarHtml(account, employeeName) {
+    const photoUrl = getProfilePhotoUrl(account && account.avatar_path);
+    return photoUrl
+        ? '<img src="' + escapeHtml(photoUrl) + '" alt="Profile photo">'
+        : escapeHtml(getEmployeeInitials(employeeName));
+}
+
 function employeeMatchesValue(account, value) {
     const text = normalizeWorkerName(value || "");
     const accountKey = getEmployeeAccountKey(account);
@@ -1993,7 +2036,7 @@ function renderEmployeeProfile() {
     const profileActivity = account.last_portal_activity || lastActivity;
 
     hero.innerHTML = `
-        <div class="profile-avatar">${escapeHtml(getEmployeeInitials(employeeName))}</div>
+        <div class="profile-avatar">${getProfileAvatarHtml(account, employeeName)}</div>
         <div>
             <h3>${escapeHtml(employeeName)}</h3>
             <span class="profile-status-pill">${escapeHtml(capitalizeWords(status))}</span>
@@ -2004,7 +2047,7 @@ function renderEmployeeProfile() {
                 <div class="profile-fact"><span class="profile-fact-icon">AD</span><div><strong>Address</strong><div class="small">${escapeHtml(account.address || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">POS</span><div><strong>Position</strong><div class="small">${escapeHtml(account.position || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">DEP</span><div><strong>Department</strong><div class="small">${escapeHtml(account.department || "Not added")}</div></div></div>
-                <div class="profile-fact"><span class="profile-fact-icon">LOG</span><div><strong>Last Login</strong><div class="small">Not tracked</div></div></div>
+                <div class="profile-fact"><span class="profile-fact-icon">LOG</span><div><strong>Last Login</strong><div class="small">${escapeHtml(account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">ACT</span><div><strong>Portal Activity</strong><div class="small">${escapeHtml(profileActivity ? formatDate(profileActivity) : "None")}</div></div></div>
             </div>
         </div>
@@ -2041,7 +2084,7 @@ function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Policies", "Not tracked", "Policy acknowledgement table not added yet")}
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles")}
-            ${renderEmployeeProfileTile("Last Login", "Not tracked", "Portal login timestamp is not stored yet")}
+            ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
             ${renderEmployeeProfileTile("Last Activity", profileActivity ? formatDate(profileActivity) : "None", "Latest saved portal activity")}
         </div>
 
@@ -2135,6 +2178,7 @@ function renderEmployeeProfile() {
 function populateEmployeeProfileEditForm(account) {
     const fields = {
         profileEmployeeId: account.employee_id || "",
+        profileEmail: account.email || "",
         profilePhone: account.phone || "",
         profilePosition: account.position || "",
         profileDepartment: account.department || "",
@@ -2158,6 +2202,40 @@ function populateEmployeeProfileEditForm(account) {
     if (status) {
         status.textContent = "";
     }
+
+    const photoInput = document.getElementById("profilePhotoFile");
+
+    if (photoInput) {
+        photoInput.value = "";
+    }
+}
+
+async function uploadAdminProfilePhoto(account) {
+    const fileInput = document.getElementById("profilePhotoFile");
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+    if (!file) {
+        return account.avatar_path || "";
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        throw new Error("Profile photo must be under 5 MB.");
+    }
+
+    const filePath = account.id + "/" + Date.now() + "-" + makeProfilePhotoFileName(file.name);
+    const { error } = await supabaseClient.storage
+        .from("profile-photos")
+        .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type || "image/jpeg"
+        });
+
+    if (error) {
+        throw error;
+    }
+
+    return filePath;
 }
 
 async function saveEmployeeProfileDetails() {
@@ -2169,32 +2247,45 @@ async function saveEmployeeProfileDetails() {
         return;
     }
 
-    const values = {
-        employee_id: document.getElementById("profileEmployeeId").value.trim(),
-        phone: document.getElementById("profilePhone").value.trim(),
-        position: document.getElementById("profilePosition").value.trim(),
-        department: document.getElementById("profileDepartment").value.trim(),
-        hire_date: document.getElementById("profileHireDate").value || null,
-        employment_type: document.getElementById("profileEmploymentType").value.trim(),
-        supervisor: document.getElementById("profileSupervisor").value.trim(),
-        emergency_contact: document.getElementById("profileEmergencyContact").value.trim(),
-        address: document.getElementById("profileAddress").value.trim()
-    };
-
     if (status) {
         status.textContent = "Saving employee details...";
     }
 
-    const { data, error } = await supabaseClient
-        .from("profiles")
-        .update(values)
-        .eq("id", account.id)
-        .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,last_portal_activity")
-        .single();
+    let data;
+    let error;
+
+    try {
+        const avatarPath = await uploadAdminProfilePhoto(account);
+        const values = {
+            employee_id: document.getElementById("profileEmployeeId").value.trim(),
+            email: document.getElementById("profileEmail").value.trim(),
+            phone: document.getElementById("profilePhone").value.trim(),
+            position: document.getElementById("profilePosition").value.trim(),
+            department: document.getElementById("profileDepartment").value.trim(),
+            hire_date: document.getElementById("profileHireDate").value || null,
+            employment_type: document.getElementById("profileEmploymentType").value.trim(),
+            supervisor: document.getElementById("profileSupervisor").value.trim(),
+            emergency_contact: document.getElementById("profileEmergencyContact").value.trim(),
+            address: document.getElementById("profileAddress").value.trim(),
+            avatar_path: avatarPath || null
+        };
+
+        const result = await supabaseClient
+            .from("profiles")
+            .update(values)
+            .eq("id", account.id)
+            .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity")
+            .single();
+
+        data = result.data;
+        error = result.error;
+    } catch (uploadError) {
+        error = uploadError;
+    }
 
     if (error) {
         if (status) {
-            status.textContent = "Employee details could not be saved: " + error.message;
+            status.textContent = "Employee details could not be saved: " + (error.message || error);
         }
         return;
     }
