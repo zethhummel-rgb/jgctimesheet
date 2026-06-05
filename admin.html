@@ -2228,14 +2228,12 @@ function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Hours This Year", hoursThisYear.toFixed(2), "Work hours this year", "timesheets")}
             ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year", "sickDays")}
             ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year", "vacation")}
-            ${renderEmployeeProfileTile("Vacation Remaining", "Not set", "Balance tracking not stored yet", "vacation")}
             ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review", "vacation")}
             ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates")}
             ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates")}
             ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
             ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "toolboxTalks")}
-            ${renderEmployeeProfileTile("Policies", "Not tracked", "Policy acknowledgement table not added yet", "policies")}
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "announcements")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
             ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
