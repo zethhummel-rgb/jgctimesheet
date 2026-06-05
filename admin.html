@@ -1259,6 +1259,31 @@ button:hover,
             <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
         </div>
         <div>
+            <label>Owned / Rental</label>
+            <select id="equipmentOwnership">
+                <option value="owned">Owned</option>
+                <option value="rental">Rental</option>
+            </select>
+        </div>
+        <div>
+            <label>Rental Supplier</label>
+            <input id="equipmentRentalSupplier" placeholder="Rental supplier if applicable">
+        </div>
+        <div>
+            <label>Billable Equipment</label>
+            <select id="equipmentBillable">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+            </select>
+        </div>
+        <div>
+            <label>Transportation Required</label>
+            <select id="equipmentTransportationRequired">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+            </select>
+        </div>
+        <div>
             <label>Yearly Inspection Expiry</label>
             <input id="equipmentExpiry" type="date">
         </div>
@@ -2750,6 +2775,10 @@ function clearEquipmentForm() {
     document.getElementById("equipmentType").value = "";
     document.getElementById("equipmentOperator").value = "";
     document.getElementById("equipmentHours").value = "";
+    document.getElementById("equipmentOwnership").value = "owned";
+    document.getElementById("equipmentRentalSupplier").value = "";
+    document.getElementById("equipmentBillable").value = "true";
+    document.getElementById("equipmentTransportationRequired").value = "false";
     document.getElementById("equipmentExpiry").value = "";
     document.getElementById("equipmentNotes").value = "";
     document.getElementById("equipmentSaveButton").textContent = "Add Equipment / Vehicle";
@@ -2782,7 +2811,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -2795,6 +2824,9 @@ function renderEquipment() {
                                 <td>${escapeHtml(item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
                                 <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
+                                <td>${escapeHtml(capitalizeWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
+                                <td>${item.billable_equipment === false ? "No" : "Yes"}</td>
+                                <td>${item.transportation_required ? "Yes" : "No"}</td>
                                 <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
                                 <td>${escapeHtml(status)}</td>
                                 <td>${escapeHtml(item.notes || "")}</td>
@@ -2804,7 +2836,7 @@ function renderEquipment() {
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="9">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="12">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -2848,6 +2880,10 @@ function editEquipment(id) {
     document.getElementById("equipmentType").value = item.equipment_type || "";
     document.getElementById("equipmentOperator").value = item.operator_name || "";
     document.getElementById("equipmentHours").value = item.current_hours !== null && item.current_hours !== undefined ? item.current_hours : "";
+    document.getElementById("equipmentOwnership").value = item.ownership_type || "owned";
+    document.getElementById("equipmentRentalSupplier").value = item.rental_supplier || "";
+    document.getElementById("equipmentBillable").value = item.billable_equipment === false ? "false" : "true";
+    document.getElementById("equipmentTransportationRequired").value = item.transportation_required ? "true" : "false";
     document.getElementById("equipmentExpiry").value = item.yearly_inspection_expiry || "";
     document.getElementById("equipmentNotes").value = item.notes || "";
     document.getElementById("equipmentSaveButton").textContent = "Update Equipment / Vehicle";
@@ -2862,6 +2898,10 @@ async function saveEquipment() {
     const operatorName = document.getElementById("equipmentOperator").value.trim();
     const currentHoursValue = document.getElementById("equipmentHours").value;
     const currentHours = currentHoursValue === "" ? null : Number(currentHoursValue);
+    const ownershipType = document.getElementById("equipmentOwnership").value || "owned";
+    const rentalSupplier = document.getElementById("equipmentRentalSupplier").value.trim();
+    const billableEquipment = document.getElementById("equipmentBillable").value !== "false";
+    const transportationRequired = document.getElementById("equipmentTransportationRequired").value === "true";
     const expiry = document.getElementById("equipmentExpiry").value || null;
     const notes = document.getElementById("equipmentNotes").value.trim();
 
@@ -2883,6 +2923,10 @@ async function saveEquipment() {
         identification_number: identificationNumber,
         operator_name: operatorName,
         current_hours: currentHours,
+        ownership_type: ownershipType,
+        rental_supplier: rentalSupplier,
+        billable_equipment: billableEquipment,
+        transportation_required: transportationRequired,
         yearly_inspection_expiry: expiry,
         notes,
         updated_at: new Date().toISOString()
