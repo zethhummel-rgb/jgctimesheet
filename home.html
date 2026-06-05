@@ -99,6 +99,7 @@
       right: 12px;
       top: 5px;
       max-width: 220px;
+      cursor: pointer;
     }
 
     .top-spacer {
@@ -122,6 +123,16 @@
       height: 22px;
       border: 2px solid rgba(57, 200, 72, 0.68);
       flex: 0 0 auto;
+      overflow: hidden;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .profile-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .eyebrow,
@@ -153,6 +164,101 @@
       font-weight: 700;
       font-size: 9px;
       color: #55de61;
+    }
+
+    .profile-edit-hint {
+      margin-top: 2px;
+      color: #55de61;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .profile-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(0,0,0,0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .profile-modal-backdrop.open {
+      display: flex;
+    }
+
+    .profile-modal {
+      width: min(720px, 100%);
+      max-height: 92vh;
+      overflow-y: auto;
+      background: #071410;
+      border: 1px solid rgba(55,214,80,0.55);
+      border-top: 4px solid var(--green);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .profile-modal h2 {
+      margin: 0 0 12px;
+      color: var(--green);
+    }
+
+    .profile-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .profile-form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .profile-form-grid label {
+      display: block;
+      color: #fff;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .profile-form-grid input,
+    .profile-form-grid textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 10px;
+      background: #f7faf6;
+      color: #102018;
+      font-size: 15px;
+    }
+
+    .profile-form-grid textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .profile-photo-preview {
+      width: 92px;
+      height: 92px;
+      border-radius: 999px;
+      border: 3px solid var(--green);
+      background: #12371e;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .profile-photo-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .date-chip {
@@ -900,12 +1006,13 @@
       Logout
     </button>
 
-    <div class="profile-block">
-      <span class="profile-icon"><i data-lucide="circle-user-round"></i></span>
+    <div class="profile-block" onclick="openProfileEditor()" title="Edit profile">
+      <span id="homeProfileIcon" class="profile-icon"><i data-lucide="circle-user-round"></i></span>
       <div>
         <div class="muted" id="greetingText">Welcome back,</div>
         <div id="currentUserName" class="profile-name"></div>
         <div id="roleText" class="role-text"></div>
+        <div class="profile-edit-hint">Edit profile</div>
       </div>
     </div>
   </header>
@@ -1093,6 +1200,40 @@
   <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
 </div>
 
+<div id="profileModal" class="profile-modal-backdrop" onclick="closeProfileEditor(event)">
+  <section class="profile-modal" onclick="event.stopPropagation()">
+    <h2>Edit My Profile</h2>
+    <div class="profile-form-grid">
+      <div>
+        <div id="profilePhotoPreview" class="profile-photo-preview">JGC</div>
+        <label>Profile Photo</label>
+        <input id="profilePhotoFile" type="file" accept="image/png,image/jpeg,image/webp" onchange="previewMyProfilePhoto()">
+      </div>
+      <div>
+        <label>Contact Email</label>
+        <input id="profileEmail" type="email">
+      </div>
+      <div>
+        <label>Phone</label>
+        <input id="profilePhone">
+      </div>
+      <div>
+        <label>Emergency Contact</label>
+        <input id="profileEmergencyContact">
+      </div>
+      <div class="full">
+        <label>Address</label>
+        <textarea id="profileAddress"></textarea>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:14px;">
+      <button type="button" onclick="saveMyProfile()">Save Profile</button>
+      <button type="button" class="secondary" onclick="closeProfileEditor()">Cancel</button>
+    </div>
+    <div id="profileSaveStatus" class="muted" style="margin-top:10px;"></div>
+  </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="common.js?v=2"></script>
@@ -1109,6 +1250,7 @@ let toolboxAcknowledgements = [];
 let accidentAcknowledgements = [];
 let employeeInjuryAcknowledgements = [];
 let currentUserId = "";
+let currentProfile = null;
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
 document.getElementById("roleText").innerText = "Employee";
@@ -1119,6 +1261,7 @@ if (isAdmin) {
 }
 
 setCurrentDate();
+loadMyProfile();
 loadDashboardStats();
 loadAnnouncements();
 renderIcons();
@@ -1179,6 +1322,182 @@ async function getCurrentUserId() {
     : "";
 
   return currentUserId;
+}
+
+function makeProfilePhotoFileName(fileName) {
+  return String(fileName || "profile-photo")
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "profile-photo";
+}
+
+function getProfilePhotoUrl(path) {
+  if (!path) {
+    return "";
+  }
+
+  const result = supabaseClient.storage
+    .from("profile-photos")
+    .getPublicUrl(path);
+
+  return result && result.data ? result.data.publicUrl : "";
+}
+
+function getProfileInitials() {
+  return String(currentWorkerDisplay || currentWorker || "JGC")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "JGC";
+}
+
+function setProfileImage(path) {
+  const url = getProfilePhotoUrl(path);
+  const icon = document.getElementById("homeProfileIcon");
+  const preview = document.getElementById("profilePhotoPreview");
+  const fallback = escapeHtml(getProfileInitials());
+  const html = url ? '<img src="' + escapeHtml(url) + '" alt="Profile photo">' : fallback;
+
+  if (icon) {
+    icon.innerHTML = html;
+  }
+
+  if (preview) {
+    preview.innerHTML = html;
+  }
+
+  renderIcons();
+}
+
+function previewMyProfilePhoto() {
+  const fileInput = document.getElementById("profilePhotoFile");
+  const file = fileInput.files && fileInput.files[0];
+
+  if (!file) {
+    setProfileImage(currentProfile && currentProfile.avatar_path ? currentProfile.avatar_path : "");
+    return;
+  }
+
+  const preview = document.getElementById("profilePhotoPreview");
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    preview.innerHTML = '<img src="' + escapeHtml(event.target.result) + '" alt="Profile photo preview">';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function loadMyProfile() {
+  const userId = await getCurrentUserId();
+
+  if (!userId || !supabaseClient) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data) {
+    setProfileImage("");
+    return;
+  }
+
+  currentProfile = data;
+  document.getElementById("profileEmail").value = data.email || worker.email || "";
+  document.getElementById("profilePhone").value = data.phone || "";
+  document.getElementById("profileEmergencyContact").value = data.emergency_contact || "";
+  document.getElementById("profileAddress").value = data.address || "";
+  setProfileImage(data.avatar_path || "");
+}
+
+function openProfileEditor() {
+  document.getElementById("profileModal").classList.add("open");
+  loadMyProfile();
+}
+
+function closeProfileEditor(event) {
+  if (event && event.target && event.target.id !== "profileModal") {
+    return;
+  }
+
+  document.getElementById("profileModal").classList.remove("open");
+  document.getElementById("profileSaveStatus").textContent = "";
+}
+
+async function uploadMyProfilePhoto(userId) {
+  const fileInput = document.getElementById("profilePhotoFile");
+  const file = fileInput.files && fileInput.files[0];
+
+  if (!file) {
+    return currentProfile && currentProfile.avatar_path ? currentProfile.avatar_path : "";
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("Profile photo must be under 5 MB.");
+  }
+
+  const filePath = userId + "/" + Date.now() + "-" + makeProfilePhotoFileName(file.name);
+  const { error } = await supabaseClient.storage
+    .from("profile-photos")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "image/jpeg"
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return filePath;
+}
+
+async function saveMyProfile() {
+  const userId = await getCurrentUserId();
+  const status = document.getElementById("profileSaveStatus");
+
+  if (!userId) {
+    status.textContent = "Profile could not be saved because your login session was not found.";
+    return;
+  }
+
+  status.textContent = "Saving profile...";
+
+  try {
+    const avatarPath = await uploadMyProfilePhoto(userId);
+    const values = {
+      email: document.getElementById("profileEmail").value.trim(),
+      phone: document.getElementById("profilePhone").value.trim(),
+      emergency_contact: document.getElementById("profileEmergencyContact").value.trim(),
+      address: document.getElementById("profileAddress").value.trim(),
+      avatar_path: avatarPath || null,
+      last_portal_activity: new Date().toISOString()
+    };
+
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .update(values)
+      .eq("id", userId)
+      .select("id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    currentProfile = data;
+    localStorage.setItem("currentUserEmail", data.email || "");
+    setProfileImage(data.avatar_path || "");
+    document.getElementById("profilePhotoFile").value = "";
+    status.textContent = "Profile saved.";
+  } catch (error) {
+    status.textContent = "Profile could not be saved: " + (error.message || error);
+  }
 }
 
 async function acknowledgeAnnouncement(announcementId, source) {
