@@ -49,6 +49,20 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
     return;
   }
 
+  const loginTime = new Date().toISOString();
+  const { error: loginUpdateError } = await supabaseClient
+    .from("profiles")
+    .update({
+      last_login_at: loginTime,
+      last_portal_activity: loginTime
+    })
+    .eq("id", profile.id);
+
+  if (!loginUpdateError) {
+    profile.last_login_at = loginTime;
+    profile.last_portal_activity = loginTime;
+  }
+
   localStorage.setItem("currentWorker", profile.worker_key);
   localStorage.setItem("currentWorkerDisplay", profile.display_name);
   localStorage.setItem("currentUserEmail", profile.email);
