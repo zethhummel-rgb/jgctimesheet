@@ -198,6 +198,7 @@ function getEquipmentStatus(expiryDate) {
 
 function getEquipmentCategory(item) {
     const text = [
+        item.equipment_type,
         item.name,
         item.identification_number,
         item.notes
@@ -205,6 +206,10 @@ function getEquipmentCategory(item) {
 
     if (/\b(trailer|trl|float)\b/.test(text)) {
         return "Trailers";
+    }
+
+    if (/\b(equipment|forklift|lift|telehandler|tele-handler|loader|excavator|compressor|generator)\b/.test(text)) {
+        return "Equipment";
     }
 
     if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
@@ -225,6 +230,7 @@ function renderEquipmentTable(items) {
                 <thead>
                     <tr>
                         <th>Name of Equipment / Vehicle</th>
+                        <th>Type of Equip/Vehicle</th>
                         <th>Identification #</th>
                         <th>Operator</th>
                         <th>Current Hours</th>
@@ -238,6 +244,7 @@ function renderEquipmentTable(items) {
                         return `
                             <tr>
                                 <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.equipment_type || "")}</td>
                                 <td>${escapeHtml(item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
                                 <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : "-"}</td>
