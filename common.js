@@ -189,6 +189,55 @@ function createJgcSupabaseClient() {
     : null;
 }
 
+async function recordJgcPortalActivity() {
+  if (!window.supabase || !localStorage.getItem("currentWorker")) {
+    return;
+  }
+
+  const lastRecorded = Number(sessionStorage.getItem("jgcPortalActivityRecordedAt") || 0);
+  const nowMs = Date.now();
+
+  if (lastRecorded && nowMs - lastRecorded < 15 * 60 * 1000) {
+    return;
+  }
+
+  const client = createJgcSupabaseClient();
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const { data } = await client.auth.getSession();
+    const user = data && data.session && data.session.user;
+
+    if (!user) {
+      return;
+    }
+
+    const activityTime = new Date().toISOString();
+    const { error } = await client
+      .from("profiles")
+      .update({
+        last_login_at: activityTime,
+        last_portal_activity: activityTime
+      })
+      .eq("id", user.id);
+
+    if (!error) {
+      sessionStorage.setItem("jgcPortalActivityRecordedAt", String(nowMs));
+    }
+  } catch (error) {
+    console.warn("JGC Portal activity could not be recorded.", error);
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", recordJgcPortalActivity);
+} else {
+  recordJgcPortalActivity();
+}
+
 function normalizeWorkerName(name) {
   return String(name || "").trim().toLowerCase();
 }
