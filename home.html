@@ -364,6 +364,19 @@
       overflow: hidden;
     }
 
+    .side-link svg {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      display: block;
+    }
+
+    .side-link .side-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .app-shell.sidebar-collapsed .side-link {
       justify-content: center;
       gap: 0;
@@ -583,6 +596,13 @@
       color: var(--text);
       font-size: 20px;
       line-height: 1.05;
+      max-width: 100%;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-wrap: normal;
+      word-break: normal;
     }
 
     .feature-card p {
@@ -1095,22 +1115,22 @@
   <div class="main-grid">
     <aside class="sidebar">
       <nav class="side-nav" aria-label="Main navigation">
-        <button type="button" class="side-link active" onclick="goHome()"><i data-lucide="home"></i>Home</button>
-        <button type="button" class="side-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i>Timesheets</button>
-        <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i>Inspections</button>
-        <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i>Certificates</button>
-        <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i>Vacation Requests</button>
-        <button type="button" class="side-link" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i>Equipment / Vehicles</button>
-        <button type="button" class="side-link" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i>Jobs</button>
-        <button type="button" class="side-link" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i>Work Orders</button>
-        <button type="button" class="side-link" onclick="goTo('permits.html')"><i data-lucide="file-check"></i>Permits</button>
-        <button type="button" class="side-link" onclick="goTo('reports.html')"><i data-lucide="clipboard-list"></i>Reports</button>
-        <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-        <button id="policiesAnnouncementsSideLink" type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
+        <button type="button" class="side-link active" onclick="goHome()"><i data-lucide="home"></i><span class="side-label">Home</span></button>
+        <button type="button" class="side-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i><span class="side-label">Timesheets</span></button>
+        <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i><span class="side-label">Inspections</span></button>
+        <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i><span class="side-label">Certificates</span></button>
+        <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i><span class="side-label">Vacation Requests</span></button>
+        <button type="button" class="side-link" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i><span class="side-label">Equipment / Vehicles</span></button>
+        <button type="button" class="side-link" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i><span class="side-label">Jobs</span></button>
+        <button type="button" class="side-link" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i><span class="side-label">Work Orders</span></button>
+        <button type="button" class="side-link" onclick="goTo('permits.html')"><i data-lucide="file-check"></i><span class="side-label">Permits</span></button>
+        <button type="button" class="side-link" onclick="goTo('reports.html')"><i data-lucide="clipboard-list"></i><span class="side-label">Reports</span></button>
+        <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i><span class="side-label">Contacts</span></button>
+        <button id="policiesAnnouncementsSideLink" type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i><span class="side-label">Policies / Announcements</span></button>
       </nav>
 
       <div class="side-admin-wrap">
-        <button id="sideAdminButton" type="button" class="side-link admin-side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i>Admin</button>
+        <button id="sideAdminButton" type="button" class="side-link admin-side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i><span class="side-label">Admin</span></button>
       </div>
     </aside>
 
@@ -1210,6 +1230,12 @@
           <span class="card-icon"><i data-lucide="clipboard-check"></i></span>
           <h2>Work Orders</h2>
           <p>T&M backup documentation and PO tracking</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button id="policiesAnnouncementsCard" type="button" class="feature-card" onclick="goTo('policies-announcements.html')">
+          <span class="card-icon"><i data-lucide="file-text"></i></span>
+          <h2>Policies</h2>
+          <p>Review JGC policies and previous announcements</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
       </section>
