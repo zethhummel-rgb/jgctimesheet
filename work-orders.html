@@ -193,6 +193,34 @@ th {
   align-items: center;
 }
 
+.item-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 7px;
+  background: rgba(255,255,255,0.04);
+}
+
+.item-row .wide {
+  grid-column: 1 / -1;
+}
+
+.item-row button {
+  align-self: end;
+}
+
+.section-actions {
+  margin: 8px 0 16px;
+}
+
+.pdf-frame {
+  background: #ffffff;
+  color: #111111;
+}
+
 .employee-picker {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -259,6 +287,10 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .item-row {
+    grid-template-columns: 1fr;
+  }
+
   .labour-summary {
     grid-template-columns: 1fr;
   }
@@ -288,7 +320,7 @@ th {
   <div class="grid">
     <section class="card">
       <h2 id="formTitle">New Work Order</h2>
-      <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts, PO numbers, and expected labour. Equipment, PDF, and email come in the next phases.</div>
+      <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
 
       <div class="form-grid">
         <div>
@@ -351,8 +383,29 @@ th {
       </div>
       <div id="labourPreview" class="small">Select employees to preview labour.</div>
 
+      <h3>Equipment Used</h3>
+      <div class="small" style="margin-bottom:8px;">Add company equipment used on the Work Order. Transportation details can be added when needed.</div>
+      <div id="equipmentRows"></div>
+      <div class="section-actions">
+        <button type="button" class="secondary" onclick="addEquipmentRow()">Add Equipment</button>
+      </div>
+
+      <h3>Rental Equipment</h3>
+      <div id="rentalRows"></div>
+      <div class="section-actions">
+        <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+      </div>
+
+      <h3>Materials Used</h3>
+      <div id="materialRows"></div>
+      <div class="section-actions">
+        <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+      </div>
+
       <div class="actions" style="margin-top:14px;">
         <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
+        <button id="pdfButton" type="button" class="secondary" onclick="downloadCurrentWorkOrderPdf()" disabled>Save PDF</button>
+        <button id="emailButton" type="button" class="secondary" onclick="emailCurrentWorkOrderPdf()" disabled>Email PDF</button>
         <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
       </div>
       <div id="formStatus" class="small" style="margin-top:10px;"></div>
@@ -382,10 +435,15 @@ th {
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
+const WORK_ORDER_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 let jobs = [];
 let workOrders = [];
 let purchaseOrders = [];
 let labourRows = [];
+let equipmentItems = [];
+let workOrderEquipmentRows = [];
+let rentalRows = [];
+let materialRows = [];
 let employees = [];
 let timesheetEntries = [];
 let editingWorkOrderId = "";
@@ -623,6 +681,218 @@ function collectPoRows() {
   }).filter((po) => po.po_number || po.company_name || po.notes);
 }
 
+function makeEquipmentOptions(selectedId, includeTrailersOnly) {
+  const filtered = includeTrailersOnly
+    ? equipmentItems.filter((item) => /trailer|trl|float/i.test([item.equipment_type, item.name, item.identification_number].join(" ")))
+    : equipmentItems;
+
+  return '<option value="">Select equipment</option>' + filtered.map((item) => {
+    const label = [item.name, item.identification_number].filter(Boolean).join(" - ");
+    return '<option value="' + escapeHtml(item.id) + '"' + (item.id === selectedId ? " selected" : "") + '>' + escapeHtml(label) + '</option>';
+  }).join("");
+}
+
+function refreshEquipmentSelectOptions() {
+  document.querySelectorAll('[data-equipment-field="equipment_id"]').forEach((select) => {
+    const selected = select.value;
+    select.innerHTML = makeEquipmentOptions(selected, false);
+  });
+  document.querySelectorAll('[data-equipment-field="trailer_equipment_id"]').forEach((select) => {
+    const selected = select.value;
+    select.innerHTML = makeEquipmentOptions(selected, true);
+  });
+}
+
+function addEquipmentRow(rowData) {
+  const row = document.createElement("div");
+  row.className = "item-row equipment-row";
+  const selectedEquipmentId = rowData && rowData.equipment_id ? rowData.equipment_id : "";
+  const selectedTrailerId = rowData && rowData.trailer_equipment_id ? rowData.trailer_equipment_id : "";
+  const providerType = rowData && rowData.transportation_provider_type ? rowData.transportation_provider_type : "";
+
+  row.innerHTML = `
+    <div class="wide">
+      <label>Equipment</label>
+      <select data-equipment-field="equipment_id" onchange="fillEquipmentRow(this)">
+        ${makeEquipmentOptions(selectedEquipmentId, false)}
+      </select>
+    </div>
+    <div>
+      <label>Equipment Name</label>
+      <input data-equipment-field="equipment_name" placeholder="Manual equipment name" value="${escapeHtml(rowData && rowData.equipment_name ? rowData.equipment_name : "")}">
+    </div>
+    <div>
+      <label>Identification #</label>
+      <input data-equipment-field="identification_number" placeholder="Unit / plate / serial" value="${escapeHtml(rowData && rowData.identification_number ? rowData.identification_number : "")}">
+    </div>
+    <div>
+      <label>Transportation Required</label>
+      <select data-equipment-field="transportation_required">
+        <option value="false"${rowData && rowData.transportation_required ? "" : " selected"}>No</option>
+        <option value="true"${rowData && rowData.transportation_required ? " selected" : ""}>Yes</option>
+      </select>
+    </div>
+    <div>
+      <label>Transportation By</label>
+      <select data-equipment-field="transportation_provider_type">
+        <option value=""${providerType ? "" : " selected"}>Not required</option>
+        <option value="JGC"${providerType === "JGC" ? " selected" : ""}>JGC</option>
+        <option value="External"${providerType === "External" ? " selected" : ""}>External</option>
+      </select>
+    </div>
+    <div>
+      <label>Trailer</label>
+      <select data-equipment-field="trailer_equipment_id" onchange="fillTrailerRow(this)">
+        ${makeEquipmentOptions(selectedTrailerId, true)}
+      </select>
+      <input type="hidden" data-equipment-field="trailer_name" value="${escapeHtml(rowData && rowData.trailer_name ? rowData.trailer_name : "")}">
+    </div>
+    <div>
+      <label>External Company</label>
+      <input data-equipment-field="transportation_company" placeholder="Transportation company" value="${escapeHtml(rowData && rowData.transportation_company ? rowData.transportation_company : "")}">
+    </div>
+    <div>
+      <label>Transportation PO</label>
+      <input data-equipment-field="transportation_po_number" placeholder="PO number" value="${escapeHtml(rowData && rowData.transportation_po_number ? rowData.transportation_po_number : "")}">
+    </div>
+    <div class="wide">
+      <label>Transportation Notes</label>
+      <input data-equipment-field="transportation_notes" placeholder="Pickup, delivery, float, or special notes" value="${escapeHtml(rowData && rowData.transportation_notes ? rowData.transportation_notes : "")}">
+    </div>
+    <button type="button" class="delete-button" onclick="this.closest('.equipment-row').remove()">Remove Equipment</button>
+  `;
+  document.getElementById("equipmentRows").appendChild(row);
+}
+
+function fillEquipmentRow(select) {
+  const item = equipmentItems.find((equipment) => equipment.id === select.value);
+  const row = select.closest(".equipment-row");
+
+  if (!item || !row) {
+    return;
+  }
+
+  row.querySelector('[data-equipment-field="equipment_name"]').value = item.name || "";
+  row.querySelector('[data-equipment-field="identification_number"]').value = item.identification_number || "";
+  row.querySelector('[data-equipment-field="transportation_required"]').value = item.transportation_required ? "true" : "false";
+}
+
+function fillTrailerRow(select) {
+  const item = equipmentItems.find((equipment) => equipment.id === select.value);
+  const row = select.closest(".equipment-row");
+  const trailerNameInput = row ? row.querySelector('[data-equipment-field="trailer_name"]') : null;
+
+  if (trailerNameInput) {
+    trailerNameInput.value = item ? [item.name, item.identification_number].filter(Boolean).join(" - ") : "";
+  }
+}
+
+function collectEquipmentRows() {
+  return Array.from(document.querySelectorAll(".equipment-row")).map((row) => {
+    const getValue = (field) => {
+      const input = row.querySelector('[data-equipment-field="' + field + '"]');
+      return input ? input.value.trim() : "";
+    };
+    return {
+      equipment_id: getValue("equipment_id") || null,
+      equipment_name: getValue("equipment_name"),
+      identification_number: getValue("identification_number"),
+      transportation_required: getValue("transportation_required") === "true",
+      transportation_provider_type: getValue("transportation_provider_type"),
+      trailer_equipment_id: getValue("trailer_equipment_id") || null,
+      trailer_name: getValue("trailer_name"),
+      transportation_company: getValue("transportation_company"),
+      transportation_po_number: getValue("transportation_po_number"),
+      transportation_notes: getValue("transportation_notes")
+    };
+  }).filter((row) => row.equipment_id || row.equipment_name || row.identification_number || row.transportation_company || row.transportation_notes);
+}
+
+function addRentalRow(rowData) {
+  const row = document.createElement("div");
+  row.className = "item-row rental-row";
+  row.innerHTML = `
+    <div class="wide">
+      <label>Rental Equipment</label>
+      <input data-rental-field="rental_equipment_description" placeholder="Equipment description" value="${escapeHtml(rowData && rowData.rental_equipment_description ? rowData.rental_equipment_description : "")}">
+    </div>
+    <div>
+      <label>Rental Company</label>
+      <input data-rental-field="rental_company" placeholder="Rental company" value="${escapeHtml(rowData && rowData.rental_company ? rowData.rental_company : "")}">
+    </div>
+    <div>
+      <label>Quantity</label>
+      <input data-rental-field="quantity" type="number" min="0" step="1" value="${escapeHtml(rowData && rowData.quantity !== undefined && rowData.quantity !== null ? rowData.quantity : "")}">
+    </div>
+    <div>
+      <label>Hours Used</label>
+      <input data-rental-field="hours_used" type="number" min="0" step="0.25" value="${escapeHtml(rowData && rowData.hours_used !== undefined && rowData.hours_used !== null ? rowData.hours_used : "")}">
+    </div>
+    <div>
+      <label>Days Used</label>
+      <input data-rental-field="days_used" type="number" min="0" step="0.5" value="${escapeHtml(rowData && rowData.days_used !== undefined && rowData.days_used !== null ? rowData.days_used : "")}">
+    </div>
+    <div class="wide">
+      <label>Notes</label>
+      <input data-rental-field="notes" placeholder="Rental notes" value="${escapeHtml(rowData && rowData.notes ? rowData.notes : "")}">
+    </div>
+    <button type="button" class="delete-button" onclick="this.closest('.rental-row').remove()">Remove Rental</button>
+  `;
+  document.getElementById("rentalRows").appendChild(row);
+}
+
+function collectRentalRows() {
+  return Array.from(document.querySelectorAll(".rental-row")).map((row) => {
+    const getValue = (field) => {
+      const input = row.querySelector('[data-rental-field="' + field + '"]');
+      return input ? input.value.trim() : "";
+    };
+    return {
+      rental_equipment_description: getValue("rental_equipment_description"),
+      rental_company: getValue("rental_company"),
+      quantity: Number(getValue("quantity") || 0),
+      hours_used: Number(getValue("hours_used") || 0),
+      days_used: Number(getValue("days_used") || 0),
+      notes: getValue("notes")
+    };
+  }).filter((row) => row.rental_equipment_description || row.rental_company || row.quantity || row.hours_used || row.days_used || row.notes);
+}
+
+function addMaterialRow(rowData) {
+  const row = document.createElement("div");
+  row.className = "item-row material-row";
+  row.innerHTML = `
+    <div>
+      <label>Purchased From</label>
+      <input data-material-field="purchased_from" placeholder="Supplier / store" value="${escapeHtml(rowData && rowData.purchased_from ? rowData.purchased_from : "")}">
+    </div>
+    <div>
+      <label>Quantity</label>
+      <input data-material-field="quantity" type="number" min="0" step="0.01" value="${escapeHtml(rowData && rowData.quantity !== undefined && rowData.quantity !== null ? rowData.quantity : "")}">
+    </div>
+    <div class="wide">
+      <label>Material Description</label>
+      <input data-material-field="material_description" placeholder="Material used" value="${escapeHtml(rowData && rowData.material_description ? rowData.material_description : "")}">
+    </div>
+    <button type="button" class="delete-button" onclick="this.closest('.material-row').remove()">Remove Material</button>
+  `;
+  document.getElementById("materialRows").appendChild(row);
+}
+
+function collectMaterialRows() {
+  return Array.from(document.querySelectorAll(".material-row")).map((row) => {
+    const getValue = (field) => {
+      const input = row.querySelector('[data-material-field="' + field + '"]');
+      return input ? input.value.trim() : "";
+    };
+    return {
+      purchased_from: getValue("purchased_from"),
+      material_description: getValue("material_description"),
+      quantity: Number(getValue("quantity") || 0)
+    };
+  }).filter((row) => row.purchased_from || row.material_description || row.quantity);
+}
+
 function resetWorkOrderForm() {
   editingWorkOrderId = "";
   document.getElementById("formTitle").textContent = "New Work Order";
@@ -639,6 +909,14 @@ function resetWorkOrderForm() {
   document.getElementById("woDescription").value = "";
   document.getElementById("poRows").innerHTML = "";
   addPoRow();
+  document.getElementById("equipmentRows").innerHTML = "";
+  addEquipmentRow();
+  document.getElementById("rentalRows").innerHTML = "";
+  addRentalRow();
+  document.getElementById("materialRows").innerHTML = "";
+  addMaterialRow();
+  document.getElementById("pdfButton").disabled = true;
+  document.getElementById("emailButton").disabled = true;
   renderEmployeePicker([]);
   renderLabourPreview();
   setFormStatus("");
@@ -717,6 +995,8 @@ function renderWorkOrders() {
                 <td>
                   <div class="actions">
                     <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">Edit</button>
+                    <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
+                    <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
                     ${isAdmin ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
                   </div>
                 </td>
@@ -758,9 +1038,35 @@ function editWorkOrder(id) {
     addPoRow();
   }
 
+  document.getElementById("equipmentRows").innerHTML = "";
+  const equipmentRows = workOrderEquipmentRows.filter((row) => row.work_order_id === wo.id);
+  if (equipmentRows.length) {
+    equipmentRows.forEach((row) => addEquipmentRow(row));
+  } else {
+    addEquipmentRow();
+  }
+
+  document.getElementById("rentalRows").innerHTML = "";
+  const selectedRentalRows = rentalRows.filter((row) => row.work_order_id === wo.id);
+  if (selectedRentalRows.length) {
+    selectedRentalRows.forEach((row) => addRentalRow(row));
+  } else {
+    addRentalRow();
+  }
+
+  document.getElementById("materialRows").innerHTML = "";
+  const selectedMaterialRows = materialRows.filter((row) => row.work_order_id === wo.id);
+  if (selectedMaterialRows.length) {
+    selectedMaterialRows.forEach((row) => addMaterialRow(row));
+  } else {
+    addMaterialRow();
+  }
+
   const selectedLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
   renderEmployeePicker(selectedLabourRows.map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
+  document.getElementById("pdfButton").disabled = false;
+  document.getElementById("emailButton").disabled = false;
   setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -778,6 +1084,9 @@ async function saveWorkOrder() {
   const description = document.getElementById("woDescription").value.trim();
   const poRows = collectPoRows();
   const previewRows = buildLabourPreviewRows();
+  const selectedEquipmentRows = collectEquipmentRows();
+  const selectedRentalRows = collectRentalRows();
+  const selectedMaterialRows = collectMaterialRows();
   const labourComplete = previewRows.length > 0 && previewRows.every((row) => row.complete);
   const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.employee_name + " Timesheet");
 
@@ -887,6 +1196,59 @@ async function saveWorkOrder() {
     }
   }
 
+  const rowSaves = [
+    {
+      table: "work_order_equipment",
+      label: "equipment",
+      rows: selectedEquipmentRows.map((row) => ({
+        ...row,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      }))
+    },
+    {
+      table: "work_order_rentals",
+      label: "rental",
+      rows: selectedRentalRows.map((row) => ({
+        ...row,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      }))
+    },
+    {
+      table: "work_order_materials",
+      label: "material",
+      rows: selectedMaterialRows.map((row) => ({
+        ...row,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      }))
+    }
+  ];
+
+  for (const saveGroup of rowSaves) {
+    const { error: deleteError } = await supabaseClient
+      .from(saveGroup.table)
+      .delete()
+      .eq("work_order_id", workOrderId);
+
+    if (deleteError) {
+      setFormStatus("Work order saved, but old " + saveGroup.label + " rows could not be cleared.", true);
+      return;
+    }
+
+    if (saveGroup.rows.length) {
+      const { error: insertError } = await supabaseClient
+        .from(saveGroup.table)
+        .insert(saveGroup.rows);
+
+      if (insertError) {
+        setFormStatus("Work order saved, but " + saveGroup.label + " rows could not be saved: " + insertError.message, true);
+        return;
+      }
+    }
+  }
+
   setFormStatus("Work order saved.");
   await loadWorkOrders(false);
   editWorkOrder(workOrderId);
@@ -959,6 +1321,22 @@ async function loadEmployees() {
   renderLabourPreview();
 }
 
+async function loadEquipment() {
+  const { data, error } = await supabaseClient
+    .from("equipment_vehicles")
+    .select("*")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    equipmentItems = [];
+    return;
+  }
+
+  equipmentItems = data || [];
+  refreshEquipmentSelectOptions();
+}
+
 async function loadTimesheetEntries() {
   const [liveResult, archivedResult] = await Promise.all([
     supabaseClient
@@ -1007,16 +1385,22 @@ async function loadWorkOrders(showLoading = true) {
     document.getElementById("woListStatus").textContent = "Loading work orders...";
   }
 
-  const [woResult, poResult, labourResult] = await Promise.all([
+  const [woResult, poResult, labourResult, equipmentResult, rentalResult, materialResult] = await Promise.all([
     supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
     supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
-    supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true })
+    supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
+    supabaseClient.from("work_order_equipment").select("*"),
+    supabaseClient.from("work_order_rentals").select("*"),
+    supabaseClient.from("work_order_materials").select("*")
   ]);
 
   if (woResult.error) {
     workOrders = [];
     purchaseOrders = [];
     labourRows = [];
+    workOrderEquipmentRows = [];
+    rentalRows = [];
+    materialRows = [];
     document.getElementById("woListStatus").textContent = "Work orders could not be loaded.";
     renderWorkOrders();
     return;
@@ -1025,7 +1409,261 @@ async function loadWorkOrders(showLoading = true) {
   workOrders = woResult.data || [];
   purchaseOrders = poResult.data || [];
   labourRows = labourResult.data || [];
+  workOrderEquipmentRows = equipmentResult.data || [];
+  rentalRows = rentalResult.data || [];
+  materialRows = materialResult.data || [];
   renderWorkOrders();
+}
+
+function getWorkOrderBundle(id) {
+  const wo = workOrders.find((item) => item.id === id);
+
+  if (!wo) {
+    return null;
+  }
+
+  return {
+    wo,
+    pos: purchaseOrders.filter((row) => row.work_order_id === id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    labour: labourRows.filter((row) => row.work_order_id === id),
+    equipment: workOrderEquipmentRows.filter((row) => row.work_order_id === id),
+    rentals: rentalRows.filter((row) => row.work_order_id === id),
+    materials: materialRows.filter((row) => row.work_order_id === id)
+  };
+}
+
+function safeFileName(value) {
+  return String(value || "work-order")
+    .replace(/[^a-z0-9\-_. ]/gi, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 120);
+}
+
+function moneylessNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number.toFixed(2) : "0.00";
+}
+
+function buildPdfRows(rows, emptyText, cellsBuilder) {
+  if (!rows.length) {
+    return '<tr><td colspan="10" class="empty">' + escapeHtml(emptyText) + '</td></tr>';
+  }
+
+  return rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("");
+}
+
+function buildWorkOrderPdfHtml(id) {
+  const bundle = getWorkOrderBundle(id);
+
+  if (!bundle) {
+    return "";
+  }
+
+  const { wo, pos, labour, equipment, rentals, materials } = bundle;
+  const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
+  const labourComplete = labour.length ? labour.filter((row) => row.complete).length + " / " + labour.length : "No labour selected";
+  const waitingFor = Array.isArray(wo.waiting_for) ? wo.waiting_for.join(", ") : "";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(wo.wo_number || "Work Order")}</title>
+<style>
+  @page { size: letter; margin: 0.45in; }
+  body { font-family: Arial, sans-serif; color: #111; margin: 0; font-size: 12px; }
+  h1 { color: #0b5e3b; margin: 0; font-size: 25px; text-align: center; }
+  h2 { color: #0b5e3b; border-bottom: 2px solid #0b5e3b; padding-bottom: 3px; margin: 18px 0 8px; font-size: 16px; }
+  .brand { text-align: center; font-weight: bold; color: #0b5e3b; letter-spacing: 1px; margin-bottom: 8px; }
+  .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border: 2px solid #111; margin-top: 12px; }
+  .summary div { border: 1px solid #111; padding: 7px; min-height: 30px; }
+  .summary b { display: block; font-size: 10px; text-transform: uppercase; color: #333; margin-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; page-break-inside: auto; }
+  th, td { border: 1px solid #111; padding: 5px; vertical-align: top; }
+  th { background: #e9f2e8; color: #111; text-align: left; }
+  .description { border: 1px solid #111; min-height: 70px; padding: 8px; white-space: pre-wrap; }
+  .empty { color: #555; font-style: italic; }
+  .totals { font-weight: bold; background: #f3f7f2; }
+  .signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 34px; }
+  .line { border-top: 1px solid #111; padding-top: 5px; }
+</style>
+</head>
+<body>
+  <div class="brand">JOHN GORDON CONSTRUCTION</div>
+  <h1>Work Order</h1>
+  <div class="summary">
+    <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
+    <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
+    <div><b>Customer</b>${escapeHtml(wo.customer || "")}</div>
+    <div><b>Status</b>${escapeHtml(getStatusLabel(wo.status))}</div>
+    <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
+    <div><b>Job Type</b>${escapeHtml(wo.job_type || "")}</div>
+    <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
+    <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
+    <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
+    <div><b>Labour Match</b>${escapeHtml(labourComplete)}</div>
+  </div>
+
+  <h2>Description of Work Completed Today</h2>
+  <div class="description">${escapeHtml(wo.description_of_work || "")}</div>
+
+  <h2>Purchase Orders</h2>
+  <table>
+    <thead><tr><th>PO Number</th><th>Company</th><th>Notes</th></tr></thead>
+    <tbody>${buildPdfRows(pos, "No purchase orders entered.", (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}</tbody>
+  </table>
+
+  <h2>Labour</h2>
+  <table>
+    <thead><tr><th>Employee</th><th>Status</th><th>Hours</th><th>Notes</th></tr></thead>
+    <tbody>
+      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", row.complete ? "Complete" : "Missing Timesheet", moneylessNumber(row.hours), row.notes || ""])}
+      <tr class="totals"><td colspan="2">Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td>${escapeHtml(waitingFor ? "Waiting for: " + waitingFor : "")}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Equipment Used</h2>
+  <table>
+    <thead><tr><th>Equipment</th><th>ID #</th><th>Transportation</th><th>Trailer</th><th>External Company / PO</th><th>Notes</th></tr></thead>
+    <tbody>${buildPdfRows(equipment, "No company equipment entered.", (row) => [
+      row.equipment_name || "",
+      row.identification_number || "",
+      row.transportation_required ? (row.transportation_provider_type || "Required") : "No",
+      row.trailer_name || "",
+      [row.transportation_company, row.transportation_po_number].filter(Boolean).join(" / "),
+      row.transportation_notes || ""
+    ])}</tbody>
+  </table>
+
+  <h2>Rental Equipment</h2>
+  <table>
+    <thead><tr><th>Rental Equipment</th><th>Company</th><th>Quantity</th><th>Hours</th><th>Days</th><th>Notes</th></tr></thead>
+    <tbody>${buildPdfRows(rentals, "No rental equipment entered.", (row) => [
+      row.rental_equipment_description || "",
+      row.rental_company || "",
+      String(row.quantity || ""),
+      String(row.hours_used || ""),
+      String(row.days_used || ""),
+      row.notes || ""
+    ])}</tbody>
+  </table>
+
+  <h2>Materials Used</h2>
+  <table>
+    <thead><tr><th>Purchased From</th><th>Material Description</th><th>Quantity</th></tr></thead>
+    <tbody>${buildPdfRows(materials, "No materials entered.", (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}</tbody>
+  </table>
+
+  <div class="signatures">
+    <div class="line">Supervisor Signature</div>
+    <div class="line">Customer Signature</div>
+  </div>
+</body>
+</html>`;
+}
+
+function buildWorkOrderEmailBody(id) {
+  const bundle = getWorkOrderBundle(id);
+
+  if (!bundle) {
+    return "";
+  }
+
+  const { wo, labour, equipment, rentals, materials } = bundle;
+  const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
+
+  return [
+    "JGC Work Order Submission",
+    "",
+    "WO Number: " + (wo.wo_number || ""),
+    "Date: " + (wo.work_order_date || ""),
+    "Customer: " + (wo.customer || ""),
+    "Job: " + [wo.job_number, wo.job_name].filter(Boolean).join(" - "),
+    "Status: " + getStatusLabel(wo.status),
+    "Labour Hours: " + totalLabour.toFixed(2),
+    "Equipment Rows: " + equipment.length,
+    "Rental Rows: " + rentals.length,
+    "Material Rows: " + materials.length,
+    "",
+    "See attached Work Order PDF."
+  ].join("\n");
+}
+
+function downloadCurrentWorkOrderPdf() {
+  if (!editingWorkOrderId) {
+    alert("Save the Work Order before creating a PDF.");
+    return;
+  }
+
+  downloadWorkOrderPdf(editingWorkOrderId);
+}
+
+function emailCurrentWorkOrderPdf() {
+  if (!editingWorkOrderId) {
+    alert("Save the Work Order before emailing.");
+    return;
+  }
+
+  emailWorkOrderPdf(editingWorkOrderId);
+}
+
+function downloadWorkOrderPdf(id) {
+  const bundle = getWorkOrderBundle(id);
+
+  if (!bundle) {
+    alert("Work Order could not be found.");
+    return;
+  }
+
+  const pdfWindow = window.open("", "_blank");
+
+  if (!pdfWindow) {
+    alert("Allow popups to save the Work Order PDF.");
+    return;
+  }
+
+  pdfWindow.document.write(buildWorkOrderPdfHtml(id));
+  pdfWindow.document.close();
+  pdfWindow.focus();
+  setTimeout(() => pdfWindow.print(), 300);
+}
+
+async function emailWorkOrderPdf(id) {
+  const bundle = getWorkOrderBundle(id);
+
+  if (!bundle) {
+    alert("Work Order could not be found.");
+    return;
+  }
+
+  const subject = "JGC Work Order " + (bundle.wo.wo_number || "") + " - " + [bundle.wo.job_number, bundle.wo.job_name].filter(Boolean).join(" - ");
+  const body = buildWorkOrderEmailBody(id);
+  const pdfHtml = buildWorkOrderPdfHtml(id);
+  const fileName = safeFileName(subject) + ".pdf";
+
+  setFormStatus("Sending Work Order email...");
+
+  try {
+    await fetch(WORK_ORDER_EMAIL_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        subject,
+        body,
+        text: body,
+        pdfHtml,
+        pdfFileName: fileName,
+        source: "work_order"
+      })
+    });
+    setFormStatus("Work Order email sent.");
+    alert("Work Order email sent.");
+  } catch (error) {
+    setFormStatus("Work Order email could not be sent.", true);
+    alert("Work Order email could not be sent.");
+  }
 }
 
 async function signOut() {
@@ -1033,7 +1671,7 @@ async function signOut() {
 }
 
 resetWorkOrderForm();
-Promise.all([loadJobs(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]);
+Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]);
 </script>
 </body>
 </html>
