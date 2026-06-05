@@ -52,7 +52,7 @@
       padding: 16px 26px 16px 72px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       background:
         radial-gradient(circle at 25% 0%, rgba(57, 200, 72, 0.2), transparent 26rem),
         linear-gradient(90deg, rgba(5, 18, 16, 0.96), rgba(8, 42, 29, 0.88), rgba(5, 14, 14, 0.96));
@@ -73,8 +73,7 @@
       cursor: pointer;
       position: absolute;
       left: 22px;
-      top: 50%;
-      transform: translateY(-50%);
+      bottom: 16px;
     }
 
     .sidebar-toggle:hover {
@@ -82,7 +81,7 @@
     }
 
     .logo-wrap {
-      text-align: left;
+      text-align: center;
     }
 
     .logo-wrap img {
@@ -268,9 +267,10 @@
       color: var(--text);
       font-weight: 800;
       white-space: nowrap;
-      position: static;
-      margin-left: auto;
-      margin-right: 270px;
+      position: absolute;
+      left: 22px;
+      top: 12px;
+      margin: 0;
       font-size: 14px;
     }
 
@@ -1099,13 +1099,14 @@
         <button type="button" class="side-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i>Timesheets</button>
         <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i>Inspections</button>
         <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i>Certificates</button>
-        <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="palm-tree"></i>Vacation Requests</button>
+        <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i>Vacation Requests</button>
         <button type="button" class="side-link" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i>Equipment / Vehicles</button>
         <button type="button" class="side-link" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i>Jobs</button>
+        <button type="button" class="side-link" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i>Work Orders</button>
         <button type="button" class="side-link" onclick="goTo('permits.html')"><i data-lucide="file-check"></i>Permits</button>
         <button type="button" class="side-link" onclick="goTo('reports.html')"><i data-lucide="clipboard-list"></i>Reports</button>
         <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-        <button type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
+        <button id="policiesAnnouncementsSideLink" type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
       </nav>
 
       <div class="side-admin-wrap">
@@ -1137,7 +1138,7 @@
             <div class="stat-label">Certificates Expiring</div>
           </div>
           <div class="stat">
-            <span class="stat-icon"><i data-lucide="palm-tree"></i></span>
+            <span class="stat-icon"><i data-lucide="calendar-days"></i></span>
             <div id="pendingVacations" class="stat-value">0</div>
             <div class="stat-label">Vacation Request Pending</div>
           </div>
@@ -1182,7 +1183,7 @@
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card" onclick="goTo('vacation-request.html')">
-          <span class="card-icon"><i data-lucide="palm-tree"></i></span>
+          <span class="card-icon"><i data-lucide="calendar-days"></i></span>
           <h2>Vacation Requests</h2>
           <p>Request time off and view approvals</p>
           <i class="arrow" data-lucide="arrow-right"></i>
@@ -1203,6 +1204,12 @@
           <span class="card-icon"><i data-lucide="briefcase"></i></span>
           <h2>Jobs</h2>
           <p>Look up job names, numbers, and Contract / T&M status</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
+        <button type="button" class="feature-card" onclick="goTo('work-orders.html')">
+          <span class="card-icon"><i data-lucide="clipboard-check"></i></span>
+          <h2>Work Orders</h2>
+          <p>T&M backup documentation and PO tracking</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
       </section>
@@ -1228,11 +1235,12 @@
 <div id="moreSheet" class="more-sheet">
   <button type="button" onclick="goTo('reports.html')"><i data-lucide="files"></i>Reports</button>
   <button type="button" onclick="goTo('permits.html')"><i data-lucide="file-check"></i>Permits</button>
-  <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="palm-tree"></i>Vacation Requests</button>
+  <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i>Vacation Requests</button>
   <button type="button" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i>Equipment / Vehicles</button>
   <button type="button" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i>Jobs</button>
+  <button type="button" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i>Work Orders</button>
   <button type="button" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-  <button type="button" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
+  <button id="policiesAnnouncementsMoreLink" type="button" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
   <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
 </div>
 
