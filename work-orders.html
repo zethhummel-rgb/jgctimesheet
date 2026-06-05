@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Work Orders</title>
+<link rel="stylesheet" href="styles.css?v=2">
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #061411;
+  color: #ffffff;
+  margin: 0;
+  padding: 20px;
+}
+
+.page {
+  max-width: 1220px;
+  margin: 0 auto;
+}
+
+.logo-wrap {
+  max-width: 260px;
+  margin: 0 auto 10px;
+}
+
+.logo-wrap img {
+  width: 100%;
+  display: block;
+}
+
+h1,
+h2,
+h3 {
+  color: #37d650;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.small {
+  color: #d7e6d6;
+  font-size: 13px;
+}
+
+.top-actions,
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top-actions {
+  justify-content: center;
+  margin: 14px 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1.6fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.card {
+  background: #102018;
+  border: 1px solid rgba(99, 205, 107, 0.28);
+  border-top: 4px solid #37d650;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #6d7d70;
+  background: #f7faf6;
+  color: #102018;
+  font-size: 15px;
+}
+
+textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+button {
+  background: #14883f;
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #26352d;
+}
+
+button.delete-button {
+  background: #b42323;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 160px 150px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  background: #0b1714;
+}
+
+th,
+td {
+  border: 1px solid rgba(255,255,255,0.16);
+  padding: 9px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+th {
+  background: #12371e;
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #dcefdc;
+  color: #102018;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.pill.draft {
+  background: #dcefdc;
+}
+
+.pill.ready_for_submission {
+  background: #fff2c2;
+  color: #634900;
+}
+
+.pill.submitted {
+  background: #cfe4ff;
+  color: #0d3c72;
+}
+
+.po-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1.4fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+@media (max-width: 920px) {
+  body {
+    padding: 12px;
+  }
+
+  .grid,
+  .form-grid,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .po-row {
+    grid-template-columns: 1fr;
+  }
+
+  button {
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+  </div>
+
+  <h1>Work Orders</h1>
+  <div id="currentUser" class="small" style="text-align:center;"></div>
+
+  <div class="top-actions">
+    <button type="button" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary" onclick="resetWorkOrderForm()">New Work Order</button>
+    <button type="button" class="secondary" onclick="loadWorkOrders()">Refresh</button>
+    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2 id="formTitle">New Work Order</h2>
+      <div class="small" style="margin-bottom:12px;">Phase 1 foundation: create and manage draft WO headers, descriptions, and PO numbers. Labour, equipment, PDF, and email come in the next phases.</div>
+
+      <div class="form-grid">
+        <div>
+          <label>WO Number</label>
+          <input id="woNumber" placeholder="Example: WO-2026-001">
+        </div>
+        <div>
+          <label>Date</label>
+          <input id="woDate" type="date">
+        </div>
+        <div>
+          <label>Customer</label>
+          <input id="woCustomer" placeholder="Customer name">
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="woStatus">
+            <option value="draft">Draft</option>
+            <option value="ready_for_submission">Ready For Submission</option>
+            <option value="submitted" disabled>Submitted - locked later</option>
+          </select>
+        </div>
+        <div class="full">
+          <label>Job</label>
+          <select id="woJob" onchange="fillSelectedJob()">
+            <option value="">Select job</option>
+          </select>
+        </div>
+        <div>
+          <label>Job Number</label>
+          <input id="woJobNumber">
+        </div>
+        <div>
+          <label>Job Type</label>
+          <input id="woJobType" placeholder="Contract or T&M">
+        </div>
+        <div class="full">
+          <label>Job Name</label>
+          <input id="woJobName">
+        </div>
+        <div class="full">
+          <label>Job Address</label>
+          <input id="woJobAddress" placeholder="Job address">
+        </div>
+        <div class="full">
+          <label>Description of Work Completed Today</label>
+          <textarea id="woDescription" placeholder="Example: Replaced damaged ceiling tiles, installed FRP panels, completed drywall repairs..."></textarea>
+        </div>
+      </div>
+
+      <h3>Purchase Orders</h3>
+      <div id="poRows"></div>
+      <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
+
+      <div class="actions" style="margin-top:14px;">
+        <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
+        <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
+      </div>
+      <div id="formStatus" class="small" style="margin-top:10px;"></div>
+    </section>
+
+    <section class="card">
+      <h2>Work Order Management</h2>
+      <div class="filters">
+        <input id="woSearch" type="search" placeholder="Search WO, job, customer" oninput="renderWorkOrders()">
+        <select id="woStatusFilter" onchange="renderWorkOrders()">
+          <option value="">All Statuses</option>
+          <option value="draft">Draft</option>
+          <option value="ready_for_submission">Ready For Submission</option>
+          <option value="submitted">Submitted</option>
+        </select>
+        <input id="woDateFilter" type="date" onchange="renderWorkOrders()">
+      </div>
+      <div id="woListStatus" class="small">Loading work orders...</div>
+      <div id="woList"></div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
+let jobs = [];
+let workOrders = [];
+let purchaseOrders = [];
+let editingWorkOrderId = "";
+
+document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
+document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
+document.getElementById("woNumber").value = makeWorkOrderNumber();
+
+function makeWorkOrderNumber() {
+  const now = new Date();
+  const datePart = now.getFullYear().toString() +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    String(now.getDate()).padStart(2, "0");
+  return "WO-" + datePart + "-" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+}
+
+function getSelectedJob() {
+  const selectedId = document.getElementById("woJob").value;
+  return jobs.find((job) => job.id === selectedId) || null;
+}
+
+function fillSelectedJob() {
+  const job = getSelectedJob();
+
+  if (!job) {
+    return;
+  }
+
+  document.getElementById("woJobNumber").value = job.job_number || "";
+  document.getElementById("woJobName").value = job.job_name || "";
+  document.getElementById("woJobType").value = job.job_type || "";
+
+  if (!document.getElementById("woCustomer").value.trim()) {
+    document.getElementById("woCustomer").value = job.job_name || "";
+  }
+}
+
+function renderJobOptions() {
+  const select = document.getElementById("woJob");
+  select.innerHTML = '<option value="">Select job</option>' + jobs.map((job) => {
+    const label = [job.job_number, job.job_name, job.job_type].filter(Boolean).join(" - ");
+    return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml(label) + '</option>';
+  }).join("");
+}
+
+function addPoRow(po) {
+  const row = document.createElement("div");
+  row.className = "po-row";
+  row.innerHTML = `
+    <input data-po-field="po_number" placeholder="PO Number" value="${escapeHtml(po && po.po_number ? po.po_number : "")}">
+    <input data-po-field="company_name" placeholder="Company Name" value="${escapeHtml(po && po.company_name ? po.company_name : "")}">
+    <input data-po-field="notes" placeholder="Notes optional" value="${escapeHtml(po && po.notes ? po.notes : "")}">
+    <button type="button" class="delete-button" onclick="this.closest('.po-row').remove()">Remove</button>
+  `;
+  document.getElementById("poRows").appendChild(row);
+}
+
+function collectPoRows() {
+  return Array.from(document.querySelectorAll(".po-row")).map((row, index) => {
+    const getValue = (field) => {
+      const input = row.querySelector('[data-po-field="' + field + '"]');
+      return input ? input.value.trim() : "";
+    };
+    return {
+      po_number: getValue("po_number"),
+      company_name: getValue("company_name"),
+      notes: getValue("notes"),
+      sort_order: index
+    };
+  }).filter((po) => po.po_number || po.company_name || po.notes);
+}
+
+function resetWorkOrderForm() {
+  editingWorkOrderId = "";
+  document.getElementById("formTitle").textContent = "New Work Order";
+  document.getElementById("saveButton").textContent = "Save Draft";
+  document.getElementById("woNumber").value = makeWorkOrderNumber();
+  document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("woCustomer").value = "";
+  document.getElementById("woStatus").value = "draft";
+  document.getElementById("woJob").value = "";
+  document.getElementById("woJobNumber").value = "";
+  document.getElementById("woJobName").value = "";
+  document.getElementById("woJobType").value = "";
+  document.getElementById("woJobAddress").value = "";
+  document.getElementById("woDescription").value = "";
+  document.getElementById("poRows").innerHTML = "";
+  addPoRow();
+  setFormStatus("");
+}
+
+function setFormStatus(message, isError) {
+  const status = document.getElementById("formStatus");
+  status.textContent = message || "";
+  status.style.color = isError ? "#ffb8b8" : "#d7e6d6";
+}
+
+function getStatusLabel(status) {
+  if (status === "ready_for_submission") {
+    return "Ready For Submission";
+  }
+  return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function renderWorkOrders() {
+  const list = document.getElementById("woList");
+  const status = document.getElementById("woListStatus");
+  const search = document.getElementById("woSearch").value.trim().toLowerCase();
+  const statusFilter = document.getElementById("woStatusFilter").value;
+  const dateFilter = document.getElementById("woDateFilter").value;
+  const filtered = workOrders.filter((wo) => {
+    const text = [
+      wo.wo_number,
+      wo.customer,
+      wo.job_number,
+      wo.job_name,
+      wo.job_type
+    ].join(" ").toLowerCase();
+    return (!search || text.includes(search)) &&
+      (!statusFilter || wo.status === statusFilter) &&
+      (!dateFilter || wo.work_order_date === dateFilter);
+  });
+
+  status.textContent = filtered.length + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="small" style="margin-top:12px;">No work orders found.</div>';
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>WO #</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Job</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>POs</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map((wo) => {
+            const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length;
+            return `
+              <tr>
+                <td>${escapeHtml(wo.wo_number || "")}</td>
+                <td>${escapeHtml(wo.work_order_date || "")}</td>
+                <td>${escapeHtml(wo.customer || "")}</td>
+                <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
+                <td>${escapeHtml(wo.job_type || "")}</td>
+                <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getStatusLabel(wo.status))}</span></td>
+                <td>${poCount}</td>
+                <td>
+                  <div class="actions">
+                    <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">Edit</button>
+                    ${isAdmin ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function editWorkOrder(id) {
+  const wo = workOrders.find((item) => item.id === id);
+
+  if (!wo) {
+    alert("Work order could not be found.");
+    return;
+  }
+
+  editingWorkOrderId = id;
+  document.getElementById("formTitle").textContent = "Edit Work Order";
+  document.getElementById("saveButton").textContent = "Update Work Order";
+  document.getElementById("woNumber").value = wo.wo_number || "";
+  document.getElementById("woDate").value = wo.work_order_date || "";
+  document.getElementById("woCustomer").value = wo.customer || "";
+  document.getElementById("woStatus").value = wo.status || "draft";
+  document.getElementById("woJob").value = wo.job_id || "";
+  document.getElementById("woJobNumber").value = wo.job_number || "";
+  document.getElementById("woJobName").value = wo.job_name || "";
+  document.getElementById("woJobType").value = wo.job_type || "";
+  document.getElementById("woJobAddress").value = wo.job_address || "";
+  document.getElementById("woDescription").value = wo.description_of_work || "";
+  document.getElementById("poRows").innerHTML = "";
+  const rows = purchaseOrders.filter((po) => po.work_order_id === wo.id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  if (rows.length) {
+    rows.forEach((po) => addPoRow(po));
+  } else {
+    addPoRow();
+  }
+  setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function saveWorkOrder() {
+  const selectedJob = getSelectedJob();
+  const woNumber = document.getElementById("woNumber").value.trim();
+  const workOrderDate = document.getElementById("woDate").value;
+  const customer = document.getElementById("woCustomer").value.trim();
+  const status = document.getElementById("woStatus").value || "draft";
+  const jobNumber = document.getElementById("woJobNumber").value.trim();
+  const jobName = document.getElementById("woJobName").value.trim();
+  const jobType = document.getElementById("woJobType").value.trim();
+  const jobAddress = document.getElementById("woJobAddress").value.trim();
+  const description = document.getElementById("woDescription").value.trim();
+  const poRows = collectPoRows();
+
+  if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
+    setFormStatus("WO number, date, job number, and job name are required.", true);
+    return;
+  }
+
+  setFormStatus("Saving work order...");
+
+  const userId = await getCurrentUserId();
+  const values = {
+    wo_number: woNumber,
+    work_order_date: workOrderDate,
+    customer,
+    job_id: selectedJob ? selectedJob.id : null,
+    job_number: jobNumber,
+    job_name: jobName,
+    job_type: jobType,
+    job_address: jobAddress,
+    status,
+    description_of_work: description,
+    created_by: userId || null,
+    created_by_name: worker.display || worker.key || "",
+    supervisor_name: worker.display || worker.key || "",
+    updated_at: new Date().toISOString()
+  };
+
+  let result;
+  if (editingWorkOrderId) {
+    result = await supabaseClient
+      .from("work_orders")
+      .update(values)
+      .eq("id", editingWorkOrderId)
+      .select()
+      .single();
+  } else {
+    result = await supabaseClient
+      .from("work_orders")
+      .insert(values)
+      .select()
+      .single();
+  }
+
+  if (result.error) {
+    setFormStatus("Work order could not be saved: " + result.error.message, true);
+    return;
+  }
+
+  const workOrderId = result.data.id;
+  const { error: poDeleteError } = await supabaseClient
+    .from("work_order_purchase_orders")
+    .delete()
+    .eq("work_order_id", workOrderId);
+
+  if (poDeleteError) {
+    setFormStatus("Work order saved, but old PO rows could not be cleared.", true);
+    return;
+  }
+
+  if (poRows.length) {
+    const { error: poInsertError } = await supabaseClient
+      .from("work_order_purchase_orders")
+      .insert(poRows.map((po) => ({
+        ...po,
+        work_order_id: workOrderId,
+        updated_at: new Date().toISOString()
+      })));
+
+    if (poInsertError) {
+      setFormStatus("Work order saved, but PO rows could not be saved.", true);
+      return;
+    }
+  }
+
+  setFormStatus("Work order saved.");
+  await loadWorkOrders(false);
+  editWorkOrder(workOrderId);
+}
+
+async function deleteWorkOrder(id) {
+  const wo = workOrders.find((item) => item.id === id);
+
+  if (!wo) {
+    return;
+  }
+
+  if (!confirm("Delete work order " + (wo.wo_number || "") + "?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("work_orders")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert("Work order could not be deleted.");
+    return;
+  }
+
+  if (editingWorkOrderId === id) {
+    resetWorkOrderForm();
+  }
+
+  await loadWorkOrders(false);
+}
+
+async function getCurrentUserId() {
+  const { data } = await supabaseClient.auth.getSession();
+  return data && data.session && data.session.user ? data.session.user.id : "";
+}
+
+async function loadJobs() {
+  const { data, error } = await supabaseClient
+    .from("jobs")
+    .select("id, job_number, job_name, job_type, active")
+    .eq("active", true)
+    .order("job_number", { ascending: true });
+
+  if (error) {
+    jobs = [];
+    return;
+  }
+
+  jobs = data || [];
+  renderJobOptions();
+}
+
+async function loadWorkOrders(showLoading = true) {
+  if (showLoading) {
+    document.getElementById("woListStatus").textContent = "Loading work orders...";
+  }
+
+  const [woResult, poResult] = await Promise.all([
+    supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
+    supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true })
+  ]);
+
+  if (woResult.error) {
+    workOrders = [];
+    purchaseOrders = [];
+    document.getElementById("woListStatus").textContent = "Work orders could not be loaded.";
+    renderWorkOrders();
+    return;
+  }
+
+  workOrders = woResult.data || [];
+  purchaseOrders = poResult.data || [];
+  renderWorkOrders();
+}
+
+async function signOut() {
+  await signOutJgc(supabaseClient);
+}
+
+resetWorkOrderForm();
+Promise.all([loadJobs(), loadWorkOrders()]);
+</script>
+</body>
+</html>
