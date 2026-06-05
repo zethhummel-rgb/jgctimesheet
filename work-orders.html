@@ -59,7 +59,7 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: 1.05fr 1.6fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
 }
@@ -71,6 +71,37 @@ h1 {
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+
+.collapse-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  color: #37d650;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.collapse-header h2 {
+  margin: 0;
+}
+
+.collapse-header span {
+  color: #d7e6d6;
+  font-size: 13px;
+}
+
+.collapse-body {
+  margin-top: 14px;
+}
+
+.collapse-body[hidden] {
+  display: none;
 }
 
 .form-grid {
@@ -100,6 +131,12 @@ textarea {
   background: #f7faf6;
   color: #102018;
   font-size: 15px;
+}
+
+input[readonly] {
+  background: #dfe7df;
+  color: #344239;
+  cursor: not-allowed;
 }
 
 textarea {
@@ -329,6 +366,27 @@ th {
 
   <div class="grid">
     <section class="card">
+      <button type="button" class="collapse-header" onclick="toggleManagementPanel()">
+        <h2>Work Order Management</h2>
+        <span id="managementToggleText">Show</span>
+      </button>
+      <div id="managementBody" class="collapse-body" hidden>
+        <div class="filters">
+          <input id="woSearch" type="search" placeholder="Search WO, job, attention" oninput="renderWorkOrders()">
+          <select id="woStatusFilter" onchange="renderWorkOrders()">
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="ready_for_submission">Ready For Submission</option>
+            <option value="submitted">Submitted</option>
+          </select>
+          <input id="woDateFilter" type="date" onchange="renderWorkOrders()">
+        </div>
+        <div id="woListStatus" class="small">Loading work orders...</div>
+        <div id="woList"></div>
+      </div>
+    </section>
+
+    <section id="workOrderFormCard" class="card">
       <h2 id="formTitle">New Work Order</h2>
       <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
       <div id="lockedNotice" class="locked-note" style="display:none;">This Work Order has been submitted and is locked.</div>
@@ -336,15 +394,11 @@ th {
       <div class="form-grid">
         <div>
           <label>WO Number</label>
-          <input id="woNumber" placeholder="Example: WO-2026-001">
+          <input id="woNumber" placeholder="Select a job to generate" readonly>
         </div>
         <div>
           <label>Date</label>
           <input id="woDate" type="date" onchange="renderLabourPreview()">
-        </div>
-        <div>
-          <label>Customer</label>
-          <input id="woCustomer" placeholder="Customer name">
         </div>
         <div>
           <label>Status</label>
@@ -362,16 +416,14 @@ th {
         </div>
         <div>
           <label>Job Number</label>
-          <input id="woJobNumber" oninput="renderLabourPreview()">
+          <input id="woJobNumber" readonly>
         </div>
         <div>
-          <label>Job Type</label>
-          <input id="woJobType" placeholder="Contract or T&M">
+          <label>Attention</label>
+          <input id="woCustomer" placeholder="Homeowner, site contact, or attention line">
         </div>
-        <div class="full">
-          <label>Job Name</label>
-          <input id="woJobName" oninput="renderLabourPreview()">
-        </div>
+        <input id="woJobName" type="hidden">
+        <input id="woJobType" type="hidden" value="T&M">
         <div class="full">
           <label>Job Address</label>
           <input id="woJobAddress" placeholder="Job address">
@@ -422,22 +474,6 @@ th {
       </div>
       <div id="formStatus" class="small" style="margin-top:10px;"></div>
     </section>
-
-    <section class="card">
-      <h2>Work Order Management</h2>
-      <div class="filters">
-        <input id="woSearch" type="search" placeholder="Search WO, job, customer" oninput="renderWorkOrders()">
-        <select id="woStatusFilter" onchange="renderWorkOrders()">
-          <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="ready_for_submission">Ready For Submission</option>
-          <option value="submitted">Submitted</option>
-        </select>
-        <input id="woDateFilter" type="date" onchange="renderWorkOrders()">
-      </div>
-      <div id="woListStatus" class="small">Loading work orders...</div>
-      <div id="woList"></div>
-    </section>
   </div>
 </div>
 
@@ -462,14 +498,54 @@ let editingWorkOrderId = "";
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
 document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
-document.getElementById("woNumber").value = makeWorkOrderNumber();
+document.getElementById("woNumber").value = "";
 
-function makeWorkOrderNumber() {
-  const now = new Date();
-  const datePart = now.getFullYear().toString() +
-    String(now.getMonth() + 1).padStart(2, "0") +
-    String(now.getDate()).padStart(2, "0");
-  return "WO-" + datePart + "-" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0");
+function toggleManagementPanel() {
+  const body = document.getElementById("managementBody");
+  const toggleText = document.getElementById("managementToggleText");
+  const isHidden = body.hasAttribute("hidden");
+
+  if (isHidden) {
+    body.removeAttribute("hidden");
+    toggleText.textContent = "Hide";
+  } else {
+    body.setAttribute("hidden", "");
+    toggleText.textContent = "Show";
+  }
+}
+
+function normalizeWorkOrderJobNumber(jobNumber) {
+  return String(jobNumber || "").trim().replace(/\s+/g, "");
+}
+
+function makeWorkOrderNumberForJob(jobNumber) {
+  const normalizedJobNumber = normalizeWorkOrderJobNumber(jobNumber);
+
+  if (!normalizedJobNumber) {
+    return "";
+  }
+
+  const prefix = "WO" + normalizedJobNumber + "-";
+  const nextNumber = workOrders.reduce((max, wo) => {
+    const woNumber = String(wo.wo_number || "");
+
+    if (!woNumber.startsWith(prefix)) {
+      return max;
+    }
+
+    const suffix = Number(woNumber.slice(prefix.length));
+    return Number.isFinite(suffix) ? Math.max(max, suffix) : max;
+  }, 0) + 1;
+
+  return prefix + String(nextNumber).padStart(3, "0");
+}
+
+function updateWorkOrderNumberForSelectedJob() {
+  if (editingWorkOrderId) {
+    return;
+  }
+
+  document.getElementById("woNumber").value = makeWorkOrderNumberForJob(document.getElementById("woJobNumber").value);
 }
 
 function getSelectedJob() {
@@ -486,11 +562,8 @@ function fillSelectedJob() {
 
   document.getElementById("woJobNumber").value = job.job_number || "";
   document.getElementById("woJobName").value = job.job_name || "";
-  document.getElementById("woJobType").value = job.job_type || "";
-
-  if (!document.getElementById("woCustomer").value.trim()) {
-    document.getElementById("woCustomer").value = job.job_name || "";
-  }
+  document.getElementById("woJobType").value = "T&M";
+  updateWorkOrderNumberForSelectedJob();
 
   renderLabourPreview();
 }
@@ -916,14 +989,14 @@ function resetWorkOrderForm() {
   document.getElementById("saveButton").textContent = "Save Draft";
   document.getElementById("saveButton").disabled = false;
   document.getElementById("submitButton").disabled = false;
-  document.getElementById("woNumber").value = makeWorkOrderNumber();
+  document.getElementById("woNumber").value = "";
   document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
   document.getElementById("woCustomer").value = "";
   document.getElementById("woStatus").value = "draft";
   document.getElementById("woJob").value = "";
   document.getElementById("woJobNumber").value = "";
   document.getElementById("woJobName").value = "";
-  document.getElementById("woJobType").value = "";
+  document.getElementById("woJobType").value = "T&M";
   document.getElementById("woJobAddress").value = "";
   document.getElementById("woDescription").value = "";
   document.getElementById("poRows").innerHTML = "";
@@ -946,14 +1019,14 @@ function setFormLocked(isLocked) {
   document.getElementById("lockedNotice").style.display = isLocked ? "block" : "none";
   document.getElementById("saveButton").disabled = isLocked;
   document.getElementById("submitButton").disabled = isLocked;
-  document.querySelectorAll("section.card:first-of-type input, section.card:first-of-type select, section.card:first-of-type textarea").forEach((field) => {
+  document.querySelectorAll("#workOrderFormCard input, #workOrderFormCard select, #workOrderFormCard textarea").forEach((field) => {
     if (field.id === "woStatus") {
       field.disabled = isLocked;
       return;
     }
     field.disabled = isLocked;
   });
-  document.querySelectorAll("section.card:first-of-type button").forEach((button) => {
+  document.querySelectorAll("#workOrderFormCard button").forEach((button) => {
     if (button.id === "pdfButton" || button.id === "emailButton" || button.textContent === "Clear") {
       return;
     }
@@ -985,8 +1058,7 @@ function renderWorkOrders() {
       wo.wo_number,
       wo.customer,
       wo.job_number,
-      wo.job_name,
-      wo.job_type
+      wo.job_name
     ].join(" ").toLowerCase();
     return (!search || text.includes(search)) &&
       (!statusFilter || wo.status === statusFilter) &&
@@ -1007,9 +1079,8 @@ function renderWorkOrders() {
           <tr>
             <th>WO #</th>
             <th>Date</th>
-            <th>Customer</th>
+            <th>Attention</th>
             <th>Job</th>
-            <th>Type</th>
             <th>Status</th>
             <th>Labour</th>
             <th>POs</th>
@@ -1028,7 +1099,6 @@ function renderWorkOrders() {
                 <td>${escapeHtml(wo.work_order_date || "")}</td>
                 <td>${escapeHtml(wo.customer || "")}</td>
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
-                <td>${escapeHtml(wo.job_type || "")}</td>
                 <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getStatusLabel(wo.status))}</span></td>
                 <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
@@ -1128,7 +1198,7 @@ async function saveWorkOrder(options) {
   const status = document.getElementById("woStatus").value || "draft";
   const jobNumber = document.getElementById("woJobNumber").value.trim();
   const jobName = document.getElementById("woJobName").value.trim();
-  const jobType = document.getElementById("woJobType").value.trim();
+  const jobType = "T&M";
   const jobAddress = document.getElementById("woJobAddress").value.trim();
   const description = document.getElementById("woDescription").value.trim();
   const poRows = collectPoRows();
@@ -1140,7 +1210,7 @@ async function saveWorkOrder(options) {
   const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.employee_name + " Timesheet");
 
   if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
-    setFormStatus("WO number, date, job number, and job name are required.", true);
+    setFormStatus("Select a job so the WO number and job details can be generated.", true);
     return;
   }
 
@@ -1780,10 +1850,9 @@ function buildWorkOrderPdfHtml(id) {
   <div class="summary">
     <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
     <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
-    <div><b>Customer</b>${escapeHtml(wo.customer || "")}</div>
+    <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
     <div><b>Status</b>${escapeHtml(getStatusLabel(wo.status))}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
-    <div><b>Job Type</b>${escapeHtml(wo.job_type || "")}</div>
     <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
     <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
@@ -1842,7 +1911,7 @@ function buildWorkOrderPdfHtml(id) {
 
   <div class="signatures">
     <div class="line">Supervisor Signature</div>
-    <div class="line">Customer Signature</div>
+    <div class="line">Client Signature</div>
   </div>
 </body>
 </html>`;
@@ -1863,7 +1932,7 @@ function buildWorkOrderEmailBody(id) {
     "",
     "WO Number: " + (wo.wo_number || ""),
     "Date: " + (wo.work_order_date || ""),
-    "Customer: " + (wo.customer || ""),
+    "Attention: " + (wo.customer || ""),
     "Job: " + [wo.job_number, wo.job_name].filter(Boolean).join(" - "),
     "Status: " + getStatusLabel(wo.status),
     "Labour Hours: " + totalLabour.toFixed(2),
