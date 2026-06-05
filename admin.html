@@ -1187,6 +1187,10 @@ button:hover,
             <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
         </div>
         <div>
+            <label>Type of Equip/Vehicle</label>
+            <input id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
+        </div>
+        <div>
             <label>Operator Name</label>
             <input id="equipmentOperator" placeholder="Operator name">
         </div>
@@ -2685,6 +2689,7 @@ function clearEquipmentForm() {
     editingEquipmentId = "";
     document.getElementById("equipmentName").value = "";
     document.getElementById("equipmentIdentification").value = "";
+    document.getElementById("equipmentType").value = "";
     document.getElementById("equipmentOperator").value = "";
     document.getElementById("equipmentHours").value = "";
     document.getElementById("equipmentExpiry").value = "";
@@ -2719,7 +2724,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -2728,6 +2733,7 @@ function renderEquipment() {
                         return `
                             <tr>
                                 <td>${escapeHtml(item.name)}</td>
+                                <td>${escapeHtml(item.equipment_type || "")}</td>
                                 <td>${escapeHtml(item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
                                 <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
@@ -2740,7 +2746,7 @@ function renderEquipment() {
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="8">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="9">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -2749,6 +2755,7 @@ function renderEquipment() {
 
 function getEquipmentCategory(item) {
     const text = [
+        item.equipment_type,
         item.name,
         item.identification_number,
         item.notes
@@ -2756,6 +2763,10 @@ function getEquipmentCategory(item) {
 
     if (/\b(trailer|trl|float)\b/.test(text)) {
         return "Trailers";
+    }
+
+    if (/\b(equipment|forklift|lift|telehandler|tele-handler|loader|excavator|compressor|generator)\b/.test(text)) {
+        return "Equipment";
     }
 
     if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
@@ -2776,6 +2787,7 @@ function editEquipment(id) {
     editingEquipmentId = id;
     document.getElementById("equipmentName").value = item.name || "";
     document.getElementById("equipmentIdentification").value = item.identification_number || "";
+    document.getElementById("equipmentType").value = item.equipment_type || "";
     document.getElementById("equipmentOperator").value = item.operator_name || "";
     document.getElementById("equipmentHours").value = item.current_hours !== null && item.current_hours !== undefined ? item.current_hours : "";
     document.getElementById("equipmentExpiry").value = item.yearly_inspection_expiry || "";
@@ -2788,6 +2800,7 @@ function editEquipment(id) {
 async function saveEquipment() {
     const name = document.getElementById("equipmentName").value.trim();
     const identificationNumber = document.getElementById("equipmentIdentification").value.trim();
+    const equipmentType = document.getElementById("equipmentType").value.trim();
     const operatorName = document.getElementById("equipmentOperator").value.trim();
     const currentHoursValue = document.getElementById("equipmentHours").value;
     const currentHours = currentHoursValue === "" ? null : Number(currentHoursValue);
@@ -2808,6 +2821,7 @@ async function saveEquipment() {
 
     const payload = {
         name,
+        equipment_type: equipmentType,
         identification_number: identificationNumber,
         operator_name: operatorName,
         current_hours: currentHours,
