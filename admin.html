@@ -131,29 +131,89 @@ th {
 
 .timesheet-edit-panel {
     margin-top: 14px;
-    padding: 12px;
-    border: 1px solid #c6cec5;
+    padding: 16px;
+    border: 1px solid rgba(50, 220, 85, 0.55);
     border-radius: 8px;
-    background: #f2f6ef;
-    color: #1f2a24;
+    background: #0f201c;
+    color: #f7fff7;
+    box-shadow: 0 0 0 1px rgba(50, 220, 85, 0.12), 0 12px 30px rgba(0,0,0,0.25);
 }
 
 .timesheet-edit-panel h3 {
     margin-top: 0;
-    color: #2f6f3c;
+    color: #32dc55;
 }
 
 .timesheet-edit-panel label,
 .timesheet-edit-panel .small {
-    color: #1f2a24;
+    color: #e8f4ea;
 }
 
 .timesheet-edit-panel input,
 .timesheet-edit-panel select,
 .timesheet-edit-panel textarea {
-    background: #ffffff;
-    color: #1f2a24;
-    border: 1px solid #8fa08f;
+    background: #f8fbf6;
+    color: #111a14;
+    border: 1px solid #9eb59f;
+}
+
+.timesheet-worker-group {
+    margin: 12px 0;
+    border: 1px solid rgba(50, 220, 85, 0.35);
+    border-radius: 8px;
+    background: rgba(8, 22, 18, 0.72);
+    overflow: hidden;
+}
+
+.timesheet-worker-group summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    color: #f7fff7;
+    font-weight: bold;
+    list-style: none;
+}
+
+.timesheet-worker-group summary::-webkit-details-marker {
+    display: none;
+}
+
+.timesheet-worker-group summary::after {
+    content: "+";
+    color: #32dc55;
+    font-size: 22px;
+    line-height: 1;
+}
+
+.timesheet-worker-group[open] summary::after {
+    content: "-";
+}
+
+.timesheet-worker-meta {
+    color: #dbe9dd;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.timesheet-worker-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #32dc55;
+    color: #082016;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.timesheet-worker-body {
+    padding: 0 14px 14px;
 }
 
 .timesheet-edit-table input,
@@ -3317,59 +3377,70 @@ function renderLiveTimesheetEntries(filter) {
             const workerRows = rows.filter((row) => (row.worker || "Unknown Worker") === worker);
             const workerTotal = workerRows.reduce((total, row) => total + row.hours, 0);
             const days = getTimesheetDayNames().filter((day) => workerRows.some((row) => row.day === day));
+            const submittedDayCount = new Set(workerRows.map((row) => row.day).filter(Boolean)).size;
 
             return `
-                <h4 style="margin:14px 0 6px;color:#2f6f3c;">${escapeHtml(worker)} - ${workerTotal.toFixed(2)} hrs</h4>
-                ${days.map((day) => {
-                    const dayRows = workerRows.filter((row) => row.day === day);
-                    const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
-                    const dayDate = dayRows.find((row) => row.date);
+                <details class="timesheet-worker-group" ${filter ? "open" : ""}>
+                    <summary>
+                        <span>
+                            ${escapeHtml(worker)}
+                            <span class="timesheet-worker-meta">${workerTotal.toFixed(2)} hrs saved this week - ${submittedDayCount} day${submittedDayCount === 1 ? "" : "s"} submitted</span>
+                        </span>
+                        <span class="timesheet-worker-count" title="Submitted days">${submittedDayCount}</span>
+                    </summary>
+                    <div class="timesheet-worker-body">
+                        ${days.map((day) => {
+                            const dayRows = workerRows.filter((row) => row.day === day);
+                            const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
+                            const dayDate = dayRows.find((row) => row.date);
 
-                    return `
-                        <div style="margin:10px 0 4px;font-weight:bold;color:#ffffff;">
-                            ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
-                        </div>
-                        <div class="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Job</th>
-                                        <th>Job Number</th>
-                                        <th>Type</th>
-                                        <th>Reason / Note</th>
-                                        <th>Time</th>
-                                        <th>Lunch</th>
-                                        <th>Night</th>
-                                        <th>Hours</th>
-                                        <th>Week Start</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${dayRows.map((row) => `
-                                        <tr>
-                                            <td>${escapeHtml(row.jobName)}</td>
-                                            <td>${escapeHtml(row.jobNumber)}</td>
-                                            <td>${escapeHtml(getAdminTimesheetEntryLabel(row))}</td>
-                                            <td>${escapeHtml(row.leaveNote || "")}</td>
-                                            <td>${row.entryType === "work" ? escapeHtml(row.timeIn) + " - " + escapeHtml(row.timeOut) : ""}</td>
-                                            <td>${row.lunch ? "Yes" : "No"}</td>
-                                            <td>${row.nightWork ? "Yes" : "No"}</td>
-                                            <td>${row.hours.toFixed(2)}</td>
-                                            <td>${escapeHtml(row.weekStart)}</td>
-                                            <td>
-                                                <div class="actions">
-                                                    <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
-                                                    <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `).join("")}
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }).join("")}
+                            return `
+                                <div style="margin:10px 0 4px;font-weight:bold;color:#f7fff7;">
+                                    ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
+                                </div>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Job Number</th>
+                                                <th>Type</th>
+                                                <th>Reason / Note</th>
+                                                <th>Time</th>
+                                                <th>Lunch</th>
+                                                <th>Night</th>
+                                                <th>Hours</th>
+                                                <th>Week Start</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${dayRows.map((row) => `
+                                                <tr>
+                                                    <td>${escapeHtml(row.jobName)}</td>
+                                                    <td>${escapeHtml(row.jobNumber)}</td>
+                                                    <td>${escapeHtml(getAdminTimesheetEntryLabel(row))}</td>
+                                                    <td>${escapeHtml(row.leaveNote || "")}</td>
+                                                    <td>${row.entryType === "work" ? escapeHtml(row.timeIn) + " - " + escapeHtml(row.timeOut) : ""}</td>
+                                                    <td>${row.lunch ? "Yes" : "No"}</td>
+                                                    <td>${row.nightWork ? "Yes" : "No"}</td>
+                                                    <td>${row.hours.toFixed(2)}</td>
+                                                    <td>${escapeHtml(row.weekStart)}</td>
+                                                    <td>
+                                                        <div class="actions">
+                                                            <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
+                                                            <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join("")}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }).join("")}
+                    </div>
+                </details>
             `;
         }).join("")}
         <h3>Final Submitted Timesheets</h3>
@@ -3528,11 +3599,6 @@ async function saveLiveTimesheetEntryEdit() {
         return;
     }
 
-    if (entryType === "sick" && !leaveNote) {
-        alert("Add a sick day reason.");
-        return;
-    }
-
     if (entryType === "vacation" && !leaveType) {
         alert("Choose Paid or Unpaid for vacation.");
         return;
@@ -3553,7 +3619,7 @@ async function saveLiveTimesheetEntryEdit() {
         week_end: formatTimesheetPdfDate(weekEndDate),
         day_of_week: day,
         job_name: entryType === "work" ? jobName : getAdminSpecialEntryJobName(entryType, leaveType),
-        job_number: entryType === "work" ? jobNumber : "",
+        job_number: entryType === "work" ? jobNumber : leaveNote,
         time_in: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00",
         time_out: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00",
         took_lunch: entryType === "work" ? tookLunch : false,
@@ -3958,7 +4024,7 @@ function collectAdminTimesheetEntries(week) {
             weekStart: weekStart ? formatTimesheetPdfDate(makeLocalDate(weekStart)) : "",
             weekEnd,
             jobName: entryType === "work" ? getValue("jobName") : getAdminSpecialEntryJobName(entryType, leaveType),
-            jobNumber: entryType === "work" ? getValue("jobNumber") : "",
+            jobNumber: entryType === "work" ? getValue("jobNumber") : leaveNote,
             day: getValue("day"),
             timeIn: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00",
             timeOut: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00",
@@ -3996,10 +4062,6 @@ async function saveSubmittedTimesheetEdits() {
             return !entry.timeIn || !entry.timeOut;
         }
 
-        if (entry.entryType === "sick") {
-            return !entry.leaveNote;
-        }
-
         if (entry.entryType === "vacation") {
             return !entry.leaveType || (entry.leaveType === "half_day" && (!entry.timeIn || !entry.timeOut));
         }
@@ -4008,7 +4070,7 @@ async function saveSubmittedTimesheetEdits() {
     });
 
     if (invalid) {
-        alert("Each entry needs the required fields for its type. Sick days need a reason, vacation needs Paid or Unpaid, and work needs time in/out.");
+        alert("Each entry needs the required fields for its type. Vacation needs Paid or Unpaid, and work needs time in/out.");
         return;
     }
 
