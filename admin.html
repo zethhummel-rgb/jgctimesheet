@@ -359,7 +359,7 @@ button:hover,
 
 .employee-profile-layout {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 290px 1fr;
     gap: 14px;
 }
 
@@ -377,7 +377,30 @@ button:hover,
 }
 
 .employee-picker-panel select,
-.employee-picker-panel input,
+.employee-picker-panel input {
+    background: linear-gradient(145deg, rgba(10, 24, 23, 0.98), rgba(2, 8, 10, 0.98));
+    color: #ffffff;
+    border: 1px solid rgba(55, 240, 90, 0.4);
+    border-radius: 8px;
+    font-weight: 800;
+}
+
+.employee-picker-panel select {
+    min-height: 430px;
+    padding: 8px;
+}
+
+.employee-picker-panel option {
+    padding: 10px;
+    color: #ffffff;
+    background: #071410;
+}
+
+.employee-picker-panel option:checked {
+    background: #14883f;
+    color: #ffffff;
+}
+
 .profile-edit-grid input,
 .profile-edit-grid select,
 .profile-edit-grid textarea {
@@ -492,6 +515,8 @@ button:hover,
 }
 
 .profile-tile {
+    display: block;
+    width: 100%;
     min-height: 104px;
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 8px;
@@ -499,6 +524,26 @@ button:hover,
     padding: 12px;
     position: relative;
     overflow: hidden;
+    text-align: left;
+    cursor: pointer;
+    color: #ffffff;
+}
+
+.profile-tile:hover {
+    border-color: rgba(55, 240, 90, 0.78);
+    box-shadow: 0 0 24px rgba(55, 240, 90, 0.14);
+    transform: translateY(-1px);
+}
+
+.profile-tile[disabled] {
+    cursor: default;
+    opacity: 0.95;
+}
+
+.profile-tile[disabled]:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: rgba(255,255,255,0.14);
 }
 
 .profile-tile h4 {
@@ -506,7 +551,7 @@ button:hover,
     font-size: 13px;
 }
 
-.profile-tile .profile-number {
+.profile-number {
     font-size: 28px;
     font-weight: 900;
     color: #ffffff;
@@ -533,11 +578,13 @@ button:hover,
 
 .profile-panel {
     padding: 12px;
+    overflow: hidden;
 }
 
 .profile-panel table {
     background: rgba(4, 12, 14, 0.95);
     color: #ffffff;
+    min-width: 0;
 }
 
 .profile-panel th {
@@ -548,6 +595,63 @@ button:hover,
 .profile-panel td {
     border-color: rgba(255,255,255,0.14);
     color: #ffffff;
+}
+
+.profile-panel tbody tr:hover {
+    background: rgba(55, 240, 90, 0.08);
+}
+
+.profile-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.profile-panel-header h3 {
+    margin: 0;
+}
+
+.profile-panel-header button {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+.profile-edit-drawer {
+    max-width: 1500px;
+    margin: 0 auto 14px;
+}
+
+.profile-edit-drawer summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(17, 32, 38, 0.96), rgba(5, 12, 14, 0.98));
+    border: 1px solid rgba(55, 240, 90, 0.34);
+    color: #37f05a;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.profile-edit-drawer summary::-webkit-details-marker {
+    display: none;
+}
+
+.profile-edit-drawer[open] summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.profile-edit-body {
+    padding: 14px;
+    border: 1px solid rgba(55, 240, 90, 0.34);
+    border-top: 0;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background: linear-gradient(145deg, rgba(17, 32, 38, 0.96), rgba(5, 12, 14, 0.98));
 }
 
 .profile-edit-grid {
@@ -759,7 +863,6 @@ button:hover,
             <label>Select Employee</label>
             <input id="employeeProfileSearch" type="search" placeholder="Search employee..." oninput="renderEmployeeProfileOptions()">
             <select id="employeeProfileSelect" size="10" onchange="renderEmployeeProfile()" style="margin-top:10px;"></select>
-            <div id="employeeProfileQuickInfo" class="profile-panel" style="margin-top:12px;"></div>
         </aside>
         <main class="employee-main-panel">
             <div id="employeeProfileHero" class="profile-hero">
@@ -775,8 +878,9 @@ button:hover,
 </div>
 
 <div id="employeeProfileEditSection" class="card employee-profile-card" hidden>
-    <h2>Edit Employee Details</h2>
-    <div class="profile-panel">
+    <details class="profile-edit-drawer">
+        <summary>Edit Employee Details</summary>
+        <div class="profile-edit-body">
         <div class="profile-edit-grid">
             <div>
                 <label>Employee ID</label>
@@ -828,7 +932,8 @@ button:hover,
             <button type="button" class="secondary" onclick="renderEmployeeProfile()">Cancel</button>
         </div>
         <div id="employeeProfileSaveStatus" class="small" style="margin-top:8px;"></div>
-    </div>
+        </div>
+    </details>
 </div>
 
 <div id="timesheetsSection" class="card" hidden>
@@ -1934,14 +2039,15 @@ function getLatestEmployeeProfileActivity(items, fields) {
     return new Date(Math.max(...dates.map((date) => date.getTime()))).toISOString();
 }
 
-function renderEmployeeProfileTile(title, value, detail) {
+function renderEmployeeProfileTile(title, value, detail, tab) {
+    const action = tab ? ` onclick="openAdminSummaryTile('${tab}')"` : " disabled";
+
     return `
-        <div class="profile-tile">
-            <span class="profile-tile-icon">KPI</span>
+        <button type="button" class="profile-tile"${action}>
             <h4>${escapeHtml(title)}</h4>
             <div class="profile-number">${escapeHtml(String(value))}</div>
             <div class="small">${escapeHtml(detail || "")}</div>
-        </div>
+        </button>
     `;
 }
 
@@ -1971,7 +2077,6 @@ function renderEmployeeProfileTable(columns, rows, emptyText) {
 function renderEmployeeProfile() {
     const hero = document.getElementById("employeeProfileHero");
     const dashboard = document.getElementById("employeeProfileDashboard");
-    const quickInfo = document.getElementById("employeeProfileQuickInfo");
 
     if (!hero || !dashboard) {
         return;
@@ -1984,9 +2089,6 @@ function renderEmployeeProfile() {
     if (!account) {
         hero.innerHTML = '<div class="profile-avatar">JGC</div><div><h3>No employees found</h3><div class="small">Approve employee accounts to build profile dashboards.</div></div>';
         dashboard.innerHTML = "";
-        if (quickInfo) {
-            quickInfo.innerHTML = "";
-        }
         return;
     }
 
@@ -2053,51 +2155,32 @@ function renderEmployeeProfile() {
         </div>
     `;
 
-    if (quickInfo) {
-        quickInfo.innerHTML = `
-            <h3>Quick Info</h3>
-            <div class="profile-fact"><span class="profile-fact-icon">ID</span><div><strong>Employee ID</strong><div class="small">${escapeHtml(account.employee_id || "Not added")}</div></div></div>
-            <div class="profile-fact"><span class="profile-fact-icon">DEP</span><div><strong>Department</strong><div class="small">${escapeHtml(account.department || "Not added")}</div></div></div>
-            <div class="profile-fact"><span class="profile-fact-icon">HIRE</span><div><strong>Hire Date</strong><div class="small">${escapeHtml(account.hire_date || "Not added")}</div></div></div>
-            <div class="profile-fact"><span class="profile-fact-icon">OK</span><div><strong>Status</strong><div class="small">${escapeHtml(capitalizeWords(status))}</div></div></div>
-            <div class="profile-fact"><span class="profile-fact-icon">TYPE</span><div><strong>Employment Type</strong><div class="small">${escapeHtml(account.employment_type || "Not added")}</div></div></div>
-            <div class="profile-fact"><span class="profile-fact-icon">SUP</span><div><strong>Supervisor</strong><div class="small">${escapeHtml(account.supervisor || "Not added")}</div></div></div>
-        `;
-    }
-
     populateEmployeeProfileEditForm(account);
 
     dashboard.innerHTML = `
         <div class="profile-grid">
-            ${renderEmployeeProfileTile("Hours This Week", hoursThisWeek.toFixed(2), "Live and submitted work hours")}
-            ${renderEmployeeProfileTile("Hours This Month", hoursThisMonth.toFixed(2), "Work hours this month")}
-            ${renderEmployeeProfileTile("Hours This Year", hoursThisYear.toFixed(2), "Work hours this year")}
-            ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year")}
-            ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year")}
-            ${renderEmployeeProfileTile("Vacation Remaining", "Not set", "Balance tracking not stored yet")}
-            ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review")}
-            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates")}
-            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention")}
-            ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month")}
-            ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month")}
-            ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding")}
-            ${renderEmployeeProfileTile("Policies", "Not tracked", "Policy acknowledgement table not added yet")}
-            ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread")}
-            ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles")}
+            ${renderEmployeeProfileTile("Hours This Week", hoursThisWeek.toFixed(2), "Live and submitted work hours", "timesheets")}
+            ${renderEmployeeProfileTile("Hours This Month", hoursThisMonth.toFixed(2), "Work hours this month", "timesheets")}
+            ${renderEmployeeProfileTile("Hours This Year", hoursThisYear.toFixed(2), "Work hours this year", "timesheets")}
+            ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year", "sickDays")}
+            ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year", "vacation")}
+            ${renderEmployeeProfileTile("Vacation Remaining", "Not set", "Balance tracking not stored yet", "vacation")}
+            ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review", "vacation")}
+            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates")}
+            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates")}
+            ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
+            ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
+            ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "toolboxTalks")}
+            ${renderEmployeeProfileTile("Policies", "Not tracked", "Policy acknowledgement table not added yet", "policies")}
+            ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "announcements")}
+            ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
             ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
             ${renderEmployeeProfileTile("Last Activity", profileActivity ? formatDate(profileActivity) : "None", "Latest saved portal activity")}
         </div>
 
-        <div class="profile-section">
-            <div class="profile-panel">
-                <h3>Editable Employee Details</h3>
-                <div class="small">Update contact information, role details, emergency contact, hire date, and supervisor below.</div>
-            </div>
-        </div>
-
         <div class="profile-two-column profile-section">
             <div class="profile-panel">
-                <h3>Vacation</h3>
+                <div class="profile-panel-header"><h3>Vacation Requests</h3><button type="button" onclick="openAdminSummaryTile('vacation')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Dates", value: (row) => (row.start_date || "") + (row.end_date && row.end_date !== row.start_date ? " to " + row.end_date : "") },
                     { label: "Status", value: (row) => formatVacationStatus(row.status) },
@@ -2105,7 +2188,7 @@ function renderEmployeeProfile() {
                 ], vacationRows.slice(0, 8), "No vacation requests found.")}
             </div>
             <div class="profile-panel">
-                <h3>Certificates</h3>
+                <div class="profile-panel-header"><h3>Certificates</h3><button type="button" onclick="openAdminSummaryTile('certificates')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Certificate", value: (row) => row.certificate_name || "" },
                     { label: "Expiry", value: (row) => row.expiry_date || "No expiry" },
@@ -2116,7 +2199,7 @@ function renderEmployeeProfile() {
 
         <div class="profile-two-column profile-section">
             <div class="profile-panel">
-                <h3>Timesheets</h3>
+                <div class="profile-panel-header"><h3>Timesheets</h3><button type="button" onclick="openAdminSummaryTile('timesheets')">View All</button></div>
                 <div class="small" style="margin-bottom:8px;"><strong>Last Timesheet Submitted:</strong> ${escapeHtml(lastTimesheet ? formatDate(lastTimesheet.submitted_at) : "None")}</div>
                 ${renderEmployeeProfileTable([
                     { label: "Date", value: (row) => row.date ? formatTimesheetPdfDate(row.date) : "" },
@@ -2126,7 +2209,7 @@ function renderEmployeeProfile() {
                 ], timesheetEntries.slice(0, 10), "No timesheet history found.")}
             </div>
             <div class="profile-panel">
-                <h3>Inspections</h3>
+                <div class="profile-panel-header"><h3>Inspections</h3><button type="button" onclick="openAdminSummaryTile('inspections')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Date", value: (row) => formatDate(row.inspection_date || row.created_at) },
                     { label: "Type", value: (row) => row.inspection_type || "" },
@@ -2137,7 +2220,7 @@ function renderEmployeeProfile() {
 
         <div class="profile-two-column profile-section">
             <div class="profile-panel">
-                <h3>Daily Reports</h3>
+                <div class="profile-panel-header"><h3>Daily Reports</h3><button type="button" onclick="openAdminSummaryTile('reports')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Date", value: (row) => formatDate(row.report_date || row.created_at) },
                     { label: "Project", value: (row) => row.project || "" },
@@ -2145,7 +2228,7 @@ function renderEmployeeProfile() {
                 ], dailyReportRows.slice(0, 8), "No daily reports found.")}
             </div>
             <div class="profile-panel">
-                <h3>Toolbox Talks</h3>
+                <div class="profile-panel-header"><h3>Toolbox Talks</h3><button type="button" onclick="openAdminSummaryTile('toolboxTalks')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Talk", value: (row) => row.talk_title || row.toolbox_talk_title || row.title || "" },
                     { label: "Status", value: (row) => row.acknowledged_at ? "Acknowledged" : "Outstanding" },
@@ -2156,7 +2239,7 @@ function renderEmployeeProfile() {
 
         <div class="profile-two-column profile-section">
             <div class="profile-panel">
-                <h3>Announcements</h3>
+                <div class="profile-panel-header"><h3>Announcements</h3><button type="button" onclick="openAdminSummaryTile('announcements')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Announcement", value: (row) => row.announcement_title || row.title || row.announcement_id || "" },
                     { label: "Read", value: (row) => row.read_at ? "Read" : "Unread" },
@@ -2164,7 +2247,7 @@ function renderEmployeeProfile() {
                 ], announcementRows.slice(0, 8), "No announcement reads found.")}
             </div>
             <div class="profile-panel">
-                <h3>Equipment</h3>
+                <div class="profile-panel-header"><h3>Equipment</h3><button type="button" onclick="openAdminSummaryTile('equipment')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Name", value: (row) => row.name || "" },
                     { label: "ID", value: (row) => row.identification_number || "" },
@@ -2207,6 +2290,12 @@ function populateEmployeeProfileEditForm(account) {
 
     if (photoInput) {
         photoInput.value = "";
+    }
+
+    const drawer = document.querySelector("#employeeProfileEditSection .profile-edit-drawer");
+
+    if (drawer) {
+        drawer.open = false;
     }
 }
 
