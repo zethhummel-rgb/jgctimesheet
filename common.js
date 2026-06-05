@@ -1172,33 +1172,6 @@ function activatePoliciesAnnouncementsTile() {
   normalizeSinglePoliciesItem("#moreSheet button", "policiesAnnouncementsMoreLink");
   normalizeSinglePoliciesItem(".cards-grid .feature-card", "policiesAnnouncementsCard");
 
-  const styleId = "jgcPoliciesAnnouncementsStyles";
-
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `
-      #policiesAnnouncementsCard h2 {
-        max-width: 100%;
-        font-size: clamp(22px, 2.3vw, 28px);
-        line-height: 1.05;
-        overflow-wrap: anywhere;
-      }
-
-      #policiesAnnouncementsCard p {
-        max-width: 100%;
-      }
-
-      @media (max-width: 620px) {
-        #policiesAnnouncementsCard h2 {
-          font-size: 17px;
-          line-height: 1.08;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
   const sideNav = document.querySelector(".side-nav");
 
   if (sideNav && !document.getElementById("policiesAnnouncementsSideLink")) {
@@ -1209,7 +1182,7 @@ function activatePoliciesAnnouncementsTile() {
     sideLink.onclick = function() {
       window.location.href = "policies-announcements.html";
     };
-    sideLink.innerHTML = '<i data-lucide="file-text"></i>Policies/Announcements';
+    sideLink.innerHTML = '<i data-lucide="file-text"></i><span class="side-label">Policies / Announcements</span>';
 
     const adminSideButton = document.getElementById("sideAdminButton");
 
@@ -1229,7 +1202,7 @@ function activatePoliciesAnnouncementsTile() {
     moreLink.onclick = function() {
       window.location.href = "policies-announcements.html";
     };
-    moreLink.innerHTML = '<i data-lucide="file-text"></i>Policies/Announcements';
+    moreLink.innerHTML = '<i data-lucide="file-text"></i>Policies / Announcements';
 
     const mobileAdminButton = document.getElementById("mobileAdminButton");
 
@@ -1245,34 +1218,6 @@ function activatePoliciesAnnouncementsTile() {
       window.lucide.createIcons();
     }
     return;
-  }
-
-  const grid = document.querySelector(".cards-grid");
-
-  if (!grid) {
-    return;
-  }
-
-  const card = document.createElement("button");
-  card.id = "policiesAnnouncementsCard";
-  card.type = "button";
-  card.className = "feature-card";
-  card.onclick = function() {
-    window.location.href = "policies-announcements.html";
-  };
-  card.innerHTML = `
-    <span class="card-icon"><i data-lucide="file-text"></i></span>
-    <h2>Policies & Announcements</h2>
-    <p>Review JGC policies and previous announcements</p>
-    <i class="arrow" data-lucide="arrow-right"></i>
-  `;
-
-  const adminCard = document.getElementById("adminCard");
-
-  if (adminCard && adminCard.parentElement === grid) {
-    grid.insertBefore(card, adminCard);
-  } else {
-    grid.appendChild(card);
   }
 
   if (window.lucide) {
