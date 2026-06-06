@@ -577,7 +577,7 @@ th {
           <span id="equipmentToggleText">Show</span>
         </button>
         <div id="equipmentSectionBody" class="form-section-body" hidden>
-          <div class="small" style="margin-bottom:8px;">Select lifts and trailers only.</div>
+          <div class="small" style="margin-bottom:8px;">Select lifts only. Trailers are tracked under Travelling.</div>
           <div id="equipmentRows"></div>
           <div class="section-actions">
             <button type="button" class="secondary" onclick="addEquipmentRow()">Add Equipment</button>
@@ -585,11 +585,16 @@ th {
         </div>
       </div>
 
-      <div class="form-section">
-        <h3>Rental Equipment</h3>
-        <div id="rentalRows"></div>
-        <div class="section-actions">
-          <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('rentalSectionBody', 'rentalToggleText')">
+          <h3>Rental Equipment</h3>
+          <span id="rentalToggleText">Show</span>
+        </button>
+        <div id="rentalSectionBody" class="form-section-body" hidden>
+          <div id="rentalRows"></div>
+          <div class="section-actions">
+            <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+          </div>
         </div>
       </div>
 
@@ -1036,9 +1041,14 @@ function isVehicleItem(item) {
   return /\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(getEquipmentSearchText(item));
 }
 
-function isLiftOrTrailerItem(item) {
+function isTrailerItem(item) {
   const text = getEquipmentSearchText(item);
-  return /\b(lift|telehandler|tele-handler|skyjack|boom|scissor|aerial|trailer|trl|float)\b/.test(text) && !isVehicleItem(item);
+  return /\b(trailer|trl|float)\b/.test(text) && !isVehicleItem(item);
+}
+
+function isLiftItem(item) {
+  const text = getEquipmentSearchText(item);
+  return /\b(lift|telehandler|tele-handler|skyjack|boom|scissor|aerial)\b/.test(text) && !isVehicleItem(item) && !isTrailerItem(item);
 }
 
 function makeEquipmentOptions(selectedId, filterType) {
@@ -1046,8 +1056,11 @@ function makeEquipmentOptions(selectedId, filterType) {
     if (filterType === "vehicles") {
       return isVehicleItem(item);
     }
-    if (filterType === "lifts_trailers") {
-      return isLiftOrTrailerItem(item);
+    if (filterType === "trailers") {
+      return isTrailerItem(item);
+    }
+    if (filterType === "lifts") {
+      return isLiftItem(item);
     }
     return true;
   });
@@ -1061,11 +1074,15 @@ function makeEquipmentOptions(selectedId, filterType) {
 function refreshEquipmentSelectOptions() {
   document.querySelectorAll('[data-equipment-field="equipment_id"]').forEach((select) => {
     const selected = select.value;
-    select.innerHTML = makeEquipmentOptions(selected, "lifts_trailers");
+    select.innerHTML = makeEquipmentOptions(selected, "lifts");
   });
   document.querySelectorAll('[data-travel-field="vehicle_id"]').forEach((select) => {
     const selected = select.value;
     select.innerHTML = makeEquipmentOptions(selected, "vehicles");
+  });
+  document.querySelectorAll('[data-travel-field="trailer_equipment_id"]').forEach((select) => {
+    const selected = select.value;
+    select.innerHTML = makeEquipmentOptions(selected, "trailers");
   });
 }
 
@@ -1076,9 +1093,9 @@ function addEquipmentRow(rowData) {
 
   row.innerHTML = `
     <div class="wide">
-      <label>Lift / Trailer</label>
+      <label>Lift</label>
       <select data-equipment-field="equipment_id" onchange="fillEquipmentRow(this)">
-        ${makeEquipmentOptions(selectedEquipmentId, "lifts_trailers")}
+        ${makeEquipmentOptions(selectedEquipmentId, "lifts")}
       </select>
       <input type="hidden" data-equipment-field="equipment_name" value="${escapeHtml(rowData && rowData.equipment_name ? rowData.equipment_name : "")}">
     </div>
@@ -1139,6 +1156,10 @@ function addRentalRow(rowData) {
       <input data-rental-field="rental_equipment_description" placeholder="Equipment description" value="${escapeHtml(rowData && rowData.rental_equipment_description ? rowData.rental_equipment_description : "")}">
     </div>
     <div>
+      <label>PO #</label>
+      <input data-rental-field="po_number" placeholder="Rental PO number" value="${escapeHtml(rowData && rowData.po_number ? rowData.po_number : "")}">
+    </div>
+    <div>
       <label>Rental Company</label>
       <input data-rental-field="rental_company" placeholder="Rental company" value="${escapeHtml(rowData && rowData.rental_company ? rowData.rental_company : "")}">
     </div>
@@ -1171,13 +1192,14 @@ function collectRentalRows() {
     };
     return {
       rental_equipment_description: getValue("rental_equipment_description"),
+      po_number: getValue("po_number"),
       rental_company: getValue("rental_company"),
       quantity: Number(getValue("quantity") || 0),
       hours_used: Number(getValue("hours_used") || 0),
       days_used: Number(getValue("days_used") || 0),
       notes: getValue("notes")
     };
-  }).filter((row) => row.rental_equipment_description || row.rental_company || row.quantity || row.hours_used || row.days_used || row.notes);
+  }).filter((row) => row.rental_equipment_description || row.po_number || row.rental_company || row.quantity || row.hours_used || row.days_used || row.notes);
 }
 
 function addMaterialRow(rowData) {
@@ -1236,6 +1258,8 @@ function addTravelRow(rowData) {
   const row = document.createElement("div");
   row.className = "item-row travel-row";
   const selectedVehicleId = rowData && rowData.vehicle_id ? rowData.vehicle_id : "";
+  const selectedTrailerId = rowData && rowData.trailer_equipment_id ? rowData.trailer_equipment_id : "";
+  const trailerUsed = Boolean(rowData && rowData.trailer_used);
   row.innerHTML = `
     <div class="wide">
       <label>Vehicle</label>
@@ -1252,9 +1276,44 @@ function addTravelRow(rowData) {
       <label>Total KM</label>
       <input data-travel-field="total_km" type="number" min="0" step="1" value="${escapeHtml(rowData && rowData.total_km !== undefined && rowData.total_km !== null ? rowData.total_km : "")}">
     </div>
+    <div class="wide">
+      <label>
+        <input data-travel-field="trailer_used" type="checkbox" ${trailerUsed ? "checked" : ""} onchange="toggleTravelTrailer(this)" style="width:auto;margin-right:8px;">
+        Trailer used
+      </label>
+    </div>
+    <div class="wide trailer-select-wrap" ${trailerUsed ? "" : "hidden"}>
+      <label>Trailer</label>
+      <select data-travel-field="trailer_equipment_id" onchange="fillTravelTrailerRow(this)">
+        ${makeEquipmentOptions(selectedTrailerId, "trailers")}
+      </select>
+      <input type="hidden" data-travel-field="trailer_name" value="${escapeHtml(rowData && rowData.trailer_name ? rowData.trailer_name : "")}">
+    </div>
+    <div class="trailer-select-wrap" ${trailerUsed ? "" : "hidden"}>
+      <label>Trailer Identification #</label>
+      <input data-travel-field="trailer_identification_number" placeholder="Trailer unit / plate" value="${escapeHtml(rowData && rowData.trailer_identification_number ? rowData.trailer_identification_number : "")}">
+    </div>
     <button type="button" class="delete-button" onclick="this.closest('.travel-row').remove()">Remove Vehicle</button>
   `;
   document.getElementById("travelRows").appendChild(row);
+}
+
+function toggleTravelTrailer(checkbox) {
+  const row = checkbox.closest(".travel-row");
+
+  if (!row) {
+    return;
+  }
+
+  row.querySelectorAll(".trailer-select-wrap").forEach((element) => {
+    element.hidden = !checkbox.checked;
+  });
+
+  if (!checkbox.checked) {
+    row.querySelector('[data-travel-field="trailer_equipment_id"]').value = "";
+    row.querySelector('[data-travel-field="trailer_name"]').value = "";
+    row.querySelector('[data-travel-field="trailer_identification_number"]').value = "";
+  }
 }
 
 function fillTravelRow(select) {
@@ -1269,6 +1328,18 @@ function fillTravelRow(select) {
   row.querySelector('[data-travel-field="identification_number"]').value = item.identification_number || "";
 }
 
+function fillTravelTrailerRow(select) {
+  const item = equipmentItems.find((equipment) => equipment.id === select.value);
+  const row = select.closest(".travel-row");
+
+  if (!item || !row) {
+    return;
+  }
+
+  row.querySelector('[data-travel-field="trailer_name"]').value = item.name || "";
+  row.querySelector('[data-travel-field="trailer_identification_number"]').value = item.identification_number || "";
+}
+
 function collectTravelRows() {
   return Array.from(document.querySelectorAll(".travel-row")).map((row) => {
     const getValue = (field) => {
@@ -1279,9 +1350,13 @@ function collectTravelRows() {
       vehicle_id: getValue("vehicle_id") || null,
       vehicle_name: getValue("vehicle_name"),
       identification_number: getValue("identification_number"),
-      total_km: Number(getValue("total_km") || 0)
+      total_km: Number(getValue("total_km") || 0),
+      trailer_used: Boolean(row.querySelector('[data-travel-field="trailer_used"]') && row.querySelector('[data-travel-field="trailer_used"]').checked),
+      trailer_equipment_id: getValue("trailer_equipment_id") || null,
+      trailer_name: getValue("trailer_name"),
+      trailer_identification_number: getValue("trailer_identification_number")
     };
-  }).filter((row) => row.vehicle_id || row.vehicle_name || row.identification_number || row.total_km);
+  }).filter((row) => row.vehicle_id || row.vehicle_name || row.identification_number || row.total_km || row.trailer_used || row.trailer_equipment_id || row.trailer_name);
 }
 
 function resetWorkOrderForm() {
@@ -2017,10 +2092,19 @@ async function loadJobs() {
 }
 
 async function loadEmployees() {
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("id, display_name, worker_key, email, account_status")
+  let { data, error } = await supabaseClient
+    .from("approved_worker_directory")
+    .select("id, display_name, worker_key")
     .order("display_name", { ascending: true });
+
+  if (error) {
+    const fallback = await supabaseClient
+      .from("profiles")
+      .select("id, display_name, worker_key, email, account_status")
+      .order("display_name", { ascending: true });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     profileEmployees = [];
@@ -2270,14 +2354,20 @@ function buildWorkOrderPdfHtml(id) {
 
   <h2>Travelling</h2>
   <table>
-    <thead><tr><th>Vehicle</th><th>Identification #</th><th>Total KM</th></tr></thead>
-    <tbody>${buildPdfRows(travel, "No travelling entered.", (row) => [row.vehicle_name || "", row.identification_number || "", String(row.total_km || "")])}</tbody>
+    <thead><tr><th>Vehicle</th><th>Identification #</th><th>Total KM</th><th>Trailer</th><th>Trailer ID #</th></tr></thead>
+    <tbody>${buildPdfRows(travel, "No travelling entered.", (row) => [
+      row.vehicle_name || "",
+      row.identification_number || "",
+      String(row.total_km || ""),
+      row.trailer_used ? row.trailer_name || "Trailer used" : "",
+      row.trailer_used ? row.trailer_identification_number || "" : ""
+    ])}</tbody>
   </table>
 
   <h2>Equipment Used</h2>
   <table>
-    <thead><tr><th>Lift / Trailer</th><th>Identification #</th><th>Floated By Tow Truck</th></tr></thead>
-    <tbody>${buildPdfRows(equipment, "No lift or trailer equipment entered.", (row) => [
+    <thead><tr><th>Lift</th><th>Identification #</th><th>Floated By Tow Truck</th></tr></thead>
+    <tbody>${buildPdfRows(equipment, "No lift equipment entered.", (row) => [
       row.equipment_name || "",
       row.identification_number || "",
       row.transportation_required ? "Yes" : "No"
@@ -2286,9 +2376,10 @@ function buildWorkOrderPdfHtml(id) {
 
   <h2>Rental Equipment</h2>
   <table>
-    <thead><tr><th>Rental Equipment</th><th>Company</th><th>Quantity</th><th>Hours</th><th>Days</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Rental Equipment</th><th>PO #</th><th>Company</th><th>Quantity</th><th>Hours</th><th>Days</th><th>Notes</th></tr></thead>
     <tbody>${buildPdfRows(rentals, "No rental equipment entered.", (row) => [
       row.rental_equipment_description || "",
+      row.po_number || "",
       row.rental_company || "",
       String(row.quantity || ""),
       String(row.hours_used || ""),
