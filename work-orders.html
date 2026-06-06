@@ -328,6 +328,31 @@ th {
   margin: 10px 0;
 }
 
+.manual-labour-panel {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 7px;
+  background: rgba(255,255,255,0.04);
+}
+
+.manual-labour-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.manual-labour-toggle input {
+  width: auto;
+}
+
+.manual-labour-grid {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 10px;
+}
+
 .labour-metric {
   padding: 10px;
   border: 1px solid rgba(99, 205, 107, 0.22);
@@ -381,6 +406,10 @@ th {
   }
 
   .labour-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-labour-grid {
     grid-template-columns: 1fr;
   }
 
@@ -480,8 +509,24 @@ th {
         <h3>Labour</h3>
         <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
         <div id="employeePicker" class="employee-picker small">Loading employees...</div>
+        <div class="manual-labour-panel">
+          <label class="manual-labour-toggle">
+            <input id="manualLabourEnabled" type="checkbox" onchange="toggleManualLabourEntry()">
+            <span>Manual Labour entry</span>
+          </label>
+          <div id="manualLabourFields" class="manual-labour-grid" hidden>
+            <div>
+              <label>Name</label>
+              <input id="manualLabourName" placeholder="Worker name" oninput="renderLabourPreview()">
+            </div>
+            <div>
+              <label>Hours worked</label>
+              <input id="manualLabourHours" type="number" min="0" step="0.25" placeholder="0.00" oninput="renderLabourPreview()">
+            </div>
+          </div>
+        </div>
         <div class="actions" style="margin-bottom:10px;">
-          <button type="button" class="secondary" onclick="renderLabourPreview()">Refresh Labour Match</button>
+          <button type="button" class="secondary" onclick="refreshLabourPreview()">Refresh Labour Match</button>
         </div>
         <div id="labourPreview" class="small">Select employees to preview labour.</div>
       </div>
@@ -502,13 +547,13 @@ th {
 
       <div class="form-section collapsible">
         <button type="button" class="form-section-header" onclick="toggleFormSection('miscSectionBody', 'miscToggleText')">
-          <h3>Misc. Invoices</h3>
+          <h3>Misc. Invoices and Sub Contractors</h3>
           <span id="miscToggleText">Show</span>
         </button>
         <div id="miscSectionBody" class="form-section-body" hidden>
           <div id="miscRows"></div>
           <div class="section-actions">
-            <button type="button" class="secondary" onclick="addMiscRow()">Add Misc. Invoice</button>
+            <button type="button" class="secondary" onclick="addMiscRow()">Add Misc. Invoice / Sub Contractor</button>
           </div>
         </div>
       </div>
@@ -578,6 +623,7 @@ let materialRows = [];
 let miscRows = [];
 let travelRows = [];
 let employees = [];
+let profileEmployees = [];
 let timesheetEntries = [];
 let editingWorkOrderId = "";
 
@@ -715,6 +761,18 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeEmployeeMatchKey(value) {
+  return normalizeWorkerName(value).replace(/[^a-z0-9]/g, "");
+}
+
+function formatWorkerDisplayName(value) {
+  return String(value || "")
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function normalizeJobNumber(value) {
   return normalizeText(value).replace(/[^a-z0-9]/g, "");
 }
@@ -732,7 +790,7 @@ function renderEmployeePicker(selectedKeys) {
     const key = employee.worker_key || normalizeWorkerName(employee.display_name || employee.email || employee.id);
     return `
       <label class="employee-check">
-        <input type="checkbox" data-employee-id="${escapeHtml(employee.id)}" data-worker-key="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee.display_name || employee.email || "")}" ${selected.has(key) ? "checked" : ""} onchange="renderLabourPreview()">
+        <input type="checkbox" data-employee-id="${escapeHtml(employee.id || "")}" data-worker-key="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee.display_name || employee.email || key || "")}" ${selected.has(key) ? "checked" : ""} onchange="renderLabourPreview()">
         <span>${escapeHtml(employee.display_name || employee.email || "")}</span>
       </label>
     `;
@@ -747,13 +805,62 @@ function collectSelectedEmployees() {
   }));
 }
 
+function isManualLabourRow(row) {
+  return String(row && row.worker_key || "").startsWith("manual-") ||
+    String(row && row.notes || "").toLowerCase() === "manual labour entry";
+}
+
+function makeManualLabourKey(name) {
+  return "manual-" + normalizeEmployeeMatchKey(name || "labour");
+}
+
+function toggleManualLabourEntry() {
+  const enabled = document.getElementById("manualLabourEnabled").checked;
+  document.getElementById("manualLabourFields").hidden = !enabled;
+  renderLabourPreview();
+}
+
+function setManualLabourFields(row) {
+  const enabled = Boolean(row);
+  document.getElementById("manualLabourEnabled").checked = enabled;
+  document.getElementById("manualLabourFields").hidden = !enabled;
+  document.getElementById("manualLabourName").value = row ? row.employee_name || "" : "";
+  document.getElementById("manualLabourHours").value = row ? Number(row.hours || 0) || "" : "";
+}
+
+function collectManualLabourRows() {
+  const enabled = document.getElementById("manualLabourEnabled").checked;
+
+  if (!enabled) {
+    return [];
+  }
+
+  const employeeName = document.getElementById("manualLabourName").value.trim();
+  const hours = Number(document.getElementById("manualLabourHours").value || 0);
+
+  if (!employeeName && !hours) {
+    return [];
+  }
+
+  return [{
+    employee_id: null,
+    worker_key: makeManualLabourKey(employeeName),
+    employee_name: employeeName || "Manual Labour",
+    matched_timesheet_entry_id: null,
+    hours: Number.isFinite(hours) ? hours : 0,
+    complete: Number.isFinite(hours) && hours > 0,
+    manual: true,
+    notes: "Manual labour entry"
+  }];
+}
+
 function getLabourMatchesForEmployee(employee, jobNumber, workDate) {
   return getLabourMatches(employee, jobNumber, document.getElementById("woJobName").value, workDate);
 }
 
 function getLabourMatches(employee, jobNumber, jobName, workDate) {
-  const normalizedEmployeeKey = normalizeText(employee.worker_key);
-  const normalizedEmployeeName = normalizeText(employee.employee_name);
+  const normalizedEmployeeKey = normalizeEmployeeMatchKey(employee.worker_key);
+  const normalizedEmployeeName = normalizeEmployeeMatchKey(employee.employee_name);
   const normalizedJob = normalizeJobNumber(jobNumber);
   const normalizedJobName = normalizeText(jobName);
 
@@ -762,13 +869,15 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
       return false;
     }
 
-    const entryWorker = normalizeText(entry.worker_name || entry.user);
+    const entryWorker = normalizeEmployeeMatchKey(entry.worker_name || entry.user || entry.employee_name);
     const entryJobNumber = normalizeJobNumber(entry.job_number || entry.jobNumber);
     const entryJobName = normalizeText(entry.job_name || entry.jobName);
-    const workerMatches = entryWorker === normalizedEmployeeKey ||
-      entryWorker === normalizedEmployeeName ||
-      normalizedEmployeeName.includes(entryWorker) ||
-      entryWorker.includes(normalizedEmployeeName);
+    const workerMatches = Boolean(entryWorker) && (
+      (normalizedEmployeeKey && entryWorker === normalizedEmployeeKey) ||
+      (normalizedEmployeeName && entryWorker === normalizedEmployeeName) ||
+      (normalizedEmployeeName && entryWorker.length > 2 && normalizedEmployeeName.includes(entryWorker)) ||
+      (normalizedEmployeeName && normalizedEmployeeName.length > 2 && entryWorker.includes(normalizedEmployeeName))
+    );
     const jobMatches = normalizedJob
       ? entryJobNumber === normalizedJob || (!entryJobNumber && entryJobName === normalizedJobName)
       : entryJobName === normalizedJobName;
@@ -784,7 +893,7 @@ function buildLabourPreviewRows() {
   const jobNumber = document.getElementById("woJobNumber").value.trim();
   const workDate = document.getElementById("woDate").value;
 
-  return selectedEmployees.map((employee) => {
+  const matchedRows = selectedEmployees.map((employee) => {
     const matches = jobNumber && workDate ? getLabourMatchesForEmployee(employee, jobNumber, workDate) : [];
     const hours = matches.reduce((total, entry) => total + Number(entry.hours || 0), 0);
 
@@ -796,6 +905,8 @@ function buildLabourPreviewRows() {
       notes: matches.length > 1 ? matches.length + " matching entries" : ""
     };
   });
+
+  return matchedRows.concat(collectManualLabourRows());
 }
 
 function renderLabourPreview() {
@@ -831,7 +942,7 @@ function renderLabourPreview() {
           ${rows.map((row) => `
             <tr>
               <td>${escapeHtml(row.employee_name)}</td>
-              <td>${row.complete ? '<span class="complete-text">Complete</span>' : '<span class="missing-text">Missing Timesheet</span>'}</td>
+              <td>${row.complete ? '<span class="complete-text">Complete</span>' : '<span class="missing-text">' + (row.manual ? "Missing Hours" : "Missing Timesheet") + '</span>'}</td>
               <td>${row.complete ? row.hours.toFixed(2) : "-"}</td>
               <td>${escapeHtml(row.notes || "")}</td>
             </tr>
@@ -840,6 +951,54 @@ function renderLabourPreview() {
       </table>
     </div>
   `;
+}
+
+function upsertEmployeeDirectoryItem(map, item) {
+  const displayName = item.display_name || item.employee_name || item.worker_name || item.email || "";
+  const workerKey = normalizeWorkerName(item.worker_key || displayName || item.email || item.id || "");
+
+  if (!workerKey) {
+    return;
+  }
+
+  const existing = map.get(workerKey) || {};
+  map.set(workerKey, {
+    id: existing.id || item.id || item.employee_id || "",
+    worker_key: workerKey,
+    display_name: existing.display_name || displayName || formatWorkerDisplayName(workerKey),
+    email: existing.email || item.email || ""
+  });
+}
+
+function rebuildEmployeeDirectory() {
+  const map = new Map();
+
+  profileEmployees.forEach((employee) => upsertEmployeeDirectoryItem(map, employee));
+  timesheetEntries.forEach((entry) => {
+    const workerName = entry.worker_name || entry.user || entry.employee_name || "";
+    upsertEmployeeDirectoryItem(map, {
+      worker_key: workerName,
+      display_name: formatWorkerDisplayName(workerName)
+    });
+  });
+  labourRows.filter((row) => !isManualLabourRow(row)).forEach((row) => upsertEmployeeDirectoryItem(map, {
+    id: row.employee_id || "",
+    worker_key: row.worker_key || row.employee_name,
+    display_name: row.employee_name || row.worker_key || ""
+  }));
+
+  employees = Array.from(map.values())
+    .filter((employee) => employee.display_name || employee.email || employee.worker_key)
+    .sort((a, b) => String(a.display_name || a.email || a.worker_key).localeCompare(String(b.display_name || b.email || b.worker_key)));
+}
+
+async function refreshLabourPreview() {
+  setFormStatus("Refreshing labour from timesheets...");
+  await loadTimesheetEntries();
+  rebuildEmployeeDirectory();
+  renderEmployeePicker(labourRows.filter((row) => row.work_order_id === editingWorkOrderId && !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  renderLabourPreview();
+  setFormStatus("Labour match refreshed.");
 }
 
 function addPoRow(po) {
@@ -1154,6 +1313,7 @@ function resetWorkOrderForm() {
   addMiscRow();
   document.getElementById("travelRows").innerHTML = "";
   addTravelRow();
+  setManualLabourFields(null);
   document.getElementById("pdfButton").disabled = true;
   document.getElementById("emailButton").disabled = true;
   setFormLocked(false);
@@ -1281,6 +1441,13 @@ function editWorkOrder(id) {
   document.getElementById("woDate").value = wo.work_order_date || "";
   document.getElementById("woCustomer").value = wo.customer || "";
   document.getElementById("woStatus").value = wo.status || "draft";
+  if (wo.job_id && !jobs.some((job) => job.id === wo.job_id)) {
+    const select = document.getElementById("woJob");
+    const archivedOption = document.createElement("option");
+    archivedOption.value = wo.job_id;
+    archivedOption.textContent = [wo.job_number, wo.job_name, "Archived/removed job"].filter(Boolean).join(" - ");
+    select.appendChild(archivedOption);
+  }
   document.getElementById("woJob").value = wo.job_id || "";
   document.getElementById("woJobNumber").value = wo.job_number || "";
   document.getElementById("woJobName").value = wo.job_name || "";
@@ -1336,7 +1503,9 @@ function editWorkOrder(id) {
   }
 
   const selectedLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
-  renderEmployeePicker(selectedLabourRows.map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  const manualLabourRow = selectedLabourRows.find((row) => isManualLabourRow(row));
+  setManualLabourFields(manualLabourRow || null);
+  renderEmployeePicker(selectedLabourRows.filter((row) => !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
   document.getElementById("pdfButton").disabled = false;
   document.getElementById("emailButton").disabled = false;
@@ -1372,7 +1541,7 @@ async function saveWorkOrder(options) {
   const selectedMiscRows = collectMiscRows();
   const selectedTravelRows = collectTravelRows();
   const labourComplete = previewRows.length > 0 && previewRows.every((row) => row.complete);
-  const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.employee_name + " Timesheet");
+  const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.manual ? row.employee_name + " Manual Labour Hours" : row.employee_name + " Timesheet");
 
   if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
     setFormStatus("Select a job so the WO number and job details can be generated.", true);
@@ -1510,7 +1679,7 @@ async function saveWorkOrder(options) {
     },
     {
       table: "work_order_misc_invoices",
-      label: "misc invoice",
+      label: "misc invoice / sub contractor",
       rows: selectedMiscRows.map((row) => ({
         ...row,
         work_order_id: workOrderId,
@@ -1640,6 +1809,10 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
 
   const updates = [];
   rows.forEach((row) => {
+    if (isManualLabourRow(row)) {
+      return;
+    }
+
     const matches = getLabourMatches({
       worker_key: row.worker_key || normalizeWorkerName(row.employee_name),
       employee_name: row.employee_name || ""
@@ -1746,6 +1919,7 @@ async function finalizeWorkOrder(id, options) {
 }
 
 async function submitCurrentWorkOrder() {
+  await loadTimesheetEntries();
   const workOrderId = await saveWorkOrder({ silent: true });
 
   if (!workOrderId) {
@@ -1803,10 +1977,21 @@ async function autoSubmitReadyWorkOrders() {
   }
 }
 
+async function refreshOpenWorkOrderLabourRows() {
+  const openWorkOrders = workOrders.filter((wo) => !wo.locked && wo.status !== "submitted");
+
+  for (const wo of openWorkOrders) {
+    await refreshSavedLabourRowsForWorkOrder(wo);
+  }
+}
+
 async function refreshWorkOrders() {
   setFormStatus("Refreshing Work Orders...");
   await Promise.all([loadWorkOrders(false), loadTimesheetEntries()]);
+  await loadEmployees();
+  await refreshOpenWorkOrderLabourRows();
   await autoSubmitReadyWorkOrders();
+  await loadWorkOrders(false);
   setFormStatus("Work Orders refreshed.");
 }
 
@@ -1838,12 +2023,14 @@ async function loadEmployees() {
     .order("display_name", { ascending: true });
 
   if (error) {
-    employees = [];
+    profileEmployees = [];
+    rebuildEmployeeDirectory();
     renderEmployeePicker([]);
     return;
   }
 
-  employees = (data || []).filter((employee) => employee.display_name || employee.email);
+  profileEmployees = (data || []).filter((employee) => employee.display_name || employee.email || employee.worker_key);
+  rebuildEmployeeDirectory();
   renderEmployeePicker(labourRows.filter((row) => row.work_order_id === editingWorkOrderId).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
 }
@@ -1904,6 +2091,7 @@ async function loadTimesheetEntries() {
   });
 
   timesheetEntries = liveEntries.concat(archivedEntries);
+  rebuildEmployeeDirectory();
   renderLabourPreview();
 }
 
@@ -1945,6 +2133,7 @@ async function loadWorkOrders(showLoading = true) {
   materialRows = materialResult.data || [];
   miscRows = miscResult.data || [];
   travelRows = travelResult.data || [];
+  rebuildEmployeeDirectory();
   renderWorkOrders();
 }
 
@@ -2062,7 +2251,7 @@ function buildWorkOrderPdfHtml(id) {
   <table>
     <thead><tr><th>Employee</th><th>Status</th><th>Hours</th><th>Notes</th></tr></thead>
     <tbody>
-      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", row.complete ? "Complete" : "Missing Timesheet", moneylessNumber(row.hours), row.notes || ""])}
+      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", row.complete ? "Complete" : (isManualLabourRow(row) ? "Missing Hours" : "Missing Timesheet"), moneylessNumber(row.hours), row.notes || ""])}
       <tr class="totals"><td colspan="2">Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td>${escapeHtml(waitingFor ? "Waiting for: " + waitingFor : "")}</td></tr>
     </tbody>
   </table>
@@ -2073,7 +2262,7 @@ function buildWorkOrderPdfHtml(id) {
     <tbody>${buildPdfRows(materials, "No shop materials entered.", (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}</tbody>
   </table>
 
-  <h2>Misc. Invoices</h2>
+  <h2>Misc. Invoices and Sub Contractors</h2>
   <table>
     <thead><tr><th>Name</th></tr></thead>
     <tbody>${buildPdfRows(misc, "No misc. invoices entered.", (row) => [row.invoice_name || ""])}</tbody>
@@ -2138,7 +2327,7 @@ function buildWorkOrderEmailBody(id) {
     "Equipment Rows: " + equipment.length,
     "Rental Rows: " + rentals.length,
     "Material Rows: " + materials.length,
-    "Misc. Invoice Rows: " + misc.length,
+    "Misc. Invoice / Sub Contractor Rows: " + misc.length,
     "Travel Rows: " + travel.length,
     "",
     "See attached Work Order PDF."
@@ -2237,8 +2426,10 @@ async function signOut() {
 }
 
 resetWorkOrderForm();
-Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadEmployees(), loadTimesheetEntries()]).then(() => {
-  autoSubmitReadyWorkOrders();
+Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries()]).then(() => loadEmployees()).then(async () => {
+  await refreshOpenWorkOrderLabourRows();
+  await loadWorkOrders(false);
+  await autoSubmitReadyWorkOrders();
 });
 </script>
 </body>
