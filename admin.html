@@ -902,6 +902,7 @@ button:hover,
     <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Tool Box Talks</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
     <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Jobs Management</button>
+    <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">Work Orders</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
     <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
@@ -1320,6 +1321,32 @@ button:hover,
     <div id="jobsList" class="small" style="margin-top:12px;">Loading jobs...</div>
 </div>
 
+<div id="workOrdersSection" class="card" hidden>
+    <h2>Work Orders</h2>
+    <div class="small" style="margin-bottom:12px;">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
+    <div class="filters">
+        <div>
+            <label>Search</label>
+            <input id="adminWorkOrderSearch" placeholder="WO #, job, attention, worker" oninput="renderAdminWorkOrders()">
+        </div>
+        <div>
+            <label>Status</label>
+            <select id="adminWorkOrderStatus" onchange="renderAdminWorkOrders()">
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="ready_for_submission">Ready For Submission</option>
+                <option value="submitted">Submitted</option>
+            </select>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button class="secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
+        <button type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
+    </div>
+    <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
+    <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
+</div>
+
 <div id="contactsSection" class="card" hidden>
     <h2>Contacts</h2>
     <div class="filters">
@@ -1385,6 +1412,9 @@ let employeeInjuryReports = [];
 let employeeInjuryAcknowledgements = [];
 let policies = [];
 let jobs = [];
+let workOrders = [];
+let workOrderLabourRows = [];
+let workOrderPurchaseOrders = [];
 let equipmentItems = [];
 let equipmentNotifications = [];
 let contacts = [];
@@ -1412,7 +1442,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["summary", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "equipment", "contacts"].forEach((name) => {
+    ["summary", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -1460,6 +1490,10 @@ function showTab(tab) {
 
     if (tab === "jobs") {
         renderJobsManagement();
+    }
+
+    if (tab === "workOrders") {
+        renderAdminWorkOrders();
     }
 }
 
@@ -1528,7 +1562,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -1549,6 +1583,9 @@ async function loadAdminData() {
         supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
+        supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
+        supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
@@ -1574,6 +1611,9 @@ async function loadAdminData() {
     employeeInjuryAcknowledgements = employeeInjuryAcknowledgementResult.data || [];
     policies = policyResult.data || [];
     jobs = jobsResult.data || [];
+    workOrders = workOrderResult.data || [];
+    workOrderLabourRows = workOrderLabourResult.data || [];
+    workOrderPurchaseOrders = workOrderPoResult.data || [];
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
     contacts = contactResult.data || [];
@@ -1595,6 +1635,7 @@ async function loadAdminData() {
     renderToolboxTalks();
     renderPolicies();
     renderJobsManagement();
+    renderAdminWorkOrders();
     renderEquipment();
     renderContacts();
     renderEmployeeProfileOptions();
@@ -1631,7 +1672,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "equipment", "contacts", "accounts"].forEach((tab) => {
+    ["employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -1736,6 +1777,7 @@ function renderPortalSummary() {
     ).length;
     const activeAnnouncements = announcements.length;
     const activeJobs = jobs.filter((job) => job.active !== false).length;
+    const activeWorkOrders = workOrders.filter((wo) => String(wo.status || "").toLowerCase() !== "submitted").length;
     const activeEquipment = equipmentItems.length;
     const activeContacts = contacts.length;
     const reportsForBadge = dailySiteReports
@@ -1752,6 +1794,8 @@ function renderPortalSummary() {
             .concat(reportsForBadge)
             .concat(toolboxAttendance)
             .concat(announcementAcknowledgements)
+            .concat(workOrders)
+            .concat(workOrderLabourRows)
             .concat(equipmentItems),
         "employeeProfile",
         ["created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
@@ -1834,6 +1878,13 @@ function renderPortalSummary() {
             badgeCount: countNewForAdminTab(jobs, "jobs", ["created_at", "updated_at"]),
             detail: "Active jobs available for timesheets",
             action: "openAdminSummaryTile('jobs')"
+        },
+        {
+            title: "Work Orders",
+            value: activeWorkOrders,
+            badgeCount: countNewForAdminTab(workOrders.concat(workOrderLabourRows), "workOrders", ["created_at", "updated_at", "submitted_at"]),
+            detail: "Draft or ready Work Orders",
+            action: "openAdminSummaryTile('workOrders')"
         },
         {
             title: "Equipment Expiries",
@@ -2108,6 +2159,19 @@ function getEmployeeProfileEquipment(account) {
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 }
 
+function getEmployeeProfileWorkOrders(account) {
+    const employeeLabour = workOrderLabourRows.filter((row) => employeeMatchesAny(account, row, ["worker_key", "employee_name"]));
+    const ids = new Set(employeeLabour.map((row) => row.work_order_id));
+
+    return workOrders
+        .filter((wo) => ids.has(wo.id))
+        .map((wo) => ({
+            ...wo,
+            employeeLabour: employeeLabour.filter((row) => row.work_order_id === wo.id)
+        }))
+        .sort((a, b) => String(b.work_order_date || b.created_at || "").localeCompare(String(a.work_order_date || a.created_at || "")));
+}
+
 function getLatestEmployeeProfileActivity(items, fields) {
     const dates = [];
 
@@ -2191,6 +2255,7 @@ function renderEmployeeProfile() {
     const toolboxRows = getEmployeeProfileToolboxAttendance(account);
     const announcementRows = getEmployeeProfileAnnouncementReceipts(account);
     const equipmentRows = getEmployeeProfileEquipment(account);
+    const workOrderRows = getEmployeeProfileWorkOrders(account);
     const weekRange = getEmployeeCurrentWeekRange();
     const hoursThisWeek = sumEmployeeHours(timesheetEntries, (entry) => isDateInRange(entry.date, weekRange.start, weekRange.end));
     const hoursThisMonth = sumEmployeeHours(timesheetEntries, (entry) => isDateInCurrentMonth(entry.date));
@@ -2206,6 +2271,10 @@ function renderEmployeeProfile() {
     const expiredCertificates = certificateRows.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Expired");
     const inspectionsThisMonth = inspectionRows.filter((inspection) => isDateInCurrentMonth(inspection.inspection_date || inspection.created_at)).length;
     const dailyReportsThisMonth = dailyReportRows.filter((report) => isDateInCurrentMonth(report.report_date || report.created_at)).length;
+    const workOrdersCompletedThisWeek = workOrderRows.filter((wo) =>
+        isDateInRange(wo.work_order_date || wo.submitted_at || wo.created_at, weekRange.start, weekRange.end) &&
+        wo.employeeLabour.some((row) => row.complete)
+    ).length;
     const toolboxCompleted = toolboxRows.filter((ack) => ack.acknowledged_at).length;
     const toolboxOutstanding = toolboxRows.filter((ack) => !ack.acknowledged_at).length;
     const announcementReadIds = new Set(announcementRows.map((receipt) => receipt.announcement_id));
@@ -2221,6 +2290,7 @@ function renderEmployeeProfile() {
             .concat(dailyReportRows)
             .concat(toolboxRows)
             .concat(announcementRows)
+            .concat(workOrderRows)
             .concat(equipmentRows),
         ["savedAt", "created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
     );
@@ -2258,6 +2328,7 @@ function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates")}
             ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
+            ${renderEmployeeProfileTile("Work Orders", workOrdersCompletedThisWeek, "Completed this week", "workOrders")}
             ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "toolboxTalks")}
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "announcements")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
@@ -2315,6 +2386,18 @@ function renderEmployeeProfile() {
                 ], dailyReportRows.slice(0, 8), "No daily reports found.")}
             </div>
             <div class="profile-panel">
+                <div class="profile-panel-header"><h3>Work Orders</h3><button type="button" onclick="openAdminSummaryTile('workOrders')">View All</button></div>
+                ${renderEmployeeProfileTable([
+                    { label: "WO #", value: (row) => row.wo_number || "" },
+                    { label: "Date", value: (row) => formatDate(row.work_order_date || row.created_at) },
+                    { label: "Job", value: (row) => [row.job_number, row.job_name].filter(Boolean).join(" - ") },
+                    { label: "Hours", value: (row) => row.employeeLabour.reduce((total, labour) => total + Number(labour.hours || 0), 0).toFixed(2) }
+                ], workOrderRows.slice(0, 8), "No Work Orders found.")}
+            </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div class="profile-panel">
                 <div class="profile-panel-header"><h3>Toolbox Talks</h3><button type="button" onclick="openAdminSummaryTile('toolboxTalks')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Talk", value: (row) => row.talk_title || row.toolbox_talk_title || row.title || "" },
@@ -2322,9 +2405,6 @@ function renderEmployeeProfile() {
                     { label: "Date", value: (row) => formatDate(row.acknowledged_at || row.created_at) }
                 ], toolboxRows.slice(0, 8), "No toolbox talk records found.")}
             </div>
-        </div>
-
-        <div class="profile-two-column profile-section">
             <div class="profile-panel">
                 <div class="profile-panel-header"><h3>Announcements</h3><button type="button" onclick="openAdminSummaryTile('announcements')">View All</button></div>
                 ${renderEmployeeProfileTable([
@@ -2333,6 +2413,9 @@ function renderEmployeeProfile() {
                     { label: "Date", value: (row) => formatDate(row.read_at || row.created_at) }
                 ], announcementRows.slice(0, 8), "No announcement reads found.")}
             </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
             <div class="profile-panel">
                 <div class="profile-panel-header"><h3>Equipment</h3><button type="button" onclick="openAdminSummaryTile('equipment')">View All</button></div>
                 ${renderEmployeeProfileTable([
@@ -6073,6 +6156,128 @@ async function deleteImportedJobs() {
     if (status) {
         status.textContent = "All imported jobs were deleted.";
     }
+}
+
+function getAdminWorkOrderStatusLabel(status) {
+    if (status === "ready_for_submission") {
+        return "Ready For Submission";
+    }
+
+    return capitalizeWords(status || "draft");
+}
+
+function getAdminWorkOrderLabourRows(id) {
+    return workOrderLabourRows.filter((row) => row.work_order_id === id);
+}
+
+function getAdminWorkOrderPoCount(id) {
+    return workOrderPurchaseOrders.filter((row) => row.work_order_id === id).length;
+}
+
+function renderAdminWorkOrders() {
+    const summary = document.getElementById("adminWorkOrdersSummary");
+    const list = document.getElementById("adminWorkOrdersList");
+
+    if (!summary || !list) {
+        return;
+    }
+
+    const search = (document.getElementById("adminWorkOrderSearch")?.value || "").trim().toLowerCase();
+    const statusFilter = document.getElementById("adminWorkOrderStatus")?.value || "";
+    const submitted = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "submitted").length;
+    const ready = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "ready_for_submission").length;
+    const draft = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "draft" || !wo.status).length;
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+    const retainedSixMonths = workOrders.filter((wo) => {
+        const date = profileDateValue(wo.submitted_at || wo.work_order_date || wo.created_at);
+        return date && date >= sixMonthsAgo;
+    }).length;
+
+    const filtered = workOrders.filter((wo) => {
+        const labour = getAdminWorkOrderLabourRows(wo.id);
+        const text = [
+            wo.wo_number,
+            wo.customer,
+            wo.job_number,
+            wo.job_name,
+            wo.status,
+            labour.map((row) => row.employee_name).join(" ")
+        ].join(" ").toLowerCase();
+
+        return (!search || text.includes(search)) &&
+            (!statusFilter || String(wo.status || "draft") === statusFilter);
+    });
+
+    summary.innerHTML = `
+        <div class="summary-grid">
+            <div class="summary-tile"><h3>Total Work Orders</h3><div class="summary-value">${workOrders.length}</div><div class="summary-detail">All saved records</div></div>
+            <div class="summary-tile"><h3>Draft</h3><div class="summary-value">${draft}</div><div class="summary-detail">Still being built</div></div>
+            <div class="summary-tile"><h3>Ready</h3><div class="summary-value">${ready}</div><div class="summary-detail">Waiting for labour or final submit</div></div>
+            <div class="summary-tile"><h3>Submitted</h3><div class="summary-value">${submitted}</div><div class="summary-detail">Locked and emailed</div></div>
+            <div class="summary-tile"><h3>Last 6 Months</h3><div class="summary-value">${retainedSixMonths}</div><div class="summary-detail">Stored online after job list changes</div></div>
+        </div>
+    `;
+
+    if (!filtered.length) {
+        list.textContent = "No Work Orders found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>WO #</th>
+                        <th>Date</th>
+                        <th>Attention</th>
+                        <th>Job</th>
+                        <th>Status</th>
+                        <th>Labour</th>
+                        <th>POs</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((wo) => {
+                        const labour = getAdminWorkOrderLabourRows(wo.id);
+                        const completeCount = labour.filter((row) => row.complete).length;
+                        return `
+                            <tr>
+                                <td>${escapeHtml(wo.wo_number || "")}</td>
+                                <td>${escapeHtml(wo.work_order_date || "")}</td>
+                                <td>${escapeHtml(wo.customer || "")}</td>
+                                <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
+                                <td>${escapeHtml(getAdminWorkOrderStatusLabel(wo.status))}</td>
+                                <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
+                                <td>${getAdminWorkOrderPoCount(wo.id)}</td>
+                                <td>${escapeHtml(wo.submitted_at ? formatDate(wo.submitted_at) : "-")}</td>
+                                <td><button type="button" class="secondary" onclick="window.location.href='work-orders.html'">Open</button></td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadAdminWorkOrders() {
+    const [workOrderResult, labourResult, poResult] = await Promise.all([
+        supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
+        supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true })
+    ]);
+
+    workOrders = workOrderResult.data || [];
+    workOrderLabourRows = labourResult.data || [];
+    workOrderPurchaseOrders = poResult.data || [];
+    renderAdminWorkOrders();
+    renderEmployeeProfile();
+    renderPortalSummary();
 }
 
 function setContactStatus(message) {
