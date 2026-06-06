@@ -2325,12 +2325,6 @@ function buildWorkOrderPdfHtml(id) {
   <h2>Description of Work Completed Today</h2>
   <div class="description">${escapeHtml(wo.description_of_work || "")}</div>
 
-  <h2>Purchase Orders</h2>
-  <table>
-    <thead><tr><th>PO Number</th><th>Company</th><th>Notes</th></tr></thead>
-    <tbody>${buildPdfRows(pos, "No purchase orders entered.", (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}</tbody>
-  </table>
-
   <h2>Labour</h2>
   <table>
     <thead><tr><th>Employee</th><th>Status</th><th>Hours</th><th>Notes</th></tr></thead>
@@ -2338,6 +2332,12 @@ function buildWorkOrderPdfHtml(id) {
       ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", row.complete ? "Complete" : (isManualLabourRow(row) ? "Missing Hours" : "Missing Timesheet"), moneylessNumber(row.hours), row.notes || ""])}
       <tr class="totals"><td colspan="2">Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td>${escapeHtml(waitingFor ? "Waiting for: " + waitingFor : "")}</td></tr>
     </tbody>
+  </table>
+
+  <h2>Purchase Orders</h2>
+  <table>
+    <thead><tr><th>PO Number</th><th>Company</th><th>Notes</th></tr></thead>
+    <tbody>${buildPdfRows(pos, "No purchase orders entered.", (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}</tbody>
   </table>
 
   <h2>Materials Used From Shop</h2>
