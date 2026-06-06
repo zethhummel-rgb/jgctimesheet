@@ -307,6 +307,7 @@ function activateGlobalTopNavigation() {
     { label: "Certificates", href: "certificates.html" },
     { label: "Vacation", href: "vacation-request.html" },
     { label: "Equipment", href: "equipment-vehicles.html" },
+    { label: "WO", href: "work-orders.html" },
     { label: "Permits", href: "permits.html" },
     { label: "Reports", href: "reports.html" },
     { label: "Policies", href: "policies-announcements.html" },
