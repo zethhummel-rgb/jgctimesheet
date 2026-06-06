@@ -944,6 +944,10 @@ button:hover,
         <div class="profile-edit-body">
         <div class="profile-edit-grid">
             <div>
+                <label>Display Name</label>
+                <input id="profileDisplayName">
+            </div>
+            <div>
                 <label>Employee ID</label>
                 <input id="profileEmployeeId">
             </div>
@@ -2430,6 +2434,7 @@ function renderEmployeeProfile() {
 
 function populateEmployeeProfileEditForm(account) {
     const fields = {
+        profileDisplayName: account.display_name || "",
         profileEmployeeId: account.employee_id || "",
         profileEmail: account.email || "",
         profilePhone: account.phone || "",
@@ -2516,6 +2521,7 @@ async function saveEmployeeProfileDetails() {
     try {
         const avatarPath = await uploadAdminProfilePhoto(account);
         const values = {
+            display_name: document.getElementById("profileDisplayName").value.trim(),
             employee_id: document.getElementById("profileEmployeeId").value.trim(),
             email: document.getElementById("profileEmail").value.trim(),
             phone: document.getElementById("profilePhone").value.trim(),
@@ -6255,7 +6261,12 @@ function renderAdminWorkOrders() {
                                 <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
                                 <td>${getAdminWorkOrderPoCount(wo.id)}</td>
                                 <td>${escapeHtml(wo.submitted_at ? formatDate(wo.submitted_at) : "-")}</td>
-                                <td><button type="button" class="secondary" onclick="window.location.href='work-orders.html'">Open</button></td>
+                                <td>
+                                    <div class="actions">
+                                        <button type="button" class="secondary" onclick="window.location.href='work-orders.html'">Open</button>
+                                        <button type="button" class="delete-button" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
+                                    </div>
+                                </td>
                             </tr>
                         `;
                     }).join("")}
@@ -6263,6 +6274,59 @@ function renderAdminWorkOrders() {
             </table>
         </div>
     `;
+}
+
+async function deleteAdminWorkOrder(id) {
+    const wo = workOrders.find((item) => item.id === id);
+
+    if (!wo) {
+        alert("Work Order could not be found.");
+        return;
+    }
+
+    const label = wo.wo_number || [wo.job_number, wo.job_name].filter(Boolean).join(" - ") || "this Work Order";
+    const confirmed = confirm("Delete Work Order " + label + "? This is permanent and should only be used for testing or cleanup.");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const childTables = [
+        "work_order_purchase_orders",
+        "work_order_labour",
+        "work_order_equipment",
+        "work_order_rentals",
+        "work_order_materials",
+        "work_order_misc_invoices",
+        "work_order_travel"
+    ];
+
+    const childDeletes = await Promise.all(childTables.map((table) =>
+        supabaseClient.from(table).delete().eq("work_order_id", id)
+    ));
+    const childError = childDeletes.find((result) => result.error);
+
+    if (childError) {
+        alert("Work Order details could not be deleted: " + childError.error.message);
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("work_orders")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("Work Order could not be deleted: " + error.message);
+        return;
+    }
+
+    workOrders = workOrders.filter((item) => item.id !== id);
+    workOrderLabourRows = workOrderLabourRows.filter((row) => row.work_order_id !== id);
+    workOrderPurchaseOrders = workOrderPurchaseOrders.filter((row) => row.work_order_id !== id);
+    renderAdminWorkOrders();
+    renderEmployeeProfile();
+    renderPortalSummary();
 }
 
 async function loadAdminWorkOrders() {
