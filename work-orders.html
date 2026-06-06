@@ -2261,6 +2261,19 @@ function buildPdfRows(rows, emptyText, cellsBuilder) {
   return rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("");
 }
 
+function buildOptionalPdfSection(title, rows, headers, cellsBuilder) {
+  if (!rows.length) {
+    return "";
+  }
+
+  return `
+  <h2>${escapeHtml(title)}</h2>
+  <table>
+    <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((row) => "<tr>" + cellsBuilder(row).map((cell) => "<td>" + escapeHtml(cell) + "</td>").join("") + "</tr>").join("")}</tbody>
+  </table>`;
+}
+
 function formatTransportationProvider(value) {
   if (value === "jgc") {
     return "JGC";
@@ -2334,50 +2347,27 @@ function buildWorkOrderPdfHtml(id) {
     </tbody>
   </table>
 
-  <h2>Purchase Orders</h2>
-  <table>
-    <thead><tr><th>PO Number</th><th>Company</th><th>Notes</th></tr></thead>
-    <tbody>${buildPdfRows(pos, "No purchase orders entered.", (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}</tbody>
-  </table>
+  ${buildOptionalPdfSection("Purchase Orders", pos, ["PO Number", "Company", "Notes"], (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}
 
-  <h2>Materials Used From Shop</h2>
-  <table>
-    <thead><tr><th>Shop</th><th>Material Description</th><th>Quantity</th></tr></thead>
-    <tbody>${buildPdfRows(materials, "No shop materials entered.", (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}</tbody>
-  </table>
+  ${buildOptionalPdfSection("Materials Used From Shop", materials, ["Shop", "Material Description", "Quantity"], (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}
 
-  <h2>Misc. Invoices and Sub Contractors</h2>
-  <table>
-    <thead><tr><th>Name</th></tr></thead>
-    <tbody>${buildPdfRows(misc, "No misc. invoices entered.", (row) => [row.invoice_name || ""])}</tbody>
-  </table>
+  ${buildOptionalPdfSection("Misc. Invoices and Sub Contractors", misc, ["Name"], (row) => [row.invoice_name || ""])}
 
-  <h2>Travelling</h2>
-  <table>
-    <thead><tr><th>Vehicle</th><th>Identification #</th><th>Total KM</th><th>Trailer</th><th>Trailer ID #</th></tr></thead>
-    <tbody>${buildPdfRows(travel, "No travelling entered.", (row) => [
+  ${buildOptionalPdfSection("Travelling", travel, ["Vehicle", "Identification #", "Total KM", "Trailer", "Trailer ID #"], (row) => [
       row.vehicle_name || "",
       row.identification_number || "",
       String(row.total_km || ""),
       row.trailer_used ? row.trailer_name || "Trailer used" : "",
       row.trailer_used ? row.trailer_identification_number || "" : ""
-    ])}</tbody>
-  </table>
+    ])}
 
-  <h2>Equipment Used</h2>
-  <table>
-    <thead><tr><th>Lift</th><th>Identification #</th><th>Floated By Tow Truck</th></tr></thead>
-    <tbody>${buildPdfRows(equipment, "No lift equipment entered.", (row) => [
+  ${buildOptionalPdfSection("Equipment Used", equipment, ["Lift", "Identification #", "Floated By Tow Truck"], (row) => [
       row.equipment_name || "",
       row.identification_number || "",
       row.transportation_required ? "Yes" : "No"
-    ])}</tbody>
-  </table>
+    ])}
 
-  <h2>Rental Equipment</h2>
-  <table>
-    <thead><tr><th>Rental Equipment</th><th>PO #</th><th>Company</th><th>Quantity</th><th>Hours</th><th>Days</th><th>Notes</th></tr></thead>
-    <tbody>${buildPdfRows(rentals, "No rental equipment entered.", (row) => [
+  ${buildOptionalPdfSection("Rental Equipment", rentals, ["Rental Equipment", "PO #", "Company", "Quantity", "Hours", "Days", "Notes"], (row) => [
       row.rental_equipment_description || "",
       row.po_number || "",
       row.rental_company || "",
@@ -2385,8 +2375,7 @@ function buildWorkOrderPdfHtml(id) {
       String(row.hours_used || ""),
       String(row.days_used || ""),
       row.notes || ""
-    ])}</tbody>
-  </table>
+    ])}
 
   <div class="signatures">
     <div class="line">Supervisor Signature</div>
