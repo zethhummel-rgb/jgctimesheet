@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Telehandler Inspection Checklist</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -208,7 +208,7 @@ button:hover {
     <div class="field"><label>Plant or Serial No.</label><input type="text"></div>
     <div class="field"><label>Machine Hours</label><input type="text"></div>
     <div class="field"><label>Week Commencing</label><input type="date"></div>
-    <div class="field"><label>Site Location</label><input type="text"></div>
+    <div class="field"><label>Site Location</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
 </div>
 
 <div class="table-wrap">
@@ -249,7 +249,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
