@@ -458,6 +458,44 @@ button:hover,
     line-height: 1;
 }
 
+.backup-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.backup-status-card {
+    border: 1px solid rgba(50, 220, 85, 0.35);
+    border-radius: 8px;
+    background: #0f201c;
+    color: #f7fff7;
+    padding: 14px;
+}
+
+.backup-status-card strong {
+    display: block;
+    color: #32dc55;
+    margin-bottom: 6px;
+}
+
+.backup-command {
+    margin: 10px 0;
+    padding: 12px;
+    border: 1px solid rgba(50, 220, 85, 0.35);
+    border-radius: 8px;
+    background: #07130f;
+    color: #eaffef;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.backup-inspector-result {
+    margin-top: 12px;
+}
+
 .summary-detail {
     margin-top: 8px;
     color: #050805 !important;
@@ -1219,6 +1257,7 @@ button:hover,
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">Work Orders</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
     <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
+    <button id="backupsTab" class="tab-button" onclick="showTab('backups')">Backups</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
     <button class="secondary" onclick="window.location.href='admin.html'">Home</button>
     <button class="secondary" onclick="signOut()">Sign Out</button>
@@ -1735,9 +1774,53 @@ button:hover,
     <div id="contactsList" class="small" style="margin-top:12px;">Loading contacts...</div>
 </div>
 
+<div id="backupsSection" class="card" hidden>
+    <h2>Backups</h2>
+    <div class="small">Use this before making big website changes. The automatic backup still runs from your computer, so the admin page gives you the command to force it and an inspector to confirm a ZIP contains website files, Supabase tables, and storage exports.</div>
+
+    <div class="backup-status-grid">
+        <div class="backup-status-card">
+            <strong>Automatic Schedule</strong>
+            Every Sunday at 12:00 AM
+        </div>
+        <div class="backup-status-card">
+            <strong>Backup Folder</strong>
+            C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\JGC Portal Backups
+        </div>
+        <div class="backup-status-card">
+            <strong>Included Data</strong>
+            Portal files, Supabase tables, and Supabase storage buckets
+        </div>
+    </div>
+
+    <h3>Force Backup Now</h3>
+    <div class="small">Copy this command into PowerShell on your computer, or run <strong>run-jgc-backup-now.bat</strong> from the portal folder.</div>
+    <div id="backupCommandText" class="backup-command"></div>
+    <div class="actions">
+        <button type="button" onclick="copyBackupCommand()">Copy Manual Backup Command</button>
+        <button type="button" class="secondary" onclick="window.location.href='backup-jgc-portal.ps1'">Open Backup Script</button>
+    </div>
+    <div id="backupCommandStatus" class="small" style="margin-top:10px;"></div>
+
+    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+
+    <h3>Backup List / Restore Prep</h3>
+    <div class="small">Upload one of the backup ZIP files here to inspect it. This does not overwrite anything. It shows what is inside so a restore can be done carefully if something breaks.</div>
+    <div class="announcement-grid" style="margin-top:10px;">
+        <div class="full">
+            <label>Backup ZIP</label>
+            <input id="backupZipFile" type="file" accept=".zip,application/zip,.json,application/json" onchange="inspectBackupFile()">
+        </div>
+    </div>
+    <div id="backupInspectStatus" class="small" style="margin-top:10px;">No backup selected yet.</div>
+    <div id="backupHistoryList" class="small" style="margin-top:12px;"></div>
+    <div id="backupInspectResult" class="backup-inspector-result small"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="common.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -1795,8 +1878,262 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
+const BACKUP_COMMAND = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Zeth\\OneDrive - JOHN GORDON CONSTRUCTION INC\\Documents\\index.html\\backup-jgc-portal.ps1"';
+
+function initializeBackupsPage() {
+    const commandBlock = document.getElementById("backupCommandText");
+
+    if (commandBlock) {
+        commandBlock.textContent = BACKUP_COMMAND;
+    }
+
+    renderBackupHistory();
+}
+
+function setBackupStatus(elementId, message, isError) {
+    const element = document.getElementById(elementId);
+
+    if (!element) {
+        return;
+    }
+
+    element.textContent = message;
+    element.style.color = isError ? "#b42318" : "";
+}
+
+async function copyBackupCommand() {
+    try {
+        await navigator.clipboard.writeText(BACKUP_COMMAND);
+        setBackupStatus("backupCommandStatus", "Manual backup command copied.");
+    } catch (err) {
+        setBackupStatus("backupCommandStatus", "Could not copy automatically. Highlight the command above and copy it manually.", true);
+    }
+}
+
+function normalizeZipName(name) {
+    return String(name || "").replace(/\\/g, "/");
+}
+
+function findZipEntry(zip, wantedPath) {
+    const normalizedWanted = normalizeZipName(wantedPath).toLowerCase();
+    const entries = Object.values(zip.files || {});
+
+    return entries.find((entry) => normalizeZipName(entry.name).toLowerCase() === normalizedWanted) || null;
+}
+
+async function readZipJson(zip, wantedPath) {
+    const entry = findZipEntry(zip, wantedPath);
+
+    if (!entry) {
+        return null;
+    }
+
+    return JSON.parse(await entry.async("string"));
+}
+
+function getBackupHistory() {
+    try {
+        return JSON.parse(localStorage.getItem("jgcBackupHistory") || "[]");
+    } catch (err) {
+        return [];
+    }
+}
+
+function saveBackupHistory(record) {
+    const existing = getBackupHistory().filter((item) => item.fileName !== record.fileName);
+    const next = [record].concat(existing).slice(0, 12);
+    localStorage.setItem("jgcBackupHistory", JSON.stringify(next));
+    renderBackupHistory();
+}
+
+function renderBackupHistory() {
+    const target = document.getElementById("backupHistoryList");
+
+    if (!target) {
+        return;
+    }
+
+    const history = getBackupHistory();
+
+    if (!history.length) {
+        target.innerHTML = "<h4>Backup List</h4><div class=\"small\">No backups inspected yet. Upload a backup ZIP to add it to this list.</div>";
+        return;
+    }
+
+    target.innerHTML = renderBackupSummaryTable("Backup List", history, [
+        { key: "fileName", label: "File" },
+        { key: "createdAt", label: "Created" },
+        { key: "websiteFiles", label: "Website Files" },
+        { key: "tableFiles", label: "Tables" },
+        { key: "storageFiles", label: "Storage Files" },
+        { key: "supabase", label: "Supabase" }
+    ]);
+}
+
+function renderBackupSummaryTable(title, rows, columns) {
+    if (!rows || !rows.length) {
+        return `<h4>${escapeHtml(title)}</h4><div class="small">No records found.</div>`;
+    }
+
+    return `
+        <h4>${escapeHtml(title)}</h4>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `
+                        <tr>
+                            ${columns.map((column) => `<td>${escapeHtml(String(row[column.key] ?? ""))}</td>`).join("")}
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function formatBackupDateTime(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString();
+}
+
+function renderBackupInspection(fileName, manifest, tableSummary, storageSummary, counts) {
+    const createdAt = manifest && manifest.createdAt ? formatBackupDateTime(manifest.createdAt) : "Not found";
+    const supabaseStatus = manifest && manifest.supabaseExportConfigured ? "Included" : "Not included or not found";
+
+    return `
+        <div class="backup-status-grid">
+            <div class="backup-status-card">
+                <strong>Backup File</strong>
+                ${escapeHtml(fileName)}
+            </div>
+            <div class="backup-status-card">
+                <strong>Created</strong>
+                ${escapeHtml(createdAt)}
+            </div>
+            <div class="backup-status-card">
+                <strong>Website Files</strong>
+                ${escapeHtml(String(counts.websiteFiles))}
+            </div>
+            <div class="backup-status-card">
+                <strong>Supabase Export</strong>
+                ${escapeHtml(supabaseStatus)}
+            </div>
+            <div class="backup-status-card">
+                <strong>Table Files</strong>
+                ${escapeHtml(String(counts.tableFiles))}
+            </div>
+            <div class="backup-status-card">
+                <strong>Storage Files</strong>
+                ${escapeHtml(String(counts.storageFiles))}
+            </div>
+        </div>
+        ${renderBackupSummaryTable("Supabase Tables", tableSummary || [], [
+            { key: "table", label: "Table" },
+            { key: "rows", label: "Rows" },
+            { key: "status", label: "Status" }
+        ])}
+        ${renderBackupSummaryTable("Storage Buckets", storageSummary || [], [
+            { key: "bucket", label: "Bucket" },
+            { key: "files", label: "Files" },
+            { key: "status", label: "Status" }
+        ])}
+        <div class="small" style="margin-top:12px;">Restore is intentionally review-only here. To restore live data, review this backup first and then run a controlled restore script so the website does not overwrite Supabase by accident.</div>
+    `;
+}
+
+async function inspectBackupZip(file) {
+    if (!window.JSZip) {
+        throw new Error("ZIP reader did not load. Refresh the page and try again.");
+    }
+
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const files = Object.values(zip.files || {}).filter((entry) => !entry.dir);
+    const normalizedNames = files.map((entry) => normalizeZipName(entry.name));
+    const counts = {
+        websiteFiles: normalizedNames.filter((name) => name.startsWith("website-files/")).length,
+        tableFiles: normalizedNames.filter((name) => name.startsWith("supabase/tables/") && name.endsWith(".json")).length,
+        storageFiles: normalizedNames.filter((name) => name.startsWith("supabase/storage/")).length
+    };
+    const manifest = await readZipJson(zip, "backup-manifest.json");
+    const tableSummary = await readZipJson(zip, "supabase/table-export-summary.json");
+    const storageSummary = await readZipJson(zip, "supabase/storage-export-summary.json");
+
+    document.getElementById("backupInspectResult").innerHTML = renderBackupInspection(
+        file.name,
+        manifest,
+        Array.isArray(tableSummary) ? tableSummary : [],
+        Array.isArray(storageSummary) ? storageSummary : [],
+        counts
+    );
+
+    return {
+        fileName: file.name,
+        createdAt: manifest && manifest.createdAt ? formatBackupDateTime(manifest.createdAt) : "Not found",
+        websiteFiles: counts.websiteFiles,
+        tableFiles: counts.tableFiles,
+        storageFiles: counts.storageFiles,
+        supabase: manifest && manifest.supabaseExportConfigured ? "Included" : "Not found"
+    };
+}
+
+async function inspectBackupJson(file) {
+    const data = JSON.parse(await file.text());
+    const rows = Array.isArray(data) ? data : [data];
+
+    document.getElementById("backupInspectResult").innerHTML = renderBackupSummaryTable("Uploaded JSON", rows.slice(0, 50), Object.keys(rows[0] || {}).slice(0, 8).map((key) => ({
+        key,
+        label: key
+    })));
+
+    return {
+        fileName: file.name,
+        createdAt: "JSON file",
+        websiteFiles: "-",
+        tableFiles: "-",
+        storageFiles: "-",
+        supabase: "Single JSON"
+    };
+}
+
+async function inspectBackupFile() {
+    const input = document.getElementById("backupZipFile");
+    const file = input && input.files ? input.files[0] : null;
+
+    if (!file) {
+        setBackupStatus("backupInspectStatus", "No backup selected yet.");
+        document.getElementById("backupInspectResult").innerHTML = "";
+        return;
+    }
+
+    try {
+        setBackupStatus("backupInspectStatus", "Inspecting backup...");
+        document.getElementById("backupInspectResult").innerHTML = "";
+
+        const record = file.name.toLowerCase().endsWith(".json")
+            ? await inspectBackupJson(file)
+            : await inspectBackupZip(file);
+
+        saveBackupHistory(record);
+        setBackupStatus("backupInspectStatus", "Backup inspected successfully.");
+    } catch (err) {
+        setBackupStatus("backupInspectStatus", "Could not inspect backup: " + err.message, true);
+    }
+}
+
 function showTab(tab) {
-    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts"].forEach((name) => {
+    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -1854,6 +2191,10 @@ function showTab(tab) {
     if (tab === "workOrders") {
         renderAdminWorkOrders();
         renderWorkOrderLabourWorkers();
+    }
+
+    if (tab === "backups") {
+        initializeBackupsPage();
     }
 }
 
@@ -2041,7 +2382,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -2282,6 +2623,13 @@ function renderPortalSummary() {
             badgeCount: countNewForAdminTab(accounts.filter((account) => String(account.account_status || "").toLowerCase() === "pending"), "accounts", ["created_at"]),
             detail: "Accounts waiting for approval",
             action: "openAccountsFromSummary()"
+        },
+        {
+            title: "Backups",
+            value: "Sun",
+            badgeCount: 0,
+            detail: "Weekly backup plus manual restore prep",
+            action: "openAdminSummaryTile('backups')"
         }
     ];
 
