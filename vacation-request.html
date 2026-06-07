@@ -461,7 +461,6 @@ const VACATION_EMAIL_RECIPIENTS = [
     "zeth@johngordonconstruction.com",
     "Jeff@johngordonconstruction.com"
 ];
-const VACATION_EMAIL = VACATION_EMAIL_RECIPIENTS.join(",");
 const VACATION_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -476,6 +475,17 @@ fillHalfDayFinishOptions();
 
 function getValue(id) {
     return document.getElementById(id).value.trim();
+}
+
+function getVacationEmailRecipients() {
+    const recipients = VACATION_EMAIL_RECIPIENTS.slice();
+    const employeeEmail = String(worker.email || localStorage.getItem("currentUserEmail") || "").trim();
+
+    if (employeeEmail && !recipients.some((email) => email.toLowerCase() === employeeEmail.toLowerCase())) {
+        recipients.push(employeeEmail);
+    }
+
+    return recipients;
 }
 
 function countWeekdays(startValue, endValue) {
@@ -835,8 +845,11 @@ async function loadMyVacationRequests() {
 }
 
 async function emailVacationRequest(record) {
+    const recipients = getVacationEmailRecipients();
+    const to = recipients.join(",");
+
     if (!VACATION_EMAIL_SCRIPT_URL) {
-        window.location.href = "mailto:" + VACATION_EMAIL +
+        window.location.href = "mailto:" + recipients.map((email) => encodeURIComponent(email)).join(",") +
             "?subject=" + encodeURIComponent("Vacation Request - " + record.worker_display_name) +
             "&body=" + encodeURIComponent(record.email_body);
         return;
@@ -849,8 +862,8 @@ async function emailVacationRequest(record) {
             "Content-Type": "text/plain;charset=utf-8"
         },
         body: JSON.stringify({
-            to: VACATION_EMAIL,
-            recipients: VACATION_EMAIL_RECIPIENTS,
+            to,
+            recipients,
             subject: "Vacation Request - " + record.worker_display_name + " - " + record.start_date,
             body: record.email_body,
             text: record.email_body,
