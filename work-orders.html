@@ -2367,8 +2367,6 @@ function buildWorkOrderPdfHtml(id) {
 
   const { wo, pos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
-  const labourComplete = labour.length ? labour.filter((row) => row.complete).length + " / " + labour.length : "No labour selected";
-  const waitingFor = Array.isArray(wo.waiting_for) ? wo.waiting_for.join(", ") : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -2412,10 +2410,10 @@ function buildWorkOrderPdfHtml(id) {
 
   <h2>Labour</h2>
   <table>
-    <thead><tr><th>Employee</th><th>Status</th><th>Hours</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Employee</th><th>Hours</th><th>Notes</th></tr></thead>
     <tbody>
-      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", row.complete ? "Complete" : (isManualLabourRow(row) ? "Missing Hours" : "Missing Timesheet"), moneylessNumber(row.hours), row.notes || ""])}
-      <tr class="totals"><td colspan="2">Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td>${escapeHtml(waitingFor ? "Waiting for: " + waitingFor : "")}</td></tr>
+      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", moneylessNumber(row.hours), row.notes || ""])}
+      <tr class="totals"><td>Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td></td></tr>
     </tbody>
   </table>
 
