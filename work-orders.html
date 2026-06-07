@@ -1524,7 +1524,7 @@ function renderWorkOrders() {
                     ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
-                    ${isAdmin ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
+                    ${isAdmin && !isLocked ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
                   </div>
                 </td>
               </tr>
