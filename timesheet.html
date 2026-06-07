@@ -851,6 +851,7 @@
 <script src="common.js?v=2"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
+const TIMESHEET_ADMIN_EMAIL = "zeth@johngordonconstruction.com";
 const supabaseClient = createJgcSupabaseClient();
 
 let currentUser = normalizeWorkerName(localStorage.getItem("currentWorker"));
@@ -2763,9 +2764,32 @@ async function resubmitPreviousWeek(index) {
   await sendTimesheetEmail(subject, body, week.weekLabel, pdfHtml);
 }
 
+function getCurrentUserEmail() {
+  return String(localStorage.getItem("currentUserEmail") || "").trim().toLowerCase();
+}
+
+function getTimesheetEmailRecipients() {
+  const recipients = [TIMESHEET_ADMIN_EMAIL];
+  const employeeEmail = getCurrentUserEmail();
+
+  if (employeeEmail && !recipients.some(function(email) {
+    return email.toLowerCase() === employeeEmail;
+  })) {
+    recipients.push(employeeEmail);
+  }
+
+  return recipients;
+}
+
 function openTimesheetMailto(subject, body) {
+  const recipients = getTimesheetEmailRecipients()
+    .map(function(email) {
+      return encodeURIComponent(email);
+    })
+    .join(",");
+
   window.location.href =
-    "mailto:zeth@johngordonconstruction.com" +
+    "mailto:" + recipients +
     "?subject=" + encodeURIComponent(subject) +
     "&body=" + encodeURIComponent(body);
 }
@@ -2791,6 +2815,7 @@ async function sendTimesheetEmail(subject, body, weekLabel, pdfHtml) {
         "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify({
+        to: getTimesheetEmailRecipients().join(","),
         subject,
         body,
         text: body,
