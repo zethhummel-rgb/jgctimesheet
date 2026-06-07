@@ -485,7 +485,7 @@ th {
   </div>
 
   <div class="grid">
-    <section class="card">
+    <section id="workOrderManagementCard" class="card">
       <button type="button" class="collapse-header" onclick="toggleManagementPanel()">
         <h2>Work Order Management</h2>
         <span id="managementToggleText">Show</span>
@@ -1445,6 +1445,18 @@ function resetWorkOrderForm() {
   setFormStatus("");
 }
 
+function scrollWorkOrdersToTop() {
+  const target = document.getElementById("workOrderManagementCard") || document.body;
+  const top = target.getBoundingClientRect().top + window.pageYOffset - 12;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function finishWorkOrderAndStartNext(message) {
+  resetWorkOrderForm();
+  setFormStatus(message || "");
+  scrollWorkOrdersToTop();
+}
+
 function setFormLocked(isLocked) {
   document.getElementById("lockedNotice").style.display = isLocked ? "block" : "none";
   document.getElementById("saveButton").disabled = isLocked;
@@ -1883,9 +1895,8 @@ async function saveWorkOrder(options) {
     return workOrderId;
   }
 
-  setFormStatus("Work order saved.");
   await loadWorkOrders(false);
-  editWorkOrder(workOrderId);
+  finishWorkOrderAndStartNext("Work order saved. Ready for the next Work Order.");
   return workOrderId;
 }
 
@@ -2067,8 +2078,7 @@ async function finalizeWorkOrder(id, options) {
   await loadWorkOrders(false);
 
   if (!settings.silent) {
-    editWorkOrder(id);
-    setFormStatus("Work Order submitted, emailed, and locked.");
+    finishWorkOrderAndStartNext("Work Order submitted, emailed, and locked. Ready for the next Work Order.");
     alert("Work Order submitted, emailed, and locked.");
   }
 
@@ -2102,8 +2112,7 @@ async function submitCurrentWorkOrder() {
   const markedReady = await markWorkOrderReady(workOrderId, check.waitingFor);
 
   if (markedReady) {
-    editWorkOrder(workOrderId);
-    setFormStatus("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
+    finishWorkOrderAndStartNext("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
     alert("Work Order is ready, but not complete yet. Waiting for: " + check.waitingFor.join(", "));
   }
 }
