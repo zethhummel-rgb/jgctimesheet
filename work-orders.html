@@ -2401,12 +2401,10 @@ function buildWorkOrderPdfHtml(id) {
     <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
     <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
     <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
-    <div><b>Status</b>${escapeHtml(getWorkOrderStatusText(wo))}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
     <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
     <div><b>Supervisor</b>${escapeHtml(wo.supervisor_name || wo.created_by_name || "")}</div>
-    <div><b>Labour Match</b>${escapeHtml(labourComplete)}</div>
   </div>
 
   <h2>Description of Work Completed Today</h2>
