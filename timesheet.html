@@ -43,12 +43,9 @@
       align-items: start;
     }
 
-    .timesheet-left,
-    .timesheet-right {
-      min-width: 0;
-    }
-
     .form-card {
+      grid-column: 2;
+      grid-row: 1;
       position: sticky;
       top: 16px;
     }
@@ -68,6 +65,7 @@
     }
 
     .entries-card {
+      grid-column: 1 / -1;
       max-width: none;
       margin-left: 0;
       margin-right: 0;
@@ -189,6 +187,37 @@
       min-width: 860px;
       background: rgba(9, 20, 17, 0.96);
       color: #f5f7f3;
+    }
+
+    .entries-card .table-wrap {
+      overflow-x: hidden;
+    }
+
+    .entries-card table {
+      min-width: 0;
+      table-layout: fixed;
+    }
+
+    .entries-card th,
+    .entries-card td {
+      padding: 8px 6px;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .entries-card th:first-child,
+    .entries-card td:first-child {
+      width: 22%;
+    }
+
+    .entries-card th:nth-child(2),
+    .entries-card td:nth-child(2) {
+      width: 13%;
+    }
+
+    .entries-card th:nth-child(3),
+    .entries-card td:nth-child(3) {
+      width: 9%;
     }
 
     th, td {
@@ -594,9 +623,41 @@
         min-width: 520px;
       }
 
+      .entries-card .table-wrap {
+        overflow-x: hidden;
+      }
+
+      .entries-card table {
+        min-width: 0;
+        width: 100%;
+        table-layout: fixed;
+      }
+
       th, td {
         padding: 3px;
         font-size: 10px;
+      }
+
+      .entries-card th,
+      .entries-card td {
+        padding: 6px 3px;
+        font-size: 10px;
+        line-height: 1.2;
+      }
+
+      .entries-card th:first-child,
+      .entries-card td:first-child {
+        width: 24%;
+      }
+
+      .entries-card th:nth-child(2),
+      .entries-card td:nth-child(2) {
+        width: 15%;
+      }
+
+      .entries-card th:nth-child(3),
+      .entries-card td:nth-child(3) {
+        width: 10%;
       }
 
       .table-wrap td input[type="checkbox"][disabled] {
@@ -650,7 +711,6 @@
 <div id="currentUser" class="user-bar"></div>
 
 <div class="timesheet-shell">
-<div class="timesheet-left">
 <div class="card calendar-card">
   <div class="timesheet-calendar-header">
     <button type="button" onclick="changeCalendarMonth(-1)">Previous</button>
@@ -672,21 +732,6 @@
   <div class="small">Pick a date to start an entry for that day. Soft green shows the selected week and blue marks submitted weeks.</div>
 </div>
 
-<div class="card entries-card">
-  <h3>Submitted Entries</h3>
-  <div class="tab-buttons">
-    <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
-    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
-    <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
-  </div>
-  <button type="button" onclick="clearEntries()">Clear My Entries</button>
-  <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
-  <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
-  <div id="entries"></div>
-</div>
-</div>
-
-<div class="timesheet-right">
 <div class="card form-card">
   <h3>Submit Time Entry</h3>
 
@@ -789,6 +834,18 @@
   <button id="cancelEditButton" class="cancel-edit" type="button" onclick="cancelEdit()">Cancel Edit</button>
   <div id="submitStatus" class="status"></div>
 </div>
+
+<div class="card entries-card">
+  <h3>Submitted Entries</h3>
+  <div class="tab-buttons">
+    <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
+    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
+    <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
+  </div>
+  <button type="button" onclick="clearEntries()">Clear My Entries</button>
+  <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
+  <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
+  <div id="entries"></div>
 </div>
 </div>
 
