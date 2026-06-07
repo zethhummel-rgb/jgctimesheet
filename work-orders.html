@@ -1025,22 +1025,19 @@ function upsertEmployeeDirectoryItem(map, item) {
   });
 }
 
-function rebuildEmployeeDirectory() {
+function rebuildEmployeeDirectory(includeSelectedKeys) {
   const map = new Map();
+  const selected = new Set((includeSelectedKeys || []).map((value) => (value || "").trim()).filter(Boolean));
 
   profileEmployees.forEach((employee) => upsertEmployeeDirectoryItem(map, employee));
-  timesheetEntries.forEach((entry) => {
-    const workerName = entry.worker_name || entry.user || entry.employee_name || "";
+
+  labourRows.filter((row) => !isManualLabourRow(row) && selected.has(row.worker_key || normalizeWorkerName(row.employee_name))).forEach((row) => {
     upsertEmployeeDirectoryItem(map, {
-      worker_key: workerName,
-      display_name: formatWorkerDisplayName(workerName)
+      id: row.employee_id || "",
+      worker_key: row.worker_key || row.employee_name,
+      display_name: row.employee_name || row.worker_key || ""
     });
   });
-  labourRows.filter((row) => !isManualLabourRow(row)).forEach((row) => upsertEmployeeDirectoryItem(map, {
-    id: row.employee_id || "",
-    worker_key: row.worker_key || row.employee_name,
-    display_name: row.employee_name || row.worker_key || ""
-  }));
 
   employees = Array.from(map.values())
     .filter((employee) => employee.display_name || employee.email || employee.worker_key)
@@ -2217,7 +2214,7 @@ async function loadJobs() {
 async function loadEmployees() {
   let { data, error } = await supabaseClient
     .from("approved_worker_directory")
-    .select("id, display_name, worker_key")
+    .select("id, display_name, worker_key, approved")
     .order("display_name", { ascending: true });
 
   if (error) {
@@ -2236,9 +2233,12 @@ async function loadEmployees() {
     return;
   }
 
-  profileEmployees = (data || []).filter((employee) => employee.display_name || employee.email || employee.worker_key);
-  rebuildEmployeeDirectory();
-  renderEmployeePicker(labourRows.filter((row) => row.work_order_id === editingWorkOrderId).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
+  profileEmployees = (data || [])
+    .filter((employee) => typeof employee.approved === "boolean" ? employee.approved : true)
+    .filter((employee) => employee.display_name || employee.email || employee.worker_key);
+  const selected = labourRows.filter((row) => row.work_order_id === editingWorkOrderId && !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name));
+  rebuildEmployeeDirectory(selected);
+  renderEmployeePicker(selected);
   renderLabourPreview();
 }
 
