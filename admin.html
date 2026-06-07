@@ -68,6 +68,78 @@ h1 {
     color: #2f6f3c;
 }
 
+.admin-collapsible-panel {
+    border: 1px solid rgba(50, 220, 85, 0.45);
+    background: linear-gradient(180deg, rgba(20, 56, 28, 0.95), rgba(12, 34, 15, 0.95));
+    color: #f7fff7;
+}
+
+.admin-collapsible-panel summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    font-weight: bold;
+    color: #ebfff2;
+    list-style: none;
+}
+
+.admin-collapsible-panel summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-collapsible-panel summary::after {
+    content: "▶";
+    color: #4ee06e;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.admin-collapsible-panel[open] summary::after {
+    content: "▼";
+}
+
+.admin-collapsible-panel > summary + * {
+    padding: 0 12px 12px;
+}
+
+.admin-collapsible-panel .small,
+.admin-collapsible-panel label {
+    color: #d8f1e1;
+}
+
+.admin-collapsible-panel input,
+.admin-collapsible-panel button,
+.admin-collapsible-panel select {
+    background: #f8fff8;
+}
+
+.admin-collapsible-panel .table-wrap {
+    border: 1px solid rgba(78, 224, 110, 0.35);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0f2d15;
+}
+
+.admin-collapsible-panel table {
+    border-collapse: collapse;
+    width: 100%;
+    color: #ebfff2;
+}
+
+.admin-collapsible-panel th,
+.admin-collapsible-panel td {
+    border-color: rgba(78, 224, 110, 0.35);
+    background: rgba(16, 35, 18, 0.95);
+}
+
+.admin-collapsible-panel thead th {
+    color: #2df06d;
+    background: rgba(15, 55, 31, 0.95);
+}
+
 h2 {
     margin: 0 0 12px;
     color: #2f6f3c;
@@ -1359,22 +1431,27 @@ button:hover,
         <button class="secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
         <button type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
     </div>
-    <div class="sub-card" style="margin-top:14px;">
-        <h3>Approved WO Labour Workers</h3>
-        <div class="small" style="margin-bottom:10px;">Checked workers appear in the Work Order labour picker. You can add manual names here without creating portal accounts.</div>
-        <div class="filters">
-            <div>
-                <label>Add Worker Name</label>
-                <input id="woLabourWorkerName" placeholder="Worker name">
+    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;">
+        <summary>
+            <span>Approved WO Labour Workers</span>
+            <span id="woLabourWorkerCountBadge" class="timesheet-worker-count">0</span>
+        </summary>
+        <div>
+            <div class="small" style="margin-bottom:10px;">Checked workers appear in the Work Order labour picker. You can add manual names here without creating portal accounts.</div>
+            <div class="filters">
+                <div>
+                    <label>Add Worker Name</label>
+                    <input id="woLabourWorkerName" placeholder="Worker name">
+                </div>
             </div>
+            <div class="actions" style="margin-top:10px;">
+                <button type="button" onclick="addWorkOrderLabourWorker()">Add Worker</button>
+                <button class="secondary" type="button" onclick="loadWorkOrderLabourWorkers()">Refresh Workers</button>
+            </div>
+            <div id="workOrderLabourWorkerStatus" class="small" style="margin-top:10px;"></div>
+            <div id="workOrderLabourWorkerList" class="small" style="margin-top:12px;">Loading WO labour workers...</div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button type="button" onclick="addWorkOrderLabourWorker()">Add Worker</button>
-            <button class="secondary" type="button" onclick="loadWorkOrderLabourWorkers()">Refresh Workers</button>
-        </div>
-        <div id="workOrderLabourWorkerStatus" class="small" style="margin-top:10px;"></div>
-        <div id="workOrderLabourWorkerList" class="small" style="margin-top:12px;">Loading WO labour workers...</div>
-    </div>
+    </details>
     <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
     <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
 </div>
@@ -6323,6 +6400,7 @@ function getWorkOrderLabourWorkerKey(name) {
 
 function renderWorkOrderLabourWorkers() {
     const list = document.getElementById("workOrderLabourWorkerList");
+    const countBadge = document.getElementById("woLabourWorkerCountBadge");
 
     if (!list) {
         return;
@@ -6332,6 +6410,9 @@ function renderWorkOrderLabourWorkers() {
         String(a.display_name || "").localeCompare(String(b.display_name || ""))
     );
     const approvedCount = sorted.filter((workerRow) => workerRow.approved).length;
+    if (countBadge) {
+        countBadge.textContent = `${approvedCount}/${sorted.length}`;
+    }
 
     if (!sorted.length) {
         list.innerHTML = `
