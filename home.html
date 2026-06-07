@@ -1732,7 +1732,7 @@ async function loadAnnouncements() {
       .select("*")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
-      .limit(3),
+      .limit(100),
     supabaseClient
       .from("toolbox_talk_attendance")
       .select("*, toolbox_talk_reports(*)")
@@ -1760,7 +1760,13 @@ async function loadAnnouncements() {
     return;
   }
 
-  announcements = announcementResult.data || [];
+  announcements = (announcementResult.data || [])
+    .filter((announcement) => {
+      const targetName = normalizeWorkerName(announcement.target_worker_name);
+      const targetEmail = normalizeWorkerName(announcement.target_worker_email);
+      return (!targetName && !targetEmail) || targetName === currentWorker || targetEmail === normalizeWorkerName(worker.email);
+    })
+    .slice(0, 3);
   toolboxAcknowledgements = toolboxResult.data || [];
   accidentAcknowledgements = accidentResult.data || [];
   employeeInjuryAcknowledgements = employeeInjuryResult.data || [];
