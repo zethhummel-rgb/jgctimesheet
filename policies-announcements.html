@@ -385,7 +385,13 @@ async function loadAnnouncements() {
     return;
   }
 
-  announcements = data || [];
+  announcements = (data || []).filter((announcement) => {
+    const targetName = normalizeWorkerName(announcement.target_worker_name);
+    const targetEmail = normalizeWorkerName(announcement.target_worker_email);
+    return (!targetName && !targetEmail) ||
+      targetName === normalizeWorkerName(worker.key) ||
+      targetEmail === normalizeWorkerName(worker.email);
+  });
   await prepareAnnouncementUrls();
   renderAnnouncements();
 }
