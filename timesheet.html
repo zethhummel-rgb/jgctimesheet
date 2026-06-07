@@ -69,6 +69,87 @@
       margin-right: 0;
     }
 
+    .wo-timesheet-card {
+      display: none;
+      width: min(100%, 1200px);
+      margin: 0 auto 16px;
+      padding: 16px;
+      border: 2px solid rgba(74, 222, 128, 0.78);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(57, 200, 72, 0.28), rgba(11, 94, 59, 0.22)),
+        rgba(5, 18, 15, 0.98);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+
+    .wo-timesheet-card.active {
+      display: block;
+    }
+
+    .wo-timesheet-card h3 {
+      margin: 0 0 4px;
+      color: #ffffff;
+      font-size: clamp(24px, 4vw, 36px);
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .wo-timesheet-card .small {
+      color: #d8ffe0;
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 12px !important;
+    }
+
+    .wo-request-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .wo-request-button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      text-align: left;
+      background: rgba(33, 186, 70, 0.18);
+      border: 1px solid rgba(74, 222, 128, 0.42);
+      border-radius: 10px;
+      padding: 14px;
+      color: #ffffff;
+      box-shadow: none;
+    }
+
+    .wo-request-button:hover {
+      background: rgba(33, 186, 70, 0.28);
+    }
+
+    .wo-request-title {
+      font-weight: 900;
+      color: #ffffff;
+      font-size: clamp(18px, 3vw, 26px);
+      line-height: 1.12;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .wo-request-meta,
+    .wo-request-detail {
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+      line-height: 1.35;
+      display: block;
+    }
+
+    .wo-request-action {
+      color: #37e857;
+      font-weight: 900;
+      white-space: nowrap;
+      font-size: 18px;
+    }
+
     .user-bar {
       max-width: 460px;
       margin: 0 auto 12px;
@@ -572,6 +653,20 @@
         position: static;
       }
 
+      .wo-timesheet-card {
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+
+      .wo-request-button {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .wo-request-action {
+        justify-self: start;
+      }
+
       .logo-wrap {
         max-width: 260px;
       }
@@ -707,6 +802,12 @@
 <h2 class="page-title">Construction Time Sheet</h2>
 
 <div id="currentUser" class="user-bar"></div>
+
+<div id="woTimesheetRequestsCard" class="wo-timesheet-card">
+  <h3>WO Requested Hours</h3>
+  <div class="small">Tap a request to prefill the time entry form.</div>
+  <div id="woTimesheetRequests" class="wo-request-list"></div>
+</div>
 
 <div class="timesheet-shell">
 <div class="card calendar-card">
@@ -864,6 +965,7 @@ let previousWeeks = [];
 let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
 let activeJobs = [];
+let woTimesheetRequests = [];
 const PREVIOUS_TIMESHEET_RETENTION_MONTHS = 2;
 const OFFLINE_TIMESHEET_QUEUE_KEY = "pendingTimesheetSyncQueue";
 
@@ -960,6 +1062,20 @@ function formatDateValue(date) {
 
 function getDayNames() {
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+}
+
+function getDateForTimesheetEntry(entry) {
+  const weekStartValue = entry && (entry.weekStartValue || entry.week_start);
+  const dayName = entry && (entry.day || entry.day_of_week);
+  const dayIndex = getDayNames().indexOf(dayName);
+
+  if (!weekStartValue || dayIndex < 0) {
+    return "";
+  }
+
+  const date = makeLocalDate(weekStartValue);
+  date.setDate(date.getDate() + dayIndex);
+  return formatDateValue(date);
 }
 
 function getWeekStartDate(date) {
@@ -1108,10 +1224,16 @@ function selectCalendarDate(dateValue) {
   document.getElementById("day").value = getDayNames()[date.getDay()];
   renderTimesheetCalendar();
 
-  document.querySelector(".form-card").scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
+  const formCard = document.querySelector(".form-card");
+
+  if (formCard) {
+    const topOffset = window.matchMedia("(max-width: 780px)").matches ? 76 : 84;
+    const top = formCard.getBoundingClientRect().top + window.scrollY - topOffset;
+    window.scrollTo({
+      top: Math.max(0, top),
+      behavior: "smooth"
+    });
+  }
 }
 
 function getCalendarSelectedWeekStart() {
@@ -1684,6 +1806,7 @@ async function loadTimesheetsFromSupabase() {
     status.innerText = "Using browser storage until Supabase loads. Pending sync: " + getPendingTimesheetCount() + ".";
     render();
     updateJobSuggestions();
+    renderWoTimesheetRequests();
     return;
   }
 
@@ -1702,6 +1825,7 @@ async function loadTimesheetsFromSupabase() {
     status.innerText = "Could not reach Supabase. Using browser storage for now. Pending sync: " + getPendingTimesheetCount() + ".";
     render();
     updateJobSuggestions();
+    renderWoTimesheetRequests();
     return;
   }
 
@@ -1724,6 +1848,7 @@ async function loadTimesheetsFromSupabase() {
   status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + ".";
   render();
   updateJobSuggestions();
+  await loadWoTimesheetRequests();
 }
 
 async function loadPreviousWeeksFromSupabase(options) {
@@ -2008,6 +2133,236 @@ async function loadActiveJobs() {
   updateJobSuggestions();
 }
 
+function workOrderDateToRequestParts(dateValue) {
+  const date = dateValue ? makeLocalDate(dateValue) : new Date();
+  const weekStart = getWeekStartDate(date);
+
+  return {
+    dateValue: formatDateValue(date),
+    weekStartValue: formatDateValue(weekStart),
+    dayName: getDayNames()[date.getDay()]
+  };
+}
+
+function timesheetEntryMatchesWoRequest(entry, request) {
+  const entryDate = getDateForTimesheetEntry(entry);
+  const entryJobNumber = String(entry && (entry.jobNumber || entry.job_number) || "").trim().toLowerCase();
+  const entryJobName = cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || "").trim().toLowerCase();
+  const requestJobNumber = String(request.jobNumber || "").trim().toLowerCase();
+  const requestJobName = cleanRepeatedJobName(request.jobName || "").trim().toLowerCase();
+
+  return entryDate === request.dateValue &&
+    (
+      Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
+      Boolean(requestJobName && entryJobName === requestJobName)
+    );
+}
+
+function renderWoTimesheetRequests() {
+  const card = document.getElementById("woTimesheetRequestsCard");
+  const list = document.getElementById("woTimesheetRequests");
+
+  if (!card || !list) {
+    return;
+  }
+
+  if (!woTimesheetRequests.length) {
+    card.classList.remove("active");
+    list.innerHTML = "";
+    return;
+  }
+
+  card.classList.add("active");
+  list.innerHTML = woTimesheetRequests.map(function(request, index) {
+    const jobLabel = [request.jobNumber, request.jobName].filter(Boolean).join(" - ") || "Job not listed";
+    const woLabel = request.woNumber ? "WO " + request.woNumber : "Work Order";
+
+    return `
+      <button type="button" class="wo-request-button" data-wo-request-index="${index}">
+        <span>
+          <span class="wo-request-title">${escapeHtml(request.dayName)} ${escapeHtml(request.dateValue)} - ${escapeHtml(jobLabel)}</span>
+          <span class="wo-request-meta">${escapeHtml(woLabel)} requested your hours.</span>
+          <span class="wo-request-detail">Tap to prefill this timesheet entry.</span>
+        </span>
+        <span class="wo-request-action">Fill</span>
+      </button>
+    `;
+  }).join("");
+
+  list.querySelectorAll("[data-wo-request-index]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      prefillTimesheetFromWoRequest(woTimesheetRequests[Number(button.dataset.woRequestIndex)]);
+    });
+  });
+}
+
+function prefillTimesheetFromWoRequest(request) {
+  if (!request) {
+    return;
+  }
+
+  selectedCalendarDate = makeLocalDate(request.dateValue);
+  calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
+  document.getElementById("weekStart").value = request.weekStartValue;
+  validateSunday(document.getElementById("weekStart"));
+  selectedCalendarDate = makeLocalDate(request.dateValue);
+  calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
+  document.getElementById("day").value = request.dayName;
+  document.getElementById("entryType").value = "work";
+  updateEntryTypeFields();
+  document.getElementById("jobName").value = cleanRepeatedJobName(request.jobName || "");
+  document.getElementById("jobNumber").value = request.jobNumber || "";
+  document.getElementById("jobNumber").dataset.autoJobNumber = request.jobNumber ? "true" : "false";
+  document.getElementById("timeIn").value = "";
+  document.getElementById("timeOut").value = "";
+  document.getElementById("tookLunch").checked = false;
+  document.getElementById("nightWork").checked = false;
+  renderTimesheetCalendar();
+
+  const status = document.getElementById("submitStatus");
+  if (status) {
+    status.innerText = "WO request loaded. Add time in/time out, then submit.";
+  }
+
+  document.querySelector(".form-card").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+async function loadWoTimesheetRequests() {
+  if (!supabaseClient || !currentUser) {
+    woTimesheetRequests = [];
+    renderWoTimesheetRequests();
+    return;
+  }
+
+  try {
+    const aliases = getCurrentUserAliases().map(normalizeWorkerName);
+    const { data: labourRows, error: labourError } = await supabaseClient
+      .from("work_order_labour")
+      .select("id, work_order_id, employee_name, worker_key, hours, complete, created_at")
+      .eq("expected", true)
+      .or("complete.eq.false,complete.is.null")
+      .order("created_at", { ascending: true });
+
+    if (labourError) {
+      console.warn("WO timesheet requests could not be loaded.", labourError);
+      return;
+    }
+
+    const myLabourRows = (labourRows || []).filter(function(row) {
+      return aliases.includes(normalizeWorkerName(row.worker_key)) ||
+        aliases.includes(normalizeWorkerName(row.employee_name));
+    });
+
+    const workOrderIds = Array.from(new Set(myLabourRows.map(function(row) {
+      return row.work_order_id;
+    }).filter(Boolean)));
+
+    if (!workOrderIds.length) {
+      woTimesheetRequests = [];
+      renderWoTimesheetRequests();
+      return;
+    }
+
+    const [workOrderResult, timesheetResult] = await Promise.all([
+      supabaseClient
+        .from("work_orders")
+        .select("id, wo_number, work_order_date, job_number, job_name, status")
+        .in("id", workOrderIds),
+      supabaseClient
+        .from("timesheet_entries")
+        .select("id, worker_name, week_start, day_of_week, job_name, job_number, hours")
+        .eq("worker_name", currentUser)
+        .limit(1000)
+    ]);
+
+    if (workOrderResult.error) {
+      console.warn("WO request work orders could not be loaded.", workOrderResult.error);
+      return;
+    }
+
+    const workOrdersById = {};
+    (workOrderResult.data || []).forEach(function(wo) {
+      workOrdersById[wo.id] = wo;
+    });
+
+    const existingEntries = (timesheetResult.data || []).map(rowToEntry);
+
+    woTimesheetRequests = myLabourRows
+      .map(function(row) {
+        const wo = workOrdersById[row.work_order_id];
+
+        if (!wo || String(wo.status || "").toLowerCase() === "submitted") {
+          return null;
+        }
+
+        const parts = workOrderDateToRequestParts(wo.work_order_date);
+        return {
+          labourId: row.id,
+          workOrderId: row.work_order_id,
+          woNumber: wo.wo_number || "",
+          jobNumber: wo.job_number || "",
+          jobName: wo.job_name || "",
+          dateValue: parts.dateValue,
+          weekStartValue: parts.weekStartValue,
+          dayName: parts.dayName,
+          createdAt: row.created_at || wo.work_order_date || ""
+        };
+      })
+      .filter(Boolean)
+      .filter(function(request) {
+        return !existingEntries.some(function(entry) {
+          return timesheetEntryMatchesWoRequest(entry, request);
+        }) && !loadTimesheets().some(function(entry) {
+          return timesheetEntryMatchesWoRequest(entry, request);
+        });
+      })
+      .sort(function(a, b) {
+        const dateDifference = String(a.dateValue || "").localeCompare(String(b.dateValue || ""));
+
+        if (dateDifference !== 0) {
+          return dateDifference;
+        }
+
+        return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+      });
+
+    renderWoTimesheetRequests();
+  } catch (error) {
+    console.warn("WO timesheet requests could not be prepared.", error);
+  }
+}
+
+async function markMatchingWoLabourComplete(entry) {
+  if (!supabaseClient || !entry || !entry.id || String(entry.id).startsWith("local-")) {
+    return;
+  }
+
+  const request = woTimesheetRequests.find(function(item) {
+    return timesheetEntryMatchesWoRequest(entry, item);
+  });
+
+  if (!request || !request.labourId) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("work_order_labour")
+    .update({
+      complete: true,
+      hours: Number(entry.hours || 0),
+      matched_timesheet_entry_id: entry.id,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", request.labourId);
+
+  if (error) {
+    console.warn("WO labour row could not be marked complete.", error);
+  }
+}
+
 function resetTimeEntryFields() {
   document.getElementById("entryType").value = "work";
   document.getElementById("leaveType").value = "";
@@ -2244,9 +2599,10 @@ async function deleteEntry(entryId) {
     return item.id !== entryId;
   }));
 
-  status.innerText = "Entry deleted.";
-  render();
-  updateJobSuggestions();
+      status.innerText = "Entry deleted.";
+      render();
+      await loadWoTimesheetRequests();
+      updateJobSuggestions();
 }
 
 function replaceStoredEntry(entries, updatedEntry) {
@@ -2329,6 +2685,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
       const savedEntry = rowToEntry(data);
       savedEntry.user = currentUser;
       setTimesheets(replaceStoredEntry(stored, savedEntry));
+      await markMatchingWoLabourComplete(savedEntry);
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -2364,6 +2721,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
   resetTimeEntryFields();
   render();
   renderTimesheetCalendar();
+  await loadWoTimesheetRequests();
   status.innerText = "Special day saved. Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
   return true;
 }
@@ -2504,6 +2862,7 @@ async function submitTime() {
       const savedEntry = rowToEntry(data);
       savedEntry.user = currentUser;
       setTimesheets(replaceStoredEntry(stored, savedEntry));
+      await markMatchingWoLabourComplete(savedEntry);
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -2513,6 +2872,7 @@ async function submitTime() {
     status.innerText = "Entry updated.";
     updateJobSuggestions();
     render();
+    await loadWoTimesheetRequests();
     return;
   }
 
@@ -2537,6 +2897,7 @@ async function submitTime() {
         setTimesheets(loadTimesheets().map(function(item) {
           return item.id === entry.id ? savedEntry : item;
         }));
+        await markMatchingWoLabourComplete(savedEntry);
       } catch (error) {
         status.innerText = "Entry submitted. It may refresh from Supabase on reload.";
       }
@@ -2554,6 +2915,7 @@ async function submitTime() {
   updateJobSuggestions();
   resetTimeEntryFields();
   render();
+  await loadWoTimesheetRequests();
   status.innerText += " Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
 }
 
