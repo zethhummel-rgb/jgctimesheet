@@ -210,6 +210,40 @@ button:disabled {
 
 .table-wrap {
   overflow-x: auto;
+  max-width: 100%;
+}
+
+.wo-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+#managementBody {
+  min-width: 0;
+}
+
+#woList .wo-management-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+#woList .wo-management-table table {
+  min-width: 820px;
+}
+
+#woList .wo-management-table .actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+#woList .wo-management-table .actions button {
+  width: auto;
+  white-space: nowrap;
 }
 
 table {
@@ -415,6 +449,21 @@ th {
 
   button {
     width: 100%;
+  }
+
+  #woList .wo-management-table .actions button {
+    width: auto;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  #woList .wo-management-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page {
+    overflow-x: hidden;
   }
 }
 </style>
@@ -1489,7 +1538,7 @@ function renderWorkOrders() {
   }
 
   list.innerHTML = `
-    <div class="table-wrap">
+    <div class="table-wrap wo-management-table">
       <table>
         <thead>
           <tr>
