@@ -480,13 +480,13 @@ function activateGlobalTopNavigation() {
 
     @media (max-width: 780px) {
       body.jgc-has-global-nav {
-        padding-top: 142px !important;
+        padding-top: 58px !important;
       }
 
       .jgc-global-top-nav {
-        min-height: 124px;
-        padding: 44px 8px 10px;
-        align-items: flex-start;
+        min-height: 46px;
+        padding: 8px 92px;
+        align-items: center;
       }
 
       .jgc-nav-home,
@@ -512,12 +512,7 @@ function activateGlobalTopNavigation() {
       }
 
       .jgc-nav-center {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-        width: 100%;
-        padding: 0;
-        overflow: visible;
+        display: none;
       }
 
       .jgc-nav-center a {
@@ -587,6 +582,266 @@ function hideOldNavigationButtons() {
     if (isOldHome || isOldLogout) {
       element.classList.add("jgc-old-nav-hidden");
     }
+  });
+}
+
+function getJgcMobileNavItems() {
+  return {
+    primary: [
+      { label: "Home", href: "home.html", icon: "home", home: true },
+      { label: "Timesheets", href: "timesheet.html", icon: "clock" },
+      { label: "Jobs", href: "jobs.html", icon: "briefcase" },
+      { label: "WO", href: "work-orders.html", icon: "file" },
+      { label: "Inspections", href: "inspections.html", icon: "shield" },
+      { label: "More", href: "#", icon: "more", more: true }
+    ],
+    more: [
+      { label: "Certificates", href: "certificates.html", icon: "award" },
+      { label: "Reports", href: "reports.html", icon: "report" },
+      { label: "Permits", href: "permits.html", icon: "permit" },
+      { label: "Vacation", href: "vacation-request.html", icon: "vacation" },
+      { label: "Equipment", href: "equipment-vehicles.html", icon: "truck" },
+      { label: "Contacts", href: "contacts.html", icon: "phone" },
+      { label: "Policies", href: "policies-announcements.html", icon: "policy" }
+    ]
+  };
+}
+
+function getJgcMobileNavIcon(name) {
+  const icons = {
+    home: '<path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h5v-6h4v6h5V10"></path>',
+    clock: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>',
+    briefcase: '<path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"></path><rect x="3" y="6" width="18" height="14" rx="2"></rect><path d="M3 12h18"></path>',
+    file: '<path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path>',
+    shield: '<path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z"></path><path d="m9 12 2 2 4-5"></path>',
+    more: '<circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle>',
+    award: '<circle cx="12" cy="8" r="5"></circle><path d="m8.5 12.5-2 7 5.5-3 5.5 3-2-7"></path>',
+    report: '<path d="M5 3h11l3 3v15H5z"></path><path d="M16 3v4h4"></path><path d="M8 12h8"></path><path d="M8 16h8"></path>',
+    permit: '<rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>',
+    vacation: '<path d="M12 3c4 3 4 7 0 9-4-2-4-6 0-9Z"></path><path d="M12 12v8"></path><path d="M7 20h10"></path>',
+    truck: '<path d="M3 7h11v10H3z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle>',
+    phone: '<path d="M22 16.5v3a2 2 0 0 1-2.2 2 19 19 0 0 1-8.3-3A18.7 18.7 0 0 1 3 8.2 2 2 0 0 1 5 6h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1l-1.3 1.3a15 15 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.5Z"></path>',
+    policy: '<path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>'
+  };
+
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (icons[name] || icons.file) + '</svg>';
+}
+
+function activateMobileBottomNavigation() {
+  const page = window.location.pathname.split("/").pop() || "index.html";
+  const excludedPages = ["index.html", "reset-password.html"];
+
+  if (excludedPages.includes(page) || document.getElementById("jgcMobileBottomNav")) {
+    return;
+  }
+
+  const navItems = getJgcMobileNavItems();
+  const style = document.createElement("style");
+  style.id = "jgcMobileBottomNavStyles";
+  style.textContent = `
+    .jgc-mobile-bottom-nav,
+    .jgc-mobile-more-sheet,
+    .jgc-mobile-more-backdrop {
+      display: none;
+    }
+
+    @media (max-width: 780px) {
+      body.jgc-has-mobile-bottom-nav {
+        padding-bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+      }
+
+      .jgc-mobile-bottom-nav {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10020;
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 2px;
+        padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+        background: rgba(3, 18, 16, 0.98);
+        border-top: 1px solid rgba(64, 220, 78, 0.34);
+        box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.42);
+        font-family: Arial, sans-serif;
+      }
+
+      .jgc-mobile-bottom-nav a,
+      .jgc-mobile-bottom-nav button {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 54px;
+        margin: 0 !important;
+        padding: 6px 3px !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 10px;
+        line-height: 1.05;
+        font-weight: 800;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+      }
+
+      .jgc-mobile-bottom-nav svg,
+      .jgc-mobile-more-sheet svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: 0 0 auto;
+      }
+
+      .jgc-mobile-bottom-nav a.active,
+      .jgc-mobile-bottom-nav button.active {
+        color: #ffffff;
+        background: rgba(33, 186, 70, 0.28);
+        border-color: rgba(64, 220, 78, 0.5);
+      }
+
+      .jgc-mobile-more-backdrop.open {
+        position: fixed;
+        inset: 0;
+        z-index: 10018;
+        display: block;
+        background: rgba(0, 0, 0, 0.48);
+      }
+
+      .jgc-mobile-more-sheet {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        z-index: 10019;
+        display: block;
+        padding: 12px;
+        border: 1px solid rgba(64, 220, 78, 0.4);
+        border-radius: 16px;
+        background: rgba(7, 26, 22, 0.98);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+        transform: translateY(18px);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.16s ease, opacity 0.16s ease;
+      }
+
+      .jgc-mobile-more-sheet.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .jgc-mobile-more-title {
+        margin: 0 0 10px;
+        color: #37e857;
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .jgc-mobile-more-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .jgc-mobile-more-grid a {
+        min-height: 48px;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #ffffff;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .jgc-mobile-more-grid a.active {
+        background: rgba(33, 186, 70, 0.24);
+        border-color: rgba(64, 220, 78, 0.52);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const primaryHtml = navItems.primary.map(function(item) {
+    const active = page === item.href || (item.more && navItems.more.some(function(moreItem) { return moreItem.href === page; }));
+    if (item.more) {
+      return '<button type="button" class="' + (active ? "active" : "") + '" id="jgcMobileMoreButton">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></button>';
+    }
+
+    if (item.home) {
+      return '<button type="button" class="' + (page === "home.html" || page === "admin.html" ? "active" : "") + '" id="jgcMobileHomeButton">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></button>';
+    }
+
+    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></a>';
+  }).join("");
+
+  const moreHtml = navItems.more.map(function(item) {
+    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></a>';
+  }).join("");
+
+  const backdrop = document.createElement("div");
+  backdrop.id = "jgcMobileMoreBackdrop";
+  backdrop.className = "jgc-mobile-more-backdrop";
+
+  const sheet = document.createElement("div");
+  sheet.id = "jgcMobileMoreSheet";
+  sheet.className = "jgc-mobile-more-sheet";
+  sheet.innerHTML = '<div class="jgc-mobile-more-title">More</div><div class="jgc-mobile-more-grid">' + moreHtml + '</div>';
+
+  const nav = document.createElement("nav");
+  nav.id = "jgcMobileBottomNav";
+  nav.className = "jgc-mobile-bottom-nav";
+  nav.setAttribute("aria-label", "Mobile quick navigation");
+  nav.innerHTML = primaryHtml;
+
+  document.body.classList.add("jgc-has-mobile-bottom-nav");
+  document.body.appendChild(backdrop);
+  document.body.appendChild(sheet);
+  document.body.appendChild(nav);
+
+  const moreButton = document.getElementById("jgcMobileMoreButton");
+  const homeButton = document.getElementById("jgcMobileHomeButton");
+
+  function closeMoreSheet() {
+    sheet.classList.remove("open");
+    backdrop.classList.remove("open");
+  }
+
+  function toggleMoreSheet() {
+    const isOpen = sheet.classList.toggle("open");
+    backdrop.classList.toggle("open", isOpen);
+  }
+
+  if (moreButton) {
+    moreButton.addEventListener("click", toggleMoreSheet);
+  }
+
+  if (homeButton) {
+    homeButton.addEventListener("click", function() {
+      const worker = getCurrentWorkerRecord();
+      window.location.href = isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html" : "home.html";
+    });
+  }
+
+  backdrop.addEventListener("click", closeMoreSheet);
+  sheet.querySelectorAll("a").forEach(function(link) {
+    link.addEventListener("click", closeMoreSheet);
   });
 }
 
@@ -1869,6 +2124,7 @@ function activateTimesheetCalendarFeature() {
 
 function activateJgcEnhancements() {
   activateGlobalTopNavigation();
+  activateMobileBottomNavigation();
   activateJgcContactsFeature();
   activateJgcPoliciesFeature();
   activatePoliciesAnnouncementsTile();
