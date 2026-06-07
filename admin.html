@@ -985,6 +985,47 @@ button:hover,
     color: #ffffff;
 }
 
+.job-dashboard-edit {
+    margin-top: 12px;
+    border: 1px solid rgba(55, 240, 90, 0.28);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+}
+
+.job-dashboard-edit summary {
+    cursor: pointer;
+    padding: 12px;
+    color: #37f05a;
+    font-weight: 900;
+    list-style: none;
+}
+
+.job-dashboard-edit summary::-webkit-details-marker {
+    display: none;
+}
+
+.job-dashboard-edit-body {
+    padding: 0 12px 12px;
+}
+
+.job-dashboard-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.job-dashboard-edit-grid .full {
+    grid-column: 1 / -1;
+}
+
+.job-dashboard-edit input,
+.job-dashboard-edit select,
+.job-dashboard-edit textarea {
+    background: #f6faf5;
+    color: #102018;
+    border: 1px solid #809080;
+}
+
 @media (max-width: 900px) {
     .job-dashboard-controls,
     .job-dashboard-grid {
@@ -6223,7 +6264,9 @@ function renderJobDashboardOptions() {
     }
 
     const currentValue = select.value;
-    const sorted = jobs.slice().sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+    const sorted = jobs
+        .filter((job) => shouldShowJobOnDashboard(job))
+        .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
 
     select.innerHTML = sorted.length
         ? sorted.map((job) => `<option value="${escapeHtml(job.job_number || job.id)}">${escapeHtml([job.job_number, job.job_name].filter(Boolean).join(" - "))}</option>`).join("")
@@ -6237,8 +6280,33 @@ function renderJobDashboardOptions() {
 function getSelectedDashboardJob() {
     const select = document.getElementById("jobDashboardSelect");
     const selectedValue = select ? select.value : "";
+    const availableJobs = jobs.filter((job) => shouldShowJobOnDashboard(job));
 
-    return jobs.find((job) => (job.job_number || job.id) === selectedValue) || jobs[0] || null;
+    return availableJobs.find((job) => (job.job_number || job.id) === selectedValue) || availableJobs[0] || null;
+}
+
+function getArchiveCutoffDate() {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 2);
+    return date.toISOString().slice(0, 10);
+}
+
+function shouldShowJobOnDashboard(job) {
+    if (!job) {
+        return false;
+    }
+
+    if (job.active !== false) {
+        return true;
+    }
+
+    return Boolean(job.archive_until && String(job.archive_until) >= new Date().toISOString().slice(0, 10));
+}
+
+function getArchivedDashboardJobs() {
+    return jobs
+        .filter((job) => job.active === false && shouldShowJobOnDashboard(job))
+        .sort((a, b) => String(a.archive_until || "").localeCompare(String(b.archive_until || "")));
 }
 
 function getJobMatchTokens(job) {
@@ -6436,6 +6504,57 @@ function renderJobDashboardMetric(title, value, detail) {
     `;
 }
 
+async function saveJobDashboardInfo(jobId) {
+    const job = jobs.find((item) => item.id === jobId);
+
+    if (!job) {
+        alert("Job could not be found.");
+        return;
+    }
+
+    const getValue = (id) => {
+        const input = document.getElementById(id);
+        return input ? input.value.trim() : "";
+    };
+    const payload = {
+        customer: getValue("jobDashboardCustomer") || null,
+        job_type: getValue("jobDashboardJobType") || null,
+        address: getValue("jobDashboardAddress") || null,
+        project_manager: getValue("jobDashboardProjectManager") || null,
+        start_date: getValue("jobDashboardStartDate") || null,
+        target_end_date: getValue("jobDashboardTargetEndDate") || null,
+        updated_at: new Date().toISOString()
+    };
+
+    const status = document.getElementById("jobDashboardEditStatus");
+    if (status) {
+        status.textContent = "Saving job info...";
+    }
+
+    const { data, error } = await supabaseClient
+        .from("jobs")
+        .update(payload)
+        .eq("id", jobId)
+        .select()
+        .single();
+
+    if (error) {
+        if (status) {
+            status.textContent = "Job info could not be saved: " + error.message;
+        }
+        return;
+    }
+
+    jobs = jobs.map((item) => item.id === jobId ? data : item);
+    renderJobsManagement();
+    renderJobDashboardOptions();
+    const select = document.getElementById("jobDashboardSelect");
+    if (select) {
+        select.value = data.job_number || data.id;
+    }
+    renderJobDashboard();
+}
+
 function renderJobDashboard() {
     const container = document.getElementById("jobDashboardContent");
     const job = getSelectedDashboardJob();
@@ -6468,6 +6587,7 @@ function renderJobDashboard() {
     });
     const topMonthRows = groupTotals(monthRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 5);
     const jobTypeRows = groupTotals(timesheetRows, () => job.job_type || "Unspecified", (row) => row.hours);
+    const archivedJobs = getArchivedDashboardJobs();
 
     container.innerHTML = `
         <div class="job-dashboard-shell">
@@ -6484,6 +6604,45 @@ function renderJobDashboard() {
                     <div class="job-info-item"><span>Start Date</span><strong>${escapeHtml(job.start_date ? formatDate(job.start_date) : "Not added")}</strong></div>
                     <div class="job-info-item"><span>Target End Date</span><strong>${escapeHtml(job.target_end_date ? formatDate(job.target_end_date) : "Not added")}</strong></div>
                 </div>
+                <details class="job-dashboard-edit">
+                    <summary>Edit Job Info</summary>
+                    <div class="job-dashboard-edit-body">
+                        <div class="job-dashboard-edit-grid">
+                            <div>
+                                <label>Customer</label>
+                                <input id="jobDashboardCustomer" value="${escapeHtml(job.customer || "")}">
+                            </div>
+                            <div>
+                                <label>Job Type</label>
+                                <select id="jobDashboardJobType">
+                                    <option value="">Not set</option>
+                                    <option value="T&M"${String(job.job_type || "") === "T&M" ? " selected" : ""}>T&M</option>
+                                    <option value="Contract"${String(job.job_type || "").toLowerCase() === "contract" ? " selected" : ""}>Contract</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Project Manager</label>
+                                <input id="jobDashboardProjectManager" value="${escapeHtml(job.project_manager || "")}">
+                            </div>
+                            <div>
+                                <label>Start Date</label>
+                                <input id="jobDashboardStartDate" type="date" value="${escapeHtml(job.start_date || "")}">
+                            </div>
+                            <div>
+                                <label>Target End Date</label>
+                                <input id="jobDashboardTargetEndDate" type="date" value="${escapeHtml(job.target_end_date || "")}">
+                            </div>
+                            <div class="full">
+                                <label>Address</label>
+                                <textarea id="jobDashboardAddress">${escapeHtml(job.address || "")}</textarea>
+                            </div>
+                        </div>
+                        <div class="actions" style="margin-top:12px;">
+                            <button type="button" onclick="saveJobDashboardInfo('${escapeHtml(job.id)}')">Save Job Info</button>
+                        </div>
+                        <div id="jobDashboardEditStatus" class="small" style="margin-top:8px;"></div>
+                    </div>
+                </details>
             </section>
 
             <section class="job-dashboard-metrics">
@@ -6532,6 +6691,18 @@ function renderJobDashboard() {
                     ${renderDashboardTable(["Equipment", "Identification", "Status"], equipmentRows.slice(0, 8), (row) => [row.name || "", row.identification || "", row.status || ""], "No equipment found from Work Orders yet.")}
                 </div>
             </section>
+            <details class="job-dashboard-panel">
+                <summary style="cursor:pointer;color:#37f05a;font-weight:900;">Archived Jobs</summary>
+                <div style="margin-top:12px;">
+                    ${renderDashboardTable(["Job Number", "Job Name", "Project Manager", "Removed", "Archive Until"], archivedJobs, (row) => [
+                        row.job_number || "",
+                        row.job_name || "",
+                        row.project_manager || "",
+                        row.removed_from_import_at ? formatDate(row.removed_from_import_at) : "",
+                        row.archive_until ? formatDate(row.archive_until) : ""
+                    ], "No archived jobs are currently being retained.")}
+                </div>
+            </details>
         </div>
     `;
 }
@@ -6710,6 +6881,8 @@ async function importJobsFromExcel() {
                     job_type: jobType,
                     project_manager: projectManager,
                     active: true,
+                    removed_from_import_at: null,
+                    archive_until: null,
                     updated_at: new Date().toISOString()
                 });
             });
@@ -6736,7 +6909,7 @@ async function importJobsFromExcel() {
         const importedJobNumbers = new Set(records.map((record) => record.job_number));
         const { data: existingJobs, error: existingError } = await supabaseClient
             .from("jobs")
-            .select("job_number");
+            .select("job_number, active");
 
         if (existingError) {
             status.textContent = "Jobs imported, but old jobs could not be checked for inactive status.";
@@ -6745,24 +6918,30 @@ async function importJobsFromExcel() {
         }
 
         const removedJobNumbers = (existingJobs || [])
+            .filter((job) => job.active !== false)
             .map((job) => job.job_number)
             .filter((jobNumber) => !importedJobNumbers.has(jobNumber));
 
         if (removedJobNumbers.length) {
             const { error: removeError } = await supabaseClient
                 .from("jobs")
-                .delete()
+                .update({
+                    active: false,
+                    removed_from_import_at: new Date().toISOString(),
+                    archive_until: getArchiveCutoffDate(),
+                    updated_at: new Date().toISOString()
+                })
                 .in("job_number", removedJobNumbers);
 
             if (removeError) {
-                status.textContent = "Jobs imported, but old/highlighted jobs could not be removed: " + removeError.message;
+                status.textContent = "Jobs imported, but removed jobs could not be archived: " + removeError.message;
                 await loadJobsManagement();
                 return;
             }
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + removedJobNumbers.length + " old/highlighted jobs removed. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + removedJobNumbers.length + " removed jobs archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";
