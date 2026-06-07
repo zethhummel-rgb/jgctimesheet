@@ -808,6 +808,194 @@ button:hover,
     grid-column: 1 / -1;
 }
 
+.job-dashboard-card {
+    max-width: 1500px;
+    background: #06110f;
+    border-top-color: #19e64f;
+    color: #ffffff;
+}
+
+.job-dashboard-card h2,
+.job-dashboard-card h3,
+.job-dashboard-card label {
+    color: #37f05a;
+}
+
+.job-dashboard-card .small {
+    color: #dbe8dc;
+}
+
+.job-dashboard-controls {
+    display: grid;
+    grid-template-columns: minmax(260px, 520px) auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 14px;
+}
+
+.job-dashboard-controls select {
+    background: #f6faf5;
+    color: #102018;
+}
+
+.job-dashboard-shell {
+    display: grid;
+    gap: 12px;
+}
+
+.job-dashboard-hero,
+.job-dashboard-panel,
+.job-dashboard-metric {
+    background: linear-gradient(145deg, rgba(17, 32, 38, 0.96), rgba(5, 12, 14, 0.98));
+    border: 1px solid rgba(55, 240, 90, 0.24);
+    border-radius: 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 26px rgba(0,0,0,0.24);
+}
+
+.job-dashboard-hero {
+    padding: 18px;
+}
+
+.job-dashboard-title {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.job-dashboard-title h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(24px, 3vw, 36px);
+}
+
+.job-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #0f8b36;
+    color: #ffffff;
+    font-weight: 900;
+    border: 1px solid #37f05a;
+}
+
+.job-status-pill.inactive {
+    background: #5b6460;
+    border-color: #909b94;
+}
+
+.job-info-grid,
+.job-dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.job-info-item {
+    border-left: 3px solid rgba(55, 240, 90, 0.55);
+    padding-left: 10px;
+}
+
+.job-info-item span,
+.job-dashboard-metric span {
+    display: block;
+    color: #aebdb4;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.job-info-item strong {
+    display: block;
+    color: #ffffff;
+    margin-top: 4px;
+    line-height: 1.35;
+}
+
+.job-dashboard-metric {
+    min-height: 118px;
+    padding: 14px;
+}
+
+.job-dashboard-metric strong {
+    display: block;
+    color: #ffffff;
+    font-size: 30px;
+    margin: 6px 0;
+}
+
+.job-dashboard-metric em {
+    color: #37f05a;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.job-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 12px;
+}
+
+.job-dashboard-panel {
+    padding: 14px;
+    overflow: hidden;
+}
+
+.job-dashboard-panel h3 {
+    margin: 0 0 12px;
+}
+
+.job-bar-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 150px) 1fr 70px;
+    gap: 10px;
+    align-items: center;
+    margin: 9px 0;
+}
+
+.job-bar-track {
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+}
+
+.job-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #17983f, #37f05a);
+}
+
+.job-dashboard-panel table {
+    width: 100%;
+    min-width: 0;
+    background: rgba(4, 12, 14, 0.95);
+    color: #ffffff;
+}
+
+.job-dashboard-panel th {
+    background: rgba(18, 75, 39, 0.92);
+    color: #ffffff;
+}
+
+.job-dashboard-panel td {
+    border-color: rgba(255,255,255,0.14);
+    color: #ffffff;
+}
+
+@media (max-width: 900px) {
+    .job-dashboard-controls,
+    .job-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .job-bar-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 900px) {
     .employee-profile-layout,
     .profile-hero {
@@ -975,6 +1163,7 @@ button:hover,
 
 <div class="tabs">
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
+    <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
     <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Employee Profile</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick Days</button>
@@ -999,6 +1188,18 @@ button:hover,
     <div id="portalSummaryGrid" class="summary-grid">
         <div class="small">Loading portal summary...</div>
     </div>
+</div>
+
+<div id="jobDashboardSection" class="card job-dashboard-card" hidden>
+    <h2>Job Dashboard / Job Costing</h2>
+    <div class="job-dashboard-controls">
+        <div>
+            <label>Select Job</label>
+            <select id="jobDashboardSelect" onchange="renderJobDashboard()"></select>
+        </div>
+        <button type="button" class="secondary" onclick="loadJobsManagement()">Refresh Jobs</button>
+    </div>
+    <div id="jobDashboardContent" class="small">Loading job dashboard...</div>
 </div>
 
 <div id="employeeProfileSection" class="card employee-profile-card" hidden>
@@ -1396,7 +1597,7 @@ button:hover,
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, and Contract / T&M from column K. Highlighted rows are skipped.</div>
+            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Highlighted rows are skipped.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -1524,6 +1725,8 @@ let jobs = [];
 let workOrders = [];
 let workOrderLabourRows = [];
 let workOrderPurchaseOrders = [];
+let workOrderEquipmentRows = [];
+let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
 let equipmentItems = [];
 let equipmentNotifications = [];
@@ -1552,7 +1755,7 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 function showTab(tab) {
-    ["summary", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts"].forEach((name) => {
+    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -1568,6 +1771,11 @@ function showTab(tab) {
 
     if (tab === "summary") {
         renderPortalSummary();
+    }
+
+    if (tab === "jobDashboard") {
+        renderJobDashboardOptions();
+        renderJobDashboard();
     }
 
     if (tab === "employeeProfile") {
@@ -1673,7 +1881,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -1697,6 +1905,8 @@ async function loadAdminData() {
         supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
         supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
+        supabaseClient.from("work_order_equipment").select("*"),
+        supabaseClient.from("work_order_travel").select("*"),
         supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
@@ -1726,6 +1936,8 @@ async function loadAdminData() {
     workOrders = workOrderResult.data || [];
     workOrderLabourRows = workOrderLabourResult.data || [];
     workOrderPurchaseOrders = workOrderPoResult.data || [];
+    workOrderEquipmentRows = workOrderEquipmentResult.data || [];
+    workOrderTravelRows = workOrderTravelResult.data || [];
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
@@ -1747,6 +1959,8 @@ async function loadAdminData() {
     renderReports();
     renderToolboxTalks();
     renderPolicies();
+    renderJobDashboardOptions();
+    renderJobDashboard();
     renderJobsManagement();
     renderAdminWorkOrders();
     renderWorkOrderLabourWorkers();
@@ -1786,7 +2000,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -1916,6 +2130,13 @@ function renderPortalSummary() {
     );
 
     const tiles = [
+        {
+            title: "Job Dashboard",
+            value: activeJobs,
+            badgeCount: countNewForAdminTab(jobs.concat(workOrders).concat(liveTimesheetEntries), "jobDashboard", ["created_at", "updated_at", "submitted_at"]),
+            detail: "Job costing and project summaries",
+            action: "openAdminSummaryTile('jobDashboard')"
+        },
         {
             title: "Employee Profiles",
             value: getApprovedAccounts().length,
@@ -5994,6 +6215,327 @@ function isJobImportSheet(sheetName) {
     return year >= 2025 && year <= currentYear;
 }
 
+function renderJobDashboardOptions() {
+    const select = document.getElementById("jobDashboardSelect");
+
+    if (!select) {
+        return;
+    }
+
+    const currentValue = select.value;
+    const sorted = jobs.slice().sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+
+    select.innerHTML = sorted.length
+        ? sorted.map((job) => `<option value="${escapeHtml(job.job_number || job.id)}">${escapeHtml([job.job_number, job.job_name].filter(Boolean).join(" - "))}</option>`).join("")
+        : '<option value="">No jobs found</option>';
+
+    if (currentValue && sorted.some((job) => (job.job_number || job.id) === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+function getSelectedDashboardJob() {
+    const select = document.getElementById("jobDashboardSelect");
+    const selectedValue = select ? select.value : "";
+
+    return jobs.find((job) => (job.job_number || job.id) === selectedValue) || jobs[0] || null;
+}
+
+function getJobMatchTokens(job) {
+    return {
+        number: normalizeWorkerName(job && job.job_number),
+        name: normalizeWorkerName(job && job.job_name),
+        display: [job && job.job_number, job && job.job_name].filter(Boolean).join(" - ")
+    };
+}
+
+function valueMatchesJob(value, job) {
+    const text = normalizeWorkerName(value);
+    const tokens = getJobMatchTokens(job);
+
+    return Boolean(text && (
+        (tokens.number && text.includes(tokens.number)) ||
+        (tokens.name && text.includes(tokens.name))
+    ));
+}
+
+function itemMatchesJob(item, job, fields) {
+    return fields.some((field) => valueMatchesJob(item && item[field], job));
+}
+
+function parseDashboardDate(value) {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(String(value).slice(0, 10) + "T00:00:00");
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getDashboardWeekStart(value) {
+    const date = parseDashboardDate(value);
+
+    if (!date) {
+        return "";
+    }
+
+    date.setDate(date.getDate() - date.getDay());
+    return date.toISOString().slice(0, 10);
+}
+
+function getDashboardEntryDate(entry) {
+    if (entry.week_start) {
+        return entry.week_start;
+    }
+
+    if (entry.weekStartValue) {
+        return entry.weekStartValue;
+    }
+
+    return "";
+}
+
+function getDashboardTimesheetRows(job) {
+    const rows = [];
+
+    liveTimesheetEntries
+        .filter((entry) => String(entry.entry_type || "work").toLowerCase() === "work")
+        .filter((entry) => itemMatchesJob(entry, job, ["job_number", "job_name"]))
+        .forEach((entry) => {
+            rows.push({
+                worker: entry.worker_name || entry.user || "",
+                jobType: job.job_type || "",
+                hours: Number(entry.hours || 0),
+                date: getDashboardEntryDate(entry),
+                week: getDashboardWeekStart(getDashboardEntryDate(entry))
+            });
+        });
+
+    timesheets.forEach((week) => {
+        (Array.isArray(week.entries) ? week.entries : [])
+            .filter((entry) => String(entry.entryType || entry.entry_type || "work").toLowerCase() === "work")
+            .filter((entry) => valueMatchesJob(entry.jobNumber || entry.job_number, job) || valueMatchesJob(entry.jobName || entry.job_name, job))
+            .forEach((entry) => {
+                const date = entry.weekStartValue || week.week_start || week.submitted_at || "";
+                rows.push({
+                    worker: entry.user || week.worker_name || "",
+                    jobType: job.job_type || "",
+                    hours: Number(entry.hours || 0),
+                    date,
+                    week: getDashboardWeekStart(date)
+                });
+            });
+    });
+
+    return rows.filter((row) => row.hours > 0);
+}
+
+function sumRows(rows, valueGetter) {
+    return rows.reduce((total, row) => total + Number(valueGetter(row) || 0), 0);
+}
+
+function groupTotals(rows, keyGetter, valueGetter) {
+    const map = new Map();
+
+    rows.forEach((row) => {
+        const key = keyGetter(row) || "Unspecified";
+        map.set(key, (map.get(key) || 0) + Number(valueGetter(row) || 0));
+    });
+
+    return Array.from(map.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value);
+}
+
+function formatDashboardWeekLabel(value) {
+    const date = parseDashboardDate(value);
+
+    if (!date) {
+        return "No week";
+    }
+
+    return "Week of " + date.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
+function renderJobBars(rows, emptyText) {
+    if (!rows.length) {
+        return `<div class="small">${escapeHtml(emptyText)}</div>`;
+    }
+
+    const max = Math.max(...rows.map((row) => row.value), 1);
+
+    return rows.map((row) => `
+        <div class="job-bar-row">
+            <div>${escapeHtml(row.label)}</div>
+            <div class="job-bar-track"><div class="job-bar-fill" style="width:${Math.max(4, Math.round((row.value / max) * 100))}%;"></div></div>
+            <strong>${Number(row.value || 0).toFixed(2)}</strong>
+        </div>
+    `).join("");
+}
+
+function getDashboardWorkOrders(job) {
+    return workOrders.filter((wo) => itemMatchesJob(wo, job, ["job_number", "job_name"]));
+}
+
+function getDashboardDailyReports(job) {
+    return dailySiteReports.filter((report) => itemMatchesJob(report, job, ["project", "location"]));
+}
+
+function getDashboardInspections(job) {
+    return inspections.filter((inspection) =>
+        itemMatchesJob(inspection, job, ["project", "job_name", "job_number", "location", "inspection_type"]) ||
+        valueMatchesJob(JSON.stringify(inspection || {}), job)
+    );
+}
+
+function getDashboardEquipmentRows(workOrderRows) {
+    const workOrderIds = new Set(workOrderRows.map((wo) => wo.id));
+    const rows = [];
+
+    workOrderEquipmentRows
+        .filter((row) => workOrderIds.has(row.work_order_id))
+        .forEach((row) => rows.push({
+            name: row.equipment_name || "Equipment",
+            identification: row.identification_number || "",
+            status: "Used"
+        }));
+
+    workOrderTravelRows
+        .filter((row) => workOrderIds.has(row.work_order_id) && row.vehicle_name)
+        .forEach((row) => rows.push({
+            name: row.vehicle_name || "Vehicle",
+            identification: row.identification_number || "",
+            status: row.trailer_used ? "Travel / Trailer" : "Travel"
+        }));
+
+    return rows;
+}
+
+function renderDashboardTable(headers, rows, rowBuilder, emptyText) {
+    if (!rows.length) {
+        return `<div class="small">${escapeHtml(emptyText)}</div>`;
+    }
+
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+                <tbody>${rows.map((row) => `<tr>${rowBuilder(row).map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderJobDashboardMetric(title, value, detail) {
+    return `
+        <div class="job-dashboard-metric">
+            <span>${escapeHtml(title)}</span>
+            <strong>${escapeHtml(String(value))}</strong>
+            <em>${escapeHtml(detail || "")}</em>
+        </div>
+    `;
+}
+
+function renderJobDashboard() {
+    const container = document.getElementById("jobDashboardContent");
+    const job = getSelectedDashboardJob();
+
+    if (!container) {
+        return;
+    }
+
+    if (!job) {
+        container.textContent = "Import jobs to build the dashboard.";
+        return;
+    }
+
+    const timesheetRows = getDashboardTimesheetRows(job);
+    const workOrderRows = getDashboardWorkOrders(job);
+    const dailyRows = getDashboardDailyReports(job);
+    const inspectionRows = getDashboardInspections(job);
+    const equipmentRows = getDashboardEquipmentRows(workOrderRows);
+    const totalHours = sumRows(timesheetRows, (row) => row.hours);
+    const employees = new Set(timesheetRows.map((row) => normalizeWorkerName(row.worker)).filter(Boolean));
+    const weekRows = groupTotals(timesheetRows, (row) => row.week, (row) => row.hours)
+        .sort((a, b) => String(a.label).localeCompare(String(b.label)))
+        .slice(-8)
+        .map((row) => ({ label: formatDashboardWeekLabel(row.label), value: row.value }));
+    const employeeRows = groupTotals(timesheetRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 8);
+    const thisMonth = new Date();
+    const monthRows = timesheetRows.filter((row) => {
+        const date = parseDashboardDate(row.date);
+        return date && date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth();
+    });
+    const topMonthRows = groupTotals(monthRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 5);
+    const jobTypeRows = groupTotals(timesheetRows, () => job.job_type || "Unspecified", (row) => row.hours);
+
+    container.innerHTML = `
+        <div class="job-dashboard-shell">
+            <section class="job-dashboard-hero">
+                <div class="job-dashboard-title">
+                    <h3>${escapeHtml([job.job_number, job.job_name].filter(Boolean).join(" - "))}</h3>
+                    <span class="job-status-pill ${job.active ? "" : "inactive"}">${job.active ? "Active" : "Inactive"}</span>
+                </div>
+                <div class="job-info-grid">
+                    <div class="job-info-item"><span>Customer</span><strong>${escapeHtml(job.customer || "Not added")}</strong></div>
+                    <div class="job-info-item"><span>Job Type</span><strong>${escapeHtml(job.job_type || "Not set")}</strong></div>
+                    <div class="job-info-item"><span>Address</span><strong>${escapeHtml(job.address || "Not added")}</strong></div>
+                    <div class="job-info-item"><span>Project Manager</span><strong>${escapeHtml(job.project_manager || "Not added")}</strong></div>
+                    <div class="job-info-item"><span>Start Date</span><strong>${escapeHtml(job.start_date ? formatDate(job.start_date) : "Not added")}</strong></div>
+                    <div class="job-info-item"><span>Target End Date</span><strong>${escapeHtml(job.target_end_date ? formatDate(job.target_end_date) : "Not added")}</strong></div>
+                </div>
+            </section>
+
+            <section class="job-dashboard-metrics">
+                ${renderJobDashboardMetric("Total Hours", totalHours.toFixed(2), "Submitted labour hours")}
+                ${renderJobDashboardMetric("Employees on Job", employees.size, "Workers with logged hours")}
+                ${renderJobDashboardMetric("Work Orders", workOrderRows.length, "Saved Work Orders")}
+                ${renderJobDashboardMetric("Daily Reports", dailyRows.length, "Submitted reports")}
+                ${renderJobDashboardMetric("Inspections", inspectionRows.length, "Matching records")}
+                ${renderJobDashboardMetric("Equipment Used", equipmentRows.length, "From Work Orders")}
+            </section>
+
+            <section class="job-dashboard-grid">
+                <div class="job-dashboard-panel">
+                    <h3>Hours by Week</h3>
+                    ${renderJobBars(weekRows, "No timesheet hours found for this job yet.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Hours by Employee</h3>
+                    ${renderJobBars(employeeRows, "No employee hours found for this job yet.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Hours by Job Type</h3>
+                    ${renderJobBars(jobTypeRows, "No job type hours found.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Top Employees This Month</h3>
+                    ${renderJobBars(topMonthRows, "No hours logged this month.")}
+                </div>
+            </section>
+
+            <section class="job-dashboard-grid">
+                <div class="job-dashboard-panel">
+                    <h3>Recent Work Orders</h3>
+                    ${renderDashboardTable(["WO Number", "Status", "Date"], workOrderRows.slice(0, 8), (row) => [row.wo_number || "", getAdminWorkOrderStatusLabel(row.status), row.work_order_date ? formatDate(row.work_order_date) : ""], "No Work Orders found for this job.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Recent Daily Reports</h3>
+                    ${renderDashboardTable(["Date", "Project", "Submitted By"], dailyRows.slice(0, 8), (row) => [row.report_date ? formatDate(row.report_date) : "", row.project || "", row.worker_display_name || row.worker_name || ""], "No Daily Reports found for this job.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Recent Inspections</h3>
+                    ${renderDashboardTable(["Type", "Date", "Completed By"], inspectionRows.slice(0, 8), (row) => [row.inspection_type || "", row.inspection_date ? formatDate(row.inspection_date) : formatDate(row.created_at), row.worker_display_name || row.worker_name || ""], "No inspections found for this job.")}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Equipment on Job</h3>
+                    ${renderDashboardTable(["Equipment", "Identification", "Status"], equipmentRows.slice(0, 8), (row) => [row.name || "", row.identification || "", row.status || ""], "No equipment found from Work Orders yet.")}
+                </div>
+            </section>
+        </div>
+    `;
+}
+
 function getJobsSummary() {
     const totalJobs = jobs.length;
     const activeJobs = jobs.filter((job) => Boolean(job.active)).length;
@@ -6048,6 +6590,7 @@ function renderJobsManagement() {
             <td>${escapeHtml(job.job_number || "")}</td>
             <td>${escapeHtml(job.job_name || "")}</td>
             <td>${escapeHtml(job.job_type || "")}</td>
+            <td>${escapeHtml(job.project_manager || "")}</td>
             <td>${job.active ? "Active" : "Inactive"}</td>
             <td>${escapeHtml(formatDate(job.updated_at))}</td>
         </tr>
@@ -6057,7 +6600,7 @@ function renderJobsManagement() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Status</th><th>Updated</th></tr>
+                    <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Project Manager</th><th>Status</th><th>Updated</th></tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
@@ -6085,6 +6628,8 @@ async function loadJobsManagement() {
     }
 
     jobs = data || [];
+    renderJobDashboardOptions();
+    renderJobDashboard();
     renderJobsManagement();
 
     if (status) {
@@ -6130,6 +6675,7 @@ async function importJobsFromExcel() {
         let skippedIncomplete = 0;
         const jobNameColumns = [0, 1, 2, 3, 4];
         const jobNumberColumn = 5;
+        const projectManagerColumn = 7;
         const jobTypeColumn = 10;
         const columnsToCheckForHighlight = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -6142,6 +6688,7 @@ async function importJobsFromExcel() {
 
                 const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
                 const jobName = getExcelJobName(row, jobNameColumns);
+                const projectManager = normalizeExcelValue(row.getCell(projectManagerColumn + 1).value);
                 const jobType = normalizeExcelValue(row.getCell(jobTypeColumn + 1).value);
 
                 if (!jobNumber || !jobName) {
@@ -6161,6 +6708,7 @@ async function importJobsFromExcel() {
                     job_number: jobNumber,
                     job_name: jobName,
                     job_type: jobType,
+                    project_manager: projectManager,
                     active: true,
                     updated_at: new Date().toISOString()
                 });
@@ -6268,6 +6816,8 @@ async function deleteImportedJobs() {
     }
 
     renderJobsManagement();
+    renderJobDashboardOptions();
+    renderJobDashboard();
 
     if (status) {
         status.textContent = "All imported jobs were deleted.";
@@ -6626,19 +7176,24 @@ async function deleteAdminWorkOrder(id) {
 }
 
 async function loadAdminWorkOrders() {
-    const [workOrderResult, labourResult, poResult, workerResult] = await Promise.all([
+    const [workOrderResult, labourResult, poResult, equipmentResult, travelResult, workerResult] = await Promise.all([
         supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
         supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
+        supabaseClient.from("work_order_equipment").select("*"),
+        supabaseClient.from("work_order_travel").select("*"),
         supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true })
     ]);
 
     workOrders = workOrderResult.data || [];
     workOrderLabourRows = labourResult.data || [];
     workOrderPurchaseOrders = poResult.data || [];
+    workOrderEquipmentRows = equipmentResult.data || [];
+    workOrderTravelRows = travelResult.data || [];
     workOrderLabourWorkers = workerResult.data || [];
     renderAdminWorkOrders();
     renderWorkOrderLabourWorkers();
+    renderJobDashboard();
     renderEmployeeProfile();
     renderPortalSummary();
 }
