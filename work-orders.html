@@ -2212,30 +2212,27 @@ async function loadJobs() {
 }
 
 async function loadEmployees() {
-  let { data, error } = await supabaseClient
-    .from("approved_worker_directory")
-    .select("id, display_name, worker_key, approved")
+  const { data, error } = await supabaseClient
+    .from("work_order_labour_workers")
+    .select("id, profile_id, display_name, worker_key, approved")
+    .eq("approved", true)
     .order("display_name", { ascending: true });
-
-  if (error) {
-    const fallback = await supabaseClient
-      .from("profiles")
-      .select("id, display_name, worker_key, email, account_status")
-      .order("display_name", { ascending: true });
-    data = fallback.data;
-    error = fallback.error;
-  }
 
   if (error) {
     profileEmployees = [];
     rebuildEmployeeDirectory();
     renderEmployeePicker([]);
+    renderLabourPreview();
     return;
   }
 
   profileEmployees = (data || [])
-    .filter((employee) => typeof employee.approved === "boolean" ? employee.approved : true)
-    .filter((employee) => employee.display_name || employee.email || employee.worker_key);
+    .filter((employee) => employee.display_name || employee.worker_key)
+    .map((employee) => ({
+      id: employee.profile_id || employee.id || "",
+      display_name: employee.display_name || formatWorkerDisplayName(employee.worker_key),
+      worker_key: employee.worker_key || normalizeWorkerName(employee.display_name)
+    }));
   const selected = labourRows.filter((row) => row.work_order_id === editingWorkOrderId && !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name));
   rebuildEmployeeDirectory(selected);
   renderEmployeePicker(selected);
