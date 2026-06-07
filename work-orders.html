@@ -478,6 +478,7 @@ th {
             <option value="ready_for_submission">Ready For Submission</option>
             <option value="submitted" disabled>Submitted - locked</option>
           </select>
+          <div id="woSubmittedInfo" class="small" style="margin-top:6px;"></div>
         </div>
         <div class="full">
           <label>Job</label>
@@ -1370,6 +1371,7 @@ function resetWorkOrderForm() {
   document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
   document.getElementById("woCustomer").value = "";
   document.getElementById("woStatus").value = "draft";
+  renderSubmittedInfo(null);
   document.getElementById("woJob").value = "";
   document.getElementById("woJobNumber").value = "";
   document.getElementById("woJobName").value = "";
@@ -1429,6 +1431,38 @@ function getStatusLabel(status) {
   return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function getSubmittedDateLabel(wo) {
+  if (!wo || !wo.submitted_at) {
+    return "";
+  }
+
+  return formatDisplayDate(wo.submitted_at);
+}
+
+function getWorkOrderStatusText(wo) {
+  const label = getStatusLabel(wo && wo.status);
+  const submittedDate = getSubmittedDateLabel(wo);
+
+  if ((wo && wo.status) === "submitted" && submittedDate) {
+    return label + " - " + submittedDate;
+  }
+
+  return label;
+}
+
+function renderSubmittedInfo(wo) {
+  const submittedInfo = document.getElementById("woSubmittedInfo");
+
+  if (!submittedInfo) {
+    return;
+  }
+
+  const submittedDate = getSubmittedDateLabel(wo);
+  submittedInfo.textContent = (wo && wo.status === "submitted" && submittedDate)
+    ? "Submitted on " + submittedDate
+    : "";
+}
+
 function renderWorkOrders() {
   const list = document.getElementById("woList");
   const status = document.getElementById("woListStatus");
@@ -1481,12 +1515,13 @@ function renderWorkOrders() {
                 <td>${escapeHtml(wo.work_order_date || "")}</td>
                 <td>${escapeHtml(wo.customer || "")}</td>
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
-                <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getStatusLabel(wo.status))}</span></td>
+                <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
                 <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
                 <td>
                   <div class="actions">
                     <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                    ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
                     ${isAdmin ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
@@ -1516,6 +1551,7 @@ function editWorkOrder(id) {
   document.getElementById("woDate").value = wo.work_order_date || "";
   document.getElementById("woCustomer").value = wo.customer || "";
   document.getElementById("woStatus").value = wo.status || "draft";
+  renderSubmittedInfo(wo);
   if (wo.job_id && !jobs.some((job) => job.id === wo.job_id)) {
     const select = document.getElementById("woJob");
     const archivedOption = document.createElement("option");
@@ -2026,6 +2062,44 @@ async function submitCurrentWorkOrder() {
   }
 }
 
+async function submitSavedWorkOrder(id) {
+  const wo = workOrders.find((item) => item.id === id);
+
+  if (!wo) {
+    alert("Work Order could not be found.");
+    return;
+  }
+
+  if (wo.locked || wo.status === "submitted") {
+    alert("This Work Order has already been submitted.");
+    return;
+  }
+
+  setFormStatus("Checking saved Work Order for submission...");
+  const listStatus = document.getElementById("woListStatus");
+  if (listStatus) {
+    listStatus.textContent = "Checking " + (wo.wo_number || "Work Order") + " for submission...";
+  }
+
+  await loadTimesheetEntries();
+  await refreshSavedLabourRowsForWorkOrder(wo);
+  const check = getWorkOrderCompleteness(id);
+
+  if (check.complete) {
+    await finalizeWorkOrder(id);
+    return;
+  }
+
+  const markedReady = await markWorkOrderReady(id, check.waitingFor);
+
+  if (markedReady) {
+    editWorkOrder(id);
+    const waitingMessage = check.waitingFor.length ? check.waitingFor.join(", ") : "required information";
+    setFormStatus("Work Order is ready for submission and waiting for: " + waitingMessage);
+    alert("Work Order is ready, but not complete yet. Waiting for: " + waitingMessage);
+  }
+}
+
 async function autoSubmitReadyWorkOrders() {
   const readyWorkOrders = workOrders.filter((wo) => wo.status === "ready_for_submission" && !wo.locked);
 
@@ -2327,7 +2401,7 @@ function buildWorkOrderPdfHtml(id) {
     <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
     <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
     <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
-    <div><b>Status</b>${escapeHtml(getStatusLabel(wo.status))}</div>
+    <div><b>Status</b>${escapeHtml(getWorkOrderStatusText(wo))}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
     <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
