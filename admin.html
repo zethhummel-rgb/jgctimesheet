@@ -7599,8 +7599,96 @@ async function reviewVacationRequest(id, status) {
     }
 
     vacationRequests = vacationRequests.map((item) => item.id === id ? data : item);
+    await createVacationDecisionAnnouncement(data);
     renderVacationCalendar();
     renderVacationRequests();
+}
+
+function getAccountForVacationRequest(request) {
+    const requestName = normalizeWorkerName(request && request.worker_name);
+    const requestDisplay = normalizeWorkerName(request && request.worker_display_name);
+
+    return accounts.find((account) => {
+        const accountKey = normalizeWorkerName(account.worker_key);
+        const accountDisplay = normalizeWorkerName(account.display_name);
+        const accountEmail = normalizeWorkerName(account.email);
+        return Boolean(
+            requestName &&
+            (requestName === accountKey || requestName === accountDisplay || requestName === accountEmail)
+        ) || Boolean(
+            requestDisplay &&
+            (requestDisplay === accountKey || requestDisplay === accountDisplay || requestDisplay === accountEmail)
+        );
+    });
+}
+
+async function createVacationDecisionAnnouncement(request) {
+    if (!request || !supabaseClient) {
+        return;
+    }
+
+    const account = getAccountForVacationRequest(request);
+    const decision = String(request.status || "").toLowerCase() === "approved" ? "Approved" : "Denied";
+    const workerName = request.worker_display_name || request.worker_name || "";
+    const targetWorkerName = normalizeWorkerName(account && (account.worker_key || account.display_name) || request.worker_name || workerName);
+    const targetWorkerEmail = account && account.email ? account.email : "";
+    const title = "Vacation Request " + decision;
+    const bodyLines = [
+        "Your vacation request has been " + decision.toLowerCase() + ".",
+        "",
+        "Dates: " + (request.start_date || "") + " to " + (request.end_date || ""),
+        "Requested Days: " + Number(request.total_days || 0).toFixed(1),
+        "Request Type: " + (request.request_type || "")
+    ];
+
+    if (request.admin_note) {
+        bodyLines.push("");
+        bodyLines.push("Admin Note:");
+        bodyLines.push(request.admin_note);
+    }
+
+    bodyLines.push("");
+    bodyLines.push("Reviewed by: " + (request.reviewed_by || currentWorkerDisplay || "Admin"));
+
+    const record = {
+        title,
+        body: bodyLines.join("\n"),
+        created_by: currentUserId || null,
+        created_by_name: currentWorkerDisplay,
+        expires_at: null,
+        is_active: true,
+        target_worker_name: targetWorkerName || null,
+        target_worker_email: targetWorkerEmail || null,
+        source_type: "vacation_request",
+        source_id: request.id
+    };
+
+    const { data: existing } = await supabaseClient
+        .from("announcements")
+        .select("id")
+        .eq("source_type", "vacation_request")
+        .eq("source_id", request.id)
+        .maybeSingle();
+
+    if (existing && existing.id) {
+        await supabaseClient
+            .from("announcements")
+            .update({
+                title: record.title,
+                body: record.body,
+                created_by: record.created_by,
+                created_by_name: record.created_by_name,
+                is_active: true,
+                target_worker_name: record.target_worker_name,
+                target_worker_email: record.target_worker_email
+            })
+            .eq("id", existing.id);
+        return;
+    }
+
+    await supabaseClient
+        .from("announcements")
+        .insert(record);
 }
 
 async function deleteVacationRequest(id) {
