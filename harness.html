@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Harness Inspection Checklist</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -254,6 +254,10 @@ button:hover {
 <div class="table-wrap">
 <table>
 <tr>
+<td><strong>Project / Site</strong></td>
+<td><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></td>
+</tr>
+<tr>
 <td><strong>Serial Number</strong></td>
 <td><input type="text"></td>
 </tr>
@@ -318,7 +322,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
