@@ -190,6 +190,94 @@ function createJgcSupabaseClient() {
     : null;
 }
 
+let jgcProjectJobOptions = null;
+
+function cleanJgcRepeatedJobName(value) {
+  const text = String(value || "").trim();
+  const words = text.split(/\s+/).filter(Boolean);
+
+  if (words.length < 4 || words.length % 2 !== 0) {
+    return text;
+  }
+
+  const half = words.length / 2;
+  const first = words.slice(0, half).join(" ");
+  const second = words.slice(half).join(" ");
+
+  return first.toLowerCase() === second.toLowerCase() ? first : text;
+}
+
+function getJgcProjectJobDisplay(job) {
+  const jobNumber = String(job && job.job_number || "").trim();
+  const jobName = cleanJgcRepeatedJobName(job && job.job_name);
+
+  return jobNumber ? jobNumber + " - " + jobName : jobName;
+}
+
+async function getJgcProjectJobOptions() {
+  if (jgcProjectJobOptions) {
+    return jgcProjectJobOptions;
+  }
+
+  const client = createJgcSupabaseClient();
+
+  if (!client) {
+    jgcProjectJobOptions = [];
+    return jgcProjectJobOptions;
+  }
+
+  const { data, error } = await client
+    .from("jobs")
+    .select("job_number, job_name, active")
+    .eq("active", true)
+    .order("job_number", { ascending: true });
+
+  if (error) {
+    console.warn("JGC projects could not be loaded.", error);
+    jgcProjectJobOptions = [];
+    return jgcProjectJobOptions;
+  }
+
+  jgcProjectJobOptions = (data || []).filter((job) => String(job.job_name || "").trim());
+  return jgcProjectJobOptions;
+}
+
+function enhanceJgcProjectJobInputs() {
+  const fields = Array.from(document.querySelectorAll("[data-jgc-project-job]"));
+
+  if (!fields.length) {
+    return;
+  }
+
+  const listId = "jgcProjectJobOptions";
+  let list = document.getElementById(listId);
+
+  if (!list) {
+    list = document.createElement("datalist");
+    list.id = listId;
+    document.body.appendChild(list);
+  }
+
+  fields.forEach((field) => {
+    field.setAttribute("list", listId);
+    if (!field.placeholder) {
+      field.placeholder = "Select project/job or type manually";
+    }
+  });
+
+  getJgcProjectJobOptions().then((jobs) => {
+    list.innerHTML = jobs
+      .map((job) => '<option value="' + escapeHtml(getJgcProjectJobDisplay(job)) + '"></option>')
+      .join("");
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", enhanceJgcProjectJobInputs);
+} else {
+  enhanceJgcProjectJobInputs();
+}
+
 async function recordJgcPortalActivity() {
   if (!window.supabase || !localStorage.getItem("currentWorker")) {
     return;
