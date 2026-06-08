@@ -431,6 +431,32 @@
       background: linear-gradient(135deg, #39c848, #168d3a);
     }
 
+    .entries-utility-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .entry-utility-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .entry-utility-buttons button {
+      width: auto;
+      margin: 0;
+      padding: 6px 10px;
+      min-height: 36px;
+      font-size: 12px;
+      min-width: 118px;
+    }
+
     .previous-week {
       margin-top: 14px;
     }
@@ -703,6 +729,30 @@
         width: 100%;
       }
 
+      .entries-utility-row,
+      .entry-utility-buttons {
+        justify-content: flex-end;
+        width: 100%;
+      }
+
+      .entries-utility-row,
+      .entry-utility-buttons {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .entry-utility-buttons {
+        margin-left: 0;
+      }
+
+      .entry-utility-buttons button {
+        min-width: 0;
+        padding: 7px 12px;
+        min-height: 38px;
+        font-size: 13px;
+      }
+
       .email-note {
         text-align: center;
       }
@@ -863,6 +913,12 @@
     <option value="civic_holiday">Civic Holiday</option>
   </select>
 
+  <div id="multiDayLeaveFields" class="field-hidden">
+    <label id="multiDayLeaveLabel">How Many Weekdays?</label>
+    <input id="leaveDayCount" type="number" min="1" max="20" step="1" value="1">
+    <div class="small">Starts on the selected day and fills the next weekday entries automatically.</div>
+  </div>
+
   <div id="workEntryFields">
     <label id="jobNameLabel">Job Name</label>
     <input
@@ -911,6 +967,7 @@
       <option value="">Select Type</option>
       <option value="paid">Paid</option>
       <option value="unpaid">Unpaid</option>
+      <option value="half_day">Half Day</option>
     </select>
 
     <div id="vacationHalfDayFields" class="field-hidden">
@@ -936,14 +993,18 @@
 
 <div class="card entries-card">
   <h3>Submitted Entries</h3>
-  <div class="tab-buttons">
-    <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
-    <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
-    <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
+  <div class="entries-utility-row">
+    <div class="tab-buttons">
+      <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
+      <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
+      <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
+    </div>
+    <div class="entry-utility-buttons">
+      <button type="button" onclick="clearEntries()">Clear My Entries</button>
+      <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
+      <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
+    </div>
   </div>
-  <button type="button" onclick="clearEntries()">Clear My Entries</button>
-  <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
-  <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
   <div id="entries"></div>
 </div>
 </div>
@@ -2367,6 +2428,7 @@ function resetTimeEntryFields() {
   document.getElementById("entryType").value = "work";
   document.getElementById("leaveType").value = "";
   document.getElementById("leaveNote").value = "";
+  document.getElementById("leaveDayCount").value = "1";
   document.getElementById("vacationTimeIn").value = "";
   document.getElementById("vacationTimeOut").value = "";
   document.getElementById("jobName").value = "";
@@ -2438,6 +2500,8 @@ function updateEntryTypeFields() {
   const leaveTypeLabel = document.getElementById("leaveTypeLabel");
   const leaveNoteLabel = document.getElementById("leaveNoteLabel");
   const halfDayFields = document.getElementById("vacationHalfDayFields");
+  const multiDayFields = document.getElementById("multiDayLeaveFields");
+  const multiDayLabel = document.getElementById("multiDayLeaveLabel");
   const jobNameLabel = document.getElementById("jobNameLabel");
   const jobNumberLabel = document.getElementById("jobNumberLabel");
   const jobNameInput = document.getElementById("jobName");
@@ -2446,6 +2510,7 @@ function updateEntryTypeFields() {
 
   timeFields.classList.toggle("field-hidden", !isWork);
   leaveFields.classList.toggle("field-hidden", entryType !== "vacation");
+  multiDayFields.classList.toggle("field-hidden", !(entryType === "sick" || (entryType === "vacation" && leaveType.value !== "half_day")));
 
   if (isWork) {
     jobNameLabel.classList.remove("field-hidden");
@@ -2467,6 +2532,7 @@ function updateEntryTypeFields() {
     leaveType.classList.add("field-hidden");
     leaveTypeLabel.classList.add("field-hidden");
     halfDayFields.classList.add("field-hidden");
+    multiDayFields.classList.add("field-hidden");
     return;
   }
 
@@ -2481,8 +2547,10 @@ function updateEntryTypeFields() {
 
   if (entryType === "sick") {
     jobNumberLabel.textContent = "Reason";
+    multiDayLabel.textContent = "How Many Sick Days?";
   } else if (entryType === "vacation") {
     jobNumberLabel.textContent = "Optional Note";
+    multiDayLabel.textContent = "How Many Vacation Days?";
   } else if (entryType === "civic_holiday") {
     jobNumberLabel.textContent = "Holiday Name / Note";
   }
@@ -2494,6 +2562,7 @@ function updateEntryTypeFields() {
     leaveNoteLabel.classList.add("field-hidden");
     document.getElementById("leaveNote").classList.add("field-hidden");
     halfDayFields.classList.toggle("field-hidden", leaveType.value !== "half_day");
+    multiDayFields.classList.toggle("field-hidden", leaveType.value === "half_day");
   } else {
     leaveType.value = "";
     document.getElementById("leaveNote").value = "";
@@ -2502,6 +2571,7 @@ function updateEntryTypeFields() {
     halfDayFields.classList.add("field-hidden");
     leaveNoteLabel.classList.add("field-hidden");
     document.getElementById("leaveNote").classList.add("field-hidden");
+    multiDayFields.classList.toggle("field-hidden", entryType !== "sick");
   }
 }
 
@@ -2540,6 +2610,7 @@ function editEntry(entryId) {
   document.getElementById("entryType").value = getEntryType(entry);
   document.getElementById("leaveType").value = entry.leaveType || "";
   document.getElementById("leaveNote").value = entry.leaveNote || "";
+  document.getElementById("leaveDayCount").value = "1";
   document.getElementById("vacationTimeIn").value = getEntryType(entry) === "vacation" && entry.leaveType === "half_day" ? entry.timeIn : "";
   document.getElementById("vacationTimeOut").value = getEntryType(entry) === "vacation" && entry.leaveType === "half_day" ? entry.timeOut : "";
   document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
@@ -2726,6 +2797,115 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
   return true;
 }
 
+function getLeaveDayCount() {
+  const input = document.getElementById("leaveDayCount");
+  const count = Number(input && input.value ? input.value : 1);
+
+  if (!Number.isFinite(count) || count < 1) {
+    return 1;
+  }
+
+  return Math.min(20, Math.floor(count));
+}
+
+function getSelectedTimesheetDate(weekStartValue, dayName) {
+  const dayIndex = getDayNames().indexOf(dayName);
+  const date = makeLocalDate(weekStartValue);
+  date.setDate(date.getDate() + Math.max(0, dayIndex));
+  return date;
+}
+
+function getNextWeekdayDates(startDate, count) {
+  const dates = [];
+  const date = new Date(startDate);
+
+  while (dates.length < count) {
+    const day = date.getDay();
+
+    if (day >= 1 && day <= 5) {
+      dates.push(new Date(date));
+    }
+
+    date.setDate(date.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function buildFullDayLeaveEntryForDate(entryType, leaveType, note, date) {
+  const weekStartDate = getWeekStartDate(date);
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+  return {
+    id: "local-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    user: currentUser,
+    weekStartValue: formatDateValue(weekStartDate),
+    weekStart: formatDate(weekStartDate),
+    weekEnd: formatDate(weekEndDate),
+    jobName: getSpecialEntryJobName(entryType, leaveType),
+    jobNumber: note || "",
+    day: getDayNames()[date.getDay()],
+    timeIn: entryType === "sick" ? "07:00" : "00:00",
+    timeOut: entryType === "sick" ? "12:00" : "00:00",
+    hours: 0.01,
+    tookLunch: false,
+    nightWork: false,
+    entryType,
+    leaveType: entryType === "vacation" ? leaveType : "",
+    leaveNote: entryType === "sick" ? "" : (note || "")
+  };
+}
+
+async function saveNewTimesheetEntries(entries, successLabel) {
+  const status = document.getElementById("submitStatus");
+  const stored = loadTimesheets().concat(entries);
+  setTimesheets(stored);
+
+  if (supabaseClient && navigator.onLine) {
+    for (const entry of entries) {
+      const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .insert(entryToRow(entry))
+        .select()
+        .single();
+
+      if (error) {
+        queueTimesheetEntryForSync(entry, "insert");
+      } else if (data) {
+        const savedEntry = rowToEntry(data);
+        savedEntry.user = currentUser;
+        setTimesheets(loadTimesheets().map(function(item) {
+          return item.id === entry.id ? savedEntry : item;
+        }));
+      }
+    }
+  } else {
+    entries.forEach(function(entry) {
+      queueTimesheetEntryForSync(entry, "insert");
+    });
+  }
+
+  updateJobSuggestions();
+  resetTimeEntryFields();
+  render();
+  renderTimesheetCalendar();
+  await loadWoTimesheetRequests();
+  status.innerText = successLabel + " Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
+}
+
+async function submitMultiDayLeaveEntries(entryType, leaveType, note, weekStart, day, dayCount) {
+  const status = document.getElementById("submitStatus");
+  const selectedDate = getSelectedTimesheetDate(weekStart, day);
+  const dates = getNextWeekdayDates(selectedDate, dayCount);
+  const entries = dates.map(function(date) {
+    return buildFullDayLeaveEntryForDate(entryType, leaveType, note, date);
+  });
+
+  status.innerText = "Saving " + entries.length + " " + (entryType === "sick" ? "sick" : "vacation") + " day" + (entries.length === 1 ? "" : "s") + "...";
+  await saveNewTimesheetEntries(entries, entries.length + " " + (entryType === "sick" ? "sick" : "vacation") + " day" + (entries.length === 1 ? "" : "s") + " saved.");
+}
+
 async function submitTime() {
   if (!currentUser) {
     alert("You must sign in first");
@@ -2812,6 +2992,13 @@ async function submitTime() {
 
   if (isHalfDayVacation && (!isHalfHourTime(vacationTimeIn) || !isHalfHourTime(rawVacationTimeOut))) {
     alert("Half day vacation time must be in 30 minute intervals.");
+    return;
+  }
+
+  const leaveDayCount = getLeaveDayCount();
+
+  if (!editingEntryId && (entryType === "sick" || (entryType === "vacation" && leaveType !== "half_day")) && leaveDayCount > 1) {
+    await submitMultiDayLeaveEntries(entryType, leaveType, jobNumber || leaveNote, weekStart, day, leaveDayCount);
     return;
   }
 
