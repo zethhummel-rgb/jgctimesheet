@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Today's Inspections</title>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 
 <style>
 body {
@@ -250,24 +250,60 @@ button:hover {
 
     <div class="actions">
         <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
-        <button class="secondary" onclick="window.location.href='previous-inspections.html'">Previous Inspections</button>
+        <button class="secondary" id="previousInspectionsButton" onclick="window.location.href='previous-inspections.html'">Previous Inspections</button>
         <button class="secondary" onclick="window.location.href='home.html'">Home</button>
         <button class="secondary" onclick="signOut()">Sign Out</button>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=1"></script>
+<script src="common.js?v=2"></script>
 <script src="inspection-records.js?v=3"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const worker = getCurrentWorker();
 let inspectionRecords = [];
+const queryParams = new URLSearchParams(window.location.search);
+const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
+const isPermitsView = String(pageMode).toLowerCase() === "permits";
+
+function isPermitInspectionType(type) {
+    return String(type || "").toLowerCase().includes("permit");
+}
+
+function filterInspectionRows(records) {
+    if (!isPermitsView) {
+      return records || [];
+    }
+    return (records || []).filter((record) => isPermitInspectionType(record.inspection_type));
+}
+
+function applyInspectionPageCopy() {
+  const title = document.querySelector("h1");
+  const subtitle = document.querySelector(".subtitle");
+  const previousButton = document.getElementById("previousInspectionsButton");
+
+  if (!isPermitsView) {
+    return;
+  }
+
+  if (title) {
+    title.textContent = "Today's Permits";
+  }
+  if (subtitle) {
+    subtitle.textContent = "Completed permits from the last 24 hours";
+  }
+  if (previousButton) {
+    previousButton.textContent = "Previous Permits";
+    previousButton.setAttribute("onclick", "window.location.href='previous-inspections.html?recordType=permits'");
+  }
+}
 
 if (!worker.key) {
     window.location.href = "index.html";
 }
 
+applyInspectionPageCopy();
 document.getElementById("userBar").textContent = worker.display ? "Signed in as: " + worker.display : "";
 
 function formatDate(value) {
@@ -322,17 +358,21 @@ async function loadInspections() {
 
     if (error) {
         list.className = "empty";
-        list.textContent = "Could not load previous inspections.";
+        list.textContent = "Could not load inspections.";
         return;
     }
 
-    if (!data || data.length === 0) {
+    const filteredData = filterInspectionRows(data);
+
+    if (!filteredData.length) {
         list.className = "empty";
-        list.textContent = "No inspections have been saved in the last 24 hours.";
+        list.textContent = isPermitsView
+            ? "No permits have been saved in the last 24 hours."
+            : "No inspections have been saved in the last 24 hours.";
         return;
     }
 
-    inspectionRecords = data;
+    inspectionRecords = filteredData;
     list.className = "table-wrap";
     list.innerHTML = `
         <table>
@@ -350,7 +390,7 @@ async function loadInspections() {
                 </tr>
             </thead>
             <tbody>
-                ${data.map((record) => `
+                ${filteredData.map((record) => `
                     <tr>
                         <td>${escapeHtml(formatDate(record.created_at))}</td>
                         <td>${escapeHtml(formatDate(record.inspection_date))}</td>
