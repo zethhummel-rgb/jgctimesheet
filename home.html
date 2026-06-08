@@ -613,6 +613,136 @@
       margin: 26px 0 14px;
     }
 
+    .home-schedule-panel {
+      margin: 22px 0 10px;
+      border: 1px solid rgba(57, 200, 72, 0.34);
+      border-radius: 10px;
+      background:
+        linear-gradient(90deg, rgba(57, 200, 72, 0.1), transparent 45%),
+        rgba(9, 20, 19, 0.88);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    .home-schedule-panel summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      list-style: none;
+      color: var(--text);
+      font-weight: 900;
+    }
+
+    .home-schedule-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .home-schedule-panel summary:after {
+      content: "Open";
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      color: var(--green);
+      font-size: 12px;
+    }
+
+    .home-schedule-panel[open] summary:after {
+      content: "Close";
+    }
+
+    .home-schedule-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .home-schedule-heading svg {
+      width: 22px;
+      height: 22px;
+      color: var(--green);
+      flex: 0 0 auto;
+    }
+
+    .home-schedule-count {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .home-schedule-body {
+      padding: 0 16px 16px;
+    }
+
+    .home-agenda-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .home-agenda-item {
+      display: grid;
+      grid-template-columns: 98px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-left: 4px solid var(--green);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.045);
+    }
+
+    .home-agenda-item.vehicle {
+      border-left-color: #8da2ff;
+    }
+
+    .home-agenda-item.training {
+      border-left-color: #d775ff;
+    }
+
+    .home-agenda-item.general {
+      border-left-color: #a7b6c4;
+    }
+
+    .home-agenda-item.vacation {
+      border-left-color: #ffd36a;
+    }
+
+    .home-agenda-date {
+      color: #ffffff;
+      font-weight: 900;
+      line-height: 1.2;
+      font-size: 13px;
+    }
+
+    .home-agenda-title {
+      color: #ffffff;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .home-agenda-meta {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .home-schedule-footer {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .home-schedule-footer button {
+      width: auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
     .cards-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -870,6 +1000,37 @@
 
       .info-value {
         font-size: 18px;
+      }
+
+      .home-schedule-panel {
+        margin-top: 16px;
+      }
+
+      .home-schedule-panel summary {
+        align-items: flex-start;
+        padding: 12px;
+      }
+
+      .home-schedule-count {
+        white-space: normal;
+      }
+
+      .home-schedule-body {
+        padding: 0 12px 12px;
+      }
+
+      .home-agenda-item {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        padding: 10px;
+      }
+
+      .home-schedule-footer {
+        justify-content: stretch;
+      }
+
+      .home-schedule-footer button {
+        width: 100%;
       }
 
       .vacation-reminder {
@@ -1204,6 +1365,7 @@
         <button type="button" class="side-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i><span class="side-label">Inspections</span></button>
         <button type="button" class="side-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i><span class="side-label">Certificates</span></button>
         <button type="button" class="side-link" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i><span class="side-label">Vacation Requests</span></button>
+        <button type="button" class="side-link" onclick="goTo('schedule.html')"><i data-lucide="calendar-check"></i><span class="side-label">Schedule</span></button>
         <button type="button" class="side-link" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i><span class="side-label">Equipment / Vehicles</span></button>
         <button type="button" class="side-link" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i><span class="side-label">Jobs</span></button>
         <button type="button" class="side-link" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i><span class="side-label">Work Orders</span></button>
@@ -1254,8 +1416,27 @@
         <div id="announcementsList" class="announcement-list"></div>
       </section>
 
+      <details id="homeSchedulePanel" class="home-schedule-panel">
+        <summary>
+          <span class="home-schedule-heading"><i data-lucide="calendar-check"></i><span>Schedule / Agenda</span></span>
+          <span id="homeScheduleCount" class="home-schedule-count">Loading schedule...</span>
+        </summary>
+        <div class="home-schedule-body">
+          <div id="homeScheduleAgenda" class="home-agenda-list small">Loading schedule...</div>
+          <div class="home-schedule-footer">
+            <button type="button" onclick="goTo('schedule.html')">Open Full Schedule</button>
+          </div>
+        </div>
+      </details>
+
       <div class="section-title">Quick Access</div>
       <section class="cards-grid">
+        <button type="button" class="feature-card" onclick="goTo('schedule.html')">
+          <span class="card-icon"><i data-lucide="calendar-check"></i></span>
+          <h2>Schedule</h2>
+          <p>View scheduled work, job assignments, training, and appointments</p>
+          <i class="arrow" data-lucide="arrow-right"></i>
+        </button>
         <button type="button" class="feature-card" onclick="goTo('timesheet.html')">
           <span class="card-icon"><i data-lucide="clock-3"></i></span>
           <h2>Timesheets</h2>
@@ -1346,6 +1527,7 @@
   <button type="button" onclick="goTo('reports.html')"><i data-lucide="files"></i>Reports</button>
   <button type="button" onclick="goTo('permits.html')"><i data-lucide="file-check"></i>Permits</button>
   <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i>Vacation Requests</button>
+  <button type="button" onclick="goTo('schedule.html')"><i data-lucide="calendar-check"></i>Schedule</button>
   <button type="button" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i>Equipment / Vehicles</button>
   <button type="button" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i>Jobs</button>
   <button type="button" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i>Work Orders</button>
@@ -1430,6 +1612,7 @@ setCurrentDate();
 loadMyProfile();
 loadDashboardStats();
 loadUpcomingVacationBanner();
+loadHomeScheduleAgenda();
 loadAnnouncements();
 renderIcons();
 
@@ -1944,6 +2127,167 @@ async function loadUpcomingVacationBanner() {
   document.getElementById("upcomingVacationDetail").textContent = getVacationReminderRange(request) + typeText;
   banner.hidden = false;
   renderIcons();
+}
+
+function getHomeScheduleType(event) {
+  const type = String(event && event.event_type || "work").toLowerCase();
+  return ["work", "vehicle", "training", "general"].includes(type) ? type : "work";
+}
+
+function getHomeScheduleTypeLabel(type) {
+  const labels = {
+    work: "Work",
+    vehicle: "Vehicle Appointment",
+    training: "Training",
+    general: "General",
+    vacation: "Vacation"
+  };
+  return labels[type] || "Schedule";
+}
+
+function formatHomeScheduleTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parts = String(value).slice(0, 5).split(":");
+  const hour = Number(parts[0]);
+  const minute = parts[1] || "00";
+  const suffix = hour >= 12 ? "PM" : "AM";
+  return String(hour % 12 || 12) + ":" + minute + " " + suffix;
+}
+
+function formatHomeAgendaDate(value) {
+  return makeLocalDate(value).toLocaleDateString("en-CA", {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function getHomeScheduleTitle(event) {
+  return event.title || event.job_name || event.location || getHomeScheduleTypeLabel(getHomeScheduleType(event));
+}
+
+function scheduleEventMatchesCurrentWorker(event) {
+  const aliases = [
+    currentWorker,
+    currentWorkerDisplay,
+    worker.email
+  ].map(normalizeWorkerName).filter(Boolean);
+  const employeeValues = []
+    .concat(Array.isArray(event.employee_keys) ? event.employee_keys : [])
+    .concat(Array.isArray(event.employee_names) ? event.employee_names : [])
+    .concat(Array.isArray(event.employee_emails) ? event.employee_emails : []);
+
+  return isAdmin || employeeValues.some((value) => aliases.includes(normalizeWorkerName(value)));
+}
+
+function buildHomeAgendaItems(scheduleRows, vacationRows) {
+  const scheduleItems = (scheduleRows || [])
+    .filter(scheduleEventMatchesCurrentWorker)
+    .map((event) => ({
+      type: getHomeScheduleType(event),
+      date: event.event_date,
+      title: getHomeScheduleTitle(event),
+      meta: [
+        getHomeScheduleTypeLabel(getHomeScheduleType(event)),
+        [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+        event.job_number ? "Job #: " + event.job_number : "",
+        event.location || ""
+      ].filter(Boolean).join(" | ")
+    }));
+
+  const vacationItems = (vacationRows || [])
+    .filter(isVacationRequestForCurrentWorker)
+    .map((request) => ({
+      type: "vacation",
+      date: request.start_date,
+      title: "Vacation",
+      meta: getVacationReminderRange(request)
+    }));
+
+  return scheduleItems
+    .concat(vacationItems)
+    .filter((item) => item.date)
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+    .slice(0, 8);
+}
+
+function renderHomeScheduleAgenda(items) {
+  const count = document.getElementById("homeScheduleCount");
+  const list = document.getElementById("homeScheduleAgenda");
+
+  if (!count || !list) {
+    return;
+  }
+
+  count.textContent = items.length
+    ? items.length + " upcoming item" + (items.length === 1 ? "" : "s")
+    : "No upcoming schedule";
+
+  if (!items.length) {
+    list.innerHTML = '<div class="small">No upcoming schedule items found.</div>';
+    return;
+  }
+
+  list.innerHTML = items.map((item) => `
+    <div class="home-agenda-item ${escapeHtml(item.type)}">
+      <div class="home-agenda-date">${escapeHtml(formatHomeAgendaDate(item.date))}</div>
+      <div>
+        <div class="home-agenda-title">${escapeHtml(item.title)}</div>
+        <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function loadHomeScheduleAgenda() {
+  const count = document.getElementById("homeScheduleCount");
+  const list = document.getElementById("homeScheduleAgenda");
+
+  if (!count || !list || !supabaseClient) {
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextFourteen = new Date(today);
+  nextFourteen.setDate(today.getDate() + 14);
+  const todayValue = formatLocalDateValue(today);
+  const nextFourteenValue = formatLocalDateValue(nextFourteen);
+
+  try {
+    const [scheduleResult, vacationResult] = await Promise.all([
+      supabaseClient
+        .from("schedule_events")
+        .select("id,event_type,event_date,start_time,end_time,title,job_name,job_number,location,employee_names,employee_keys,employee_emails")
+        .gte("event_date", todayValue)
+        .lte("event_date", nextFourteenValue)
+        .order("event_date", { ascending: true })
+        .order("start_time", { ascending: true })
+        .limit(40),
+      supabaseClient
+        .from("vacation_requests")
+        .select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status")
+        .eq("status", "approved")
+        .gte("end_date", todayValue)
+        .lte("start_date", nextFourteenValue)
+        .order("start_date", { ascending: true })
+        .limit(40)
+    ]);
+
+    if (scheduleResult.error) {
+      count.textContent = "Schedule not ready";
+      list.innerHTML = '<div class="small">Run the schedule Supabase setup before the home agenda can load.</div>';
+      return;
+    }
+
+    renderHomeScheduleAgenda(buildHomeAgendaItems(scheduleResult.data || [], vacationResult.data || []));
+  } catch (error) {
+    count.textContent = "Schedule unavailable";
+    list.innerHTML = '<div class="small">Schedule could not be loaded right now.</div>';
+  }
 }
 
 async function loadAnnouncements() {
