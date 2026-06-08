@@ -376,6 +376,73 @@
       margin: 0;
     }
 
+    .job-picker {
+      position: relative;
+    }
+
+    .job-dropdown {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% - 4px);
+      z-index: 30;
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid rgba(57, 200, 72, 0.42);
+      border-radius: 8px;
+      background: #f7f9f4;
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36);
+    }
+
+    .job-dropdown.open {
+      display: block;
+    }
+
+    .job-option {
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 0;
+      border: 0;
+      border-bottom: 1px solid #d8dfd5;
+      background: #f7f9f4;
+      color: #1f2a24;
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.25;
+      box-shadow: none;
+    }
+
+    .job-option:hover,
+    .job-option:focus {
+      background: #e4f4df;
+      color: #12331e;
+      outline: none;
+    }
+
+    .job-option:last-child {
+      border-bottom: 0;
+    }
+
+    .job-option-number {
+      font-weight: 800;
+      color: #0b5e3b;
+    }
+
+    .job-option-name {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .job-option-empty {
+      padding: 11px 12px;
+      color: #58635c;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
     .edit-button {
       width: auto;
       min-width: 70px;
@@ -967,14 +1034,20 @@
 
   <div id="workEntryFields">
     <label id="jobNameLabel">Job Name</label>
-    <input
-      id="jobName"
-      placeholder="Search jobs or type job name"
-      list="jobNameOptions"
-      onchange="fillJobNumberForSelectedJob()"
-      oninput="fillJobNumberForSelectedJob()"
-    />
-    <datalist id="jobNameOptions"></datalist>
+    <div id="jobPicker" class="job-picker">
+      <input
+        id="jobName"
+        placeholder="Search jobs or type job name"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="words"
+        onfocus="openJobDropdown()"
+        onblur="scheduleCloseJobDropdown()"
+        onchange="fillJobNumberForSelectedJob()"
+        oninput="handleJobNameInput()"
+      />
+      <div id="jobDropdown" class="job-dropdown" role="listbox" aria-label="Active jobs"></div>
+    </div>
     <label id="jobNumberLabel">Job Number</label>
     <input
       id="jobNumber"
@@ -2153,17 +2226,101 @@ function findSelectedActiveJob() {
   }) || null;
 }
 
-function updateJobSuggestions() {
-  const options = activeJobs
+function getFilteredJobOptions() {
+  const searchValue = document.getElementById("jobName").value.trim().toLowerCase();
+
+  return activeJobs
     .slice()
     .sort(sortJobsByNumber)
-    .map(function(job) {
-      const display = getJobDisplay(job);
-      return '<option value="' + escapeHtml(display) + '"></option>';
-    }).join("");
+    .filter(function(job) {
+      if (!searchValue) {
+        return true;
+      }
 
-  document.getElementById("jobNameOptions").innerHTML = options;
+      const jobName = cleanRepeatedJobName(job.job_name).toLowerCase();
+      const jobNumber = String(job.job_number || "").trim().toLowerCase();
+      const display = getJobDisplay(job).toLowerCase();
 
+      return display.includes(searchValue) ||
+        jobName.includes(searchValue) ||
+        jobNumber.includes(searchValue);
+    })
+    .slice(0, 20);
+}
+
+function renderJobDropdown() {
+  const dropdown = document.getElementById("jobDropdown");
+
+  if (!dropdown) {
+    return;
+  }
+
+  const jobs = getFilteredJobOptions();
+
+  if (!jobs.length) {
+    dropdown.innerHTML = '<div class="job-option-empty">No matching jobs. You can still type it manually.</div>';
+    return;
+  }
+
+  dropdown.innerHTML = jobs.map(function(job) {
+    const jobNumber = String(job.job_number || "").trim();
+    const jobName = cleanRepeatedJobName(job.job_name);
+    return `
+      <button type="button" class="job-option" role="option" onmousedown="selectJobOption('${escapeHtml(job.id)}')">
+        <span class="job-option-number">${escapeHtml(jobNumber || "No Job #")}</span>
+        <span class="job-option-name">${escapeHtml(jobName)}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function openJobDropdown() {
+  const dropdown = document.getElementById("jobDropdown");
+
+  if (!dropdown) {
+    return;
+  }
+
+  renderJobDropdown();
+  dropdown.classList.add("open");
+}
+
+function closeJobDropdown() {
+  const dropdown = document.getElementById("jobDropdown");
+
+  if (dropdown) {
+    dropdown.classList.remove("open");
+  }
+}
+
+function scheduleCloseJobDropdown() {
+  setTimeout(closeJobDropdown, 160);
+}
+
+function handleJobNameInput() {
+  fillJobNumberForSelectedJob();
+  openJobDropdown();
+}
+
+function selectJobOption(jobId) {
+  const job = activeJobs.find(function(item) {
+    return String(item.id) === String(jobId);
+  });
+
+  if (!job) {
+    return;
+  }
+
+  const jobNameInput = document.getElementById("jobName");
+  const jobNumberInput = document.getElementById("jobNumber");
+
+  jobNameInput.value = cleanRepeatedJobName(job.job_name);
+  jobNumberInput.value = String(job.job_number || "").trim();
+  jobNumberInput.dataset.autoJobNumber = "true";
+  closeJobDropdown();
+}
+
+function updateJobSuggestions() {
   const jobStatus = document.getElementById("jobStatus");
 
   if (jobStatus) {
@@ -2171,6 +2328,8 @@ function updateJobSuggestions() {
       ? activeJobs.length + " active jobs available. You can also type a job manually."
       : "No active jobs available yet. You can still type a job manually.";
   }
+
+  renderJobDropdown();
 }
 
 function markManualJobNumber() {
