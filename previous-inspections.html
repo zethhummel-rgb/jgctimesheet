@@ -196,16 +196,27 @@ let inspectionRecords = [];
 const queryParams = new URLSearchParams(window.location.search);
 const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
 const isPermitsView = String(pageMode).toLowerCase() === "permits";
+const isReportsView = String(pageMode).toLowerCase() === "reports";
 
 function isPermitInspectionType(type) {
     return String(type || "").toLowerCase().includes("permit");
 }
 
+function isReportInspectionType(type) {
+    const value = String(type || "").toLowerCase();
+    return value === "jsa" || value.includes("daily site report") || value.includes("toolbox") || value.includes("incident") || value.includes("accident");
+}
+
 function filterInspectionRows(records) {
-    if (!isPermitsView) {
-      return records || [];
+    if (isPermitsView) {
+      return (records || []).filter((record) => isPermitInspectionType(record.inspection_type));
     }
-    return (records || []).filter((record) => isPermitInspectionType(record.inspection_type));
+
+    if (isReportsView) {
+      return (records || []).filter((record) => isReportInspectionType(record.inspection_type));
+    }
+
+    return records || [];
 }
 
 function applyInspectionPageCopy() {
@@ -213,7 +224,21 @@ function applyInspectionPageCopy() {
   const subtitle = document.querySelector(".subtitle");
   const todaysButton = document.getElementById("todaysInspectionsButton");
 
-  if (!isPermitsView) {
+  if (!isPermitsView && !isReportsView) {
+    return;
+  }
+
+  if (isReportsView) {
+    if (title) {
+      title.textContent = "Previous Reports";
+    }
+    if (subtitle) {
+      subtitle.textContent = "Completed reports from the last 2 months";
+    }
+    if (todaysButton) {
+      todaysButton.textContent = "Today's Reports";
+      todaysButton.setAttribute("onclick", "window.location.href='todays-inspections.html?recordType=reports'");
+    }
     return;
   }
 
@@ -299,19 +324,23 @@ async function loadInspections() {
         list.className = "empty";
         list.textContent = isPermitsView
             ? "No permits have been saved in the last 2 months."
+            : isReportsView
+            ? "No reports have been saved in the last 2 months."
             : "No inspections have been saved in the last 2 months.";
         return;
     }
 
     inspectionRecords = filteredData;
     list.className = "table-wrap";
+    const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
+    const typeHeading = isReportsView ? "Report" : "Inspection";
     list.innerHTML = `
         <table>
             <thead>
                 <tr>
                     <th>Saved</th>
-                    <th>Inspection Date</th>
-                    <th>Inspection</th>
+                    <th>${dateHeading}</th>
+                    <th>${typeHeading}</th>
                     <th>Completed By</th>
                     <th>Details</th>
                     <th>PDF</th>
