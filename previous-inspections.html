@@ -294,6 +294,17 @@ function escapeHtml(value) {
 }
 
 function buildDetails(record) {
+    if (record.report_source) {
+        return [
+            record.project ? "Project: " + record.project : "",
+            record.location ? "Location: " + record.location : "",
+            record.summary ? "Summary: " + record.summary : ""
+        ]
+            .filter(Boolean)
+            .map((line) => escapeHtml(line))
+            .join("<br>");
+    }
+
     const fields = record.form_data && Array.isArray(record.form_data.fields)
         ? record.form_data.fields
         : [];
@@ -305,6 +316,136 @@ function buildDetails(record) {
         .join("<br>");
 }
 
+function normalizeReportRecord(source, record) {
+    if (source === "jsa") {
+        return {
+            ...record,
+            report_source: "inspection_records",
+            report_type: "JSA",
+            report_date: record.inspection_date,
+            completed_by: record.worker_display_name || record.worker_name || "",
+            project: findFieldValue(record, /Project|Job/i),
+            location: findFieldValue(record, /Location/i),
+            summary: buildDetails(record),
+            supports_inspection_actions: true
+        };
+    }
+
+    if (source === "daily") {
+        return {
+            ...record,
+            report_source: "daily_site_reports",
+            report_type: "Daily Site Report",
+            report_date: record.report_date,
+            completed_by: record.worker_display_name || record.worker_name || "",
+            project: record.project || "",
+            location: record.location || "",
+            summary: record.work_completed || record.delays || ""
+        };
+    }
+
+    if (source === "toolbox") {
+        return {
+            ...record,
+            report_source: "toolbox_talk_reports",
+            report_type: "Toolbox Talk",
+            report_date: record.report_date,
+            completed_by: record.presenter_name || record.worker_display_name || record.worker_name || "",
+            project: record.project || "",
+            location: "",
+            summary: record.talk_title || record.discussion_notes || ""
+        };
+    }
+
+    if (source === "incident") {
+        return {
+            ...record,
+            report_source: "incident_reports",
+            report_type: record.incident_type || "Incident / Near Miss",
+            report_date: record.report_date,
+            completed_by: record.reported_by_name || record.reported_by_worker || "",
+            project: record.project || "",
+            location: record.location || "",
+            summary: [record.severity, record.description].filter(Boolean).join(" - ")
+        };
+    }
+
+    if (source === "accident") {
+        return {
+            ...record,
+            report_source: "accident_reports",
+            report_type: "Supervisor Accident Report",
+            report_date: record.accident_date,
+            completed_by: record.report_maker_display || record.report_maker_worker || record.created_by_name || "",
+            project: "",
+            location: record.site_location || "",
+            summary: record.injured_worker_display || record.injured_worker || ""
+        };
+    }
+
+    return {
+        ...record,
+        report_source: "employee_injury_reports",
+        report_type: "Employee Injury Report",
+        report_date: record.accident_date,
+        completed_by: record.employee_display || record.employee_name || record.created_by_name || "",
+        project: "",
+        location: record.accident_location || "",
+        summary: record.bodily_injury || record.accident_description || ""
+    };
+}
+
+async function loadReportRecords(sinceIso) {
+    const [jsaResult, dailyResult, toolboxResult, incidentResult, accidentResult, injuryResult] = await Promise.all([
+        inspectionSupabaseClient
+            .from("inspection_records")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false }),
+        inspectionSupabaseClient
+            .from("daily_site_reports")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false }),
+        inspectionSupabaseClient
+            .from("toolbox_talk_reports")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false }),
+        inspectionSupabaseClient
+            .from("incident_reports")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false }),
+        inspectionSupabaseClient
+            .from("accident_reports")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false }),
+        inspectionSupabaseClient
+            .from("employee_injury_reports")
+            .select("*")
+            .gte("created_at", sinceIso)
+            .order("created_at", { ascending: false })
+    ]);
+
+    const results = [jsaResult, dailyResult, toolboxResult, incidentResult, accidentResult, injuryResult];
+    const firstError = results.find((result) => result.error);
+
+    if (firstError) {
+        throw firstError.error;
+    }
+
+    return []
+        .concat((jsaResult.data || []).filter((record) => String(record.inspection_type || "").toLowerCase() === "jsa").map((record) => normalizeReportRecord("jsa", record)))
+        .concat((dailyResult.data || []).map((record) => normalizeReportRecord("daily", record)))
+        .concat((toolboxResult.data || []).map((record) => normalizeReportRecord("toolbox", record)))
+        .concat((incidentResult.data || []).map((record) => normalizeReportRecord("incident", record)))
+        .concat((accidentResult.data || []).map((record) => normalizeReportRecord("accident", record)))
+        .concat((injuryResult.data || []).map((record) => normalizeReportRecord("injury", record)))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
 async function loadInspections() {
     const list = document.getElementById("inspectionList");
     const twoMonthsAgo = new Date();
@@ -313,6 +454,22 @@ async function loadInspections() {
     if (!inspectionSupabaseClient) {
         list.className = "empty";
         list.textContent = "Supabase is not available right now.";
+        return;
+    }
+
+    if (isReportsView) {
+        try {
+            const reportRecords = await loadReportRecords(twoMonthsAgo.toISOString());
+            if (!reportRecords.length) {
+                list.className = "empty";
+                list.textContent = "No reports have been saved in the last 2 months.";
+                return;
+            }
+            renderInspectionRows(reportRecords);
+        } catch (error) {
+            list.className = "empty";
+            list.textContent = "Could not load reports.";
+        }
         return;
     }
 
@@ -340,6 +497,11 @@ async function loadInspections() {
         return;
     }
 
+    renderInspectionRows(filteredData);
+}
+
+function renderInspectionRows(filteredData) {
+    const list = document.getElementById("inspectionList");
     inspectionRecords = filteredData;
     list.className = "table-wrap";
     const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
@@ -362,13 +524,13 @@ async function loadInspections() {
                 ${filteredData.map((record) => `
                     <tr>
                         <td>${escapeHtml(formatDate(record.created_at))}</td>
-                        <td>${escapeHtml(formatDate(record.inspection_date))}</td>
-                        <td>${escapeHtml(record.inspection_type)}</td>
-                        <td>${escapeHtml(record.worker_display_name || record.worker_name)}</td>
+                        <td>${escapeHtml(formatDate(record.report_date || record.inspection_date))}</td>
+                        <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
+                        <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
-                        <td><button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button></td>
-                        <td><button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button></td>
-                        <td><button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button></td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button>`}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`}</td>
                     </tr>
                 `).join("")}
             </tbody>
