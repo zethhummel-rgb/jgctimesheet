@@ -450,7 +450,7 @@ textarea {
         <textarea id="notes" placeholder="Optional notes for the crew"></textarea>
 
         <div class="form-actions" style="margin-top:12px;">
-          <button type="button" onclick="saveScheduleEvent()">Save Schedule</button>
+          <button id="scheduleSaveButton" type="button" onclick="saveScheduleEvent()">Save Schedule</button>
           <button type="button" class="secondary" onclick="clearScheduleForm()">Clear</button>
         </div>
       </section>
@@ -476,6 +476,7 @@ let equipmentItems = [];
 let calendarMonth = new Date();
 let selectedDate = new Date();
 let currentUserId = "";
+let editingScheduleEventId = "";
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 document.getElementById("adminHomeButton").classList.toggle("hidden", !isAdmin);
@@ -606,11 +607,10 @@ function changeMonth(offset) {
 
 function selectDate(value) {
   selectedDate = makeLocalDate(value);
-  if (isAdmin) {
-    document.getElementById("eventDate").value = value;
-  }
+  document.getElementById("eventDate").value = value;
   renderCalendar();
   renderSelectedDate();
+  document.getElementById("scheduleForm").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderJobOptions() {
@@ -887,7 +887,10 @@ function renderSelectedDate() {
         ${event.employee_names && event.employee_names.length ? "Crew: " + escapeHtml(event.employee_names.join(", ")) + "<br>" : ""}
         ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
       </div>
-      ${isAdmin ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
+      <div class="form-actions" style="margin-top:8px;">
+        <button type="button" class="secondary" onclick="editScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
+        ${isAdmin ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
+      </div>
     </div>
   `).join("");
 
@@ -902,6 +905,7 @@ function renderSelectedDate() {
 }
 
 function clearScheduleForm() {
+  editingScheduleEventId = "";
   document.getElementById("eventType").value = "work";
   document.getElementById("eventDate").value = formatDateValue(selectedDate);
   document.getElementById("startTime").value = "";
@@ -926,6 +930,91 @@ function clearScheduleForm() {
     });
   }
   updateScheduleTypeFields();
+  const saveButton = document.getElementById("scheduleSaveButton");
+  if (saveButton) {
+    saveButton.textContent = "Save Schedule";
+  }
+}
+
+function scheduleEventEmployeeAliases(event) {
+  const keys = Array.isArray(event.employee_keys) ? event.employee_keys : [];
+  const names = Array.isArray(event.employee_names) ? event.employee_names : [];
+  const emails = Array.isArray(event.employee_emails) ? event.employee_emails : [];
+  return keys.concat(names).concat(emails).map(normalizeWorkerName).filter(Boolean);
+}
+
+function setScheduleEmployeeChecksForEvent(event) {
+  const aliases = scheduleEventEmployeeAliases(event);
+  document.querySelectorAll("[data-employee-check]").forEach((box) => {
+    const account = accounts.find((item) => item.id === box.value);
+    const accountAliases = account ? [
+      account.id,
+      account.profile_id,
+      account.worker_key,
+      account.display_name,
+      account.email
+    ].map(normalizeWorkerName).filter(Boolean) : [];
+    box.checked = accountAliases.some((alias) => aliases.includes(alias));
+  });
+}
+
+function selectScheduleJobForEvent(event) {
+  const select = document.getElementById("jobSelect");
+  const job = jobs.find((item) =>
+    (event.job_id && item.id === event.job_id) ||
+    (event.job_number && String(item.job_number || "").trim() === String(event.job_number || "").trim()) ||
+    (event.job_name && normalizeWorkerName(item.job_name) === normalizeWorkerName(event.job_name))
+  );
+  select.value = job ? job.id : "";
+}
+
+function selectScheduleVehicleForEvent(event) {
+  const select = document.getElementById("vehicleSelect");
+  const title = normalizeWorkerName(event.title || event.job_name);
+  const location = normalizeWorkerName(event.location);
+  const item = equipmentItems.find((equipment) =>
+    title && normalizeWorkerName(getScheduleEquipmentLabel(equipment)) === title ||
+    title && normalizeWorkerName(equipment.name) === title ||
+    location && normalizeWorkerName(equipment.identification_number) === location
+  );
+  select.value = item ? item.id : "";
+}
+
+function editScheduleEvent(id) {
+  const event = scheduleEvents.find((item) => String(item.id) === String(id));
+
+  if (!event) {
+    alert("That schedule event could not be found. Refresh the schedule and try again.");
+    return;
+  }
+
+  editingScheduleEventId = event.id;
+  selectedDate = makeLocalDate(event.event_date);
+  calendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+
+  document.getElementById("eventType").value = getEventType(event);
+  updateScheduleTypeFields();
+  document.getElementById("eventDate").value = event.event_date || formatDateValue(selectedDate);
+  document.getElementById("startTime").value = String(event.start_time || "").slice(0, 5);
+  document.getElementById("endTime").value = String(event.end_time || "").slice(0, 5);
+  document.getElementById("jobName").value = event.job_name || "";
+  document.getElementById("jobNumber").value = event.job_number || "";
+  document.getElementById("eventTitle").value = event.title || "";
+  document.getElementById("location").value = event.location || "";
+  document.getElementById("notes").value = event.notes || "";
+  selectScheduleJobForEvent(event);
+  selectScheduleVehicleForEvent(event);
+  setScheduleEmployeeChecksForEvent(event);
+
+  const saveButton = document.getElementById("scheduleSaveButton");
+  if (saveButton) {
+    saveButton.textContent = "Update Schedule";
+  }
+
+  renderCalendar();
+  renderSelectedDate();
+  document.getElementById("scheduleForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  setStatus("Editing schedule item for " + formatDisplayDate(event.event_date) + ".");
 }
 
 function buildScheduleAnnouncementBody(event, account) {
@@ -1066,13 +1155,22 @@ async function saveScheduleEvent() {
     created_by_name: currentWorkerDisplay
   };
 
-  setStatus("Saving schedule...");
+  const isEditing = Boolean(editingScheduleEventId);
+  setStatus(isEditing ? "Updating schedule..." : "Saving schedule...");
 
-  const { data, error } = await supabaseClient
-    .from("schedule_events")
-    .insert(record)
-    .select()
-    .single();
+  const query = isEditing
+    ? supabaseClient
+        .from("schedule_events")
+        .update(record)
+        .eq("id", editingScheduleEventId)
+        .select()
+        .single()
+    : supabaseClient
+        .from("schedule_events")
+        .insert(record)
+        .select()
+        .single();
+  const { data, error } = await query;
 
   if (error) {
     alert("Schedule could not be saved: " + (error.message || "Make sure the updated schedule setup SQL has been run."));
@@ -1080,15 +1178,19 @@ async function saveScheduleEvent() {
     return;
   }
 
-  await createScheduleAnnouncements(data, selectedAccounts);
-  try {
-    await emailTaggedScheduleEmployees(data, selectedAccounts);
-  } catch (emailError) {
-    console.warn("Schedule tag email could not be sent.", emailError);
+  if (!isEditing) {
+    await createScheduleAnnouncements(data, selectedAccounts);
+    try {
+      await emailTaggedScheduleEmployees(data, selectedAccounts);
+    } catch (emailError) {
+      console.warn("Schedule tag email could not be sent.", emailError);
+    }
   }
+  selectedDate = makeLocalDate(data.event_date || eventDate);
+  calendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
   clearScheduleForm();
   await loadScheduleData();
-  setStatus("Schedule saved. Tagged employees were notified in the portal and by email.");
+  setStatus(isEditing ? "Schedule updated." : "Schedule saved. Tagged employees were notified in the portal and by email.");
 }
 
 async function deleteScheduleEvent(id) {
