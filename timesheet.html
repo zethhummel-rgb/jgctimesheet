@@ -378,22 +378,26 @@
 
     .edit-button {
       width: auto;
-      min-width: 72px;
-      padding: 6px 10px;
+      min-width: 70px;
+      padding: 6px 8px;
       margin: 0;
       font-size: 12px;
+      white-space: nowrap;
     }
 
     .edit-actions {
       display: flex;
       gap: 6px;
-      flex-wrap: wrap;
+      align-items: stretch;
+      width: 100%;
+      white-space: nowrap;
+      flex-wrap: nowrap;
     }
 
     .delete-entry-button {
       width: auto;
-      min-width: 72px;
-      padding: 6px 10px;
+      min-width: 70px;
+      padding: 6px 8px;
       margin: 0;
       font-size: 12px;
       background: #b42318;
@@ -710,12 +714,27 @@
         min-height: 52px;
       }
 
-      .sign-out,
-      .edit-button,
-      .delete-entry-button {
-        min-height: 34px;
-        font-size: 13px;
-      }
+    .sign-out,
+    .edit-button,
+    .delete-entry-button {
+      min-height: 34px;
+      font-size: 13px;
+    }
+
+    .edit-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: grid;
+    }
+
+    .edit-button,
+    .delete-entry-button {
+      width: 100%;
+      min-width: 0;
+      padding-left: 6px;
+      padding-right: 6px;
+      box-sizing: border-box;
+      font-size: 11px;
+    }
 
       .tab-buttons,
       .email-actions,
