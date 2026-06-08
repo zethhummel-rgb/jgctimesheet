@@ -653,6 +653,17 @@ th {
         </div>
       </div>
 
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('notesSectionBody', 'notesToggleText')">
+          <h3>Notes</h3>
+          <span id="notesToggleText">Show</span>
+        </button>
+        <div id="notesSectionBody" class="form-section-body" hidden>
+          <label>Extra Notes</label>
+          <textarea id="woNotes" placeholder="Add any extra information that does not fit in the sections above."></textarea>
+        </div>
+      </div>
+
       <div class="actions" style="margin-top:14px;">
         <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
         <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
@@ -1427,6 +1438,7 @@ function resetWorkOrderForm() {
   document.getElementById("woJobType").value = "T&M";
   document.getElementById("woJobAddress").value = "";
   document.getElementById("woDescription").value = "";
+  document.getElementById("woNotes").value = "";
   document.getElementById("poRows").innerHTML = "";
   addPoRow();
   document.getElementById("equipmentRows").innerHTML = "";
@@ -1634,6 +1646,7 @@ function editWorkOrder(id) {
   document.getElementById("woJobType").value = wo.job_type || "";
   document.getElementById("woJobAddress").value = wo.job_address || "";
   document.getElementById("woDescription").value = wo.description_of_work || "";
+  document.getElementById("woNotes").value = wo.notes || "";
   document.getElementById("poRows").innerHTML = "";
   const rows = purchaseOrders.filter((po) => po.work_order_id === wo.id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
   if (rows.length) {
@@ -1712,6 +1725,7 @@ async function saveWorkOrder(options) {
   const jobType = "T&M";
   const jobAddress = document.getElementById("woJobAddress").value.trim();
   const description = document.getElementById("woDescription").value.trim();
+  const notes = document.getElementById("woNotes").value.trim();
   const poRows = collectPoRows();
   const previewRows = buildLabourPreviewRows();
   const selectedEquipmentRows = collectEquipmentRows();
@@ -1741,6 +1755,7 @@ async function saveWorkOrder(options) {
     job_address: jobAddress,
     status: settings.forceStatus || status,
     description_of_work: description,
+    notes,
     labour_complete: labourComplete,
     waiting_for: waitingFor,
     created_by: userId || null,
@@ -2512,6 +2527,8 @@ function buildWorkOrderPdfHtml(id) {
       row.notes || ""
     ])}
 
+  ${wo.notes ? '<h2>Notes</h2><div class="description">' + escapeHtml(wo.notes) + '</div>' : ""}
+
   <div class="signatures">
     <div class="line">Supervisor Signature</div>
     <div class="line">Client Signature</div>
@@ -2544,9 +2561,10 @@ function buildWorkOrderEmailBody(id) {
     "Material Rows: " + materials.length,
     "Misc. Invoice / Sub Contractor Rows: " + misc.length,
     "Travel Rows: " + travel.length,
+    wo.notes ? "Notes: " + wo.notes : "",
     "",
     "See attached Work Order PDF."
-  ].join("\n");
+  ].filter((line) => line !== "").join("\n");
 }
 
 function downloadCurrentWorkOrderPdf() {
