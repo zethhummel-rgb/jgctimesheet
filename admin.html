@@ -1625,6 +1625,11 @@ button:hover,
                 <label>Job Number</label>
                 <input id="adminScheduleJobNumber" placeholder="Optional">
             </div>
+            <div id="adminScheduleVehicleWrap" class="full field-hidden">
+                <label>Vehicle / Equipment</label>
+                <select id="adminScheduleVehicle" onchange="fillAdminScheduleVehicle()"></select>
+                <div id="adminScheduleVehicleHint" class="small" style="margin-top:6px;"></div>
+            </div>
             <div class="full">
                 <label id="adminScheduleTitleLabel">Title / Attention</label>
                 <input id="adminScheduleItemTitle" placeholder="Optional title or attention">
@@ -3075,13 +3080,132 @@ function fillAdminScheduleJob() {
     document.getElementById("adminScheduleLocation").value = job.address || "";
 }
 
+function getAdminScheduleEquipmentCategory(item) {
+    const text = [
+        item.equipment_type,
+        item.name,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    if (/\b(trailer|trl|float)\b/.test(text)) {
+        return "trailer";
+    }
+
+    if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
+        return "vehicle";
+    }
+
+    return "equipment";
+}
+
+function getAdminScheduleVehicleChoices() {
+    return (equipmentItems || [])
+        .filter((item) => getAdminScheduleEquipmentCategory(item) !== "trailer")
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }));
+}
+
+function getAdminScheduleEquipmentLabel(item) {
+    if (!item) {
+        return "";
+    }
+
+    const name = String(item.name || "Equipment").trim();
+    const identification = String(item.identification_number || "").trim();
+    const type = String(item.equipment_type || "").trim();
+    return [name, identification ? "#" + identification : "", type ? "(" + type + ")" : ""].filter(Boolean).join(" ");
+}
+
+function renderAdminScheduleVehicleOptions() {
+    const select = document.getElementById("adminScheduleVehicle");
+
+    if (!select) {
+        return;
+    }
+
+    const choices = getAdminScheduleVehicleChoices();
+    select.innerHTML = '<option value="">Select vehicle or equipment</option>' + choices.map((item) =>
+        '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(getAdminScheduleEquipmentLabel(item)) + '</option>'
+    ).join("");
+}
+
+function findAdminScheduleAccountByName(value) {
+    const target = normalizeWorkerName(value);
+
+    if (!target) {
+        return null;
+    }
+
+    return accounts.find((account) => [
+        account.display_name,
+        account.worker_key,
+        account.email
+    ].map(normalizeWorkerName).filter(Boolean).includes(target)) || null;
+}
+
+function checkAdminScheduleEmployeeAccount(account) {
+    if (!account) {
+        return false;
+    }
+
+    const box = Array.from(document.querySelectorAll("[data-admin-schedule-employee]"))
+        .find((input) => input.value === account.id);
+
+    if (!box) {
+        return false;
+    }
+
+    box.checked = true;
+    return true;
+}
+
+function getSelectedAdminScheduleVehicle() {
+    const selectedId = document.getElementById("adminScheduleVehicle").value;
+    return equipmentItems.find((item) => item.id === selectedId) || null;
+}
+
+function fillAdminScheduleVehicle() {
+    const item = getSelectedAdminScheduleVehicle();
+    const hint = document.getElementById("adminScheduleVehicleHint");
+
+    if (!item) {
+        if (hint) {
+            hint.textContent = "";
+        }
+        return;
+    }
+
+    const label = getAdminScheduleEquipmentLabel(item);
+    const operatorName = item.operator_name || "";
+    document.getElementById("adminScheduleItemTitle").value = label;
+    document.getElementById("adminScheduleLocation").value = item.identification_number || item.name || "";
+
+    if (!operatorName) {
+        if (hint) {
+            hint.textContent = "No assigned operator is saved for this item.";
+        }
+        return;
+    }
+
+    const account = findAdminScheduleAccountByName(operatorName);
+    const checked = checkAdminScheduleEmployeeAccount(account);
+
+    if (hint) {
+        hint.textContent = checked
+            ? "Assigned operator tagged: " + (account.display_name || account.worker_key || account.email)
+            : "Assigned operator saved as \"" + operatorName + "\", but no matching approved account was found.";
+    }
+}
+
 function updateAdminScheduleTypeFields() {
     const type = document.getElementById("adminScheduleType").value || "work";
     const isWork = type === "work";
+    const isVehicle = type === "vehicle";
 
     document.getElementById("adminScheduleJobWrap").classList.toggle("field-hidden", !isWork);
     document.getElementById("adminScheduleJobNameWrap").classList.toggle("field-hidden", !isWork);
     document.getElementById("adminScheduleJobNumberWrap").classList.toggle("field-hidden", !isWork);
+    document.getElementById("adminScheduleVehicleWrap").classList.toggle("field-hidden", !isVehicle);
     document.getElementById("adminScheduleTitleLabel").textContent = isWork ? "Title / Attention" : "Title";
     document.getElementById("adminScheduleItemTitle").placeholder = type === "vehicle"
         ? "Example: Truck service, oil change, tire appointment"
@@ -3100,6 +3224,8 @@ function clearAdminScheduleForm(dateValue) {
     document.getElementById("adminScheduleJob").value = "";
     document.getElementById("adminScheduleJobName").value = "";
     document.getElementById("adminScheduleJobNumber").value = "";
+    document.getElementById("adminScheduleVehicle").value = "";
+    document.getElementById("adminScheduleVehicleHint").textContent = "";
     document.getElementById("adminScheduleItemTitle").value = "";
     document.getElementById("adminScheduleLocation").value = "";
     document.getElementById("adminScheduleNotes").value = "";
@@ -3113,6 +3239,7 @@ function clearAdminScheduleForm(dateValue) {
 function openAdminScheduleModal(dateValue) {
     renderAdminScheduleJobs();
     renderAdminScheduleEmployees();
+    renderAdminScheduleVehicleOptions();
     clearAdminScheduleForm(dateValue);
     document.getElementById("adminScheduleModalTitle").textContent = "Add Schedule - " + makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
     document.getElementById("adminScheduleModal").classList.add("open");
@@ -3206,9 +3333,10 @@ async function saveAdminScheduleEvent() {
     const selectedAccounts = getSelectedAdminScheduleAccounts();
     const eventType = document.getElementById("adminScheduleType").value || "work";
     const isWork = eventType === "work";
+    const selectedVehicle = eventType === "vehicle" ? getSelectedAdminScheduleVehicle() : null;
     const eventDate = document.getElementById("adminScheduleDate").value;
     const title = document.getElementById("adminScheduleItemTitle").value.trim();
-    const jobName = isWork ? document.getElementById("adminScheduleJobName").value.trim() : title;
+    const jobName = isWork ? document.getElementById("adminScheduleJobName").value.trim() : (title || getAdminScheduleEquipmentLabel(selectedVehicle));
     const status = document.getElementById("adminScheduleStatus");
 
     if (!eventDate || !jobName || !selectedAccounts.length) {
