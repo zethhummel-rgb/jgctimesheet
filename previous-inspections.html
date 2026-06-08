@@ -181,6 +181,7 @@ button:hover {
 
     <div class="actions">
         <button class="secondary" id="todaysInspectionsButton" onclick="window.location.href='todays-inspections.html'">Today's Inspections</button>
+        <button class="secondary" id="recordHomeButton" onclick="window.location.href='inspections.html'">Inspections</button>
         <button class="secondary" onclick="window.location.href='home.html'">Home</button>
         <button class="secondary" onclick="signOut()">Sign Out</button>
     </div>
@@ -223,6 +224,7 @@ function applyInspectionPageCopy() {
   const title = document.querySelector("h1");
   const subtitle = document.querySelector(".subtitle");
   const todaysButton = document.getElementById("todaysInspectionsButton");
+  const recordHomeButton = document.getElementById("recordHomeButton");
 
   if (!isPermitsView && !isReportsView) {
     return;
@@ -239,6 +241,10 @@ function applyInspectionPageCopy() {
       todaysButton.textContent = "Today's Reports";
       todaysButton.setAttribute("onclick", "window.location.href='todays-inspections.html?recordType=reports'");
     }
+    if (recordHomeButton) {
+      recordHomeButton.textContent = "Reports";
+      recordHomeButton.setAttribute("onclick", "window.location.href='reports.html'");
+    }
     return;
   }
 
@@ -251,6 +257,10 @@ function applyInspectionPageCopy() {
   if (todaysButton) {
     todaysButton.textContent = "Today's Permits";
     todaysButton.setAttribute("onclick", "window.location.href='todays-inspections.html?recordType=permits'");
+  }
+  if (recordHomeButton) {
+    recordHomeButton.textContent = "Permits";
+    recordHomeButton.setAttribute("onclick", "window.location.href='permits.html'");
   }
 }
 
