@@ -128,6 +128,74 @@ function collectTableRows() {
     return rows;
 }
 
+function getProjectFieldFromFormFields(fields) {
+    const match = fields.find((field) => {
+        const label = String(field.label || "").toLowerCase();
+        return ["location of use", "project / site", "project", "site location", "location"].some((key) => label.includes(key));
+    });
+
+    return match && match.value ? String(match.value).trim() : "";
+}
+
+function splitProjectDisplay(value) {
+    const text = String(value || "").trim();
+    const parts = text.split(" - ");
+
+    if (parts.length >= 2) {
+        const maybeNumber = String(parts[0]).trim();
+        const maybeName = parts.slice(1).join(" - ").trim();
+
+        return {
+            jobNumber: maybeNumber,
+            jobName: maybeName,
+            project: text,
+            location: text
+        };
+    }
+
+    return {
+        project: text,
+        location: text
+    };
+}
+
+function normalizeProjectInput(value) {
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function resolveInspectionJobContext(fields) {
+    const projectValue = getProjectFieldFromFormFields(fields);
+
+    const context = splitProjectDisplay(projectValue);
+
+    const jobOptions = (typeof getJgcProjectJobOptions === "function")
+        ? await getJgcProjectJobOptions()
+        : [];
+
+    if (projectValue && Array.isArray(jobOptions) && jobOptions.length) {
+        const normalized = normalizeProjectInput(projectValue);
+
+        const direct = jobOptions.find((job) => {
+            const display = normalizeProjectInput(getJgcProjectJobDisplay(job));
+            const directNumber = normalizeProjectInput(job.job_number || "");
+            const directName = normalizeProjectInput(job.job_name || "");
+
+            return display === normalized || directNumber === normalized || directName === normalized;
+        });
+
+        if (direct) {
+            return {
+                project: projectValue,
+                location: projectValue,
+                jobName: String(direct.job_name || "").trim(),
+                jobNumber: String(direct.job_number || "").trim()
+            };
+        }
+    }
+
+    return context;
+}
+
 function getInspectionDate(fields) {
     const dateField = fields.find((field) => /date/i.test(field.label) && field.value);
     return dateField ? dateField.value : new Date().toISOString().slice(0, 10);
@@ -373,6 +441,7 @@ async function saveInspection(type) {
     const rows = collectTableRows();
     const inspectionDate = getInspectionDate(fields);
     const emailBody = buildInspectionEmail(type, fields, rows);
+    const jobContext = await resolveInspectionJobContext(fields);
     const record = {
         worker_name: worker.key,
         worker_display_name: worker.display,
@@ -384,6 +453,10 @@ async function saveInspection(type) {
             field_count: fields.length,
             row_count: rows.length
         },
+        project: jobContext.project || "",
+        location: jobContext.location || "",
+        job_name: jobContext.jobName || "",
+        job_number: jobContext.jobNumber || "",
         form_data: {
             fields,
             rows
