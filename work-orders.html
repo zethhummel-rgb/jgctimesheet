@@ -1780,6 +1780,29 @@ async function saveWorkOrder(options) {
       .single();
   }
 
+  if (result.error && String(result.error.message || "").toLowerCase().includes("notes")) {
+    delete values.notes;
+
+    if (editingWorkOrderId) {
+      result = await supabaseClient
+        .from("work_orders")
+        .update(values)
+        .eq("id", editingWorkOrderId)
+        .select()
+        .single();
+    } else {
+      result = await supabaseClient
+        .from("work_orders")
+        .insert(values)
+        .select()
+        .single();
+    }
+
+    if (!result.error) {
+      setFormStatus("Work Order saved, but Notes were not saved because the Supabase notes column has not been added yet. Run supabase-work-orders-notes-setup.sql.", true);
+    }
+  }
+
   if (result.error) {
     setFormStatus("Work order could not be saved: " + result.error.message, true);
     return;
