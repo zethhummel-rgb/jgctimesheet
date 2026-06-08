@@ -61,6 +61,28 @@
       color: #2f6f3c;
     }
 
+    .section-toggle {
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-bottom: 1px solid #d6dfd2;
+      background: transparent;
+      color: #2f6f3c;
+      padding: 0 0 10px 0;
+      margin: 0 0 10px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-toggle span {
+      font-size: 13px;
+      color: #3f7d4d;
+    }
+
     label {
       font-size: 13px;
       font-weight: bold;
@@ -240,22 +262,27 @@
 </div>
 
 <div class="card">
-  <h3>Add Certificate</h3>
+  <button id="toggleUpload" type="button" class="section-toggle" onclick="toggleCertificateUpload()">
+    Add Certificate
+    <span id="uploadToggleIcon">▸</span>
+  </button>
 
-  <label>Certificate Name</label>
-  <input id="certificateName" placeholder="Example: Working at Heights" />
+  <div id="uploadCardBody" class="upload-body">
+    <label>Certificate Name</label>
+    <input id="certificateName" placeholder="Example: Working at Heights" />
 
-  <label>Expiry Date</label>
-  <input id="expiryDate" type="date" />
+    <label>Expiry Date</label>
+    <input id="expiryDate" type="date" />
 
-  <label>Notes</label>
-  <textarea id="certificateNotes" rows="3" placeholder="Optional notes"></textarea>
+    <label>Notes</label>
+    <textarea id="certificateNotes" rows="3" placeholder="Optional notes"></textarea>
 
-  <label>Certificate File</label>
-  <input id="certificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" />
+    <label>Certificate File</label>
+    <input id="certificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" />
 
-  <button type="button" onclick="uploadCertificate()">Upload Certificate</button>
-  <div id="certificateStatus" class="status"></div>
+    <button type="button" onclick="uploadCertificate()">Upload Certificate</button>
+    <div id="certificateStatus" class="status"></div>
+  </div>
 </div>
 
 <div class="card">
@@ -281,6 +308,16 @@ document.getElementById("currentUser").innerText = "Signed in as: " + currentWor
 
 function normalizeWorkerName(name) {
   return String(name || "").trim().toLowerCase();
+}
+
+function toggleCertificateUpload() {
+  const body = document.getElementById("uploadCardBody");
+  const icon = document.getElementById("uploadToggleIcon");
+  if (!body || !icon) return;
+
+  const isHidden = body.style.display === "none";
+  body.style.display = isHidden ? "block" : "none";
+  icon.textContent = isHidden ? "▾" : "▸";
 }
 
 function makeSafeFileName(name) {
@@ -480,6 +517,7 @@ async function signOut() {
 }
 
 loadCertificates();
+document.getElementById("uploadCardBody").style.display = "none";
 </script>
 
 </body>
