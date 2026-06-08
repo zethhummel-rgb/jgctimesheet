@@ -249,7 +249,7 @@ button:hover {
     <div id="editPanel" class="edit-panel" hidden></div>
 
     <div class="actions">
-        <button class="secondary" onclick="window.location.href='inspections.html'">Inspections</button>
+        <button class="secondary" id="inspectionsHomeButton" onclick="window.location.href='inspections.html'">Inspections</button>
         <button class="secondary" id="previousInspectionsButton" onclick="window.location.href='previous-inspections.html'">Previous Inspections</button>
         <button class="secondary" onclick="window.location.href='home.html'">Home</button>
         <button class="secondary" onclick="signOut()">Sign Out</button>
@@ -266,24 +266,54 @@ let inspectionRecords = [];
 const queryParams = new URLSearchParams(window.location.search);
 const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
 const isPermitsView = String(pageMode).toLowerCase() === "permits";
+const isReportsView = String(pageMode).toLowerCase() === "reports";
 
 function isPermitInspectionType(type) {
     return String(type || "").toLowerCase().includes("permit");
 }
 
+function isReportInspectionType(type) {
+    const value = String(type || "").toLowerCase();
+    return value === "jsa" || value.includes("daily site report") || value.includes("toolbox") || value.includes("incident") || value.includes("accident");
+}
+
 function filterInspectionRows(records) {
-    if (!isPermitsView) {
-      return records || [];
+    if (isPermitsView) {
+      return (records || []).filter((record) => isPermitInspectionType(record.inspection_type));
     }
-    return (records || []).filter((record) => isPermitInspectionType(record.inspection_type));
+
+    if (isReportsView) {
+      return (records || []).filter((record) => isReportInspectionType(record.inspection_type));
+    }
+
+    return records || [];
 }
 
 function applyInspectionPageCopy() {
   const title = document.querySelector("h1");
   const subtitle = document.querySelector(".subtitle");
+  const homeButton = document.getElementById("inspectionsHomeButton");
   const previousButton = document.getElementById("previousInspectionsButton");
 
-  if (!isPermitsView) {
+  if (!isPermitsView && !isReportsView) {
+    return;
+  }
+
+  if (isReportsView) {
+    if (title) {
+      title.textContent = "Today's Reports";
+    }
+    if (subtitle) {
+      subtitle.textContent = "Completed reports from the last 24 hours";
+    }
+    if (homeButton) {
+      homeButton.textContent = "Reports";
+      homeButton.setAttribute("onclick", "window.location.href='reports.html'");
+    }
+    if (previousButton) {
+      previousButton.textContent = "Previous Reports";
+      previousButton.setAttribute("onclick", "window.location.href='previous-inspections.html?recordType=reports'");
+    }
     return;
   }
 
@@ -292,6 +322,10 @@ function applyInspectionPageCopy() {
   }
   if (subtitle) {
     subtitle.textContent = "Completed permits from the last 24 hours";
+  }
+  if (homeButton) {
+    homeButton.textContent = "Permits";
+    homeButton.setAttribute("onclick", "window.location.href='permits.html'");
   }
   if (previousButton) {
     previousButton.textContent = "Previous Permits";
@@ -368,19 +402,23 @@ async function loadInspections() {
         list.className = "empty";
         list.textContent = isPermitsView
             ? "No permits have been saved in the last 24 hours."
+            : isReportsView
+            ? "No reports have been saved in the last 24 hours."
             : "No inspections have been saved in the last 24 hours.";
         return;
     }
 
     inspectionRecords = filteredData;
     list.className = "table-wrap";
+    const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
+    const typeHeading = isReportsView ? "Report" : "Inspection";
     list.innerHTML = `
         <table>
             <thead>
                 <tr>
                     <th>Saved</th>
-                    <th>Inspection Date</th>
-                    <th>Inspection</th>
+                    <th>${dateHeading}</th>
+                    <th>${typeHeading}</th>
                     <th>Completed By</th>
                     <th>Details</th>
                     <th>Edit</th>
