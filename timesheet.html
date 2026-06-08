@@ -2024,8 +2024,10 @@ async function loadTimesheetsFromSupabase() {
   });
 
   setTimesheets(mergedEntries);
+  const autoVacationCount = await syncApprovedVacationRequestsToTimesheet();
   const shownCount = loadTimesheets().length;
-  status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + ".";
+  status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + "." +
+    (autoVacationCount ? " Auto-added " + autoVacationCount + " approved vacation day" + (autoVacationCount === 1 ? "" : "s") + "." : "");
   render();
   updateJobSuggestions();
   await loadWoTimesheetRequests();
@@ -3060,6 +3062,150 @@ function buildFullDayLeaveEntryForDate(entryType, leaveType, note, date) {
     leaveType: entryType === "vacation" ? leaveType : "",
     leaveNote: entryType === "sick" ? "" : (note || "")
   };
+}
+
+function getVacationAutoEntryCutoffValue() {
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - 60);
+  return formatDateValue(cutoff);
+}
+
+function isFullDayApprovedVacationRequest(request) {
+  const details = request && request.form_data || {};
+  const requestType = String(request && request.request_type || "").toLowerCase();
+
+  return String(request && request.status || "").toLowerCase() === "approved" &&
+    !details.halfDayRequest &&
+    !requestType.includes("half") &&
+    Number(request && request.total_days || 0) !== 0.5;
+}
+
+function isVacationRequestForCurrentUser(request) {
+  const aliases = getCurrentUserAliases().map(normalizeWorkerName).filter(Boolean);
+  return aliases.includes(normalizeWorkerName(request && request.worker_name)) ||
+    aliases.includes(normalizeWorkerName(request && request.worker_display_name));
+}
+
+function getVacationLeaveTypeFromRequest(request) {
+  const requestType = String(request && request.request_type || "").toLowerCase();
+  return requestType.includes("unpaid") ? "unpaid" : "paid";
+}
+
+function getVacationAutoEntryNote(request) {
+  return String(request && request.request_type || "").trim() || "Approved Vacation";
+}
+
+function getWeekdayDatesInRange(startValue, endValue) {
+  const dates = [];
+
+  if (!startValue || !endValue) {
+    return dates;
+  }
+
+  const date = makeLocalDate(startValue);
+  const end = makeLocalDate(endValue);
+
+  while (date <= end) {
+    const day = date.getDay();
+
+    if (day >= 1 && day <= 5) {
+      dates.push(new Date(date));
+    }
+
+    date.setDate(date.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function entryIsVacationOnDate(entry, date) {
+  const entryDate = getDateForEntry(entry);
+  return entryDate &&
+    formatDateValue(entryDate) === formatDateValue(date) &&
+    getEntryType(entry) === "vacation";
+}
+
+function previousWeeksContainVacationOnDate(date) {
+  return previousWeeks.some(function(week) {
+    return (week.entries || []).some(function(entry) {
+      return entryIsVacationOnDate(entry, date);
+    });
+  });
+}
+
+async function syncApprovedVacationRequestsToTimesheet() {
+  if (!supabaseClient || !navigator.onLine) {
+    return 0;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("vacation_requests")
+    .select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status")
+    .eq("status", "approved")
+    .gte("end_date", getVacationAutoEntryCutoffValue())
+    .order("start_date", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    console.warn("Approved vacation requests could not be checked.", error);
+    return 0;
+  }
+
+  const existingEntries = loadTimesheets();
+  const newEntries = [];
+
+  (data || [])
+    .filter(isVacationRequestForCurrentUser)
+    .filter(isFullDayApprovedVacationRequest)
+    .forEach(function(request) {
+      getWeekdayDatesInRange(request.start_date, request.end_date).forEach(function(date) {
+        const alreadyExists = existingEntries.concat(newEntries).some(function(entry) {
+          return entryIsVacationOnDate(entry, date);
+        }) || previousWeeksContainVacationOnDate(date);
+
+        if (alreadyExists) {
+          return;
+        }
+
+        const entry = buildFullDayLeaveEntryForDate(
+          "vacation",
+          getVacationLeaveTypeFromRequest(request),
+          getVacationAutoEntryNote(request),
+          date
+        );
+        newEntries.push(entry);
+      });
+    });
+
+  if (!newEntries.length) {
+    return 0;
+  }
+
+  setTimesheets(loadTimesheets().concat(newEntries));
+
+  for (const entry of newEntries) {
+    const { data: savedRow, error: insertError } = await supabaseClient
+      .from("timesheet_entries")
+      .insert(entryToRow(entry))
+      .select()
+      .single();
+
+    if (insertError) {
+      queueTimesheetEntryForSync(entry, "insert");
+      continue;
+    }
+
+    if (savedRow) {
+      const savedEntry = rowToEntry(savedRow);
+      savedEntry.user = currentUser;
+      setTimesheets(loadTimesheets().map(function(item) {
+        return item.id === entry.id ? savedEntry : item;
+      }));
+    }
+  }
+
+  return newEntries.length;
 }
 
 async function saveNewTimesheetEntries(entries, successLabel) {
@@ -4323,12 +4469,11 @@ async function startTimesheetPage() {
   previousWeeks = loadFallbackPreviousWeeks();
   selectedCalendarDate = new Date();
   calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
+  await loadPreviousWeeksFromSupabase({ render: false });
   render();
   loadActiveJobs();
   await loadTimesheetsFromSupabase();
-  loadPreviousWeeksFromSupabase({ render: false }).then(function() {
-    renderTimesheetCalendar();
-  });
+  renderTimesheetCalendar();
 }
 
 if (currentUser) {
