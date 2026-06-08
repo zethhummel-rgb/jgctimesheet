@@ -14,8 +14,24 @@ body{font-family:Arial,sans-serif;background:#8f9691;margin:0;padding:20px;color
 <div class="user-bar" id="userBar"></div>
 <div class="container">
   <h1>Permits</h1>
-  <div class="subtitle">Choose a permit form</div>
+  <div class="subtitle">Quick Links</div>
   <div class="permit-grid">
+    <button class="permit-card" type="button" onclick="window.location.href='todays-inspections.html?recordType=permits'">
+      <strong>Today's Permits</strong>
+      <span>Permits completed in the last 24 hours.</span>
+    </button>
+    <button class="permit-card" type="button" onclick="window.location.href='previous-inspections.html?recordType=permits'">
+      <strong>Previous Permits</strong>
+      <span>Permits completed in the last 2 months.</span>
+    </button>
+    <button class="permit-card" type="button" onclick="window.location.href='javascript:document.getElementById(\"permitFormsSection\").scrollIntoView({behavior: \"smooth\", block: \"start\"})'">
+      <strong>Open Permit Forms</strong>
+      <span>Start a new Hot Work, Confined Space, or Excavation permit.</span>
+    </button>
+  </div>
+
+  <div class="subtitle">Choose a permit form</div>
+  <div id="permitFormsSection" class="permit-grid">
     <button class="permit-card" type="button" onclick="window.location.href='hot-work-permit.html'"><strong>Hot Work Permit</strong><span>Welding, cutting, grinding, torch work, and fire watch requirements.</span></button>
     <button class="permit-card" type="button" onclick="window.location.href='confined-space-permit.html'"><strong>Confined Space Permit</strong><span>Entry review, atmospheric testing, attendants, rescue plan, and authorization.</span></button>
     <button class="permit-card" type="button" onclick="window.location.href='excavation-permit.html'"><strong>Excavation Permit</strong><span>Locate checks, soil conditions, protective systems, access, and daily approval.</span></button>
