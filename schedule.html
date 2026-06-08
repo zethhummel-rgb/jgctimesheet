@@ -1021,8 +1021,8 @@ async function saveScheduleEvent() {
     .single();
 
   if (error) {
-    alert("Schedule could not be saved. Make sure the schedule_events Supabase table has been created.");
-    setStatus("Schedule save failed.");
+    alert("Schedule could not be saved: " + (error.message || "Make sure the updated schedule setup SQL has been run."));
+    setStatus("Schedule save failed: " + (error.message || "Supabase setup error."));
     return;
   }
 
@@ -1073,7 +1073,7 @@ async function loadScheduleData() {
 
   if (scheduleResult.error) {
     scheduleEvents = [];
-    setStatus("Schedule table is not ready yet. Upload/run the schedule Supabase setup SQL first.");
+    setStatus("Schedule could not load from Supabase: " + (scheduleResult.error.message || "Run the updated schedule setup SQL."));
   } else {
     scheduleEvents = scheduleResult.data || [];
     setStatus("Schedule loaded.");
