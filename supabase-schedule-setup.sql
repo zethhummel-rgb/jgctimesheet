@@ -46,6 +46,9 @@ execute function public.set_schedule_events_updated_at();
 
 alter table public.schedule_events enable row level security;
 
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.schedule_events to authenticated;
+
 drop policy if exists "Approved users can read schedule events" on public.schedule_events;
 create policy "Approved users can read schedule events"
 on public.schedule_events
@@ -57,13 +60,6 @@ using (
     from public.profiles p
     where p.id = auth.uid()
       and p.account_status = 'approved'
-      and (
-        p.role = 'admin'
-        or lower(p.email) in ('zeth@johngordonconstruction.com', 'jeff@johngordonconstruction.com')
-        or schedule_events.employee_keys ? coalesce(p.worker_key, '')
-        or schedule_events.employee_names ? coalesce(p.display_name, '')
-        or schedule_events.employee_emails ? coalesce(p.email, '')
-      )
   )
 );
 
@@ -103,8 +99,7 @@ on public.schedule_events
 for insert
 to authenticated
 with check (
-  created_by = auth.uid()
-  and exists (
+  exists (
     select 1
     from public.profiles p
     where p.id = auth.uid()
