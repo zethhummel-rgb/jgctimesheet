@@ -2320,16 +2320,25 @@ async function loadHomeScheduleAgenda() {
         .limit(100)
     ]);
 
-    if (scheduleResult.error) {
-      count.textContent = "Schedule not ready";
-      list.innerHTML = '<div class="small">Schedule is not connected yet. Run the latest schedule Supabase setup SQL, then refresh.</div>';
+    const scheduleRows = scheduleResult.error ? [] : (scheduleResult.data || []);
+    const vacationRows = vacationResult.error ? [] : (vacationResult.data || []);
+    const items = buildHomeAgendaItems(scheduleRows, vacationRows);
+
+    if (scheduleResult.error && vacationResult.error) {
+      count.textContent = "Schedule unavailable";
+      list.innerHTML = '<div class="small">Schedule could not load from Supabase: ' + escapeHtml(scheduleResult.error.message || "Unknown schedule error") + '</div>';
       return;
     }
 
-    renderHomeScheduleAgenda(buildHomeAgendaItems(scheduleResult.data || [], vacationResult.data || []));
+    renderHomeScheduleAgenda(items);
+
+    if (scheduleResult.error && !items.length) {
+      count.textContent = "Schedule setup needed";
+      list.innerHTML = '<div class="small">Schedule events are blocked by Supabase: ' + escapeHtml(scheduleResult.error.message || "Run the updated schedule setup SQL.") + '</div>';
+    }
   } catch (error) {
     count.textContent = "Schedule unavailable";
-    list.innerHTML = '<div class="small">Schedule could not be loaded right now.</div>';
+    list.innerHTML = '<div class="small">Schedule could not be loaded right now: ' + escapeHtml(error.message || error) + '</div>';
   }
 }
 
