@@ -989,8 +989,8 @@ button:hover,
 
 .admin-schedule-day {
     min-height: 112px;
-    background: #f8fff8;
-    color: #102018;
+    background: #102018;
+    color: #f6fff7;
     text-align: left;
     cursor: pointer;
 }
@@ -1001,7 +1001,7 @@ button:hover,
 }
 
 .admin-schedule-day.today {
-    background: #eaffef;
+    background: #173b24;
     box-shadow: inset 0 0 0 3px #19e64f;
 }
 
@@ -1018,11 +1018,13 @@ button:hover,
 }
 
 .admin-schedule-day.muted {
-    background: #dfe8df;
+    background: #16221b;
+    color: #8fa094;
     cursor: default;
 }
 
 .admin-schedule-day-number {
+    color: inherit;
     font-size: 15px;
     font-weight: 900;
     margin-bottom: 5px;
@@ -1052,6 +1054,31 @@ button:hover,
 
 .admin-schedule-event-button:hover {
     outline: 2px solid #102018;
+}
+
+button.admin-schedule-event-button.admin-event-work {
+    background: #c9f1d2;
+    color: #0d351a;
+}
+
+button.admin-schedule-event-button.admin-event-vehicle {
+    background: #cfd8ff;
+    color: #151d53;
+}
+
+button.admin-schedule-event-button.admin-event-training {
+    background: #f0ccff;
+    color: #3a0d4e;
+}
+
+button.admin-schedule-event-button.admin-event-general {
+    background: #e2e8ee;
+    color: #1d2a32;
+}
+
+button.admin-schedule-event-button.admin-event-vacation {
+    background: #ffe7a7;
+    color: #3f2c00;
 }
 
 .admin-schedule-modal-backdrop {
