@@ -3439,26 +3439,6 @@ function makeSafeEmailFileName(value) {
     .replace(/^-|-$/g, "");
 }
 
-async function sendTimesheetEmailWithSupabase(subject, body, weekLabel) {
-  if (!supabaseClient) {
-    openTimesheetMailto(subject, body);
-    return;
-  }
-
-  const { error } = await supabaseClient.functions.invoke("send-timesheet-email", {
-    body: {
-      subject,
-      text: body,
-      worker: getDisplayWorkerName(),
-      weekLabel
-    }
-  });
-
-  if (error) {
-    openTimesheetMailto(subject, body);
-  }
-}
-
 async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
   const archiveRecord = {
     workerName: currentUser,
