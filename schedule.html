@@ -536,7 +536,7 @@ function getCurrentAliases() {
 }
 
 function getApprovedAccounts() {
-  return accounts.filter((account) => String(account.account_status || "").toLowerCase() === "approved");
+  return accounts;
 }
 
 function getSelectedAccounts() {
@@ -549,6 +549,34 @@ function getCurrentAccount() {
   return accounts.find((account) => aliases.includes(normalizeWorkerName(account.worker_key)) ||
     aliases.includes(normalizeWorkerName(account.display_name)) ||
     aliases.includes(normalizeWorkerName(account.email))) || null;
+}
+
+function buildScheduleAccountsFromWorkOrderWorkers(workerRows, profileRows) {
+  const profiles = profileRows || [];
+
+  return (workerRows || [])
+    .filter((workerRow) => workerRow.approved)
+    .map((workerRow) => {
+      const workerAliases = [
+        workerRow.worker_key,
+        workerRow.display_name
+      ].map(normalizeWorkerName).filter(Boolean);
+      const profile = profiles.find((account) =>
+        (workerRow.profile_id && account.id === workerRow.profile_id) ||
+        workerAliases.includes(normalizeWorkerName(account.worker_key)) ||
+        workerAliases.includes(normalizeWorkerName(account.display_name)) ||
+        workerAliases.includes(normalizeWorkerName(account.email))
+      ) || {};
+
+      return {
+        id: workerRow.id,
+        profile_id: workerRow.profile_id || profile.id || "",
+        display_name: workerRow.display_name || profile.display_name || profile.worker_key || profile.email || "Employee",
+        worker_key: workerRow.worker_key || profile.worker_key || normalizeWorkerName(workerRow.display_name),
+        email: profile.email || "",
+        account_status: "approved"
+      };
+    });
 }
 
 function eventIsAssignedToCurrentWorker(event) {
@@ -945,10 +973,32 @@ async function createScheduleAnnouncements(event, selectedAccounts) {
   }
 }
 
-async function emailTaggedScheduleEmployees(event, selectedAccounts) {
-  const recipients = selectedAccounts
+function getScheduleNotificationEmails(selectedAccounts) {
+  const adminEmails = typeof JGC_ADMIN_EMAILS !== "undefined"
+    ? JGC_ADMIN_EMAILS
+    : ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
+  const emails = (selectedAccounts || [])
     .map((account) => account.email || "")
-    .filter(Boolean);
+    .concat(worker.email || "")
+    .concat(adminEmails || []);
+  const seen = new Set();
+
+  return emails
+    .map((email) => String(email || "").trim())
+    .filter((email) => {
+      const key = email.toLowerCase();
+
+      if (!key || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+async function emailTaggedScheduleEmployees(event, selectedAccounts) {
+  const recipients = getScheduleNotificationEmails(selectedAccounts);
 
   if (!recipients.length || !SCHEDULE_EMAIL_SCRIPT_URL) {
     return;
@@ -1063,9 +1113,10 @@ async function loadScheduleData() {
 
   setStatus("Loading schedule...");
 
-  const [scheduleResult, vacationResult, accountResult, jobsResult, equipmentResult] = await Promise.all([
+  const [scheduleResult, vacationResult, workerResult, profileResult, jobsResult, equipmentResult] = await Promise.all([
     supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }),
     supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status").eq("status", "approved").order("start_date", { ascending: true }),
+    supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
     supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
     supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
     supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
@@ -1080,7 +1131,7 @@ async function loadScheduleData() {
   }
 
   vacationRequests = vacationResult.data || [];
-  accounts = accountResult.data || [];
+  accounts = buildScheduleAccountsFromWorkOrderWorkers(workerResult.data || [], profileResult.data || []);
   jobs = jobsResult.data || [];
   equipmentItems = equipmentResult.data || [];
   renderJobOptions();
