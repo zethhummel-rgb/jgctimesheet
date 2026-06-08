@@ -681,6 +681,11 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
 const WORK_ORDER_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const WORK_ORDER_EMAIL_RECIPIENTS = [
+  "zeth@johngordonconstruction.com",
+  "jeff@johngordonconstruction.com",
+  "darlene@johngordonconstruction.com"
+];
 let jobs = [];
 let workOrders = [];
 let purchaseOrders = [];
@@ -2655,6 +2660,7 @@ async function emailWorkOrderPdf(id, options) {
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
+        to: WORK_ORDER_EMAIL_RECIPIENTS.join(","),
         subject,
         body,
         text: body,
