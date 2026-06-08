@@ -2475,10 +2475,10 @@ function buildWorkOrderPdfHtml(id) {
 
   <h2>Labour</h2>
   <table>
-    <thead><tr><th>Employee</th><th>Hours</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Employee</th><th>Hours</th></tr></thead>
     <tbody>
-      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", moneylessNumber(row.hours), row.notes || ""])}
-      <tr class="totals"><td>Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td><td></td></tr>
+      ${buildPdfRows(labour, "No labour rows entered.", (row) => [row.employee_name || "", moneylessNumber(row.hours)])}
+      <tr class="totals"><td>Total Labour Hours</td><td>${moneylessNumber(totalLabour)}</td></tr>
     </tbody>
   </table>
 
