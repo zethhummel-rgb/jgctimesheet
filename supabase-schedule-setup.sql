@@ -106,3 +106,25 @@ with check (
       and p.account_status = 'approved'
   )
 );
+
+drop policy if exists "Approved users can update schedule events" on public.schedule_events;
+create policy "Approved users can update schedule events"
+on public.schedule_events
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.account_status = 'approved'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.account_status = 'approved'
+  )
+);
