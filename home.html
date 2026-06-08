@@ -680,12 +680,24 @@
 
     .home-agenda-list {
       display: grid;
-      gap: 8px;
+      gap: 12px;
+    }
+
+    .home-agenda-day-group {
+      display: grid;
+      gap: 7px;
+    }
+
+    .home-agenda-day-header {
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 13px;
+      padding: 2px 2px 0;
     }
 
     .home-agenda-item {
       display: grid;
-      grid-template-columns: 98px minmax(0, 1fr);
+      grid-template-columns: 86px minmax(0, 1fr);
       gap: 12px;
       padding: 10px;
       border: 1px solid rgba(255,255,255,0.1);
@@ -711,10 +723,10 @@
     }
 
     .home-agenda-date {
-      color: #ffffff;
-      font-weight: 900;
+      color: var(--muted);
+      font-weight: 800;
       line-height: 1.2;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .home-agenda-title {
@@ -2159,7 +2171,24 @@ function formatHomeScheduleTime(value) {
 
 function formatHomeAgendaDate(value) {
   return makeLocalDate(value).toLocaleDateString("en-CA", {
-    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function formatHomeAgendaDayHeader(value) {
+  const date = makeLocalDate(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const prefix = formatLocalDateValue(date) === formatLocalDateValue(today)
+    ? "Today"
+    : formatLocalDateValue(date) === formatLocalDateValue(tomorrow)
+      ? "Tomorrow"
+      : date.toLocaleDateString("en-CA", { weekday: "short" });
+
+  return prefix + " • " + date.toLocaleDateString("en-CA", {
     month: "short",
     day: "numeric"
   });
@@ -2189,6 +2218,7 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
     .map((event) => ({
       type: getHomeScheduleType(event),
       date: event.event_date,
+      sortTime: event.start_time || "99:99",
       title: getHomeScheduleTitle(event),
       meta: [
         getHomeScheduleTypeLabel(getHomeScheduleType(event)),
@@ -2203,6 +2233,7 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
     .map((request) => ({
       type: "vacation",
       date: request.start_date,
+      sortTime: "99:99",
       title: "Vacation",
       meta: getVacationReminderRange(request)
     }));
@@ -2210,8 +2241,16 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
   return scheduleItems
     .concat(vacationItems)
     .filter((item) => item.date)
-    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
-    .slice(0, 8);
+    .sort((a, b) => {
+      const dateDifference = String(a.date || "").localeCompare(String(b.date || ""));
+
+      if (dateDifference !== 0) {
+        return dateDifference;
+      }
+
+      return String(a.sortTime || "").localeCompare(String(b.sortTime || ""));
+    })
+    .slice(0, 7);
 }
 
 function renderHomeScheduleAgenda(items) {
@@ -2231,13 +2270,24 @@ function renderHomeScheduleAgenda(items) {
     return;
   }
 
-  list.innerHTML = items.map((item) => `
-    <div class="home-agenda-item ${escapeHtml(item.type)}">
-      <div class="home-agenda-date">${escapeHtml(formatHomeAgendaDate(item.date))}</div>
-      <div>
-        <div class="home-agenda-title">${escapeHtml(item.title)}</div>
-        <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
-      </div>
+  const groups = items.reduce((grouped, item) => {
+    grouped[item.date] = grouped[item.date] || [];
+    grouped[item.date].push(item);
+    return grouped;
+  }, {});
+
+  list.innerHTML = Object.keys(groups).map((dateValue) => `
+    <div class="home-agenda-day-group">
+      <div class="home-agenda-day-header">${escapeHtml(formatHomeAgendaDayHeader(dateValue))}</div>
+      ${groups[dateValue].map((item) => `
+        <div class="home-agenda-item ${escapeHtml(item.type)}">
+          <div class="home-agenda-date">${escapeHtml(item.sortTime === "99:99" ? "All day" : formatHomeScheduleTime(item.sortTime))}</div>
+          <div>
+            <div class="home-agenda-title">${escapeHtml(item.title)}</div>
+            <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
+          </div>
+        </div>
+      `).join("")}
     </div>
   `).join("");
 }
@@ -2252,34 +2302,29 @@ async function loadHomeScheduleAgenda() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const nextFourteen = new Date(today);
-  nextFourteen.setDate(today.getDate() + 14);
   const todayValue = formatLocalDateValue(today);
-  const nextFourteenValue = formatLocalDateValue(nextFourteen);
 
   try {
     const [scheduleResult, vacationResult] = await Promise.all([
       supabaseClient
         .from("schedule_events")
-        .select("id,event_type,event_date,start_time,end_time,title,job_name,job_number,location,employee_names,employee_keys,employee_emails")
+        .select("*")
         .gte("event_date", todayValue)
-        .lte("event_date", nextFourteenValue)
         .order("event_date", { ascending: true })
         .order("start_time", { ascending: true })
-        .limit(40),
+        .limit(100),
       supabaseClient
         .from("vacation_requests")
         .select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status")
         .eq("status", "approved")
         .gte("end_date", todayValue)
-        .lte("start_date", nextFourteenValue)
         .order("start_date", { ascending: true })
-        .limit(40)
+        .limit(100)
     ]);
 
     if (scheduleResult.error) {
       count.textContent = "Schedule not ready";
-      list.innerHTML = '<div class="small">Run the schedule Supabase setup before the home agenda can load.</div>';
+      list.innerHTML = '<div class="small">Schedule is not connected yet. Run the latest schedule Supabase setup SQL, then refresh.</div>';
       return;
     }
 
