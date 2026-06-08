@@ -1043,6 +1043,17 @@ button:hover,
     font-weight: 900;
 }
 
+.admin-schedule-event-button {
+    width: 100%;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.admin-schedule-event-button:hover {
+    outline: 2px solid #102018;
+}
+
 .admin-schedule-modal-backdrop {
     position: fixed;
     inset: 0;
@@ -3064,7 +3075,7 @@ function renderAdminScheduleCalendar() {
         const eventItems = events.slice(0, 4).map((event) => {
             const type = getAdminScheduleType(event);
             const label = (event.start_time ? formatAdminScheduleTime(event.start_time) + " " : "") + getAdminScheduleTitle(event);
-            return '<div class="admin-schedule-item admin-event-' + escapeHtml(type) + '">' + escapeHtml(label) + '</div>';
+            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + escapeHtml(label) + '</button>';
         });
         const vacationItems = vacations.slice(0, 2).map((request) =>
             '<div class="admin-schedule-item admin-event-vacation">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
@@ -3073,10 +3084,10 @@ function renderAdminScheduleCalendar() {
         const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
 
         html += `
-            <button type="button" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')">
+            <div role="button" tabindex="0" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
                 <div class="admin-schedule-day-number">${day}</div>
                 <div class="admin-schedule-day-list">${eventItems.concat(vacationItems).join("")}${more}</div>
-            </button>
+            </div>
         `;
     }
 
@@ -3112,7 +3123,7 @@ function renderAdminScheduleDayEvents(dateValue) {
                 ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
             </div>
             <div class="actions" style="margin-top:8px;">
-                <button type="button" class="secondary" onclick="editAdminScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
+                <button type="button" onclick="editAdminScheduleEvent('${escapeHtml(event.id)}')">Edit This Event</button>
             </div>
         </div>
     `).join("");
