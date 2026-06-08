@@ -1125,6 +1125,60 @@ button:hover,
     padding: 0;
 }
 
+.detail-list {
+    display: grid;
+    gap: 8px;
+}
+
+.detail-item {
+    border: 1px solid rgba(63, 125, 77, 0.28);
+    border-radius: 8px;
+    padding: 10px;
+    background: #f3f8f1;
+    color: #17231c;
+}
+
+.detail-title {
+    color: #17331f;
+    font-weight: 900;
+    margin-bottom: 5px;
+}
+
+.detail-meta {
+    color: #33443a;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.work-chip {
+    background: #c9f1d2;
+    color: #0d351a;
+}
+
+.vehicle-chip {
+    background: #cfd8ff;
+    color: #151d53;
+}
+
+.training-chip {
+    background: #f0ccff;
+    color: #3a0d4e;
+}
+
+.general-chip {
+    background: #e2e8ee;
+    color: #1d2a32;
+}
+
 .job-dashboard-shell {
     display: grid;
     gap: 12px;
@@ -1591,6 +1645,7 @@ button:hover,
 <div id="adminScheduleModal" class="admin-schedule-modal-backdrop" onclick="closeAdminScheduleModal(event)">
     <section class="admin-schedule-modal" onclick="event.stopPropagation()">
         <h2 id="adminScheduleModalTitle">Add Schedule</h2>
+        <div id="adminScheduleDayEvents" class="detail-list small" style="margin-bottom:12px;"></div>
         <div class="admin-schedule-form-grid">
             <div>
                 <label>Schedule Type</label>
@@ -1648,7 +1703,7 @@ button:hover,
             </div>
         </div>
         <div class="actions" style="margin-top:12px;">
-            <button type="button" onclick="saveAdminScheduleEvent()">Save Schedule</button>
+            <button id="adminScheduleSaveButton" type="button" onclick="saveAdminScheduleEvent()">Save Schedule</button>
             <button type="button" class="secondary" onclick="closeAdminScheduleModal()">Cancel</button>
         </div>
         <div id="adminScheduleStatus" class="small" style="margin-top:8px;"></div>
@@ -2244,6 +2299,7 @@ let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
 let scheduleEvents = [];
 let adminScheduleMonth = new Date();
+let editingAdminScheduleEventId = "";
 let certificateUrls = {};
 let announcementUrls = {};
 let toolboxTalkUrls = {};
@@ -2587,6 +2643,12 @@ function showTab(tab) {
     }
 }
 
+function getRequestedAdminTab() {
+    const requested = String(window.location.hash || "").replace("#", "");
+    const allowed = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
+    return allowed.includes(requested) ? requested : "summary";
+}
+
 function formatDate(value) {
     return formatDisplayDate(value);
 }
@@ -2792,6 +2854,7 @@ async function loadAdminData() {
     await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
     initializeAdminSummaryBaselines();
     renderAdminSectionsSafely();
+    showTab(getRequestedAdminTab());
 }
 
 function getLocalDateValue(date) {
@@ -3020,6 +3083,50 @@ function renderAdminScheduleCalendar() {
     calendar.innerHTML = html;
 }
 
+function renderAdminScheduleDayEvents(dateValue) {
+    const list = document.getElementById("adminScheduleDayEvents");
+
+    if (!list) {
+        return;
+    }
+
+    const events = getAdminScheduleEventsForDate(dateValue);
+    const vacations = getAdminScheduleVacationsForDate(dateValue);
+
+    if (!events.length && !vacations.length) {
+        list.innerHTML = '<div class="small">No existing events for this day.</div>';
+        return;
+    }
+
+    const eventHtml = events.map((event) => `
+        <div class="detail-item">
+            <div class="detail-title">
+                <span class="chip ${escapeHtml(getAdminScheduleType(event))}-chip">${escapeHtml(getAdminScheduleTypeLabel(getAdminScheduleType(event)))}</span>
+                ${escapeHtml(getAdminScheduleTitle(event))}
+            </div>
+            <div class="detail-meta">
+                ${escapeHtml([formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "))}<br>
+                ${event.job_number ? "Job #: " + escapeHtml(event.job_number) + "<br>" : ""}
+                ${event.location ? "Location: " + escapeHtml(event.location) + "<br>" : ""}
+                ${event.employee_names && event.employee_names.length ? "Tagged: " + escapeHtml(event.employee_names.join(", ")) + "<br>" : ""}
+                ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
+            </div>
+            <div class="actions" style="margin-top:8px;">
+                <button type="button" class="secondary" onclick="editAdminScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
+            </div>
+        </div>
+    `).join("");
+
+    const vacationHtml = vacations.map((request) => `
+        <div class="detail-item">
+            <div class="detail-title">Vacation - ${escapeHtml(request.worker_display_name || request.worker_name || "")}</div>
+            <div class="detail-meta">${escapeHtml(makeAdminScheduleDate(request.start_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }))} to ${escapeHtml(makeAdminScheduleDate(request.end_date || request.start_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }))}</div>
+        </div>
+    `).join("");
+
+    list.innerHTML = eventHtml + vacationHtml;
+}
+
 function getAdminScheduleApprovedAccounts() {
     return (workOrderLabourWorkers || [])
         .filter((workerRow) => workerRow.approved)
@@ -3239,6 +3346,7 @@ function updateAdminScheduleTypeFields() {
 }
 
 function clearAdminScheduleForm(dateValue) {
+    editingAdminScheduleEventId = "";
     document.getElementById("adminScheduleType").value = "work";
     document.getElementById("adminScheduleDate").value = dateValue || formatAdminScheduleDateValue(new Date());
     document.getElementById("adminScheduleStartTime").value = "";
@@ -3256,6 +3364,10 @@ function clearAdminScheduleForm(dateValue) {
         box.checked = false;
     });
     updateAdminScheduleTypeFields();
+    const saveButton = document.getElementById("adminScheduleSaveButton");
+    if (saveButton) {
+        saveButton.textContent = "Save Schedule";
+    }
 }
 
 function openAdminScheduleModal(dateValue) {
@@ -3264,6 +3376,7 @@ function openAdminScheduleModal(dateValue) {
     renderAdminScheduleVehicleOptions();
     clearAdminScheduleForm(dateValue);
     document.getElementById("adminScheduleModalTitle").textContent = "Add Schedule - " + makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+    renderAdminScheduleDayEvents(dateValue);
     document.getElementById("adminScheduleModal").classList.add("open");
 }
 
@@ -3276,9 +3389,88 @@ function closeAdminScheduleModal(event) {
 }
 
 function getSelectedAdminScheduleAccounts() {
+    const approved = getAdminScheduleApprovedAccounts();
     return Array.from(document.querySelectorAll("[data-admin-schedule-employee]:checked"))
-        .map((box) => accounts.find((account) => account.id === box.value))
+        .map((box) => approved.find((account) => account.id === box.value || account.profile_id === box.value))
         .filter(Boolean);
+}
+
+function getAdminScheduleEventAliases(event) {
+    const keys = Array.isArray(event.employee_keys) ? event.employee_keys : [];
+    const names = Array.isArray(event.employee_names) ? event.employee_names : [];
+    const emails = Array.isArray(event.employee_emails) ? event.employee_emails : [];
+    return keys.concat(names).concat(emails).map(normalizeWorkerName).filter(Boolean);
+}
+
+function setAdminScheduleEmployeeChecksForEvent(event) {
+    const aliases = getAdminScheduleEventAliases(event);
+    const approved = getAdminScheduleApprovedAccounts();
+
+    document.querySelectorAll("[data-admin-schedule-employee]").forEach((box) => {
+        const account = approved.find((item) => item.id === box.value || item.profile_id === box.value);
+        const accountAliases = account ? [
+            account.id,
+            account.profile_id,
+            account.worker_key,
+            account.display_name,
+            account.email
+        ].map(normalizeWorkerName).filter(Boolean) : [];
+        box.checked = accountAliases.some((alias) => aliases.includes(alias));
+    });
+}
+
+function selectAdminScheduleJobForEvent(event) {
+    const select = document.getElementById("adminScheduleJob");
+    const job = jobs.find((item) =>
+        (event.job_id && item.id === event.job_id) ||
+        (event.job_number && String(item.job_number || "").trim() === String(event.job_number || "").trim()) ||
+        (event.job_name && normalizeWorkerName(item.job_name) === normalizeWorkerName(event.job_name))
+    );
+    select.value = job ? job.id : "";
+}
+
+function selectAdminScheduleVehicleForEvent(event) {
+    const select = document.getElementById("adminScheduleVehicle");
+    const title = normalizeWorkerName(event.title || event.job_name);
+    const location = normalizeWorkerName(event.location);
+    const item = equipmentItems.find((equipment) =>
+        (title && normalizeWorkerName(getAdminScheduleEquipmentLabel(equipment)) === title) ||
+        (title && normalizeWorkerName(equipment.name) === title) ||
+        (location && normalizeWorkerName(equipment.identification_number) === location)
+    );
+    select.value = item ? item.id : "";
+}
+
+function editAdminScheduleEvent(id) {
+    const event = scheduleEvents.find((item) => String(item.id) === String(id));
+
+    if (!event) {
+        alert("That schedule event could not be found. Refresh the admin page and try again.");
+        return;
+    }
+
+    editingAdminScheduleEventId = event.id;
+    document.getElementById("adminScheduleType").value = getAdminScheduleType(event);
+    updateAdminScheduleTypeFields();
+    document.getElementById("adminScheduleDate").value = event.event_date || "";
+    document.getElementById("adminScheduleStartTime").value = String(event.start_time || "").slice(0, 5);
+    document.getElementById("adminScheduleEndTime").value = String(event.end_time || "").slice(0, 5);
+    document.getElementById("adminScheduleJobName").value = event.job_name || "";
+    document.getElementById("adminScheduleJobNumber").value = event.job_number || "";
+    document.getElementById("adminScheduleItemTitle").value = event.title || "";
+    document.getElementById("adminScheduleLocation").value = event.location || "";
+    document.getElementById("adminScheduleNotes").value = event.notes || "";
+    selectAdminScheduleJobForEvent(event);
+    selectAdminScheduleVehicleForEvent(event);
+    setAdminScheduleEmployeeChecksForEvent(event);
+
+    const saveButton = document.getElementById("adminScheduleSaveButton");
+    if (saveButton) {
+        saveButton.textContent = "Update Schedule";
+    }
+
+    document.getElementById("adminScheduleModalTitle").textContent = "Edit Schedule - " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+    document.getElementById("adminScheduleStatus").textContent = "Editing this schedule item.";
 }
 
 function buildAdminScheduleAnnouncementBody(event, account) {
@@ -3412,32 +3604,47 @@ async function saveAdminScheduleEvent() {
         created_by_name: currentWorkerDisplay
     };
 
-    status.textContent = "Saving schedule...";
+    const isEditing = Boolean(editingAdminScheduleEventId);
+    status.textContent = isEditing ? "Updating schedule..." : "Saving schedule...";
 
-    const { data, error } = await supabaseClient
-        .from("schedule_events")
-        .insert(record)
-        .select()
-        .single();
+    const query = isEditing
+        ? supabaseClient
+            .from("schedule_events")
+            .update(record)
+            .eq("id", editingAdminScheduleEventId)
+            .select()
+            .single()
+        : supabaseClient
+            .from("schedule_events")
+            .insert(record)
+            .select()
+            .single();
+    const { data, error } = await query;
 
     if (error) {
         status.textContent = "Schedule could not be saved: " + (error.message || "Make sure the updated schedule setup SQL has been run.");
         return;
     }
 
-    scheduleEvents.push(data);
-    await createAdminScheduleAnnouncements(data, selectedAccounts);
+    if (isEditing) {
+        scheduleEvents = scheduleEvents.map((event) => String(event.id) === String(data.id) ? data : event);
+    } else {
+        scheduleEvents.push(data);
+        await createAdminScheduleAnnouncements(data, selectedAccounts);
 
-    try {
-        await emailAdminScheduleEmployees(data, selectedAccounts);
-    } catch (emailError) {
-        console.warn("Schedule email could not be sent.", emailError);
+        try {
+            await emailAdminScheduleEmployees(data, selectedAccounts);
+        } catch (emailError) {
+            console.warn("Schedule email could not be sent.", emailError);
+        }
     }
 
     await loadAnnouncements();
+    adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
     renderAdminScheduleCalendar();
     renderPortalSummary();
-    closeAdminScheduleModal();
+    openAdminScheduleModal(data.event_date || eventDate);
+    document.getElementById("adminScheduleStatus").textContent = isEditing ? "Schedule updated." : "Schedule saved. Tagged employees were notified.";
 }
 
 function renderPortalSummary() {
