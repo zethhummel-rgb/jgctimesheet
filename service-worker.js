@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v161";
+const JGC_CACHE_NAME = "jgc-portal-v162";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -43,66 +43,6 @@ const JGC_APP_SHELL = [
   "./icon-192.png?v=3",
   "./icon-512.png?v=3"
 ];
-
-function patchAdminJobsDelete(html) {
-  if (!html.includes("clearJobsExcelFile()") || html.includes("deleteImportedJobs()")) {
-    return html;
-  }
-
-  const patchedHtml = html.replace(
-    '<button class="delete-button" type="button" onclick="clearJobsExcelFile()">Delete File</button>',
-    '<button class="delete-button" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>'
-  );
-
-  const script = `
-<script>
-async function deleteImportedJobs() {
-  const fileInput = document.getElementById("jobsExcelFile");
-  const status = document.getElementById("jobsImportStatus");
-  const confirmed = confirm("Delete all imported jobs from the portal? This will clear the jobs dropdown until a new Excel file is imported.");
-
-  if (!confirmed) {
-    return;
-  }
-
-  if (status) {
-    status.textContent = "Deleting imported jobs...";
-  }
-
-  const client = typeof supabaseClient !== "undefined" ? supabaseClient : createJgcSupabaseClient();
-  const result = await client
-    .from("jobs")
-    .delete()
-    .not("id", "is", null);
-
-  if (result.error) {
-    if (status) {
-      status.textContent = "Imported jobs could not be deleted: " + result.error.message;
-    }
-    return;
-  }
-
-  if (typeof jobs !== "undefined") {
-    jobs = [];
-  }
-
-  if (fileInput) {
-    fileInput.value = "";
-  }
-
-  if (typeof renderJobsManagement === "function") {
-    renderJobsManagement();
-  }
-
-  if (status) {
-    status.textContent = "All imported jobs were deleted.";
-  }
-}
-</script>
-`;
-
-  return patchedHtml.replace("</body>", script + "\n</body>");
-}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -157,19 +97,6 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (url.pathname.endsWith("/admin.html")) {
-            return response.text().then((html) => {
-              const patchedResponse = new Response(patchAdminJobsDelete(html), {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-              });
-              const copy = patchedResponse.clone();
-              caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
-              return patchedResponse;
-            });
-          }
-
           const copy = response.clone();
           caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
           return response;
