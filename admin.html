@@ -3371,7 +3371,7 @@ async function saveAdminScheduleEvent() {
         .single();
 
     if (error) {
-        status.textContent = "Schedule could not be saved. Make sure the schedule setup SQL has been run.";
+        status.textContent = "Schedule could not be saved: " + (error.message || "Make sure the updated schedule setup SQL has been run.");
         return;
     }
 
