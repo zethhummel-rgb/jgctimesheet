@@ -587,11 +587,16 @@ th {
         <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
       </div>
 
-      <div class="form-section">
-        <h3>Materials Used From Shop</h3>
-        <div id="materialRows"></div>
-        <div class="section-actions">
-          <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+      <div class="form-section collapsible">
+        <button type="button" class="form-section-header" onclick="toggleFormSection('materialSectionBody', 'materialToggleText')">
+          <h3>Materials Used From Shop</h3>
+          <span id="materialToggleText">Show</span>
+        </button>
+        <div id="materialSectionBody" class="form-section-body" hidden>
+          <div id="materialRows"></div>
+          <div class="section-actions">
+            <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+          </div>
         </div>
       </div>
 
@@ -651,8 +656,6 @@ th {
       <div class="actions" style="margin-top:14px;">
         <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
         <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
-        <button id="pdfButton" type="button" class="secondary" onclick="downloadCurrentWorkOrderPdf()" disabled>Save PDF</button>
-        <button id="emailButton" type="button" class="secondary" onclick="emailCurrentWorkOrderPdf()" disabled>Email PDF</button>
         <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
       </div>
       <div id="formStatus" class="small" style="margin-top:10px;"></div>
@@ -1437,12 +1440,20 @@ function resetWorkOrderForm() {
   document.getElementById("travelRows").innerHTML = "";
   addTravelRow();
   setManualLabourFields(null);
-  document.getElementById("pdfButton").disabled = true;
-  document.getElementById("emailButton").disabled = true;
+  setPdfEmailControlsDisabled(true);
   setFormLocked(false);
   renderEmployeePicker([]);
   renderLabourPreview();
   setFormStatus("");
+}
+
+function setPdfEmailControlsDisabled(isDisabled) {
+  ["pdfButton", "emailButton"].forEach((buttonId) => {
+    const button = document.getElementById(buttonId);
+    if (button) {
+      button.disabled = isDisabled;
+    }
+  });
 }
 
 function scrollWorkOrdersToTop() {
@@ -1676,8 +1687,7 @@ function editWorkOrder(id) {
   setManualLabourFields(manualLabourRow || null);
   renderEmployeePicker(selectedLabourRows.filter((row) => !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
-  document.getElementById("pdfButton").disabled = false;
-  document.getElementById("emailButton").disabled = false;
+  setPdfEmailControlsDisabled(false);
   setFormLocked(Boolean(wo.locked || wo.status === "submitted"));
   setFormStatus("Editing " + (wo.wo_number || "work order") + ".");
   window.scrollTo({ top: 0, behavior: "smooth" });
