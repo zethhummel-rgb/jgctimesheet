@@ -336,7 +336,7 @@ async function loadAccounts() {
         .order("created_at", { ascending: false });
 
     if (error) {
-        list.textContent = "Accounts could not be loaded. Make sure your account has admin approval.";
+        list.textContent = "Accounts could not be loaded: " + (error.message || "Make sure your account has admin approval.");
         return;
     }
 
