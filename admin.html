@@ -5826,30 +5826,71 @@ function getAnnouncementAcknowledgements(announcementId) {
     return announcementAcknowledgements.filter((receipt) => receipt.announcement_id === announcementId);
 }
 
-function renderAnnouncementReadDetails(announcement) {
+function getAnnouncementTargetAccounts(announcement) {
     const approvedAccounts = getApprovedAccounts();
-    const receipts = getAnnouncementAcknowledgements(announcement.id);
-    const receiptByWorkerId = {};
+    const targetName = normalizeWorkerName(announcement && announcement.target_worker_name);
+    const targetEmail = normalizeWorkerName(announcement && announcement.target_worker_email);
 
-    receipts.forEach((receipt) => {
-        receiptByWorkerId[receipt.worker_id] = receipt;
+    if (!targetName && !targetEmail) {
+        return approvedAccounts;
+    }
+
+    const targetedAccounts = approvedAccounts.filter((account) => {
+        const accountName = normalizeWorkerName(account.worker_key || account.display_name || account.full_name || "");
+        const accountEmail = normalizeWorkerName(account.email || "");
+
+        return (targetName && accountName === targetName) || (targetEmail && accountEmail === targetEmail);
     });
 
-    if (!approvedAccounts.length) {
+    if (targetedAccounts.length) {
+        return targetedAccounts;
+    }
+
+    return [{
+        id: "__target-" + (announcement.id || ""),
+        display_name: announcement.target_worker_name || "",
+        worker_key: announcement.target_worker_name || "",
+        email: announcement.target_worker_email || ""
+    }];
+}
+
+function getAnnouncementReceiptForAccount(account, receipts) {
+    const accountName = normalizeWorkerName(account.worker_key || account.display_name || account.full_name || "");
+    const accountEmail = normalizeWorkerName(account.email || "");
+
+    return (receipts || []).find((receipt) => {
+        const receiptName = normalizeWorkerName(receipt.worker_name || receipt.worker_display_name || "");
+        const receiptEmail = normalizeWorkerName(receipt.worker_email || "");
+
+        return (account.id && receipt.worker_id === account.id) ||
+            (accountEmail && receiptEmail && accountEmail === receiptEmail) ||
+            (accountName && receiptName && accountName === receiptName);
+    }) || null;
+}
+
+function renderAnnouncementReadDetails(announcement) {
+    const targetAccounts = getAnnouncementTargetAccounts(announcement);
+    const receipts = getAnnouncementAcknowledgements(announcement.id);
+    const matchedReceipts = targetAccounts
+        .map((account) => getAnnouncementReceiptForAccount(account, receipts))
+        .filter(Boolean);
+    const uniqueReadCount = new Set(matchedReceipts.map((receipt) => receipt.id || receipt.worker_id || receipt.worker_email || receipt.worker_name)).size;
+
+    if (!targetAccounts.length) {
         return "No approved accounts found.";
     }
 
     return `
         <details>
-            <summary>${receipts.length}/${approvedAccounts.length} read</summary>
+            <summary>${uniqueReadCount}/${targetAccounts.length} read</summary>
             <div class="table-wrap" style="margin-top:8px;">
                 <table>
                     <thead>
                         <tr><th>Worker</th><th>Email</th><th>Status</th><th>Read At</th></tr>
                     </thead>
                     <tbody>
-                        ${approvedAccounts.map((account) => {
-                            const receipt = receiptByWorkerId[account.id];
+                        ${targetAccounts.map((account) => {
+                            const receipt = getAnnouncementReceiptForAccount(account, receipts);
                             return `
                                 <tr>
                                     <td>${escapeHtml(account.display_name || account.worker_key || receipt && receipt.worker_name || "")}</td>
