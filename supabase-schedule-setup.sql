@@ -15,6 +15,8 @@ create table if not exists public.schedule_events (
   employee_emails jsonb not null default '[]'::jsonb,
   created_by uuid references auth.users(id) on delete set null,
   created_by_name text,
+  one_day_reminder_sent_at timestamptz,
+  two_hour_reminder_sent_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -24,6 +26,12 @@ alter table public.schedule_events
 
 alter table public.schedule_events
   add column if not exists title text;
+
+alter table public.schedule_events
+  add column if not exists one_day_reminder_sent_at timestamptz;
+
+alter table public.schedule_events
+  add column if not exists two_hour_reminder_sent_at timestamptz;
 
 create index if not exists schedule_events_event_date_idx
   on public.schedule_events (event_date);
