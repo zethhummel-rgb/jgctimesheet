@@ -102,9 +102,30 @@ textarea {
     font-weight: normal;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-right: 18px;
-    color: #111 !important;
+    gap: 8px;
+    margin-right: 12px;
+    margin-bottom: 8px;
+    color: #1f2a24 !important;
+    background: #edf1ea;
+    border: 1px solid #b8c7b5;
+    border-radius: 6px;
+    padding: 8px 10px;
+    min-height: 38px;
+    box-sizing: border-box;
+    touch-action: manipulation;
+}
+
+.radio-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.radio-stack input[type="radio"] {
+    accent-color: #2f6f3c;
+    width: 16px;
+    height: 16px;
+    margin: 0;
 }
 
 .section {
@@ -116,6 +137,7 @@ textarea {
 .section h3 {
     color: #2f6f3c !important;
     margin-top: 0;
+    margin-bottom: 12px;
 }
 
 .check-row {
