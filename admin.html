@@ -3021,7 +3021,29 @@ function renderAdminScheduleCalendar() {
 }
 
 function getAdminScheduleApprovedAccounts() {
-    return accounts.filter((account) => String(account.account_status || "").toLowerCase() === "approved");
+    return (workOrderLabourWorkers || [])
+        .filter((workerRow) => workerRow.approved)
+        .map((workerRow) => {
+            const workerAliases = [
+                workerRow.worker_key,
+                workerRow.display_name
+            ].map(normalizeWorkerName).filter(Boolean);
+            const profile = accounts.find((account) =>
+                (workerRow.profile_id && account.id === workerRow.profile_id) ||
+                workerAliases.includes(normalizeWorkerName(account.worker_key)) ||
+                workerAliases.includes(normalizeWorkerName(account.display_name)) ||
+                workerAliases.includes(normalizeWorkerName(account.email))
+            ) || {};
+
+            return {
+                id: workerRow.id,
+                profile_id: workerRow.profile_id || profile.id || "",
+                display_name: workerRow.display_name || profile.display_name || profile.worker_key || profile.email || "Employee",
+                worker_key: workerRow.worker_key || profile.worker_key || normalizeWorkerName(workerRow.display_name),
+                email: profile.email || "",
+                account_status: "approved"
+            };
+        });
 }
 
 function renderAdminScheduleEmployees() {
@@ -3136,7 +3158,7 @@ function findAdminScheduleAccountByName(value) {
         return null;
     }
 
-    return accounts.find((account) => [
+    return getAdminScheduleApprovedAccounts().find((account) => [
         account.display_name,
         account.worker_key,
         account.email
@@ -3300,8 +3322,32 @@ async function createAdminScheduleAnnouncements(event, selectedAccounts) {
         .insert(records);
 }
 
+function getAdminScheduleNotificationEmails(selectedAccounts) {
+    const adminEmails = typeof JGC_ADMIN_EMAILS !== "undefined"
+        ? JGC_ADMIN_EMAILS
+        : ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
+    const emails = (selectedAccounts || [])
+        .map((account) => account.email || "")
+        .concat(worker.email || "")
+        .concat(adminEmails || []);
+    const seen = new Set();
+
+    return emails
+        .map((email) => String(email || "").trim())
+        .filter((email) => {
+            const key = email.toLowerCase();
+
+            if (!key || seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+}
+
 async function emailAdminScheduleEmployees(event, selectedAccounts) {
-    const recipients = selectedAccounts.map((account) => account.email || "").filter(Boolean);
+    const recipients = getAdminScheduleNotificationEmails(selectedAccounts);
 
     if (!recipients.length || !SCHEDULE_EMAIL_SCRIPT_URL) {
         return;
@@ -7712,6 +7758,36 @@ function getDashboardTimesheetRows(job) {
     return rows.filter((row) => row.hours > 0);
 }
 
+function isDashboardManualWorkOrderLabour(row) {
+    return String(row && row.worker_key || "").startsWith("manual-") ||
+        String(row && row.notes || "").toLowerCase() === "manual labour entry";
+}
+
+function getDashboardManualWorkOrderLabourRows(job, workOrderRows) {
+    const submittedWorkOrderIds = new Set(
+        (workOrderRows || [])
+            .filter((wo) => String(wo.status || "").toLowerCase() === "submitted" || wo.locked)
+            .map((wo) => wo.id)
+    );
+
+    return workOrderLabourRows
+        .filter((row) => submittedWorkOrderIds.has(row.work_order_id))
+        .filter(isDashboardManualWorkOrderLabour)
+        .map((row) => {
+            const wo = (workOrderRows || []).find((item) => item.id === row.work_order_id) || {};
+            const date = wo.work_order_date || wo.submitted_at || row.updated_at || wo.created_at || "";
+            return {
+                worker: row.employee_name || "Manual Labour",
+                jobType: job.job_type || "",
+                hours: Number(row.hours || 0),
+                date,
+                week: getDashboardWeekStart(date),
+                source: "Manual WO Labour"
+            };
+        })
+        .filter((row) => row.hours > 0);
+}
+
 function sumRows(rows, valueGetter) {
     return rows.reduce((total, row) => total + Number(valueGetter(row) || 0), 0);
 }
@@ -7882,25 +7958,27 @@ function renderJobDashboard() {
         return;
     }
 
-    const timesheetRows = getDashboardTimesheetRows(job);
     const workOrderRows = getDashboardWorkOrders(job);
+    const timesheetRows = getDashboardTimesheetRows(job);
+    const manualWorkOrderLabourRows = getDashboardManualWorkOrderLabourRows(job, workOrderRows);
+    const labourHourRows = timesheetRows.concat(manualWorkOrderLabourRows);
     const dailyRows = getDashboardDailyReports(job);
     const inspectionRows = getDashboardInspections(job);
     const equipmentRows = getDashboardEquipmentRows(workOrderRows);
-    const totalHours = sumRows(timesheetRows, (row) => row.hours);
-    const employees = new Set(timesheetRows.map((row) => normalizeWorkerName(row.worker)).filter(Boolean));
-    const weekRows = groupTotals(timesheetRows, (row) => row.week, (row) => row.hours)
+    const totalHours = sumRows(labourHourRows, (row) => row.hours);
+    const employees = new Set(labourHourRows.map((row) => normalizeWorkerName(row.worker)).filter(Boolean));
+    const weekRows = groupTotals(labourHourRows, (row) => row.week, (row) => row.hours)
         .sort((a, b) => String(a.label).localeCompare(String(b.label)))
         .slice(-8)
         .map((row) => ({ label: formatDashboardWeekLabel(row.label), value: row.value }));
-    const employeeRows = groupTotals(timesheetRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 8);
+    const employeeRows = groupTotals(labourHourRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 8);
     const thisMonth = new Date();
-    const monthRows = timesheetRows.filter((row) => {
+    const monthRows = labourHourRows.filter((row) => {
         const date = parseDashboardDate(row.date);
         return date && date.getFullYear() === thisMonth.getFullYear() && date.getMonth() === thisMonth.getMonth();
     });
     const topMonthRows = groupTotals(monthRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 5);
-    const jobTypeRows = groupTotals(timesheetRows, () => job.job_type || "Unspecified", (row) => row.hours);
+    const jobTypeRows = groupTotals(labourHourRows, () => job.job_type || "Unspecified", (row) => row.hours);
     const archivedJobs = getArchivedDashboardJobs();
 
     container.innerHTML = `
@@ -7960,7 +8038,7 @@ function renderJobDashboard() {
             </section>
 
             <section class="job-dashboard-metrics">
-                ${renderJobDashboardMetric("Total Hours", totalHours.toFixed(2), "Submitted labour hours")}
+                ${renderJobDashboardMetric("Total Hours", totalHours.toFixed(2), manualWorkOrderLabourRows.length ? "Timesheets + manual WO labour" : "Submitted labour hours")}
                 ${renderJobDashboardMetric("Employees on Job", employees.size, "Workers with logged hours")}
                 ${renderJobDashboardMetric("Work Orders", workOrderRows.length, "Saved Work Orders")}
                 ${renderJobDashboardMetric("Daily Reports", dailyRows.length, "Submitted reports")}
@@ -7971,7 +8049,7 @@ function renderJobDashboard() {
             <section class="job-dashboard-grid">
                 <div class="job-dashboard-panel">
                     <h3>Hours by Week</h3>
-                    ${renderJobBars(weekRows, "No timesheet hours found for this job yet.")}
+                    ${renderJobBars(weekRows, "No labour hours found for this job yet.")}
                 </div>
                 <div class="job-dashboard-panel">
                     <h3>Hours by Employee</h3>
