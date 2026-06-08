@@ -736,40 +736,67 @@
       font-size: 11px;
     }
 
-      .tab-buttons,
       .email-actions,
       .timesheet-calendar-header {
         display: grid;
         grid-template-columns: 1fr;
       }
 
-      .tab-buttons button,
       .email-actions button {
         width: 100%;
       }
 
-      .entries-utility-row,
-      .entry-utility-buttons {
-        justify-content: flex-end;
+      .entries-card h3 {
+        margin-bottom: 12px;
+      }
+
+      .entries-utility-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
         width: 100%;
+        margin-bottom: 12px;
       }
 
-      .entries-utility-row,
-      .entry-utility-buttons {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
+      .tab-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin: 0;
+      }
+
+      .tab-buttons button {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        padding: 7px 4px;
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.15;
+        white-space: normal;
       }
 
       .entry-utility-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
         margin-left: 0;
       }
 
       .entry-utility-buttons button {
+        width: 100%;
         min-width: 0;
-        padding: 7px 12px;
-        min-height: 38px;
-        font-size: 13px;
+        padding: 7px 8px;
+        min-height: 36px;
+        font-size: 12px;
+        line-height: 1.15;
+        margin: 0;
+      }
+
+      .entry-utility-buttons button:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
       }
 
       .email-note {
