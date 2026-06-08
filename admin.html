@@ -1000,6 +1000,23 @@ button:hover,
     outline-offset: -3px;
 }
 
+.admin-schedule-day.today {
+    background: #eaffef;
+    box-shadow: inset 0 0 0 3px #19e64f;
+}
+
+.admin-schedule-day.today .admin-schedule-day-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #19e64f;
+    color: #04110b;
+}
+
 .admin-schedule-day.muted {
     background: #dfe8df;
     cursor: default;
@@ -2961,6 +2978,7 @@ function renderAdminScheduleCalendar() {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const todayValue = formatAdminScheduleDateValue(new Date());
     let html = dayNames.map((day) => '<div class="admin-schedule-head">' + day + '</div>').join("");
 
     title.textContent = firstDay.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
@@ -2972,6 +2990,7 @@ function renderAdminScheduleCalendar() {
     for (let day = 1; day <= lastDay.getDate(); day++) {
         const date = new Date(year, month, day);
         const dateValue = formatAdminScheduleDateValue(date);
+        const todayClass = dateValue === todayValue ? " today" : "";
         const events = getAdminScheduleEventsForDate(dateValue);
         const vacations = getAdminScheduleVacationsForDate(dateValue);
         const eventItems = events.slice(0, 4).map((event) => {
@@ -2986,7 +3005,7 @@ function renderAdminScheduleCalendar() {
         const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
 
         html += `
-            <button type="button" class="admin-schedule-day" onclick="openAdminScheduleModal('${dateValue}')">
+            <button type="button" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')">
                 <div class="admin-schedule-day-number">${day}</div>
                 <div class="admin-schedule-day-list">${eventItems.concat(vacationItems).join("")}${more}</div>
             </button>
