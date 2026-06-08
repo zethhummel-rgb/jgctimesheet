@@ -876,6 +876,238 @@ button:hover,
     color: #102018;
 }
 
+.admin-schedule-summary {
+    max-width: 1500px;
+    margin: 0 auto 18px;
+    padding: 14px;
+    border: 1px solid rgba(55, 240, 90, 0.26);
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(17, 32, 38, 0.96), rgba(5, 12, 14, 0.98));
+    color: #ffffff;
+}
+
+.admin-schedule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.admin-schedule-header h2 {
+    margin: 0;
+    color: #37f05a;
+}
+
+.admin-schedule-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.admin-schedule-title {
+    min-width: 180px;
+    text-align: center;
+    font-weight: 900;
+    color: #ffffff;
+}
+
+.admin-schedule-legend {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 0 10px;
+}
+
+.admin-schedule-legend span,
+.admin-event-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.admin-event-work,
+.admin-schedule-legend .work {
+    background: #c9f1d2;
+    color: #0d351a;
+}
+
+.admin-event-vehicle,
+.admin-schedule-legend .vehicle {
+    background: #cfd8ff;
+    color: #151d53;
+}
+
+.admin-event-training,
+.admin-schedule-legend .training {
+    background: #f0ccff;
+    color: #3a0d4e;
+}
+
+.admin-event-general,
+.admin-schedule-legend .general {
+    background: #e2e8ee;
+    color: #1d2a32;
+}
+
+.admin-event-vacation,
+.admin-schedule-legend .vacation {
+    background: #ffe7a7;
+    color: #3f2c00;
+}
+
+.admin-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid rgba(55, 240, 90, 0.32);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(55, 240, 90, 0.32);
+}
+
+.admin-schedule-head,
+.admin-schedule-day {
+    border: 0;
+    padding: 6px;
+    box-sizing: border-box;
+}
+
+.admin-schedule-head {
+    background: #164225;
+    color: #ffffff;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.admin-schedule-day {
+    min-height: 112px;
+    background: #f8fff8;
+    color: #102018;
+    text-align: left;
+    cursor: pointer;
+}
+
+.admin-schedule-day:hover {
+    outline: 3px solid #37f05a;
+    outline-offset: -3px;
+}
+
+.admin-schedule-day.muted {
+    background: #dfe8df;
+    cursor: default;
+}
+
+.admin-schedule-day-number {
+    font-size: 15px;
+    font-weight: 900;
+    margin-bottom: 5px;
+}
+
+.admin-schedule-day-list {
+    display: grid;
+    gap: 4px;
+}
+
+.admin-schedule-item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 5px;
+    padding: 4px 5px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.admin-schedule-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 28px 12px;
+    background: rgba(0, 0, 0, 0.62);
+}
+
+.admin-schedule-modal-backdrop.open {
+    display: flex;
+}
+
+.admin-schedule-modal {
+    width: min(720px, 100%);
+    border: 1px solid rgba(55, 240, 90, 0.34);
+    border-radius: 10px;
+    background: #071411;
+    color: #ffffff;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+    padding: 16px;
+}
+
+.admin-schedule-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.admin-schedule-form-grid .full {
+    grid-column: 1 / -1;
+}
+
+.admin-schedule-modal label,
+.admin-schedule-modal h2 {
+    color: #37f05a;
+}
+
+.admin-schedule-modal input,
+.admin-schedule-modal select,
+.admin-schedule-modal textarea {
+    background: #f8fff8;
+    color: #102018;
+}
+
+.admin-schedule-modal .field-hidden {
+    display: none !important;
+}
+
+.admin-schedule-employees {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px;
+    max-height: 190px;
+    overflow: auto;
+    border: 1px solid rgba(55, 240, 90, 0.24);
+    border-radius: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+}
+
+.admin-schedule-employees label {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 7px;
+    align-items: center;
+    margin: 0;
+    padding: 6px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.05);
+    color: #ffffff;
+}
+
+.admin-schedule-employees input {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+}
+
 .job-dashboard-shell {
     display: grid;
     gap: 12px;
@@ -1242,6 +1474,31 @@ button:hover,
         padding: 4px;
     }
 
+    .admin-schedule-header,
+    .admin-schedule-controls {
+        display: grid;
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .admin-schedule-grid {
+        display: grid;
+        overflow-x: auto;
+    }
+
+    .admin-schedule-head,
+    .admin-schedule-day {
+        min-width: 106px;
+    }
+
+    .admin-schedule-day {
+        min-height: 88px;
+    }
+
+    .admin-schedule-form-grid {
+        grid-template-columns: 1fr;
+    }
+
     .announcement-grid {
         grid-template-columns: 1fr;
     }
@@ -1286,10 +1543,94 @@ button:hover,
 </div>
 
 <div id="summarySection" class="card">
+    <div class="admin-schedule-summary">
+        <div class="admin-schedule-header">
+            <div>
+                <h2>Schedule Calendar</h2>
+                <div class="small">Click a day to add work, vehicle appointments, training, or general schedule items.</div>
+            </div>
+            <div class="admin-schedule-controls">
+                <button type="button" class="secondary" onclick="changeAdminScheduleMonth(-1)">Previous</button>
+                <div id="adminScheduleTitle" class="admin-schedule-title"></div>
+                <button type="button" class="secondary" onclick="changeAdminScheduleMonth(1)">Next</button>
+            </div>
+        </div>
+        <div class="admin-schedule-legend">
+            <span class="work">Work</span>
+            <span class="vehicle">Vehicle Appointment</span>
+            <span class="training">Training</span>
+            <span class="general">General</span>
+            <span class="vacation">Vacation</span>
+        </div>
+        <div id="adminScheduleCalendar" class="admin-schedule-grid"></div>
+    </div>
+
     <h2>Portal Summary</h2>
     <div id="portalSummaryGrid" class="summary-grid">
         <div class="small">Loading portal summary...</div>
     </div>
+</div>
+
+<div id="adminScheduleModal" class="admin-schedule-modal-backdrop" onclick="closeAdminScheduleModal(event)">
+    <section class="admin-schedule-modal" onclick="event.stopPropagation()">
+        <h2 id="adminScheduleModalTitle">Add Schedule</h2>
+        <div class="admin-schedule-form-grid">
+            <div>
+                <label>Schedule Type</label>
+                <select id="adminScheduleType" onchange="updateAdminScheduleTypeFields()">
+                    <option value="work">Work / Job</option>
+                    <option value="vehicle">Vehicle Appointment</option>
+                    <option value="training">Training</option>
+                    <option value="general">General</option>
+                </select>
+            </div>
+            <div>
+                <label>Date</label>
+                <input id="adminScheduleDate" type="date">
+            </div>
+            <div>
+                <label>Start Time</label>
+                <input id="adminScheduleStartTime" type="time">
+            </div>
+            <div>
+                <label>End Time</label>
+                <input id="adminScheduleEndTime" type="time">
+            </div>
+            <div id="adminScheduleJobWrap" class="full">
+                <label>Job</label>
+                <select id="adminScheduleJob" onchange="fillAdminScheduleJob()"></select>
+            </div>
+            <div id="adminScheduleJobNameWrap">
+                <label>Job Name</label>
+                <input id="adminScheduleJobName" placeholder="Job name or location">
+            </div>
+            <div id="adminScheduleJobNumberWrap">
+                <label>Job Number</label>
+                <input id="adminScheduleJobNumber" placeholder="Optional">
+            </div>
+            <div class="full">
+                <label id="adminScheduleTitleLabel">Title / Attention</label>
+                <input id="adminScheduleItemTitle" placeholder="Optional title or attention">
+            </div>
+            <div class="full">
+                <label>Location</label>
+                <input id="adminScheduleLocation" placeholder="Optional site/location">
+            </div>
+            <div class="full">
+                <label>Tag Employees</label>
+                <div id="adminScheduleEmployees" class="admin-schedule-employees"></div>
+            </div>
+            <div class="full">
+                <label>Notes</label>
+                <textarea id="adminScheduleNotes" placeholder="Optional notes"></textarea>
+            </div>
+        </div>
+        <div class="actions" style="margin-top:12px;">
+            <button type="button" onclick="saveAdminScheduleEvent()">Save Schedule</button>
+            <button type="button" class="secondary" onclick="closeAdminScheduleModal()">Cancel</button>
+        </div>
+        <div id="adminScheduleStatus" class="small" style="margin-top:8px;"></div>
+    </section>
 </div>
 
 <div id="jobDashboardSection" class="card job-dashboard-card" hidden>
@@ -1879,6 +2220,8 @@ let equipmentNotifications = [];
 let contacts = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
+let scheduleEvents = [];
+let adminScheduleMonth = new Date();
 let certificateUrls = {};
 let announcementUrls = {};
 let toolboxTalkUrls = {};
@@ -1892,6 +2235,7 @@ const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycb
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
+const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -2170,6 +2514,7 @@ function showTab(tab) {
     }
 
     if (tab === "summary") {
+        renderAdminScheduleCalendar();
         renderPortalSummary();
     }
 
@@ -2285,13 +2630,14 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }),
         supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }),
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
@@ -2323,6 +2669,7 @@ async function loadAdminData() {
     certificates = certificateResult.data || [];
     certificateNotifications = certificateNotificationResult.data || [];
     vacationRequests = vacationResult.data || [];
+    scheduleEvents = scheduleResult.data || [];
     accounts = accountResult.data || [];
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
@@ -2372,6 +2719,7 @@ async function loadAdminData() {
     renderContacts();
     renderEmployeeProfileOptions();
     renderEmployeeProfile();
+    renderAdminScheduleCalendar();
     renderPortalSummary();
 }
 
@@ -2485,6 +2833,365 @@ function renderSummaryTile(tile) {
             <div class="summary-detail">${escapeHtml(tile.detail)}</div>
         </button>
     `;
+}
+
+function formatAdminScheduleDateValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+}
+
+function makeAdminScheduleDate(value) {
+    const parts = String(value || "").split("-");
+    return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(value);
+}
+
+function formatAdminScheduleTime(value) {
+    if (!value) {
+        return "";
+    }
+
+    const parts = String(value).slice(0, 5).split(":");
+    const hour = Number(parts[0]);
+    const minute = parts[1] || "00";
+    const suffix = hour >= 12 ? "PM" : "AM";
+    return String(hour % 12 || 12) + ":" + minute + " " + suffix;
+}
+
+function getAdminScheduleType(event) {
+    const type = String(event && event.event_type || "work").toLowerCase();
+    return ["work", "vehicle", "training", "general"].includes(type) ? type : "work";
+}
+
+function getAdminScheduleTypeLabel(type) {
+    const labels = {
+        work: "Work",
+        vehicle: "Vehicle Appointment",
+        training: "Training",
+        general: "General",
+        vacation: "Vacation"
+    };
+    return labels[type] || "Schedule";
+}
+
+function getAdminScheduleTitle(event) {
+    return event.title || event.job_name || event.location || getAdminScheduleTypeLabel(getAdminScheduleType(event));
+}
+
+function adminScheduleVacationTouchesDate(request, dateValue) {
+    return String(request.start_date || "") <= dateValue && dateValue <= String(request.end_date || request.start_date || "");
+}
+
+function getAdminScheduleEventsForDate(dateValue) {
+    return scheduleEvents.filter((event) => String(event.event_date || "") === dateValue);
+}
+
+function getAdminScheduleVacationsForDate(dateValue) {
+    return vacationRequests.filter((request) =>
+        String(request.status || "").toLowerCase() === "approved" &&
+        adminScheduleVacationTouchesDate(request, dateValue)
+    );
+}
+
+function changeAdminScheduleMonth(offset) {
+    adminScheduleMonth = new Date(adminScheduleMonth.getFullYear(), adminScheduleMonth.getMonth() + offset, 1);
+    renderAdminScheduleCalendar();
+}
+
+function renderAdminScheduleCalendar() {
+    const calendar = document.getElementById("adminScheduleCalendar");
+    const title = document.getElementById("adminScheduleTitle");
+
+    if (!calendar || !title) {
+        return;
+    }
+
+    const year = adminScheduleMonth.getFullYear();
+    const month = adminScheduleMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let html = dayNames.map((day) => '<div class="admin-schedule-head">' + day + '</div>').join("");
+
+    title.textContent = firstDay.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
+
+    for (let i = 0; i < firstDay.getDay(); i++) {
+        html += '<div class="admin-schedule-day muted"></div>';
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dateValue = formatAdminScheduleDateValue(date);
+        const events = getAdminScheduleEventsForDate(dateValue);
+        const vacations = getAdminScheduleVacationsForDate(dateValue);
+        const eventItems = events.slice(0, 4).map((event) => {
+            const type = getAdminScheduleType(event);
+            const label = (event.start_time ? formatAdminScheduleTime(event.start_time) + " " : "") + getAdminScheduleTitle(event);
+            return '<div class="admin-schedule-item admin-event-' + escapeHtml(type) + '">' + escapeHtml(label) + '</div>';
+        });
+        const vacationItems = vacations.slice(0, 2).map((request) =>
+            '<div class="admin-schedule-item admin-event-vacation">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
+        );
+        const totalCount = events.length + vacations.length;
+        const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
+
+        html += `
+            <button type="button" class="admin-schedule-day" onclick="openAdminScheduleModal('${dateValue}')">
+                <div class="admin-schedule-day-number">${day}</div>
+                <div class="admin-schedule-day-list">${eventItems.concat(vacationItems).join("")}${more}</div>
+            </button>
+        `;
+    }
+
+    calendar.innerHTML = html;
+}
+
+function getAdminScheduleApprovedAccounts() {
+    return accounts.filter((account) => String(account.account_status || "").toLowerCase() === "approved");
+}
+
+function renderAdminScheduleEmployees() {
+    const list = document.getElementById("adminScheduleEmployees");
+
+    if (!list) {
+        return;
+    }
+
+    const approved = getAdminScheduleApprovedAccounts();
+
+    if (!approved.length) {
+        list.innerHTML = '<div class="small">No approved employees found.</div>';
+        return;
+    }
+
+    list.innerHTML = approved.map((account) => {
+        const label = account.display_name || account.worker_key || account.email || "Employee";
+        return `
+            <label>
+                <input type="checkbox" value="${escapeHtml(account.id)}" data-admin-schedule-employee>
+                <span>${escapeHtml(label)}</span>
+            </label>
+        `;
+    }).join("");
+}
+
+function renderAdminScheduleJobs() {
+    const select = document.getElementById("adminScheduleJob");
+
+    if (!select) {
+        return;
+    }
+
+    const activeJobs = jobs
+        .filter((job) => job.active !== false)
+        .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+
+    select.innerHTML = '<option value="">Manual / no job selected</option>' + activeJobs.map((job) => {
+        const number = String(job.job_number || "").trim();
+        const name = String(job.job_name || "").trim();
+        return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml((number ? number + " - " : "") + name) + '</option>';
+    }).join("");
+}
+
+function fillAdminScheduleJob() {
+    const selectedId = document.getElementById("adminScheduleJob").value;
+    const job = jobs.find((item) => item.id === selectedId);
+
+    if (!job) {
+        return;
+    }
+
+    document.getElementById("adminScheduleJobName").value = job.job_name || "";
+    document.getElementById("adminScheduleJobNumber").value = job.job_number || "";
+    document.getElementById("adminScheduleLocation").value = job.address || "";
+}
+
+function updateAdminScheduleTypeFields() {
+    const type = document.getElementById("adminScheduleType").value || "work";
+    const isWork = type === "work";
+
+    document.getElementById("adminScheduleJobWrap").classList.toggle("field-hidden", !isWork);
+    document.getElementById("adminScheduleJobNameWrap").classList.toggle("field-hidden", !isWork);
+    document.getElementById("adminScheduleJobNumberWrap").classList.toggle("field-hidden", !isWork);
+    document.getElementById("adminScheduleTitleLabel").textContent = isWork ? "Title / Attention" : "Title";
+    document.getElementById("adminScheduleItemTitle").placeholder = type === "vehicle"
+        ? "Example: Truck service, oil change, tire appointment"
+        : type === "training"
+            ? "Example: Working at Heights training"
+            : type === "general"
+                ? "Example: Shop day, meeting, appointment"
+                : "Optional title or attention";
+}
+
+function clearAdminScheduleForm(dateValue) {
+    document.getElementById("adminScheduleType").value = "work";
+    document.getElementById("adminScheduleDate").value = dateValue || formatAdminScheduleDateValue(new Date());
+    document.getElementById("adminScheduleStartTime").value = "";
+    document.getElementById("adminScheduleEndTime").value = "";
+    document.getElementById("adminScheduleJob").value = "";
+    document.getElementById("adminScheduleJobName").value = "";
+    document.getElementById("adminScheduleJobNumber").value = "";
+    document.getElementById("adminScheduleItemTitle").value = "";
+    document.getElementById("adminScheduleLocation").value = "";
+    document.getElementById("adminScheduleNotes").value = "";
+    document.getElementById("adminScheduleStatus").textContent = "";
+    document.querySelectorAll("[data-admin-schedule-employee]").forEach((box) => {
+        box.checked = false;
+    });
+    updateAdminScheduleTypeFields();
+}
+
+function openAdminScheduleModal(dateValue) {
+    renderAdminScheduleJobs();
+    renderAdminScheduleEmployees();
+    clearAdminScheduleForm(dateValue);
+    document.getElementById("adminScheduleModalTitle").textContent = "Add Schedule - " + makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
+    document.getElementById("adminScheduleModal").classList.add("open");
+}
+
+function closeAdminScheduleModal(event) {
+    if (event && event.target && event.target.id !== "adminScheduleModal") {
+        return;
+    }
+
+    document.getElementById("adminScheduleModal").classList.remove("open");
+}
+
+function getSelectedAdminScheduleAccounts() {
+    return Array.from(document.querySelectorAll("[data-admin-schedule-employee]:checked"))
+        .map((box) => accounts.find((account) => account.id === box.value))
+        .filter(Boolean);
+}
+
+function buildAdminScheduleAnnouncementBody(event, account) {
+    return [
+        "You have been tagged on the JGC schedule.",
+        "",
+        "Type: " + getAdminScheduleTypeLabel(getAdminScheduleType(event)),
+        "Date: " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+        "Time: " + [formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+        "Item: " + getAdminScheduleTitle(event),
+        "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
+        "Location: " + (event.location || ""),
+        "",
+        "Notes:",
+        event.notes || "",
+        "",
+        "Scheduled for: " + (account.display_name || account.worker_key || account.email || "")
+    ].join("\n");
+}
+
+async function createAdminScheduleAnnouncements(event, selectedAccounts) {
+    const records = selectedAccounts.map((account) => ({
+        title: "Scheduled: " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }),
+        body: buildAdminScheduleAnnouncementBody(event, account),
+        created_by: currentUserId || null,
+        created_by_name: currentWorkerDisplay,
+        expires_at: null,
+        is_active: true,
+        target_worker_name: account.worker_key || account.display_name || "",
+        target_worker_email: account.email || "",
+        source_type: "schedule_event",
+        source_id: event.id
+    }));
+
+    if (!records.length) {
+        return;
+    }
+
+    await supabaseClient
+        .from("announcements")
+        .insert(records);
+}
+
+async function emailAdminScheduleEmployees(event, selectedAccounts) {
+    const recipients = selectedAccounts.map((account) => account.email || "").filter(Boolean);
+
+    if (!recipients.length || !SCHEDULE_EMAIL_SCRIPT_URL) {
+        return;
+    }
+
+    const body = buildAdminScheduleAnnouncementBody(event, {
+        display_name: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email).join(", ")
+    });
+
+    await fetch(SCHEDULE_EMAIL_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+            to: recipients.join(","),
+            subject: "JGC Schedule - " + getAdminScheduleTypeLabel(getAdminScheduleType(event)) + " - " + event.event_date,
+            body,
+            text: body,
+            pdfHtml: "<html><body><pre>" + escapeHtml(body) + "</pre></body></html>",
+            pdfFileName: "jgc-schedule-" + event.event_date + ".pdf",
+            source: "schedule_event"
+        })
+    });
+}
+
+async function saveAdminScheduleEvent() {
+    const selectedAccounts = getSelectedAdminScheduleAccounts();
+    const eventType = document.getElementById("adminScheduleType").value || "work";
+    const isWork = eventType === "work";
+    const eventDate = document.getElementById("adminScheduleDate").value;
+    const title = document.getElementById("adminScheduleItemTitle").value.trim();
+    const jobName = isWork ? document.getElementById("adminScheduleJobName").value.trim() : title;
+    const status = document.getElementById("adminScheduleStatus");
+
+    if (!eventDate || !jobName || !selectedAccounts.length) {
+        status.textContent = "Choose a date, title/job name, and at least one employee.";
+        return;
+    }
+
+    const record = {
+        event_type: eventType,
+        event_date: eventDate,
+        start_time: document.getElementById("adminScheduleStartTime").value || null,
+        end_time: document.getElementById("adminScheduleEndTime").value || null,
+        job_id: isWork ? (document.getElementById("adminScheduleJob").value || null) : null,
+        title: title || jobName,
+        job_name: jobName,
+        job_number: isWork ? document.getElementById("adminScheduleJobNumber").value.trim() : "",
+        location: document.getElementById("adminScheduleLocation").value.trim(),
+        notes: document.getElementById("adminScheduleNotes").value.trim(),
+        employee_names: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email || "Employee"),
+        employee_keys: selectedAccounts.map((account) => account.worker_key || account.display_name || account.email || ""),
+        employee_emails: selectedAccounts.map((account) => account.email || ""),
+        created_by: currentUserId || null,
+        created_by_name: currentWorkerDisplay
+    };
+
+    status.textContent = "Saving schedule...";
+
+    const { data, error } = await supabaseClient
+        .from("schedule_events")
+        .insert(record)
+        .select()
+        .single();
+
+    if (error) {
+        status.textContent = "Schedule could not be saved. Make sure the schedule setup SQL has been run.";
+        return;
+    }
+
+    scheduleEvents.push(data);
+    await createAdminScheduleAnnouncements(data, selectedAccounts);
+
+    try {
+        await emailAdminScheduleEmployees(data, selectedAccounts);
+    } catch (emailError) {
+        console.warn("Schedule email could not be sent.", emailError);
+    }
+
+    await loadAnnouncements();
+    renderAdminScheduleCalendar();
+    renderPortalSummary();
+    closeAdminScheduleModal();
 }
 
 function renderPortalSummary() {
