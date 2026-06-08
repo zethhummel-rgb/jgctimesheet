@@ -3056,6 +3056,17 @@ function getAdminScheduleTypeLabel(type) {
     return labels[type] || "Schedule";
 }
 
+function getAdminScheduleTypeStyle(type) {
+    const styles = {
+        work: "background:#c9f1d2;color:#0d351a;",
+        vehicle: "background:#cfd8ff;color:#151d53;",
+        training: "background:#f0ccff;color:#3a0d4e;",
+        general: "background:#e2e8ee;color:#1d2a32;",
+        vacation: "background:#ffe7a7;color:#3f2c00;"
+    };
+    return styles[type] || styles.general;
+}
+
 function getAdminScheduleTitle(event) {
     return event.title || event.job_name || event.location || getAdminScheduleTypeLabel(getAdminScheduleType(event));
 }
@@ -3111,10 +3122,10 @@ function renderAdminScheduleCalendar() {
         const eventItems = events.slice(0, 4).map((event) => {
             const type = getAdminScheduleType(event);
             const label = (event.start_time ? formatAdminScheduleTime(event.start_time) + " " : "") + getAdminScheduleTitle(event);
-            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + escapeHtml(label) + '</button>';
+            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + escapeHtml(label) + '</button>';
         });
         const vacationItems = vacations.slice(0, 2).map((request) =>
-            '<div class="admin-schedule-item admin-event-vacation">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
+            '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
         );
         const totalCount = events.length + vacations.length;
         const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
