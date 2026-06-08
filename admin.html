@@ -1090,8 +1090,10 @@ button:hover,
 
 .calendar-panel {
     margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #d6ddd4;
+    padding: 14px;
+    border: 1px solid #b8ccb8;
+    border-radius: 10px;
+    background: #eef5ed;
 }
 
 .calendar-controls {
@@ -1108,8 +1110,9 @@ button:hover,
 
 .calendar-title {
     font-weight: bold;
-    color: #2f6f3c;
+    color: #12351d;
     text-align: center;
+    font-size: 18px;
 }
 
 .calendar-legend {
@@ -1145,14 +1148,17 @@ button:hover,
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    border: 1px solid #c6cec5;
-    background: #ffffff;
+    gap: 1px;
+    border: 1px solid #8faa8f;
+    background: #8faa8f;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .calendar-head,
 .calendar-day {
     min-height: 92px;
-    border: 1px solid #d6ddd4;
+    border: 0;
     padding: 5px;
     box-sizing: border-box;
     font-size: 12px;
@@ -1160,42 +1166,57 @@ button:hover,
 
 .calendar-head {
     min-height: auto;
-    background: #e6ece6;
+    background: #163b22;
+    color: #ffffff;
     font-weight: bold;
     text-align: center;
+    padding: 8px 4px;
+}
+
+.calendar-day {
+    background: #fbfff9;
+    color: #15251b;
 }
 
 .calendar-day.past {
-    background: #f1f1f1;
-    color: #7a827c;
+    background: #e9eee7;
+    color: #2e3b33;
 }
 
 .day-number {
     font-weight: bold;
+    color: #0e2415;
     margin-bottom: 4px;
+    font-size: 15px;
+    line-height: 1;
 }
 
 .calendar-request {
     margin-top: 3px;
-    padding: 3px 4px;
-    border-radius: 4px;
+    padding: 4px 5px;
+    border-radius: 5px;
     line-height: 1.2;
-    font-size: 11px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border: 1px solid transparent;
 }
 
 .calendar-request.approved {
-    background: #dcefe1;
-    color: #245832;
+    background: #c9f1d2;
+    color: #0f351b;
+    border-color: #62aa70;
 }
 
 .calendar-request.pending {
-    background: #fff3cd;
-    color: #7a5b00;
+    background: #ffe7a7;
+    color: #432f00;
+    border-color: #d69a1d;
 }
 
 .calendar-request.denied {
-    background: #f8d7da;
-    color: #8f1d14;
+    background: #ffd0d5;
+    color: #5b0808;
+    border-color: #c75b61;
 }
 
 @media (max-width: 720px) {
