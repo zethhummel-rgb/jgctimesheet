@@ -553,11 +553,7 @@ function eventIsAssignedToCurrentWorker(event) {
 }
 
 function getVisibleScheduleEvents() {
-  if (isAdmin) {
-    return scheduleEvents;
-  }
-
-  return scheduleEvents.filter(eventIsAssignedToCurrentWorker);
+  return scheduleEvents;
 }
 
 function vacationTouchesDate(request, dateValue) {
