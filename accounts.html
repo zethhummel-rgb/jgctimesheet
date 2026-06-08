@@ -54,6 +54,28 @@ h1 {
     flex-wrap: wrap;
 }
 
+.admin-tabs {
+    max-width: 1100px;
+    margin: 0 auto 14px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.admin-tabs button {
+    padding: 8px 10px;
+    background: #20382a;
+    border: 1px solid rgba(63, 125, 77, 0.45);
+    color: #ffffff;
+    font-size: 13px;
+}
+
+.admin-tabs button.active {
+    background: #3f7d4d;
+    color: #ffffff;
+}
+
 .panel {
     max-width: 1100px;
     margin: 0 auto;
@@ -203,8 +225,23 @@ button:hover {
 <div class="actions">
     <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
     <button class="secondary" type="button" onclick="window.location.href='admin.html'">Back to Admin</button>
-    <button class="secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
     <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+</div>
+
+<div class="admin-tabs">
+    <button type="button" onclick="window.location.href='admin.html#summary'">Summary</button>
+    <button type="button" onclick="window.location.href='admin.html#jobDashboard'">Job Dashboard</button>
+    <button type="button" onclick="window.location.href='admin.html#employeeProfile'">Employee Profile</button>
+    <button type="button" onclick="window.location.href='admin.html#timesheets'">Timesheets</button>
+    <button type="button" onclick="window.location.href='admin.html#inspections'">Inspections</button>
+    <button type="button" onclick="window.location.href='admin.html#certificates'">Certificates</button>
+    <button type="button" onclick="window.location.href='admin.html#vacation'">Vacation</button>
+    <button type="button" onclick="window.location.href='schedule.html'">Schedule</button>
+    <button type="button" onclick="window.location.href='admin.html#reports'">Reports</button>
+    <button type="button" onclick="window.location.href='admin.html#jobs'">Jobs</button>
+    <button type="button" onclick="window.location.href='admin.html#workOrders'">Work Orders</button>
+    <button type="button" onclick="window.location.href='admin.html#equipment'">Equipment</button>
+    <button type="button" class="active">Accounts</button>
 </div>
 
 <div class="panel">
