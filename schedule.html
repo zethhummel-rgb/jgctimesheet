@@ -431,6 +431,12 @@ textarea {
           <input id="jobNumber" placeholder="Optional">
         </div>
 
+        <div id="vehicleFields" class="hidden">
+          <label>Vehicle / Equipment</label>
+          <select id="vehicleSelect" onchange="fillSelectedVehicle()"></select>
+          <div id="vehicleOperatorHint" class="small" style="margin-top:6px;"></div>
+        </div>
+
         <label id="titleLabel">Title</label>
         <input id="eventTitle" placeholder="Example: Truck service, Working at Heights, Shop day">
 
@@ -466,6 +472,7 @@ let scheduleEvents = [];
 let vacationRequests = [];
 let accounts = [];
 let jobs = [];
+let equipmentItems = [];
 let calendarMonth = new Date();
 let selectedDate = new Date();
 let currentUserId = "";
@@ -602,12 +609,131 @@ function fillSelectedJob() {
   document.getElementById("location").value = job.address || "";
 }
 
+function getScheduleEquipmentCategory(item) {
+  const text = [
+    item.equipment_type,
+    item.name,
+    item.identification_number,
+    item.notes
+  ].join(" ").toLowerCase();
+
+  if (/\b(trailer|trl|float)\b/.test(text)) {
+    return "trailer";
+  }
+
+  if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
+    return "vehicle";
+  }
+
+  return "equipment";
+}
+
+function getScheduleVehicleChoices() {
+  return (equipmentItems || [])
+    .filter((item) => getScheduleEquipmentCategory(item) !== "trailer")
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }));
+}
+
+function getScheduleEquipmentLabel(item) {
+  if (!item) {
+    return "";
+  }
+
+  const name = String(item.name || "Equipment").trim();
+  const identification = String(item.identification_number || "").trim();
+  const type = String(item.equipment_type || "").trim();
+  return [name, identification ? "#" + identification : "", type ? "(" + type + ")" : ""].filter(Boolean).join(" ");
+}
+
+function renderVehicleOptions() {
+  const select = document.getElementById("vehicleSelect");
+
+  if (!select) {
+    return;
+  }
+
+  const choices = getScheduleVehicleChoices();
+  select.innerHTML = '<option value="">Select vehicle or equipment</option>' + choices.map((item) =>
+    '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(getScheduleEquipmentLabel(item)) + '</option>'
+  ).join("");
+}
+
+function findScheduleAccountByName(value) {
+  const target = normalizeWorkerName(value);
+
+  if (!target) {
+    return null;
+  }
+
+  return accounts.find((account) => [
+    account.display_name,
+    account.worker_key,
+    account.email
+  ].map(normalizeWorkerName).filter(Boolean).includes(target)) || null;
+}
+
+function checkScheduleEmployeeAccount(account) {
+  if (!account) {
+    return false;
+  }
+
+  const box = Array.from(document.querySelectorAll("[data-employee-check]"))
+    .find((input) => input.value === account.id);
+
+  if (!box) {
+    return false;
+  }
+
+  box.checked = true;
+  return true;
+}
+
+function getSelectedVehicleItem() {
+  const selectedId = document.getElementById("vehicleSelect").value;
+  return equipmentItems.find((item) => item.id === selectedId) || null;
+}
+
+function fillSelectedVehicle() {
+  const item = getSelectedVehicleItem();
+  const hint = document.getElementById("vehicleOperatorHint");
+
+  if (!item) {
+    if (hint) {
+      hint.textContent = "";
+    }
+    return;
+  }
+
+  const label = getScheduleEquipmentLabel(item);
+  const operatorName = item.operator_name || "";
+  document.getElementById("eventTitle").value = label;
+  document.getElementById("location").value = item.identification_number || item.name || "";
+
+  if (!operatorName) {
+    if (hint) {
+      hint.textContent = "No assigned operator is saved for this item.";
+    }
+    return;
+  }
+
+  const account = findScheduleAccountByName(operatorName);
+  const checked = checkScheduleEmployeeAccount(account);
+
+  if (hint) {
+    hint.textContent = checked
+      ? "Assigned operator tagged: " + (account.display_name || account.worker_key || account.email)
+      : "Assigned operator saved as \"" + operatorName + "\", but no matching approved account was found.";
+  }
+}
+
 function updateScheduleTypeFields() {
   const type = document.getElementById("eventType").value || "work";
   const isWork = type === "work";
+  const isVehicle = type === "vehicle";
   const titleInput = document.getElementById("eventTitle");
 
   document.getElementById("jobFields").classList.toggle("hidden", !isWork);
+  document.getElementById("vehicleFields").classList.toggle("hidden", !isVehicle);
   document.getElementById("titleLabel").textContent = isWork ? "Title / Attention" : "Title";
   titleInput.placeholder = type === "vehicle"
     ? "Example: Truck service, oil change, tire appointment"
@@ -755,6 +881,8 @@ function clearScheduleForm() {
   document.getElementById("jobSelect").value = "";
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
+  document.getElementById("vehicleSelect").value = "";
+  document.getElementById("vehicleOperatorHint").textContent = "";
   document.getElementById("eventTitle").value = "";
   document.getElementById("location").value = "";
   document.getElementById("notes").value = "";
@@ -849,8 +977,9 @@ async function saveScheduleEvent() {
   const eventDate = document.getElementById("eventDate").value;
   const eventType = document.getElementById("eventType").value || "work";
   const isWork = eventType === "work";
+  const selectedVehicle = eventType === "vehicle" ? getSelectedVehicleItem() : null;
   const title = document.getElementById("eventTitle").value.trim();
-  const jobName = isWork ? document.getElementById("jobName").value.trim() : title;
+  const jobName = isWork ? document.getElementById("jobName").value.trim() : (title || getScheduleEquipmentLabel(selectedVehicle));
 
   if (!selectedAccounts.length) {
     const currentAccount = getCurrentAccount();
@@ -934,11 +1063,12 @@ async function loadScheduleData() {
 
   setStatus("Loading schedule...");
 
-  const [scheduleResult, vacationResult, accountResult, jobsResult] = await Promise.all([
+  const [scheduleResult, vacationResult, accountResult, jobsResult, equipmentResult] = await Promise.all([
     supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }),
     supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status").eq("status", "approved").order("start_date", { ascending: true }),
     supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
-    supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true })
+    supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
+    supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
   ]);
 
   if (scheduleResult.error) {
@@ -952,7 +1082,9 @@ async function loadScheduleData() {
   vacationRequests = vacationResult.data || [];
   accounts = accountResult.data || [];
   jobs = jobsResult.data || [];
+  equipmentItems = equipmentResult.data || [];
   renderJobOptions();
+  renderVehicleOptions();
   renderEmployeeChecks();
   clearScheduleForm();
   renderCalendar();
