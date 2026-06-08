@@ -2214,7 +2214,6 @@ function scheduleEventMatchesCurrentWorker(event) {
 
 function buildHomeAgendaItems(scheduleRows, vacationRows) {
   const scheduleItems = (scheduleRows || [])
-    .filter(scheduleEventMatchesCurrentWorker)
     .map((event) => ({
       type: getHomeScheduleType(event),
       date: event.event_date,
@@ -2229,12 +2228,11 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
     }));
 
   const vacationItems = (vacationRows || [])
-    .filter(isVacationRequestForCurrentWorker)
     .map((request) => ({
       type: "vacation",
       date: request.start_date,
       sortTime: "99:99",
-      title: "Vacation",
+      title: "Vacation - " + (request.worker_display_name || request.worker_name || "Employee"),
       meta: getVacationReminderRange(request)
     }));
 
