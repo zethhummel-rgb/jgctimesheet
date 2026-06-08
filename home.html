@@ -1643,6 +1643,11 @@ async function acknowledgeAnnouncement(announcementId, source) {
   }
 }
 
+async function acknowledgeHomeAnnouncement(announcementId) {
+  await acknowledgeAnnouncement(announcementId, "home_acknowledge_button");
+  await loadAnnouncements();
+}
+
 function showMoreMenu() {
   document.getElementById("moreSheet").classList.toggle("open");
 }
@@ -1765,13 +1770,20 @@ async function loadAnnouncements() {
     return;
   }
 
-  const [announcementResult, toolboxResult, accidentResult, employeeInjuryResult] = await Promise.all([
+  const userId = await getCurrentUserId();
+  const [announcementResult, acknowledgementResult, toolboxResult, accidentResult, employeeInjuryResult] = await Promise.all([
     supabaseClient
       .from("announcements")
       .select("*")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(100),
+    userId
+      ? supabaseClient
+        .from("announcement_acknowledgements")
+        .select("announcement_id")
+        .eq("worker_id", userId)
+      : Promise.resolve({ data: [], error: null }),
     supabaseClient
       .from("toolbox_talk_attendance")
       .select("*, toolbox_talk_reports(*)")
@@ -1799,11 +1811,13 @@ async function loadAnnouncements() {
     return;
   }
 
+  const acknowledgedAnnouncementIds = new Set((acknowledgementResult.data || []).map((receipt) => receipt.announcement_id));
   announcements = (announcementResult.data || [])
     .filter((announcement) => {
       const targetName = normalizeWorkerName(announcement.target_worker_name);
       const targetEmail = normalizeWorkerName(announcement.target_worker_email);
-      return (!targetName && !targetEmail) || targetName === currentWorker || targetEmail === normalizeWorkerName(worker.email);
+      const isTargetedToWorker = (!targetName && !targetEmail) || targetName === currentWorker || targetEmail === normalizeWorkerName(worker.email);
+      return isTargetedToWorker && !acknowledgedAnnouncementIds.has(announcement.id);
     })
     .slice(0, 3);
   toolboxAcknowledgements = toolboxResult.data || [];
@@ -1888,26 +1902,18 @@ function renderAnnouncements() {
 
   panel.hidden = false;
   const announcementCards = announcements.map((announcement) => `
-    <article class="announcement-item" role="button" tabindex="0" data-announcement-read="${escapeHtml(announcement.id)}">
+    <article class="announcement-item">
       <span class="info-icon"><i data-lucide="megaphone"></i></span>
       <div>
         <h2>${escapeHtml(announcement.title)}</h2>
         <div class="muted">${escapeHtml(announcement.body || "")}</div>
       </div>
       ${announcementUrls[announcement.id] ? '<a class="announcement-file" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener" data-announcement-pdf="' + escapeHtml(announcement.id) + '">Open PDF</a>' : ""}
+      <button type="button" class="announcement-file" onclick="acknowledgeHomeAnnouncement('${escapeHtml(announcement.id)}')">Acknowledge</button>
     </article>
   `);
 
   list.innerHTML = accidentCards.concat(injuryCards).concat(toolboxCards).concat(announcementCards).join("");
-
-  list.querySelectorAll("[data-announcement-read]").forEach((card) => {
-    card.addEventListener("click", () => acknowledgeAnnouncement(card.dataset.announcementRead, "home_card"));
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        acknowledgeAnnouncement(card.dataset.announcementRead, "home_card");
-      }
-    });
-  });
 
   list.querySelectorAll("[data-announcement-pdf]").forEach((link) => {
     link.addEventListener("click", () => acknowledgeAnnouncement(link.dataset.announcementPdf, "home_pdf"));
