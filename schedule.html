@@ -1029,7 +1029,11 @@ async function saveScheduleEvent() {
   const isWork = eventType === "work";
   const selectedVehicle = eventType === "vehicle" ? getSelectedVehicleItem() : null;
   const title = document.getElementById("eventTitle").value.trim();
-  const jobName = isWork ? document.getElementById("jobName").value.trim() : (title || getScheduleEquipmentLabel(selectedVehicle));
+  const location = document.getElementById("location").value.trim();
+  const jobName = (isWork ? document.getElementById("jobName").value.trim() : (title || getScheduleEquipmentLabel(selectedVehicle))) ||
+    title ||
+    location ||
+    getEventTypeLabel(eventType);
 
   if (!selectedAccounts.length) {
     const currentAccount = getCurrentAccount();
@@ -1038,8 +1042,8 @@ async function saveScheduleEvent() {
     }
   }
 
-  if (!eventDate || !jobName || !selectedAccounts.length) {
-    alert("Choose a date, title/job name, and at least one employee.");
+  if (!eventDate) {
+    alert("Choose a date for this schedule event.");
     return;
   }
 
@@ -1053,7 +1057,7 @@ async function saveScheduleEvent() {
     title: title || jobName,
     job_name: jobName,
     job_number: isWork ? document.getElementById("jobNumber").value.trim() : "",
-    location: document.getElementById("location").value.trim(),
+    location,
     notes: document.getElementById("notes").value.trim(),
     employee_names: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email || "Employee"),
     employee_keys: selectedAccounts.map((account) => account.worker_key || account.display_name || account.email || ""),
