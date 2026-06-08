@@ -2619,6 +2619,52 @@ function hasCertificateNotification(certificate) {
     );
 }
 
+function logAdminLoadError(label, error) {
+    if (error) {
+        console.warn("Admin load issue - " + label + ":", error);
+    }
+}
+
+async function safeAdminSetupStep(label, callback) {
+    try {
+        await callback();
+    } catch (error) {
+        logAdminLoadError(label, error);
+    }
+}
+
+function renderAdminSectionsSafely() {
+    [
+        ["timesheets", renderTimesheets],
+        ["sick days", renderSickDays],
+        ["inspections", renderInspections],
+        ["certificate workers", renderAdminCertificateWorkerOptions],
+        ["certificates", renderCertificates],
+        ["vacation", renderVacationRequests],
+        ["announcements", renderAnnouncements],
+        ["reports", renderReports],
+        ["toolbox talks", renderToolboxTalks],
+        ["policies", renderPolicies],
+        ["job dashboard options", renderJobDashboardOptions],
+        ["job dashboard", renderJobDashboard],
+        ["jobs management", renderJobsManagement],
+        ["work orders", renderAdminWorkOrders],
+        ["work order labour workers", renderWorkOrderLabourWorkers],
+        ["equipment", renderEquipment],
+        ["contacts", renderContacts],
+        ["employee profile options", renderEmployeeProfileOptions],
+        ["employee profile", renderEmployeeProfile],
+        ["schedule calendar", renderAdminScheduleCalendar],
+        ["portal summary", renderPortalSummary]
+    ].forEach(([label, renderer]) => {
+        try {
+            renderer();
+        } catch (error) {
+            logAdminLoadError("render " + label, error);
+        }
+    });
+}
+
 async function loadAdminData() {
     if (!supabaseClient) {
         document.getElementById("timesheetsList").textContent = "Supabase is not available.";
@@ -2630,7 +2676,7 @@ async function loadAdminData() {
         ? sessionResult.data.session.user.id
         : "";
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = await Promise.all([
+    const adminDataResults = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -2661,7 +2707,18 @@ async function loadAdminData() {
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
-    ]);
+    ].map((query, index) => Promise.resolve(query).then((result) => {
+        if (result && result.error) {
+            logAdminLoadError("query " + index, result.error);
+        }
+
+        return result || { data: [] };
+    }).catch((error) => {
+        logAdminLoadError("query " + index, error);
+        return { data: [], error };
+    })));
+
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = adminDataResults;
 
     timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -2671,6 +2728,18 @@ async function loadAdminData() {
     vacationRequests = vacationResult.data || [];
     scheduleEvents = scheduleResult.data || [];
     accounts = accountResult.data || [];
+    if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
+        const { data: fallbackAccounts, error: fallbackAccountError } = await supabaseClient
+            .from("profiles")
+            .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at")
+            .order("display_name", { ascending: true });
+
+        if (fallbackAccountError) {
+            logAdminLoadError("fallback profiles query", fallbackAccountError);
+        } else {
+            accounts = fallbackAccounts || [];
+        }
+    }
     announcements = announcementResult.data || [];
     announcementAcknowledgements = announcementAcknowledgementResult.data || [];
     toolboxTalks = toolboxTalkResult.data || [];
@@ -2693,34 +2762,14 @@ async function loadAdminData() {
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
     contacts = contactResult.data || [];
-    await prepareCertificateUrls();
-    await processCertificateExpiryNotifications();
-    await processEquipmentExpiryNotifications();
-    await prepareAnnouncementUrls();
-    await prepareToolboxTalkUrls();
-    await preparePolicyUrls();
+    await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
+    await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
+    await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
+    await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
+    await safeAdminSetupStep("prepare toolbox talk URLs", prepareToolboxTalkUrls);
+    await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
     initializeAdminSummaryBaselines();
-    renderTimesheets();
-    renderSickDays();
-    renderInspections();
-    renderAdminCertificateWorkerOptions();
-    renderCertificates();
-    renderVacationRequests();
-    renderAnnouncements();
-    renderReports();
-    renderToolboxTalks();
-    renderPolicies();
-    renderJobDashboardOptions();
-    renderJobDashboard();
-    renderJobsManagement();
-    renderAdminWorkOrders();
-    renderWorkOrderLabourWorkers();
-    renderEquipment();
-    renderContacts();
-    renderEmployeeProfileOptions();
-    renderEmployeeProfile();
-    renderAdminScheduleCalendar();
-    renderPortalSummary();
+    renderAdminSectionsSafely();
 }
 
 function getLocalDateValue(date) {
