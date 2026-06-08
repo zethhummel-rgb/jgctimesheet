@@ -1291,6 +1291,10 @@
         <label>Emergency Contact</label>
         <input id="profileEmergencyContact">
       </div>
+      <div>
+        <label>Emergency Contact Phone</label>
+        <input id="profileEmergencyContactPhone" type="tel">
+      </div>
       <div class="full">
         <label>Address</label>
         <textarea id="profileAddress"></textarea>
@@ -1467,6 +1471,36 @@ function previewMyProfilePhoto() {
   reader.readAsDataURL(file);
 }
 
+function splitEmergencyContact(value) {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return { name: "", phone: "" };
+  }
+
+  const match = text.match(/^(.*?)\s*(?:\||-|,)?\s*(?:phone|tel|cell|mobile)\s*:\s*(.+)$/i);
+
+  if (match) {
+    return {
+      name: match[1].trim(),
+      phone: match[2].trim()
+    };
+  }
+
+  return { name: text, phone: "" };
+}
+
+function buildEmergencyContact(name, phone) {
+  const cleanName = String(name || "").trim();
+  const cleanPhone = String(phone || "").trim();
+
+  if (cleanName && cleanPhone) {
+    return cleanName + " | Phone: " + cleanPhone;
+  }
+
+  return cleanName || (cleanPhone ? "Phone: " + cleanPhone : "");
+}
+
 async function loadMyProfile() {
   const userId = await getCurrentUserId();
 
@@ -1486,9 +1520,11 @@ async function loadMyProfile() {
   }
 
   currentProfile = data;
+  const emergencyContact = splitEmergencyContact(data.emergency_contact || "");
   document.getElementById("profileEmail").value = data.email || worker.email || "";
   document.getElementById("profilePhone").value = data.phone || "";
-  document.getElementById("profileEmergencyContact").value = data.emergency_contact || "";
+  document.getElementById("profileEmergencyContact").value = emergencyContact.name || "";
+  document.getElementById("profileEmergencyContactPhone").value = emergencyContact.phone || "";
   document.getElementById("profileAddress").value = data.address || "";
   setProfileImage(data.avatar_path || "");
 }
@@ -1551,7 +1587,10 @@ async function saveMyProfile() {
     const values = {
       email: document.getElementById("profileEmail").value.trim(),
       phone: document.getElementById("profilePhone").value.trim(),
-      emergency_contact: document.getElementById("profileEmergencyContact").value.trim(),
+      emergency_contact: buildEmergencyContact(
+        document.getElementById("profileEmergencyContact").value,
+        document.getElementById("profileEmergencyContactPhone").value
+      ),
       address: document.getElementById("profileAddress").value.trim(),
       avatar_path: avatarPath || null,
       last_portal_activity: new Date().toISOString()
