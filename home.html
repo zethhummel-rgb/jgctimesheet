@@ -745,7 +745,9 @@
     .home-schedule-footer {
       margin-top: 12px;
       display: flex;
+      gap: 8px;
       justify-content: flex-end;
+      flex-wrap: wrap;
     }
 
     .home-schedule-footer button {
@@ -753,6 +755,101 @@
       padding: 8px 12px;
       border-radius: 999px;
       font-size: 12px;
+    }
+
+    .home-schedule-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.68);
+    }
+
+    .home-schedule-modal-backdrop.open {
+      display: flex;
+    }
+
+    .home-schedule-modal {
+      width: min(760px, 100%);
+      max-height: 92vh;
+      overflow: auto;
+      border: 1px solid rgba(57, 200, 72, 0.34);
+      border-top: 4px solid var(--green);
+      border-radius: 10px;
+      background: #102018;
+      color: var(--text);
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.46);
+    }
+
+    .home-schedule-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .home-schedule-form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .home-schedule-modal label,
+    .home-schedule-modal h2 {
+      color: #ffffff;
+    }
+
+    .home-schedule-modal input,
+    .home-schedule-modal select,
+    .home-schedule-modal textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #879687;
+      border-radius: 6px;
+      padding: 10px;
+      background: #f8fff8;
+      color: #102018;
+      font-size: 15px;
+    }
+
+    .home-schedule-modal textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+
+    .home-schedule-modal .field-hidden {
+      display: none !important;
+    }
+
+    .home-schedule-employees {
+      display: grid;
+      gap: 6px;
+      max-height: 190px;
+      overflow: auto;
+      border: 1px solid rgba(99, 205, 107, 0.28);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .home-schedule-employees label {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 7px;
+      align-items: center;
+      margin: 0;
+      padding: 6px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.04);
+      color: #f7fff7;
+      font-weight: 800;
+    }
+
+    .home-schedule-employees input {
+      width: 18px;
+      height: 18px;
+      padding: 0;
     }
 
     .cards-grid {
@@ -1035,6 +1132,15 @@
         grid-template-columns: 1fr;
         gap: 5px;
         padding: 10px;
+      }
+
+      .home-schedule-modal-backdrop {
+        align-items: flex-start;
+        padding: 10px;
+      }
+
+      .home-schedule-form-grid {
+        grid-template-columns: 1fr;
       }
 
       .home-schedule-footer {
@@ -1436,6 +1542,7 @@
         <div class="home-schedule-body">
           <div id="homeScheduleAgenda" class="home-agenda-list small">Loading schedule...</div>
           <div class="home-schedule-footer">
+            <button type="button" onclick="openHomeScheduleModal()">Add Event</button>
             <button type="button" onclick="goTo('schedule.html')">Open Full Schedule</button>
           </div>
         </div>
@@ -1586,6 +1693,73 @@
   </section>
 </div>
 
+<div id="homeScheduleModal" class="home-schedule-modal-backdrop" onclick="closeHomeScheduleModal(event)">
+  <section class="home-schedule-modal" onclick="event.stopPropagation()">
+    <h2>Add Schedule Event</h2>
+    <div class="home-schedule-form-grid">
+      <div>
+        <label>Schedule Type</label>
+        <select id="homeScheduleType" onchange="updateHomeScheduleTypeFields()">
+          <option value="work">Work / Job</option>
+          <option value="vehicle">Vehicle Appointment</option>
+          <option value="training">Training</option>
+          <option value="general">General</option>
+        </select>
+      </div>
+      <div>
+        <label>Date</label>
+        <input id="homeScheduleDate" type="date">
+      </div>
+      <div>
+        <label>Start Time</label>
+        <input id="homeScheduleStartTime" type="time">
+      </div>
+      <div>
+        <label>End Time</label>
+        <input id="homeScheduleEndTime" type="time">
+      </div>
+      <div id="homeScheduleJobWrap" class="full">
+        <label>Job</label>
+        <select id="homeScheduleJob" onchange="fillHomeScheduleJob()"></select>
+      </div>
+      <div id="homeScheduleJobNameWrap">
+        <label>Job Name</label>
+        <input id="homeScheduleJobName" placeholder="Job name or location">
+      </div>
+      <div id="homeScheduleJobNumberWrap">
+        <label>Job Number</label>
+        <input id="homeScheduleJobNumber" placeholder="Optional">
+      </div>
+      <div id="homeScheduleVehicleWrap" class="full field-hidden">
+        <label>Vehicle / Equipment</label>
+        <select id="homeScheduleVehicle" onchange="fillHomeScheduleVehicle()"></select>
+        <div id="homeScheduleVehicleHint" class="muted" style="margin-top:6px;"></div>
+      </div>
+      <div class="full">
+        <label id="homeScheduleTitleLabel">Title / Attention</label>
+        <input id="homeScheduleItemTitle" placeholder="Optional title or attention">
+      </div>
+      <div class="full">
+        <label>Location</label>
+        <input id="homeScheduleLocation" placeholder="Optional site/location">
+      </div>
+      <div class="full">
+        <label>Tag Employees</label>
+        <div id="homeScheduleEmployees" class="home-schedule-employees"></div>
+      </div>
+      <div class="full">
+        <label>Notes</label>
+        <textarea id="homeScheduleNotes" placeholder="Optional notes for the crew"></textarea>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:14px;">
+      <button type="button" onclick="saveHomeScheduleEvent()">Save Event</button>
+      <button type="button" class="secondary" onclick="closeHomeScheduleModal()">Cancel</button>
+    </div>
+    <div id="homeScheduleModalStatus" class="muted" style="margin-top:10px;"></div>
+  </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="common.js?v=2"></script>
@@ -1596,6 +1770,7 @@ const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
 const currentUserRole = worker.role;
 const isAdmin = isAdminWorker(currentWorker, currentUserRole);
+const SCHEDULE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 let announcements = [];
 let announcementUrls = {};
 let toolboxAcknowledgements = [];
@@ -1603,6 +1778,9 @@ let accidentAcknowledgements = [];
 let employeeInjuryAcknowledgements = [];
 let currentUserId = "";
 let currentProfile = null;
+let homeScheduleAccounts = [];
+let homeScheduleJobs = [];
+let homeScheduleEquipment = [];
 
 if (window.matchMedia("(max-width: 980px)").matches) {
   document.querySelector(".app-shell").classList.add("sidebar-collapsed");
@@ -2288,6 +2466,465 @@ function renderHomeScheduleAgenda(items) {
       `).join("")}
     </div>
   `).join("");
+}
+
+function getHomeScheduleApprovedAccounts() {
+  return homeScheduleAccounts;
+}
+
+function getHomeScheduleCurrentAccount() {
+  const aliases = [
+    currentWorker,
+    currentWorkerDisplay,
+    worker.email
+  ].map(normalizeWorkerName).filter(Boolean);
+
+  return homeScheduleAccounts.find((account) => [
+    account.worker_key,
+    account.display_name,
+    account.email
+  ].map(normalizeWorkerName).some((value) => aliases.includes(value))) || null;
+}
+
+function renderHomeScheduleEmployeeChecks() {
+  const list = document.getElementById("homeScheduleEmployees");
+
+  if (!list) {
+    return;
+  }
+
+  const approved = getHomeScheduleApprovedAccounts();
+
+  if (!approved.length) {
+    list.innerHTML = '<div class="muted">No approved employees found.</div>';
+    return;
+  }
+
+  const currentAccount = getHomeScheduleCurrentAccount();
+  list.innerHTML = approved.map((account) => {
+    const label = account.display_name || account.worker_key || account.email || "Employee";
+    const checked = currentAccount && currentAccount.id === account.id;
+    return `
+      <label>
+        <input type="checkbox" value="${escapeHtml(account.id)}" data-home-schedule-employee ${checked ? "checked" : ""}>
+        <span>${escapeHtml(label)}</span>
+      </label>
+    `;
+  }).join("");
+}
+
+function buildHomeScheduleAccountsFromWorkOrderWorkers(workerRows, profileRows) {
+  const profiles = profileRows || [];
+
+  return (workerRows || [])
+    .filter((workerRow) => workerRow.approved)
+    .map((workerRow) => {
+      const workerAliases = [
+        workerRow.worker_key,
+        workerRow.display_name
+      ].map(normalizeWorkerName).filter(Boolean);
+      const profile = profiles.find((account) =>
+        (workerRow.profile_id && account.id === workerRow.profile_id) ||
+        workerAliases.includes(normalizeWorkerName(account.worker_key)) ||
+        workerAliases.includes(normalizeWorkerName(account.display_name)) ||
+        workerAliases.includes(normalizeWorkerName(account.email))
+      ) || {};
+
+      return {
+        id: workerRow.id,
+        profile_id: workerRow.profile_id || profile.id || "",
+        display_name: workerRow.display_name || profile.display_name || profile.worker_key || profile.email || "Employee",
+        worker_key: workerRow.worker_key || profile.worker_key || normalizeWorkerName(workerRow.display_name),
+        email: profile.email || "",
+        account_status: "approved"
+      };
+    });
+}
+
+function renderHomeScheduleJobOptions() {
+  const select = document.getElementById("homeScheduleJob");
+
+  if (!select) {
+    return;
+  }
+
+  const activeJobs = homeScheduleJobs
+    .filter((job) => job.active !== false)
+    .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+
+  select.innerHTML = '<option value="">Manual / no job selected</option>' + activeJobs.map((job) => {
+    const number = String(job.job_number || "").trim();
+    const name = String(job.job_name || "").trim();
+    return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml((number ? number + " - " : "") + name) + '</option>';
+  }).join("");
+}
+
+function fillHomeScheduleJob() {
+  const selectedId = document.getElementById("homeScheduleJob").value;
+  const job = homeScheduleJobs.find((item) => item.id === selectedId);
+
+  if (!job) {
+    return;
+  }
+
+  document.getElementById("homeScheduleJobName").value = job.job_name || "";
+  document.getElementById("homeScheduleJobNumber").value = job.job_number || "";
+  document.getElementById("homeScheduleLocation").value = job.address || "";
+}
+
+function getHomeScheduleEquipmentCategory(item) {
+  const text = [
+    item.equipment_type,
+    item.name,
+    item.identification_number,
+    item.notes
+  ].join(" ").toLowerCase();
+
+  if (/\b(trailer|trl|float)\b/.test(text)) {
+    return "trailer";
+  }
+
+  if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
+    return "vehicle";
+  }
+
+  return "equipment";
+}
+
+function getHomeScheduleVehicleChoices() {
+  return homeScheduleEquipment
+    .filter((item) => getHomeScheduleEquipmentCategory(item) !== "trailer")
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }));
+}
+
+function getHomeScheduleEquipmentLabel(item) {
+  if (!item) {
+    return "";
+  }
+
+  const name = String(item.name || "Equipment").trim();
+  const identification = String(item.identification_number || "").trim();
+  const type = String(item.equipment_type || "").trim();
+  return [name, identification ? "#" + identification : "", type ? "(" + type + ")" : ""].filter(Boolean).join(" ");
+}
+
+function renderHomeScheduleVehicleOptions() {
+  const select = document.getElementById("homeScheduleVehicle");
+
+  if (!select) {
+    return;
+  }
+
+  select.innerHTML = '<option value="">Select vehicle or equipment</option>' + getHomeScheduleVehicleChoices().map((item) =>
+    '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(getHomeScheduleEquipmentLabel(item)) + '</option>'
+  ).join("");
+}
+
+function findHomeScheduleAccountByName(value) {
+  const target = normalizeWorkerName(value);
+
+  if (!target) {
+    return null;
+  }
+
+  return homeScheduleAccounts.find((account) => [
+    account.display_name,
+    account.worker_key,
+    account.email
+  ].map(normalizeWorkerName).filter(Boolean).includes(target)) || null;
+}
+
+function checkHomeScheduleEmployeeAccount(account) {
+  if (!account) {
+    return false;
+  }
+
+  const box = Array.from(document.querySelectorAll("[data-home-schedule-employee]"))
+    .find((input) => input.value === account.id);
+
+  if (!box) {
+    return false;
+  }
+
+  box.checked = true;
+  return true;
+}
+
+function getSelectedHomeScheduleVehicle() {
+  const selectedId = document.getElementById("homeScheduleVehicle").value;
+  return homeScheduleEquipment.find((item) => item.id === selectedId) || null;
+}
+
+function fillHomeScheduleVehicle() {
+  const item = getSelectedHomeScheduleVehicle();
+  const hint = document.getElementById("homeScheduleVehicleHint");
+
+  if (!item) {
+    if (hint) {
+      hint.textContent = "";
+    }
+    return;
+  }
+
+  const label = getHomeScheduleEquipmentLabel(item);
+  const operatorName = item.operator_name || "";
+  document.getElementById("homeScheduleItemTitle").value = label;
+  document.getElementById("homeScheduleLocation").value = item.identification_number || item.name || "";
+
+  if (!operatorName) {
+    if (hint) {
+      hint.textContent = "No assigned operator is saved for this item.";
+    }
+    return;
+  }
+
+  const account = findHomeScheduleAccountByName(operatorName);
+  const checked = checkHomeScheduleEmployeeAccount(account);
+
+  if (hint) {
+    hint.textContent = checked
+      ? "Assigned operator tagged: " + (account.display_name || account.worker_key || account.email)
+      : "Assigned operator saved as \"" + operatorName + "\", but no matching approved account was found.";
+  }
+}
+
+function updateHomeScheduleTypeFields() {
+  const type = document.getElementById("homeScheduleType").value || "work";
+  const isWork = type === "work";
+  const isVehicle = type === "vehicle";
+
+  document.getElementById("homeScheduleJobWrap").classList.toggle("field-hidden", !isWork);
+  document.getElementById("homeScheduleJobNameWrap").classList.toggle("field-hidden", !isWork);
+  document.getElementById("homeScheduleJobNumberWrap").classList.toggle("field-hidden", !isWork);
+  document.getElementById("homeScheduleVehicleWrap").classList.toggle("field-hidden", !isVehicle);
+  document.getElementById("homeScheduleTitleLabel").textContent = isWork ? "Title / Attention" : "Title";
+  document.getElementById("homeScheduleItemTitle").placeholder = type === "vehicle"
+    ? "Example: Truck service, oil change, tire appointment"
+    : type === "training"
+      ? "Example: Working at Heights training"
+      : type === "general"
+        ? "Example: Shop day, meeting, appointment"
+        : "Optional title or attention";
+}
+
+function resetHomeScheduleForm() {
+  document.getElementById("homeScheduleType").value = "work";
+  document.getElementById("homeScheduleDate").value = formatLocalDateValue(new Date());
+  document.getElementById("homeScheduleStartTime").value = "";
+  document.getElementById("homeScheduleEndTime").value = "";
+  document.getElementById("homeScheduleJob").value = "";
+  document.getElementById("homeScheduleJobName").value = "";
+  document.getElementById("homeScheduleJobNumber").value = "";
+  document.getElementById("homeScheduleVehicle").value = "";
+  document.getElementById("homeScheduleVehicleHint").textContent = "";
+  document.getElementById("homeScheduleItemTitle").value = "";
+  document.getElementById("homeScheduleLocation").value = "";
+  document.getElementById("homeScheduleNotes").value = "";
+  document.getElementById("homeScheduleModalStatus").textContent = "";
+  updateHomeScheduleTypeFields();
+}
+
+async function loadHomeScheduleFormData() {
+  const [workerResult, profileResult, jobsResult, equipmentResult] = await Promise.all([
+    supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
+    supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
+    supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
+    supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
+  ]);
+
+  homeScheduleAccounts = buildHomeScheduleAccountsFromWorkOrderWorkers(workerResult.data || [], profileResult.data || []);
+  homeScheduleJobs = jobsResult.data || [];
+  homeScheduleEquipment = equipmentResult.data || [];
+  renderHomeScheduleJobOptions();
+  renderHomeScheduleVehicleOptions();
+  renderHomeScheduleEmployeeChecks();
+}
+
+async function openHomeScheduleModal() {
+  const modal = document.getElementById("homeScheduleModal");
+  const status = document.getElementById("homeScheduleModalStatus");
+
+  modal.classList.add("open");
+  status.textContent = "Loading schedule form...";
+
+  try {
+    await loadHomeScheduleFormData();
+    resetHomeScheduleForm();
+    status.textContent = "";
+  } catch (error) {
+    status.textContent = "Schedule form could not load: " + (error.message || error);
+  }
+
+  renderIcons();
+}
+
+function closeHomeScheduleModal(event) {
+  if (event && event.target && event.target.id !== "homeScheduleModal") {
+    return;
+  }
+
+  document.getElementById("homeScheduleModal").classList.remove("open");
+}
+
+function getSelectedHomeScheduleAccounts() {
+  return Array.from(document.querySelectorAll("[data-home-schedule-employee]:checked"))
+    .map((box) => homeScheduleAccounts.find((account) => account.id === box.value))
+    .filter(Boolean);
+}
+
+function buildHomeScheduleNotificationBody(event, selectedAccounts) {
+  return [
+    "You have been tagged on the JGC schedule.",
+    "",
+    "Type: " + getHomeScheduleTypeLabel(getHomeScheduleType(event)),
+    "Date: " + formatVacationReminderDate(event.event_date),
+    "Time: " + [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+    "Item: " + getHomeScheduleTitle(event),
+    "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
+    "Location: " + (event.location || ""),
+    "",
+    "Notes:",
+    event.notes || "",
+    "",
+    "Scheduled for: " + selectedAccounts.map((account) => account.display_name || account.worker_key || account.email).join(", ")
+  ].join("\n");
+}
+
+function getHomeScheduleNotificationEmails(selectedAccounts) {
+  const adminEmails = typeof JGC_ADMIN_EMAILS !== "undefined"
+    ? JGC_ADMIN_EMAILS
+    : ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
+  const emails = (selectedAccounts || [])
+    .map((account) => account.email || "")
+    .concat(worker.email || "")
+    .concat(adminEmails || []);
+  const seen = new Set();
+
+  return emails
+    .map((email) => String(email || "").trim())
+    .filter((email) => {
+      const key = email.toLowerCase();
+
+      if (!key || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
+async function createHomeScheduleAnnouncements(event, selectedAccounts) {
+  const records = selectedAccounts.map((account) => ({
+    title: "Scheduled: " + formatVacationReminderDate(event.event_date),
+    body: buildHomeScheduleNotificationBody(event, [account]),
+    created_by: currentUserId || null,
+    created_by_name: currentWorkerDisplay,
+    expires_at: null,
+    is_active: true,
+    target_worker_name: account.worker_key || account.display_name || "",
+    target_worker_email: account.email || "",
+    source_type: "schedule_event",
+    source_id: event.id
+  }));
+
+  if (!records.length) {
+    return;
+  }
+
+  await supabaseClient.from("announcements").insert(records);
+}
+
+async function emailHomeScheduleEvent(event, selectedAccounts) {
+  const recipients = getHomeScheduleNotificationEmails(selectedAccounts);
+
+  if (!recipients.length || !SCHEDULE_EMAIL_SCRIPT_URL) {
+    return;
+  }
+
+  const body = buildHomeScheduleNotificationBody(event, selectedAccounts);
+  await fetch(SCHEDULE_EMAIL_SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      to: recipients.join(","),
+      subject: "JGC Schedule - " + getHomeScheduleTypeLabel(getHomeScheduleType(event)) + " - " + event.event_date,
+      body,
+      text: body,
+      pdfHtml: "<html><body><pre>" + escapeHtml(body) + "</pre></body></html>",
+      pdfFileName: "jgc-schedule-" + event.event_date + ".pdf",
+      source: "schedule_event"
+    })
+  });
+}
+
+async function saveHomeScheduleEvent() {
+  const status = document.getElementById("homeScheduleModalStatus");
+  let selectedAccounts = getSelectedHomeScheduleAccounts();
+  const eventType = document.getElementById("homeScheduleType").value || "work";
+  const isWork = eventType === "work";
+  const selectedVehicle = eventType === "vehicle" ? getSelectedHomeScheduleVehicle() : null;
+  const eventDate = document.getElementById("homeScheduleDate").value;
+  const title = document.getElementById("homeScheduleItemTitle").value.trim();
+  const jobName = isWork ? document.getElementById("homeScheduleJobName").value.trim() : (title || getHomeScheduleEquipmentLabel(selectedVehicle));
+
+  if (!selectedAccounts.length) {
+    const currentAccount = getHomeScheduleCurrentAccount();
+
+    if (currentAccount) {
+      selectedAccounts = [currentAccount];
+    }
+  }
+
+  if (!eventDate || !jobName || !selectedAccounts.length) {
+    status.textContent = "Choose a date, title/job name, and at least one employee.";
+    return;
+  }
+
+  const userId = await getCurrentUserId();
+  const record = {
+    event_type: eventType,
+    event_date: eventDate,
+    start_time: document.getElementById("homeScheduleStartTime").value || null,
+    end_time: document.getElementById("homeScheduleEndTime").value || null,
+    job_id: isWork ? (document.getElementById("homeScheduleJob").value || null) : null,
+    title: title || jobName,
+    job_name: jobName,
+    job_number: isWork ? document.getElementById("homeScheduleJobNumber").value.trim() : "",
+    location: document.getElementById("homeScheduleLocation").value.trim(),
+    notes: document.getElementById("homeScheduleNotes").value.trim(),
+    employee_names: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email || "Employee"),
+    employee_keys: selectedAccounts.map((account) => account.worker_key || account.display_name || account.email || ""),
+    employee_emails: selectedAccounts.map((account) => account.email || ""),
+    created_by: userId || null,
+    created_by_name: currentWorkerDisplay
+  };
+
+  status.textContent = "Saving schedule event...";
+
+  const { data, error } = await supabaseClient
+    .from("schedule_events")
+    .insert(record)
+    .select()
+    .single();
+
+  if (error) {
+    status.textContent = "Schedule could not be saved: " + (error.message || "Supabase setup error.");
+    return;
+  }
+
+  try {
+    await createHomeScheduleAnnouncements(data, selectedAccounts);
+    await emailHomeScheduleEvent(data, selectedAccounts);
+  } catch (notifyError) {
+    console.warn("Schedule notifications could not be sent.", notifyError);
+  }
+
+  closeHomeScheduleModal();
+  await loadHomeScheduleAgenda();
 }
 
 async function loadHomeScheduleAgenda() {
