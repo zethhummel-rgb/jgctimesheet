@@ -452,6 +452,61 @@
       margin: 4px 0 2px;
     }
 
+    .vacation-reminder {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 0;
+      padding: 10px 26px;
+      border-bottom: 1px solid rgba(56, 213, 92, 0.28);
+      background: linear-gradient(90deg, rgba(17, 85, 41, 0.95), rgba(12, 42, 24, 0.96));
+      color: #f5fff6;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .vacation-reminder[hidden] {
+      display: none;
+    }
+
+    .vacation-reminder-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 900;
+    }
+
+    .vacation-reminder-main svg {
+      width: 20px;
+      height: 20px;
+      color: #39df63;
+      flex: 0 0 auto;
+    }
+
+    .vacation-reminder-text {
+      overflow-wrap: anywhere;
+      line-height: 1.25;
+    }
+
+    .vacation-reminder-detail {
+      color: #d9f4df;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .vacation-reminder button {
+      width: auto;
+      flex: 0 0 auto;
+      padding: 7px 12px;
+      border: 1px solid rgba(217, 244, 223, 0.42);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
     .content {
       padding: 28px 34px 40px;
     }
@@ -817,6 +872,24 @@
         font-size: 18px;
       }
 
+      .vacation-reminder {
+        align-items: flex-start;
+        padding: 10px 12px;
+        gap: 8px;
+      }
+
+      .vacation-reminder-main {
+        align-items: flex-start;
+      }
+
+      .vacation-reminder-detail {
+        white-space: normal;
+      }
+
+      .vacation-reminder button {
+        padding: 6px 9px;
+      }
+
       .main-grid {
         display: block;
         min-height: auto;
@@ -1112,6 +1185,17 @@
     </div>
   </section>
 
+  <section id="upcomingVacationBanner" class="vacation-reminder" hidden>
+    <div class="vacation-reminder-main">
+      <i data-lucide="calendar-check"></i>
+      <div>
+        <div id="upcomingVacationText" class="vacation-reminder-text">Vacation day coming up</div>
+        <div id="upcomingVacationDetail" class="vacation-reminder-detail"></div>
+      </div>
+    </div>
+    <button type="button" onclick="goTo('timesheet.html')">View Timesheet</button>
+  </section>
+
   <div class="main-grid">
     <aside class="sidebar">
       <nav class="side-nav" aria-label="Main navigation">
@@ -1345,6 +1429,7 @@ if (isAdmin) {
 setCurrentDate();
 loadMyProfile();
 loadDashboardStats();
+loadUpcomingVacationBanner();
 loadAnnouncements();
 renderIcons();
 
@@ -1763,6 +1848,102 @@ function buildVacationQuery() {
     .eq("status", "pending");
 
   return query.eq("worker_name", currentWorker);
+}
+
+function formatLocalDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
+function makeLocalDate(dateString) {
+  const parts = String(dateString || "").split("-");
+  return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(dateString);
+}
+
+function formatVacationReminderDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  return makeLocalDate(value).toLocaleDateString("en-CA", {
+    weekday: "long",
+    month: "long",
+    day: "numeric"
+  });
+}
+
+function getVacationReminderRange(request) {
+  const start = formatVacationReminderDate(request.start_date);
+  const end = formatVacationReminderDate(request.end_date);
+
+  if (!start) {
+    return "";
+  }
+
+  return request.start_date === request.end_date || !end ? start : start + " to " + end;
+}
+
+function isVacationRequestForCurrentWorker(request) {
+  const aliases = [
+    currentWorker,
+    currentWorkerDisplay,
+    worker.email
+  ].map(normalizeWorkerName).filter(Boolean);
+
+  return aliases.includes(normalizeWorkerName(request.worker_name)) ||
+    aliases.includes(normalizeWorkerName(request.worker_display_name));
+}
+
+async function loadUpcomingVacationBanner() {
+  const banner = document.getElementById("upcomingVacationBanner");
+
+  if (!banner || !supabaseClient) {
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextNinety = new Date(today);
+  nextNinety.setDate(today.getDate() + 90);
+
+  const { data, error } = await supabaseClient
+    .from("vacation_requests")
+    .select("id,worker_name,worker_display_name,start_date,end_date,total_days,request_type,form_data,status")
+    .eq("status", "approved")
+    .gte("end_date", formatLocalDateValue(today))
+    .lte("start_date", formatLocalDateValue(nextNinety))
+    .order("start_date", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    banner.hidden = true;
+    return;
+  }
+
+  const request = (data || [])
+    .filter(isVacationRequestForCurrentWorker)
+    .sort((a, b) => String(a.start_date || "").localeCompare(String(b.start_date || "")))[0];
+
+  if (!request) {
+    banner.hidden = true;
+    return;
+  }
+
+  const start = makeLocalDate(request.start_date);
+  const end = makeLocalDate(request.end_date || request.start_date);
+  const isToday = start <= today && today <= end;
+  const details = request.form_data || {};
+  const halfDayText = details.halfDayRequest ? "Half-day vacation" : "Vacation day";
+  const typeText = request.request_type ? " - " + request.request_type : "";
+
+  document.getElementById("upcomingVacationText").textContent = isToday
+    ? halfDayText + " today"
+    : halfDayText + " coming up";
+  document.getElementById("upcomingVacationDetail").textContent = getVacationReminderRange(request) + typeText;
+  banner.hidden = false;
+  renderIcons();
 }
 
 async function loadAnnouncements() {
