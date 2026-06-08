@@ -2869,7 +2869,11 @@ async function saveHomeScheduleEvent() {
   const selectedVehicle = eventType === "vehicle" ? getSelectedHomeScheduleVehicle() : null;
   const eventDate = document.getElementById("homeScheduleDate").value;
   const title = document.getElementById("homeScheduleItemTitle").value.trim();
-  const jobName = isWork ? document.getElementById("homeScheduleJobName").value.trim() : (title || getHomeScheduleEquipmentLabel(selectedVehicle));
+  const location = document.getElementById("homeScheduleLocation").value.trim();
+  const jobName = (isWork ? document.getElementById("homeScheduleJobName").value.trim() : (title || getHomeScheduleEquipmentLabel(selectedVehicle))) ||
+    title ||
+    location ||
+    getHomeScheduleTypeLabel(eventType);
 
   if (!selectedAccounts.length) {
     const currentAccount = getHomeScheduleCurrentAccount();
@@ -2879,8 +2883,8 @@ async function saveHomeScheduleEvent() {
     }
   }
 
-  if (!eventDate || !jobName || !selectedAccounts.length) {
-    status.textContent = "Choose a date, title/job name, and at least one employee.";
+  if (!eventDate) {
+    status.textContent = "Choose a date for this schedule event.";
     return;
   }
 
@@ -2894,7 +2898,7 @@ async function saveHomeScheduleEvent() {
     title: title || jobName,
     job_name: jobName,
     job_number: isWork ? document.getElementById("homeScheduleJobNumber").value.trim() : "",
-    location: document.getElementById("homeScheduleLocation").value.trim(),
+    location,
     notes: document.getElementById("homeScheduleNotes").value.trim(),
     employee_names: selectedAccounts.map((account) => account.display_name || account.worker_key || account.email || "Employee"),
     employee_keys: selectedAccounts.map((account) => account.worker_key || account.display_name || account.email || ""),
