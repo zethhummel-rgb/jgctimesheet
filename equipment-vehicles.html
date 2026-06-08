@@ -159,11 +159,13 @@ button:hover {
 <div id="currentUser" class="user-bar"></div>
 
 <div class="actions">
+    <button type="button" onclick="loadEquipment()">Refresh</button>
     <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
 <div class="panel">
+    <div id="equipmentStatus" class="small" style="margin: 0 0 10px;"></div>
     <div id="equipmentList" class="small">Loading equipment and vehicles...</div>
 </div>
 
@@ -267,11 +269,17 @@ function renderEquipmentTable(items) {
 
 async function loadEquipment() {
     const list = document.getElementById("equipmentList");
+    const status = document.getElementById("equipmentStatus");
+    if (!list || !status) return;
 
     if (!supabaseClient) {
+        status.textContent = "";
         list.textContent = "Supabase is not available.";
         return;
     }
+
+    status.textContent = "Loading equipment and vehicles...";
+    list.innerHTML = "";
 
     const { data, error } = await supabaseClient
         .from("equipment_vehicles")
@@ -280,11 +288,19 @@ async function loadEquipment() {
         .order("name", { ascending: true });
 
     if (error) {
-        list.textContent = "Equipment and vehicles could not be loaded.";
+        const details = error.message || "Unknown error";
+        status.textContent = "Failed to load equipment from Supabase.";
+        list.innerHTML = `
+          <div class="small">
+            Unable to load equipment list. <br />
+            ${escapeHtml(details)}
+          </div>
+        `;
         return;
     }
 
     const items = data || [];
+    status.textContent = `Showing ${items.length} active item${items.length === 1 ? "" : "s"}.`;
 
     if (!items.length) {
         list.textContent = "No equipment or vehicles have been added yet.";
