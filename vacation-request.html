@@ -654,6 +654,17 @@ function statusLabel(status) {
     return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function getVacationWorkerAliases() {
+    return Array.from(new Set([
+        worker.key,
+        worker.display,
+        worker.email,
+        localStorage.getItem("currentWorker"),
+        localStorage.getItem("currentWorkerDisplay"),
+        localStorage.getItem("currentUserEmail")
+    ].map(normalizeWorkerName).filter(Boolean)));
+}
+
 function requestIncludesDate(request, date) {
     const start = makeDate(request.start_date);
     const end = makeDate(request.end_date);
@@ -810,7 +821,7 @@ async function deleteVacationRequest(id) {
         .from("vacation_requests")
         .delete()
         .eq("id", id)
-        .eq("worker_name", normalizeWorkerName(worker.key));
+        .in("worker_name", getVacationWorkerAliases());
 
     if (error) {
         alert("This vacation request could not be deleted. " + (error.message || ""));
@@ -829,18 +840,38 @@ async function loadMyVacationRequests() {
         return;
     }
 
-    const { data, error } = await supabaseClient
-        .from("vacation_requests")
-        .select("*")
-        .eq("worker_name", normalizeWorkerName(worker.key))
-        .order("start_date", { ascending: false });
+    const aliases = getVacationWorkerAliases();
+    const queries = aliases.map((alias) =>
+        supabaseClient
+            .from("vacation_requests")
+            .select("*")
+            .eq("worker_name", alias)
+            .order("start_date", { ascending: false })
+    );
+    queries.push(
+        supabaseClient
+            .from("vacation_requests")
+            .select("*")
+            .eq("worker_display_name", worker.display || worker.key || "")
+            .order("start_date", { ascending: false })
+    );
+
+    const results = await Promise.all(queries);
+    const error = results.find((result) => result.error)?.error;
 
     if (error) {
         history.textContent = "Vacation requests could not be loaded.";
         return;
     }
 
-    myVacationRequests = data || [];
+    const byId = {};
+    results.forEach((result) => {
+        (result.data || []).forEach((request) => {
+            byId[request.id] = request;
+        });
+    });
+
+    myVacationRequests = Object.values(byId);
     renderVacationHistory();
 }
 
