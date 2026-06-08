@@ -74,16 +74,34 @@ table {
     border-collapse: collapse;
     margin-top: 20px;
     background: white;
+    table-layout: fixed;
 }
 
 th,
 td {
     border: 1px solid #ccc;
     padding: 8px;
+    color: #1f2a24;
+    vertical-align: middle;
 }
 
 th {
     background: #e6ece6;
+}
+
+th:nth-child(1),
+td:nth-child(1) {
+    width: 30%;
+}
+
+th:nth-child(2),
+td:nth-child(2) {
+    width: 35%;
+}
+
+th:nth-child(4),
+td:nth-child(4) {
+    width: 18%;
 }
 
 input[type=text],
@@ -95,6 +113,8 @@ textarea {
     border: 1px solid #bcc7bc;
     border-radius: 4px;
     font-size: 15px;
+    color: #1f2a24;
+    background: #ffffff;
 }
 
 .status-group {
@@ -111,6 +131,10 @@ textarea {
     cursor: pointer;
     font-weight: bold;
     margin: 0;
+    min-width: 42px;
+    min-height: 40px;
+    font-size: 16px;
+    touch-action: manipulation;
 }
 
 .pass {
@@ -127,6 +151,8 @@ textarea {
 
 .selected {
     outline: 3px solid #1f2a24;
+    outline-offset: 2px;
+    transform: scale(1.03);
 }
 
 #inspectionStatus {
@@ -169,6 +195,8 @@ button {
     border-radius: 4px;
     cursor: pointer;
     font-size: 15px;
+    touch-action: manipulation;
+    min-height: 44px;
 }
 
 button:hover {
@@ -189,25 +217,85 @@ button:hover {
     }
 
     .container {
-        padding: 14px;
+        padding: 12px;
+        border-radius: 6px;
     }
 
     table {
-        min-width: 680px;
-        font-size: 13px;
+        min-width: 0;
+        font-size: 15px;
+        table-layout: auto;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-wrap + .table-wrap {
+        margin-top: 14px;
     }
 
     th,
     td {
-        padding: 6px;
+        padding: 10px 8px;
+    }
+
+    th:nth-child(1),
+    td:nth-child(1) {
+        width: 120px;
+    }
+
+    th:nth-child(2),
+    td:nth-child(2) {
+        width: 160px;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+        width: 170px;
+    }
+
+    th:nth-child(4),
+    td:nth-child(4) {
+        width: 210px;
+        min-width: 190px;
     }
 
     .status-btn {
-        padding: 7px 9px;
+        padding: 10px 12px;
+        min-width: 48px;
+        font-size: 17px;
+    }
+
+    .status-group {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    input[type=text],
+    input[type=date],
+    textarea,
+    .actions button {
+        font-size: 16px;
+    }
+
+    input[type=text],
+    input[type=date],
+    textarea {
+        padding: 10px;
+    }
+
+    .actions {
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .actions button {
         width: 100%;
+        min-height: 48px;
+        font-size: 16px;
     }
 }
 
