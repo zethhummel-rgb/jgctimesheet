@@ -2134,7 +2134,7 @@ function getWeekStartValue() {
   const sunday = new Date(now);
   sunday.setDate(now.getDate() - day);
   sunday.setHours(0, 0, 0, 0);
-  return sunday.toISOString().slice(0, 10);
+  return formatLocalDateValue(sunday);
 }
 
 function setStat(id, value) {
@@ -2142,6 +2142,26 @@ function setStat(id, value) {
   if (element) {
     element.innerText = value;
   }
+}
+
+function getCurrentWorkerAliases() {
+  return [
+    currentWorker,
+    currentWorkerDisplay,
+    worker.key,
+    worker.display,
+    worker.email
+  ].map(normalizeWorkerName).filter(Boolean);
+}
+
+function timesheetEntryMatchesCurrentWorker(entry) {
+  const aliases = getCurrentWorkerAliases();
+  return [
+    entry.worker_name,
+    entry.user,
+    entry.employee_name,
+    entry.email
+  ].map(normalizeWorkerName).some((value) => value && aliases.includes(value));
 }
 
 async function loadDashboardStats() {
@@ -2160,8 +2180,7 @@ async function loadDashboardStats() {
     const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
       supabaseClient
         .from("timesheet_entries")
-        .select("hours,day_of_week,week_start,worker_name,created_at,entry_type,leave_type")
-        .eq("worker_name", currentWorker)
+        .select("hours,day_of_week,week_start,worker_name,user,employee_name,email,created_at,entry_type,leave_type")
         .eq("week_start", weekStart),
       buildInspectionQuery(today.start.toISOString()),
       supabaseClient
@@ -2173,7 +2192,7 @@ async function loadDashboardStats() {
       buildVacationQuery()
     ]);
 
-    const entries = timesheetResult.data || [];
+    const entries = (timesheetResult.data || []).filter(timesheetEntryMatchesCurrentWorker);
     const todayName = new Date().toLocaleDateString("en-CA", { weekday: "long" });
     const getDashboardHours = (entry) => {
       const entryType = String(entry.entry_type || "").toLowerCase();
