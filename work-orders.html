@@ -1806,6 +1806,7 @@ function renderWorkOrders() {
                 <td>
                   <div class="actions">
                     <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                    ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
                     ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
@@ -1819,6 +1820,36 @@ function renderWorkOrders() {
       </table>
     </div>
   `;
+}
+
+async function moveWorkOrderToDraft(id) {
+  const wo = workOrders.find((item) => item.id === id);
+
+  if (!wo || wo.locked || wo.status === "submitted") {
+    alert("Submitted Work Orders are locked.");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("work_orders")
+    .update({
+      status: "draft",
+      locked: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert("Work Order could not be moved to draft: " + (error.message || ""));
+    return;
+  }
+
+  if (editingWorkOrderId === id) {
+    document.getElementById("woStatus").value = "draft";
+  }
+
+  await loadWorkOrders(false);
+  setFormStatus("Work Order moved back to draft.");
 }
 
 function editWorkOrder(id) {
