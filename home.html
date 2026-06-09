@@ -2636,7 +2636,13 @@ function getHomeScheduleEquipmentLabel(item) {
   const name = String(item.name || "Equipment").trim();
   const identification = String(item.identification_number || "").trim();
   const type = String(item.equipment_type || "").trim();
-  return [name, identification ? "#" + identification : "", type ? "(" + type + ")" : ""].filter(Boolean).join(" ");
+  const operator = String(item.operator_name || "").trim();
+  return [
+    name,
+    identification ? "#" + identification : "",
+    type ? "(" + type + ")" : "",
+    operator ? "- " + operator : ""
+  ].filter(Boolean).join(" ");
 }
 
 function renderHomeScheduleVehicleOptions() {
