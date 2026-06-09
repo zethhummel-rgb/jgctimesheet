@@ -377,6 +377,42 @@ th {
   white-space: nowrap;
 }
 
+.job-search-wrap {
+  position: relative;
+}
+
+.job-suggestions {
+  display: none;
+  margin-top: 6px;
+  border: 1px solid rgba(99, 205, 107, 0.28);
+  border-radius: 6px;
+  background: #0b1714;
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.job-suggestions.open {
+  display: grid;
+}
+
+.job-suggestion {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0;
+  background: transparent;
+  color: #f7fff7;
+  text-align: left;
+  white-space: normal;
+}
+
+.job-suggestion:hover,
+.job-suggestion:focus {
+  background: rgba(55, 214, 80, 0.18);
+}
+
 .labour-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -592,9 +628,12 @@ th {
         </div>
         <div class="full">
           <label>Job</label>
-          <select id="woJob" onchange="fillSelectedJob()">
-            <option value="">Select job</option>
-          </select>
+          <div class="job-search-wrap">
+            <input id="woJobSearch" list="woJobOptions" placeholder="Start typing job number or job name" autocomplete="off" onfocus="renderJobSearchSuggestions()" oninput="handleJobSearchInput()" onchange="handleJobSearchInput()">
+            <datalist id="woJobOptions"></datalist>
+            <div id="woJobSuggestions" class="job-suggestions"></div>
+            <input id="woJob" type="hidden">
+          </div>
         </div>
         <div>
           <label>Job Number</label>
@@ -828,9 +867,106 @@ function updateWorkOrderNumberForSelectedJob() {
   document.getElementById("woNumber").value = makeWorkOrderNumberForJob(document.getElementById("woJobNumber").value);
 }
 
+function getJobOptionLabel(job) {
+  return [job.job_number, job.job_name, job.job_type].filter(Boolean).join(" - ");
+}
+
 function getSelectedJob() {
   const selectedId = document.getElementById("woJob").value;
   return jobs.find((job) => job.id === selectedId) || null;
+}
+
+function findJobFromSearchValue(value) {
+  const searchValue = String(value || "").trim();
+  const normalizedValue = normalizeText(searchValue);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return jobs.find((job) => normalizeText(getJobOptionLabel(job)) === normalizedValue) ||
+    jobs.find((job) => normalizeJobNumber(job.job_number) === normalizeJobNumber(searchValue)) ||
+    jobs.find((job) => normalizeText(job.job_name) === normalizedValue) ||
+    null;
+}
+
+function getFilteredJobSuggestions(value) {
+  const normalizedValue = normalizeText(value);
+
+  if (!normalizedValue) {
+    return jobs.slice(0, 12);
+  }
+
+  return jobs.filter((job) => {
+    const haystack = normalizeText([job.job_number, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
+    return haystack.includes(normalizedValue) || normalizeJobNumber(job.job_number).includes(normalizeJobNumber(value));
+  }).slice(0, 12);
+}
+
+function renderJobSearchSuggestions() {
+  const list = document.getElementById("woJobSuggestions");
+  const input = document.getElementById("woJobSearch");
+
+  if (!list || !input) {
+    return;
+  }
+
+  const matches = getFilteredJobSuggestions(input.value);
+
+  if (!matches.length) {
+    list.innerHTML = '<div class="small" style="padding:9px 10px;">No matching jobs found.</div>';
+    list.classList.add("open");
+    return;
+  }
+
+  list.innerHTML = matches.map((job) =>
+    '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJobOptionLabel(job)) + '</button>'
+  ).join("");
+  list.classList.add("open");
+}
+
+function closeJobSearchSuggestions() {
+  const list = document.getElementById("woJobSuggestions");
+
+  if (list) {
+    list.classList.remove("open");
+  }
+}
+
+function selectJobFromSearch(jobId) {
+  const job = jobs.find((item) => item.id === jobId);
+
+  if (!job) {
+    return;
+  }
+
+  document.getElementById("woJob").value = job.id || "";
+  document.getElementById("woJobSearch").value = getJobOptionLabel(job);
+  closeJobSearchSuggestions();
+  fillSelectedJob();
+}
+
+function handleJobSearchInput() {
+  const input = document.getElementById("woJobSearch");
+  const hidden = document.getElementById("woJob");
+  const job = findJobFromSearchValue(input.value);
+  renderJobSearchSuggestions();
+
+  if (!job) {
+    hidden.value = "";
+    document.getElementById("woJobNumber").value = "";
+    document.getElementById("woJobName").value = "";
+    document.getElementById("woJobType").value = "T&M";
+    if (!editingWorkOrderId) {
+      document.getElementById("woNumber").value = "";
+    }
+    renderLabourPreview();
+    return;
+  }
+
+  hidden.value = job.id || "";
+  fillSelectedJob();
+  closeJobSearchSuggestions();
 }
 
 function fillSelectedJob() {
@@ -840,6 +976,7 @@ function fillSelectedJob() {
     return;
   }
 
+  document.getElementById("woJobSearch").value = getJobOptionLabel(job);
   document.getElementById("woJobNumber").value = job.job_number || "";
   document.getElementById("woJobName").value = job.job_name || "";
   document.getElementById("woJobType").value = "T&M";
@@ -849,10 +986,10 @@ function fillSelectedJob() {
 }
 
 function renderJobOptions() {
-  const select = document.getElementById("woJob");
-  select.innerHTML = '<option value="">Select job</option>' + jobs.map((job) => {
-    const label = [job.job_number, job.job_name, job.job_type].filter(Boolean).join(" - ");
-    return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml(label) + '</option>';
+  const list = document.getElementById("woJobOptions");
+  list.innerHTML = jobs.map((job) => {
+    const label = getJobOptionLabel(job);
+    return '<option value="' + escapeHtml(label) + '"></option>';
   }).join("");
 }
 
@@ -1499,6 +1636,7 @@ function resetWorkOrderForm() {
   document.getElementById("woStatus").value = "draft";
   renderSubmittedInfo(null);
   document.getElementById("woJob").value = "";
+  document.getElementById("woJobSearch").value = "";
   document.getElementById("woJobNumber").value = "";
   document.getElementById("woJobName").value = "";
   document.getElementById("woJobType").value = "T&M";
@@ -1700,13 +1838,16 @@ function editWorkOrder(id) {
   document.getElementById("woStatus").value = wo.status || "draft";
   renderSubmittedInfo(wo);
   if (wo.job_id && !jobs.some((job) => job.id === wo.job_id)) {
-    const select = document.getElementById("woJob");
-    const archivedOption = document.createElement("option");
-    archivedOption.value = wo.job_id;
-    archivedOption.textContent = [wo.job_number, wo.job_name, "Archived/removed job"].filter(Boolean).join(" - ");
-    select.appendChild(archivedOption);
+    jobs.push({
+      id: wo.job_id,
+      job_number: wo.job_number || "",
+      job_name: wo.job_name || "",
+      job_type: wo.job_type || "Archived/removed job"
+    });
+    renderJobOptions();
   }
   document.getElementById("woJob").value = wo.job_id || "";
+  document.getElementById("woJobSearch").value = [wo.job_number, wo.job_name, wo.job_type || "Archived/removed job"].filter(Boolean).join(" - ");
   document.getElementById("woJobNumber").value = wo.job_number || "";
   document.getElementById("woJobName").value = wo.job_name || "";
   document.getElementById("woJobType").value = wo.job_type || "";
