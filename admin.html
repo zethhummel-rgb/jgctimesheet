@@ -4011,6 +4011,29 @@ function getSelectedEmployeeProfileAccount() {
     return employeeAccounts.find((account) => getEmployeeAccountKey(account) === selectedKey) || employeeAccounts[0] || null;
 }
 
+async function refreshEmployeeProfileAccount(account) {
+    if (!supabaseClient || !account || !account.id) {
+        return account;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("profiles")
+        .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity")
+        .eq("id", account.id)
+        .single();
+
+    if (error || !data) {
+        if (error) {
+            logAdminLoadError("refresh employee profile", error);
+        }
+
+        return account;
+    }
+
+    accounts = accounts.map((item) => item.id === data.id ? { ...item, ...data } : item);
+    return data;
+}
+
 function getEmployeeInitials(name) {
     const parts = String(name || "JGC").trim().split(/\s+/).filter(Boolean);
     return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "JGC";
@@ -4269,7 +4292,7 @@ function renderEmployeeProfileTable(columns, rows, emptyText) {
     `;
 }
 
-function renderEmployeeProfile() {
+async function renderEmployeeProfile() {
     const hero = document.getElementById("employeeProfileHero");
     const dashboard = document.getElementById("employeeProfileDashboard");
 
@@ -4279,12 +4302,21 @@ function renderEmployeeProfile() {
 
     renderEmployeeProfileOptions();
 
-    const account = getSelectedEmployeeProfileAccount();
+    let account = getSelectedEmployeeProfileAccount();
 
     if (!account) {
         hero.innerHTML = '<div class="profile-avatar">JGC</div><div><h3>No employees found</h3><div class="small">Approve employee accounts to build profile dashboards.</div></div>';
         dashboard.innerHTML = "";
         return;
+    }
+
+    const selectedId = account.id;
+    account = await refreshEmployeeProfileAccount(account);
+    renderEmployeeProfileOptions();
+    const select = document.getElementById("employeeProfileSelect");
+
+    if (select && selectedId) {
+        select.value = getEmployeeAccountKey(account);
     }
 
     const employeeName = getEmployeeAccountDisplay(account);
