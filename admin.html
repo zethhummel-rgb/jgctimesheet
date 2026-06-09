@@ -1730,6 +1730,8 @@ button.admin-schedule-event-button.admin-event-vacation {
             <div id="adminScheduleVehicleWrap" class="full field-hidden">
                 <label>Vehicle / Equipment</label>
                 <select id="adminScheduleVehicle" onchange="fillAdminScheduleVehicle()"></select>
+                <label>Reason for Appointment</label>
+                <input id="adminScheduleMaintenanceReason" placeholder="Example: oil change, tire repair, annual service">
                 <div id="adminScheduleVehicleHint" class="small" style="margin-top:6px;"></div>
             </div>
             <div class="full">
@@ -2341,6 +2343,7 @@ let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
 let equipmentItems = [];
 let equipmentNotifications = [];
+let equipmentMaintenanceLogs = [];
 let contacts = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
@@ -2837,6 +2840,7 @@ async function loadAdminData() {
         supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
     ].map((query, index) => Promise.resolve(query).then((result) => {
         if (result && result.error) {
@@ -2849,7 +2853,7 @@ async function loadAdminData() {
         return { data: [], error };
     })));
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, contactResult] = adminDataResults;
+    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult] = adminDataResults;
 
     timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -2892,6 +2896,7 @@ async function loadAdminData() {
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
+    equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
     contacts = contactResult.data || [];
     await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
     await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
@@ -3185,6 +3190,7 @@ function renderAdminScheduleDayEvents(dateValue) {
                 ${escapeHtml([formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "))}<br>
                 ${event.job_number ? "Job #: " + escapeHtml(event.job_number) + "<br>" : ""}
                 ${event.location ? "Location: " + escapeHtml(event.location) + "<br>" : ""}
+                ${event.maintenance_reason ? "Reason: " + escapeHtml(event.maintenance_reason) + "<br>" : ""}
                 ${event.employee_names && event.employee_names.length ? "Tagged: " + escapeHtml(event.employee_names.join(", ")) + "<br>" : ""}
                 ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
             </div>
@@ -3432,6 +3438,7 @@ function clearAdminScheduleForm(dateValue) {
     document.getElementById("adminScheduleJobName").value = "";
     document.getElementById("adminScheduleJobNumber").value = "";
     document.getElementById("adminScheduleVehicle").value = "";
+    document.getElementById("adminScheduleMaintenanceReason").value = "";
     document.getElementById("adminScheduleVehicleHint").textContent = "";
     document.getElementById("adminScheduleItemTitle").value = "";
     document.getElementById("adminScheduleLocation").value = "";
@@ -3511,6 +3518,7 @@ function selectAdminScheduleVehicleForEvent(event) {
     const title = normalizeWorkerName(event.title || event.job_name);
     const location = normalizeWorkerName(event.location);
     const item = equipmentItems.find((equipment) =>
+        (event.equipment_id && equipment.id === event.equipment_id) ||
         (title && normalizeWorkerName(getAdminScheduleEquipmentLabel(equipment)) === title) ||
         (title && normalizeWorkerName(equipment.name) === title) ||
         (location && normalizeWorkerName(equipment.identification_number) === location)
@@ -3537,6 +3545,7 @@ function editAdminScheduleEvent(id) {
     document.getElementById("adminScheduleItemTitle").value = event.title || "";
     document.getElementById("adminScheduleLocation").value = event.location || "";
     document.getElementById("adminScheduleNotes").value = event.notes || "";
+    document.getElementById("adminScheduleMaintenanceReason").value = event.maintenance_reason || "";
     selectAdminScheduleJobForEvent(event);
     selectAdminScheduleVehicleForEvent(event);
     setAdminScheduleEmployeeChecksForEvent(event);
@@ -3560,6 +3569,7 @@ function buildAdminScheduleAnnouncementBody(event, account) {
         "Item: " + getAdminScheduleTitle(event),
         "Job: " + (event.job_name ? (event.job_number ? event.job_number + " - " : "") + event.job_name : ""),
         "Location: " + (event.location || ""),
+        "Reason: " + (event.maintenance_reason || ""),
         "",
         "Notes:",
         event.notes || "",
@@ -3644,6 +3654,33 @@ async function emailAdminScheduleEmployees(event, selectedAccounts) {
     });
 }
 
+async function saveAdminScheduleMaintenanceLog(event, selectedVehicle, maintenanceReason) {
+    if (!selectedVehicle || !maintenanceReason || !event || !event.id) {
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("equipment_maintenance_logs")
+        .upsert({
+            equipment_id: selectedVehicle.id || null,
+            schedule_event_id: event.id,
+            equipment_name: getAdminScheduleEquipmentLabel(selectedVehicle),
+            maintenance_reason: maintenanceReason,
+            scheduled_date: event.event_date,
+            scheduled_time: event.start_time || null,
+            status: "scheduled",
+            notes: event.notes || ""
+        }, { onConflict: "schedule_event_id" })
+        .select()
+        .single();
+
+    if (!error && data) {
+        equipmentMaintenanceLogs = equipmentMaintenanceLogs
+            .filter((row) => row.schedule_event_id !== event.id)
+            .concat(data);
+    }
+}
+
 async function saveAdminScheduleEvent() {
     const selectedAccounts = getSelectedAdminScheduleAccounts();
     const eventType = document.getElementById("adminScheduleType").value || "work";
@@ -3652,6 +3689,7 @@ async function saveAdminScheduleEvent() {
     const eventDate = document.getElementById("adminScheduleDate").value;
     const title = document.getElementById("adminScheduleItemTitle").value.trim();
     const location = document.getElementById("adminScheduleLocation").value.trim();
+    const maintenanceReason = eventType === "vehicle" ? document.getElementById("adminScheduleMaintenanceReason").value.trim() : "";
     const jobName = (isWork ? document.getElementById("adminScheduleJobName").value.trim() : (title || getAdminScheduleEquipmentLabel(selectedVehicle))) ||
         title ||
         location ||
@@ -3663,12 +3701,19 @@ async function saveAdminScheduleEvent() {
         return;
     }
 
+    if (eventType === "vehicle" && !maintenanceReason) {
+        status.textContent = "Enter the reason for the vehicle appointment.";
+        return;
+    }
+
     const record = {
         event_type: eventType,
         event_date: eventDate,
         start_time: document.getElementById("adminScheduleStartTime").value || null,
         end_time: document.getElementById("adminScheduleEndTime").value || null,
         job_id: isWork ? (document.getElementById("adminScheduleJob").value || null) : null,
+        equipment_id: selectedVehicle ? selectedVehicle.id : null,
+        maintenance_reason: maintenanceReason,
         title: title || jobName,
         job_name: jobName,
         job_number: isWork ? document.getElementById("adminScheduleJobNumber").value.trim() : "",
@@ -3715,6 +3760,8 @@ async function saveAdminScheduleEvent() {
             console.warn("Schedule email could not be sent.", emailError);
         }
     }
+
+    await saveAdminScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
 
     await loadAnnouncements();
     adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
@@ -4874,6 +4921,8 @@ function renderEquipment() {
             .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
     }));
 
+    const maintenanceHtml = renderEquipmentMaintenanceLogTable();
+
     list.innerHTML = groups.map((group) => `
         <h3 style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h3>
         <div class="table-wrap">
@@ -4908,7 +4957,76 @@ function renderEquipment() {
                 </tbody>
             </table>
         </div>
-    `).join("");
+    `).join("") + maintenanceHtml;
+}
+
+function renderEquipmentMaintenanceLogTable() {
+    const rows = (equipmentMaintenanceLogs || [])
+        .slice()
+        .sort((a, b) => String(b.scheduled_date || b.created_at || "").localeCompare(String(a.scheduled_date || a.created_at || "")));
+
+    return `
+        <h3 style="margin:22px 0 8px;color:#2f6f3c;">Maintenance Work Log</h3>
+        <div class="small" style="margin-bottom:8px;">Vehicle appointments from the schedule are logged here for maintenance tracking.</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Time</th><th>Equipment / Vehicle</th><th>Reason</th><th>Status</th><th>Completed</th><th>Notes</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.length ? rows.map((row) => `
+                        <tr>
+                            <td>${escapeHtml(row.scheduled_date || "")}</td>
+                            <td>${escapeHtml(row.scheduled_time ? String(row.scheduled_time).slice(0, 5) : "")}</td>
+                            <td>${escapeHtml(row.equipment_name || getEquipmentNameById(row.equipment_id) || "")}</td>
+                            <td>${escapeHtml(row.maintenance_reason || "")}</td>
+                            <td>${escapeHtml(capitalizeWords(row.status || "scheduled"))}</td>
+                            <td>${escapeHtml(row.completed_at ? String(row.completed_at).slice(0, 10) : "")}</td>
+                            <td>${escapeHtml(row.notes || "")}</td>
+                            <td>
+                                ${row.status === "completed"
+                                    ? '<span class="small">Complete</span>'
+                                    : '<button type="button" onclick="completeMaintenanceLog(\'' + escapeHtml(row.id) + '\')">Mark Complete</button>'}
+                            </td>
+                        </tr>
+                    `).join("") : '<tr><td colspan="8">No maintenance work has been scheduled yet.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getEquipmentNameById(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+    return item ? [item.name, item.identification_number ? "#" + item.identification_number : ""].filter(Boolean).join(" ") : "";
+}
+
+async function completeMaintenanceLog(id) {
+    const confirmed = confirm("Mark this maintenance work as completed?");
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("equipment_maintenance_logs")
+        .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            completed_by: currentWorkerDisplay
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+    if (error) {
+        setEquipmentStatus("Maintenance log could not be updated: " + (error.message || "Unknown error"), true);
+        return;
+    }
+
+    equipmentMaintenanceLogs = equipmentMaintenanceLogs.map((row) => row.id === id ? data : row);
+    renderEquipment();
+    setEquipmentStatus("Maintenance log marked complete.");
 }
 
 function getEquipmentCategory(item) {
@@ -5071,9 +5189,10 @@ async function deleteEquipment(id) {
 async function loadEquipment() {
     setEquipmentStatus("Refreshing equipment...");
 
-    const [equipmentResult, notificationResult] = await Promise.all([
+    const [equipmentResult, notificationResult, maintenanceResult] = await Promise.all([
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
-        supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false })
+        supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false })
     ]);
 
     if (equipmentResult.error) {
@@ -5083,6 +5202,7 @@ async function loadEquipment() {
 
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = notificationResult.data || [];
+    equipmentMaintenanceLogs = maintenanceResult.data || [];
     await processEquipmentExpiryNotifications();
     renderEquipment();
     setEquipmentStatus("Equipment refreshed.");
