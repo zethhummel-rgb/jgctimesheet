@@ -8,6 +8,8 @@ create table if not exists public.schedule_events (
   title text,
   job_name text not null,
   job_number text,
+  equipment_id uuid,
+  maintenance_reason text,
   location text,
   notes text,
   employee_names jsonb not null default '[]'::jsonb,
@@ -26,6 +28,12 @@ alter table public.schedule_events
 
 alter table public.schedule_events
   add column if not exists title text;
+
+alter table public.schedule_events
+  add column if not exists equipment_id uuid;
+
+alter table public.schedule_events
+  add column if not exists maintenance_reason text;
 
 alter table public.schedule_events
   add column if not exists one_day_reminder_sent_at timestamptz;
