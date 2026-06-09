@@ -2376,6 +2376,26 @@ function getHomeScheduleTitle(event) {
   return event.title || event.job_name || event.location || getHomeScheduleTypeLabel(getHomeScheduleType(event));
 }
 
+function getHomeScheduleTaggedNames(event) {
+  const names = Array.isArray(event.employee_names) ? event.employee_names : [];
+  const emails = Array.isArray(event.employee_emails) ? event.employee_emails : [];
+  const seen = new Set();
+
+  return names
+    .concat(emails)
+    .map((value) => String(value || "").trim())
+    .filter((value) => {
+      const key = normalizeWorkerName(value);
+
+      if (!key || seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+}
+
 function scheduleEventMatchesCurrentWorker(event) {
   const aliases = [
     currentWorker,
@@ -2392,18 +2412,23 @@ function scheduleEventMatchesCurrentWorker(event) {
 
 function buildHomeAgendaItems(scheduleRows, vacationRows) {
   const scheduleItems = (scheduleRows || [])
-    .map((event) => ({
-      type: getHomeScheduleType(event),
-      date: event.event_date,
-      sortTime: event.start_time || "99:99",
-      title: getHomeScheduleTitle(event),
-      meta: [
-        getHomeScheduleTypeLabel(getHomeScheduleType(event)),
-        [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
-        event.job_number ? "Job #: " + event.job_number : "",
-        event.location || ""
-      ].filter(Boolean).join(" | ")
-    }));
+    .map((event) => {
+      const taggedNames = getHomeScheduleTaggedNames(event);
+
+      return {
+        type: getHomeScheduleType(event),
+        date: event.event_date,
+        sortTime: event.start_time || "99:99",
+        title: getHomeScheduleTitle(event),
+        meta: [
+          getHomeScheduleTypeLabel(getHomeScheduleType(event)),
+          [formatHomeScheduleTime(event.start_time), event.end_time ? "to " + formatHomeScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+          event.job_number ? "Job #: " + event.job_number : "",
+          event.location || "",
+          taggedNames.length ? "Tagged: " + taggedNames.join(", ") : ""
+        ].filter(Boolean).join(" | ")
+      };
+    });
 
   const vacationItems = (vacationRows || [])
     .map((request) => ({
