@@ -1665,7 +1665,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div class="admin-schedule-header">
             <div>
                 <h2>Schedule Calendar</h2>
-                <div class="small">Click a day to add work, vehicle appointments, training, or general schedule items.</div>
+                <div class="small">Click a day to add work, equipment/vehicle appointments, training, or general schedule items.</div>
             </div>
             <div class="admin-schedule-controls">
                 <button type="button" class="secondary" onclick="changeAdminScheduleMonth(-1)">Previous</button>
@@ -1675,7 +1675,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
         <div class="admin-schedule-legend">
             <span class="work">Work</span>
-            <span class="vehicle">Vehicle Appointment</span>
+            <span class="vehicle">Equipment / Vehicle Appointment</span>
             <span class="training">Training</span>
             <span class="general">General</span>
             <span class="vacation">Vacation</span>
@@ -1698,7 +1698,7 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <label>Schedule Type</label>
                 <select id="adminScheduleType" onchange="updateAdminScheduleTypeFields()">
                     <option value="work">Work / Job</option>
-                    <option value="vehicle">Vehicle Appointment</option>
+                    <option value="vehicle">Equipment / Vehicle Appointment</option>
                     <option value="training">Training</option>
                     <option value="general">General</option>
                 </select>
@@ -1728,7 +1728,7 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <input id="adminScheduleJobNumber" placeholder="Optional">
             </div>
             <div id="adminScheduleVehicleWrap" class="full field-hidden">
-                <label>Vehicle / Equipment</label>
+                <label>Vehicle / Equipment / Trailer</label>
                 <select id="adminScheduleVehicle" onchange="fillAdminScheduleVehicle()"></select>
                 <label>Reason for Appointment</label>
                 <input id="adminScheduleMaintenanceReason" placeholder="Example: oil change, tire repair, annual service">
@@ -2096,66 +2096,69 @@ button.admin-schedule-event-button.admin-event-vacation {
 <div id="equipmentSection" class="card" hidden>
     <h2>Equipment / Vehicles</h2>
     <div id="equipmentExpiryAlerts" class="small" style="margin-bottom:12px;">Checking inspection expiry notifications...</div>
-    <div class="announcement-grid">
-        <div>
-            <label>Name of Equipment / Vehicle</label>
-            <input id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
+    <details id="equipmentEntryPanel" class="sub-card admin-collapsible-panel" style="margin-bottom:14px;">
+        <summary>Add / Edit Equipment Entry</summary>
+        <div class="announcement-grid" style="margin-top:12px;">
+            <div>
+                <label>Name of Equipment / Vehicle</label>
+                <input id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
+            </div>
+            <div>
+                <label>Identification Number</label>
+                <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
+            </div>
+            <div>
+                <label>Type of Equip/Vehicle</label>
+                <input id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
+            </div>
+            <div>
+                <label>Operator Name</label>
+                <input id="equipmentOperator" placeholder="Operator name">
+            </div>
+            <div>
+                <label>Current Hours</label>
+                <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
+            </div>
+            <div>
+                <label>Owned / Rental</label>
+                <select id="equipmentOwnership">
+                    <option value="owned">Owned</option>
+                    <option value="rental">Rental</option>
+                </select>
+            </div>
+            <div>
+                <label>Rental Supplier</label>
+                <input id="equipmentRentalSupplier" placeholder="Rental supplier if applicable">
+            </div>
+            <div>
+                <label>Billable Equipment</label>
+                <select id="equipmentBillable">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div>
+                <label>Transportation Required</label>
+                <select id="equipmentTransportationRequired">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+            </div>
+            <div>
+                <label>Yearly Inspection Expiry</label>
+                <input id="equipmentExpiry" type="date">
+            </div>
+            <div class="full">
+                <label>Notes</label>
+                <textarea id="equipmentNotes" placeholder="Optional notes"></textarea>
+            </div>
         </div>
-        <div>
-            <label>Identification Number</label>
-            <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
+        <div class="actions" style="margin-top:10px;">
+            <button id="equipmentSaveButton" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
+            <button class="secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
+            <button class="secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
         </div>
-        <div>
-            <label>Type of Equip/Vehicle</label>
-            <input id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
-        </div>
-        <div>
-            <label>Operator Name</label>
-            <input id="equipmentOperator" placeholder="Operator name">
-        </div>
-        <div>
-            <label>Current Hours</label>
-            <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
-        </div>
-        <div>
-            <label>Owned / Rental</label>
-            <select id="equipmentOwnership">
-                <option value="owned">Owned</option>
-                <option value="rental">Rental</option>
-            </select>
-        </div>
-        <div>
-            <label>Rental Supplier</label>
-            <input id="equipmentRentalSupplier" placeholder="Rental supplier if applicable">
-        </div>
-        <div>
-            <label>Billable Equipment</label>
-            <select id="equipmentBillable">
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-            </select>
-        </div>
-        <div>
-            <label>Transportation Required</label>
-            <select id="equipmentTransportationRequired">
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-            </select>
-        </div>
-        <div>
-            <label>Yearly Inspection Expiry</label>
-            <input id="equipmentExpiry" type="date">
-        </div>
-        <div class="full">
-            <label>Notes</label>
-            <textarea id="equipmentNotes" placeholder="Optional notes"></textarea>
-        </div>
-    </div>
-    <div class="actions" style="margin-top:10px;">
-        <button id="equipmentSaveButton" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
-        <button class="secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
-        <button class="secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
-    </div>
+    </details>
     <div id="equipmentStatus" class="small" style="margin-top:10px;"></div>
     <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
 </div>
@@ -3053,7 +3056,7 @@ function getAdminScheduleType(event) {
 function getAdminScheduleTypeLabel(type) {
     const labels = {
         work: "Work",
-        vehicle: "Vehicle Appointment",
+        vehicle: "Equipment / Vehicle Appointment",
         training: "Training",
         general: "General",
         vacation: "Vacation"
@@ -3313,8 +3316,11 @@ function getAdminScheduleEquipmentCategory(item) {
 
 function getAdminScheduleVehicleChoices() {
     return (equipmentItems || [])
-        .filter((item) => getAdminScheduleEquipmentCategory(item) !== "trailer")
-        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }));
+        .slice()
+        .sort((a, b) => {
+            const categorySort = getAdminScheduleEquipmentCategory(a).localeCompare(getAdminScheduleEquipmentCategory(b));
+            return categorySort || String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true });
+        });
 }
 
 function getAdminScheduleEquipmentLabel(item) {
@@ -3336,7 +3342,7 @@ function renderAdminScheduleVehicleOptions() {
     }
 
     const choices = getAdminScheduleVehicleChoices();
-    select.innerHTML = '<option value="">Select vehicle or equipment</option>' + choices.map((item) =>
+    select.innerHTML = '<option value="">Select vehicle, lift, trailer, or equipment</option>' + choices.map((item) =>
         '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(getAdminScheduleEquipmentLabel(item)) + '</option>'
     ).join("");
 }
@@ -3702,7 +3708,7 @@ async function saveAdminScheduleEvent() {
     }
 
     if (eventType === "vehicle" && !maintenanceReason) {
-        status.textContent = "Enter the reason for the vehicle appointment.";
+        status.textContent = "Enter the reason for the equipment or vehicle appointment.";
         return;
     }
 
@@ -5061,6 +5067,10 @@ function editEquipment(id) {
     }
 
     editingEquipmentId = id;
+    const panel = document.getElementById("equipmentEntryPanel");
+    if (panel) {
+        panel.open = true;
+    }
     document.getElementById("equipmentName").value = item.name || "";
     document.getElementById("equipmentIdentification").value = item.identification_number || "";
     document.getElementById("equipmentType").value = item.equipment_type || "";
