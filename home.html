@@ -2145,7 +2145,8 @@ function setStat(id, value) {
 }
 
 function getCurrentWorkerAliases() {
-  return [
+  const email = String(localStorage.getItem("currentUserEmail") || worker.email || "").trim().toLowerCase();
+  const aliases = [
     currentWorker,
     currentWorkerDisplay,
     worker.key,
@@ -2155,6 +2156,21 @@ function getCurrentWorkerAliases() {
     currentProfile && currentProfile.display_name,
     currentProfile && currentProfile.email
   ].map(normalizeWorkerName).filter(Boolean);
+  const currentWorkerText = normalizeWorkerName(currentWorker);
+  const displayText = normalizeWorkerName(currentWorkerDisplay);
+
+  if (
+    email === "zethhummel@gmail.com" ||
+    email.includes("zeth") ||
+    currentWorkerText.includes("zeth") ||
+    displayText.includes("zeth") ||
+    currentWorkerText === "test account" ||
+    displayText === "test account"
+  ) {
+    aliases.push("zeth hummel");
+  }
+
+  return Array.from(new Set(aliases.filter(Boolean)));
 }
 
 function timesheetEntryMatchesCurrentWorker(entry) {
@@ -2238,7 +2254,6 @@ async function loadDashboardStats() {
     const entries = (timesheetResult.data || [])
       .filter(timesheetEntryMatchesCurrentWorker)
       .filter((entry) => isTimesheetEntryInCurrentWeek(entry, weekStart));
-    const todayName = new Date().toLocaleDateString("en-CA", { weekday: "long" });
     const getDashboardHours = (entry) => {
       const entryType = String(entry.entry_type || "").toLowerCase();
       const leaveType = String(entry.leave_type || "").toLowerCase();
@@ -2250,16 +2265,13 @@ async function loadDashboardStats() {
       return Number(entry.hours || 0);
     };
     const weekHours = entries.reduce((total, entry) => total + getDashboardHours(entry), 0);
-    const todayHours = entries
-      .filter((entry) => String(entry.day_of_week || "").toLowerCase() === todayName.toLowerCase())
-      .reduce((total, entry) => total + getDashboardHours(entry), 0);
     const inspectionCount = (inspectionResult.data || []).length;
     const certificateCount = (certificateResult.data || []).length;
     const vacationCount = (vacationResult.data || []).length;
 
     setStat("weekHoursSide", weekHours.toFixed(2));
     setStat("weekHoursDetail", "Regular: " + weekHours.toFixed(2));
-    setStat("todayHours", todayHours.toFixed(2));
+    setStat("todayHours", weekHours.toFixed(2));
     setStat("todayInspections", inspectionCount);
     setStat("inspectionsSide", inspectionCount);
     setStat("expiringCertificates", certificateCount);
