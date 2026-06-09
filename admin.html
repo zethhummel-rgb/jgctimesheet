@@ -3331,7 +3331,13 @@ function getAdminScheduleEquipmentLabel(item) {
     const name = String(item.name || "Equipment").trim();
     const identification = String(item.identification_number || "").trim();
     const type = String(item.equipment_type || "").trim();
-    return [name, identification ? "#" + identification : "", type ? "(" + type + ")" : ""].filter(Boolean).join(" ");
+    const operator = String(item.operator_name || "").trim();
+    return [
+        name,
+        identification ? "#" + identification : "",
+        type ? "(" + type + ")" : "",
+        operator ? "- " + operator : ""
+    ].filter(Boolean).join(" ");
 }
 
 function renderAdminScheduleVehicleOptions() {
@@ -4970,35 +4976,95 @@ function renderEquipmentMaintenanceLogTable() {
     const rows = (equipmentMaintenanceLogs || [])
         .slice()
         .sort((a, b) => String(b.scheduled_date || b.created_at || "").localeCompare(String(a.scheduled_date || a.created_at || "")));
+    const grouped = groupMaintenanceLogsByCategoryAndUnit(rows);
 
     return `
         <h3 style="margin:22px 0 8px;color:#2f6f3c;">Maintenance Work Log</h3>
-        <div class="small" style="margin-bottom:8px;">Vehicle appointments from the schedule are logged here for maintenance tracking.</div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Date</th><th>Time</th><th>Equipment / Vehicle</th><th>Reason</th><th>Status</th><th>Completed</th><th>Notes</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                    ${rows.length ? rows.map((row) => `
-                        <tr>
-                            <td>${escapeHtml(row.scheduled_date || "")}</td>
-                            <td>${escapeHtml(row.scheduled_time ? String(row.scheduled_time).slice(0, 5) : "")}</td>
-                            <td>${escapeHtml(row.equipment_name || getEquipmentNameById(row.equipment_id) || "")}</td>
-                            <td>${escapeHtml(row.maintenance_reason || "")}</td>
-                            <td>${escapeHtml(capitalizeWords(row.status || "scheduled"))}</td>
-                            <td>${escapeHtml(row.completed_at ? String(row.completed_at).slice(0, 10) : "")}</td>
-                            <td>${escapeHtml(row.notes || "")}</td>
-                            <td>
-                                ${row.status === "completed"
-                                    ? '<span class="small">Complete</span>'
-                                    : '<button type="button" onclick="completeMaintenanceLog(\'' + escapeHtml(row.id) + '\')">Mark Complete</button>'}
-                            </td>
-                        </tr>
-                    `).join("") : '<tr><td colspan="8">No maintenance work has been scheduled yet.</td></tr>'}
-                </tbody>
-            </table>
-        </div>
+        <div class="small" style="margin-bottom:8px;">Equipment, trailer, and vehicle appointments from the schedule are logged here for maintenance tracking.</div>
+        ${rows.length ? ["Vehicles", "Trailers", "Equipment"].map((category) => renderMaintenanceCategoryGroup(category, grouped[category] || new Map())).join("") : '<div class="small">No maintenance work has been scheduled yet.</div>'}
+    `;
+}
+
+function groupMaintenanceLogsByCategoryAndUnit(rows) {
+    const groups = {
+        Vehicles: new Map(),
+        Trailers: new Map(),
+        Equipment: new Map()
+    };
+
+    rows.forEach((row) => {
+        const item = equipmentItems.find((entry) => entry.id === row.equipment_id) || null;
+        const category = item ? getEquipmentCategory(item) : getMaintenanceCategoryFromName(row.equipment_name);
+        const unitKey = row.equipment_id || normalizeWorkerName(row.equipment_name || "unknown-unit");
+        const unitName = row.equipment_name || getEquipmentNameById(row.equipment_id) || "Unknown Unit";
+        const categoryMap = groups[category] || groups.Equipment;
+
+        if (!categoryMap.has(unitKey)) {
+            categoryMap.set(unitKey, {
+                unitName,
+                rows: []
+            });
+        }
+
+        categoryMap.get(unitKey).rows.push(row);
+    });
+
+    return groups;
+}
+
+function getMaintenanceCategoryFromName(name) {
+    const text = String(name || "").toLowerCase();
+
+    if (/\b(trailer|trl|float)\b/.test(text)) {
+        return "Trailers";
+    }
+
+    if (/\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|plate)\b/.test(text)) {
+        return "Vehicles";
+    }
+
+    return "Equipment";
+}
+
+function renderMaintenanceCategoryGroup(category, unitMap) {
+    const units = Array.from(unitMap.values())
+        .sort((a, b) => String(a.unitName || "").localeCompare(String(b.unitName || "")));
+
+    return `
+        <h4 style="margin:16px 0 8px;color:#2f6f3c;">${escapeHtml(category)}</h4>
+        ${units.length ? units.map((unit) => renderMaintenanceUnitGroup(unit)).join("") : '<div class="small" style="margin-bottom:10px;">No maintenance logged for this group.</div>'}
+    `;
+}
+
+function renderMaintenanceUnitGroup(unit) {
+    return `
+        <details class="sub-card" style="margin:8px 0 12px;" open>
+            <summary style="cursor:pointer;font-weight:900;color:#2f6f3c;">${escapeHtml(unit.unitName)} (${unit.rows.length})</summary>
+            <div class="table-wrap" style="margin-top:8px;">
+                <table>
+                    <thead>
+                        <tr><th>Date</th><th>Time</th><th>Reason</th><th>Status</th><th>Completed</th><th>Notes</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        ${unit.rows.map((row) => `
+                            <tr>
+                                <td>${escapeHtml(row.scheduled_date || "")}</td>
+                                <td>${escapeHtml(row.scheduled_time ? String(row.scheduled_time).slice(0, 5) : "")}</td>
+                                <td>${escapeHtml(row.maintenance_reason || "")}</td>
+                                <td>${escapeHtml(capitalizeWords(row.status || "scheduled"))}</td>
+                                <td>${escapeHtml(row.completed_at ? String(row.completed_at).slice(0, 10) : "")}</td>
+                                <td>${escapeHtml(row.notes || "")}</td>
+                                <td>
+                                    ${row.status === "completed"
+                                        ? '<span class="small">Complete</span>'
+                                        : '<button type="button" onclick="completeMaintenanceLog(\'' + escapeHtml(row.id) + '\')">Mark Complete</button>'}
+                                </td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </details>
     `;
 }
 
@@ -8913,6 +8979,7 @@ function renderAdminWorkOrders() {
                                 <td>
                                     <div class="actions">
                                         <button type="button" class="secondary" onclick="window.location.href='work-orders.html'">Open</button>
+                                        ${String(wo.status || "").toLowerCase() === "ready_for_submission" && !wo.locked ? `<button type="button" class="secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
                                         <button type="button" class="delete-button" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
                                     </div>
                                 </td>
@@ -8923,6 +8990,33 @@ function renderAdminWorkOrders() {
             </table>
         </div>
     `;
+}
+
+async function moveAdminWorkOrderToDraft(id) {
+    const wo = workOrders.find((item) => item.id === id);
+
+    if (!wo || wo.locked || String(wo.status || "").toLowerCase() === "submitted") {
+        alert("Submitted Work Orders are locked.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("work_orders")
+        .update({
+            status: "draft",
+            locked: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Work Order could not be moved to draft: " + (error.message || ""));
+        return;
+    }
+
+    workOrders = workOrders.map((item) => item.id === id ? { ...item, status: "draft", locked: false, updated_at: new Date().toISOString() } : item);
+    renderAdminWorkOrders();
+    renderPortalSummary();
 }
 
 function setWorkOrderLabourWorkerStatus(message) {
