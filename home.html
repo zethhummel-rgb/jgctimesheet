@@ -2150,7 +2150,10 @@ function getCurrentWorkerAliases() {
     currentWorkerDisplay,
     worker.key,
     worker.display,
-    worker.email
+    worker.email,
+    currentProfile && currentProfile.worker_key,
+    currentProfile && currentProfile.display_name,
+    currentProfile && currentProfile.email
   ].map(normalizeWorkerName).filter(Boolean);
 }
 
@@ -2164,9 +2167,52 @@ function timesheetEntryMatchesCurrentWorker(entry) {
   ].map(normalizeWorkerName).some((value) => value && aliases.includes(value));
 }
 
+function getWeekStartDateFromValue(value) {
+  const date = makeLocalDate(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getTimesheetEntryDateForDashboard(entry) {
+  const weekStart = getWeekStartDateFromValue(entry && entry.week_start);
+
+  if (weekStart && entry && entry.day_of_week) {
+    const dayIndex = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].indexOf(String(entry.day_of_week).toLowerCase());
+
+    if (dayIndex >= 0) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + dayIndex);
+      return date;
+    }
+  }
+
+  if (entry && entry.created_at) {
+    const created = new Date(entry.created_at);
+    return Number.isNaN(created.getTime()) ? null : created;
+  }
+
+  return weekStart;
+}
+
+function isTimesheetEntryInCurrentWeek(entry, weekStartValue) {
+  const weekStart = makeLocalDate(weekStartValue);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  if (String(entry && entry.week_start || "") === weekStartValue) {
+    return true;
+  }
+
+  const entryDate = getTimesheetEntryDateForDashboard(entry);
+  return Boolean(entryDate && entryDate >= weekStart && entryDate < weekEnd);
+}
+
 async function loadDashboardStats() {
   if (!supabaseClient) {
     return;
+  }
+
+  if (!currentProfile) {
+    await loadMyProfile();
   }
 
   const today = getTodayBounds();
@@ -2181,7 +2227,7 @@ async function loadDashboardStats() {
       supabaseClient
         .from("timesheet_entries")
         .select("hours,day_of_week,week_start,worker_name,user,employee_name,email,created_at,entry_type,leave_type")
-        .eq("week_start", weekStart),
+        .order("created_at", { ascending: false }),
       buildInspectionQuery(today.start.toISOString()),
       supabaseClient
         .from("certificates")
@@ -2192,7 +2238,9 @@ async function loadDashboardStats() {
       buildVacationQuery()
     ]);
 
-    const entries = (timesheetResult.data || []).filter(timesheetEntryMatchesCurrentWorker);
+    const entries = (timesheetResult.data || [])
+      .filter(timesheetEntryMatchesCurrentWorker)
+      .filter((entry) => isTimesheetEntryInCurrentWeek(entry, weekStart));
     const todayName = new Date().toLocaleDateString("en-CA", { weekday: "long" });
     const getDashboardHours = (entry) => {
       const entryType = String(entry.entry_type || "").toLowerCase();
