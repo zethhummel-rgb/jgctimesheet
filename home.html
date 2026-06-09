@@ -2160,10 +2160,7 @@ function getCurrentWorkerAliases() {
 function timesheetEntryMatchesCurrentWorker(entry) {
   const aliases = getCurrentWorkerAliases();
   return [
-    entry.worker_name,
-    entry.user,
-    entry.employee_name,
-    entry.email
+    entry.worker_name
   ].map(normalizeWorkerName).some((value) => value && aliases.includes(value));
 }
 
@@ -2226,7 +2223,7 @@ async function loadDashboardStats() {
     const [timesheetResult, inspectionResult, certificateResult, vacationResult] = await Promise.all([
       supabaseClient
         .from("timesheet_entries")
-        .select("hours,day_of_week,week_start,worker_name,user,employee_name,email,created_at,entry_type,leave_type")
+        .select("hours,day_of_week,week_start,worker_name,created_at,entry_type,leave_type")
         .order("created_at", { ascending: false }),
       buildInspectionQuery(today.start.toISOString()),
       supabaseClient
