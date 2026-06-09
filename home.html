@@ -1701,7 +1701,7 @@
         <label>Schedule Type</label>
         <select id="homeScheduleType" onchange="updateHomeScheduleTypeFields()">
           <option value="work">Work / Job</option>
-          <option value="vehicle">Vehicle Appointment</option>
+          <option value="vehicle">Equipment / Vehicle Appointment</option>
           <option value="training">Training</option>
           <option value="general">General</option>
         </select>
@@ -1731,7 +1731,7 @@
         <input id="homeScheduleJobNumber" placeholder="Optional">
       </div>
       <div id="homeScheduleVehicleWrap" class="full field-hidden">
-        <label>Vehicle / Equipment</label>
+        <label>Vehicle / Equipment / Trailer</label>
         <select id="homeScheduleVehicle" onchange="fillHomeScheduleVehicle()"></select>
         <label>Reason for Appointment</label>
         <input id="homeScheduleMaintenanceReason" placeholder="Example: oil change, tire repair, annual service">
@@ -2329,7 +2329,7 @@ function getHomeScheduleType(event) {
 function getHomeScheduleTypeLabel(type) {
   const labels = {
     work: "Work",
-    vehicle: "Vehicle Appointment",
+    vehicle: "Equipment / Vehicle Appointment",
     training: "Training",
     general: "General",
     vacation: "Vacation"
@@ -2621,8 +2621,11 @@ function getHomeScheduleEquipmentCategory(item) {
 
 function getHomeScheduleVehicleChoices() {
   return homeScheduleEquipment
-    .filter((item) => getHomeScheduleEquipmentCategory(item) !== "trailer")
-    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }));
+    .slice()
+    .sort((a, b) => {
+      const categorySort = getHomeScheduleEquipmentCategory(a).localeCompare(getHomeScheduleEquipmentCategory(b));
+      return categorySort || String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true });
+    });
 }
 
 function getHomeScheduleEquipmentLabel(item) {
@@ -2643,7 +2646,7 @@ function renderHomeScheduleVehicleOptions() {
     return;
   }
 
-  select.innerHTML = '<option value="">Select vehicle or equipment</option>' + getHomeScheduleVehicleChoices().map((item) =>
+  select.innerHTML = '<option value="">Select vehicle, lift, trailer, or equipment</option>' + getHomeScheduleVehicleChoices().map((item) =>
     '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(getHomeScheduleEquipmentLabel(item)) + '</option>'
   ).join("");
 }
@@ -2939,7 +2942,7 @@ async function saveHomeScheduleEvent() {
   }
 
   if (eventType === "vehicle" && !maintenanceReason) {
-    status.textContent = "Enter the reason for the vehicle appointment.";
+    status.textContent = "Enter the reason for the equipment or vehicle appointment.";
     return;
   }
 
