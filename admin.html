@@ -5722,6 +5722,52 @@ function formatAdminLiveTimesheetWeekLabel(weekStart) {
     return "Week of " + formatTimesheetPdfDate(startDate) + " to " + formatTimesheetPdfDate(endDate);
 }
 
+function getAdminLiveGroupedKey(row) {
+    return [
+        row.weekStart || "",
+        row.day || "",
+        row.jobName || "",
+        row.jobNumber || "",
+        getAdminTimesheetEntryLabel(row),
+        row.leaveNote || ""
+    ].map((value) => String(value || "").trim().toLowerCase()).join("||");
+}
+
+function groupAdminLiveTimesheetRows(rows) {
+    const groups = [];
+    const byKey = new Map();
+
+    rows.forEach((row) => {
+        const key = getAdminLiveGroupedKey(row);
+        let group = byKey.get(key);
+
+        if (!group) {
+            group = {
+                ...row,
+                rows: [],
+                hours: 0,
+                lunch: false,
+                nightWork: false
+            };
+            byKey.set(key, group);
+            groups.push(group);
+        }
+
+        group.rows.push(row);
+        group.hours += Number(row.hours || 0);
+        group.lunch = group.lunch || row.lunch;
+        group.nightWork = group.nightWork || row.nightWork;
+    });
+
+    return groups.map((group) => ({
+        ...group,
+        timeText: group.rows
+            .map((row) => row.entryType === "work" || row.leaveType === "half_day" ? row.timeIn + " - " + row.timeOut : "")
+            .filter(Boolean)
+            .join("; ")
+    }));
+}
+
 function renderLiveTimesheetEntries(filter) {
     const rows = liveTimesheetEntries
         .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
@@ -5807,6 +5853,7 @@ function renderLiveTimesheetEntries(filter) {
                                     const dayRows = weekRows.filter((row) => row.day === day);
                                     const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
                                     const dayDate = dayRows.find((row) => row.date);
+                                    const groupedDayRows = groupAdminLiveTimesheetRows(dayRows);
 
                                     return `
                                         <div style="margin:10px 0 4px;font-weight:bold;color:#f7fff7;">
@@ -5829,21 +5876,23 @@ function renderLiveTimesheetEntries(filter) {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    ${dayRows.map((row) => `
+                                                    ${groupedDayRows.map((row) => `
                                                         <tr>
                                                             <td>${escapeHtml(row.jobName)}</td>
                                                             <td>${escapeHtml(row.jobNumber)}</td>
                                                             <td>${escapeHtml(getAdminTimesheetEntryLabel(row))}</td>
                                                             <td>${escapeHtml(row.leaveNote || "")}</td>
-                                                            <td>${row.entryType === "work" ? escapeHtml(row.timeIn) + " - " + escapeHtml(row.timeOut) : ""}</td>
+                                                            <td>${escapeHtml(row.timeText || "")}</td>
                                                             <td>${row.lunch ? "Yes" : "No"}</td>
                                                             <td>${row.nightWork ? "Yes" : "No"}</td>
                                                             <td>${row.hours.toFixed(2)}</td>
                                                             <td>${escapeHtml(row.weekStart)}</td>
                                                             <td>
                                                                 <div class="actions">
-                                                                    <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
-                                                                    <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
+                                                                    ${row.rows.map((entryRow, index) => `
+                                                                        <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(entryRow.id)}')">Edit${row.rows.length > 1 ? " " + (index + 1) : ""}</button>
+                                                                        <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(entryRow.id)}')">Delete${row.rows.length > 1 ? " " + (index + 1) : ""}</button>
+                                                                    `).join("")}
                                                                 </div>
                                                             </td>
                                                         </tr>
