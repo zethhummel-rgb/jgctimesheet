@@ -626,6 +626,10 @@ th {
           </select>
           <div id="woSubmittedInfo" class="small" style="margin-top:6px;"></div>
         </div>
+        <div>
+          <label>Customer PO#</label>
+          <input id="woCustomerPo" placeholder="Customer PO number if provided">
+        </div>
         <div class="full">
           <label>Job</label>
           <div class="job-search-wrap">
@@ -1664,6 +1668,7 @@ function resetWorkOrderForm() {
   document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
   document.getElementById("woCustomer").value = "";
   document.getElementById("woStatus").value = "draft";
+  document.getElementById("woCustomerPo").value = "";
   renderSubmittedInfo(null);
   document.getElementById("woJob").value = "";
   document.getElementById("woJobSearch").value = "";
@@ -1788,6 +1793,7 @@ function renderWorkOrders() {
     const text = [
       wo.wo_number,
       wo.customer,
+      wo.customer_po_number,
       wo.job_number,
       wo.job_name
     ].join(" ").toLowerCase();
@@ -1897,6 +1903,7 @@ function editWorkOrder(id) {
   document.getElementById("woDate").value = wo.work_order_date || "";
   document.getElementById("woCustomer").value = wo.customer || "";
   document.getElementById("woStatus").value = wo.status || "draft";
+  document.getElementById("woCustomerPo").value = wo.customer_po_number || "";
   renderSubmittedInfo(wo);
   if (wo.job_id && !jobs.some((job) => job.id === wo.job_id)) {
     jobs.push({
@@ -1988,6 +1995,7 @@ async function saveWorkOrder(options) {
   const workOrderDate = document.getElementById("woDate").value;
   const customer = document.getElementById("woCustomer").value.trim();
   const status = document.getElementById("woStatus").value || "draft";
+  const customerPoNumber = document.getElementById("woCustomerPo").value.trim();
   const jobNumber = document.getElementById("woJobNumber").value.trim();
   const jobName = document.getElementById("woJobName").value.trim();
   const jobType = "T&M";
@@ -2016,6 +2024,7 @@ async function saveWorkOrder(options) {
     wo_number: woNumber,
     work_order_date: workOrderDate,
     customer,
+    customer_po_number: customerPoNumber,
     job_id: selectedJob ? selectedJob.id : null,
     job_number: jobNumber,
     job_name: jobName,
@@ -2770,6 +2779,7 @@ function buildWorkOrderPdfHtml(id) {
     <div><b>WO Number</b>${escapeHtml(wo.wo_number || "")}</div>
     <div><b>Date</b>${escapeHtml(wo.work_order_date || "")}</div>
     <div><b>Attention</b>${escapeHtml(wo.customer || "")}</div>
+    <div><b>Customer PO #</b>${escapeHtml(wo.customer_po_number || "")}</div>
     <div><b>Job Number</b>${escapeHtml(wo.job_number || "")}</div>
     <div><b>Job Name</b>${escapeHtml(wo.job_name || "")}</div>
     <div><b>Job Address</b>${escapeHtml(wo.job_address || "")}</div>
@@ -2844,6 +2854,7 @@ function buildWorkOrderEmailBody(id) {
     "WO Number: " + (wo.wo_number || ""),
     "Date: " + (wo.work_order_date || ""),
     "Attention: " + (wo.customer || ""),
+    "Customer PO #: " + (wo.customer_po_number || ""),
     "Job: " + [wo.job_number, wo.job_name].filter(Boolean).join(" - "),
     "Status: " + getStatusLabel(wo.status),
     "Labour Hours: " + totalLabour.toFixed(2),
