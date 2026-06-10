@@ -59,28 +59,26 @@ h1 {
   position: sticky;
   top: 66px;
   z-index: 120;
+  max-width: 1500px;
   display: flex;
   flex-wrap: nowrap;
-  justify-content: flex-start;
-  gap: 8px;
-  margin: 0 calc(50% - 50vw) 14px;
-  padding: 7px max(20px, calc((100vw - 1280px) / 2 + 20px));
-  overflow-x: auto;
+  justify-content: center;
+  gap: 3px;
+  margin: 0 auto 12px;
+  padding: 5px 8px;
+  overflow-x: visible;
   background: rgba(6, 20, 17, 0.98);
   border-top: 1px solid rgba(57, 200, 72, 0.25);
   border-bottom: 1px solid rgba(57, 200, 72, 0.25);
   box-shadow: 0 10px 24px rgba(0,0,0,0.18);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(57, 200, 72, 0.8) rgba(6, 20, 17, 0.98);
 }
 
 .admin-tabs button {
   flex: 0 0 auto;
-  padding: 8px 10px;
+  padding: 5px 7px;
   background: #20382a;
   border: 1px solid rgba(99, 205, 107, 0.35);
-  font-size: 13px;
+  font-size: 11px;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -380,6 +378,7 @@ textarea {
     z-index: 20;
     margin: 0 -12px 14px;
     padding: 8px 12px;
+    gap: 8px;
     flex-wrap: nowrap;
     justify-content: flex-start;
     overflow-x: auto;
@@ -424,35 +423,34 @@ textarea {
 </head>
 <body>
 <div class="page">
+  <div id="adminTabs" class="admin-tabs hidden">
+    <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=sickDays'">Sick</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=certificates'">Certs</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
+    <button type="button" class="active">Schedule</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=announcements'">Notices</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=toolboxTalks'">Talks</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=policies'">Policies</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=jobs'">Job List</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=equipment'">Equipment</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=contacts'">Contacts</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
+    <button type="button" onclick="window.location.href='accounts.html'">Accounts</button>
+  </div>
+
   <div class="logo-wrap">
     <img src="logo.png" alt="John Gordon Construction logo">
   </div>
 
   <h1>Schedule</h1>
   <div id="currentUser" class="small" style="text-align:center;"></div>
-
-  <div id="adminTabs" class="admin-tabs hidden">
-    <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=employeeProfile'">Employee Profile</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=sickDays'">Sick Days</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=certificates'">Certificates</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
-    <button type="button" class="active">Schedule</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=announcements'">Announcements</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=toolboxTalks'">Tool Box Talks</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=policies'">Policies</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=jobs'">Jobs Management</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=equipment'">Equipment / Vehicles</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=contacts'">Contacts</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
-    <button type="button" onclick="window.location.href='accounts.html'">Accounts</button>
-    <button type="button" onclick="window.location.href='admin.html'">Home</button>
-  </div>
 
   <div class="top-actions">
     <button type="button" onclick="window.location.href='home.html'">Home</button>
