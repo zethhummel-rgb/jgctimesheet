@@ -56,18 +56,33 @@ h1 {
 }
 
 .admin-tabs {
+  position: sticky;
+  top: 66px;
+  z-index: 120;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   gap: 8px;
-  margin: 10px 0 14px;
+  margin: 0 calc(50% - 50vw) 14px;
+  padding: 7px max(20px, calc((100vw - 1280px) / 2 + 20px));
+  overflow-x: auto;
+  background: rgba(6, 20, 17, 0.98);
+  border-top: 1px solid rgba(57, 200, 72, 0.25);
+  border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(57, 200, 72, 0.8) rgba(6, 20, 17, 0.98);
 }
 
 .admin-tabs button {
+  flex: 0 0 auto;
   padding: 8px 10px;
   background: #20382a;
   border: 1px solid rgba(99, 205, 107, 0.35);
   font-size: 13px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .admin-tabs button.active {
@@ -361,8 +376,7 @@ textarea {
   }
 
   .admin-tabs {
-    position: sticky;
-    top: 0;
+    top: 58px;
     z-index: 20;
     margin: 0 -12px 14px;
     padding: 8px 12px;
@@ -417,13 +431,6 @@ textarea {
   <h1>Schedule</h1>
   <div id="currentUser" class="small" style="text-align:center;"></div>
 
-  <div class="top-actions">
-    <button type="button" onclick="window.location.href='home.html'">Home</button>
-    <button id="adminHomeButton" type="button" class="secondary hidden" onclick="window.location.href='admin.html'">Admin</button>
-    <button type="button" class="secondary" onclick="loadScheduleData()">Refresh</button>
-    <button type="button" class="secondary" onclick="signOut()">Logout</button>
-  </div>
-
   <div id="adminTabs" class="admin-tabs hidden">
     <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
@@ -445,6 +452,13 @@ textarea {
     <button type="button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
     <button type="button" onclick="window.location.href='accounts.html'">Accounts</button>
     <button type="button" onclick="window.location.href='admin.html'">Home</button>
+  </div>
+
+  <div class="top-actions">
+    <button type="button" onclick="window.location.href='home.html'">Home</button>
+    <button id="adminHomeButton" type="button" class="secondary hidden" onclick="window.location.href='admin.html'">Admin</button>
+    <button type="button" class="secondary" onclick="loadScheduleData()">Refresh</button>
+    <button type="button" class="secondary" onclick="signOut()">Logout</button>
   </div>
 
   <div id="scheduleStatus" class="small" style="text-align:center;margin-bottom:12px;">Loading schedule...</div>
