@@ -398,27 +398,64 @@ button:hover,
 }
 
 .tabs {
-    max-width: 1200px;
-    margin: 0 auto 12px;
+    position: sticky;
+    top: 66px;
+    z-index: 120;
+    max-width: none;
+    margin: 0 -20px 14px;
+    padding: 7px max(20px, calc((100vw - 1200px) / 2 + 20px));
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    background: rgba(6, 20, 17, 0.98);
+    border-top: 1px solid rgba(57, 200, 72, 0.25);
+    border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(57, 200, 72, 0.8) rgba(6, 20, 17, 0.98);
 }
 
 .tab-button {
-    background: #fbfcf9;
-    color: #1f2a24;
+    flex: 0 0 auto;
+    background: #20382a;
+    color: #ffffff;
+    border: 1px solid rgba(63, 125, 77, 0.6);
+    border-radius: 999px;
+    padding: 8px 11px;
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 .tab-button.active {
-    background: #3f7d4d;
-    color: white;
+    background: #37d650;
+    color: #061411;
+}
+
+.tabs .secondary {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    padding: 8px 11px;
+    font-size: 13px;
+    white-space: nowrap;
 }
 
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 12px;
+}
+
+.portal-summary-title {
+    margin-bottom: 8px;
+}
+
+.portal-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
 }
 
 .summary-tile {
@@ -433,6 +470,14 @@ button:hover,
     text-align: left;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+#portalSummaryGrid .summary-tile {
+    min-height: 48px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    border-top-width: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
 .summary-tile,
@@ -451,11 +496,38 @@ button:hover,
     font-size: 16px;
 }
 
+#portalSummaryGrid .summary-tile h3 {
+    margin: 0 24px 3px 0;
+    font-size: 10px;
+    line-height: 1.05;
+}
+
+.summary-tile.no-summary-badge h3 {
+    margin-right: 0;
+}
+
 .summary-value {
     font-size: 34px;
     font-weight: 900;
     color: #050805 !important;
     line-height: 1;
+}
+
+#portalSummaryGrid .summary-value {
+    font-size: 17px;
+}
+
+#portalSummaryGrid .summary-detail {
+    display: none;
+}
+
+#portalSummaryGrid .summary-badge {
+    top: 5px;
+    right: 5px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 10px;
 }
 
 .backup-status-grid {
@@ -1575,8 +1647,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     }
 
     .tabs {
-        position: sticky;
-        top: 0;
+        top: 58px;
         z-index: 25;
         max-width: none;
         margin: 0 -10px 12px;
@@ -1612,6 +1683,15 @@ button.admin-schedule-event-button.admin-event-vacation {
         width: 100%;
         box-sizing: border-box;
         text-align: center;
+    }
+
+    #portalSummaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #portalSummaryGrid .summary-tile {
+        width: auto;
+        text-align: left;
     }
 
     .calendar-controls {
@@ -1694,6 +1774,11 @@ button.admin-schedule-event-button.admin-event-vacation {
 </div>
 
 <div id="summarySection" class="card">
+    <h2 class="portal-summary-title">Portal Summary</h2>
+    <div id="portalSummaryGrid" class="summary-grid portal-summary-grid">
+        <div class="small">Loading portal summary...</div>
+    </div>
+
     <div class="admin-schedule-summary">
         <div class="admin-schedule-header">
             <div>
@@ -1714,11 +1799,6 @@ button.admin-schedule-event-button.admin-event-vacation {
             <span class="vacation">Vacation</span>
         </div>
         <div id="adminScheduleCalendar" class="admin-schedule-grid"></div>
-    </div>
-
-    <h2>Portal Summary</h2>
-    <div id="portalSummaryGrid" class="summary-grid">
-        <div class="small">Loading portal summary...</div>
     </div>
 </div>
 
@@ -3068,11 +3148,12 @@ function getCurrentWeekStartForSummary() {
 }
 
 function renderSummaryTile(tile) {
-    const badgeClass = tile.badgeCount > 0 ? "" : " clear";
+    const hasBadge = tile.badgeCount !== null && tile.badgeCount !== undefined;
+    const badgeClass = hasBadge && tile.badgeCount > 0 ? "" : " clear";
 
     return `
-        <button type="button" class="summary-tile" onclick="${tile.action}">
-            <span class="summary-badge${badgeClass}">${escapeHtml(String(tile.badgeCount))}</span>
+        <button type="button" class="summary-tile${hasBadge ? "" : " no-summary-badge"}" onclick="${tile.action}">
+            ${hasBadge ? '<span class="summary-badge' + badgeClass + '">' + escapeHtml(String(tile.badgeCount)) + '</span>' : ""}
             <h3>${escapeHtml(tile.title)}</h3>
             <div class="summary-value">${escapeHtml(String(tile.value))}</div>
             <div class="summary-detail">${escapeHtml(tile.detail)}</div>
@@ -3937,34 +4018,19 @@ function renderPortalSummary() {
         .concat(accidentReports)
         .concat(employeeInjuryReports)
         .concat(toolboxReports);
-    const employeeProfileBadge = countNewForAdminTab(
-        liveTimesheetEntries
-            .concat(timesheets)
-            .concat(vacationRequests)
-            .concat(certificates)
-            .concat(inspections)
-            .concat(reportsForBadge)
-            .concat(toolboxAttendance)
-            .concat(announcementAcknowledgements)
-            .concat(workOrders)
-            .concat(workOrderLabourRows)
-            .concat(equipmentItems),
-        "employeeProfile",
-        ["created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
-    );
 
     const tiles = [
         {
             title: "Job Dashboard",
             value: activeJobs,
-            badgeCount: countNewForAdminTab(jobs.concat(workOrders).concat(liveTimesheetEntries), "jobDashboard", ["created_at", "updated_at", "submitted_at"]),
+            badgeCount: null,
             detail: "Job costing and project summaries",
             action: "openAdminSummaryTile('jobDashboard')"
         },
         {
             title: "Employee Profiles",
             value: getApprovedAccounts().length,
-            badgeCount: employeeProfileBadge,
+            badgeCount: null,
             detail: "Complete employee dashboard",
             action: "openAdminSummaryTile('employeeProfile')"
         },
@@ -4013,7 +4079,7 @@ function renderPortalSummary() {
         {
             title: "Announcements",
             value: activeAnnouncements,
-            badgeCount: countNewForAdminTab(announcementAcknowledgements, "announcements", ["read_at", "created_at"]),
+            badgeCount: null,
             detail: "Active announcements",
             action: "openAdminSummaryTile('announcements')"
         },
@@ -4027,14 +4093,14 @@ function renderPortalSummary() {
         {
             title: "Policies",
             value: policies.length,
-            badgeCount: countNewForAdminTab(policies, "policies", ["created_at", "updated_at"]),
+            badgeCount: null,
             detail: "Active policies available to employees",
             action: "openAdminSummaryTile('policies')"
         },
         {
             title: "Jobs",
             value: activeJobs,
-            badgeCount: countNewForAdminTab(jobs, "jobs", ["created_at", "updated_at"]),
+            badgeCount: null,
             detail: "Active jobs available for timesheets",
             action: "openAdminSummaryTile('jobs')"
         },
@@ -4055,7 +4121,7 @@ function renderPortalSummary() {
         {
             title: "Contacts",
             value: activeContacts,
-            badgeCount: countNewForAdminTab(contacts, "contacts", ["created_at", "updated_at"]),
+            badgeCount: null,
             detail: "Active company contacts",
             action: "openAdminSummaryTile('contacts')"
         },
@@ -4069,7 +4135,7 @@ function renderPortalSummary() {
         {
             title: "Backups",
             value: "Sun",
-            badgeCount: 0,
+            badgeCount: null,
             detail: "Weekly backup plus manual restore prep",
             action: "openAdminSummaryTile('backups')"
         }
