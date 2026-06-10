@@ -3255,6 +3255,7 @@ function renderAdminScheduleDayEvents(dateValue) {
             </div>
             <div class="actions" style="margin-top:8px;">
                 <button type="button" onclick="editAdminScheduleEvent('${escapeHtml(event.id)}')">Edit This Event</button>
+                <button type="button" class="delete-button" onclick="deleteAdminScheduleEvent('${escapeHtml(event.id)}')">Delete</button>
             </div>
         </div>
     `).join("");
@@ -3625,6 +3626,73 @@ function editAdminScheduleEvent(id) {
 
     document.getElementById("adminScheduleModalTitle").textContent = "Edit Schedule - " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
     document.getElementById("adminScheduleStatus").textContent = "Editing this schedule item.";
+}
+
+async function deleteAdminScheduleEvent(id) {
+    const event = scheduleEvents.find((item) => String(item.id) === String(id));
+
+    if (!event) {
+        alert("That schedule event could not be found. Refresh the admin page and try again.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Delete this schedule item?\n\n" +
+        getAdminScheduleTitle(event) + "\n" +
+        makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const status = document.getElementById("adminScheduleStatus");
+
+    if (status) {
+        status.textContent = "Deleting schedule item...";
+    }
+
+    const { error } = await supabaseClient
+        .from("schedule_events")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("Schedule item could not be deleted: " + (error.message || "Unknown error"));
+        if (status) {
+            status.textContent = "Schedule item could not be deleted.";
+        }
+        return;
+    }
+
+    await Promise.allSettled([
+        supabaseClient
+            .from("equipment_maintenance_logs")
+            .delete()
+            .eq("schedule_event_id", id),
+        supabaseClient
+            .from("announcements")
+            .update({ is_active: false })
+            .eq("source_type", "schedule_event")
+            .eq("source_id", id)
+    ]);
+
+    scheduleEvents = scheduleEvents.filter((item) => String(item.id) !== String(id));
+    equipmentMaintenanceLogs = equipmentMaintenanceLogs.filter((item) => String(item.schedule_event_id) !== String(id));
+    announcements = announcements.filter((item) => !(item.source_type === "schedule_event" && String(item.source_id) === String(id)));
+
+    if (String(editingAdminScheduleEventId) === String(id)) {
+        editingAdminScheduleEventId = "";
+    }
+
+    renderAdminScheduleCalendar();
+    renderPortalSummary();
+    openAdminScheduleModal(event.event_date || formatAdminScheduleDateValue(new Date()));
+    const nextStatus = document.getElementById("adminScheduleStatus");
+
+    if (nextStatus) {
+        nextStatus.textContent = "Schedule item deleted.";
+    }
 }
 
 function buildAdminScheduleAnnouncementBody(event, account) {
