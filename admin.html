@@ -5658,6 +5658,22 @@ function getLiveTimesheetEntryDate(entry) {
     return date;
 }
 
+function formatAdminLiveTimesheetWeekLabel(weekStart) {
+    if (!weekStart) {
+        return "Week not set";
+    }
+
+    const startDate = makeLocalDate(weekStart);
+
+    if (Number.isNaN(startDate.getTime())) {
+        return weekStart;
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    return "Week of " + formatTimesheetPdfDate(startDate) + " to " + formatTimesheetPdfDate(endDate);
+}
+
 function renderLiveTimesheetEntries(filter) {
     const rows = liveTimesheetEntries
         .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
@@ -5713,9 +5729,12 @@ function renderLiveTimesheetEntries(filter) {
         <div class="small" style="margin-bottom:8px;">These are entries currently saved on employee timesheets before they submit/email the full week.</div>
         ${workers.map((worker) => {
             const workerRows = rows.filter((row) => (row.worker || "Unknown Worker") === worker);
-            const workerTotal = workerRows.reduce((total, row) => total + row.hours, 0);
-            const days = getTimesheetDayNames().filter((day) => workerRows.some((row) => row.day === day));
-            const submittedDayCount = new Set(workerRows.map((row) => row.day).filter(Boolean)).size;
+            const currentWeekStart = getCurrentWeekStartForSummary();
+            const currentWeekRows = workerRows.filter((row) => row.weekStart === currentWeekStart);
+            const workerTotal = currentWeekRows.reduce((total, row) => total + row.hours, 0);
+            const submittedDayCount = new Set(currentWeekRows.map((row) => row.day).filter(Boolean)).size;
+            const weekStarts = [...new Set(workerRows.map((row) => row.weekStart || ""))]
+                .sort((a, b) => String(b).localeCompare(String(a)));
 
             return `
                 <details class="timesheet-worker-group" ${filter ? "open" : ""}>
@@ -5727,54 +5746,65 @@ function renderLiveTimesheetEntries(filter) {
                         <span class="timesheet-worker-count" title="Submitted days">${submittedDayCount}</span>
                     </summary>
                     <div class="timesheet-worker-body">
-                        ${days.map((day) => {
-                            const dayRows = workerRows.filter((row) => row.day === day);
-                            const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
-                            const dayDate = dayRows.find((row) => row.date);
+                        ${weekStarts.map((weekStart) => {
+                            const weekRows = workerRows.filter((row) => (row.weekStart || "") === weekStart);
+                            const weekTotal = weekRows.reduce((total, row) => total + row.hours, 0);
+                            const days = getTimesheetDayNames().filter((day) => weekRows.some((row) => row.day === day));
 
                             return `
-                                <div style="margin:10px 0 4px;font-weight:bold;color:#f7fff7;">
-                                    ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
+                                <div style="margin:14px 0 6px;font-weight:bold;color:#27d447;">
+                                    ${escapeHtml(formatAdminLiveTimesheetWeekLabel(weekStart))} - ${weekTotal.toFixed(2)} hrs
                                 </div>
-                                <div class="table-wrap">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Job</th>
-                                                <th>Job Number</th>
-                                                <th>Type</th>
-                                                <th>Reason / Note</th>
-                                                <th>Time</th>
-                                                <th>Lunch</th>
-                                                <th>Night</th>
-                                                <th>Hours</th>
-                                                <th>Week Start</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${dayRows.map((row) => `
-                                                <tr>
-                                                    <td>${escapeHtml(row.jobName)}</td>
-                                                    <td>${escapeHtml(row.jobNumber)}</td>
-                                                    <td>${escapeHtml(getAdminTimesheetEntryLabel(row))}</td>
-                                                    <td>${escapeHtml(row.leaveNote || "")}</td>
-                                                    <td>${row.entryType === "work" ? escapeHtml(row.timeIn) + " - " + escapeHtml(row.timeOut) : ""}</td>
-                                                    <td>${row.lunch ? "Yes" : "No"}</td>
-                                                    <td>${row.nightWork ? "Yes" : "No"}</td>
-                                                    <td>${row.hours.toFixed(2)}</td>
-                                                    <td>${escapeHtml(row.weekStart)}</td>
-                                                    <td>
-                                                        <div class="actions">
-                                                            <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
-                                                            <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            `).join("")}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                ${days.map((day) => {
+                                    const dayRows = weekRows.filter((row) => row.day === day);
+                                    const dayTotal = dayRows.reduce((total, row) => total + row.hours, 0);
+                                    const dayDate = dayRows.find((row) => row.date);
+
+                                    return `
+                                        <div style="margin:10px 0 4px;font-weight:bold;color:#f7fff7;">
+                                            ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
+                                        </div>
+                                        <div class="table-wrap">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Job</th>
+                                                        <th>Job Number</th>
+                                                        <th>Type</th>
+                                                        <th>Reason / Note</th>
+                                                        <th>Time</th>
+                                                        <th>Lunch</th>
+                                                        <th>Night</th>
+                                                        <th>Hours</th>
+                                                        <th>Week Start</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${dayRows.map((row) => `
+                                                        <tr>
+                                                            <td>${escapeHtml(row.jobName)}</td>
+                                                            <td>${escapeHtml(row.jobNumber)}</td>
+                                                            <td>${escapeHtml(getAdminTimesheetEntryLabel(row))}</td>
+                                                            <td>${escapeHtml(row.leaveNote || "")}</td>
+                                                            <td>${row.entryType === "work" ? escapeHtml(row.timeIn) + " - " + escapeHtml(row.timeOut) : ""}</td>
+                                                            <td>${row.lunch ? "Yes" : "No"}</td>
+                                                            <td>${row.nightWork ? "Yes" : "No"}</td>
+                                                            <td>${row.hours.toFixed(2)}</td>
+                                                            <td>${escapeHtml(row.weekStart)}</td>
+                                                            <td>
+                                                                <div class="actions">
+                                                                    <button type="button" class="secondary" onclick="editLiveTimesheetEntry('${escapeHtml(row.id)}')">Edit</button>
+                                                                    <button type="button" class="delete-button" onclick="deleteLiveTimesheetEntry('${escapeHtml(row.id)}')">Delete</button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    `).join("")}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    `;
+                                }).join("")}
                             `;
                         }).join("")}
                     </div>
