@@ -401,21 +401,18 @@ button:hover,
     position: sticky;
     top: 66px;
     z-index: 120;
-    max-width: none;
-    margin: 0 -20px 14px;
-    padding: 7px max(20px, calc((100vw - 1200px) / 2 + 20px));
+    max-width: 1500px;
+    margin: 0 auto 12px;
+    padding: 5px 8px;
     display: flex;
-    gap: 8px;
+    gap: 3px;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
+    overflow-x: visible;
+    justify-content: center;
     background: rgba(6, 20, 17, 0.98);
     border-top: 1px solid rgba(57, 200, 72, 0.25);
     border-bottom: 1px solid rgba(57, 200, 72, 0.25);
     box-shadow: 0 10px 24px rgba(0,0,0,0.18);
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(57, 200, 72, 0.8) rgba(6, 20, 17, 0.98);
 }
 
 .tab-button {
@@ -424,8 +421,8 @@ button:hover,
     color: #ffffff;
     border: 1px solid rgba(63, 125, 77, 0.6);
     border-radius: 999px;
-    padding: 8px 11px;
-    font-size: 13px;
+    padding: 5px 7px;
+    font-size: 11px;
     white-space: nowrap;
 }
 
@@ -437,8 +434,8 @@ button:hover,
 .tabs .secondary {
     flex: 0 0 auto;
     border-radius: 999px;
-    padding: 8px 11px;
-    font-size: 13px;
+    padding: 5px 7px;
+    font-size: 11px;
     white-space: nowrap;
 }
 
@@ -453,9 +450,13 @@ button:hover,
 }
 
 .portal-summary-grid {
-    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-    gap: 6px;
-    margin-bottom: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.portal-summary-grid > .small {
+    grid-column: 1 / -1;
 }
 
 .summary-tile {
@@ -473,10 +474,10 @@ button:hover,
 }
 
 #portalSummaryGrid .summary-tile {
-    min-height: 48px;
-    padding: 7px 8px;
-    border-radius: 6px;
-    border-top-width: 3px;
+    min-height: 30px;
+    padding: 5px 7px;
+    border-radius: 5px;
+    border-top-width: 2px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
@@ -497,9 +498,13 @@ button:hover,
 }
 
 #portalSummaryGrid .summary-tile h3 {
-    margin: 0 24px 3px 0;
+    margin: 0;
     font-size: 10px;
     line-height: 1.05;
+}
+
+#portalSummaryGrid .summary-tile.has-summary-badge h3 {
+    margin-right: 20px;
 }
 
 .summary-tile.no-summary-badge h3 {
@@ -522,12 +527,12 @@ button:hover,
 }
 
 #portalSummaryGrid .summary-badge {
-    top: 5px;
-    right: 5px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    font-size: 10px;
+    top: 4px;
+    right: 4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    font-size: 9px;
 }
 
 .backup-status-grid {
@@ -1742,36 +1747,34 @@ button.admin-schedule-event-button.admin-event-vacation {
 </head>
 
 <body>
+<div class="tabs">
+    <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
+    <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Jobs</button>
+    <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Profiles</button>
+    <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
+    <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick</button>
+    <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
+    <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certs</button>
+    <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
+    <button class="tab-button" onclick="window.location.href='schedule.html'">Schedule</button>
+    <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Notices</button>
+    <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
+    <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Talks</button>
+    <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
+    <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Job List</button>
+    <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">WO</button>
+    <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment</button>
+    <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
+    <button id="backupsTab" class="tab-button" onclick="showTab('backups')">Backups</button>
+    <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
+</div>
+
 <div class="logo-wrap">
     <img src="logo.png" alt="John Gordon Construction logo">
 </div>
 
 <h1>Admin</h1>
 <div id="currentUser" class="user-bar"></div>
-
-<div class="tabs">
-    <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
-    <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
-    <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Employee Profile</button>
-    <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
-    <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick Days</button>
-    <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
-    <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certificates</button>
-    <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
-    <button class="tab-button" onclick="window.location.href='schedule.html'">Schedule</button>
-    <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Announcements</button>
-    <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
-    <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Tool Box Talks</button>
-    <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
-    <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Jobs Management</button>
-    <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">Work Orders</button>
-    <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment / Vehicles</button>
-    <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
-    <button id="backupsTab" class="tab-button" onclick="showTab('backups')">Backups</button>
-    <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
-    <button class="secondary" onclick="window.location.href='admin.html'">Home</button>
-    <button class="secondary" onclick="signOut()">Sign Out</button>
-</div>
 
 <div id="summarySection" class="card">
     <h2 class="portal-summary-title">Portal Summary</h2>
@@ -3148,15 +3151,12 @@ function getCurrentWeekStartForSummary() {
 }
 
 function renderSummaryTile(tile) {
-    const hasBadge = tile.badgeCount !== null && tile.badgeCount !== undefined;
-    const badgeClass = hasBadge && tile.badgeCount > 0 ? "" : " clear";
+    const hasBadge = Number(tile.badgeCount || 0) > 0;
 
     return `
-        <button type="button" class="summary-tile${hasBadge ? "" : " no-summary-badge"}" onclick="${tile.action}">
-            ${hasBadge ? '<span class="summary-badge' + badgeClass + '">' + escapeHtml(String(tile.badgeCount)) + '</span>' : ""}
+        <button type="button" class="summary-tile${hasBadge ? " has-summary-badge" : " no-summary-badge"}" onclick="${tile.action}">
+            ${hasBadge ? '<span class="summary-badge">' + escapeHtml(String(tile.badgeCount)) + '</span>' : ""}
             <h3>${escapeHtml(tile.title)}</h3>
-            <div class="summary-value">${escapeHtml(String(tile.value))}</div>
-            <div class="summary-detail">${escapeHtml(tile.detail)}</div>
         </button>
     `;
 }
@@ -4021,70 +4021,70 @@ function renderPortalSummary() {
 
     const tiles = [
         {
-            title: "Job Dashboard",
+            title: "Jobs",
             value: activeJobs,
             badgeCount: null,
             detail: "Job costing and project summaries",
             action: "openAdminSummaryTile('jobDashboard')"
         },
         {
-            title: "Employee Profiles",
+            title: "Profiles",
             value: getApprovedAccounts().length,
             badgeCount: null,
             detail: "Complete employee dashboard",
             action: "openAdminSummaryTile('employeeProfile')"
         },
         {
-            title: "Timesheet Updates",
+            title: "Timesheets",
             value: liveEntriesThisWeek,
             badgeCount: countNewForAdminTab(liveTimesheetEntries, "timesheets", ["created_at", "updated_at"]),
             detail: "Live entries saved this week",
             action: "openAdminSummaryTile('timesheets')"
         },
         {
-            title: "Sick Days",
+            title: "Sick",
             value: sickDaysThisWeek,
             badgeCount: countNewForAdminTab(liveTimesheetEntries.filter((entry) => String(entry.entry_type || "").toLowerCase() === "sick"), "sickDays", ["created_at", "updated_at"]),
             detail: "Sick entries logged this week",
             action: "openAdminSummaryTile('sickDays')"
         },
         {
-            title: "Inspections Today",
+            title: "Inspections",
             value: inspectionsToday,
             badgeCount: countNewForAdminTab(inspections, "inspections", ["created_at", "updated_at"]),
             detail: "Inspection records completed today",
             action: "openAdminSummaryTile('inspections')"
         },
         {
-            title: "Reports Completed",
+            title: "Reports",
             value: reportsToday,
             badgeCount: countNewForAdminTab(reportsForBadge, "reports", ["created_at", "updated_at", "submitted_at"]),
             detail: "Reports submitted today",
             action: "openAdminSummaryTile('reports')"
         },
         {
-            title: "Expiring Certificates",
+            title: "Certs",
             value: expiringCertificates,
             badgeCount: countNewForAdminTab(certificates, "certificates", ["created_at", "updated_at"]),
             detail: "Certificates expiring within 30 days",
             action: "openAdminSummaryTile('certificates')"
         },
         {
-            title: "Vacation Requests",
+            title: "Vacation",
             value: pendingVacations,
             badgeCount: countNewForAdminTab(vacationRequests, "vacation", ["created_at", "updated_at"]),
             detail: "Pending approvals",
             action: "openAdminSummaryTile('vacation')"
         },
         {
-            title: "Announcements",
+            title: "Notices",
             value: activeAnnouncements,
             badgeCount: null,
             detail: "Active announcements",
             action: "openAdminSummaryTile('announcements')"
         },
         {
-            title: "Tool Box Talks",
+            title: "Talks",
             value: toolboxReports.length,
             badgeCount: countNewForAdminTab(toolboxReports.concat(toolboxAttendance), "toolboxTalks", ["created_at", "acknowledged_at"]),
             detail: "New reports or acknowledgements",
@@ -4098,21 +4098,21 @@ function renderPortalSummary() {
             action: "openAdminSummaryTile('policies')"
         },
         {
-            title: "Jobs",
+            title: "Job List",
             value: activeJobs,
             badgeCount: null,
             detail: "Active jobs available for timesheets",
             action: "openAdminSummaryTile('jobs')"
         },
         {
-            title: "Work Orders",
+            title: "WO",
             value: activeWorkOrders,
             badgeCount: countNewForAdminTab(workOrders.concat(workOrderLabourRows), "workOrders", ["created_at", "updated_at", "submitted_at"]),
             detail: "Draft or ready Work Orders",
             action: "openAdminSummaryTile('workOrders')"
         },
         {
-            title: "Equipment Expiries",
+            title: "Equipment",
             value: equipmentExpiring,
             badgeCount: countNewForAdminTab(equipmentItems, "equipment", ["created_at", "updated_at"]),
             detail: "Inspections expiring within 30 days",
@@ -4126,7 +4126,7 @@ function renderPortalSummary() {
             action: "openAdminSummaryTile('contacts')"
         },
         {
-            title: "New Account Requests",
+            title: "Accounts",
             value: pendingAccounts,
             badgeCount: countNewForAdminTab(accounts.filter((account) => String(account.account_status || "").toLowerCase() === "pending"), "accounts", ["created_at"]),
             detail: "Accounts waiting for approval",
@@ -4141,7 +4141,11 @@ function renderPortalSummary() {
         }
     ];
 
-    grid.innerHTML = tiles.map(renderSummaryTile).join("");
+    const notificationTiles = tiles.filter((tile) => Number(tile.badgeCount || 0) > 0);
+
+    grid.innerHTML = notificationTiles.length
+        ? notificationTiles.map(renderSummaryTile).join("")
+        : '<div class="small">No current admin notifications.</div>';
 }
 
 function getEmployeeProfileAccounts() {
