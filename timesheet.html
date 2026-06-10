@@ -2489,15 +2489,18 @@ function workOrderDateToRequestParts(dateValue) {
 
 function timesheetEntryMatchesWoRequest(entry, request) {
   const entryDate = getDateForTimesheetEntry(entry);
+  const entryWeekStart = entry && (entry.weekStartValue || entry.week_start) || (entryDate ? formatDateValue(getWeekStartDate(makeLocalDate(entryDate))) : "");
   const entryJobNumber = String(entry && (entry.jobNumber || entry.job_number) || "").trim().toLowerCase();
   const entryJobName = cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || "").trim().toLowerCase();
   const requestJobNumber = String(request.jobNumber || "").trim().toLowerCase();
   const requestJobName = cleanRepeatedJobName(request.jobName || "").trim().toLowerCase();
+  const jobMatches = Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
+    Boolean(requestJobName && entryJobName === requestJobName);
 
-  return entryDate === request.dateValue &&
+  return jobMatches &&
     (
-      Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
-      Boolean(requestJobName && entryJobName === requestJobName)
+      entryDate === request.dateValue ||
+      Boolean(entryWeekStart && request.weekStartValue && entryWeekStart === request.weekStartValue)
     );
 }
 
@@ -2683,9 +2686,13 @@ async function markMatchingWoLabourComplete(entry) {
     return;
   }
 
-  const request = woTimesheetRequests.find(function(item) {
+  let request = woTimesheetRequests.find(function(item) {
     return timesheetEntryMatchesWoRequest(entry, item);
   });
+
+  if (!request) {
+    request = await findMatchingWoRequestForEntry(entry);
+  }
 
   if (!request || !request.labourId) {
     return;
@@ -2704,6 +2711,71 @@ async function markMatchingWoLabourComplete(entry) {
   if (error) {
     console.warn("WO labour row could not be marked complete.", error);
   }
+}
+
+async function findMatchingWoRequestForEntry(entry) {
+  const aliases = getCurrentUserAliases().map(normalizeWorkerName);
+  const { data: labourRows, error: labourError } = await supabaseClient
+    .from("work_order_labour")
+    .select("id, work_order_id, employee_name, worker_key, complete, created_at")
+    .eq("expected", true)
+    .or("complete.eq.false,complete.is.null")
+    .order("created_at", { ascending: true });
+
+  if (labourError) {
+    console.warn("WO labour lookup could not run.", labourError);
+    return null;
+  }
+
+  const myLabourRows = (labourRows || []).filter(function(row) {
+    return aliases.includes(normalizeWorkerName(row.worker_key)) ||
+      aliases.includes(normalizeWorkerName(row.employee_name));
+  });
+  const workOrderIds = Array.from(new Set(myLabourRows.map(function(row) {
+    return row.work_order_id;
+  }).filter(Boolean)));
+
+  if (!workOrderIds.length) {
+    return null;
+  }
+
+  const { data: workOrders, error: workOrderError } = await supabaseClient
+    .from("work_orders")
+    .select("id, wo_number, work_order_date, job_number, job_name, status")
+    .in("id", workOrderIds);
+
+  if (workOrderError) {
+    console.warn("WO lookup could not run.", workOrderError);
+    return null;
+  }
+
+  const workOrdersById = {};
+  (workOrders || []).forEach(function(wo) {
+    workOrdersById[wo.id] = wo;
+  });
+
+  return myLabourRows.map(function(row) {
+    const wo = workOrdersById[row.work_order_id];
+
+    if (!wo || String(wo.status || "").toLowerCase() === "submitted") {
+      return null;
+    }
+
+    const parts = workOrderDateToRequestParts(wo.work_order_date);
+    return {
+      labourId: row.id,
+      workOrderId: row.work_order_id,
+      woNumber: wo.wo_number || "",
+      jobNumber: wo.job_number || "",
+      jobName: wo.job_name || "",
+      dateValue: parts.dateValue,
+      weekStartValue: parts.weekStartValue,
+      dayName: parts.dayName,
+      createdAt: row.created_at || wo.work_order_date || ""
+    };
+  }).filter(Boolean).find(function(candidate) {
+    return timesheetEntryMatchesWoRequest(entry, candidate);
+  }) || null;
 }
 
 function resetTimeEntryFields() {
