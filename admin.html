@@ -5768,6 +5768,29 @@ function groupAdminLiveTimesheetRows(rows) {
     }));
 }
 
+function sortAdminLiveWeekStarts(weekStarts, currentWeekStart) {
+    return weekStarts.slice().sort((a, b) => {
+        if (a === currentWeekStart && b !== currentWeekStart) {
+            return -1;
+        }
+
+        if (b === currentWeekStart && a !== currentWeekStart) {
+            return 1;
+        }
+
+        const aIsFuture = String(a || "") > String(currentWeekStart || "");
+        const bIsFuture = String(b || "") > String(currentWeekStart || "");
+
+        if (aIsFuture !== bIsFuture) {
+            return aIsFuture ? 1 : -1;
+        }
+
+        return aIsFuture
+            ? String(a || "").localeCompare(String(b || ""))
+            : String(b || "").localeCompare(String(a || ""));
+    });
+}
+
 function renderLiveTimesheetEntries(filter) {
     const rows = liveTimesheetEntries
         .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
@@ -5827,8 +5850,7 @@ function renderLiveTimesheetEntries(filter) {
             const currentWeekRows = workerRows.filter((row) => row.weekStart === currentWeekStart);
             const workerTotal = currentWeekRows.reduce((total, row) => total + row.hours, 0);
             const submittedDayCount = new Set(currentWeekRows.map((row) => row.day).filter(Boolean)).size;
-            const weekStarts = [...new Set(workerRows.map((row) => row.weekStart || ""))]
-                .sort((a, b) => String(b).localeCompare(String(a)));
+            const weekStarts = sortAdminLiveWeekStarts([...new Set(workerRows.map((row) => row.weekStart || ""))], currentWeekStart);
 
             return `
                 <details class="timesheet-worker-group" ${filter ? "open" : ""}>
@@ -9079,6 +9101,7 @@ function renderAdminWorkOrders() {
         const text = [
             wo.wo_number,
             wo.customer,
+            wo.customer_po_number,
             wo.job_number,
             wo.job_name,
             wo.status,
