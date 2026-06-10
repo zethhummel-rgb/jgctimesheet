@@ -284,6 +284,15 @@
       word-break: normal;
     }
 
+    .entry-cell-detail {
+      display: block;
+      margin-top: 3px;
+      color: #b9c8bd;
+      font-size: 11px;
+      line-height: 1.25;
+      font-weight: normal;
+    }
+
     .entries-card th:first-child,
     .entries-card td:first-child {
       width: 22%;
@@ -3733,17 +3742,17 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
 function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
   const groups = getEntriesByEmailDay(entries);
   const groupHtml = groups.map(function(group) {
-    const rows = group.entries.map(function(entry) {
+    const rows = group.groupedEntries.map(function(entryGroup) {
       return `
         <tr>
-          <td>${escapeHtml(entry.jobName)}</td>
-          <td>${escapeHtml(entry.jobNumber || "")}</td>
-          <td>${escapeHtml(getEntryTypeLabel(entry))}</td>
-          <td>${escapeHtml(getEntryLeaveNote(entry))}</td>
-          <td>${entry.tookLunch ? "Yes" : "No"}</td>
-          <td>${entry.nightWork ? "Yes" : "No"}</td>
-          <td>${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
-          <td>${getEntryHoursLabel(entry)}</td>
+          <td>${escapeHtml(entryGroup.jobName)}</td>
+          <td>${escapeHtml(entryGroup.jobNumber || "")}</td>
+          <td>${escapeHtml(entryGroup.typeLabel)}</td>
+          <td>${escapeHtml(entryGroup.note)}</td>
+          <td>${entryGroup.tookLunch ? "Yes" : "No"}</td>
+          <td>${entryGroup.nightWork ? "Yes" : "No"}</td>
+          <td>${escapeHtml(getGroupedTimeText(entryGroup))}</td>
+          <td>${getGroupedHoursLabel(entryGroup)}</td>
         </tr>
       `;
     }).join("");
@@ -4310,6 +4319,136 @@ function sortEntriesForEmail(entries) {
   });
 }
 
+function getEntrySummaryName(entry) {
+  return getEntryType(entry) === "work" ? entry.jobName : getEntryTypeLabel(entry);
+}
+
+function getEntrySummaryNumber(entry) {
+  return getEntryType(entry) === "work" ? entry.jobNumber : (entry.jobNumber || getEntryLeaveNote(entry) || "");
+}
+
+function getEntryTimeRange(entry) {
+  return isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : entry.timeIn + "-" + entry.timeOut;
+}
+
+function getGroupedEntryKey(entry) {
+  return [
+    entry.day || "",
+    getEntryType(entry),
+    getEntrySummaryName(entry),
+    getEntrySummaryNumber(entry),
+    getEntryLeaveNote(entry)
+  ].map(function(value) {
+    return String(value || "").trim().toLowerCase();
+  }).join("||");
+}
+
+function groupEntriesForDisplay(entries) {
+  const groups = [];
+  const byKey = new Map();
+
+  sortEntriesForEmail(entries).forEach(function(entry) {
+    const key = getGroupedEntryKey(entry);
+    let group = byKey.get(key);
+
+    if (!group) {
+      group = {
+        day: entry.day || "",
+        jobName: getEntrySummaryName(entry),
+        jobNumber: getEntrySummaryNumber(entry),
+        typeLabel: getEntryTypeLabel(entry),
+        note: getEntryLeaveNote(entry),
+        tookLunch: false,
+        nightWork: false,
+        totalHours: 0,
+        entries: []
+      };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+
+    group.entries.push(entry);
+    group.tookLunch = group.tookLunch || Boolean(entry.tookLunch);
+    group.nightWork = group.nightWork || Boolean(entry.nightWork);
+    group.totalHours += getEntryTotalHours(entry);
+  });
+
+  return groups;
+}
+
+function getGroupedTimeText(group) {
+  return group.entries
+    .map(getEntryTimeRange)
+    .filter(Boolean)
+    .join("; ");
+}
+
+function getGroupedHoursLabel(group) {
+  return group.totalHours === 0 ? "0" : group.totalHours.toFixed(2);
+}
+
+function getWeeklySummaryKey(entry) {
+  return [
+    getEntryType(entry),
+    getEntrySummaryName(entry),
+    getEntrySummaryNumber(entry),
+    getEntryLeaveNote(entry)
+  ].map(function(value) {
+    return String(value || "").trim().toLowerCase();
+  }).join("||");
+}
+
+function groupEntriesForWeeklySummary(entries) {
+  const groups = [];
+  const byKey = new Map();
+
+  sortEntriesForEmail(entries).forEach(function(entry) {
+    const key = getWeeklySummaryKey(entry);
+    let group = byKey.get(key);
+
+    if (!group) {
+      group = {
+        jobName: getEntrySummaryName(entry),
+        jobNumber: getEntrySummaryNumber(entry),
+        dayEntries: {}
+      };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+
+    if (!group.dayEntries[entry.day]) {
+      group.dayEntries[entry.day] = [];
+    }
+
+    group.dayEntries[entry.day].push(entry);
+  });
+
+  return groups;
+}
+
+function getWeeklySummaryDayCell(entries, day) {
+  const dayEntries = entries || [];
+
+  if (!dayEntries.length) {
+    return '<td data-label="' + day + '" class="empty-cell">-</td>';
+  }
+
+  const total = dayEntries.reduce(function(sum, entry) {
+    return sum + getEntryTotalHours(entry);
+  }, 0);
+  const details = dayEntries
+    .map(function(entry) {
+      const time = getEntryTimeRange(entry);
+      return time ? time + " (" + getEntryHoursLabel(entry) + ")" : "";
+    })
+    .filter(Boolean)
+    .join("<br>");
+
+  return '<td data-label="' + day + '"><b>' + (total === 0 ? "0" : total.toFixed(2)) + '</b>' +
+    (details ? '<span class="entry-cell-detail">' + details + '</span>' : '') +
+    '</td>';
+}
+
 function getEntriesByEmailDay(entries) {
   const sortedEntries = sortEntriesForEmail(entries);
 
@@ -4326,6 +4465,7 @@ function getEntriesByEmailDay(entries) {
       day,
       heading: getEmailDayHeading(day, dayEntries),
       entries: dayEntries,
+      groupedEntries: groupEntriesForDisplay(dayEntries),
       table: getEmailTableRows(dayEntries)
     };
   }).filter(Boolean);
@@ -4359,7 +4499,7 @@ function getEmailTableRows(entries) {
     { label: "Note", width: 18 },
     { label: "Lunch", width: 7 },
     { label: "Night", width: 7 },
-    { label: "Time", width: 13 },
+    { label: "Time", width: 28 },
     { label: "Hours", width: 6 }
   ];
 
@@ -4371,16 +4511,16 @@ function getEmailTableRows(entries) {
     return "-".repeat(column.width);
   }).join("-+-");
 
-  const rows = entries.map(function(entry) {
+  const rows = groupEntriesForDisplay(entries).map(function(group) {
     const values = [
-      entry.jobName,
-      entry.jobNumber,
-      getEntryTypeLabel(entry),
-      getEntryLeaveNote(entry),
-      entry.tookLunch ? "Yes" : "No",
-      entry.nightWork ? "Yes" : "No",
-      isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : entry.timeIn + "-" + entry.timeOut,
-      getEntryHoursLabel(entry)
+      group.jobName,
+      group.jobNumber,
+      group.typeLabel,
+      group.note,
+      group.tookLunch ? "Yes" : "No",
+      group.nightWork ? "Yes" : "No",
+      getGroupedTimeText(group),
+      getGroupedHoursLabel(group)
     ];
 
     return values.map(function(value, index) {
@@ -4470,17 +4610,17 @@ function renderPreviousWeeks() {
     const weekIndex = previousWeeks.indexOf(week);
     const groups = getEntriesByEmailDay(week.entries || []);
     const groupHtml = groups.map(function(group) {
-      const rows = group.entries.map(function(entry) {
+      const rows = group.groupedEntries.map(function(entryGroup) {
         return `
           <tr>
-            <td data-label="Job Name">${escapeHtml(entry.jobName)}</td>
-            <td data-label="Job Number">${escapeHtml(entry.jobNumber)}</td>
-            <td data-label="Type">${escapeHtml(getEntryTypeLabel(entry))}</td>
-            <td data-label="Note">${escapeHtml(getEntryLeaveNote(entry))}</td>
-            <td data-label="Lunch"><input type="checkbox" disabled ${entry.tookLunch ? "checked" : ""} /></td>
-            <td data-label="Night Work"><input type="checkbox" disabled ${entry.nightWork ? "checked" : ""} /></td>
-            <td data-label="Time">${isLeaveEntry(entry) && entry.leaveType !== "half_day" ? "" : escapeHtml(entry.timeIn) + "-" + escapeHtml(entry.timeOut)}</td>
-            <td data-label="Hours"><b>${getEntryHoursLabel(entry)}</b></td>
+            <td data-label="Job Name">${escapeHtml(entryGroup.jobName)}</td>
+            <td data-label="Job Number">${escapeHtml(entryGroup.jobNumber)}</td>
+            <td data-label="Type">${escapeHtml(entryGroup.typeLabel)}</td>
+            <td data-label="Note">${escapeHtml(entryGroup.note)}</td>
+            <td data-label="Lunch"><input type="checkbox" disabled ${entryGroup.tookLunch ? "checked" : ""} /></td>
+            <td data-label="Night Work"><input type="checkbox" disabled ${entryGroup.nightWork ? "checked" : ""} /></td>
+            <td data-label="Time">${escapeHtml(getGroupedTimeText(entryGroup))}</td>
+            <td data-label="Hours"><b>${getGroupedHoursLabel(entryGroup)}</b></td>
           </tr>
         `;
       }).join("");
@@ -4557,32 +4697,15 @@ function render() {
     return;
   }
 
-  const sortedEntries = entries.slice().sort(function(a, b) {
-    const dayDifference = days.indexOf(a.day) - days.indexOf(b.day);
-
-    if (dayDifference !== 0) {
-      return dayDifference;
-    }
-
-    return String(a.jobName || "").localeCompare(String(b.jobName || ""));
-  });
-
-  const rows = sortedEntries.map(function(entry) {
-    const entryType = getEntryType(entry);
-    const summaryName = entryType === "work" ? entry.jobName : getEntryTypeLabel(entry);
-    const summaryNumber = entryType === "work" ? entry.jobNumber : (entry.jobNumber || getEntryLeaveNote(entry) || "");
+  const rows = groupEntriesForWeeklySummary(entries).map(function(group) {
     const dayCells = days.map(function(day) {
-      if (entry.day !== day) {
-        return '<td data-label="' + day + '" class="empty-cell">-</td>';
-      }
-
-      return '<td data-label="' + day + '"><b>' + getEntryHoursLabel(entry) + "</b></td>";
+      return getWeeklySummaryDayCell(group.dayEntries[day], day);
     }).join("");
 
     return `
       <tr>
-        <td data-label="Job Name">${escapeHtml(summaryName)}</td>
-        <td data-label="Job Number">${escapeHtml(summaryNumber)}</td>
+        <td data-label="Job Name">${escapeHtml(group.jobName)}</td>
+        <td data-label="Job Number">${escapeHtml(group.jobNumber)}</td>
         ${dayCells}
       </tr>
     `;
