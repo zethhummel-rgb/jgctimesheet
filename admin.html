@@ -1049,6 +1049,101 @@ button:hover,
     background: rgba(55, 240, 90, 0.32);
 }
 
+.admin-schedule-agenda {
+    display: none;
+    gap: 10px;
+}
+
+.admin-agenda-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(55, 240, 90, 0.25);
+    border-radius: 8px;
+    background: rgba(12, 30, 23, 0.96);
+}
+
+.admin-agenda-toolbar strong {
+    color: #37f05a;
+}
+
+.admin-agenda-toolbar button {
+    width: auto;
+    padding: 8px 10px;
+    border-radius: 999px;
+}
+
+.admin-agenda-day-group {
+    display: grid;
+    gap: 7px;
+}
+
+.admin-agenda-day-header {
+    color: #f6fff7;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.admin-agenda-item {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-left: 5px solid #37f05a;
+    border-radius: 8px;
+    background: #f8fff8;
+    color: #102018;
+    text-align: left;
+}
+
+button.admin-agenda-item {
+    width: 100%;
+    cursor: pointer;
+}
+
+.admin-agenda-item.vehicle {
+    border-left-color: #7d93ff;
+}
+
+.admin-agenda-item.training {
+    border-left-color: #d368ff;
+}
+
+.admin-agenda-item.general {
+    border-left-color: #9ba8b2;
+}
+
+.admin-agenda-item.vacation {
+    border-left-color: #f0a51d;
+}
+
+.admin-agenda-time {
+    display: block;
+    color: #47534b;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.admin-agenda-title {
+    display: block;
+    color: #102018;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.admin-agenda-meta {
+    display: block;
+    color: #39453f;
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 3px;
+}
+
 .admin-schedule-head,
 .admin-schedule-day {
     border: 0;
@@ -1717,6 +1812,16 @@ button.admin-schedule-event-button.admin-event-vacation {
         text-align: center;
     }
 
+    .admin-schedule-controls,
+    .admin-schedule-legend,
+    #adminScheduleCalendar {
+        display: none;
+    }
+
+    .admin-schedule-agenda {
+        display: grid;
+    }
+
     .admin-schedule-grid {
         display: grid;
         overflow-x: auto;
@@ -1802,6 +1907,7 @@ button.admin-schedule-event-button.admin-event-vacation {
             <span class="vacation">Vacation</span>
         </div>
         <div id="adminScheduleCalendar" class="admin-schedule-grid"></div>
+        <div id="adminScheduleAgenda" class="admin-schedule-agenda small">Loading schedule...</div>
     </div>
 </div>
 
@@ -3234,6 +3340,178 @@ function getAdminScheduleTitle(event) {
     return event.title || event.job_name || event.location || getAdminScheduleTypeLabel(getAdminScheduleType(event));
 }
 
+function getAdminScheduleTaggedNames(event) {
+    const names = Array.isArray(event.employee_names) ? event.employee_names : [];
+    const emails = Array.isArray(event.employee_emails) ? event.employee_emails : [];
+    const seen = new Set();
+
+    return names
+        .concat(emails)
+        .map((value) => String(value || "").trim())
+        .filter((value) => {
+            const key = normalizeWorkerName(value);
+
+            if (!key || seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+}
+
+function formatAdminAgendaDayHeader(value) {
+    const date = makeAdminScheduleDate(value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const dateValue = formatAdminScheduleDateValue(date);
+    const prefix = dateValue === formatAdminScheduleDateValue(today)
+        ? "Today"
+        : dateValue === formatAdminScheduleDateValue(tomorrow)
+            ? "Tomorrow"
+            : date.toLocaleDateString("en-CA", { weekday: "short" });
+
+    return prefix + " - " + date.toLocaleDateString("en-CA", {
+        month: "short",
+        day: "numeric"
+    });
+}
+
+function getAdminVacationAgendaRange(request) {
+    const start = makeAdminScheduleDate(request.start_date);
+    const end = makeAdminScheduleDate(request.end_date || request.start_date);
+    const startText = start.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    const endText = end.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    return startText === endText ? startText : startText + " to " + endText;
+}
+
+function buildAdminScheduleAgendaItems() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayValue = formatAdminScheduleDateValue(today);
+    const scheduleItems = (scheduleEvents || [])
+        .filter((event) => String(event.event_date || "") >= todayValue)
+        .map((event) => {
+            const type = getAdminScheduleType(event);
+            const taggedNames = getAdminScheduleTaggedNames(event);
+
+            return {
+                id: event.id || "",
+                source: "schedule",
+                type,
+                date: event.event_date,
+                sortTime: event.start_time || "99:99",
+                title: getAdminScheduleTitle(event),
+                meta: [
+                    getAdminScheduleTypeLabel(type),
+                    [formatAdminScheduleTime(event.start_time), event.end_time ? "to " + formatAdminScheduleTime(event.end_time) : ""].filter(Boolean).join(" "),
+                    event.job_number ? "Job #: " + event.job_number : "",
+                    event.location || "",
+                    event.maintenance_reason ? "Reason: " + event.maintenance_reason : "",
+                    taggedNames.length ? "Tagged: " + taggedNames.join(", ") : ""
+                ].filter(Boolean).join(" | ")
+            };
+        });
+    const vacationItems = (vacationRequests || [])
+        .filter((request) =>
+            String(request.status || "").toLowerCase() === "approved" &&
+            String(request.end_date || request.start_date || "") >= todayValue
+        )
+        .map((request) => {
+            const startValue = String(request.start_date || "");
+            const endValue = String(request.end_date || request.start_date || "");
+
+            return {
+                id: request.id || "",
+                source: "vacation",
+                type: "vacation",
+                date: startValue < todayValue && todayValue <= endValue ? todayValue : startValue,
+                sortTime: "99:99",
+                title: "Vacation - " + (request.worker_display_name || request.worker_name || "Employee"),
+                meta: getAdminVacationAgendaRange(request)
+            };
+        });
+
+    return scheduleItems
+        .concat(vacationItems)
+        .filter((item) => item.date)
+        .sort((a, b) => {
+            const dateDifference = String(a.date || "").localeCompare(String(b.date || ""));
+
+            if (dateDifference !== 0) {
+                return dateDifference;
+            }
+
+            return String(a.sortTime || "").localeCompare(String(b.sortTime || ""));
+        })
+        .slice(0, 7);
+}
+
+function renderAdminScheduleAgenda() {
+    const list = document.getElementById("adminScheduleAgenda");
+
+    if (!list) {
+        return;
+    }
+
+    const items = buildAdminScheduleAgendaItems();
+
+    if (!items.length) {
+        list.innerHTML = `
+            <div class="admin-agenda-toolbar">
+                <strong>Upcoming Schedule</strong>
+                <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
+            </div>
+            <div class="small">No upcoming schedule items found.</div>
+        `;
+        return;
+    }
+
+    const groups = items.reduce((grouped, item) => {
+        grouped[item.date] = grouped[item.date] || [];
+        grouped[item.date].push(item);
+        return grouped;
+    }, {});
+
+    list.innerHTML = `
+        <div class="admin-agenda-toolbar">
+            <strong>Upcoming Schedule</strong>
+            <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
+        </div>
+        ${Object.keys(groups).map((dateValue) => `
+            <div class="admin-agenda-day-group">
+                <div class="admin-agenda-day-header">${escapeHtml(formatAdminAgendaDayHeader(dateValue))}</div>
+                ${groups[dateValue].map((item) => {
+                    const timeText = item.sortTime === "99:99" ? "All day" : formatAdminScheduleTime(item.sortTime);
+                    const content = `
+                        <span class="admin-agenda-time">${escapeHtml(timeText)}</span>
+                        <span>
+                            <span class="admin-agenda-title">${escapeHtml(item.title)}</span>
+                            <span class="admin-agenda-meta">${escapeHtml(item.meta)}</span>
+                        </span>
+                    `;
+
+                    if (item.source === "schedule") {
+                        return `
+                            <button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="openAdminScheduleModal('${escapeHtml(item.date)}'); editAdminScheduleEvent('${escapeHtml(item.id)}');">
+                                ${content}
+                            </button>
+                        `;
+                    }
+
+                    return `
+                        <div class="admin-agenda-item ${escapeHtml(item.type)}">
+                            ${content}
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        `).join("")}
+    `;
+}
+
 function adminScheduleVacationTouchesDate(request, dateValue) {
     return String(request.start_date || "") <= dateValue && dateValue <= String(request.end_date || request.start_date || "");
 }
@@ -3303,6 +3581,7 @@ function renderAdminScheduleCalendar() {
 
     calendar.innerHTML = html;
     applyAdminScheduleEventColors();
+    renderAdminScheduleAgenda();
 }
 
 function renderAdminScheduleDayEvents(dateValue) {
