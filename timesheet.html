@@ -1708,6 +1708,80 @@ function getEntryHours(entry) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+function normalizeDuplicateValue(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function getDuplicateWeekStart(entry) {
+  return String(entry && (entry.weekStartValue || entry.week_start) || "");
+}
+
+function getDuplicateDay(entry) {
+  return normalizeDuplicateValue(entry && (entry.day || entry.day_of_week));
+}
+
+function getDuplicateJobName(entry) {
+  return normalizeDuplicateValue(cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || ""));
+}
+
+function getDuplicateTime(entry, fieldName, fallbackFieldName) {
+  const value = entry && (entry[fieldName] || entry[fallbackFieldName]);
+  return normalizeTimeForStorage(value || "00:00");
+}
+
+function isDuplicateTimesheetEntry(existingEntry, newEntry) {
+  const existing = normalizeTimesheetEntry(existingEntry || {});
+  const incoming = normalizeTimesheetEntry(newEntry || {});
+
+  if (existing.id && incoming.id && String(existing.id) === String(incoming.id)) {
+    return false;
+  }
+
+  return getDuplicateWeekStart(existing) === getDuplicateWeekStart(incoming) &&
+    getDuplicateDay(existing) === getDuplicateDay(incoming) &&
+    getDuplicateJobName(existing) === getDuplicateJobName(incoming) &&
+    getDuplicateTime(existing, "timeIn", "time_in") === getDuplicateTime(incoming, "timeIn", "time_in") &&
+    getDuplicateTime(existing, "timeOut", "time_out") === getDuplicateTime(incoming, "timeOut", "time_out") &&
+    Math.abs(getEntryHours(existing) - getEntryHours(incoming)) < 0.005;
+}
+
+async function findDuplicateTimesheetEntry(entry) {
+  const localDuplicate = loadTimesheets().find(function(existingEntry) {
+    return isDuplicateTimesheetEntry(existingEntry, entry);
+  });
+
+  if (localDuplicate) {
+    return localDuplicate;
+  }
+
+  if (!supabaseClient || !navigator.onLine) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("timesheet_entries")
+      .select("id,worker_name,week_start,week_end,job_name,job_number,day_of_week,time_in,time_out,hours,took_lunch,night_work,entry_type,leave_type,leave_note")
+      .eq("worker_name", currentUser)
+      .eq("week_start", getDuplicateWeekStart(entry))
+      .eq("day_of_week", entry.day || entry.day_of_week || "");
+
+    if (error) {
+      console.warn("Duplicate timesheet check could not run.", error);
+      return null;
+    }
+
+    return (data || [])
+      .map(rowToEntry)
+      .find(function(existingEntry) {
+        return isDuplicateTimesheetEntry(existingEntry, entry);
+      }) || null;
+  } catch (error) {
+    console.warn("Duplicate timesheet check could not run.", error);
+    return null;
+  }
+}
+
 function isFullDayLeaveEntry(entry) {
   const type = getEntryType(entry);
   return type === "sick" || type === "civic_holiday" || (type === "vacation" && (entry.leaveType || entry.leave_type) !== "half_day");
@@ -3378,6 +3452,16 @@ async function submitTime() {
   };
 
   const status = document.getElementById("submitStatus");
+  const duplicateEntry = await findDuplicateTimesheetEntry(entry);
+
+  if (duplicateEntry) {
+    const duplicateDay = duplicateEntry.day || duplicateEntry.day_of_week || entry.day || "";
+    const duplicateJob = duplicateEntry.jobName || duplicateEntry.job_name || entry.jobName || "";
+    status.innerText = "Duplicate blocked. This same day, job, time, and hours entry is already saved.";
+    alert("Duplicate entry blocked.\n\n" + duplicateDay + " - " + duplicateJob + " already has the same time and hours.");
+    return;
+  }
+
   let stored = loadTimesheets();
   status.innerText = editingEntryId ? "Updating entry..." : "Saving entry...";
 
