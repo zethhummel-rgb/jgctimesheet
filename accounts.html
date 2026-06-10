@@ -55,20 +55,35 @@ h1 {
 }
 
 .admin-tabs {
-    max-width: 1100px;
-    margin: 0 auto 14px;
+    position: sticky;
+    top: 66px;
+    z-index: 120;
+    max-width: none;
+    margin: 0 -20px 14px;
+    padding: 7px max(20px, calc((100vw - 1100px) / 2 + 20px));
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     gap: 8px;
+    overflow-x: auto;
+    background: rgba(6, 20, 17, 0.98);
+    border-top: 1px solid rgba(57, 200, 72, 0.25);
+    border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(57, 200, 72, 0.8) rgba(6, 20, 17, 0.98);
 }
 
 .admin-tabs button {
+    flex: 0 0 auto;
     padding: 8px 10px;
     background: #20382a;
     border: 1px solid rgba(63, 125, 77, 0.45);
     color: #ffffff;
     font-size: 13px;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 .admin-tabs button.active {
@@ -204,8 +219,7 @@ button:hover {
     }
 
     .admin-tabs {
-        position: sticky;
-        top: 0;
+        top: 58px;
         z-index: 20;
         max-width: none;
         margin: 0 -10px 12px;
@@ -252,12 +266,6 @@ button:hover {
 <h1>Accounts</h1>
 <div id="currentUser" class="user-bar"></div>
 
-<div class="actions">
-    <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
-    <button class="secondary" type="button" onclick="window.location.href='admin.html'">Back to Admin</button>
-    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
-</div>
-
 <div class="admin-tabs">
     <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
@@ -279,6 +287,12 @@ button:hover {
     <button type="button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
     <button type="button" class="active">Accounts</button>
     <button type="button" onclick="window.location.href='admin.html'">Home</button>
+</div>
+
+<div class="actions">
+    <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
+    <button class="secondary" type="button" onclick="window.location.href='admin.html'">Back to Admin</button>
+    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
 <div class="panel">
