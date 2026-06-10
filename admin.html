@@ -2697,7 +2697,8 @@ function showTab(tab) {
 }
 
 function getRequestedAdminTab() {
-    const requested = String(window.location.hash || "").replace("#", "");
+    const params = new URLSearchParams(window.location.search);
+    const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
     const allowed = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
     return allowed.includes(requested) ? requested : "summary";
 }
@@ -5321,7 +5322,7 @@ function renderTimesheets() {
     const list = document.getElementById("timesheetsList");
     const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").toLowerCase().includes(filter));
 
-    const submittedWeeksHtml = filtered.length
+    const submittedWeeksTableHtml = filtered.length
         ? `
             <div class="table-wrap">
                 <table>
@@ -5349,7 +5350,21 @@ function renderTimesheets() {
                 </table>
             </div>
         `
-        : '<h3>Submitted Weeks</h3><div class="small">No finalized submitted timesheets found.</div>';
+        : '<div class="small">No finalized submitted timesheets found.</div>';
+    const submittedWeeksHtml = `
+        <details class="timesheet-worker-group" ${filter ? "open" : ""}>
+            <summary>
+                <span>
+                    Final Submitted Timesheets
+                    <span class="timesheet-worker-meta">${filtered.length} submitted week${filtered.length === 1 ? "" : "s"}</span>
+                </span>
+                <span class="timesheet-worker-count" title="Submitted weeks">${filtered.length}</span>
+            </summary>
+            <div class="timesheet-worker-body">
+                ${submittedWeeksTableHtml}
+            </div>
+        </details>
+    `;
 
     list.innerHTML = `
         ${renderLiveTimesheetEntries(filter)}
@@ -5811,7 +5826,6 @@ function renderLiveTimesheetEntries(filter) {
                 </details>
             `;
         }).join("")}
-        <h3>Final Submitted Timesheets</h3>
     `;
 }
 
