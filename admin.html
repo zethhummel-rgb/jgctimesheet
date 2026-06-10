@@ -1905,6 +1905,28 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="sickDaysSection" class="card" hidden>
     <h2>Sick Days</h2>
+    <div class="sub-card" style="margin-bottom:14px;">
+        <h3>Add Sick Day To Timesheet</h3>
+        <div class="small" style="margin-bottom:10px;">This saves the sick day directly to the employee's current timesheet entries, the same as if they entered it themselves.</div>
+        <div class="announcement-grid">
+            <div>
+                <label>Employee</label>
+                <select id="adminSickDayWorker"></select>
+            </div>
+            <div>
+                <label>Sick Date</label>
+                <input id="adminSickDayDate" type="date">
+            </div>
+            <div class="full">
+                <label>Reason / Note</label>
+                <input id="adminSickDayReason" placeholder="Example: Sick, headache, appointment">
+            </div>
+        </div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="addAdminSickDayToTimesheet()">Add Sick Day</button>
+        </div>
+        <div id="adminSickDayStatus" class="small" style="margin-top:8px;"></div>
+    </div>
     <div class="filters">
         <div>
             <label>Worker</label>
@@ -5458,7 +5480,7 @@ function getAdminTimesheetEntryLabel(entry) {
 
 function getAdminSpecialEntryJobName(entryType, leaveType) {
     if (entryType === "sick") {
-        return "Sick Day";
+        return "Sick";
     }
 
     if (entryType === "vacation") {
@@ -5478,6 +5500,153 @@ function capitalizeWords(value) {
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function getAdminSickDayWorkerKey(account) {
+    return normalizeWorkerName(account && (account.worker_key || account.display_name || account.email || ""));
+}
+
+function getAdminSickDayWorkerLabel(account) {
+    const name = account && (account.display_name || account.worker_key || account.email || "Unknown Employee");
+    const detail = account && account.email && account.email !== name ? " - " + account.email : "";
+    return name + detail;
+}
+
+function renderAdminSickDayWorkerOptions() {
+    const select = document.getElementById("adminSickDayWorker");
+
+    if (!select) {
+        return;
+    }
+
+    const previousValue = select.value;
+    const approvedAccounts = getApprovedAccounts()
+        .filter((account) => getAdminSickDayWorkerKey(account))
+        .slice()
+        .sort((a, b) => getAdminSickDayWorkerLabel(a).localeCompare(getAdminSickDayWorkerLabel(b)));
+
+    select.innerHTML = approvedAccounts.length
+        ? approvedAccounts.map((account) => {
+            const key = getAdminSickDayWorkerKey(account);
+            return `<option value="${escapeHtml(key)}">${escapeHtml(getAdminSickDayWorkerLabel(account))}</option>`;
+        }).join("")
+        : '<option value="">No approved employees found</option>';
+
+    if (previousValue && approvedAccounts.some((account) => getAdminSickDayWorkerKey(account) === previousValue)) {
+        select.value = previousValue;
+    }
+
+    const dateInput = document.getElementById("adminSickDayDate");
+    if (dateInput && !dateInput.value) {
+        dateInput.value = formatAdminScheduleDateValue(new Date());
+    }
+}
+
+function getAdminTimesheetWeekStartForDate(date) {
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
+}
+
+function hasAdminSickDayForDate(workerKey, dateValue) {
+    const selectedDate = makeLocalDate(dateValue);
+    const selectedDateText = formatAdminScheduleDateValue(selectedDate);
+
+    return buildAdminSickDayRows().some((row) =>
+        normalizeWorkerName(row.worker) === normalizeWorkerName(workerKey) &&
+        row.date &&
+        formatAdminScheduleDateValue(row.date) === selectedDateText
+    );
+}
+
+function setAdminSickDayStatus(message, isError) {
+    const status = document.getElementById("adminSickDayStatus");
+
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message || "";
+    status.style.color = isError ? "#b42318" : "";
+}
+
+async function addAdminSickDayToTimesheet() {
+    if (!supabaseClient) {
+        setAdminSickDayStatus("Supabase is not available. Sick day could not be saved.", true);
+        return;
+    }
+
+    const workerSelect = document.getElementById("adminSickDayWorker");
+    const dateInput = document.getElementById("adminSickDayDate");
+    const reasonInput = document.getElementById("adminSickDayReason");
+    const workerKey = workerSelect ? workerSelect.value : "";
+    const dateValue = dateInput ? dateInput.value : "";
+    const reason = reasonInput ? reasonInput.value.trim() : "";
+
+    if (!workerKey || !dateValue) {
+        setAdminSickDayStatus("Choose an employee and sick date.", true);
+        return;
+    }
+
+    if (hasAdminSickDayForDate(workerKey, dateValue)) {
+        setAdminSickDayStatus("That employee already has a sick day saved for this date.", true);
+        return;
+    }
+
+    const selectedDate = makeLocalDate(dateValue);
+
+    if (Number.isNaN(selectedDate.getTime())) {
+        setAdminSickDayStatus("Choose a valid sick date.", true);
+        return;
+    }
+
+    const weekStartDate = getAdminTimesheetWeekStartForDate(selectedDate);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    const row = {
+        worker_name: workerKey,
+        week_start: formatAdminScheduleDateValue(weekStartDate),
+        week_end: formatTimesheetPdfDate(weekEndDate),
+        job_name: "Sick",
+        job_number: reason || "Sick",
+        day_of_week: getTimesheetDayNames()[selectedDate.getDay()],
+        time_in: "07:00",
+        time_out: "12:00",
+        hours: 0.01,
+        took_lunch: false,
+        night_work: false,
+        entry_type: "sick",
+        leave_type: "",
+        leave_note: ""
+    };
+
+    setAdminSickDayStatus("Saving sick day...");
+
+    const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .insert(row)
+        .select()
+        .single();
+
+    if (error) {
+        setAdminSickDayStatus("Sick day could not be saved: " + error.message, true);
+        return;
+    }
+
+    if (data) {
+        liveTimesheetEntries = [data].concat(liveTimesheetEntries);
+    }
+
+    if (reasonInput) {
+        reasonInput.value = "";
+    }
+
+    setAdminSickDayStatus("Sick day saved to " + workerKey + "'s timesheet.");
+    renderTimesheets();
+    renderSickDays();
+    renderEmployeeProfile();
+    renderPortalSummary();
+}
+
 function buildAdminSickDayRows() {
     const liveRows = liveTimesheetEntries
         .filter((entry) => getAdminTimesheetEntryType(entry) === "sick")
@@ -5487,7 +5656,7 @@ function buildAdminSickDayRows() {
             worker: entry.worker_name || "",
             day: entry.day_of_week || "",
             date: getLiveTimesheetEntryDate(entry),
-            reason: getAdminTimesheetLeaveNote(entry),
+            reason: getAdminTimesheetLeaveNote(entry) || entry.job_number || "",
             status: "Current Week",
             submitted: entry.created_at || ""
         }));
@@ -5510,7 +5679,7 @@ function buildAdminSickDayRows() {
                     worker: week.worker_name || getTimesheetEntryValue(entry, "user", "worker_name", ""),
                     day: getTimesheetEntryValue(entry, "day", "day_of_week", ""),
                     date: getTimesheetEntryDateFromEntry(entry),
-                    reason: getAdminTimesheetLeaveNote(entry),
+                    reason: getAdminTimesheetLeaveNote(entry) || getTimesheetEntryValue(entry, "jobNumber", "job_number", ""),
                     status: "Submitted",
                     submitted: week.submitted_at || ""
                 });
@@ -5553,6 +5722,8 @@ function renderSickDays() {
     if (!list) {
         return;
     }
+
+    renderAdminSickDayWorkerOptions();
 
     const filter = document.getElementById("sickDaysWorkerFilter").value.trim().toLowerCase();
     const rows = buildAdminSickDayRows().filter((row) => !filter || String(row.worker || "").toLowerCase().includes(filter));
@@ -6105,15 +6276,15 @@ async function saveLiveTimesheetEntryEdit() {
         week_end: formatTimesheetPdfDate(weekEndDate),
         day_of_week: day,
         job_name: entryType === "work" ? jobName : getAdminSpecialEntryJobName(entryType, leaveType),
-        job_number: entryType === "work" ? jobNumber : leaveNote,
-        time_in: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00",
-        time_out: entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00",
+        job_number: entryType === "work" ? jobNumber : (leaveNote || getAdminSpecialEntryJobName(entryType, leaveType)),
+        time_in: entryType === "sick" ? "07:00" : (entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeIn : "00:00"),
+        time_out: entryType === "sick" ? "12:00" : (entryType === "work" || (entryType === "vacation" && leaveType === "half_day") ? timeOut : "00:00"),
         took_lunch: entryType === "work" ? tookLunch : false,
         night_work: entryType === "work" ? nightWork : false,
-        hours: entryType === "work" ? calculateAdminTimesheetHours(timeIn, timeOut, tookLunch) : (entryType === "vacation" && leaveType === "half_day" ? calculateAdminTimesheetHours(timeIn, timeOut, false) : 0),
+        hours: entryType === "work" ? calculateAdminTimesheetHours(timeIn, timeOut, tookLunch) : (entryType === "vacation" && leaveType === "half_day" ? calculateAdminTimesheetHours(timeIn, timeOut, false) : 0.01),
         entry_type: entryType,
         leave_type: entryType === "vacation" ? leaveType : "",
-        leave_note: leaveNote
+        leave_note: entryType === "sick" ? "" : leaveNote
     };
 
     const { data, error } = await supabaseClient
