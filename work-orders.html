@@ -1029,6 +1029,28 @@ function getTimesheetEntryDate(entry) {
   return formatLocalDate(weekStart);
 }
 
+function getWeekStartValueForDate(dateValue) {
+  const date = makeLocalDate(dateValue);
+
+  if (!date) {
+    return "";
+  }
+
+  date.setDate(date.getDate() - date.getDay());
+  return formatLocalDate(date);
+}
+
+function getTimesheetEntryWeekStartValue(entry) {
+  const explicitWeekStart = entry.week_start || entry.weekStartValue;
+
+  if (explicitWeekStart) {
+    return explicitWeekStart;
+  }
+
+  const entryDate = getTimesheetEntryDate(entry);
+  return entryDate ? getWeekStartValueForDate(entryDate) : "";
+}
+
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -1135,8 +1157,9 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
   const normalizedEmployeeName = normalizeEmployeeMatchKey(employee.employee_name);
   const normalizedJob = normalizeJobNumber(jobNumber);
   const normalizedJobName = normalizeText(jobName);
+  const workWeekStart = getWeekStartValueForDate(workDate);
 
-  return timesheetEntries.filter((entry) => {
+  const matchingEntries = timesheetEntries.filter((entry) => {
     if (normalizeText(entry.entry_type || "work") !== "work") {
       return false;
     }
@@ -1155,9 +1178,16 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
       : entryJobName === normalizedJobName;
 
     return workerMatches &&
-      jobMatches &&
-      getTimesheetEntryDate(entry) === workDate;
+      jobMatches;
   });
+
+  const exactDateMatches = matchingEntries.filter((entry) => getTimesheetEntryDate(entry) === workDate);
+
+  if (exactDateMatches.length || !workWeekStart) {
+    return exactDateMatches;
+  }
+
+  return matchingEntries.filter((entry) => getTimesheetEntryWeekStartValue(entry) === workWeekStart);
 }
 
 function buildLabourPreviewRows() {
