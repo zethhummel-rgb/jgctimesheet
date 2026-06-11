@@ -352,6 +352,26 @@ button.danger:hover {
     flex: 1 1 44%;
   }
 }
+
+body.embedded-task-page {
+  padding: 0;
+  background: transparent;
+}
+
+body.embedded-task-page .page {
+  max-width: none;
+}
+
+body.embedded-task-page .logo-wrap,
+body.embedded-task-page .top-actions,
+body.embedded-task-page .user-bar,
+body.embedded-task-page h1 {
+  display: none;
+}
+
+body.embedded-task-page .panel {
+  margin-bottom: 14px;
+}
 </style>
 </head>
 
@@ -465,6 +485,7 @@ button.danger:hover {
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
+const taskPageParams = new URLSearchParams(window.location.search);
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key || "";
 const currentWorkerEmail = normalizeWorkerName(worker.email);
@@ -473,6 +494,7 @@ const currentWorkerIsAdmin = isAdminWorker(worker.key, worker.role, worker.email
 let currentUserId = "";
 let tasks = [];
 let profiles = [];
+let taskAssignees = [];
 let jobs = [];
 let activeFilter = "all";
 let editingTaskId = "";
@@ -515,6 +537,10 @@ const CATEGORY_LABELS = {
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
+if (taskPageParams.get("embedded") === "1") {
+  document.body.classList.add("embedded-task-page");
+}
+
 function setTaskFormStatus(message, isError) {
   const element = document.getElementById("taskFormStatus");
   element.textContent = message || "";
@@ -531,10 +557,22 @@ function getProfileName(profile) {
   return profile ? (profile.display_name || profile.worker_key || profile.email || "Employee") : "";
 }
 
+function getAssigneeName(assignee) {
+  return assignee ? (assignee.name || assignee.worker_key || assignee.email || "Employee") : "";
+}
+
+function getSelectedAssignedRecord() {
+  const value = document.getElementById("taskAssignedTo").value;
+  return taskAssignees.find((item) => item.value === value) || null;
+}
+
 function getSelectedAssignedName() {
-  const assignedId = document.getElementById("taskAssignedTo").value;
-  const profile = profiles.find((item) => item.id === assignedId);
-  return profile ? getProfileName(profile) : "";
+  return getAssigneeName(getSelectedAssignedRecord());
+}
+
+function getSelectedAssignedProfileId() {
+  const assignee = getSelectedAssignedRecord();
+  return assignee && assignee.profileId ? assignee.profileId : null;
 }
 
 function getTaskStatusLabel(value) {
@@ -655,10 +693,10 @@ function setTaskFilter(filter) {
 }
 
 function renderTaskFormOptions() {
-  const assignmentOptions = profiles
+  const assignmentOptions = taskAssignees
     .slice()
-    .sort((a, b) => getProfileName(a).localeCompare(getProfileName(b)))
-    .map((profile) => '<option value="' + escapeHtml(profile.id) + '">' + escapeHtml(getProfileName(profile)) + '</option>')
+    .sort((a, b) => getAssigneeName(a).localeCompare(getAssigneeName(b)))
+    .map((assignee) => '<option value="' + escapeHtml(assignee.value) + '">' + escapeHtml(getAssigneeName(assignee)) + (assignee.source ? ' - ' + escapeHtml(assignee.source) : '') + '</option>')
     .join("");
   document.getElementById("taskAssignedTo").innerHTML = '<option value="">Unassigned</option>' + assignmentOptions;
 
@@ -672,6 +710,102 @@ function renderTaskFormOptions() {
   document.getElementById("taskJobNumberOptions").innerHTML = jobs.map((job) =>
     '<option value="' + escapeHtml(job.job_number || "") + '">' + escapeHtml(job.job_name || "") + '</option>'
   ).join("");
+}
+
+function mergeAssigneeSource(assignee, source) {
+  const current = String(assignee.source || "").split(" / ").filter(Boolean);
+  if (source && !current.includes(source)) {
+    current.push(source);
+  }
+  assignee.source = current.join(" / ");
+}
+
+function buildTaskAssignees(profileRows, labourRows) {
+  const result = [];
+  const byKey = new Map();
+
+  function upsertAssignee(record) {
+    const keys = record.keys.filter(Boolean);
+    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
+
+    if (existing) {
+      mergeAssigneeSource(existing, record.source);
+
+      if (!existing.profileId && record.profileId) {
+        existing.profileId = record.profileId;
+        existing.value = record.profileId;
+      }
+
+      keys.forEach((key) => byKey.set(key, existing));
+      return;
+    }
+
+    const assignee = {
+      value: record.profileId || record.value,
+      profileId: record.profileId || null,
+      name: record.name,
+      email: record.email || "",
+      workerKey: record.workerKey || "",
+      source: record.source || ""
+    };
+
+    result.push(assignee);
+    keys.forEach((key) => byKey.set(key, assignee));
+  }
+
+  (profileRows || []).forEach((profile) => {
+    const name = getProfileName(profile);
+    upsertAssignee({
+      value: profile.id,
+      profileId: profile.id,
+      name,
+      email: profile.email || "",
+      workerKey: profile.worker_key || "",
+      source: "Portal",
+      keys: [
+        "profile:" + profile.id,
+        "name:" + normalizeWorkerName(name),
+        profile.email ? "email:" + normalizeWorkerName(profile.email) : "",
+        profile.worker_key ? "worker:" + normalizeWorkerName(profile.worker_key) : ""
+      ]
+    });
+  });
+
+  (labourRows || []).forEach((workerRow) => {
+    const name = workerRow.display_name || workerRow.worker_key || "WO Worker";
+    const profileId = workerRow.profile_id || null;
+    upsertAssignee({
+      value: "wo:" + (workerRow.id || normalizeWorkerName(name)),
+      profileId,
+      name,
+      workerKey: workerRow.worker_key || "",
+      source: "WO",
+      keys: [
+        profileId ? "profile:" + profileId : "",
+        "name:" + normalizeWorkerName(name),
+        workerRow.worker_key ? "worker:" + normalizeWorkerName(workerRow.worker_key) : ""
+      ]
+    });
+  });
+
+  return result;
+}
+
+function getTaskAssigneeValue(task) {
+  if (task.assigned_to) {
+    const profileMatch = taskAssignees.find((item) => item.profileId === task.assigned_to || item.value === task.assigned_to);
+    if (profileMatch) {
+      return profileMatch.value;
+    }
+  }
+
+  const assignedName = normalizeWorkerName(task.assigned_to_name);
+  if (!assignedName) {
+    return "";
+  }
+
+  const nameMatch = taskAssignees.find((item) => normalizeWorkerName(getAssigneeName(item)) === assignedName);
+  return nameMatch ? nameMatch.value : "";
 }
 
 function findJobByNameInput(value) {
@@ -794,7 +928,7 @@ function editTask(id) {
   document.getElementById("taskStatus").value = task.status || "open";
   document.getElementById("taskPriority").value = task.priority || "";
   document.getElementById("taskDueDate").value = task.due_date || "";
-  document.getElementById("taskAssignedTo").value = task.assigned_to || "";
+  document.getElementById("taskAssignedTo").value = getTaskAssigneeValue(task);
   document.getElementById("taskCategory").value = task.category || "";
   document.getElementById("taskJobName").value = task.job_name || "";
   document.getElementById("taskJobNumber").value = task.job_number || "";
@@ -808,7 +942,7 @@ async function saveTask() {
   const status = document.getElementById("taskStatus").value || "open";
   const priority = document.getElementById("taskPriority").value || null;
   const dueDate = document.getElementById("taskDueDate").value || null;
-  const assignedTo = document.getElementById("taskAssignedTo").value || null;
+  const assignedTo = getSelectedAssignedProfileId();
   const assignedToName = getSelectedAssignedName();
   const category = document.getElementById("taskCategory").value || null;
   const jobName = document.getElementById("taskJobName").value.trim();
@@ -912,19 +1046,31 @@ async function deleteTask(id) {
 }
 
 async function loadProfiles() {
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("id,email,display_name,worker_key,account_status,role")
-    .eq("account_status", "approved")
-    .order("display_name", { ascending: true });
+  const [profileResult, labourResult] = await Promise.all([
+    supabaseClient
+      .from("profiles")
+      .select("id,email,display_name,worker_key,account_status,role")
+      .eq("account_status", "approved")
+      .order("display_name", { ascending: true }),
+    supabaseClient
+      .from("work_order_labour_workers")
+      .select("id,profile_id,display_name,worker_key,approved")
+      .eq("approved", true)
+      .order("display_name", { ascending: true })
+  ]);
 
-  if (error) {
-    setTaskFormStatus("Employee list could not be loaded: " + error.message, true);
+  if (profileResult.error) {
+    setTaskFormStatus("Employee list could not be loaded: " + profileResult.error.message, true);
     profiles = [];
-    return;
+  } else {
+    profiles = profileResult.data || [];
   }
 
-  profiles = data || [];
+  if (labourResult.error) {
+    setTaskFormStatus("WO employee list could not be loaded: " + labourResult.error.message, true);
+  }
+
+  taskAssignees = buildTaskAssignees(profiles, labourResult.data || []);
 }
 
 async function loadJobs() {
