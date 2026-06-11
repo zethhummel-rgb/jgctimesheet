@@ -431,6 +431,19 @@ button:hover,
     color: #061411;
 }
 
+.admin-task-frame {
+    width: 100%;
+    min-height: 980px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    display: block;
+}
+
+.admin-task-card {
+    overflow: hidden;
+}
+
 .tabs .secondary {
     flex: 0 0 auto;
     border-radius: 999px;
@@ -1862,6 +1875,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certs</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
     <button class="tab-button" onclick="window.location.href='schedule.html'">Schedule</button>
+    <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Notices</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
     <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Talks</button>
@@ -2224,6 +2238,12 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
     </div>
     <div id="vacationList" class="small">Loading vacation requests...</div>
+</div>
+
+<div id="tasksSection" class="card admin-task-card" hidden>
+    <h2>Tasks</h2>
+    <div class="small" style="margin-bottom:12px;">Same task list as the employee Tasks page, with admin delete permissions available when needed.</div>
+    <iframe class="admin-task-frame" src="tasks.html?embedded=1&admin=1" title="Admin Tasks"></iframe>
 </div>
 
 <div id="announcementsSection" class="card" hidden>
@@ -2874,7 +2894,7 @@ async function inspectBackupFile() {
 }
 
 function showTab(tab) {
-    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"].forEach((name) => {
+    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"].forEach((name) => {
         document.getElementById(name + "Section").hidden = name !== tab;
         document.getElementById(name + "Tab").classList.toggle("active", name === tab);
     });
@@ -2943,7 +2963,7 @@ function showTab(tab) {
 function getRequestedAdminTab() {
     const params = new URLSearchParams(window.location.search);
     const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
-    const allowed = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
+    const allowed = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
     return allowed.includes(requested) ? requested : "summary";
 }
 
@@ -3186,7 +3206,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "tasks", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
