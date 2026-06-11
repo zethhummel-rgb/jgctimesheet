@@ -1032,7 +1032,7 @@
     <option value="work">Work</option>
     <option value="sick">Sick Day</option>
     <option value="vacation">Vacation Day</option>
-    <option value="civic_holiday">Civic Holiday</option>
+    <option id="civicHolidayOption" value="civic_holiday">Civic Holiday</option>
   </select>
 
   <div id="multiDayLeaveFields" class="field-hidden">
@@ -1538,6 +1538,7 @@ function getCalendarDayHtml(date, visibleMonth, selectedWeekStart, selectedWeekE
 function validateSunday(input) {
   if (!input.value) {
     document.getElementById("weekDisplay").innerText = "";
+    updateHolidayEntryTypeAvailability();
     updateJobSuggestions();
     renderTimesheetCalendar();
     return;
@@ -1555,6 +1556,7 @@ function validateSunday(input) {
   document.getElementById("weekDisplay").innerText =
     "Week: " + formatDate(weekStart) + " -> " + formatDate(weekEnd);
 
+  updateHolidayEntryTypeAvailability();
   updateJobSuggestions();
   fillJobNumberForSelectedJob();
   renderTimesheetCalendar();
@@ -2109,7 +2111,7 @@ async function loadTimesheetsFromSupabase() {
 
   setTimesheets(mergedEntries);
   const autoVacationCount = await syncApprovedVacationRequestsToTimesheet();
-  const shownCount = loadTimesheets().length;
+  const shownCount = loadTimesheets().filter(shouldShowEntryInCurrentWeekView).length;
   status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + "." +
     (autoVacationCount ? " Auto-added " + autoVacationCount + " approved vacation day" + (autoVacationCount === 1 ? "" : "s") + "." : "");
   render();
@@ -2855,6 +2857,8 @@ function getSpecialJobNumberValue(entryType, leaveType, typedJobNumber) {
 }
 
 function updateEntryTypeFields() {
+  updateHolidayEntryTypeAvailability();
+
   const entryType = document.getElementById("entryType").value;
   const isWork = entryType === "work";
   const timeFields = document.getElementById("timeEntryFields");
@@ -3492,6 +3496,13 @@ async function submitTime() {
     return;
   }
 
+  if (entryType === "civic_holiday" && !selectedWeekHasOntarioHoliday(weekStart)) {
+    alert("Civic Holiday can only be entered during the week of an Ontario holiday.");
+    document.getElementById("entryType").value = "work";
+    updateEntryTypeFields();
+    return;
+  }
+
   if (isHalfDayVacation && (!vacationTimeIn || !rawVacationTimeOut)) {
     alert("Please choose the time for the half vacation day.");
     return;
@@ -3620,7 +3631,7 @@ async function submitTime() {
   resetTimeEntryFields();
   render();
   await loadWoTimesheetRequests();
-  status.innerText += " Current entries shown: " + loadTimesheets().length + ". Pending sync: " + getPendingTimesheetCount() + ".";
+  status.innerText += " Current entries shown: " + loadTimesheets().filter(shouldShowEntryInCurrentWeekView).length + ". Pending sync: " + getPendingTimesheetCount() + ".";
 }
 
 async function clearEntries() {
@@ -3664,7 +3675,7 @@ async function clearEntries() {
 }
 
 async function emailEntries() {
-  const entries = loadTimesheets();
+  const entries = loadTimesheets().filter(shouldShowEntryInCurrentWeekView);
 
   if (entries.length === 0) {
     alert("No entries to email yet.");
@@ -4179,13 +4190,14 @@ function getOntarioHolidaysForYear(year) {
   ].concat(getChristmasAndBoxingDay(year));
 }
 
-function getOntarioHolidayEntriesForWeek(weekStart, selectedDate) {
+function getOntarioWeekdayHolidaysForWeek(weekStart) {
+  if (!weekStart || Number.isNaN(weekStart.getTime())) {
+    return [];
+  }
+
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   const years = [...new Set([weekStart.getFullYear(), weekEnd.getFullYear()])];
-  const existingDays = new Set(loadTimesheets().map(function(entry) {
-    return entry.day;
-  }));
 
   return years.flatMap(getOntarioHolidaysForYear).filter(function(holiday) {
     const holidayTime = holiday.date.getTime();
@@ -4193,6 +4205,74 @@ function getOntarioHolidayEntriesForWeek(weekStart, selectedDate) {
     return holiday.date.getDay() >= 1 &&
       holiday.date.getDay() <= 5 &&
       holidayTime >= weekStart.getTime() &&
+      holidayTime <= weekEnd.getTime();
+  });
+}
+
+function getSelectedWeekStartValue() {
+  const inputValue = document.getElementById("weekStart").value;
+
+  if (inputValue) {
+    return formatDateValue(getWeekStartDate(makeLocalDate(inputValue)));
+  }
+
+  return formatDateValue(getWeekStartDate(selectedCalendarDate || new Date()));
+}
+
+function selectedWeekHasOntarioHoliday(weekStartValue) {
+  const value = weekStartValue || getSelectedWeekStartValue();
+
+  if (!value) {
+    return false;
+  }
+
+  return getOntarioWeekdayHolidaysForWeek(makeLocalDate(value)).length > 0;
+}
+
+function updateHolidayEntryTypeAvailability() {
+  const option = document.getElementById("civicHolidayOption");
+  const entryTypeSelect = document.getElementById("entryType");
+
+  if (!option || !entryTypeSelect) {
+    return;
+  }
+
+  const canUseHoliday = selectedWeekHasOntarioHoliday();
+  option.hidden = !canUseHoliday;
+  option.disabled = !canUseHoliday;
+
+  if (!canUseHoliday && entryTypeSelect.value === "civic_holiday") {
+    entryTypeSelect.value = "work";
+  }
+}
+
+function shouldShowEntryInCurrentWeekView(entry) {
+  if (getEntryType(entry) !== "civic_holiday") {
+    return true;
+  }
+
+  const entryWeekStart = entry.weekStartValue || entry.week_start || "";
+  return Boolean(entryWeekStart) &&
+    entryWeekStart === getSelectedWeekStartValue() &&
+    selectedWeekHasOntarioHoliday(entryWeekStart);
+}
+
+function getOntarioHolidayEntriesForWeek(weekStart, selectedDate) {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekStartValue = formatDateValue(weekStart);
+  const existingDays = new Set(loadTimesheets()
+    .filter(function(entry) {
+      return String(entry.weekStartValue || entry.week_start || "") === weekStartValue;
+    })
+    .map(function(entry) {
+      return entry.day;
+    }));
+
+  return getOntarioWeekdayHolidaysForWeek(weekStart).filter(function(holiday) {
+    const holidayTime = holiday.date.getTime();
+
+    return holidayTime >= weekStart.getTime() &&
       holidayTime <= weekEnd.getTime() &&
       holidayTime < selectedDate.getTime() &&
       !existingDays.has(getDayNames()[holiday.date.getDay()]);
@@ -4684,20 +4764,21 @@ function render() {
   }
 
   const entries = loadTimesheets();
+  const visibleEntries = entries.filter(shouldShowEntryInCurrentWeekView);
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   if (entriesTab === "edit") {
-    renderEditEntriesTab(entries);
+    renderEditEntriesTab(visibleEntries);
     return;
   }
 
-  if (entries.length === 0) {
+  if (visibleEntries.length === 0) {
     document.getElementById("entries").innerHTML =
       '<div class="small">No entries submitted yet.</div>';
     return;
   }
 
-  const rows = groupEntriesForWeeklySummary(entries).map(function(group) {
+  const rows = groupEntriesForWeeklySummary(visibleEntries).map(function(group) {
     const dayCells = days.map(function(day) {
       return getWeeklySummaryDayCell(group.dayEntries[day], day);
     }).join("");
