@@ -293,6 +293,91 @@
       font-weight: normal;
     }
 
+    .mobile-week-summary {
+      display: none;
+    }
+
+    .mobile-week-card {
+      border: 1px solid rgba(57, 200, 72, 0.24);
+      border-radius: 10px;
+      background: rgba(7, 19, 16, 0.92);
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .mobile-week-card-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mobile-week-card-title {
+      color: #39c848;
+      font-weight: 900;
+      font-size: 17px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .mobile-week-card-number {
+      color: #c5d0c9;
+      font-size: 12px;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .mobile-week-card-total {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f5f7f3;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .mobile-week-day-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mobile-week-day-row:last-child {
+      border-bottom: 0;
+    }
+
+    .mobile-week-day-name {
+      color: #f5f7f3;
+      font-weight: 800;
+      min-width: 42px;
+    }
+
+    .mobile-week-day-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .mobile-week-day-value {
+      color: #39c848;
+      font-weight: 900;
+      text-align: right;
+      margin-left: auto;
+    }
+
+    .mobile-week-detail {
+      grid-column: 2;
+      color: #b9c8bd;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .entries-card th:first-child,
     .entries-card td:first-child {
       width: 22%;
@@ -896,6 +981,18 @@
         min-width: 0;
         width: 100%;
         table-layout: fixed;
+      }
+
+      .weekly-summary-table-wrap {
+        display: none;
+      }
+
+      .mobile-week-summary {
+        display: block;
+      }
+
+      .mobile-week-card {
+        margin: 10px 0;
       }
 
       th, td {
@@ -4551,6 +4648,161 @@ function getWeeklySummaryDayCell(entries, day) {
     '</td>';
 }
 
+function getMobileDayName(day) {
+  const labels = {
+    Sunday: "Sun",
+    Monday: "Mon",
+    Tuesday: "Tue",
+    Wednesday: "Wed",
+    Thursday: "Thu",
+    Friday: "Fri",
+    Saturday: "Sat"
+  };
+
+  return labels[day] || day;
+}
+
+function formatMobileHours(value) {
+  const hours = Number(value);
+
+  if (!Number.isFinite(hours)) {
+    return "0";
+  }
+
+  return hours.toFixed(2).replace(/\.00$/, "").replace(/0$/, "");
+}
+
+function formatMobileTime(value) {
+  const parts = String(value || "").slice(0, 5).split(":").map(Number);
+
+  if (parts.length !== 2 || parts.some(function(part) { return Number.isNaN(part); })) {
+    return "";
+  }
+
+  const hour = parts[0];
+  const minute = parts[1];
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 || 12;
+  return displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+}
+
+function getMobileLeaveLabel(entry) {
+  const type = getEntryType(entry);
+
+  if (type === "vacation") {
+    return "Vacation";
+  }
+
+  if (type === "sick") {
+    return "Sick";
+  }
+
+  if (type === "civic_holiday") {
+    return "Holiday";
+  }
+
+  return getEntryTypeLabel(entry);
+}
+
+function getMobileGroupEntries(group) {
+  return Object.keys(group.dayEntries || {}).reduce(function(entries, day) {
+    return entries.concat(group.dayEntries[day] || []);
+  }, []);
+}
+
+function getMobileGroupTotalLabel(group) {
+  const entries = getMobileGroupEntries(group);
+  const fullDayLeaveEntries = entries.filter(isFullDayLeaveEntry);
+
+  if (entries.length && fullDayLeaveEntries.length === entries.length) {
+    const days = new Set(fullDayLeaveEntries.map(function(entry) {
+      return entry.day;
+    })).size;
+    return days + " Day" + (days === 1 ? "" : "s");
+  }
+
+  const total = entries.reduce(function(sum, entry) {
+    return sum + getEntryTotalHours(entry);
+  }, 0);
+
+  return formatMobileHours(total) + " hrs";
+}
+
+function getMobileDayValue(entries) {
+  const dayEntries = entries || [];
+
+  if (!dayEntries.length) {
+    return "";
+  }
+
+  if (dayEntries.every(isFullDayLeaveEntry)) {
+    return getMobileLeaveLabel(dayEntries[0]);
+  }
+
+  const total = dayEntries.reduce(function(sum, entry) {
+    return sum + getEntryTotalHours(entry);
+  }, 0);
+
+  return formatMobileHours(total) + " hrs";
+}
+
+function getMobileDayDetails(entries) {
+  const dayEntries = entries || [];
+
+  if (dayEntries.length < 2 || dayEntries.every(isFullDayLeaveEntry)) {
+    return "";
+  }
+
+  return dayEntries.map(function(entry) {
+    const timeRange = [formatMobileTime(entry.timeIn), formatMobileTime(entry.timeOut)].filter(Boolean).join(" - ");
+    const hours = formatMobileHours(getEntryTotalHours(entry)) + " hrs";
+    return [timeRange, hours].filter(Boolean).join(" - ");
+  }).filter(Boolean).join("<br>");
+}
+
+function renderMobileWeeklySummaryCards(groups, days) {
+  const cards = groups.map(function(group) {
+    const dayRows = days.map(function(day) {
+      const dayEntries = group.dayEntries[day] || [];
+
+      if (!dayEntries.length) {
+        return "";
+      }
+
+      const details = getMobileDayDetails(dayEntries);
+
+      return `
+        <div class="mobile-week-day-row">
+          <div class="mobile-week-day-name">${escapeHtml(getMobileDayName(day))}</div>
+          <div class="mobile-week-day-main">
+            <span class="mobile-week-day-value">${escapeHtml(getMobileDayValue(dayEntries))}</span>
+          </div>
+          ${details ? '<div class="mobile-week-detail">' + details + '</div>' : ''}
+        </div>
+      `;
+    }).filter(Boolean).join("");
+
+    if (!dayRows) {
+      return "";
+    }
+
+    return `
+      <section class="mobile-week-card">
+        <div class="mobile-week-card-header">
+          <div>
+            <div class="mobile-week-card-title">${escapeHtml(group.jobName)}</div>
+            ${group.jobNumber ? '<div class="mobile-week-card-number">' + escapeHtml(group.jobNumber) + '</div>' : ''}
+          </div>
+          <div class="mobile-week-card-total">Total: ${escapeHtml(getMobileGroupTotalLabel(group))}</div>
+        </div>
+        ${dayRows}
+      </section>
+    `;
+  }).filter(Boolean).join("");
+
+  return '<div class="mobile-week-summary">' + cards + '</div>';
+}
+
 function getEntriesByEmailDay(entries) {
   const sortedEntries = sortEntriesForEmail(entries);
 
@@ -4800,7 +5052,8 @@ function render() {
     return;
   }
 
-  const rows = groupEntriesForWeeklySummary(visibleEntries).map(function(group) {
+  const weeklyGroups = groupEntriesForWeeklySummary(visibleEntries);
+  const rows = weeklyGroups.map(function(group) {
     const dayCells = days.map(function(day) {
       return getWeeklySummaryDayCell(group.dayEntries[day], day);
     }).join("");
@@ -4816,7 +5069,7 @@ function render() {
 
   document.getElementById("entries").innerHTML = `
     <h3>Weekly Work Hours Summary</h3>
-    <div class="table-wrap">
+    <div class="table-wrap weekly-summary-table-wrap">
       <table>
         <thead>
           <tr>
@@ -4836,6 +5089,7 @@ function render() {
         </tbody>
       </table>
     </div>
+    ${renderMobileWeeklySummaryCards(weeklyGroups, days)}
     <div class="email-actions">
       <button type="button" onclick="emailEntries()">Submit & Email</button>
       <span class="email-note">please send email at end of day Friday</span>
