@@ -384,9 +384,10 @@ function requireJgcWorker() {
 
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
+  const params = new URLSearchParams(window.location.search);
   const excludedPages = ["index.html", "reset-password.html", "home.html"];
 
-  if (excludedPages.includes(page) || document.getElementById("jgcGlobalTopNav")) {
+  if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcGlobalTopNav")) {
     return;
   }
 
@@ -635,9 +636,10 @@ function getJgcMobileNavIcon(name) {
 
 function activateMobileBottomNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
+  const params = new URLSearchParams(window.location.search);
   const excludedPages = ["index.html", "reset-password.html"];
 
-  if (excludedPages.includes(page) || document.getElementById("jgcMobileBottomNav")) {
+  if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcMobileBottomNav")) {
     return;
   }
 
