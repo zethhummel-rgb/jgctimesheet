@@ -2111,7 +2111,7 @@ async function loadTimesheetsFromSupabase() {
 
   setTimesheets(mergedEntries);
   const autoVacationCount = await syncApprovedVacationRequestsToTimesheet();
-  const shownCount = loadTimesheets().filter(shouldShowEntryInCurrentWeekView).length;
+  const shownCount = getSelectedWeekVisibleEntries(loadTimesheets()).length;
   status.innerText = "Loaded " + shownCount + " current entr" + (shownCount === 1 ? "y" : "ies") + ". Pending offline sync: " + getPendingTimesheetCount() + "." +
     (autoVacationCount ? " Auto-added " + autoVacationCount + " approved vacation day" + (autoVacationCount === 1 ? "" : "s") + "." : "");
   render();
@@ -2252,6 +2252,18 @@ function showEntriesTab(tabName) {
 
 function getSelectedWeekStart() {
   return document.getElementById("weekStart").value;
+}
+
+function isEntryInSelectedWeek(entry) {
+  const selectedWeekStart = getSelectedWeekStartValue();
+  const entryWeekStart = String(entry && (entry.weekStartValue || entry.week_start) || "");
+  return Boolean(selectedWeekStart && entryWeekStart === selectedWeekStart);
+}
+
+function getSelectedWeekVisibleEntries(entries) {
+  return (entries || []).filter(function(entry) {
+    return isEntryInSelectedWeek(entry) && shouldShowEntryInCurrentWeekView(entry);
+  });
 }
 
 function cleanRepeatedJobName(value) {
@@ -3631,7 +3643,7 @@ async function submitTime() {
   resetTimeEntryFields();
   render();
   await loadWoTimesheetRequests();
-  status.innerText += " Current entries shown: " + loadTimesheets().filter(shouldShowEntryInCurrentWeekView).length + ". Pending sync: " + getPendingTimesheetCount() + ".";
+  status.innerText += " Current entries shown: " + getSelectedWeekVisibleEntries(loadTimesheets()).length + ". Pending sync: " + getPendingTimesheetCount() + ".";
 }
 
 async function clearEntries() {
@@ -3640,7 +3652,8 @@ async function clearEntries() {
     return;
   }
 
-  const confirmed = confirm("Clear all entries for " + getDisplayWorkerName() + "?");
+  const targetWeekStart = getSelectedWeekStartValue();
+  const confirmed = confirm("Clear entries for the selected week only for " + getDisplayWorkerName() + "?");
 
   if (!confirmed) {
     return;
@@ -3653,7 +3666,8 @@ async function clearEntries() {
     const { error } = await supabaseClient
       .from("timesheet_entries")
       .delete()
-      .eq("worker_name", currentUser);
+      .eq("worker_name", currentUser)
+      .eq("week_start", targetWeekStart);
 
     if (error) {
       status.innerText = "Could not clear your Supabase entries.";
@@ -3661,21 +3675,23 @@ async function clearEntries() {
     }
   }
 
-  memoryTimesheets = [];
-  saveFallbackTimesheets(mergeFallbackTimesheets([]));
+  memoryTimesheets = memoryTimesheets.filter(function(entry) {
+    return String(entry.weekStartValue || entry.week_start || "") !== targetWeekStart;
+  });
+  saveFallbackTimesheets(mergeFallbackTimesheets(memoryTimesheets));
 
   try {
-    localStorage.setItem("timesheets", JSON.stringify(mergeFallbackTimesheets([])));
+    localStorage.setItem("timesheets", JSON.stringify(mergeFallbackTimesheets(memoryTimesheets)));
   } catch (error) {
   }
 
-  status.innerText = "Your entries were cleared.";
+  status.innerText = "Entries for the selected week were cleared.";
   render();
   updateJobSuggestions();
 }
 
 async function emailEntries() {
-  const entries = loadTimesheets().filter(shouldShowEntryInCurrentWeekView);
+  const entries = getSelectedWeekVisibleEntries(loadTimesheets());
 
   if (entries.length === 0) {
     alert("No entries to email yet.");
@@ -3922,6 +3938,9 @@ function makeSafeEmailFileName(value) {
 }
 
 async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
+  const archiveWeekStart = entries.length
+    ? String(entries[0].weekStartValue || entries[0].week_start || getSelectedWeekStartValue())
+    : getSelectedWeekStartValue();
   const archiveRecord = {
     workerName: currentUser,
     weekLabel,
@@ -3977,7 +3996,8 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
     const { error: deleteError } = await supabaseClient
       .from("timesheet_entries")
       .delete()
-      .eq("worker_name", currentUser);
+      .eq("worker_name", currentUser)
+      .eq("week_start", archiveWeekStart);
 
     if (deleteError) {
       warning = warning || "The email will open, but the current week could not be reset online. Please refresh and use Clear My Entries if the entries still show.";
@@ -3986,8 +4006,10 @@ async function archiveCurrentEntries(entries, totalHours, weekLabel, note) {
 
   previousWeeks = filterPreviousWeeksForRetention([archiveRecord].concat(previousWeeks)).sort(sortPreviousWeeksByDate);
   saveFallbackPreviousWeeks(previousWeeks);
-  memoryTimesheets = [];
-  saveFallbackTimesheets(mergeFallbackTimesheets([]));
+  memoryTimesheets = memoryTimesheets.filter(function(entry) {
+    return String(entry.weekStartValue || entry.week_start || "") !== archiveWeekStart;
+  });
+  saveFallbackTimesheets(mergeFallbackTimesheets(memoryTimesheets));
   clearEditMode();
   resetTimeEntryFields();
   entriesTab = "previous";
@@ -4764,7 +4786,7 @@ function render() {
   }
 
   const entries = loadTimesheets();
-  const visibleEntries = entries.filter(shouldShowEntryInCurrentWeekView);
+  const visibleEntries = getSelectedWeekVisibleEntries(entries);
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   if (entriesTab === "edit") {
