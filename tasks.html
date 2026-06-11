@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Tasks</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(39, 165, 72, 0.32), transparent 28rem),
+    linear-gradient(135deg, #040b0a 0%, #0b1717 48%, #05100e 100%);
+  color: #f5f7f3;
+  margin: 0;
+  padding: 20px;
+}
+
+.page {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+.logo-wrap {
+  max-width: 280px;
+  margin: 0 auto 10px;
+}
+
+.logo-wrap img {
+  width: 100%;
+  display: block;
+}
+
+h1 {
+  margin: 0 0 6px;
+  color: #ffffff;
+  text-align: center;
+}
+
+h2 {
+  color: #37d650;
+  margin: 0 0 12px;
+}
+
+.user-bar {
+  text-align: center;
+  color: #d7e6d6;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 14px;
+}
+
+.top-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.panel {
+  background: rgba(12, 26, 23, 0.94);
+  border: 1px solid rgba(99, 205, 107, 0.24);
+  border-top: 4px solid #37d650;
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+label {
+  font-weight: 800;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #8aa08c;
+  border-radius: 6px;
+  background: #f7faf6;
+  color: #0a1814;
+  padding: 10px;
+  font-size: 15px;
+}
+
+textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  background: #14883f;
+  color: #ffffff;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+button:hover {
+  background: #0f6e32;
+}
+
+button.secondary {
+  background: #25352e;
+}
+
+button.secondary:hover {
+  background: #31453b;
+}
+
+button.danger {
+  background: #b92319;
+}
+
+button.danger:hover {
+  background: #941a12;
+}
+
+.form-actions,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.filters button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.filters button.active {
+  background: #37d650;
+  color: #061411;
+}
+
+.small {
+  color: #c7d5cb;
+  font-size: 13px;
+}
+
+.status-line {
+  min-height: 18px;
+  margin-top: 10px;
+  color: #c7d5cb;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.status-line.error {
+  color: #ffb3ad;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.task-card {
+  background:
+    linear-gradient(145deg, rgba(17, 34, 31, 0.98), rgba(7, 17, 15, 0.98));
+  border: 1px solid rgba(199, 221, 211, 0.16);
+  border-left: 4px solid #37d650;
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.task-card.complete {
+  border-left-color: #76aef8;
+}
+
+.task-card.archived {
+  opacity: 0.72;
+  border-left-color: #839089;
+}
+
+.task-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.task-title {
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.badge.open {
+  background: rgba(57, 200, 72, 0.22);
+  color: #7dff8f;
+}
+
+.badge.in_progress {
+  background: rgba(255, 217, 102, 0.22);
+  color: #ffe18b;
+}
+
+.badge.complete {
+  background: rgba(105, 173, 255, 0.22);
+  color: #9dc8ff;
+}
+
+.badge.archived {
+  background: rgba(190, 201, 194, 0.18);
+  color: #d4ddd7;
+}
+
+.badge.priority-low {
+  background: rgba(166, 214, 173, 0.18);
+  color: #bff4c7;
+}
+
+.badge.priority-medium {
+  background: rgba(255, 217, 102, 0.18);
+  color: #ffe18b;
+}
+
+.badge.priority-high {
+  background: rgba(255, 145, 77, 0.22);
+  color: #ffbd91;
+}
+
+.badge.priority-urgent {
+  background: rgba(255, 84, 76, 0.26);
+  color: #ffb0aa;
+}
+
+.task-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.meta-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  padding: 8px;
+  min-height: 38px;
+}
+
+.meta-box strong {
+  display: block;
+  color: #8dff9c;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.notes-preview {
+  margin-top: 10px;
+  color: #d7e6d6;
+  line-height: 1.4;
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 18px;
+  color: #c7d5cb;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  body {
+    padding: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .top-actions button,
+  .form-actions button {
+    flex: 1 1 46%;
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters button {
+    width: 100%;
+  }
+
+  .task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .task-actions button {
+    flex: 1 1 44%;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="page">
+  <div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+  </div>
+
+  <h1>Tasks</h1>
+  <div id="currentUser" class="user-bar"></div>
+
+  <div class="top-actions">
+    <button type="button" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary" onclick="loadTasks()">Refresh Tasks</button>
+    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  </div>
+
+  <section class="panel">
+    <h2 id="taskFormTitle">New Task</h2>
+    <div class="small">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
+
+    <div class="form-grid" style="margin-top:14px;">
+      <div class="field full">
+        <label for="taskTitle">Task Title</label>
+        <input id="taskTitle" maxlength="180" placeholder="Example: Fix WO name bug">
+      </div>
+
+      <div class="field">
+        <label for="taskStatus">Status</label>
+        <select id="taskStatus">
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="complete">Complete</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="taskPriority">Priority</label>
+        <select id="taskPriority">
+          <option value="">No priority</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="taskDueDate">Due Date</label>
+        <input id="taskDueDate" type="date">
+      </div>
+
+      <div class="field">
+        <label for="taskAssignedTo">Assigned To</label>
+        <select id="taskAssignedTo">
+          <option value="">Unassigned</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="taskCategory">Category</label>
+        <select id="taskCategory">
+          <option value="">No category</option>
+          <option value="portal_fix">Portal Fix</option>
+          <option value="field_work">Field Work</option>
+          <option value="office">Office</option>
+          <option value="safety">Safety</option>
+          <option value="equipment">Equipment</option>
+          <option value="job_follow_up">Job Follow-Up</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="taskJobName">Job Name</label>
+        <input id="taskJobName" list="taskJobOptions" placeholder="Optional job link" oninput="fillTaskJobFromName()">
+        <datalist id="taskJobOptions"></datalist>
+      </div>
+
+      <div class="field">
+        <label for="taskJobNumber">Job Number</label>
+        <input id="taskJobNumber" list="taskJobNumberOptions" placeholder="Optional job number" oninput="fillTaskJobFromNumber()">
+        <datalist id="taskJobNumberOptions"></datalist>
+      </div>
+
+      <div class="field full">
+        <label for="taskDescription">Notes</label>
+        <textarea id="taskDescription" placeholder="Optional notes or details"></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="taskSaveButton" type="button" onclick="saveTask()">Save Task</button>
+      <button type="button" class="secondary" onclick="clearTaskForm()">Clear</button>
+    </div>
+    <div id="taskFormStatus" class="status-line"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Task List</h2>
+    <div class="filters" id="taskFilters"></div>
+    <div id="taskListStatus" class="status-line"></div>
+    <div id="taskList" class="task-grid"></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=2"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display || worker.key || "";
+const currentWorkerEmail = normalizeWorkerName(worker.email);
+const currentWorkerIsAdmin = isAdminWorker(worker.key, worker.role, worker.email);
+
+let currentUserId = "";
+let tasks = [];
+let profiles = [];
+let jobs = [];
+let activeFilter = "all";
+let editingTaskId = "";
+
+const TASK_FILTERS = [
+  { key: "all", label: "All Tasks" },
+  { key: "open", label: "Open" },
+  { key: "in_progress", label: "In Progress" },
+  { key: "complete", label: "Complete" },
+  { key: "archived", label: "Archived" },
+  { key: "my", label: "My Tasks" },
+  { key: "unassigned", label: "Unassigned" },
+  { key: "high", label: "High Priority" },
+  { key: "due_soon", label: "Due Soon" }
+];
+
+const STATUS_LABELS = {
+  open: "Open",
+  in_progress: "In Progress",
+  complete: "Complete",
+  archived: "Archived"
+};
+
+const PRIORITY_LABELS = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  urgent: "Urgent"
+};
+
+const CATEGORY_LABELS = {
+  portal_fix: "Portal Fix",
+  field_work: "Field Work",
+  office: "Office",
+  safety: "Safety",
+  equipment: "Equipment",
+  job_follow_up: "Job Follow-Up",
+  other: "Other"
+};
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+function setTaskFormStatus(message, isError) {
+  const element = document.getElementById("taskFormStatus");
+  element.textContent = message || "";
+  element.classList.toggle("error", Boolean(isError));
+}
+
+function setTaskListStatus(message, isError) {
+  const element = document.getElementById("taskListStatus");
+  element.textContent = message || "";
+  element.classList.toggle("error", Boolean(isError));
+}
+
+function getProfileName(profile) {
+  return profile ? (profile.display_name || profile.worker_key || profile.email || "Employee") : "";
+}
+
+function getSelectedAssignedName() {
+  const assignedId = document.getElementById("taskAssignedTo").value;
+  const profile = profiles.find((item) => item.id === assignedId);
+  return profile ? getProfileName(profile) : "";
+}
+
+function getTaskStatusLabel(value) {
+  return STATUS_LABELS[value] || "Open";
+}
+
+function getTaskPriorityLabel(value) {
+  return PRIORITY_LABELS[value] || "";
+}
+
+function getTaskCategoryLabel(value) {
+  return CATEGORY_LABELS[value] || "";
+}
+
+function formatTaskDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const pieces = String(value).split("-");
+  if (pieces.length === 3) {
+    const date = new Date(Number(pieces[0]), Number(pieces[1]) - 1, Number(pieces[2]));
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString();
+}
+
+function formatTaskDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
+}
+
+function isDueSoon(task) {
+  if (!task.due_date || task.status === "complete" || task.status === "archived") {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(task.due_date + "T00:00:00");
+  const diffDays = Math.round((due - today) / 86400000);
+  return diffDays >= 0 && diffDays <= 7;
+}
+
+function isMyTask(task) {
+  const assignedName = normalizeWorkerName(task.assigned_to_name);
+  return (
+    (currentUserId && task.assigned_to === currentUserId) ||
+    (currentUserId && task.created_by === currentUserId) ||
+    assignedName === currentWorker ||
+    assignedName === normalizeWorkerName(currentWorkerDisplay) ||
+    (task.created_by_name && normalizeWorkerName(task.created_by_name) === normalizeWorkerName(currentWorkerDisplay))
+  );
+}
+
+function canChangeTask(task) {
+  return currentWorkerIsAdmin || !task.assigned_to || task.assigned_to === currentUserId || task.created_by === currentUserId || isMyTask(task);
+}
+
+function getFilteredTasks() {
+  return tasks.filter((task) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "open") return task.status === "open";
+    if (activeFilter === "in_progress") return task.status === "in_progress";
+    if (activeFilter === "complete") return task.status === "complete";
+    if (activeFilter === "archived") return task.status === "archived";
+    if (activeFilter === "my") return isMyTask(task);
+    if (activeFilter === "unassigned") return !task.assigned_to && !task.assigned_to_name;
+    if (activeFilter === "high") return task.priority === "high" || task.priority === "urgent";
+    if (activeFilter === "due_soon") return isDueSoon(task);
+    return true;
+  }).sort(sortTasks);
+}
+
+function sortTasks(a, b) {
+  const statusSort = { open: 0, in_progress: 1, complete: 2, archived: 3 };
+  const prioritySort = { urgent: 0, high: 1, medium: 2, low: 3 };
+  const aStatus = statusSort[a.status] ?? 9;
+  const bStatus = statusSort[b.status] ?? 9;
+
+  if (aStatus !== bStatus) {
+    return aStatus - bStatus;
+  }
+
+  if (a.due_date || b.due_date) {
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    if (a.due_date !== b.due_date) {
+      return String(a.due_date).localeCompare(String(b.due_date));
+    }
+  }
+
+  const aPriority = prioritySort[a.priority] ?? 9;
+  const bPriority = prioritySort[b.priority] ?? 9;
+  if (aPriority !== bPriority) {
+    return aPriority - bPriority;
+  }
+
+  return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+}
+
+function renderFilters() {
+  document.getElementById("taskFilters").innerHTML = TASK_FILTERS.map((filter) => {
+    const active = activeFilter === filter.key ? "active" : "";
+    return '<button type="button" class="' + active + '" onclick="setTaskFilter(\'' + filter.key + '\')">' + escapeHtml(filter.label) + '</button>';
+  }).join("");
+}
+
+function setTaskFilter(filter) {
+  activeFilter = filter;
+  renderTasks();
+}
+
+function renderTaskFormOptions() {
+  const assignmentOptions = profiles
+    .slice()
+    .sort((a, b) => getProfileName(a).localeCompare(getProfileName(b)))
+    .map((profile) => '<option value="' + escapeHtml(profile.id) + '">' + escapeHtml(getProfileName(profile)) + '</option>')
+    .join("");
+  document.getElementById("taskAssignedTo").innerHTML = '<option value="">Unassigned</option>' + assignmentOptions;
+
+  document.getElementById("taskJobOptions").innerHTML = jobs.map((job) => {
+    const name = String(job.job_name || "").trim();
+    const number = String(job.job_number || "").trim();
+    const value = number && name ? number + " - " + name : (name || number);
+    return '<option value="' + escapeHtml(value) + '"></option>';
+  }).join("");
+
+  document.getElementById("taskJobNumberOptions").innerHTML = jobs.map((job) =>
+    '<option value="' + escapeHtml(job.job_number || "") + '">' + escapeHtml(job.job_name || "") + '</option>'
+  ).join("");
+}
+
+function findJobByNameInput(value) {
+  const text = normalizeWorkerName(value);
+  return jobs.find((job) => {
+    const name = normalizeWorkerName(job.job_name);
+    const number = normalizeWorkerName(job.job_number);
+    const display = normalizeWorkerName((job.job_number ? job.job_number + " - " : "") + (job.job_name || ""));
+    return text && (text === display || text === name || text === number);
+  }) || null;
+}
+
+function fillTaskJobFromName() {
+  const job = findJobByNameInput(document.getElementById("taskJobName").value);
+  if (!job) {
+    return;
+  }
+
+  document.getElementById("taskJobName").value = job.job_name || "";
+  document.getElementById("taskJobNumber").value = job.job_number || "";
+}
+
+function fillTaskJobFromNumber() {
+  const number = normalizeWorkerName(document.getElementById("taskJobNumber").value);
+  const job = jobs.find((item) => normalizeWorkerName(item.job_number) === number);
+  if (!job) {
+    return;
+  }
+
+  document.getElementById("taskJobName").value = job.job_name || "";
+}
+
+function renderTasks() {
+  renderFilters();
+  const list = document.getElementById("taskList");
+  const filtered = getFilteredTasks();
+
+  setTaskListStatus(filtered.length + " task" + (filtered.length === 1 ? "" : "s") + " shown.");
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-state">No tasks found for this filter.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(renderTaskCard).join("");
+}
+
+function renderTaskCard(task) {
+  const status = task.status || "open";
+  const priority = task.priority || "";
+  const category = task.category || "";
+  const assignedTo = task.assigned_to_name || "Unassigned";
+  const job = [task.job_number, task.job_name].filter(Boolean).join(" - ");
+  const notes = String(task.description || "").trim();
+  const canChange = canChangeTask(task);
+  const canDelete = currentWorkerIsAdmin;
+
+  return `
+    <article class="task-card ${escapeHtml(status)}">
+      <div class="task-title-row">
+        <div class="task-title">${escapeHtml(task.title || "Untitled Task")}</div>
+        ${task.due_date ? '<span class="badge">' + escapeHtml(formatTaskDate(task.due_date)) + '</span>' : ""}
+      </div>
+
+      <div class="badge-row">
+        <span class="badge ${escapeHtml(status)}">${escapeHtml(getTaskStatusLabel(status))}</span>
+        ${priority ? '<span class="badge priority-' + escapeHtml(priority) + '">' + escapeHtml(getTaskPriorityLabel(priority)) + '</span>' : ""}
+        ${category ? '<span class="badge">' + escapeHtml(getTaskCategoryLabel(category)) + '</span>' : ""}
+        ${isDueSoon(task) ? '<span class="badge priority-high">Due Soon</span>' : ""}
+      </div>
+
+      <div class="task-meta">
+        <div class="meta-box"><strong>Assigned To</strong>${escapeHtml(assignedTo)}</div>
+        <div class="meta-box"><strong>Job</strong>${escapeHtml(job || "No job linked")}</div>
+        <div class="meta-box"><strong>Created By</strong>${escapeHtml(task.created_by_name || "-")}</div>
+        <div class="meta-box"><strong>Last Updated</strong>${escapeHtml(formatTaskDateTime(task.updated_at || task.created_at) || "-")}</div>
+      </div>
+
+      ${notes ? '<div class="notes-preview">' + escapeHtml(notes.length > 220 ? notes.slice(0, 220) + "..." : notes) + '</div>' : ""}
+
+      <div class="task-actions">
+        ${status !== "complete" && status !== "archived" && canChange ? '<button type="button" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'complete\')">Mark Complete</button>' : ""}
+        ${status === "open" && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'in_progress\')">Start</button>' : ""}
+        ${(status === "complete" || status === "archived" || status === "in_progress") && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'open\')">Reopen</button>' : ""}
+        ${status !== "archived" && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'archived\')">Archive</button>' : ""}
+        ${canChange ? '<button type="button" class="secondary" onclick="editTask(\'' + escapeHtml(task.id) + '\')">Edit</button>' : ""}
+        ${canDelete ? '<button type="button" class="danger" onclick="deleteTask(\'' + escapeHtml(task.id) + '\')">Delete</button>' : ""}
+      </div>
+    </article>
+  `;
+}
+
+function clearTaskForm() {
+  editingTaskId = "";
+  document.getElementById("taskFormTitle").textContent = "New Task";
+  document.getElementById("taskSaveButton").textContent = "Save Task";
+  document.getElementById("taskTitle").value = "";
+  document.getElementById("taskStatus").value = "open";
+  document.getElementById("taskPriority").value = "";
+  document.getElementById("taskDueDate").value = "";
+  document.getElementById("taskAssignedTo").value = "";
+  document.getElementById("taskCategory").value = "";
+  document.getElementById("taskJobName").value = "";
+  document.getElementById("taskJobNumber").value = "";
+  document.getElementById("taskDescription").value = "";
+  setTaskFormStatus("");
+}
+
+function editTask(id) {
+  const task = tasks.find((item) => item.id === id);
+  if (!task) {
+    alert("Task could not be found.");
+    return;
+  }
+
+  editingTaskId = id;
+  document.getElementById("taskFormTitle").textContent = "Edit Task";
+  document.getElementById("taskSaveButton").textContent = "Update Task";
+  document.getElementById("taskTitle").value = task.title || "";
+  document.getElementById("taskStatus").value = task.status || "open";
+  document.getElementById("taskPriority").value = task.priority || "";
+  document.getElementById("taskDueDate").value = task.due_date || "";
+  document.getElementById("taskAssignedTo").value = task.assigned_to || "";
+  document.getElementById("taskCategory").value = task.category || "";
+  document.getElementById("taskJobName").value = task.job_name || "";
+  document.getElementById("taskJobNumber").value = task.job_number || "";
+  document.getElementById("taskDescription").value = task.description || "";
+  setTaskFormStatus("Editing task.");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function saveTask() {
+  const title = document.getElementById("taskTitle").value.trim();
+  const status = document.getElementById("taskStatus").value || "open";
+  const priority = document.getElementById("taskPriority").value || null;
+  const dueDate = document.getElementById("taskDueDate").value || null;
+  const assignedTo = document.getElementById("taskAssignedTo").value || null;
+  const assignedToName = getSelectedAssignedName();
+  const category = document.getElementById("taskCategory").value || null;
+  const jobName = document.getElementById("taskJobName").value.trim();
+  const jobNumber = document.getElementById("taskJobNumber").value.trim();
+  const description = document.getElementById("taskDescription").value.trim();
+
+  if (!title) {
+    setTaskFormStatus("Enter a task title.", true);
+    return;
+  }
+
+  const payload = {
+    title,
+    description: description || null,
+    status,
+    priority,
+    due_date: dueDate,
+    assigned_to: assignedTo,
+    assigned_to_name: assignedToName || null,
+    job_name: jobName || null,
+    job_number: jobNumber || null,
+    category,
+    completed_at: status === "complete" ? new Date().toISOString() : null,
+    completed_by: status === "complete" ? (currentUserId || null) : null,
+    completed_by_name: status === "complete" ? currentWorkerDisplay : null
+  };
+
+  setTaskFormStatus(editingTaskId ? "Updating task..." : "Saving task...");
+
+  const query = editingTaskId
+    ? supabaseClient.from("tasks").update(payload).eq("id", editingTaskId)
+    : supabaseClient.from("tasks").insert({
+        ...payload,
+        created_by: currentUserId || null,
+        created_by_name: currentWorkerDisplay || currentWorker
+      });
+
+  const { error } = await query;
+
+  if (error) {
+    setTaskFormStatus("Task could not be saved: " + error.message, true);
+    return;
+  }
+
+  clearTaskForm();
+  setTaskFormStatus("Task saved.");
+  await loadTasks();
+}
+
+async function updateTaskStatus(id, status) {
+  const task = tasks.find((item) => item.id === id);
+  if (!task || !canChangeTask(task)) {
+    alert("You cannot update this task.");
+    return;
+  }
+
+  const payload = {
+    status,
+    completed_at: status === "complete" ? new Date().toISOString() : null,
+    completed_by: status === "complete" ? (currentUserId || null) : null,
+    completed_by_name: status === "complete" ? currentWorkerDisplay : null
+  };
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .update(payload)
+    .eq("id", id);
+
+  if (error) {
+    alert("Task could not be updated: " + error.message);
+    return;
+  }
+
+  await loadTasks();
+}
+
+async function deleteTask(id) {
+  if (!currentWorkerIsAdmin) {
+    alert("Only admins can delete tasks.");
+    return;
+  }
+
+  const task = tasks.find((item) => item.id === id);
+  const label = task ? task.title : "this task";
+
+  if (!confirm("Delete \"" + label + "\"? This cannot be undone.")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert("Task could not be deleted: " + error.message);
+    return;
+  }
+
+  await loadTasks();
+}
+
+async function loadProfiles() {
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id,email,display_name,worker_key,account_status,role")
+    .eq("account_status", "approved")
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    setTaskFormStatus("Employee list could not be loaded: " + error.message, true);
+    profiles = [];
+    return;
+  }
+
+  profiles = data || [];
+}
+
+async function loadJobs() {
+  const { data, error } = await supabaseClient
+    .from("jobs")
+    .select("job_number,job_name,active")
+    .eq("active", true)
+    .order("job_number", { ascending: true });
+
+  if (error) {
+    jobs = [];
+    return;
+  }
+
+  jobs = data || [];
+}
+
+async function loadTasks() {
+  if (!supabaseClient) {
+    setTaskListStatus("Supabase is not available.", true);
+    return;
+  }
+
+  setTaskListStatus("Loading tasks...");
+
+  const { data, error } = await supabaseClient
+    .from("tasks")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    setTaskListStatus("Tasks could not be loaded: " + error.message, true);
+    tasks = [];
+    renderTasks();
+    return;
+  }
+
+  tasks = data || [];
+  renderTasks();
+}
+
+async function loadInitialData() {
+  if (!supabaseClient) {
+    setTaskListStatus("Supabase is not available.", true);
+    return;
+  }
+
+  try {
+    const userResult = await supabaseClient.auth.getUser();
+    currentUserId = userResult.data && userResult.data.user ? userResult.data.user.id : "";
+  } catch (err) {
+    currentUserId = "";
+  }
+
+  await Promise.all([loadProfiles(), loadJobs()]);
+  renderTaskFormOptions();
+  await loadTasks();
+}
+
+loadInitialData();
+</script>
+</body>
+</html>
