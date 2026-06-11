@@ -297,6 +297,10 @@
       display: none;
     }
 
+    .mobile-edit-summary {
+      display: none;
+    }
+
     .mobile-week-card {
       border: 1px solid rgba(57, 200, 72, 0.24);
       border-radius: 10px;
@@ -376,6 +380,38 @@
       color: #b9c8bd;
       font-size: 12px;
       line-height: 1.35;
+    }
+
+    .mobile-edit-card .mobile-week-card-header {
+      grid-template-columns: 1fr;
+    }
+
+    .mobile-edit-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      color: #c5d0c9;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mobile-edit-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 10px 12px 12px;
+    }
+
+    .mobile-edit-actions button {
+      width: 100%;
+      margin: 0;
+      min-width: 0;
+    }
+
+    .mobile-edit-card .mobile-week-detail {
+      grid-column: auto;
+      margin-top: 6px;
     }
 
     .entries-card th:first-child,
@@ -991,6 +1027,10 @@
         display: block;
       }
 
+      .mobile-edit-summary {
+        display: block;
+      }
+
       .mobile-week-card {
         margin: 10px 0;
       }
@@ -1033,7 +1073,7 @@
       }
 
       .edit-table-wrap {
-        max-width: 360px;
+        display: none;
       }
 
       .edit-table th,
@@ -1709,7 +1749,9 @@ function getTimeMinutes(time) {
 function formatTimeLabel(hour, minute) {
   const suffix = hour >= 12 ? "PM" : "AM";
   const displayHour = hour % 12 || 12;
-  return displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+  const twentyFourHour = formatTimeOption(hour, minute);
+  const twelveHour = displayHour + ":" + String(minute).padStart(2, "0") + " " + suffix;
+  return twentyFourHour + " (" + twelveHour + ")";
 }
 
 function buildTimeOptions(startHour, endHour, valuePrefix, labelSuffix, includeEndHalfHour) {
@@ -4924,6 +4966,62 @@ function renderEditRows(entries) {
   }).join("");
 }
 
+function getEditEntrySummaryValue(entry) {
+  if (isFullDayLeaveEntry(entry)) {
+    return getMobileLeaveLabel(entry);
+  }
+
+  const hours = getEntryTotalHours(entry);
+  return formatMobileHours(hours) + " hrs";
+}
+
+function renderMobileEditEntries(entries) {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const cards = entries.slice().sort(function(a, b) {
+    const dayDifference = days.indexOf(a.day) - days.indexOf(b.day);
+
+    if (dayDifference !== 0) {
+      return dayDifference;
+    }
+
+    const jobDifference = a.jobName.localeCompare(b.jobName);
+
+    if (jobDifference !== 0) {
+      return jobDifference;
+    }
+
+    return a.timeIn.localeCompare(b.timeIn);
+  }).map(function(entry) {
+    const timeText = getEntryTimeRange(entry);
+    const note = getEntryLeaveNote(entry);
+
+    return `
+      <section class="mobile-week-card mobile-edit-card">
+        <div class="mobile-week-card-header">
+          <div>
+            <div class="mobile-week-card-title">${escapeHtml(getEntrySummaryName(entry))}</div>
+            ${getEntrySummaryNumber(entry) ? '<div class="mobile-week-card-number">' + escapeHtml(getEntrySummaryNumber(entry)) + '</div>' : ''}
+            <div class="mobile-edit-meta">
+              <span>${escapeHtml(getMobileDayName(entry.day))}</span>
+              <span>${escapeHtml(getEntryTypeLabel(entry))}</span>
+              <span>${escapeHtml(getEditEntrySummaryValue(entry))}</span>
+            </div>
+            ${timeText ? '<div class="mobile-week-detail">' + escapeHtml(timeText) + '</div>' : ''}
+            ${note ? '<div class="mobile-week-detail">' + escapeHtml(note) + '</div>' : ''}
+          </div>
+        </div>
+        <div class="mobile-edit-actions">
+          <button type="button" class="edit-button" onclick="editEntry('${escapeHtml(entry.id)}')">Edit</button>
+          <button type="button" class="delete-entry-button" onclick="deleteEntry('${escapeHtml(entry.id)}')">Delete</button>
+        </div>
+      </section>
+    `;
+  }).join("");
+
+  return '<div class="mobile-edit-summary">' + cards + '</div>';
+}
+
 function renderEditEntriesTab(entries) {
   if (entries.length === 0) {
     document.getElementById("entries").innerHTML =
@@ -4949,6 +5047,7 @@ function renderEditEntriesTab(entries) {
         </tbody>
       </table>
     </div>
+    ${renderMobileEditEntries(entries)}
   `;
 }
 
