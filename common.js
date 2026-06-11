@@ -27,6 +27,7 @@ function applyJgcPortalName() {
     "excavation-permit.html": "Excavation Permit",
     "reset-password.html": "Reset Password",
     "tele-handler.html": "Telehandler Inspection",
+    "tasks.html": "Tasks",
     "timesheet.html": "Timesheets",
     "toolbox-talks.html": "Tool Box Talks",
     "todays-inspections.html": "Today's Inspections",
@@ -398,6 +399,7 @@ function activateGlobalTopNavigation() {
     { label: "WO", href: "work-orders.html" },
     { label: "Permits", href: "permits.html" },
     { label: "Reports", href: "reports.html" },
+    { label: "Tasks", href: "tasks.html" },
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" }
   ];
@@ -601,6 +603,7 @@ function getJgcMobileNavItems() {
       { label: "Permits", href: "permits.html", icon: "permit" },
       { label: "Vacation", href: "vacation-request.html", icon: "vacation" },
       { label: "Schedule", href: "schedule.html", icon: "schedule" },
+      { label: "Tasks", href: "tasks.html", icon: "tasks" },
       { label: "Equipment", href: "equipment-vehicles.html", icon: "truck" },
       { label: "Contacts", href: "contacts.html", icon: "phone" },
       { label: "Policies", href: "policies-announcements.html", icon: "policy" }
@@ -621,6 +624,7 @@ function getJgcMobileNavIcon(name) {
     permit: '<rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>',
     vacation: '<path d="M12 3c4 3 4 7 0 9-4-2-4-6 0-9Z"></path><path d="M12 12v8"></path><path d="M7 20h10"></path>',
     schedule: '<rect x="4" y="5" width="16" height="17" rx="2"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M4 10h16"></path><path d="m9 16 2 2 4-5"></path>',
+    tasks: '<path d="M9 6h11"></path><path d="M9 12h11"></path><path d="M9 18h11"></path><path d="m4 6 1 1 2-2"></path><path d="m4 12 1 1 2-2"></path><path d="m4 18 1 1 2-2"></path>',
     truck: '<path d="M3 7h11v10H3z"></path><path d="M14 11h4l3 3v3h-7z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle>',
     phone: '<path d="M22 16.5v3a2 2 0 0 1-2.2 2 19 19 0 0 1-8.3-3A18.7 18.7 0 0 1 3 8.2 2 2 0 0 1 5 6h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1l-1.3 1.3a15 15 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.5Z"></path>',
     policy: '<path d="M6 3h12v18H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>'
