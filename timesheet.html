@@ -301,6 +301,39 @@
       display: none;
     }
 
+    .weekly-summary-view-toggle {
+      display: none;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      margin: 8px 0 12px;
+    }
+
+    .weekly-summary-view-toggle span {
+      color: #c5d0c9;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .weekly-summary-view-toggle button {
+      width: auto;
+      min-height: 34px;
+      padding: 7px 10px;
+      margin: 0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #f5f7f3;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .weekly-summary-view-toggle button.active-view {
+      background: linear-gradient(135deg, #39c848, #168d3a);
+      color: #ffffff;
+      border-color: rgba(57, 200, 72, 0.72);
+    }
+
     .mobile-week-card {
       border: 1px solid rgba(57, 200, 72, 0.24);
       border-radius: 10px;
@@ -1019,12 +1052,31 @@
         table-layout: fixed;
       }
 
-      .weekly-summary-table-wrap {
+      .weekly-summary-view-toggle {
+        display: flex;
+      }
+
+      .weekly-summary-view.mobile-cards .weekly-summary-table-wrap {
         display: none;
       }
 
-      .mobile-week-summary {
+      .weekly-summary-view.mobile-cards .mobile-week-summary {
         display: block;
+      }
+
+      .weekly-summary-view.mobile-table .weekly-summary-table-wrap {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .weekly-summary-view.mobile-table .weekly-summary-table-wrap table {
+        min-width: 860px;
+        table-layout: auto;
+      }
+
+      .weekly-summary-view.mobile-table .mobile-week-summary {
+        display: none;
       }
 
       .mobile-edit-summary {
@@ -1288,6 +1340,7 @@ let memoryTimesheets = [];
 let rawSupabaseTimesheetRows = [];
 let editingEntryId = null;
 let entriesTab = "current";
+let weeklySummaryMobileView = localStorage.getItem("jgcTimesheetWeeklyMobileView") || "cards";
 let previousWeeks = [];
 let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
@@ -2387,6 +2440,28 @@ function showEntriesTab(tabName) {
   } else {
     render();
   }
+}
+
+function getWeeklySummaryMobileView() {
+  return weeklySummaryMobileView === "table" ? "table" : "cards";
+}
+
+function setWeeklySummaryMobileView(view) {
+  weeklySummaryMobileView = view === "table" ? "table" : "cards";
+  localStorage.setItem("jgcTimesheetWeeklyMobileView", weeklySummaryMobileView);
+  render();
+}
+
+function renderWeeklySummaryViewToggle() {
+  const view = getWeeklySummaryMobileView();
+
+  return `
+    <div class="weekly-summary-view-toggle" aria-label="Weekly summary view">
+      <span>Mobile View</span>
+      <button type="button" class="${view === "cards" ? "active-view" : ""}" onclick="setWeeklySummaryMobileView('cards')">Cards</button>
+      <button type="button" class="${view === "table" ? "active-view" : ""}" onclick="setWeeklySummaryMobileView('table')">Table</button>
+    </div>
+  `;
 }
 
 function getSelectedWeekStart() {
@@ -5166,29 +5241,34 @@ function render() {
     `;
   }).join("");
 
+  const weeklySummaryView = getWeeklySummaryMobileView();
+
   document.getElementById("entries").innerHTML = `
     <h3>Weekly Work Hours Summary</h3>
-    <div class="table-wrap weekly-summary-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Job Name</th>
-            <th>Job Number</th>
-            <th>Sunday</th>
-            <th>Monday</th>
-            <th>Tuesday</th>
-            <th>Wednesday</th>
-            <th>Thursday</th>
-            <th>Friday</th>
-            <th>Saturday</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
+    ${renderWeeklySummaryViewToggle()}
+    <div class="weekly-summary-view mobile-${escapeHtml(weeklySummaryView)}">
+      <div class="table-wrap weekly-summary-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Job Name</th>
+              <th>Job Number</th>
+              <th>Sunday</th>
+              <th>Monday</th>
+              <th>Tuesday</th>
+              <th>Wednesday</th>
+              <th>Thursday</th>
+              <th>Friday</th>
+              <th>Saturday</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+      ${renderMobileWeeklySummaryCards(weeklyGroups, days)}
     </div>
-    ${renderMobileWeeklySummaryCards(weeklyGroups, days)}
     <div class="email-actions">
       <button type="button" onclick="emailEntries()">Submit & Email</button>
       <span class="email-note">please send email at end of day Friday</span>
