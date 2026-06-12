@@ -175,11 +175,48 @@ button.danger:hover {
   color: #ffb3ad;
 }
 
+.task-form-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  color: #37d650;
+  font-size: 22px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.task-form-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.task-form-details summary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(55, 214, 80, 0.18);
+  color: #78ff89;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.task-form-details[open] summary::after {
+  content: "-";
+}
+
+.task-form-help {
+  margin-top: 10px;
+}
+
 .assignee-checklist {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 7px;
-  max-height: 178px;
-  overflow: auto;
   padding: 9px;
   border: 1px solid rgba(199, 221, 211, 0.28);
   border-radius: 6px;
@@ -384,6 +421,10 @@ button.danger:hover {
   .task-actions button {
     flex: 1 1 44%;
   }
+
+  .assignee-checklist {
+    grid-template-columns: 1fr;
+  }
 }
 
 body.embedded-task-page {
@@ -405,6 +446,10 @@ body.embedded-task-page h1 {
 body.embedded-task-page .panel {
   margin-bottom: 14px;
 }
+
+body.embedded-task-page {
+  overflow: hidden;
+}
 </style>
 </head>
 
@@ -423,9 +468,10 @@ body.embedded-task-page .panel {
     <button type="button" class="secondary" onclick="signOut()">Logout</button>
   </div>
 
-  <section class="panel">
-    <h2 id="taskFormTitle">New Task</h2>
-    <div class="small">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
+  <section class="panel task-form-panel">
+    <details id="taskFormDetails" class="task-form-details">
+      <summary><span id="taskFormTitle">New Task</span></summary>
+      <div class="small task-form-help">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
 
     <div class="form-grid" style="margin-top:14px;">
       <div class="field full">
@@ -501,7 +547,8 @@ body.embedded-task-page .panel {
       <button id="taskSaveButton" type="button" onclick="saveTask()">Save Task</button>
       <button type="button" class="secondary" onclick="clearTaskForm()">Clear</button>
     </div>
-    <div id="taskFormStatus" class="status-line"></div>
+      <div id="taskFormStatus" class="status-line"></div>
+    </details>
   </section>
 
   <section class="panel">
@@ -530,6 +577,7 @@ let taskAssignees = [];
 let jobs = [];
 let activeFilter = "all";
 let editingTaskId = "";
+let taskFrameResizeTimer = null;
 
 const TASK_FILTERS = [
   { key: "all", label: "All Tasks" },
@@ -573,16 +621,63 @@ if (taskPageParams.get("embedded") === "1") {
   document.body.classList.add("embedded-task-page");
 }
 
+function requestTaskFrameResize() {
+  if (taskPageParams.get("embedded") !== "1" || window.parent === window) {
+    return;
+  }
+
+  window.clearTimeout(taskFrameResizeTimer);
+  taskFrameResizeTimer = window.setTimeout(function() {
+    const page = document.querySelector(".page");
+    const height = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+      page ? page.scrollHeight : 0
+    );
+
+    window.parent.postMessage({
+      type: "jgc-task-frame-height",
+      height
+    }, "*");
+  }, 50);
+}
+
+function setupEmbeddedTaskFrameResize() {
+  if (taskPageParams.get("embedded") !== "1" || window.parent === window) {
+    return;
+  }
+
+  window.addEventListener("load", requestTaskFrameResize);
+  window.addEventListener("resize", requestTaskFrameResize);
+  document.addEventListener("toggle", requestTaskFrameResize, true);
+
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(requestTaskFrameResize);
+    observer.observe(document.body);
+    const page = document.querySelector(".page");
+
+    if (page) {
+      observer.observe(page);
+    }
+  }
+
+  requestTaskFrameResize();
+}
+
+setupEmbeddedTaskFrameResize();
+
 function setTaskFormStatus(message, isError) {
   const element = document.getElementById("taskFormStatus");
   element.textContent = message || "";
   element.classList.toggle("error", Boolean(isError));
+  requestTaskFrameResize();
 }
 
 function setTaskListStatus(message, isError) {
   const element = document.getElementById("taskListStatus");
   element.textContent = message || "";
   element.classList.toggle("error", Boolean(isError));
+  requestTaskFrameResize();
 }
 
 function getProfileName(profile) {
@@ -824,6 +919,7 @@ function renderTaskFormOptions() {
   document.getElementById("taskJobNumberOptions").innerHTML = jobs.map((job) =>
     '<option value="' + escapeHtml(job.job_number || "") + '">' + escapeHtml(job.job_name || "") + '</option>'
   ).join("");
+  requestTaskFrameResize();
 }
 
 function mergeAssigneeSource(assignee, source) {
@@ -1033,10 +1129,12 @@ function renderTasks() {
 
   if (!filtered.length) {
     list.innerHTML = '<div class="empty-state">No tasks found for this filter.</div>';
+    requestTaskFrameResize();
     return;
   }
 
   list.innerHTML = filtered.map(renderTaskCard).join("");
+  requestTaskFrameResize();
 }
 
 function renderTaskCard(task) {
@@ -1098,6 +1196,7 @@ function clearTaskForm() {
   document.getElementById("taskJobNumber").value = "";
   document.getElementById("taskDescription").value = "";
   setTaskFormStatus("");
+  requestTaskFrameResize();
 }
 
 function editTask(id) {
@@ -1108,6 +1207,7 @@ function editTask(id) {
   }
 
   editingTaskId = id;
+  document.getElementById("taskFormDetails").open = true;
   document.getElementById("taskFormTitle").textContent = "Edit Task";
   document.getElementById("taskSaveButton").textContent = "Update Task";
   document.getElementById("taskTitle").value = task.title || "";
@@ -1120,6 +1220,7 @@ function editTask(id) {
   document.getElementById("taskJobNumber").value = task.job_number || "";
   document.getElementById("taskDescription").value = task.description || "";
   setTaskFormStatus("Editing task.");
+  requestTaskFrameResize();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
