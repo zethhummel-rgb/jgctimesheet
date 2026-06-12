@@ -594,6 +594,35 @@
       color: #0b5e3b;
     }
 
+    .job-option-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .job-option-type {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #dff4e4;
+      color: #073f25;
+      border: 1px solid rgba(11, 94, 59, 0.28);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .job-option-type.contract {
+      background: #eef1f0;
+      color: #26332d;
+      border-color: rgba(38, 51, 45, 0.22);
+    }
+
     .job-option-name {
       display: block;
       margin-top: 2px;
@@ -2518,6 +2547,24 @@ function getJobDisplay(job) {
   return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
+function getJobTypeLabel(job) {
+  const type = String(job && (job.job_type || job.jobType) || "").trim().toLowerCase();
+
+  if (type.includes("contract")) {
+    return "Contract";
+  }
+
+  if (type.includes("t&m") || type === "tm" || type.includes("time")) {
+    return "T&M";
+  }
+
+  return "";
+}
+
+function getJobTypeClass(job) {
+  return getJobTypeLabel(job).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 function sortJobsByNumber(a, b) {
   return String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true });
 }
@@ -2580,9 +2627,14 @@ function renderJobDropdown() {
   dropdown.innerHTML = jobs.map(function(job) {
     const jobNumber = String(job.job_number || "").trim();
     const jobName = cleanRepeatedJobName(job.job_name);
+    const jobTypeLabel = getJobTypeLabel(job);
+    const jobTypeClass = getJobTypeClass(job);
     return `
       <button type="button" class="job-option" role="option" onmousedown="selectJobOption('${escapeHtml(job.id)}')">
-        <span class="job-option-number">${escapeHtml(jobNumber || "No Job #")}</span>
+        <span class="job-option-meta">
+          <span class="job-option-number">${escapeHtml(jobNumber || "No Job #")}</span>
+          ${jobTypeLabel ? '<span class="job-option-type ' + escapeHtml(jobTypeClass) + '">' + escapeHtml(jobTypeLabel) + '</span>' : ""}
+        </span>
         <span class="job-option-name">${escapeHtml(jobName)}</span>
       </button>
     `;
@@ -2697,7 +2749,7 @@ async function loadActiveJobs() {
 
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, active")
+    .select("id, job_number, job_name, job_type, active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
