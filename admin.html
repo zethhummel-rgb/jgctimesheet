@@ -7642,6 +7642,70 @@ function getCertificateSortTime(certificate) {
     return 0;
 }
 
+function isTrainingMatrixHiddenAccount(account) {
+    const email = normalizeWorkerName(account && account.email);
+    const names = [
+        account && account.display_name,
+        account && account.worker_key,
+        account && account.email
+    ].map(normalizeWorkerName).filter(Boolean);
+
+    return email === "zethhummel@gmail.com" ||
+        names.includes("test account") ||
+        names.includes("john smith");
+}
+
+function getTrainingMatrixHiddenWorkerKeys() {
+    const hiddenKeys = new Set(["test account", "john smith"]);
+
+    accounts
+        .filter(isTrainingMatrixHiddenAccount)
+        .forEach((account) => {
+            [
+                account.worker_key,
+                account.display_name,
+                account.email
+            ].map(normalizeWorkerName).filter(Boolean).forEach((value) => hiddenKeys.add(value));
+        });
+
+    return hiddenKeys;
+}
+
+function isHiddenTrainingMatrixWorker(workerName, hiddenKeys) {
+    const workerKey = normalizeWorkerName(workerName);
+    return Boolean(workerKey && hiddenKeys.has(workerKey));
+}
+
+function getTrainingMatrixCertificateKey(name) {
+    return String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function getTrainingMatrixCertificateLabel(name) {
+    return String(name || "").replace(/\s+/g, " ").trim();
+}
+
+function getTrainingMatrixCertificateColumns(certificateRows) {
+    const byKey = {};
+
+    certificateRows.forEach((certificate) => {
+        const key = getTrainingMatrixCertificateKey(certificate.certificate_name);
+        const label = getTrainingMatrixCertificateLabel(certificate.certificate_name);
+
+        if (!key || !label) {
+            return;
+        }
+
+        if (!byKey[key]) {
+            byKey[key] = {
+                key,
+                label
+            };
+        }
+    });
+
+    return Object.values(byKey).sort((a, b) => a.label.localeCompare(b.label));
+}
+
 function renderCertificateTrainingMatrix() {
     const matrix = document.getElementById("certificateTrainingMatrix");
 
@@ -7650,9 +7714,14 @@ function renderCertificateTrainingMatrix() {
     }
 
     const workerNamesByKey = {};
+    const hiddenWorkerKeys = getTrainingMatrixHiddenWorkerKeys();
+    const visibleCertificates = certificates.filter((certificate) =>
+        !isHiddenTrainingMatrixWorker(certificate.worker_name, hiddenWorkerKeys)
+    );
 
     accounts
         .filter((account) => String(account.account_status || "").toLowerCase() !== "inactive")
+        .filter((account) => !isTrainingMatrixHiddenAccount(account))
         .forEach((account) => {
             const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
 
@@ -7661,7 +7730,7 @@ function renderCertificateTrainingMatrix() {
             }
         });
 
-    certificates.forEach((certificate) => {
+    visibleCertificates.forEach((certificate) => {
         const workerKey = normalizeWorkerName(certificate.worker_name);
 
         if (workerKey && !workerNamesByKey[workerKey]) {
@@ -7670,19 +7739,18 @@ function renderCertificateTrainingMatrix() {
     });
 
     const workers = Object.keys(workerNamesByKey).sort((a, b) => workerNamesByKey[a].localeCompare(workerNamesByKey[b]));
-    const certificateNames = Array.from(new Set(certificates.map((certificate) => String(certificate.certificate_name || "").trim()).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b));
+    const certificateColumns = getTrainingMatrixCertificateColumns(visibleCertificates);
 
-    if (!workers.length || !certificateNames.length) {
+    if (!workers.length || !certificateColumns.length) {
         matrix.textContent = "Upload certificates to build the training matrix.";
         return;
     }
 
     const certificatesByWorkerAndName = {};
 
-    certificates.forEach((certificate) => {
+    visibleCertificates.forEach((certificate) => {
         const workerKey = normalizeWorkerName(certificate.worker_name);
-        const certificateKey = String(certificate.certificate_name || "").trim().toLowerCase();
+        const certificateKey = getTrainingMatrixCertificateKey(certificate.certificate_name);
 
         if (!workerKey || !certificateKey) {
             return;
@@ -7702,15 +7770,15 @@ function renderCertificateTrainingMatrix() {
                 <thead>
                     <tr>
                         <th>Employee</th>
-                        ${certificateNames.map((name) => `<th>${escapeHtml(name)}</th>`).join("")}
+                        ${certificateColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
                     </tr>
                 </thead>
                 <tbody>
                     ${workers.map((workerKey) => `
                         <tr>
                             <td>${escapeHtml(workerNamesByKey[workerKey])}</td>
-                            ${certificateNames.map((name) => {
-                                const certificate = certificatesByWorkerAndName[workerKey + "::" + name.toLowerCase()];
+                            ${certificateColumns.map((column) => {
+                                const certificate = certificatesByWorkerAndName[workerKey + "::" + column.key];
 
                                 if (!certificate) {
                                     return '<td class="matrix-cell"><span class="matrix-status missing">Missing</span></td>';
