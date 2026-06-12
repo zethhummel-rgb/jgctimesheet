@@ -2047,7 +2047,7 @@ button.admin-schedule-event-button.admin-event-vacation {
             </div>
             <div>
                 <label>Profile Photo</label>
-                <input id="profilePhotoFile" type="file" accept="image/png,image/jpeg,image/webp">
+                <input id="profilePhotoFile" type="file" accept="image/*,.heic,.heif">
             </div>
             <div>
                 <label>Phone</label>
@@ -4540,6 +4540,52 @@ function makeProfilePhotoFileName(fileName) {
         .slice(0, 80) || "profile-photo";
 }
 
+function getProfilePhotoExtension(fileName) {
+    const match = String(fileName || "").toLowerCase().match(/\.([a-z0-9]+)$/);
+    return match ? match[1] : "";
+}
+
+function getProfilePhotoContentType(file) {
+    if (file && file.type) {
+        return file.type;
+    }
+
+    const extension = getProfilePhotoExtension(file && file.name);
+
+    if (extension === "jpg" || extension === "jpeg") {
+        return "image/jpeg";
+    }
+
+    if (extension === "png") {
+        return "image/png";
+    }
+
+    if (extension === "webp") {
+        return "image/webp";
+    }
+
+    if (extension === "heic") {
+        return "image/heic";
+    }
+
+    if (extension === "heif") {
+        return "image/heif";
+    }
+
+    return "image/jpeg";
+}
+
+function isProfilePhotoFile(file) {
+    if (!file) {
+        return false;
+    }
+
+    const type = String(file.type || "").toLowerCase();
+    const extension = getProfilePhotoExtension(file.name);
+
+    return type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(extension);
+}
+
 function getProfilePhotoUrl(path) {
     if (!path) {
         return "";
@@ -5045,6 +5091,14 @@ async function uploadAdminProfilePhoto(account) {
         return account.avatar_path || "";
     }
 
+    if (!account.id) {
+        throw new Error("This employee account does not have a profile id for photo uploads.");
+    }
+
+    if (!isProfilePhotoFile(file)) {
+        throw new Error("Profile photo must be an image file.");
+    }
+
     if (file.size > 5 * 1024 * 1024) {
         throw new Error("Profile photo must be under 5 MB.");
     }
@@ -5055,7 +5109,7 @@ async function uploadAdminProfilePhoto(account) {
         .upload(filePath, file, {
             cacheControl: "3600",
             upsert: false,
-            contentType: file.type || "image/jpeg"
+            contentType: getProfilePhotoContentType(file)
         });
 
     if (error) {
