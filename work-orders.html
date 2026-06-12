@@ -1147,59 +1147,9 @@ function collectManualLabourRows() {
     matched_timesheet_entry_id: null,
     hours: Number.isFinite(hours) ? hours : 0,
     complete: Number.isFinite(hours) && hours > 0,
-    confirmation_status: Number.isFinite(hours) && hours > 0 ? "confirmed" : "wo_required",
     manual: true,
     notes: "Manual labour entry"
   }];
-}
-
-function getWoLabourConfirmationStatus(row) {
-  if (isManualLabourRow(row) && row && row.complete) {
-    return "confirmed";
-  }
-
-  const status = String(row && (row.confirmation_status || row.confirmationStatus) || "").toLowerCase();
-
-  if (status) {
-    return status;
-  }
-
-  if (row && row.complete) {
-    return "confirmed";
-  }
-
-  if (Number(row && row.hours || 0) > 0) {
-    return "awaiting_wo_confirmation";
-  }
-
-  return "wo_required";
-}
-
-function isWoLabourConfirmed(row) {
-  const status = getWoLabourConfirmationStatus(row);
-  return status === "confirmed" || status === "admin_overridden";
-}
-
-function getWoLabourStatusLabel(row) {
-  const status = getWoLabourConfirmationStatus(row);
-
-  if (status === "awaiting_wo_confirmation") {
-    return "Awaiting Confirmation";
-  }
-
-  if (status === "denied_needs_correction") {
-    return "Needs Correction";
-  }
-
-  if (status === "admin_overridden") {
-    return "Admin Override";
-  }
-
-  if (status === "confirmed") {
-    return "Complete";
-  }
-
-  return row && row.manual ? "Missing Hours" : "Missing Timesheet";
 }
 
 function getLabourMatchesForEmployee(employee, jobNumber, workDate) {
@@ -1211,6 +1161,7 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
   const normalizedEmployeeName = normalizeEmployeeMatchKey(employee.employee_name);
   const normalizedJob = normalizeJobNumber(jobNumber);
   const normalizedJobName = normalizeText(jobName);
+  const workWeekStart = getWeekStartValueForDate(workDate);
 
   const matchingEntries = timesheetEntries.filter((entry) => {
     if (normalizeText(entry.entry_type || "work") !== "work") {
@@ -1234,7 +1185,13 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
       jobMatches;
   });
 
-  return matchingEntries.filter((entry) => getTimesheetEntryDate(entry) === workDate);
+  const exactDateMatches = matchingEntries.filter((entry) => getTimesheetEntryDate(entry) === workDate);
+
+  if (exactDateMatches.length || !workWeekStart) {
+    return exactDateMatches;
+  }
+
+  return matchingEntries.filter((entry) => getTimesheetEntryWeekStartValue(entry) === workWeekStart);
 }
 
 function buildLabourPreviewRows() {
@@ -1250,9 +1207,8 @@ function buildLabourPreviewRows() {
       ...employee,
       matched_timesheet_entry_id: matches[0] ? matches[0].id : null,
       hours,
-      complete: false,
-      confirmation_status: hours > 0 ? "awaiting_wo_confirmation" : "wo_required",
-      notes: matches.length > 1 ? matches.length + " matching entries awaiting confirmation" : (hours > 0 ? "Awaiting WO confirmation" : "")
+      complete: hours > 0,
+      notes: matches.length > 1 ? matches.length + " matching entries" : ""
     };
   });
 
@@ -1268,17 +1224,15 @@ function renderLabourPreview() {
     return;
   }
 
-  const confirmedCount = rows.filter((row) => isWoLabourConfirmed(row)).length;
-  const awaitingCount = rows.filter((row) => getWoLabourConfirmationStatus(row) === "awaiting_wo_confirmation").length;
+  const completeCount = rows.filter((row) => row.complete).length;
   const totalHours = rows.reduce((total, row) => total + row.hours, 0);
-  const labourComplete = confirmedCount === rows.length;
+  const labourComplete = completeCount === rows.length;
 
   panel.innerHTML = `
     <div class="labour-summary">
       <div class="labour-metric"><span>Total Labour Hours</span><strong>${totalHours.toFixed(2)}</strong></div>
       <div class="labour-metric"><span>Labour Complete</span><strong>${labourComplete ? "Yes" : "No"}</strong></div>
-      <div class="labour-metric"><span>Awaiting Confirmation</span><strong>${awaitingCount}</strong></div>
-      <div class="labour-metric"><span>Confirmed Employees</span><strong>${confirmedCount} / ${rows.length}</strong></div>
+      <div class="labour-metric"><span>Matched Employees</span><strong>${completeCount} / ${rows.length}</strong></div>
     </div>
     <div class="table-wrap">
       <table>
@@ -1294,8 +1248,8 @@ function renderLabourPreview() {
           ${rows.map((row) => `
             <tr>
               <td>${escapeHtml(row.employee_name)}</td>
-              <td>${isWoLabourConfirmed(row) ? '<span class="complete-text">' + escapeHtml(getWoLabourStatusLabel(row)) + '</span>' : '<span class="missing-text">' + escapeHtml(getWoLabourStatusLabel(row)) + '</span>'}</td>
-              <td>${Number(row.hours || 0) > 0 ? row.hours.toFixed(2) : "-"}</td>
+              <td>${row.complete ? '<span class="complete-text">Complete</span>' : '<span class="missing-text">' + (row.manual ? "Missing Hours" : "Missing Timesheet") + '</span>'}</td>
+              <td>${row.complete ? row.hours.toFixed(2) : "-"}</td>
               <td>${escapeHtml(row.notes || "")}</td>
             </tr>
           `).join("")}
@@ -1874,7 +1828,7 @@ function renderWorkOrders() {
           ${filtered.map((wo) => {
             const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length;
             const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
-            const completeCount = woLabourRows.filter((row) => isWoLabourConfirmed(row)).length;
+            const completeCount = woLabourRows.filter((row) => row.complete).length;
             const isLocked = Boolean(wo.locked || wo.status === "submitted");
             return `
               <tr>
@@ -2055,11 +2009,8 @@ async function saveWorkOrder(options) {
   const selectedMaterialRows = collectMaterialRows();
   const selectedMiscRows = collectMiscRows();
   const selectedTravelRows = collectTravelRows();
-  const labourComplete = previewRows.length > 0 && previewRows.every((row) => isWoLabourConfirmed(row));
-  const waitingFor = previewRows.filter((row) => !isWoLabourConfirmed(row)).map((row) => {
-    const statusLabel = getWoLabourStatusLabel(row);
-    return (row.employee_name || "Employee") + " " + statusLabel;
-  });
+  const labourComplete = previewRows.length > 0 && previewRows.every((row) => row.complete);
+  const waitingFor = previewRows.filter((row) => !row.complete).map((row) => row.manual ? row.employee_name + " Manual Labour Hours" : row.employee_name + " Timesheet");
 
   if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
     setFormStatus("Select a job so the WO number and job details can be generated.", true);
@@ -2181,8 +2132,7 @@ async function saveWorkOrder(options) {
         expected: true,
         matched_timesheet_entry_id: row.matched_timesheet_entry_id,
         hours: row.hours,
-        complete: isWoLabourConfirmed(row),
-        confirmation_status: row.confirmation_status || row.confirmationStatus || getWoLabourConfirmationStatus(row),
+        complete: row.complete,
         notes: row.notes,
         updated_at: new Date().toISOString()
       })));
@@ -2330,105 +2280,17 @@ function getWorkOrderCompleteness(id) {
     waitingFor.push("Labour selection");
   }
 
-  labour.filter((row) => !isWoLabourConfirmed(row)).forEach((row) => {
-    waitingFor.push((row.employee_name || "Employee") + " " + getWoLabourStatusLabel(row));
+  labour.filter((row) => !row.complete).forEach((row) => {
+    waitingFor.push((row.employee_name || "Employee") + " Timesheet");
   });
 
-  const labourComplete = labour.length > 0 && labour.every((row) => isWoLabourConfirmed(row));
+  const labourComplete = labour.length > 0 && labour.every((row) => row.complete);
 
   return {
     complete: waitingFor.length === 0 && labourComplete,
     labourComplete,
     waitingFor
   };
-}
-
-function isTerminalWoLabourStatus(status) {
-  return ["confirmed", "denied_needs_correction", "admin_overridden"].includes(String(status || "").toLowerCase());
-}
-
-function buildWoLabourTimesheetLink(row, entry, wo, status) {
-  return {
-    work_order_id: wo.id,
-    work_order_labour_id: row.id,
-    timesheet_entry_id: entry.id,
-    employee_key: row.worker_key || normalizeWorkerName(row.employee_name),
-    employee_display_name: row.employee_name || entry.worker_name || "",
-    job_number: entry.job_number || entry.jobNumber || wo.job_number || "",
-    job_name: entry.job_name || entry.jobName || wo.job_name || "",
-    work_date: getTimesheetEntryDate(entry) || wo.work_order_date || null,
-    submitted_hours: Number(entry.hours || 0),
-    status,
-    updated_at: new Date().toISOString()
-  };
-}
-
-async function syncWorkOrderLabourTimesheetLinks(row, matches, wo, status) {
-  if (!row.id) {
-    return;
-  }
-
-  await supabaseClient
-    .from("work_order_labour_timesheet_links")
-    .delete()
-    .eq("work_order_labour_id", row.id);
-
-  if (!matches.length) {
-    return;
-  }
-
-  const linkRows = matches
-    .filter((entry) => entry.id && !String(entry.id).startsWith("local-"))
-    .map((entry) => buildWoLabourTimesheetLink(row, entry, wo, status));
-
-  if (linkRows.length) {
-    const { error: linkError } = await supabaseClient
-      .from("work_order_labour_timesheet_links")
-      .upsert(linkRows, { onConflict: "work_order_labour_id,timesheet_entry_id" });
-
-    if (linkError) {
-      console.warn("WO labour timesheet links could not be synced.", linkError);
-    }
-  }
-
-  const timesheetEntryIds = linkRows.map((link) => link.timesheet_entry_id);
-
-  if (timesheetEntryIds.length) {
-    const { error: timesheetError } = await supabaseClient
-      .from("timesheet_entries")
-      .update({
-        wo_id: wo.id,
-        wo_number: wo.wo_number || null,
-        wo_confirmation_status: status,
-        wo_locked: false,
-        wo_denial_reason: null,
-        wo_confirmed_by: null,
-        wo_confirmed_at: null,
-        wo_denied_by: null,
-        wo_denied_at: null,
-        wo_admin_override_reason: null
-      })
-      .in("id", timesheetEntryIds);
-
-    if (timesheetError) {
-      console.warn("Timesheet entries could not be linked to WO labour.", timesheetError);
-    }
-
-    const idSet = new Set(timesheetEntryIds);
-    timesheetEntries = timesheetEntries.map((entry) => {
-      if (!idSet.has(entry.id)) {
-        return entry;
-      }
-
-      return {
-        ...entry,
-        wo_id: wo.id,
-        wo_number: wo.wo_number || "",
-        wo_confirmation_status: status,
-        wo_locked: false
-      };
-    });
-  }
 }
 
 async function refreshSavedLabourRowsForWorkOrder(wo) {
@@ -2439,15 +2301,9 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
   }
 
   const updates = [];
-  for (const row of rows) {
+  rows.forEach((row) => {
     if (isManualLabourRow(row)) {
-      continue;
-    }
-
-    const existingStatus = getWoLabourConfirmationStatus(row);
-
-    if (isTerminalWoLabourStatus(existingStatus)) {
-      continue;
+      return;
     }
 
     const matches = getLabourMatches({
@@ -2455,16 +2311,12 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
       employee_name: row.employee_name || ""
     }, wo.job_number || "", wo.job_name || "", wo.work_order_date || "");
     const hours = matches.reduce((total, entry) => total + Number(entry.hours || 0), 0);
-    const confirmationStatus = hours > 0 ? "awaiting_wo_confirmation" : "wo_required";
     const updatedRow = {
       ...row,
       matched_timesheet_entry_id: matches[0] ? matches[0].id : null,
       hours,
-      complete: false,
-      confirmation_status: confirmationStatus,
-      notes: matches.length > 1
-        ? matches.length + " matching entries awaiting confirmation"
-        : (hours > 0 ? "Awaiting WO confirmation" : (String(row.notes || "").toLowerCase().includes("awaiting") ? "" : row.notes || "")),
+      complete: hours > 0,
+      notes: matches.length > 1 ? matches.length + " matching entries" : row.notes || "",
       updated_at: new Date().toISOString()
     };
 
@@ -2472,14 +2324,11 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
       String(row.matched_timesheet_entry_id || "") !== String(updatedRow.matched_timesheet_entry_id || "") ||
       Number(row.hours || 0) !== Number(updatedRow.hours || 0) ||
       Boolean(row.complete) !== Boolean(updatedRow.complete) ||
-      String(row.confirmation_status || "") !== String(updatedRow.confirmation_status || "") ||
       String(row.notes || "") !== String(updatedRow.notes || "")
     ) {
       updates.push(updatedRow);
     }
-
-    await syncWorkOrderLabourTimesheetLinks(row, matches, wo, confirmationStatus);
-  }
+  });
 
   if (!updates.length) {
     return;
@@ -2491,7 +2340,6 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
       matched_timesheet_entry_id: row.matched_timesheet_entry_id,
       hours: row.hours,
       complete: row.complete,
-      confirmation_status: row.confirmation_status,
       notes: row.notes,
       updated_at: row.updated_at
     })
@@ -2745,7 +2593,7 @@ async function loadTimesheetEntries() {
   const [liveResult, archivedResult] = await Promise.all([
     supabaseClient
       .from("timesheet_entries")
-      .select("id, worker_name, week_start, job_name, job_number, day_of_week, hours, entry_type, wo_id, wo_number, wo_confirmation_status, wo_locked")
+      .select("id, worker_name, week_start, job_name, job_number, day_of_week, hours, entry_type")
       .order("week_start", { ascending: false })
       .order("created_at", { ascending: false }),
     supabaseClient
