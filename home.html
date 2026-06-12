@@ -1791,6 +1791,7 @@ let currentProfile = null;
 let homeScheduleAccounts = [];
 let homeScheduleJobs = [];
 let homeScheduleEquipment = [];
+const PROFILE_SELECT_FIELDS = "id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path";
 
 if (window.matchMedia("(max-width: 980px)").matches) {
   document.querySelector(".app-shell").classList.add("sidebar-collapsed");
@@ -1872,6 +1873,67 @@ async function getCurrentUserId() {
     : "";
 
   return currentUserId;
+}
+
+async function getProfileByField(field, value, options) {
+  const cleanValue = String(value || "").trim();
+
+  if (!supabaseClient || !cleanValue) {
+    return null;
+  }
+
+  const settings = options || {};
+  let query = supabaseClient
+    .from("profiles")
+    .select(PROFILE_SELECT_FIELDS)
+    .limit(1);
+
+  query = settings.ilike
+    ? query.ilike(field, cleanValue)
+    : query.eq(field, cleanValue);
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.warn("Profile lookup failed.", error);
+    return null;
+  }
+
+  return Array.isArray(data) ? data[0] || null : data || null;
+}
+
+async function findMyProfileRecord(userId) {
+  const emailCandidates = [
+    currentProfile && currentProfile.email,
+    worker.email,
+    localStorage.getItem("currentUserEmail")
+  ];
+
+  const checks = [
+    ["id", currentProfile && currentProfile.id],
+    ["id", userId],
+    ["worker_key", currentWorker],
+    ["worker_key", currentWorkerDisplay],
+    ["display_name", currentWorkerDisplay]
+  ];
+
+  for (const check of checks) {
+    const profile = await getProfileByField(check[0], check[1]);
+
+    if (profile) {
+      return profile;
+    }
+  }
+
+  for (const email of emailCandidates) {
+    const profile = await getProfileByField("email", email, { ilike: true });
+
+    if (profile) {
+      return profile;
+    }
+  }
+
+  return null;
 }
 
 function makeProfilePhotoFileName(fileName) {
@@ -2053,13 +2115,14 @@ async function loadMyProfile() {
     return;
   }
 
-  const { data, error } = await supabaseClient
-    .from("profiles")
-    .select("id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path")
-    .eq("id", userId)
-    .single();
+  const data = await findMyProfileRecord(userId);
 
-  if (error || !data) {
+  if (!data) {
+    document.getElementById("profileEmail").value = worker.email || "";
+    document.getElementById("profilePhone").value = "";
+    document.getElementById("profileEmergencyContact").value = "";
+    document.getElementById("profileEmergencyContactPhone").value = "";
+    document.getElementById("profileAddress").value = "";
     setProfileImage("");
     return;
   }
@@ -2137,8 +2200,19 @@ async function saveMyProfile() {
 
   try {
     const avatarPath = await uploadMyProfilePhoto(userId);
+    const existingProfile = await findMyProfileRecord(userId);
+    const profileEmail = document.getElementById("profileEmail").value.trim() ||
+      (existingProfile && existingProfile.email) ||
+      worker.email ||
+      localStorage.getItem("currentUserEmail") ||
+      "";
+
+    if (!profileEmail) {
+      throw new Error("Add an email address before saving your profile.");
+    }
+
     const values = {
-      email: document.getElementById("profileEmail").value.trim(),
+      email: profileEmail,
       phone: document.getElementById("profilePhone").value.trim(),
       emergency_contact: buildEmergencyContact(
         document.getElementById("profileEmergencyContact").value,
@@ -2149,15 +2223,57 @@ async function saveMyProfile() {
       last_portal_activity: new Date().toISOString()
     };
 
-    const { data, error } = await supabaseClient
-      .from("profiles")
-      .update(values)
-      .eq("id", userId)
-      .select("id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path")
-      .single();
+    let data = null;
+    let error = null;
+
+    if (existingProfile && existingProfile.id) {
+      const updateResult = await supabaseClient
+        .from("profiles")
+        .update(values)
+        .eq("id", existingProfile.id)
+        .select(PROFILE_SELECT_FIELDS)
+        .limit(1);
+
+      error = updateResult.error;
+      data = Array.isArray(updateResult.data) ? updateResult.data[0] || null : updateResult.data || null;
+    }
+
+    if (!error && !data) {
+      const updateResult = await supabaseClient
+        .from("profiles")
+        .update(values)
+        .eq("worker_key", currentWorker)
+        .select(PROFILE_SELECT_FIELDS)
+        .limit(1);
+
+      error = updateResult.error;
+      data = Array.isArray(updateResult.data) ? updateResult.data[0] || null : updateResult.data || null;
+    }
+
+    if (!error && !data) {
+      const insertResult = await supabaseClient
+        .from("profiles")
+        .insert({
+          id: userId,
+          display_name: currentWorkerDisplay || currentWorker || profileEmail,
+          worker_key: currentWorker || normalizeWorkerName(currentWorkerDisplay || profileEmail),
+          role: currentUserRole || "worker",
+          account_status: worker.status || "approved",
+          ...values
+        })
+        .select(PROFILE_SELECT_FIELDS)
+        .limit(1);
+
+      error = insertResult.error;
+      data = Array.isArray(insertResult.data) ? insertResult.data[0] || null : insertResult.data || null;
+    }
 
     if (error) {
       throw error;
+    }
+
+    if (!data) {
+      throw new Error("Profile was saved, but the updated profile could not be loaded.");
     }
 
     currentProfile = data;
