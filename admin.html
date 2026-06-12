@@ -433,11 +433,13 @@ button:hover,
 
 .admin-task-frame {
     width: 100%;
-    min-height: 980px;
+    min-height: 520px;
+    height: 720px;
     border: 0;
     border-radius: 8px;
     background: transparent;
     display: block;
+    overflow: hidden;
 }
 
 .admin-task-card {
@@ -2243,7 +2245,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <div id="tasksSection" class="card admin-task-card" hidden>
     <h2>Tasks</h2>
     <div class="small" style="margin-bottom:12px;">Same task list as the employee Tasks page, with admin delete permissions available when needed.</div>
-    <iframe class="admin-task-frame" src="tasks.html?embedded=1&admin=1" title="Admin Tasks"></iframe>
+    <iframe class="admin-task-frame" src="tasks.html?embedded=1&admin=1" title="Admin Tasks" scrolling="no"></iframe>
 </div>
 
 <div id="announcementsSection" class="card" hidden>
@@ -2892,6 +2894,23 @@ async function inspectBackupFile() {
         setBackupStatus("backupInspectStatus", "Could not inspect backup: " + err.message, true);
     }
 }
+
+window.addEventListener("message", function(event) {
+    const data = event.data || {};
+
+    if (data.type !== "jgc-task-frame-height") {
+        return;
+    }
+
+    const frame = document.querySelector(".admin-task-frame");
+
+    if (!frame || event.source !== frame.contentWindow) {
+        return;
+    }
+
+    const height = Math.min(5000, Math.max(520, Math.ceil(Number(data.height) || 0) + 18));
+    frame.style.height = height + "px";
+});
 
 function showTab(tab) {
     ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"].forEach((name) => {
