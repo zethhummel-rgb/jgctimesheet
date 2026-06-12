@@ -175,6 +175,39 @@ button.danger:hover {
   color: #ffb3ad;
 }
 
+.assignee-checklist {
+  display: grid;
+  gap: 7px;
+  max-height: 178px;
+  overflow: auto;
+  padding: 9px;
+  border: 1px solid rgba(199, 221, 211, 0.28);
+  border-radius: 6px;
+  background: rgba(4, 15, 12, 0.58);
+}
+
+.assignee-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f5f7f3;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.assignee-option input {
+  width: auto;
+  min-width: 18px;
+  min-height: 18px;
+  accent-color: #37d650;
+}
+
+.assignee-source {
+  color: #a9bbb0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -427,10 +460,9 @@ body.embedded-task-page .panel {
       </div>
 
       <div class="field">
-        <label for="taskAssignedTo">Assigned To</label>
-        <select id="taskAssignedTo">
-          <option value="">Unassigned</option>
-        </select>
+        <label>Assigned To</label>
+        <div id="taskAssignedToList" class="assignee-checklist"></div>
+        <div class="small">Optional. Select one or more workers, or leave blank for unassigned.</div>
       </div>
 
       <div class="field">
@@ -561,18 +593,74 @@ function getAssigneeName(assignee) {
   return assignee ? (assignee.name || assignee.worker_key || assignee.email || "Employee") : "";
 }
 
-function getSelectedAssignedRecord() {
-  const value = document.getElementById("taskAssignedTo").value;
+function getAssigneeByValue(value) {
   return taskAssignees.find((item) => item.value === value) || null;
 }
 
-function getSelectedAssignedName() {
-  return getAssigneeName(getSelectedAssignedRecord());
+function getSelectedAssignedRecords() {
+  return Array.from(document.querySelectorAll('input[name="taskAssignedTo"]:checked'))
+    .map((input) => getAssigneeByValue(input.value))
+    .filter(Boolean);
 }
 
-function getSelectedAssignedProfileId() {
-  const assignee = getSelectedAssignedRecord();
-  return assignee && assignee.profileId ? assignee.profileId : null;
+function getSelectedAssignedNames() {
+  return getSelectedAssignedRecords().map(getAssigneeName).filter(Boolean);
+}
+
+function getSelectedAssignedProfileIds() {
+  return getSelectedAssignedRecords()
+    .map((assignee) => assignee.profileId)
+    .filter(Boolean);
+}
+
+function getTaskAssignedProfileIds(task) {
+  const ids = [];
+
+  if (Array.isArray(task.assigned_to_ids)) {
+    task.assigned_to_ids.forEach((id) => {
+      if (id && !ids.includes(id)) {
+        ids.push(id);
+      }
+    });
+  }
+
+  if (task.assigned_to && !ids.includes(task.assigned_to)) {
+    ids.push(task.assigned_to);
+  }
+
+  return ids;
+}
+
+function getTaskAssignedNames(task) {
+  const names = [];
+
+  function addName(name) {
+    const clean = String(name || "").trim();
+    if (clean && !names.some((item) => normalizeWorkerName(item) === normalizeWorkerName(clean))) {
+      names.push(clean);
+    }
+  }
+
+  if (Array.isArray(task.assigned_to_names)) {
+    task.assigned_to_names.forEach(addName);
+  }
+
+  if (task.assigned_to_name) {
+    String(task.assigned_to_name)
+      .split(",")
+      .forEach(addName);
+  }
+
+  return names;
+}
+
+function getTaskAssignedDisplay(task) {
+  const names = getTaskAssignedNames(task);
+  return names.length ? names.join(", ") : "Unassigned";
+}
+
+function isTaskUnassigned(task) {
+  return !getTaskAssignedProfileIds(task).length && !getTaskAssignedNames(task).length;
 }
 
 function getTaskStatusLabel(value) {
@@ -624,29 +712,30 @@ function isDueSoon(task) {
 }
 
 function isMyTask(task) {
-  const assignedName = normalizeWorkerName(task.assigned_to_name);
+  const assignedIds = getTaskAssignedProfileIds(task);
+  const assignedNames = getTaskAssignedNames(task).map(normalizeWorkerName);
   return (
-    (currentUserId && task.assigned_to === currentUserId) ||
+    (currentUserId && assignedIds.includes(currentUserId)) ||
     (currentUserId && task.created_by === currentUserId) ||
-    assignedName === currentWorker ||
-    assignedName === normalizeWorkerName(currentWorkerDisplay) ||
+    assignedNames.includes(currentWorker) ||
+    assignedNames.includes(normalizeWorkerName(currentWorkerDisplay)) ||
     (task.created_by_name && normalizeWorkerName(task.created_by_name) === normalizeWorkerName(currentWorkerDisplay))
   );
 }
 
 function canChangeTask(task) {
-  return currentWorkerIsAdmin || !task.assigned_to || task.assigned_to === currentUserId || task.created_by === currentUserId || isMyTask(task);
+  return currentWorkerIsAdmin || isTaskUnassigned(task) || task.created_by === currentUserId || isMyTask(task);
 }
 
 function getFilteredTasks() {
   return tasks.filter((task) => {
-    if (activeFilter === "all") return true;
+    if (activeFilter === "all") return task.status !== "complete" && task.status !== "archived";
     if (activeFilter === "open") return task.status === "open";
     if (activeFilter === "in_progress") return task.status === "in_progress";
     if (activeFilter === "complete") return task.status === "complete";
     if (activeFilter === "archived") return task.status === "archived";
     if (activeFilter === "my") return isMyTask(task);
-    if (activeFilter === "unassigned") return !task.assigned_to && !task.assigned_to_name;
+    if (activeFilter === "unassigned") return isTaskUnassigned(task);
     if (activeFilter === "high") return task.priority === "high" || task.priority === "urgent";
     if (activeFilter === "due_soon") return isDueSoon(task);
     return true;
@@ -696,9 +785,13 @@ function renderTaskFormOptions() {
   const assignmentOptions = taskAssignees
     .slice()
     .sort((a, b) => getAssigneeName(a).localeCompare(getAssigneeName(b)))
-    .map((assignee) => '<option value="' + escapeHtml(assignee.value) + '">' + escapeHtml(getAssigneeName(assignee)) + (assignee.source ? ' - ' + escapeHtml(assignee.source) : '') + '</option>')
+    .map((assignee) => {
+      const label = getAssigneeName(assignee);
+      const source = assignee.source ? '<span class="assignee-source">' + escapeHtml(assignee.source) + '</span>' : "";
+      return '<label class="assignee-option"><input type="checkbox" name="taskAssignedTo" value="' + escapeHtml(assignee.value) + '"><span>' + escapeHtml(label) + '</span>' + source + '</label>';
+    })
     .join("");
-  document.getElementById("taskAssignedTo").innerHTML = '<option value="">Unassigned</option>' + assignmentOptions;
+  document.getElementById("taskAssignedToList").innerHTML = assignmentOptions || '<div class="small">No approved workers found.</div>';
 
   document.getElementById("taskJobOptions").innerHTML = jobs.map((job) => {
     const name = String(job.job_name || "").trim();
@@ -791,21 +884,84 @@ function buildTaskAssignees(profileRows, labourRows) {
   return result;
 }
 
-function getTaskAssigneeValue(task) {
-  if (task.assigned_to) {
-    const profileMatch = taskAssignees.find((item) => item.profileId === task.assigned_to || item.value === task.assigned_to);
+function getTaskAssigneeValues(task) {
+  const values = new Set();
+
+  getTaskAssignedProfileIds(task).forEach((id) => {
+    const profileMatch = taskAssignees.find((item) => item.profileId === id || item.value === id);
     if (profileMatch) {
-      return profileMatch.value;
+      values.add(profileMatch.value);
     }
+  });
+
+  getTaskAssignedNames(task).forEach((name) => {
+    const assignedName = normalizeWorkerName(name);
+    const nameMatch = taskAssignees.find((item) => normalizeWorkerName(getAssigneeName(item)) === assignedName);
+    if (nameMatch) {
+      values.add(nameMatch.value);
+    }
+  });
+
+  return Array.from(values);
+}
+
+function setTaskAssigneeValues(values) {
+  const selectedValues = new Set(values || []);
+  document.querySelectorAll('input[name="taskAssignedTo"]').forEach((input) => {
+    input.checked = selectedValues.has(input.value);
+  });
+}
+
+function getPrimaryAssignedProfileId(profileIds) {
+  return profileIds.length ? profileIds[0] : null;
+}
+
+function getPrimaryAssignedName(names) {
+  return names.length ? names[0] : null;
+}
+
+function getAssignedNameText(names) {
+  return names.length ? names.join(", ") : null;
+}
+
+function normalizeTaskAfterLoad(task) {
+  const profileIds = getTaskAssignedProfileIds(task);
+  const names = getTaskAssignedNames(task);
+
+  return {
+    ...task,
+    assigned_to_ids: profileIds,
+    assigned_to_names: names
+  };
+}
+
+function hasMissingTaskAssignmentColumns(error) {
+  const message = String((error && error.message) || "").toLowerCase();
+  return message.includes("assigned_to_ids") || message.includes("assigned_to_names");
+}
+
+async function saveTaskPayload(payload, insertPayload) {
+  const query = editingTaskId
+    ? supabaseClient.from("tasks").update(payload).eq("id", editingTaskId)
+    : supabaseClient.from("tasks").insert(insertPayload);
+
+  const result = await query;
+
+  if (!result.error || !hasMissingTaskAssignmentColumns(result.error)) {
+    return result;
   }
 
-  const assignedName = normalizeWorkerName(task.assigned_to_name);
-  if (!assignedName) {
-    return "";
-  }
+  const legacyPayload = { ...payload };
+  delete legacyPayload.assigned_to_ids;
+  delete legacyPayload.assigned_to_names;
 
-  const nameMatch = taskAssignees.find((item) => normalizeWorkerName(getAssigneeName(item)) === assignedName);
-  return nameMatch ? nameMatch.value : "";
+  const legacyInsertPayload = { ...insertPayload };
+  delete legacyInsertPayload.assigned_to_ids;
+  delete legacyInsertPayload.assigned_to_names;
+
+  return editingTaskId
+    ? supabaseClient.from("tasks").update(legacyPayload).eq("id", editingTaskId)
+    : supabaseClient.from("tasks").insert(legacyInsertPayload);
 }
 
 function findJobByNameInput(value) {
@@ -857,7 +1013,7 @@ function renderTaskCard(task) {
   const status = task.status || "open";
   const priority = task.priority || "";
   const category = task.category || "";
-  const assignedTo = task.assigned_to_name || "Unassigned";
+  const assignedTo = getTaskAssignedDisplay(task);
   const job = [task.job_number, task.job_name].filter(Boolean).join(" - ");
   const notes = String(task.description || "").trim();
   const canChange = canChangeTask(task);
@@ -906,7 +1062,7 @@ function clearTaskForm() {
   document.getElementById("taskStatus").value = "open";
   document.getElementById("taskPriority").value = "";
   document.getElementById("taskDueDate").value = "";
-  document.getElementById("taskAssignedTo").value = "";
+  setTaskAssigneeValues([]);
   document.getElementById("taskCategory").value = "";
   document.getElementById("taskJobName").value = "";
   document.getElementById("taskJobNumber").value = "";
@@ -928,7 +1084,7 @@ function editTask(id) {
   document.getElementById("taskStatus").value = task.status || "open";
   document.getElementById("taskPriority").value = task.priority || "";
   document.getElementById("taskDueDate").value = task.due_date || "";
-  document.getElementById("taskAssignedTo").value = getTaskAssigneeValue(task);
+  setTaskAssigneeValues(getTaskAssigneeValues(task));
   document.getElementById("taskCategory").value = task.category || "";
   document.getElementById("taskJobName").value = task.job_name || "";
   document.getElementById("taskJobNumber").value = task.job_number || "";
@@ -942,8 +1098,8 @@ async function saveTask() {
   const status = document.getElementById("taskStatus").value || "open";
   const priority = document.getElementById("taskPriority").value || null;
   const dueDate = document.getElementById("taskDueDate").value || null;
-  const assignedTo = getSelectedAssignedProfileId();
-  const assignedToName = getSelectedAssignedName();
+  const assignedProfileIds = getSelectedAssignedProfileIds();
+  const assignedNames = getSelectedAssignedNames();
   const category = document.getElementById("taskCategory").value || null;
   const jobName = document.getElementById("taskJobName").value.trim();
   const jobNumber = document.getElementById("taskJobNumber").value.trim();
@@ -960,8 +1116,10 @@ async function saveTask() {
     status,
     priority,
     due_date: dueDate,
-    assigned_to: assignedTo,
-    assigned_to_name: assignedToName || null,
+    assigned_to: getPrimaryAssignedProfileId(assignedProfileIds),
+    assigned_to_name: getAssignedNameText(assignedNames),
+    assigned_to_ids: assignedProfileIds,
+    assigned_to_names: assignedNames,
     job_name: jobName || null,
     job_number: jobNumber || null,
     category,
@@ -972,15 +1130,11 @@ async function saveTask() {
 
   setTaskFormStatus(editingTaskId ? "Updating task..." : "Saving task...");
 
-  const query = editingTaskId
-    ? supabaseClient.from("tasks").update(payload).eq("id", editingTaskId)
-    : supabaseClient.from("tasks").insert({
-        ...payload,
-        created_by: currentUserId || null,
-        created_by_name: currentWorkerDisplay || currentWorker
-      });
-
-  const { error } = await query;
+  const { error } = await saveTaskPayload(payload, {
+    ...payload,
+    created_by: currentUserId || null,
+    created_by_name: currentWorkerDisplay || currentWorker
+  });
 
   if (error) {
     setTaskFormStatus("Task could not be saved: " + error.message, true);
@@ -1108,7 +1262,7 @@ async function loadTasks() {
     return;
   }
 
-  tasks = data || [];
+  tasks = (data || []).map(normalizeTaskAfterLoad);
   renderTasks();
 }
 
