@@ -593,6 +593,27 @@ function getAssigneeName(assignee) {
   return assignee ? (assignee.name || assignee.worker_key || assignee.email || "Employee") : "";
 }
 
+function isHiddenTaskAssignee(record) {
+  const email = normalizeWorkerName(record && record.email);
+  const names = [
+    record && record.display_name,
+    record && record.name,
+    record && record.worker_key,
+    record && record.email
+  ].map(normalizeWorkerName).filter(Boolean);
+
+  return email === "zethhummel@gmail.com" ||
+    names.includes("test account") ||
+    names.includes("john smith");
+}
+
+function getHiddenTaskAssigneeProfileIds(profileRows) {
+  return new Set((profileRows || [])
+    .filter(isHiddenTaskAssignee)
+    .map((profile) => profile.id)
+    .filter(Boolean));
+}
+
 function getAssigneeByValue(value) {
   return taskAssignees.find((item) => item.value === value) || null;
 }
@@ -816,6 +837,7 @@ function mergeAssigneeSource(assignee, source) {
 function buildTaskAssignees(profileRows, labourRows) {
   const result = [];
   const byKey = new Map();
+  const hiddenProfileIds = getHiddenTaskAssigneeProfileIds(profileRows);
 
   function upsertAssignee(record) {
     const keys = record.keys.filter(Boolean);
@@ -847,6 +869,10 @@ function buildTaskAssignees(profileRows, labourRows) {
   }
 
   (profileRows || []).forEach((profile) => {
+    if (hiddenProfileIds.has(profile.id) || isHiddenTaskAssignee(profile)) {
+      return;
+    }
+
     const name = getProfileName(profile);
     upsertAssignee({
       value: profile.id,
@@ -865,6 +891,10 @@ function buildTaskAssignees(profileRows, labourRows) {
   });
 
   (labourRows || []).forEach((workerRow) => {
+    if ((workerRow.profile_id && hiddenProfileIds.has(workerRow.profile_id)) || isHiddenTaskAssignee(workerRow)) {
+      return;
+    }
+
     const name = workerRow.display_name || workerRow.worker_key || "WO Worker";
     const profileId = workerRow.profile_id || null;
     upsertAssignee({
