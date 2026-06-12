@@ -1903,6 +1903,15 @@ async function getProfileByField(field, value, options) {
 }
 
 async function findMyProfileRecord(userId) {
+  if (supabaseClient) {
+    const { data, error } = await supabaseClient
+      .rpc("get_my_employee_profile");
+
+    if (!error && Array.isArray(data) && data[0]) {
+      return data[0];
+    }
+  }
+
   const emailCandidates = [
     currentProfile && currentProfile.email,
     worker.email,
@@ -2223,50 +2232,15 @@ async function saveMyProfile() {
       last_portal_activity: new Date().toISOString()
     };
 
-    let data = null;
-    let error = null;
-
-    if (existingProfile && existingProfile.id) {
-      const updateResult = await supabaseClient
-        .from("profiles")
-        .update(values)
-        .eq("id", existingProfile.id)
-        .select(PROFILE_SELECT_FIELDS)
-        .limit(1);
-
-      error = updateResult.error;
-      data = Array.isArray(updateResult.data) ? updateResult.data[0] || null : updateResult.data || null;
-    }
-
-    if (!error && !data) {
-      const updateResult = await supabaseClient
-        .from("profiles")
-        .update(values)
-        .eq("worker_key", currentWorker)
-        .select(PROFILE_SELECT_FIELDS)
-        .limit(1);
-
-      error = updateResult.error;
-      data = Array.isArray(updateResult.data) ? updateResult.data[0] || null : updateResult.data || null;
-    }
-
-    if (!error && !data) {
-      const insertResult = await supabaseClient
-        .from("profiles")
-        .insert({
-          id: userId,
-          display_name: currentWorkerDisplay || currentWorker || profileEmail,
-          worker_key: currentWorker || normalizeWorkerName(currentWorkerDisplay || profileEmail),
-          role: currentUserRole || "worker",
-          account_status: worker.status || "approved",
-          ...values
-        })
-        .select(PROFILE_SELECT_FIELDS)
-        .limit(1);
-
-      error = insertResult.error;
-      data = Array.isArray(insertResult.data) ? insertResult.data[0] || null : insertResult.data || null;
-    }
+    const result = await supabaseClient.rpc("save_my_employee_profile", {
+      p_email: values.email,
+      p_phone: values.phone,
+      p_emergency_contact: values.emergency_contact,
+      p_address: values.address,
+      p_avatar_path: values.avatar_path
+    });
+    const error = result.error;
+    const data = Array.isArray(result.data) ? result.data[0] || null : result.data || null;
 
     if (error) {
       throw error;
