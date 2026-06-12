@@ -7,6 +7,8 @@ create table if not exists public.tasks (
   due_date date,
   assigned_to uuid references public.profiles(id) on delete set null,
   assigned_to_name text,
+  assigned_to_ids uuid[] not null default '{}'::uuid[],
+  assigned_to_names text[] not null default '{}'::text[],
   created_by uuid references auth.users(id) on delete set null,
   created_by_name text,
   created_at timestamptz not null default now(),
@@ -25,6 +27,8 @@ alter table public.tasks add column if not exists priority text;
 alter table public.tasks add column if not exists due_date date;
 alter table public.tasks add column if not exists assigned_to uuid references public.profiles(id) on delete set null;
 alter table public.tasks add column if not exists assigned_to_name text;
+alter table public.tasks add column if not exists assigned_to_ids uuid[] not null default '{}'::uuid[];
+alter table public.tasks add column if not exists assigned_to_names text[] not null default '{}'::text[];
 alter table public.tasks add column if not exists created_by uuid references auth.users(id) on delete set null;
 alter table public.tasks add column if not exists created_by_name text;
 alter table public.tasks add column if not exists completed_at timestamptz;
@@ -37,7 +41,18 @@ alter table public.tasks add column if not exists category text;
 create index if not exists tasks_status_idx on public.tasks (status);
 create index if not exists tasks_due_date_idx on public.tasks (due_date);
 create index if not exists tasks_assigned_to_idx on public.tasks (assigned_to);
+create index if not exists tasks_assigned_to_ids_gin_idx on public.tasks using gin (assigned_to_ids);
 create index if not exists tasks_job_number_idx on public.tasks (job_number);
+
+update public.tasks
+set assigned_to_ids = array[assigned_to]
+where assigned_to is not null
+  and coalesce(array_length(assigned_to_ids, 1), 0) = 0;
+
+update public.tasks
+set assigned_to_names = array[assigned_to_name]
+where nullif(assigned_to_name, '') is not null
+  and coalesce(array_length(assigned_to_names, 1), 0) = 0;
 
 create or replace function public.set_tasks_updated_at()
 returns trigger
@@ -102,8 +117,12 @@ using (
       and (
         p.role = 'admin'
         or lower(p.email) in ('zeth@johngordonconstruction.com', 'jeff@johngordonconstruction.com')
-        or public.tasks.assigned_to is null
+        or (
+          public.tasks.assigned_to is null
+          and coalesce(array_length(public.tasks.assigned_to_ids, 1), 0) = 0
+        )
         or public.tasks.assigned_to = auth.uid()
+        or auth.uid() = any(public.tasks.assigned_to_ids)
         or public.tasks.created_by = auth.uid()
       )
   )
@@ -117,8 +136,12 @@ with check (
       and (
         p.role = 'admin'
         or lower(p.email) in ('zeth@johngordonconstruction.com', 'jeff@johngordonconstruction.com')
-        or public.tasks.assigned_to is null
+        or (
+          public.tasks.assigned_to is null
+          and coalesce(array_length(public.tasks.assigned_to_ids, 1), 0) = 0
+        )
         or public.tasks.assigned_to = auth.uid()
+        or auth.uid() = any(public.tasks.assigned_to_ids)
         or public.tasks.created_by = auth.uid()
       )
   )
