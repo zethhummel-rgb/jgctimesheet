@@ -2031,7 +2031,17 @@ function normalizeTimesheetEntry(entry) {
     nightWork: Boolean(entry.nightWork || entry.night_work),
     entryType: getEntryType(entry),
     leaveType: entry.leaveType || entry.leave_type || "",
-    leaveNote: entry.leaveNote || entry.leave_note || ""
+    leaveNote: entry.leaveNote || entry.leave_note || "",
+    woId: entry.woId || entry.wo_id || "",
+    woNumber: entry.woNumber || entry.wo_number || "",
+    woConfirmationStatus: entry.woConfirmationStatus || entry.wo_confirmation_status || "",
+    woLocked: Boolean(entry.woLocked || entry.wo_locked),
+    woDenialReason: entry.woDenialReason || entry.wo_denial_reason || "",
+    woConfirmedBy: entry.woConfirmedBy || entry.wo_confirmed_by || "",
+    woConfirmedAt: entry.woConfirmedAt || entry.wo_confirmed_at || "",
+    woDeniedBy: entry.woDeniedBy || entry.wo_denied_by || "",
+    woDeniedAt: entry.woDeniedAt || entry.wo_denied_at || "",
+    woAdminOverrideReason: entry.woAdminOverrideReason || entry.wo_admin_override_reason || ""
   };
 
   if (isFullDayLeaveEntry(normalizedEntry) && Number(normalizedEntry.hours) <= 0) {
@@ -2117,7 +2127,17 @@ function rowToEntry(row) {
     nightWork: Boolean(row.night_work),
     entryType: row.entry_type || "",
     leaveType: row.leave_type || "",
-    leaveNote: row.leave_note || ""
+    leaveNote: row.leave_note || "",
+    woId: row.wo_id || "",
+    woNumber: row.wo_number || "",
+    woConfirmationStatus: row.wo_confirmation_status || "no_wo_required",
+    woLocked: Boolean(row.wo_locked),
+    woDenialReason: row.wo_denial_reason || "",
+    woConfirmedBy: row.wo_confirmed_by || "",
+    woConfirmedAt: row.wo_confirmed_at || "",
+    woDeniedBy: row.wo_denied_by || "",
+    woDeniedAt: row.wo_denied_at || "",
+    woAdminOverrideReason: row.wo_admin_override_reason || ""
   });
 }
 
@@ -2139,7 +2159,17 @@ function entryToRow(entry) {
     night_work: Boolean(normalizedEntry.nightWork),
     entry_type: entryType,
     leave_type: normalizedEntry.leaveType || "",
-    leave_note: entryType === "sick" ? "" : (normalizedEntry.leaveNote || "")
+    leave_note: entryType === "sick" ? "" : (normalizedEntry.leaveNote || ""),
+    wo_id: normalizedEntry.woId || null,
+    wo_number: normalizedEntry.woNumber || null,
+    wo_confirmation_status: normalizedEntry.woConfirmationStatus || getInitialWoConfirmationStatus(normalizedEntry),
+    wo_locked: Boolean(normalizedEntry.woLocked),
+    wo_denial_reason: normalizedEntry.woDenialReason || null,
+    wo_confirmed_by: normalizedEntry.woConfirmedBy || null,
+    wo_confirmed_at: normalizedEntry.woConfirmedAt || null,
+    wo_denied_by: normalizedEntry.woDeniedBy || null,
+    wo_denied_at: normalizedEntry.woDeniedAt || null,
+    wo_admin_override_reason: normalizedEntry.woAdminOverrideReason || null
   };
 }
 
@@ -2235,6 +2265,7 @@ async function syncPendingTimesheetEntries(options) {
       const savedEntry = rowToEntry(data);
       savedEntry.user = currentUser;
       replaceLocalSyncedEntry(item.localId, savedEntry);
+      await linkMatchingWoLabourAwaitingConfirmation(savedEntry);
       syncedLocalIds.push(item.localId);
     }
   }
@@ -2540,6 +2571,38 @@ function findSelectedActiveJob() {
   }) || null;
 }
 
+function normalizeJobType(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function isTimeAndMaterialJob(job) {
+  const type = normalizeJobType(job && (job.job_type || job.jobType));
+  return type === "tm" ||
+    type === "timeandmaterial" ||
+    type === "timeandmaterials" ||
+    type === "timeandmaterialjob";
+}
+
+function findActiveJobForEntry(entry) {
+  const jobNumber = String(entry && (entry.jobNumber || entry.job_number) || "").trim().toLowerCase();
+  const jobName = cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || "").trim().toLowerCase();
+
+  return activeJobs.find(function(job) {
+    const activeJobNumber = String(job.job_number || "").trim().toLowerCase();
+    const activeJobName = cleanRepeatedJobName(job.job_name || "").trim().toLowerCase();
+    return Boolean(jobNumber && activeJobNumber === jobNumber) ||
+      Boolean(jobName && activeJobName === jobName);
+  }) || null;
+}
+
+function isTmTimesheetEntry(entry) {
+  return getEntryType(entry) === "work" && isTimeAndMaterialJob(findActiveJobForEntry(entry));
+}
+
+function getInitialWoConfirmationStatus(entry) {
+  return isTmTimesheetEntry(entry) ? "wo_required" : "no_wo_required";
+}
+
 function getFilteredJobOptions() {
   const searchValue = document.getElementById("jobName").value.trim().toLowerCase();
 
@@ -2696,7 +2759,7 @@ async function loadActiveJobs() {
 
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, active")
+    .select("id, job_number, job_name, job_type, active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
@@ -2726,7 +2789,6 @@ function workOrderDateToRequestParts(dateValue) {
 
 function timesheetEntryMatchesWoRequest(entry, request) {
   const entryDate = getDateForTimesheetEntry(entry);
-  const entryWeekStart = entry && (entry.weekStartValue || entry.week_start) || (entryDate ? formatDateValue(getWeekStartDate(makeLocalDate(entryDate))) : "");
   const entryJobNumber = String(entry && (entry.jobNumber || entry.job_number) || "").trim().toLowerCase();
   const entryJobName = cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || "").trim().toLowerCase();
   const requestJobNumber = String(request.jobNumber || "").trim().toLowerCase();
@@ -2734,11 +2796,7 @@ function timesheetEntryMatchesWoRequest(entry, request) {
   const jobMatches = Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
     Boolean(requestJobName && entryJobName === requestJobName);
 
-  return jobMatches &&
-    (
-      entryDate === request.dateValue ||
-      Boolean(entryWeekStart && request.weekStartValue && entryWeekStart === request.weekStartValue)
-    );
+  return jobMatches && entryDate === request.dateValue;
 }
 
 function renderWoTimesheetRequests() {
@@ -2824,9 +2882,8 @@ async function loadWoTimesheetRequests() {
     const aliases = getCurrentUserAliases().map(normalizeWorkerName);
     const { data: labourRows, error: labourError } = await supabaseClient
       .from("work_order_labour")
-      .select("id, work_order_id, employee_name, worker_key, hours, complete, created_at")
+      .select("id, work_order_id, employee_name, worker_key, hours, complete, confirmation_status, created_at")
       .eq("expected", true)
-      .or("complete.eq.false,complete.is.null")
       .order("created_at", { ascending: true });
 
     if (labourError) {
@@ -2835,8 +2892,12 @@ async function loadWoTimesheetRequests() {
     }
 
     const myLabourRows = (labourRows || []).filter(function(row) {
-      return aliases.includes(normalizeWorkerName(row.worker_key)) ||
-        aliases.includes(normalizeWorkerName(row.employee_name));
+      const status = String(row.confirmation_status || "").toLowerCase();
+      return !["confirmed", "denied_needs_correction", "admin_overridden"].includes(status) &&
+        (
+          aliases.includes(normalizeWorkerName(row.worker_key)) ||
+          aliases.includes(normalizeWorkerName(row.employee_name))
+        );
     });
 
     const workOrderIds = Array.from(new Set(myLabourRows.map(function(row) {
@@ -2918,8 +2979,124 @@ async function loadWoTimesheetRequests() {
   }
 }
 
-async function markMatchingWoLabourComplete(entry) {
+function getRelatedEntriesForWoRequest(entry, request) {
+  const entries = loadTimesheets()
+    .map(normalizeTimesheetEntry)
+    .filter(function(item) {
+      return item.id && !String(item.id).startsWith("local-") &&
+        timesheetEntryMatchesWoRequest(item, request);
+    });
+
+  if (entry && entry.id && !entries.some(function(item) { return item.id === entry.id; })) {
+    entries.push(normalizeTimesheetEntry(entry));
+  }
+
+  return entries;
+}
+
+function getWoLinkPayload(request, entry, status) {
+  return {
+    work_order_id: request.workOrderId,
+    work_order_labour_id: request.labourId,
+    timesheet_entry_id: entry.id,
+    employee_key: normalizeWorkerName(entry.user || currentUser),
+    employee_display_name: entry.user || currentUserDisplay || currentUser || "",
+    job_number: entry.jobNumber || "",
+    job_name: entry.jobName || "",
+    work_date: getDateForTimesheetEntry(entry) || request.dateValue || null,
+    submitted_hours: Number(entry.hours || 0),
+    status,
+    updated_at: new Date().toISOString()
+  };
+}
+
+async function updateRelatedTimesheetEntriesForWo(request, relatedEntries, status) {
+  const relatedIds = relatedEntries.map(function(item) {
+    return item.id;
+  }).filter(Boolean);
+
+  if (!relatedIds.length) {
+    return;
+  }
+
+  const updateValues = {
+    wo_id: request.workOrderId || null,
+    wo_number: request.woNumber || null,
+    wo_confirmation_status: status,
+    wo_locked: false,
+    wo_denial_reason: null,
+    wo_confirmed_by: null,
+    wo_confirmed_at: null,
+    wo_denied_by: null,
+    wo_denied_at: null,
+    wo_admin_override_reason: null
+  };
+
+  const { error } = await supabaseClient
+    .from("timesheet_entries")
+    .update(updateValues)
+    .in("id", relatedIds);
+
+  if (error) {
+    console.warn("Timesheet WO confirmation status could not be updated.", error);
+    return;
+  }
+
+  const relatedIdSet = new Set(relatedIds);
+  setTimesheets(loadTimesheets().map(function(item) {
+    if (!relatedIdSet.has(item.id)) {
+      return item;
+    }
+
+    return {
+      ...item,
+      woId: request.workOrderId || "",
+      woNumber: request.woNumber || "",
+      woConfirmationStatus: status,
+      woLocked: false,
+      woDenialReason: "",
+      woConfirmedBy: "",
+      woConfirmedAt: "",
+      woDeniedBy: "",
+      woDeniedAt: "",
+      woAdminOverrideReason: ""
+    };
+  }));
+}
+
+async function markTimesheetEntryWoRequired(entry) {
   if (!supabaseClient || !entry || !entry.id || String(entry.id).startsWith("local-")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("timesheet_entries")
+    .update({
+      wo_id: null,
+      wo_number: null,
+      wo_confirmation_status: "wo_required",
+      wo_locked: false
+    })
+    .eq("id", entry.id);
+
+  if (error) {
+    console.warn("Timesheet entry could not be marked WO required.", error);
+    return;
+  }
+
+  setTimesheets(loadTimesheets().map(function(item) {
+    return item.id === entry.id
+      ? { ...item, woId: "", woNumber: "", woConfirmationStatus: "wo_required", woLocked: false }
+      : item;
+  }));
+}
+
+async function linkMatchingWoLabourAwaitingConfirmation(entry) {
+  if (!supabaseClient || !entry || !entry.id || String(entry.id).startsWith("local-")) {
+    return;
+  }
+
+  if (!isTmTimesheetEntry(entry)) {
     return;
   }
 
@@ -2932,31 +3109,56 @@ async function markMatchingWoLabourComplete(entry) {
   }
 
   if (!request || !request.labourId) {
+    await markTimesheetEntryWoRequired(entry);
     return;
   }
 
-  const { error } = await supabaseClient
+  const status = "awaiting_wo_confirmation";
+  const relatedEntries = getRelatedEntriesForWoRequest(entry, request);
+  const submittedHours = relatedEntries.reduce(function(total, item) {
+    return total + Number(item.hours || 0);
+  }, 0);
+
+  const { error: labourError } = await supabaseClient
     .from("work_order_labour")
     .update({
-      complete: true,
-      hours: Number(entry.hours || 0),
-      matched_timesheet_entry_id: entry.id,
+      complete: false,
+      confirmation_status: status,
+      hours: submittedHours,
+      matched_timesheet_entry_id: relatedEntries[0] ? relatedEntries[0].id : entry.id,
+      notes: relatedEntries.length > 1 ? relatedEntries.length + " matching entries awaiting confirmation" : "Awaiting WO confirmation",
       updated_at: new Date().toISOString()
     })
     .eq("id", request.labourId);
 
-  if (error) {
-    console.warn("WO labour row could not be marked complete.", error);
+  if (labourError) {
+    console.warn("WO labour row could not be linked for confirmation.", labourError);
+    return;
   }
+
+  const linkRows = relatedEntries.map(function(item) {
+    return getWoLinkPayload(request, item, status);
+  });
+
+  if (linkRows.length) {
+    const { error: linkError } = await supabaseClient
+      .from("work_order_labour_timesheet_links")
+      .upsert(linkRows, { onConflict: "work_order_labour_id,timesheet_entry_id" });
+
+    if (linkError) {
+      console.warn("WO labour timesheet links could not be saved.", linkError);
+    }
+  }
+
+  await updateRelatedTimesheetEntriesForWo(request, relatedEntries, status);
 }
 
 async function findMatchingWoRequestForEntry(entry) {
   const aliases = getCurrentUserAliases().map(normalizeWorkerName);
   const { data: labourRows, error: labourError } = await supabaseClient
     .from("work_order_labour")
-    .select("id, work_order_id, employee_name, worker_key, complete, created_at")
+    .select("id, work_order_id, employee_name, worker_key, complete, confirmation_status, created_at")
     .eq("expected", true)
-    .or("complete.eq.false,complete.is.null")
     .order("created_at", { ascending: true });
 
   if (labourError) {
@@ -2965,8 +3167,12 @@ async function findMatchingWoRequestForEntry(entry) {
   }
 
   const myLabourRows = (labourRows || []).filter(function(row) {
-    return aliases.includes(normalizeWorkerName(row.worker_key)) ||
-      aliases.includes(normalizeWorkerName(row.employee_name));
+    const status = String(row.confirmation_status || "").toLowerCase();
+    return !["confirmed", "denied_needs_correction", "admin_overridden"].includes(status) &&
+      (
+        aliases.includes(normalizeWorkerName(row.worker_key)) ||
+        aliases.includes(normalizeWorkerName(row.employee_name))
+      );
   });
   const workOrderIds = Array.from(new Set(myLabourRows.map(function(row) {
     return row.work_order_id;
@@ -3349,7 +3555,7 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
       const savedEntry = rowToEntry(data);
       savedEntry.user = currentUser;
       setTimesheets(replaceStoredEntry(stored, savedEntry));
-      await markMatchingWoLabourComplete(savedEntry);
+      await linkMatchingWoLabourAwaitingConfirmation(savedEntry);
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -3766,7 +3972,9 @@ async function submitTime() {
     nightWork: isWorkEntry ? nightWork : false,
     entryType,
     leaveType: entryType === "vacation" ? leaveType : "",
-    leaveNote: entryType === "sick" ? "" : (leaveNote || (!isWorkEntry ? jobNumber : ""))
+    leaveNote: entryType === "sick" ? "" : (leaveNote || (!isWorkEntry ? jobNumber : "")),
+    woConfirmationStatus: isWorkEntry && selectedJob && isTimeAndMaterialJob(selectedJob) ? "wo_required" : "no_wo_required",
+    woLocked: false
   };
 
   const status = document.getElementById("submitStatus");
@@ -3803,7 +4011,7 @@ async function submitTime() {
       const savedEntry = rowToEntry(data);
       savedEntry.user = currentUser;
       setTimesheets(replaceStoredEntry(stored, savedEntry));
-      await markMatchingWoLabourComplete(savedEntry);
+      await linkMatchingWoLabourAwaitingConfirmation(savedEntry);
     } else {
       setTimesheets(replaceStoredEntry(stored, entry));
     }
@@ -3838,7 +4046,7 @@ async function submitTime() {
         setTimesheets(loadTimesheets().map(function(item) {
           return item.id === entry.id ? savedEntry : item;
         }));
-        await markMatchingWoLabourComplete(savedEntry);
+        await linkMatchingWoLabourAwaitingConfirmation(savedEntry);
       } catch (error) {
         status.innerText = "Entry submitted. It may refresh from Supabase on reload.";
       }
@@ -5287,7 +5495,7 @@ async function startTimesheetPage() {
   calendarMonth = new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth(), 1);
   await loadPreviousWeeksFromSupabase({ render: false });
   render();
-  loadActiveJobs();
+  await loadActiveJobs();
   await loadTimesheetsFromSupabase();
   renderTimesheetCalendar();
 }
