@@ -104,6 +104,53 @@
       margin-bottom: 12px !important;
     }
 
+    .week-submit-banner {
+      display: none;
+      width: min(100%, 1200px);
+      margin: 0 auto 16px;
+      padding: 16px;
+      border: 2px solid rgba(74, 222, 128, 0.78);
+      border-left-width: 8px;
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(57, 200, 72, 0.34), rgba(11, 94, 59, 0.24)),
+        rgba(5, 18, 15, 0.98);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(255,255,255,0.05) inset;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .week-submit-banner.active {
+      display: flex;
+    }
+
+    .week-submit-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .week-submit-copy strong {
+      color: #ffffff;
+      font-size: clamp(18px, 3vw, 26px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .week-submit-copy span {
+      color: #d8ffe0;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .week-submit-banner button {
+      width: auto;
+      min-width: 170px;
+      margin: 0;
+      white-space: nowrap;
+    }
+
     .wo-request-list {
       display: grid;
       gap: 10px;
@@ -949,6 +996,20 @@
         margin-bottom: 12px;
       }
 
+      .week-submit-banner {
+        padding: 14px;
+        margin-bottom: 12px;
+        align-items: stretch;
+      }
+
+      .week-submit-banner.active {
+        display: grid;
+      }
+
+      .week-submit-banner button {
+        width: 100%;
+      }
+
       .wo-request-button {
         grid-template-columns: 1fr;
         gap: 8px;
@@ -1199,6 +1260,14 @@
   <h3>WO Requested Hours</h3>
   <div class="small">Tap a request to prefill the time entry form.</div>
   <div id="woTimesheetRequests" class="wo-request-list"></div>
+</div>
+
+<div id="weekSubmitBanner" class="week-submit-banner" aria-live="polite">
+  <div class="week-submit-copy">
+    <strong id="weekSubmitBannerTitle"></strong>
+    <span id="weekSubmitBannerDetail"></span>
+  </div>
+  <button type="button" onclick="emailEntries()">Submit week now</button>
 </div>
 
 <div class="timesheet-shell">
@@ -2510,6 +2579,36 @@ function getSelectedWeekVisibleEntries(entries) {
   return (entries || []).filter(function(entry) {
     return isEntryInSelectedWeek(entry) && shouldShowEntryInCurrentWeekView(entry);
   });
+}
+
+function renderWeekSubmitBanner() {
+  const banner = document.getElementById("weekSubmitBanner");
+
+  if (!banner) {
+    return;
+  }
+
+  const entries = getSelectedWeekVisibleEntries(loadTimesheets());
+  const missingWeekdays = getMissingMandatoryWeekdays(entries);
+  const ready = entriesTab !== "previous" && entries.length > 0 && missingWeekdays.length === 0;
+
+  banner.classList.toggle("active", ready);
+
+  if (!ready) {
+    return;
+  }
+
+  const weekStartValue = getSelectedWeekStartValue();
+  const weekStart = makeLocalDate(weekStartValue);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  document.getElementById("weekSubmitBannerTitle").textContent =
+    'Week of "' + formatDate(weekStart) + '" is ready to be submitted';
+  document.getElementById("weekSubmitBannerDetail").textContent =
+    formatDate(weekStart) + " to " + formatDate(weekEnd) + " - " +
+    entries.length + " saved entr" + (entries.length === 1 ? "y" : "ies") +
+    " - " + getTotalHours(entries).toFixed(2) + " hrs";
 }
 
 function cleanRepeatedJobName(value) {
@@ -3974,13 +4073,8 @@ async function emailEntries() {
     return;
   }
 
-  const note = prompt("Add a note to your timesheet? Leave blank if no note is needed.", "");
-
-  if (note === null) {
-    return;
-  }
-
-  const confirmed = confirm("Submit this timesheet? This will save it to Previous Weeks and reset the current week.");
+  const note = "";
+  const confirmed = confirm("This submission is final. Submit this timesheet now?");
 
   if (!confirmed) {
     return;
@@ -3989,9 +4083,9 @@ async function emailEntries() {
   const weekLabel = getWeekLabel(entries);
   const subject = "Timesheet - " + getDisplayWorkerName() + " - " + weekLabel;
   const totalHours = getTotalHours(entries);
-  const body = buildTimesheetEmailBody(entries, weekLabel, totalHours, note.trim());
-  const pdfHtml = buildTimesheetPdfHtml(entries, weekLabel, totalHours, note.trim());
-  const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note.trim());
+  const body = buildTimesheetEmailBody(entries, weekLabel, totalHours, note);
+  const pdfHtml = buildTimesheetPdfHtml(entries, weekLabel, totalHours, note);
+  const archiveResult = await archiveCurrentEntries(entries, totalHours, weekLabel, note);
 
   if (archiveResult.warning) {
     alert(archiveResult.warning);
@@ -5260,6 +5354,7 @@ function escapeHtml(value) {
 
 function render() {
   renderTimesheetCalendar();
+  renderWeekSubmitBanner();
 
   if (entriesTab === "previous") {
     renderPreviousWeeks();
