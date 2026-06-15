@@ -67,6 +67,29 @@ create index if not exists schedule_events_event_date_idx
 create index if not exists schedule_events_google_event_id_idx
   on public.schedule_events (google_event_id);
 
+alter table public.vacation_requests
+  add column if not exists google_event_id text,
+  add column if not exists google_sync_status text not null default 'not_synced',
+  add column if not exists google_synced_at timestamptz,
+  add column if not exists google_sync_error text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'vacation_requests_google_sync_status_check'
+      and conrelid = 'public.vacation_requests'::regclass
+  ) then
+    alter table public.vacation_requests
+      add constraint vacation_requests_google_sync_status_check
+      check (google_sync_status in ('not_synced', 'synced', 'sync_failed'));
+  end if;
+end $$;
+
+create index if not exists vacation_requests_google_event_id_idx
+  on public.vacation_requests (google_event_id);
+
 create or replace function public.set_schedule_events_updated_at()
 returns trigger
 language plpgsql
