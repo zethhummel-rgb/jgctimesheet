@@ -1977,6 +1977,7 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <div id="adminScheduleTitle" class="admin-schedule-title"></div>
                 <button type="button" class="secondary" onclick="changeAdminScheduleMonth(1)">Next</button>
                 <button id="adminScheduleSyncAllButton" type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
+                <button id="adminSchedulePullGoogleButton" class="secondary" type="button" onclick="pullAdminScheduleGoogleUpdates()">Pull Google Updates</button>
             </div>
         </div>
         <div class="admin-schedule-legend">
@@ -3644,6 +3645,7 @@ function renderAdminScheduleAgenda() {
                 <strong>Upcoming Schedule</strong>
                 <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
                 <button type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
+                <button type="button" class="secondary" onclick="pullAdminScheduleGoogleUpdates()">Pull Google Updates</button>
             </div>
             <div class="small">No upcoming schedule items found.</div>
         `;
@@ -3661,6 +3663,7 @@ function renderAdminScheduleAgenda() {
             <strong>Upcoming Schedule</strong>
             <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
             <button type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
+            <button type="button" class="secondary" onclick="pullAdminScheduleGoogleUpdates()">Pull Google Updates</button>
         </div>
         ${Object.keys(groups).map((dateValue) => `
             <div class="admin-agenda-day-group">
@@ -3996,6 +3999,54 @@ async function syncAllAdminScheduleEvents() {
     }
 
     alert("Google Calendar sync queued for " + totalToSync + " calendar item" + (totalToSync === 1 ? "" : "s") + ". Refresh in a few seconds if any still show as Not Synced.");
+}
+
+async function pullAdminScheduleGoogleUpdates() {
+    const button = document.getElementById("adminSchedulePullGoogleButton");
+    const status = document.getElementById("adminScheduleStatus");
+
+    if (!confirm("Pull date, time, title, location, and notes updates from Google Calendar for linked portal schedule events?")) {
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Pulling...";
+    }
+
+    if (status) {
+        status.textContent = "Pulling Google Calendar updates...";
+    }
+
+    const result = await pullJgcGoogleCalendarUpdates();
+
+    if (!result.ok) {
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Pull Google Updates";
+        }
+        if (status) {
+            status.textContent = "Google Calendar updates could not be pulled.";
+        }
+        alert("Google Calendar updates could not be pulled: " + (result.error || ""));
+        return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    await loadAllAdminData();
+    renderAdminScheduleCalendar();
+    renderPortalSummary();
+
+    if (button) {
+        button.disabled = false;
+        button.textContent = "Pull Google Updates";
+    }
+
+    if (status) {
+        status.textContent = "Google Calendar updates pulled.";
+    }
+
+    alert("Google Calendar updates were pulled. The portal schedule has been refreshed.");
 }
 
 function getAdminScheduleApprovedAccounts() {
