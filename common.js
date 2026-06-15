@@ -141,8 +141,9 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
 
 function getJgcScheduleSyncLabel(event) {
   const status = String(event && event.google_sync_status || "not_synced").toLowerCase();
+  const isSyncedVacation = Boolean(event && event.google_event_id && event.start_date);
 
-  if (status === "synced") {
+  if (status === "synced" || isSyncedVacation) {
     return "Synced";
   }
 
@@ -155,6 +156,9 @@ function getJgcScheduleSyncLabel(event) {
 
 function getJgcScheduleSyncClass(event) {
   const status = String(event && event.google_sync_status || "not_synced").toLowerCase();
+  if (event && event.google_event_id && event.start_date) {
+    return "synced";
+  }
   return status === "synced" ? "synced" : (status === "sync_failed" ? "failed" : "pending");
 }
 
