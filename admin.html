@@ -2693,6 +2693,9 @@ let editingContactId = "";
 let editingTimesheetId = "";
 let editingLiveTimesheetEntryId = "";
 let editingEquipmentId = "";
+let adminDataLoaded = false;
+let adminDataLoading = false;
+let pendingAdminTabRender = "";
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -2998,6 +3001,83 @@ function getActiveAdminTab() {
     return ADMIN_ALLOWED_TABS.includes(currentAdminTab) ? currentAdminTab : getRequestedAdminTab();
 }
 
+function renderActiveAdminTab(tab) {
+    const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : getActiveAdminTab();
+
+    if (!adminDataLoaded && adminDataLoading) {
+        pendingAdminTabRender = requestedTab;
+        return;
+    }
+
+    if (requestedTab === "summary") {
+        renderAdminScheduleCalendar();
+        renderPortalSummary();
+    }
+
+    if (requestedTab === "jobDashboard") {
+        renderJobDashboardOptions();
+        renderJobDashboard();
+    }
+
+    if (requestedTab === "employeeProfile") {
+        renderEmployeeProfile();
+    }
+
+    if (requestedTab === "sickDays") {
+        renderSickDays();
+    }
+
+    if (requestedTab === "certificates") {
+        renderAdminCertificateWorkerOptions();
+        renderCertificates();
+    }
+
+    if (requestedTab === "vacation") {
+        renderVacationRequests();
+    }
+
+    if (requestedTab === "announcements") {
+        renderAnnouncements();
+    }
+
+    if (requestedTab === "tasks" && typeof renderTasks === "function") {
+        renderTasks();
+    }
+
+    if (requestedTab === "policies" && typeof renderPolicies === "function") {
+        renderPolicies();
+    }
+
+    if (requestedTab === "contacts") {
+        loadContacts();
+    }
+
+    if (requestedTab === "reports") {
+        renderReports();
+    }
+
+    if (requestedTab === "toolboxTalks") {
+        renderToolboxTalks();
+    }
+
+    if (requestedTab === "equipment") {
+        renderEquipment();
+    }
+
+    if (requestedTab === "jobs") {
+        renderJobsManagement();
+    }
+
+    if (requestedTab === "workOrders") {
+        renderAdminWorkOrders();
+        renderWorkOrderLabourWorkers();
+    }
+
+    if (requestedTab === "backups") {
+        initializeBackupsPage();
+    }
+}
+
 function showTab(tab, options = {}) {
     const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : "summary";
 
@@ -3029,56 +3109,7 @@ function showTab(tab, options = {}) {
         markAdminTabViewed(requestedTab);
     }
 
-    if (requestedTab === "summary") {
-        renderAdminScheduleCalendar();
-        renderPortalSummary();
-    }
-
-    if (requestedTab === "jobDashboard") {
-        renderJobDashboardOptions();
-        renderJobDashboard();
-    }
-
-    if (requestedTab === "employeeProfile") {
-        renderEmployeeProfile();
-    }
-
-    if (requestedTab === "sickDays") {
-        renderSickDays();
-    }
-
-    if (requestedTab === "certificates") {
-        renderAdminCertificateWorkerOptions();
-    }
-
-    if (requestedTab === "contacts") {
-        loadContacts();
-    }
-
-    if (requestedTab === "reports") {
-        renderReports();
-    }
-
-    if (requestedTab === "toolboxTalks") {
-        renderToolboxTalks();
-    }
-
-    if (requestedTab === "equipment") {
-        renderEquipment();
-    }
-
-    if (requestedTab === "jobs") {
-        renderJobsManagement();
-    }
-
-    if (requestedTab === "workOrders") {
-        renderAdminWorkOrders();
-        renderWorkOrderLabourWorkers();
-    }
-
-    if (requestedTab === "backups") {
-        initializeBackupsPage();
-    }
+    renderActiveAdminTab(requestedTab);
 }
 
 function getRequestedAdminTab() {
@@ -3203,12 +3234,16 @@ async function loadAdminData() {
         return;
     }
 
-    const sessionResult = await supabaseClient.auth.getSession();
-    currentUserId = sessionResult.data.session && sessionResult.data.session.user
-        ? sessionResult.data.session.user.id
-        : "";
+    adminDataLoading = true;
+    adminDataLoaded = false;
 
-    const adminDataResults = await Promise.all([
+    try {
+        const sessionResult = await supabaseClient.auth.getSession();
+        currentUserId = sessionResult.data.session && sessionResult.data.session.user
+            ? sessionResult.data.session.user.id
+            : "";
+
+        const adminDataResults = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
@@ -3251,9 +3286,9 @@ async function loadAdminData() {
         return { data: [], error };
     })));
 
-    const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult] = adminDataResults;
 
-    timesheets = timesheetResult.data || [];
+        timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
     inspections = inspectionResult.data || [];
     certificates = certificateResult.data || [];
@@ -3295,16 +3330,24 @@ async function loadAdminData() {
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = equipmentNotificationResult.data || [];
     equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
-    contacts = contactResult.data || [];
-    await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
-    await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
-    await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
-    await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
-    await safeAdminSetupStep("prepare toolbox talk URLs", prepareToolboxTalkUrls);
-    await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
-    initializeAdminSummaryBaselines();
-    renderAdminSectionsSafely();
-    showTab(getActiveAdminTab(), { persist: false });
+        contacts = contactResult.data || [];
+        await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
+        await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
+        await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
+        await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
+        await safeAdminSetupStep("prepare toolbox talk URLs", prepareToolboxTalkUrls);
+        await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
+        initializeAdminSummaryBaselines();
+        adminDataLoaded = true;
+        renderAdminSectionsSafely();
+        showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
+        pendingAdminTabRender = "";
+    } finally {
+        adminDataLoading = false;
+        if (adminDataLoaded) {
+            renderActiveAdminTab(getActiveAdminTab());
+        }
+    }
 }
 
 function getLocalDateValue(date) {
