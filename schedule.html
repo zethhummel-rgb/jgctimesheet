@@ -257,6 +257,33 @@ button.danger {
   font-weight: 900;
 }
 
+.schedule-sync-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.55), 0 0 7px rgba(0,0,0,0.25);
+}
+
+.schedule-sync-dot.synced {
+  background: #22c55e;
+}
+
+.schedule-sync-dot.unsynced {
+  background: #ef4444;
+}
+
+.schedule-event-time {
+  font-weight: 900;
+  margin-right: 3px;
+}
+
+.schedule-event-title {
+  min-width: 0;
+}
+
 .day-item.work {
   background: #c9f1d2;
   color: #0d351a;
@@ -1018,7 +1045,13 @@ function renderCalendar() {
     const dayVacations = getVacationsForDate(dateValue);
     const items = dayEvents.slice(0, 3).map((event) => {
       const type = getEventType(event);
-      return '<div class="day-item ' + type + '">' + escapeHtml((event.start_time ? formatTime(event.start_time) + " " : "") + getEventDisplayTitle(event)) + '</div>';
+      const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
+      const syncLabel = getJgcScheduleSyncLabel(event);
+      const timeText = event.start_time ? formatTime(event.start_time) : "";
+      const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
+        (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
+        '<span class="schedule-event-title">' + escapeHtml(getEventDisplayTitle(event)) + '</span>';
+      return '<div class="day-item ' + escapeHtml(type) + '">' + label + '</div>';
     }).concat(dayVacations.slice(0, 2).map((request) => {
       return '<div class="day-item vacation">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>';
     })).join("");
