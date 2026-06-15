@@ -257,6 +257,23 @@ button:disabled {
   white-space: nowrap;
 }
 
+.wo-management-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.wo-management-tabs button {
+  width: auto;
+  background: #26352d;
+}
+
+.wo-management-tabs button.active {
+  background: #37d650;
+  color: #061411;
+}
+
 table {
   width: 100%;
   min-width: 860px;
@@ -549,6 +566,11 @@ th {
     font-size: 12px;
   }
 
+  .wo-management-tabs button {
+    width: auto;
+    flex: 1 1 140px;
+  }
+
   #woList .wo-management-table {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -590,6 +612,10 @@ th {
         <span id="managementToggleText">Show</span>
       </button>
       <div id="managementBody" class="collapse-body" hidden>
+        <div class="wo-management-tabs" aria-label="Work Order Management Views">
+          <button id="woActiveTabButton" type="button" class="active" onclick="setWorkOrderManagementView('active')">Active WOs</button>
+          <button id="woSubmittedTabButton" type="button" onclick="setWorkOrderManagementView('submitted')">Submitted WOs</button>
+        </div>
         <div class="filters">
           <input id="woSearch" type="search" placeholder="Search WO, job, attention" oninput="renderWorkOrders()">
           <select id="woStatusFilter" onchange="renderWorkOrders()">
@@ -806,6 +832,7 @@ let employees = [];
 let profileEmployees = [];
 let timesheetEntries = [];
 let editingWorkOrderId = "";
+let workOrderManagementView = "active";
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
 document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
@@ -1785,12 +1812,31 @@ function renderSubmittedInfo(wo) {
     : "";
 }
 
+function setWorkOrderManagementView(view) {
+  workOrderManagementView = view === "submitted" ? "submitted" : "active";
+  renderWorkOrders();
+}
+
+function updateWorkOrderManagementTabs() {
+  const activeButton = document.getElementById("woActiveTabButton");
+  const submittedButton = document.getElementById("woSubmittedTabButton");
+
+  if (activeButton) {
+    activeButton.classList.toggle("active", workOrderManagementView === "active");
+  }
+
+  if (submittedButton) {
+    submittedButton.classList.toggle("active", workOrderManagementView === "submitted");
+  }
+}
+
 function renderWorkOrders() {
   const list = document.getElementById("woList");
   const status = document.getElementById("woListStatus");
   const search = document.getElementById("woSearch").value.trim().toLowerCase();
   const statusFilter = document.getElementById("woStatusFilter").value;
   const dateFilter = document.getElementById("woDateFilter").value;
+  updateWorkOrderManagementTabs();
   const filtered = workOrders.filter((wo) => {
     const text = [
       wo.wo_number,
@@ -1799,15 +1845,18 @@ function renderWorkOrders() {
       wo.job_number,
       wo.job_name
     ].join(" ").toLowerCase();
+    const isSubmitted = Boolean(wo.locked || wo.status === "submitted");
+
     return (!search || text.includes(search)) &&
+      (workOrderManagementView === "submitted" ? isSubmitted : !isSubmitted) &&
       (!statusFilter || wo.status === statusFilter) &&
       (!dateFilter || wo.work_order_date === dateFilter);
   });
 
-  status.textContent = filtered.length + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
+  status.textContent = filtered.length + " " + (workOrderManagementView === "submitted" ? "submitted" : "active") + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
 
   if (!filtered.length) {
-    list.innerHTML = '<div class="small" style="margin-top:12px;">No work orders found.</div>';
+    list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (workOrderManagementView === "submitted" ? "submitted" : "active") + ' work orders found.</div>';
     return;
   }
 
