@@ -30,7 +30,7 @@ function doPost(e) {
 
     if (action === "delete") {
       deleteGoogleCalendarEvent_(event);
-      updateSupabaseScheduleSync_(event.id, {
+      updateSupabaseScheduleSync_(event, {
         google_event_id: null,
         google_sync_status: "not_synced",
         google_synced_at: null,
@@ -40,7 +40,7 @@ function doPost(e) {
     }
 
     var googleEvent = upsertGoogleCalendarEvent_(event);
-    updateSupabaseScheduleSync_(event.id, {
+    updateSupabaseScheduleSync_(event, {
       google_event_id: googleEvent.getId(),
       google_sync_status: "synced",
       google_synced_at: new Date().toISOString(),
@@ -59,7 +59,7 @@ function doPost(e) {
       var failedEvent = failedPayload.event || {};
 
       if (failedEvent.id) {
-        updateSupabaseScheduleSync_(failedEvent.id, {
+        updateSupabaseScheduleSync_(failedEvent, {
           google_sync_status: "sync_failed",
           google_sync_error: message
         });
@@ -74,14 +74,27 @@ function doPost(e) {
 
 function upsertGoogleCalendarEvent_(event) {
   var calendar = getTargetCalendar_();
-  var start = buildEventDate_(event.event_date, event.start_time || "07:00");
-  var end = buildEventDate_(event.event_date, event.end_time || "07:30");
   var title = event.title || "[JGC] Schedule Event";
   var options = {
     description: event.description || "",
     location: event.location || ""
   };
   var googleEvent = event.google_event_id ? calendar.getEventById(event.google_event_id) : null;
+
+  if (event.all_day) {
+    var allDayStart = buildAllDayDate_(event.event_date);
+    var allDayEnd = buildAllDayDate_(event.end_date || event.event_date);
+    allDayEnd.setDate(allDayEnd.getDate() + 1);
+
+    if (googleEvent) {
+      googleEvent.deleteEvent();
+    }
+
+    return calendar.createAllDayEvent(title, allDayStart, allDayEnd, options);
+  }
+
+  var start = buildEventDate_(event.event_date, event.start_time || "07:00");
+  var end = buildEventDate_(event.event_date, event.end_time || "07:30");
 
   if (end <= start) {
     end = new Date(start.getTime() + 30 * 60 * 1000);
@@ -143,7 +156,30 @@ function buildEventDate_(dateValue, timeValue) {
   );
 }
 
-function updateSupabaseScheduleSync_(eventId, fields) {
+function buildAllDayDate_(dateValue) {
+  var parts = String(dateValue || "").split("-");
+
+  if (parts.length !== 3) {
+    throw new Error("Invalid all-day event date.");
+  }
+
+  return new Date(
+    Number(parts[0]),
+    Number(parts[1]) - 1,
+    Number(parts[2]),
+    0,
+    0,
+    0,
+    0
+  );
+}
+
+function getSupabaseSyncTable_(event) {
+  var table = String(event.sync_table || "schedule_events");
+  return table === "vacation_requests" ? "vacation_requests" : "schedule_events";
+}
+
+function updateSupabaseScheduleSync_(event, fields) {
   var props = PropertiesService.getScriptProperties();
   var supabaseUrl = props.getProperty("SUPABASE_URL");
   var serviceRoleKey = props.getProperty("SUPABASE_SERVICE_ROLE_KEY");
@@ -152,7 +188,7 @@ function updateSupabaseScheduleSync_(eventId, fields) {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Script Properties.");
   }
 
-  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?id=eq." + encodeURIComponent(eventId);
+  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + getSupabaseSyncTable_(event) + "?id=eq." + encodeURIComponent(event.id);
   var response = UrlFetchApp.fetch(url, {
     method: "patch",
     contentType: "application/json",
