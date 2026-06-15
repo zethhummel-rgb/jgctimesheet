@@ -1053,7 +1053,9 @@ function renderCalendar() {
         '<span class="schedule-event-title">' + escapeHtml(getEventDisplayTitle(event)) + '</span>';
       return '<div class="day-item ' + escapeHtml(type) + '">' + label + '</div>';
     }).concat(dayVacations.slice(0, 2).map((request) => {
-      return '<div class="day-item vacation">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>';
+      return '<div class="day-item vacation">' +
+        '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
+        escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>';
     })).join("");
     const moreCount = Math.max(0, dayEvents.length + dayVacations.length - 5);
 
@@ -1514,7 +1516,7 @@ async function loadScheduleData() {
 
   const [scheduleResult, vacationResult, workerResult, profileResult, jobsResult, equipmentResult] = await Promise.all([
     supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }),
-    supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status").eq("status", "approved").order("start_date", { ascending: true }),
+    supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status,google_event_id,google_sync_status,google_synced_at,google_sync_error").eq("status", "approved").order("start_date", { ascending: true }),
     supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
     supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
     supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
