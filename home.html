@@ -1793,6 +1793,7 @@ let currentProfile = null;
 let homeScheduleAccounts = [];
 let homeScheduleJobs = [];
 let homeScheduleEquipment = [];
+let homeScheduleRows = [];
 const PROFILE_SELECT_FIELDS = "id,email,display_name,worker_key,phone,emergency_contact,address,avatar_path";
 
 if (window.matchMedia("(max-width: 980px)").matches) {
@@ -2610,6 +2611,19 @@ function formatHomeScheduleTime(value) {
   return String(hour % 12 || 12) + ":" + minute + " " + suffix;
 }
 
+function addMinutesToHomeScheduleTime(value, minutes) {
+  const parts = String(value || "07:00").slice(0, 5).split(":");
+  const baseMinutes = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0) + minutes;
+  const normalized = ((baseMinutes % 1440) + 1440) % 1440;
+  return String(Math.floor(normalized / 60)).padStart(2, "0") + ":" + String(normalized % 60).padStart(2, "0");
+}
+
+function getHomeScheduleTimeRange(startValue, endValue) {
+  const start = String(startValue || "").slice(0, 5) || "07:00";
+  const end = String(endValue || "").slice(0, 5) || addMinutesToHomeScheduleTime(start, 30);
+  return { start, end };
+}
+
 function formatHomeAgendaDate(value) {
   return makeLocalDate(value).toLocaleDateString("en-CA", {
     month: "short",
@@ -2637,6 +2651,27 @@ function formatHomeAgendaDayHeader(value) {
 
 function getHomeScheduleTitle(event) {
   return event.title || event.job_name || event.location || getHomeScheduleTypeLabel(getHomeScheduleType(event));
+}
+
+function getHomeScheduleDuplicateName(event) {
+  return normalizeWorkerName(getHomeScheduleTitle(event));
+}
+
+function isDuplicateHomeScheduleEvent(record) {
+  const duplicateName = getHomeScheduleDuplicateName(record);
+  const start = String(record.start_time || "").slice(0, 5);
+  const end = String(record.end_time || "").slice(0, 5);
+
+  return homeScheduleRows.some((event) =>
+    String(event.event_date || "") === String(record.event_date || "") &&
+    String(event.start_time || "").slice(0, 5) === start &&
+    String(event.end_time || "").slice(0, 5) === end &&
+    getHomeScheduleDuplicateName(event) === duplicateName
+  );
+}
+
+function canDeleteHomeScheduleEvent(event) {
+  return isAdmin || (currentUserId && String(event.created_by || "") === String(currentUserId));
 }
 
 function getHomeScheduleTaggedNames(event) {
@@ -2679,6 +2714,9 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
       const taggedNames = getHomeScheduleTaggedNames(event);
 
       return {
+        id: event.id || "",
+        source: "schedule",
+        canDelete: canDeleteHomeScheduleEvent(event),
         type: getHomeScheduleType(event),
         date: event.event_date,
         sortTime: event.start_time || "99:99",
@@ -2696,6 +2734,7 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
 
   const vacationItems = (vacationRows || [])
     .map((request) => ({
+      source: "vacation",
       type: "vacation",
       date: request.start_date,
       sortTime: "99:99",
@@ -2750,6 +2789,7 @@ function renderHomeScheduleAgenda(items) {
           <div>
             <div class="home-agenda-title">${escapeHtml(item.title)}</div>
             <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
+            ${item.canDelete ? `<button type="button" class="secondary" onclick="deleteHomeScheduleEvent('${escapeHtml(item.id)}')">Delete</button>` : ""}
           </div>
         </div>
       `).join("")}
@@ -3065,6 +3105,31 @@ function closeHomeScheduleModal(event) {
   document.getElementById("homeScheduleModal").classList.remove("open");
 }
 
+async function deleteHomeScheduleEvent(id) {
+  const event = homeScheduleRows.find((item) => String(item.id) === String(id));
+
+  if (!event || !canDeleteHomeScheduleEvent(event) || !confirm("Delete this schedule item?")) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("schedule_events")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert("Schedule item could not be deleted: " + (error.message || "You may not have permission to delete it."));
+    return;
+  }
+
+  await Promise.allSettled([
+    supabaseClient.from("equipment_maintenance_logs").delete().eq("schedule_event_id", id),
+    supabaseClient.from("announcements").update({ is_active: false }).eq("source_type", "schedule_event").eq("source_id", id)
+  ]);
+
+  await loadHomeScheduleAgenda();
+}
+
 function getSelectedHomeScheduleAccounts() {
   return Array.from(document.querySelectorAll("[data-home-schedule-employee]:checked"))
     .map((box) => homeScheduleAccounts.find((account) => account.id === box.value))
@@ -3192,8 +3257,9 @@ async function saveHomeScheduleEvent() {
   const maintenanceReason = eventType === "vehicle" ? document.getElementById("homeScheduleMaintenanceReason").value.trim() : "";
   const jobName = (isWork ? document.getElementById("homeScheduleJobName").value.trim() : (title || getHomeScheduleEquipmentLabel(selectedVehicle))) ||
     title ||
-    location ||
-    getHomeScheduleTypeLabel(eventType);
+    location;
+  const displayName = String(title || jobName || location || "").trim().replace(/\s+/g, " ");
+  const timeRange = getHomeScheduleTimeRange(document.getElementById("homeScheduleStartTime").value, document.getElementById("homeScheduleEndTime").value);
 
   if (!selectedAccounts.length) {
     const currentAccount = getHomeScheduleCurrentAccount();
@@ -3208,6 +3274,11 @@ async function saveHomeScheduleEvent() {
     return;
   }
 
+  if (!displayName) {
+    status.textContent = "Enter at least a name, job, title, or location for this schedule event.";
+    return;
+  }
+
   if (eventType === "vehicle" && !maintenanceReason) {
     status.textContent = "Enter the reason for the equipment or vehicle appointment.";
     return;
@@ -3217,13 +3288,13 @@ async function saveHomeScheduleEvent() {
   const record = {
     event_type: eventType,
     event_date: eventDate,
-    start_time: document.getElementById("homeScheduleStartTime").value || null,
-    end_time: document.getElementById("homeScheduleEndTime").value || null,
+    start_time: timeRange.start,
+    end_time: timeRange.end,
     job_id: isWork ? (document.getElementById("homeScheduleJob").value || null) : null,
     equipment_id: selectedVehicle ? selectedVehicle.id : null,
     maintenance_reason: maintenanceReason,
-    title: title || jobName,
-    job_name: jobName,
+    title: title || displayName,
+    job_name: jobName || displayName,
     job_number: isWork ? document.getElementById("homeScheduleJobNumber").value.trim() : "",
     location,
     notes: document.getElementById("homeScheduleNotes").value.trim(),
@@ -3233,6 +3304,11 @@ async function saveHomeScheduleEvent() {
     created_by: userId || null,
     created_by_name: currentWorkerDisplay
   };
+
+  if (isDuplicateHomeScheduleEvent(record)) {
+    status.textContent = "That schedule event already exists for the same day and time.";
+    return;
+  }
 
   status.textContent = "Saving schedule event...";
 
@@ -3290,6 +3366,7 @@ async function loadHomeScheduleAgenda() {
     ]);
 
     const scheduleRows = scheduleResult.error ? [] : (scheduleResult.data || []);
+    homeScheduleRows = scheduleRows;
     const vacationRows = vacationResult.error ? [] : (vacationResult.data || []);
     const items = buildHomeAgendaItems(scheduleRows, vacationRows);
 
