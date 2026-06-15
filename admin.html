@@ -1234,6 +1234,33 @@ button.admin-agenda-item {
     font-weight: 900;
 }
 
+.schedule-sync-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.55), 0 0 7px rgba(0,0,0,0.25);
+}
+
+.schedule-sync-dot.synced {
+    background: #22c55e;
+}
+
+.schedule-sync-dot.unsynced {
+    background: #ef4444;
+}
+
+.schedule-event-time {
+    font-weight: 900;
+    margin-right: 3px;
+}
+
+.schedule-event-title {
+    min-width: 0;
+}
+
 .admin-schedule-event-button {
     width: 100%;
     border: 0;
@@ -3717,8 +3744,13 @@ function renderAdminScheduleCalendar() {
         const vacations = getAdminScheduleVacationsForDate(dateValue);
         const eventItems = events.slice(0, 4).map((event) => {
             const type = getAdminScheduleType(event);
-            const label = (event.start_time ? formatAdminScheduleTime(event.start_time) + " " : "") + getAdminScheduleTitle(event);
-            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + escapeHtml(label) + '</button>';
+            const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
+            const syncLabel = getJgcScheduleSyncLabel(event);
+            const timeText = event.start_time ? formatAdminScheduleTime(event.start_time) : "";
+            const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
+                (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
+                '<span class="schedule-event-title">' + escapeHtml(getAdminScheduleTitle(event)) + '</span>';
+            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + label + '</button>';
         });
         const vacationItems = vacations.slice(0, 2).map((request) =>
             '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
@@ -4530,10 +4562,16 @@ async function saveAdminScheduleEvent() {
     adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
     renderAdminScheduleCalendar();
     renderPortalSummary();
-    openAdminScheduleModal(data.event_date || eventDate);
-    document.getElementById("adminScheduleStatus").textContent = syncResult.ok
+    closeAdminScheduleModal();
+    alert(syncResult.ok
         ? (isEditing ? "Schedule updated. Google Calendar sync queued." : "Schedule saved. Tagged employees were notified. Google Calendar sync queued.")
-        : "Event saved, but Google Calendar sync failed.";
+        : "Event saved, but Google Calendar sync failed.");
+
+    setTimeout(async function() {
+        await loadAllAdminData();
+        renderAdminScheduleCalendar();
+        renderPortalSummary();
+    }, 3500);
 }
 
 function renderPortalSummary() {
