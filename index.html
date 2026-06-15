@@ -414,10 +414,10 @@
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
       <label>Email</label>
-      <input id="email" type="email" autocomplete="email" placeholder="Email address" onkeydown="submitOnEnter(event)" />
+      <input id="email" type="email" autocomplete="email" maxlength="254" placeholder="Email address" onkeydown="submitOnEnter(event)" />
 
       <label>Password</label>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Password" onkeydown="submitOnEnter(event)" />
+      <input id="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Password" onkeydown="submitOnEnter(event)" />
 
       <label class="stay-row">
         <input id="stayLoggedIn" type="checkbox" checked />
@@ -436,13 +436,13 @@
           <h3>Create Account</h3>
 
           <label>Full Name</label>
-          <input id="signupName" placeholder="Example: Zeth Hummel" />
+          <input id="signupName" maxlength="80" placeholder="Example: Zeth Hummel" />
 
           <label>Email</label>
-          <input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" />
+          <input id="signupEmail" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" />
 
           <label>Password</label>
-          <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" />
+          <input id="signupPassword" type="password" autocomplete="new-password" maxlength="128" placeholder="At least 6 characters" />
 
           <button type="button" onclick="signUp()">Create Account</button>
           <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
@@ -460,6 +460,26 @@ const supabaseClient = createJgcSupabaseClient();
 
 function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
+}
+
+function cleanLoginEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function cleanDisplayName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function isValidLoginEmail(email) {
+  return email.length <= 254 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email);
+}
+
+function isValidDisplayName(name) {
+  return name.length >= 2 && name.length <= 80 && /^[A-Za-z0-9 .'-]+$/.test(name);
+}
+
+function isValidPassword(password) {
+  return password.length >= 6 && password.length <= 128;
 }
 
 function toggleCreateAccount() {
@@ -497,11 +517,16 @@ async function signIn() {
     return;
   }
 
-  const email = document.getElementById("email").value.trim();
+  const email = cleanLoginEmail(document.getElementById("email").value);
   const password = document.getElementById("password").value;
 
   if (!email || !password) {
     alert("Enter your email and password.");
+    return;
+  }
+
+  if (!isValidLoginEmail(email) || password.length > 128) {
+    alert("Enter a valid email and password.");
     return;
   }
 
@@ -510,7 +535,7 @@ async function signIn() {
 
   if (error) {
     setStatus("");
-    alert(error.message || "Sign in failed.");
+    alert("Sign in failed. Check your email and password.");
     return;
   }
 
@@ -524,13 +549,28 @@ async function signUp() {
     return;
   }
 
-  const displayName = document.getElementById("signupName").value.trim();
-  const email = document.getElementById("signupEmail").value.trim();
+  const displayName = cleanDisplayName(document.getElementById("signupName").value);
+  const email = cleanLoginEmail(document.getElementById("signupEmail").value);
   const password = document.getElementById("signupPassword").value;
   const workerKey = normalizeWorkerName(displayName);
 
   if (!displayName || !email || !password) {
     alert("Enter your name, email, and password.");
+    return;
+  }
+
+  if (!isValidDisplayName(displayName)) {
+    alert("Use letters, numbers, spaces, periods, apostrophes, or hyphens for your name.");
+    return;
+  }
+
+  if (!isValidLoginEmail(email)) {
+    alert("Enter a valid email address.");
+    return;
+  }
+
+  if (!isValidPassword(password)) {
+    alert("Password must be between 6 and 128 characters.");
     return;
   }
 
@@ -574,10 +614,15 @@ async function resetPassword() {
     return;
   }
 
-  const email = document.getElementById("email").value.trim();
+  const email = cleanLoginEmail(document.getElementById("email").value);
 
   if (!email) {
     alert("Enter your email first, then tap Forgot Password.");
+    return;
+  }
+
+  if (!isValidLoginEmail(email)) {
+    alert("Enter a valid email address.");
     return;
   }
 
