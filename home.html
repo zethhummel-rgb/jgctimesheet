@@ -744,6 +744,30 @@
       line-height: 1.35;
     }
 
+    .home-sync-status {
+      display: inline-flex;
+      margin-top: 6px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .home-sync-status.synced {
+      background: rgba(48, 209, 88, 0.16);
+      color: #8ff7a4;
+    }
+
+    .home-sync-status.pending {
+      background: rgba(255, 211, 106, 0.16);
+      color: #ffe4a0;
+    }
+
+    .home-sync-status.failed {
+      background: rgba(255, 99, 99, 0.16);
+      color: #ffb6b6;
+    }
+
     .home-schedule-footer {
       margin-top: 12px;
       display: flex;
@@ -1774,7 +1798,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -2734,6 +2758,8 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
         id: event.id || "",
         source: "schedule",
         canDelete: canDeleteHomeScheduleEvent(event),
+        syncClass: getJgcScheduleSyncClass(event),
+        syncLabel: getJgcScheduleSyncLabel(event),
         type: getHomeScheduleType(event),
         date: event.event_date,
         sortTime: event.start_time || "99:99",
@@ -2806,6 +2832,7 @@ function renderHomeScheduleAgenda(items) {
           <div>
             <div class="home-agenda-title">${escapeHtml(item.title)}</div>
             <div class="home-agenda-meta">${escapeHtml(item.meta)}</div>
+            ${item.source === "schedule" ? `<div><span class="home-sync-status ${escapeHtml(item.syncClass)}">${escapeHtml(item.syncLabel)}</span></div>` : ""}
             ${item.canDelete ? `<button type="button" class="secondary" onclick="deleteHomeScheduleEvent('${escapeHtml(item.id)}')">Delete</button>` : ""}
           </div>
         </div>
@@ -3129,6 +3156,8 @@ async function deleteHomeScheduleEvent(id) {
     return;
   }
 
+  await syncJgcScheduleEventToGoogle(supabaseClient, event, "delete");
+
   const { error } = await supabaseClient
     .from("schedule_events")
     .delete()
@@ -3342,6 +3371,10 @@ async function saveHomeScheduleEvent() {
 
   try {
     await saveHomeScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
+    await syncJgcScheduleEventToGoogle(supabaseClient, {
+      ...data,
+      equipment_name: selectedVehicle ? getHomeScheduleEquipmentLabel(selectedVehicle) : ""
+    }, "upsert");
     await createHomeScheduleAnnouncements(data, selectedAccounts);
     await emailHomeScheduleEvent(data, selectedAccounts);
   } catch (notifyError) {
