@@ -147,6 +147,27 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
   }
 }
 
+async function pullJgcGoogleCalendarUpdates() {
+  if (!JGC_GOOGLE_CALENDAR_SCRIPT_URL) {
+    return { ok: false, error: "Google Calendar script URL is not configured." };
+  }
+
+  try {
+    await fetch(JGC_GOOGLE_CALENDAR_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({ action: "pull_google_updates" })
+    });
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error && error.message ? error.message : String(error || "Google Calendar pull failed.") };
+  }
+}
+
 function getJgcScheduleSyncLabel(event) {
   const status = String(event && event.google_sync_status || "not_synced").toLowerCase();
   const isSyncedVacation = Boolean(event && event.google_event_id && event.start_date);
