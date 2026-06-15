@@ -1949,6 +1949,7 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <button type="button" class="secondary" onclick="changeAdminScheduleMonth(-1)">Previous</button>
                 <div id="adminScheduleTitle" class="admin-schedule-title"></div>
                 <button type="button" class="secondary" onclick="changeAdminScheduleMonth(1)">Next</button>
+                <button id="adminScheduleSyncAllButton" type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
             </div>
         </div>
         <div class="admin-schedule-legend">
@@ -3615,6 +3616,7 @@ function renderAdminScheduleAgenda() {
             <div class="admin-agenda-toolbar">
                 <strong>Upcoming Schedule</strong>
                 <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
+                <button type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
             </div>
             <div class="small">No upcoming schedule items found.</div>
         `;
@@ -3631,6 +3633,7 @@ function renderAdminScheduleAgenda() {
         <div class="admin-agenda-toolbar">
             <strong>Upcoming Schedule</strong>
             <button type="button" onclick="openAdminScheduleModal('${formatAdminScheduleDateValue(new Date())}')">Add Event</button>
+            <button type="button" onclick="syncAllAdminScheduleEvents()">Sync All</button>
         </div>
         ${Object.keys(groups).map((dateValue) => `
             <div class="admin-agenda-day-group">
@@ -3794,6 +3797,24 @@ function renderAdminScheduleGoogleSyncStatus(event) {
     return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
 }
 
+function getAdminScheduleSyncableEvents() {
+    return (scheduleEvents || []).filter((event) =>
+        event &&
+        event.id &&
+        String(event.google_sync_status || "not_synced").toLowerCase() !== "synced"
+    );
+}
+
+function getAdminScheduleEventEquipmentName(event) {
+    const item = (equipmentItems || []).find((equipment) =>
+        (event.equipment_id && equipment.id === event.equipment_id) ||
+        (event.location && normalizeWorkerName(equipment.identification_number) === normalizeWorkerName(event.location)) ||
+        (event.title && normalizeWorkerName(getAdminScheduleEquipmentLabel(equipment)) === normalizeWorkerName(event.title || event.job_name))
+    );
+
+    return item ? getAdminScheduleEquipmentLabel(item) : "";
+}
+
 async function retryAdminScheduleGoogleSync(id) {
     const event = scheduleEvents.find((item) => String(item.id) === String(id));
     const status = document.getElementById("adminScheduleStatus");
@@ -3807,7 +3828,10 @@ async function retryAdminScheduleGoogleSync(id) {
         status.textContent = "Retrying Google Calendar sync...";
     }
 
-    const result = await syncJgcScheduleEventToGoogle(supabaseClient, event, "upsert");
+    const result = await syncJgcScheduleEventToGoogle(supabaseClient, {
+        ...event,
+        equipment_name: getAdminScheduleEventEquipmentName(event)
+    }, "upsert");
     await loadAllAdminData();
     openAdminScheduleModal(event.event_date || formatAdminScheduleDateValue(new Date()));
 
@@ -3815,6 +3839,44 @@ async function retryAdminScheduleGoogleSync(id) {
     if (nextStatus) {
         nextStatus.textContent = result.ok ? "Google Calendar sync queued." : "Event saved, but Google Calendar sync failed.";
     }
+}
+
+async function syncAllAdminScheduleEvents() {
+    const eventsToSync = getAdminScheduleSyncableEvents();
+    const button = document.getElementById("adminScheduleSyncAllButton");
+
+    if (!eventsToSync.length) {
+        alert("All schedule events are already synced.");
+        return;
+    }
+
+    if (!confirm("Sync " + eventsToSync.length + " schedule event" + (eventsToSync.length === 1 ? "" : "s") + " to Google Calendar?")) {
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Syncing...";
+    }
+
+    for (const event of eventsToSync) {
+        await syncJgcScheduleEventToGoogle(supabaseClient, {
+            ...event,
+            equipment_name: getAdminScheduleEventEquipmentName(event)
+        }, "upsert");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await loadAllAdminData();
+    renderAdminScheduleCalendar();
+    renderPortalSummary();
+
+    if (button) {
+        button.disabled = false;
+        button.textContent = "Sync All";
+    }
+
+    alert("Google Calendar sync queued for " + eventsToSync.length + " event" + (eventsToSync.length === 1 ? "" : "s") + ". Refresh in a few seconds if any still show as Not Synced.");
 }
 
 function getAdminScheduleApprovedAccounts() {
