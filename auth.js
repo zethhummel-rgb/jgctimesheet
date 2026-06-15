@@ -1,3 +1,7 @@
+function cleanJgcAuthText(value, maxLength) {
+  return String(value || "").trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
 async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) {
   const stayLoggedIn = !options || options.stayLoggedIn !== false;
   let { data: profile, error } = await supabaseClient
@@ -8,17 +12,15 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
 
   if (error || !profile) {
     const displayName = user.user_metadata && user.user_metadata.display_name
-      ? user.user_metadata.display_name
+      ? cleanJgcAuthText(user.user_metadata.display_name, 80)
       : user.email;
-    const workerKey = user.user_metadata && user.user_metadata.worker_key
-      ? user.user_metadata.worker_key
-      : normalizeWorkerName(displayName);
+    const workerKey = normalizeWorkerName(displayName);
 
     const { data: createdProfile, error: createProfileError } = await supabaseClient
       .from("profiles")
       .insert({
         id: user.id,
-        email: user.email,
+        email: cleanJgcAuthText(user.email, 254).toLowerCase(),
         display_name: displayName,
         worker_key: workerKey,
         role: "worker",
