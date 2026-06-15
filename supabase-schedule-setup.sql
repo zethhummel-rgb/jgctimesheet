@@ -41,8 +41,31 @@ alter table public.schedule_events
 alter table public.schedule_events
   add column if not exists two_hour_reminder_sent_at timestamptz;
 
+alter table public.schedule_events
+  add column if not exists google_event_id text,
+  add column if not exists google_sync_status text not null default 'not_synced',
+  add column if not exists google_synced_at timestamptz,
+  add column if not exists google_sync_error text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'schedule_events_google_sync_status_check'
+      and conrelid = 'public.schedule_events'::regclass
+  ) then
+    alter table public.schedule_events
+      add constraint schedule_events_google_sync_status_check
+      check (google_sync_status in ('not_synced', 'synced', 'sync_failed'));
+  end if;
+end $$;
+
 create index if not exists schedule_events_event_date_idx
   on public.schedule_events (event_date);
+
+create index if not exists schedule_events_google_event_id_idx
+  on public.schedule_events (google_event_id);
 
 create or replace function public.set_schedule_events_updated_at()
 returns trigger
