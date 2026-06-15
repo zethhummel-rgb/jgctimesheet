@@ -3753,7 +3753,9 @@ function renderAdminScheduleCalendar() {
             return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + label + '</button>';
         });
         const vacationItems = vacations.slice(0, 2).map((request) =>
-            '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' + escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
+            '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' +
+            '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
+            escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
         );
         const totalCount = events.length + vacations.length;
         const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
@@ -3812,6 +3814,7 @@ function renderAdminScheduleDayEvents(dateValue) {
         <div class="detail-item">
             <div class="detail-title">Vacation - ${escapeHtml(request.worker_display_name || request.worker_name || "")}</div>
             <div class="detail-meta">${escapeHtml(makeAdminScheduleDate(request.start_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }))} to ${escapeHtml(makeAdminScheduleDate(request.end_date || request.start_date).toLocaleDateString("en-CA", { month: "long", day: "numeric" }))}</div>
+            ${renderAdminVacationGoogleSyncStatus(request)}
         </div>
     `).join("");
 
@@ -3829,11 +3832,31 @@ function renderAdminScheduleGoogleSyncStatus(event) {
     return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
 }
 
+function renderAdminVacationGoogleSyncStatus(request) {
+    const statusClass = getJgcScheduleSyncClass(request);
+    const label = getJgcScheduleSyncLabel(request);
+    const icon = statusClass === "synced" ? "OK" : (statusClass === "failed" ? "!" : "-");
+    const retry = statusClass !== "synced"
+        ? '<button type="button" class="schedule-sync-retry" onclick="retryAdminVacationGoogleSync(\'' + escapeHtml(request.id) + '\')">Retry Sync</button>'
+        : "";
+
+    return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
+}
+
 function getAdminScheduleSyncableEvents() {
     return (scheduleEvents || []).filter((event) =>
         event &&
         event.id &&
         String(event.google_sync_status || "not_synced").toLowerCase() !== "synced"
+    );
+}
+
+function getAdminScheduleSyncableVacations() {
+    return (vacationRequests || []).filter((request) =>
+        request &&
+        request.id &&
+        String(request.status || "").toLowerCase() === "approved" &&
+        String(request.google_sync_status || "not_synced").toLowerCase() !== "synced"
     );
 }
 
@@ -3845,6 +3868,41 @@ function getAdminScheduleEventEquipmentName(event) {
     );
 
     return item ? getAdminScheduleEquipmentLabel(item) : "";
+}
+
+function buildAdminVacationGoogleEvent(request) {
+    const account = getAccountForVacationRequest(request) || {};
+    const workerName = request.worker_display_name || request.worker_name || "Employee";
+    const requestType = request.request_type ? " - " + request.request_type : "";
+    const description = [
+        "Type: Approved Vacation" + requestType,
+        "Employee: " + workerName,
+        request.total_days ? "Total Days: " + request.total_days : "",
+        request.reason ? "Reason / Notes: " + request.reason : "",
+        request.admin_note ? "Admin Note: " + request.admin_note : "",
+        "",
+        "Created from JGC Portal.",
+        "Portal Vacation Request ID: " + request.id
+    ].filter(Boolean).join("\n");
+
+    return {
+        ...request,
+        google_sync_table: "vacation_requests",
+        all_day: true,
+        event_type: "vacation",
+        event_date: request.start_date,
+        end_date: request.end_date || request.start_date,
+        start_time: "07:00",
+        end_time: "07:30",
+        title: "Vacation - " + workerName,
+        job_name: "Vacation",
+        job_number: "",
+        location: "",
+        notes: request.reason || "",
+        description,
+        employee_names: [workerName],
+        employee_emails: [request.worker_email || account.email].filter(Boolean)
+    };
 }
 
 async function retryAdminScheduleGoogleSync(id) {
@@ -3873,16 +3931,41 @@ async function retryAdminScheduleGoogleSync(id) {
     }
 }
 
-async function syncAllAdminScheduleEvents() {
-    const eventsToSync = getAdminScheduleSyncableEvents();
-    const button = document.getElementById("adminScheduleSyncAllButton");
+async function retryAdminVacationGoogleSync(id) {
+    const request = vacationRequests.find((item) => String(item.id) === String(id));
+    const status = document.getElementById("adminScheduleStatus");
 
-    if (!eventsToSync.length) {
-        alert("All schedule events are already synced.");
+    if (!request) {
+        alert("That vacation request could not be found. Refresh the admin page and try again.");
         return;
     }
 
-    if (!confirm("Sync " + eventsToSync.length + " schedule event" + (eventsToSync.length === 1 ? "" : "s") + " to Google Calendar?")) {
+    if (status) {
+        status.textContent = "Retrying vacation Google Calendar sync...";
+    }
+
+    const result = await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(request), "upsert");
+    await loadAllAdminData();
+    openAdminScheduleModal(request.start_date || formatAdminScheduleDateValue(new Date()));
+
+    const nextStatus = document.getElementById("adminScheduleStatus");
+    if (nextStatus) {
+        nextStatus.textContent = result.ok ? "Vacation Google Calendar sync queued." : "Vacation saved, but Google Calendar sync failed.";
+    }
+}
+
+async function syncAllAdminScheduleEvents() {
+    const eventsToSync = getAdminScheduleSyncableEvents();
+    const vacationsToSync = getAdminScheduleSyncableVacations();
+    const button = document.getElementById("adminScheduleSyncAllButton");
+    const totalToSync = eventsToSync.length + vacationsToSync.length;
+
+    if (!totalToSync) {
+        alert("All schedule events and approved vacations are already synced.");
+        return;
+    }
+
+    if (!confirm("Sync " + totalToSync + " calendar item" + (totalToSync === 1 ? "" : "s") + " to Google Calendar?")) {
         return;
     }
 
@@ -3898,6 +3981,10 @@ async function syncAllAdminScheduleEvents() {
         }, "upsert");
     }
 
+    for (const request of vacationsToSync) {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(request), "upsert");
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 2500));
     await loadAllAdminData();
     renderAdminScheduleCalendar();
@@ -3908,7 +3995,7 @@ async function syncAllAdminScheduleEvents() {
         button.textContent = "Sync All";
     }
 
-    alert("Google Calendar sync queued for " + eventsToSync.length + " event" + (eventsToSync.length === 1 ? "" : "s") + ". Refresh in a few seconds if any still show as Not Synced.");
+    alert("Google Calendar sync queued for " + totalToSync + " calendar item" + (totalToSync === 1 ? "" : "s") + ". Refresh in a few seconds if any still show as Not Synced.");
 }
 
 function getAdminScheduleApprovedAccounts() {
@@ -8351,6 +8438,7 @@ function renderVacationCalendar() {
         const pastClass = date < today ? "past" : "";
         const requestHtml = matches.slice(0, 4).map((request) => `
             <div class="calendar-request ${escapeHtml(request.status || "pending")}">
+                <span class="schedule-sync-dot ${getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced"}" title="${escapeHtml(getJgcScheduleSyncLabel(request))}"></span>
                 ${escapeHtml(request.worker_display_name || request.worker_name)}
             </div>
         `).join("");
@@ -10702,6 +10790,14 @@ async function reviewVacationRequest(id, status) {
 
     vacationRequests = vacationRequests.map((item) => item.id === id ? data : item);
     await createVacationDecisionAnnouncement(data);
+
+    if (String(status || "").toLowerCase() === "approved") {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(data), "upsert");
+    } else if (request.google_event_id) {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(request), "delete");
+    }
+
+    await loadAllAdminData();
     renderVacationCalendar();
     renderVacationRequests();
 }
@@ -10805,6 +10901,10 @@ async function deleteVacationRequest(id) {
 
     if (!confirmed) {
         return;
+    }
+
+    if (request.google_event_id) {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(request), "delete");
     }
 
     const { error } = await supabaseClient
