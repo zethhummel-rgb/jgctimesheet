@@ -9663,6 +9663,11 @@ function renderJobDashboardMetric(title, value, detail) {
     `;
 }
 
+function getJobDocumentHref(job) {
+    const url = String(job && job.document_link || "").trim();
+    return /^https?:\/\//i.test(url) ? url : "";
+}
+
 async function saveJobDashboardInfo(jobId) {
     const job = jobs.find((item) => item.id === jobId);
 
@@ -9682,6 +9687,8 @@ async function saveJobDashboardInfo(jobId) {
         project_manager: getValue("jobDashboardProjectManager") || null,
         start_date: getValue("jobDashboardStartDate") || null,
         target_end_date: getValue("jobDashboardTargetEndDate") || null,
+        document_link: getValue("jobDashboardDocumentLink") || null,
+        document_link_label: getValue("jobDashboardDocumentLinkLabel") || null,
         updated_at: new Date().toISOString()
     };
 
@@ -9749,6 +9756,8 @@ function renderJobDashboard() {
     const topMonthRows = groupTotals(monthRows, (row) => row.worker || "Unknown", (row) => row.hours).slice(0, 5);
     const jobTypeRows = groupTotals(labourHourRows, () => job.job_type || "Unspecified", (row) => row.hours);
     const archivedJobs = getArchivedDashboardJobs();
+    const documentHref = getJobDocumentHref(job);
+    const documentLabel = job.document_link_label || "Open Documents";
 
     container.innerHTML = `
         <div class="job-dashboard-shell">
@@ -9764,6 +9773,7 @@ function renderJobDashboard() {
                     <div class="job-info-item"><span>Project Manager</span><strong>${escapeHtml(job.project_manager || "Not added")}</strong></div>
                     <div class="job-info-item"><span>Start Date</span><strong>${escapeHtml(job.start_date ? formatDate(job.start_date) : "Not added")}</strong></div>
                     <div class="job-info-item"><span>Target End Date</span><strong>${escapeHtml(job.target_end_date ? formatDate(job.target_end_date) : "Not added")}</strong></div>
+                    <div class="job-info-item"><span>Documents / Drawings</span><strong>${documentHref ? '<a href="' + escapeHtml(documentHref) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(documentLabel) + '</a>' : "Not added"}</strong></div>
                 </div>
                 <details class="job-dashboard-edit">
                     <summary>Edit Job Info</summary>
@@ -9792,6 +9802,15 @@ function renderJobDashboard() {
                             <div>
                                 <label>Target End Date</label>
                                 <input id="jobDashboardTargetEndDate" type="date" value="${escapeHtml(job.target_end_date || "")}">
+                            </div>
+                            <div>
+                                <label>Document Link Label</label>
+                                <input id="jobDashboardDocumentLinkLabel" value="${escapeHtml(job.document_link_label || "")}" placeholder="Drawings, Site Docs, Specs">
+                            </div>
+                            <div class="full">
+                                <label>OneDrive / Document Link</label>
+                                <input id="jobDashboardDocumentLink" type="url" value="${escapeHtml(job.document_link || "")}" placeholder="https://...">
+                                <div class="small">Paste the OneDrive sharing link for drawings or job documents.</div>
                             </div>
                             <div class="full">
                                 <label>Address</label>
@@ -9923,6 +9942,7 @@ function renderJobsManagement() {
             <td>${escapeHtml(job.job_name || "")}</td>
             <td>${escapeHtml(job.job_type || "")}</td>
             <td>${escapeHtml(job.project_manager || "")}</td>
+            <td>${getJobDocumentHref(job) ? '<a href="' + escapeHtml(getJobDocumentHref(job)) + '" target="_blank" rel="noopener noreferrer">Open</a>' : ""}</td>
             <td>${job.active ? "Active" : "Inactive"}</td>
             <td>${escapeHtml(formatDate(job.updated_at))}</td>
         </tr>
@@ -9932,7 +9952,7 @@ function renderJobsManagement() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Project Manager</th><th>Status</th><th>Updated</th></tr>
+                    <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Project Manager</th><th>Documents</th><th>Status</th><th>Updated</th></tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
