@@ -366,6 +366,40 @@ textarea {
   line-height: 1.45;
 }
 
+.schedule-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schedule-sync-status.synced {
+  background: rgba(48, 209, 88, 0.16);
+  color: #8ff7a4;
+}
+
+.schedule-sync-status.pending {
+  background: rgba(255, 211, 106, 0.16);
+  color: #ffe4a0;
+}
+
+.schedule-sync-status.failed {
+  background: rgba(255, 99, 99, 0.16);
+  color: #ffb6b6;
+}
+
+.schedule-sync-retry {
+  width: auto;
+  min-height: 30px;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .hidden {
   display: none !important;
 }
@@ -547,7 +581,7 @@ textarea {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=3"></script>
 <script>
 const SCHEDULE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -1025,6 +1059,7 @@ function renderSelectedDate() {
         ${event.employee_names && event.employee_names.length ? "Crew: " + escapeHtml(event.employee_names.join(", ")) + "<br>" : ""}
         ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
       </div>
+      ${renderScheduleGoogleSyncStatus(event)}
       <div class="form-actions" style="margin-top:8px;">
         <button type="button" class="secondary" onclick="editScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
         ${canDeleteScheduleEvent(event) ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
@@ -1040,6 +1075,38 @@ function renderSelectedDate() {
   `).join("");
 
   list.innerHTML = eventHtml + vacationHtml;
+}
+
+function renderScheduleGoogleSyncStatus(event) {
+  const statusClass = getJgcScheduleSyncClass(event);
+  const label = getJgcScheduleSyncLabel(event);
+  const icon = statusClass === "synced" ? "OK" : (statusClass === "failed" ? "!" : "-");
+  const retry = statusClass !== "synced"
+    ? '<button type="button" class="schedule-sync-retry" onclick="retryScheduleGoogleSync(\'' + escapeHtml(event.id) + '\')">Retry Sync</button>'
+    : "";
+
+  return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
+}
+
+async function retryScheduleGoogleSync(id) {
+  const event = scheduleEvents.find((item) => String(item.id) === String(id));
+
+  if (!event) {
+    alert("That schedule event could not be found. Refresh the schedule and try again.");
+    return;
+  }
+
+  setStatus("Retrying Google Calendar sync...");
+  const result = await syncJgcScheduleEventToGoogle(supabaseClient, event, "upsert");
+
+  if (!result.ok) {
+    setStatus("Event saved, but Google Calendar sync failed.");
+    alert("Event saved, but Google Calendar sync failed. " + (result.error || ""));
+  } else {
+    setStatus("Google Calendar sync queued.");
+  }
+
+  await loadScheduleData();
 }
 
 function clearScheduleForm() {
@@ -1360,6 +1427,10 @@ async function saveScheduleEvent() {
   }
 
   await saveScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
+  const syncResult = await syncJgcScheduleEventToGoogle(supabaseClient, {
+    ...data,
+    equipment_name: selectedVehicle ? getScheduleEquipmentLabel(selectedVehicle) : ""
+  }, "upsert");
 
   if (!isEditing) {
     await createScheduleAnnouncements(data, selectedAccounts);
@@ -1373,7 +1444,9 @@ async function saveScheduleEvent() {
   calendarMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
   clearScheduleForm();
   await loadScheduleData();
-  setStatus(isEditing ? "Schedule updated." : "Schedule saved. Tagged employees were notified in the portal and by email.");
+  setStatus(syncResult.ok
+    ? (isEditing ? "Schedule updated. Google Calendar sync queued." : "Schedule saved. Tagged employees were notified. Google Calendar sync queued.")
+    : "Event saved, but Google Calendar sync failed.");
 }
 
 async function deleteScheduleEvent(id) {
@@ -1382,6 +1455,8 @@ async function deleteScheduleEvent(id) {
   if (!event || !canDeleteScheduleEvent(event) || !confirm("Delete this schedule item?")) {
     return;
   }
+
+  await syncJgcScheduleEventToGoogle(supabaseClient, event, "delete");
 
   const { error } = await supabaseClient
     .from("schedule_events")
