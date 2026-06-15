@@ -129,6 +129,20 @@ button.secondary {
   font-size: 12px;
 }
 
+.doc-link {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 5px;
+  background: #37d650;
+  color: #061411;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.doc-link:hover {
+  filter: brightness(1.08);
+}
+
 @media (max-width: 720px) {
   body {
     padding: 12px;
@@ -179,6 +193,11 @@ function getJobTypeLabel(value) {
   return text || "-";
 }
 
+function getJobDocumentHref(job) {
+  const url = String(job && job.document_link || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
+
 function renderJobs() {
   const list = document.getElementById("jobsList");
   const status = document.getElementById("jobsStatus");
@@ -187,7 +206,8 @@ function renderJobs() {
     const text = [
       job.job_number || "",
       job.job_name || "",
-      job.job_type || ""
+      job.job_type || "",
+      job.document_link_label || ""
     ].join(" ").toLowerCase();
 
     return !search || text.includes(search);
@@ -208,15 +228,23 @@ function renderJobs() {
             <th>Job Number</th>
             <th>Job Name</th>
             <th>Contract / T&M</th>
+            <th>Documents</th>
           </tr>
         </thead>
         <tbody>
           ${filtered.map((job) => `
+            ${(() => {
+              const href = getJobDocumentHref(job);
+              const label = job.document_link_label || "Open Documents";
+              return `
             <tr>
               <td>${escapeHtml(job.job_number || "")}</td>
               <td>${escapeHtml(job.job_name || "")}</td>
               <td><span class="pill">${escapeHtml(getJobTypeLabel(job.job_type))}</span></td>
+              <td>${href ? '<a class="doc-link" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>' : '<span class="small">No link</span>'}</td>
             </tr>
+              `;
+            })()}
           `).join("")}
         </tbody>
       </table>
@@ -230,7 +258,7 @@ async function loadJobs() {
 
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, job_type, active, updated_at")
+    .select("id, job_number, job_name, job_type, active, updated_at, document_link, document_link_label")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
