@@ -176,7 +176,12 @@ function buildAllDayDate_(dateValue) {
 
 function getSupabaseSyncTable_(event) {
   var table = String(event.sync_table || "schedule_events");
-  return table === "vacation_requests" ? "vacation_requests" : "schedule_events";
+
+  if (table === "vacation_requests" || String(event.event_type || "").toLowerCase() === "vacation") {
+    return "vacation_requests";
+  }
+
+  return "schedule_events";
 }
 
 function updateSupabaseScheduleSync_(event, fields) {
