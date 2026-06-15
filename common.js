@@ -1,6 +1,148 @@
 const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const JGC_ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
+const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "";
+
+function jgcScheduleArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [value];
+    } catch (error) {
+      return [value];
+    }
+  }
+
+  return [];
+}
+
+function jgcScheduleEventTitle(event) {
+  const title = String(event && (event.title || event.job_name || event.location) || "").trim();
+  const jobName = String(event && event.job_name || "").trim();
+  const label = jobName && title && jobName !== title
+    ? jobName + " - " + title
+    : (title || jobName || "Schedule Event");
+
+  return "[JGC] " + label;
+}
+
+function jgcScheduleEventDescription(event) {
+  const employeeNames = jgcScheduleArray(event && event.employee_names).filter(Boolean).join(", ");
+  const vehicle = String(event && (event.equipment_name || event.vehicle_name || "") || "").trim();
+  const lines = [
+    event && event.job_name ? "Job: " + [event.job_number, event.job_name].filter(Boolean).join(" - ") : "",
+    employeeNames ? "Employees: " + employeeNames : "",
+    vehicle ? "Vehicle / Equipment: " + vehicle : "",
+    event && event.location ? "Location: " + event.location : "",
+    event && event.maintenance_reason ? "Reason: " + event.maintenance_reason : "",
+    event && event.notes ? "Notes: " + event.notes : "",
+    "",
+    "Created from JGC Portal.",
+    "Portal Event ID: " + ((event && event.id) || "")
+  ];
+
+  return lines.filter(function(line, index) {
+    return line || index === lines.length - 2;
+  }).join("\n");
+}
+
+function buildJgcGoogleCalendarPayload(event, action) {
+  return {
+    action: action || "upsert",
+    event: {
+      id: event.id,
+      google_event_id: event.google_event_id || "",
+      event_type: event.event_type || "work",
+      event_date: event.event_date,
+      start_time: event.start_time || "07:00",
+      end_time: event.end_time || "07:30",
+      title: jgcScheduleEventTitle(event),
+      description: jgcScheduleEventDescription(event),
+      location: event.location || "",
+      job_name: event.job_name || "",
+      job_number: event.job_number || "",
+      employee_names: jgcScheduleArray(event.employee_names),
+      employee_emails: jgcScheduleArray(event.employee_emails),
+      notes: event.notes || "",
+      maintenance_reason: event.maintenance_reason || ""
+    }
+  };
+}
+
+async function markJgcScheduleGoogleSyncStatus(supabaseClient, eventId, status, errorText) {
+  if (!supabaseClient || !eventId) {
+    return;
+  }
+
+  const record = {
+    google_sync_status: status || "not_synced",
+    google_sync_error: errorText || null
+  };
+
+  if (status !== "synced") {
+    record.google_synced_at = null;
+  }
+
+  await supabaseClient
+    .from("schedule_events")
+    .update(record)
+    .eq("id", eventId);
+}
+
+async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
+  if (!event || !event.id) {
+    return { ok: false, skipped: true, error: "Missing schedule event." };
+  }
+
+  if (!JGC_GOOGLE_CALENDAR_SCRIPT_URL) {
+    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", "Google Calendar script URL is not configured.");
+    return { ok: false, skipped: true, error: "Google Calendar script URL is not configured." };
+  }
+
+  try {
+    if (action !== "delete") {
+      await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", null);
+    }
+
+    await fetch(JGC_GOOGLE_CALENDAR_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(buildJgcGoogleCalendarPayload(event, action || "upsert"))
+    });
+
+    return { ok: true };
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error || "Google Calendar sync failed.");
+    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "sync_failed", message);
+    return { ok: false, error: message };
+  }
+}
+
+function getJgcScheduleSyncLabel(event) {
+  const status = String(event && event.google_sync_status || "not_synced").toLowerCase();
+
+  if (status === "synced") {
+    return "Synced";
+  }
+
+  if (status === "sync_failed") {
+    return "Sync Failed";
+  }
+
+  return "Not Synced";
+}
+
+function getJgcScheduleSyncClass(event) {
+  const status = String(event && event.google_sync_status || "not_synced").toLowerCase();
+  return status === "synced" ? "synced" : (status === "sync_failed" ? "failed" : "pending");
+}
 
 function applyJgcPortalName() {
   const pageTitles = {
