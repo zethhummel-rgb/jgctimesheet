@@ -1386,6 +1386,40 @@ button.admin-schedule-event-button.admin-event-vacation {
     line-height: 1.45;
 }
 
+.schedule-sync-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.schedule-sync-status.synced {
+    background: rgba(17, 137, 55, 0.14);
+    color: #064f1f;
+}
+
+.schedule-sync-status.pending {
+    background: rgba(224, 159, 10, 0.18);
+    color: #5a3b00;
+}
+
+.schedule-sync-status.failed {
+    background: rgba(209, 35, 35, 0.14);
+    color: #8e1111;
+}
+
+.schedule-sync-retry {
+    width: auto;
+    min-height: 30px;
+    margin: 8px 0 0;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
 .chip {
     display: inline-flex;
     align-items: center;
@@ -2581,7 +2615,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -3731,6 +3765,7 @@ function renderAdminScheduleDayEvents(dateValue) {
                 ${event.employee_names && event.employee_names.length ? "Tagged: " + escapeHtml(event.employee_names.join(", ")) + "<br>" : ""}
                 ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
             </div>
+            ${renderAdminScheduleGoogleSyncStatus(event)}
             <div class="actions" style="margin-top:8px;">
                 <button type="button" onclick="editAdminScheduleEvent('${escapeHtml(event.id)}')">Edit This Event</button>
                 <button type="button" class="delete-button" onclick="deleteAdminScheduleEvent('${escapeHtml(event.id)}')">Delete</button>
@@ -3746,6 +3781,40 @@ function renderAdminScheduleDayEvents(dateValue) {
     `).join("");
 
     list.innerHTML = eventHtml + vacationHtml;
+}
+
+function renderAdminScheduleGoogleSyncStatus(event) {
+    const statusClass = getJgcScheduleSyncClass(event);
+    const label = getJgcScheduleSyncLabel(event);
+    const icon = statusClass === "synced" ? "OK" : (statusClass === "failed" ? "!" : "-");
+    const retry = statusClass !== "synced"
+        ? '<button type="button" class="schedule-sync-retry" onclick="retryAdminScheduleGoogleSync(\'' + escapeHtml(event.id) + '\')">Retry Sync</button>'
+        : "";
+
+    return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
+}
+
+async function retryAdminScheduleGoogleSync(id) {
+    const event = scheduleEvents.find((item) => String(item.id) === String(id));
+    const status = document.getElementById("adminScheduleStatus");
+
+    if (!event) {
+        alert("That schedule event could not be found. Refresh the admin page and try again.");
+        return;
+    }
+
+    if (status) {
+        status.textContent = "Retrying Google Calendar sync...";
+    }
+
+    const result = await syncJgcScheduleEventToGoogle(supabaseClient, event, "upsert");
+    await loadAllAdminData();
+    openAdminScheduleModal(event.event_date || formatAdminScheduleDateValue(new Date()));
+
+    const nextStatus = document.getElementById("adminScheduleStatus");
+    if (nextStatus) {
+        nextStatus.textContent = result.ok ? "Google Calendar sync queued." : "Event saved, but Google Calendar sync failed.";
+    }
 }
 
 function getAdminScheduleApprovedAccounts() {
@@ -4130,6 +4199,8 @@ async function deleteAdminScheduleEvent(id) {
         status.textContent = "Deleting schedule item...";
     }
 
+    await syncJgcScheduleEventToGoogle(supabaseClient, event, "delete");
+
     const { error } = await supabaseClient
         .from("schedule_events")
         .delete()
@@ -4388,13 +4459,19 @@ async function saveAdminScheduleEvent() {
     }
 
     await saveAdminScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
+    const syncResult = await syncJgcScheduleEventToGoogle(supabaseClient, {
+        ...data,
+        equipment_name: selectedVehicle ? getAdminScheduleEquipmentLabel(selectedVehicle) : ""
+    }, "upsert");
 
     await loadAnnouncements();
     adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
     renderAdminScheduleCalendar();
     renderPortalSummary();
     openAdminScheduleModal(data.event_date || eventDate);
-    document.getElementById("adminScheduleStatus").textContent = isEditing ? "Schedule updated." : "Schedule saved. Tagged employees were notified.";
+    document.getElementById("adminScheduleStatus").textContent = syncResult.ok
+        ? (isEditing ? "Schedule updated. Google Calendar sync queued." : "Schedule saved. Tagged employees were notified. Google Calendar sync queued.")
+        : "Event saved, but Google Calendar sync failed.";
 }
 
 function renderPortalSummary() {
