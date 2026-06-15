@@ -617,6 +617,23 @@ function formatTime(value) {
   return String(hour % 12 || 12) + ":" + minute + " " + suffix;
 }
 
+function normalizeScheduleText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function addMinutesToScheduleTime(value, minutes) {
+  const parts = String(value || "07:00").slice(0, 5).split(":");
+  const baseMinutes = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0) + minutes;
+  const normalized = ((baseMinutes % 1440) + 1440) % 1440;
+  return String(Math.floor(normalized / 60)).padStart(2, "0") + ":" + String(normalized % 60).padStart(2, "0");
+}
+
+function getScheduleTimeRange(startValue, endValue) {
+  const start = String(startValue || "").slice(0, 5) || "07:00";
+  const end = String(endValue || "").slice(0, 5) || addMinutesToScheduleTime(start, 30);
+  return { start, end };
+}
+
 function getCurrentAliases() {
   return [
     currentWorker,
@@ -913,6 +930,28 @@ function getEventDisplayTitle(event) {
   return event.title || event.job_name || event.location || getEventTypeLabel(getEventType(event));
 }
 
+function getScheduleDuplicateName(event) {
+  return normalizeWorkerName(getEventDisplayTitle(event));
+}
+
+function isDuplicateScheduleEvent(record, ignoreId) {
+  const duplicateName = getScheduleDuplicateName(record);
+  const start = String(record.start_time || "").slice(0, 5);
+  const end = String(record.end_time || "").slice(0, 5);
+
+  return scheduleEvents.some((event) =>
+    String(event.id || "") !== String(ignoreId || "") &&
+    String(event.event_date || "") === String(record.event_date || "") &&
+    String(event.start_time || "").slice(0, 5) === start &&
+    String(event.end_time || "").slice(0, 5) === end &&
+    getScheduleDuplicateName(event) === duplicateName
+  );
+}
+
+function canDeleteScheduleEvent(event) {
+  return isAdmin || (currentUserId && String(event.created_by || "") === String(currentUserId));
+}
+
 function getEventsForDate(dateValue) {
   return getVisibleScheduleEvents().filter((event) => eventTouchesDate(event, dateValue));
 }
@@ -988,7 +1027,7 @@ function renderSelectedDate() {
       </div>
       <div class="form-actions" style="margin-top:8px;">
         <button type="button" class="secondary" onclick="editScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
-        ${isAdmin ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
+        ${canDeleteScheduleEvent(event) ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
       </div>
     </div>
   `).join("");
@@ -1244,8 +1283,9 @@ async function saveScheduleEvent() {
   const maintenanceReason = eventType === "vehicle" ? document.getElementById("maintenanceReason").value.trim() : "";
   const jobName = (isWork ? document.getElementById("jobName").value.trim() : (title || getScheduleEquipmentLabel(selectedVehicle))) ||
     title ||
-    location ||
-    getEventTypeLabel(eventType);
+    location;
+  const displayName = normalizeScheduleText(title || jobName || location);
+  const timeRange = getScheduleTimeRange(document.getElementById("startTime").value, document.getElementById("endTime").value);
 
   if (!selectedAccounts.length) {
     const currentAccount = getCurrentAccount();
@@ -1259,6 +1299,11 @@ async function saveScheduleEvent() {
     return;
   }
 
+  if (!displayName) {
+    alert("Enter at least a name, job, title, or location for this schedule event.");
+    return;
+  }
+
   if (eventType === "vehicle" && !maintenanceReason) {
     alert("Enter the reason for the equipment or vehicle appointment.");
     return;
@@ -1268,13 +1313,13 @@ async function saveScheduleEvent() {
   const record = {
     event_type: eventType,
     event_date: eventDate,
-    start_time: document.getElementById("startTime").value || null,
-    end_time: document.getElementById("endTime").value || null,
+    start_time: timeRange.start,
+    end_time: timeRange.end,
     job_id: isWork ? (document.getElementById("jobSelect").value || null) : null,
     equipment_id: selectedVehicle ? selectedVehicle.id : null,
     maintenance_reason: maintenanceReason,
-    title: title || jobName,
-    job_name: jobName,
+    title: title || displayName,
+    job_name: jobName || displayName,
     job_number: isWork ? document.getElementById("jobNumber").value.trim() : "",
     location,
     notes: document.getElementById("notes").value.trim(),
@@ -1286,6 +1331,12 @@ async function saveScheduleEvent() {
   };
 
   const isEditing = Boolean(editingScheduleEventId);
+
+  if (isDuplicateScheduleEvent(record, editingScheduleEventId)) {
+    alert("That schedule event already exists for the same day and time.");
+    return;
+  }
+
   setStatus(isEditing ? "Updating schedule..." : "Saving schedule...");
 
   const query = isEditing
@@ -1326,7 +1377,9 @@ async function saveScheduleEvent() {
 }
 
 async function deleteScheduleEvent(id) {
-  if (!isAdmin || !confirm("Delete this schedule item?")) {
+  const event = scheduleEvents.find((item) => String(item.id) === String(id));
+
+  if (!event || !canDeleteScheduleEvent(event) || !confirm("Delete this schedule item?")) {
     return;
   }
 
@@ -1336,7 +1389,7 @@ async function deleteScheduleEvent(id) {
     .eq("id", id);
 
   if (error) {
-    alert("Schedule item could not be deleted.");
+    alert("Schedule item could not be deleted: " + (error.message || "You may not have permission to delete it."));
     return;
   }
 
