@@ -86,8 +86,16 @@ function upsertGoogleCalendarEvent_(event) {
     var allDayEnd = buildAllDayDate_(event.end_date || event.event_date);
     allDayEnd.setDate(allDayEnd.getDate() + 1);
 
+    if (!googleEvent) {
+      googleEvent = findExistingGoogleCalendarEvent_(calendar, title, allDayStart, allDayEnd, event.id);
+    }
+
     if (googleEvent) {
-      googleEvent.deleteEvent();
+      googleEvent.setTitle(title);
+      googleEvent.setAllDayDates(allDayStart, allDayEnd);
+      googleEvent.setDescription(options.description);
+      googleEvent.setLocation(options.location);
+      return googleEvent;
     }
 
     return calendar.createAllDayEvent(title, allDayStart, allDayEnd, options);
@@ -109,6 +117,21 @@ function upsertGoogleCalendarEvent_(event) {
   }
 
   return calendar.createEvent(title, start, end, options);
+}
+
+function findExistingGoogleCalendarEvent_(calendar, title, start, end, portalId) {
+  var candidates = calendar.getEvents(start, end, { search: portalId || title });
+
+  for (var i = 0; i < candidates.length; i++) {
+    var candidate = candidates[i];
+    var description = candidate.getDescription() || "";
+
+    if ((portalId && description.indexOf(portalId) !== -1) || candidate.getTitle() === title) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 function deleteGoogleCalendarEvent_(event) {
