@@ -3378,6 +3378,19 @@ function formatAdminScheduleTime(value) {
     return String(hour % 12 || 12) + ":" + minute + " " + suffix;
 }
 
+function addMinutesToAdminScheduleTime(value, minutes) {
+    const parts = String(value || "07:00").slice(0, 5).split(":");
+    const baseMinutes = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0) + minutes;
+    const normalized = ((baseMinutes % 1440) + 1440) % 1440;
+    return String(Math.floor(normalized / 60)).padStart(2, "0") + ":" + String(normalized % 60).padStart(2, "0");
+}
+
+function getAdminScheduleTimeRange(startValue, endValue) {
+    const start = String(startValue || "").slice(0, 5) || "07:00";
+    const end = String(endValue || "").slice(0, 5) || addMinutesToAdminScheduleTime(start, 30);
+    return { start, end };
+}
+
 function getAdminScheduleType(event) {
     const type = String(event && event.event_type || "work").toLowerCase();
     return ["work", "vehicle", "training", "general"].includes(type) ? type : "work";
@@ -3425,6 +3438,24 @@ function applyAdminScheduleEventColors() {
 
 function getAdminScheduleTitle(event) {
     return event.title || event.job_name || event.location || getAdminScheduleTypeLabel(getAdminScheduleType(event));
+}
+
+function getAdminScheduleDuplicateName(event) {
+    return normalizeWorkerName(getAdminScheduleTitle(event));
+}
+
+function isDuplicateAdminScheduleEvent(record, ignoreId) {
+    const duplicateName = getAdminScheduleDuplicateName(record);
+    const start = String(record.start_time || "").slice(0, 5);
+    const end = String(record.end_time || "").slice(0, 5);
+
+    return scheduleEvents.some((event) =>
+        String(event.id || "") !== String(ignoreId || "") &&
+        String(event.event_date || "") === String(record.event_date || "") &&
+        String(event.start_time || "").slice(0, 5) === start &&
+        String(event.end_time || "").slice(0, 5) === end &&
+        getAdminScheduleDuplicateName(event) === duplicateName
+    );
 }
 
 function getAdminScheduleTaggedNames(event) {
@@ -4275,12 +4306,18 @@ async function saveAdminScheduleEvent() {
     const maintenanceReason = eventType === "vehicle" ? document.getElementById("adminScheduleMaintenanceReason").value.trim() : "";
     const jobName = (isWork ? document.getElementById("adminScheduleJobName").value.trim() : (title || getAdminScheduleEquipmentLabel(selectedVehicle))) ||
         title ||
-        location ||
-        getAdminScheduleTypeLabel(eventType);
+        location;
+    const displayName = String(title || jobName || location || "").trim().replace(/\s+/g, " ");
+    const timeRange = getAdminScheduleTimeRange(document.getElementById("adminScheduleStartTime").value, document.getElementById("adminScheduleEndTime").value);
     const status = document.getElementById("adminScheduleStatus");
 
     if (!eventDate) {
         status.textContent = "Choose a date for this schedule event.";
+        return;
+    }
+
+    if (!displayName) {
+        status.textContent = "Enter at least a name, job, title, or location for this schedule event.";
         return;
     }
 
@@ -4292,13 +4329,13 @@ async function saveAdminScheduleEvent() {
     const record = {
         event_type: eventType,
         event_date: eventDate,
-        start_time: document.getElementById("adminScheduleStartTime").value || null,
-        end_time: document.getElementById("adminScheduleEndTime").value || null,
+        start_time: timeRange.start,
+        end_time: timeRange.end,
         job_id: isWork ? (document.getElementById("adminScheduleJob").value || null) : null,
         equipment_id: selectedVehicle ? selectedVehicle.id : null,
         maintenance_reason: maintenanceReason,
-        title: title || jobName,
-        job_name: jobName,
+        title: title || displayName,
+        job_name: jobName || displayName,
         job_number: isWork ? document.getElementById("adminScheduleJobNumber").value.trim() : "",
         location,
         notes: document.getElementById("adminScheduleNotes").value.trim(),
@@ -4310,6 +4347,12 @@ async function saveAdminScheduleEvent() {
     };
 
     const isEditing = Boolean(editingAdminScheduleEventId);
+
+    if (isDuplicateAdminScheduleEvent(record, editingAdminScheduleEventId)) {
+        status.textContent = "That schedule event already exists for the same day and time.";
+        return;
+    }
+
     status.textContent = isEditing ? "Updating schedule..." : "Saving schedule...";
 
     const query = isEditing
