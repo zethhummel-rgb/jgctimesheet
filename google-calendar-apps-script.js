@@ -120,7 +120,13 @@ function upsertGoogleCalendarEvent_(event) {
 }
 
 function findExistingGoogleCalendarEvent_(calendar, title, start, end, portalId) {
-  var candidates = calendar.getEvents(start, end, { search: portalId || title });
+  var searchStart = new Date(start.getTime());
+  var searchEnd = new Date(end.getTime());
+
+  searchStart.setDate(searchStart.getDate() - 7);
+  searchEnd.setDate(searchEnd.getDate() + 7);
+
+  var candidates = calendar.getEvents(searchStart, searchEnd, { search: portalId || title });
 
   for (var i = 0; i < candidates.length; i++) {
     var candidate = candidates[i];
