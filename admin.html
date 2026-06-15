@@ -3856,7 +3856,10 @@ function getAdminScheduleSyncableVacations() {
         request &&
         request.id &&
         String(request.status || "").toLowerCase() === "approved" &&
-        String(request.google_sync_status || "not_synced").toLowerCase() !== "synced"
+        (
+            String(request.google_sync_status || "not_synced").toLowerCase() !== "synced" ||
+            !request.google_event_id
+        )
     );
 }
 
