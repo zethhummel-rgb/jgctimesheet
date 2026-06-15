@@ -24,6 +24,10 @@ function doPost(e) {
     var action = String(payload.action || "upsert").toLowerCase();
     var event = payload.event || {};
 
+    if (action === "pull_google_updates") {
+      return jsonResponse_(pullGoogleCalendarUpdates_());
+    }
+
     if (!event.id) {
       throw new Error("Missing portal event ID.");
     }
@@ -150,6 +154,134 @@ function deleteGoogleCalendarEvent_(event) {
 
   if (googleEvent) {
     googleEvent.deleteEvent();
+  }
+}
+
+function pullGoogleCalendarUpdates_() {
+  var events = fetchSupabaseSyncedScheduleEvents_();
+  var calendar = getTargetCalendar_();
+  var updated = 0;
+  var missing = 0;
+  var errors = [];
+
+  for (var i = 0; i < events.length; i++) {
+    var portalEvent = events[i];
+
+    try {
+      var googleEvent = calendar.getEventById(portalEvent.google_event_id);
+
+      if (!googleEvent) {
+        missing++;
+        patchSupabaseScheduleEvent_(portalEvent.id, {
+          google_sync_status: "sync_failed",
+          google_sync_error: "Google event was not found. It may have been deleted in Google Calendar."
+        });
+        continue;
+      }
+
+      patchSupabaseScheduleEvent_(portalEvent.id, buildPortalUpdateFromGoogleEvent_(googleEvent));
+      updated++;
+    } catch (err) {
+      errors.push((portalEvent.id || "unknown") + ": " + (err && err.message ? err.message : String(err)));
+    }
+  }
+
+  return {
+    success: !errors.length,
+    action: "pull_google_updates",
+    checked: events.length,
+    updated: updated,
+    missing: missing,
+    errors: errors
+  };
+}
+
+function fetchSupabaseSyncedScheduleEvents_() {
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var serviceRoleKey = props.getProperty("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Script Properties.");
+  }
+
+  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=id,google_event_id&google_event_id=not.is.null";
+  var response = UrlFetchApp.fetch(url, {
+    method: "get",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: "Bearer " + serviceRoleKey
+    },
+    muteHttpExceptions: true
+  });
+  var code = response.getResponseCode();
+
+  if (code < 200 || code >= 300) {
+    throw new Error("Supabase schedule fetch failed: " + code + " " + response.getContentText());
+  }
+
+  return JSON.parse(response.getContentText() || "[]");
+}
+
+function buildPortalUpdateFromGoogleEvent_(googleEvent) {
+  var start = googleEvent.getStartTime();
+  var end = googleEvent.getEndTime();
+
+  return {
+    event_date: Utilities.formatDate(start, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    start_time: Utilities.formatDate(start, Session.getScriptTimeZone(), "HH:mm:ss"),
+    end_time: Utilities.formatDate(end, Session.getScriptTimeZone(), "HH:mm:ss"),
+    title: stripJgcPrefix_(googleEvent.getTitle()),
+    notes: extractEditableNotes_(googleEvent.getDescription() || ""),
+    location: googleEvent.getLocation() || null,
+    google_sync_status: "synced",
+    google_synced_at: new Date().toISOString(),
+    google_sync_error: null
+  };
+}
+
+function stripJgcPrefix_(title) {
+  return String(title || "").replace(/^\[JGC\]\s*/i, "").trim();
+}
+
+function extractEditableNotes_(description) {
+  return String(description || "")
+    .split("Created from JGC Portal.")[0]
+    .replace(/^Job:.*$/gmi, "")
+    .replace(/^Employees:.*$/gmi, "")
+    .replace(/^Vehicle \/ Equipment:.*$/gmi, "")
+    .replace(/^Location:.*$/gmi, "")
+    .replace(/^Reason:.*$/gmi, "")
+    .replace(/^Portal Event ID:.*$/gmi, "")
+    .replace(/^Notes:\s*/gmi, "")
+    .trim();
+}
+
+function patchSupabaseScheduleEvent_(eventId, fields) {
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var serviceRoleKey = props.getProperty("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Script Properties.");
+  }
+
+  var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?id=eq." + encodeURIComponent(eventId);
+  var response = UrlFetchApp.fetch(url, {
+    method: "patch",
+    contentType: "application/json",
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: "Bearer " + serviceRoleKey,
+      Prefer: "return=minimal"
+    },
+    payload: JSON.stringify(fields),
+    muteHttpExceptions: true
+  });
+  var code = response.getResponseCode();
+
+  if (code < 200 || code >= 300) {
+    throw new Error("Supabase schedule patch failed: " + code + " " + response.getContentText());
   }
 }
 
