@@ -76,6 +76,10 @@ function doPost(e) {
   }
 }
 
+function scheduledPullGoogleUpdates() {
+  pullGoogleCalendarUpdates_();
+}
+
 function upsertGoogleCalendarEvent_(event) {
   var calendar = getTargetCalendar_();
   var title = event.title || "[JGC] Schedule Event";
