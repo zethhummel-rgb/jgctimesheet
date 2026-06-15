@@ -2635,6 +2635,9 @@ const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
+const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
+let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -2914,69 +2917,103 @@ window.addEventListener("message", function(event) {
     frame.style.height = height + "px";
 });
 
-function showTab(tab) {
-    ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"].forEach((name) => {
-        document.getElementById(name + "Section").hidden = name !== tab;
-        document.getElementById(name + "Tab").classList.toggle("active", name === tab);
+function persistAdminTab(tab) {
+    if (!ADMIN_ALLOWED_TABS.includes(tab)) {
+        return;
+    }
+
+    currentAdminTab = tab;
+    localStorage.setItem(ADMIN_TAB_STORAGE_KEY, tab);
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("tab", tab);
+    nextUrl.hash = "";
+    window.history.replaceState({ adminTab: tab }, "", nextUrl);
+}
+
+function getActiveAdminTab() {
+    return ADMIN_ALLOWED_TABS.includes(currentAdminTab) ? currentAdminTab : getRequestedAdminTab();
+}
+
+function showTab(tab, options = {}) {
+    const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : "summary";
+
+    if (options.persist !== false) {
+        persistAdminTab(requestedTab);
+    } else {
+        currentAdminTab = requestedTab;
+    }
+
+    ADMIN_ALLOWED_TABS.forEach((name) => {
+        const section = document.getElementById(name + "Section");
+        const tabButton = document.getElementById(name + "Tab");
+
+        if (section) {
+            section.hidden = name !== requestedTab;
+        }
+
+        if (tabButton) {
+            tabButton.classList.toggle("active", name === requestedTab);
+        }
     });
 
     const employeeProfileEditSection = document.getElementById("employeeProfileEditSection");
     if (employeeProfileEditSection) {
-        employeeProfileEditSection.hidden = tab !== "employeeProfile";
+        employeeProfileEditSection.hidden = requestedTab !== "employeeProfile";
     }
 
-    if (tab !== "summary") {
-        markAdminTabViewed(tab);
+    if (requestedTab !== "summary") {
+        markAdminTabViewed(requestedTab);
     }
 
-    if (tab === "summary") {
+    if (requestedTab === "summary") {
         renderAdminScheduleCalendar();
         renderPortalSummary();
     }
 
-    if (tab === "jobDashboard") {
+    if (requestedTab === "jobDashboard") {
         renderJobDashboardOptions();
         renderJobDashboard();
     }
 
-    if (tab === "employeeProfile") {
+    if (requestedTab === "employeeProfile") {
         renderEmployeeProfile();
     }
 
-    if (tab === "sickDays") {
+    if (requestedTab === "sickDays") {
         renderSickDays();
     }
 
-    if (tab === "certificates") {
+    if (requestedTab === "certificates") {
         renderAdminCertificateWorkerOptions();
     }
 
-    if (tab === "contacts") {
+    if (requestedTab === "contacts") {
         loadContacts();
     }
 
-    if (tab === "reports") {
+    if (requestedTab === "reports") {
         renderReports();
     }
 
-    if (tab === "toolboxTalks") {
+    if (requestedTab === "toolboxTalks") {
         renderToolboxTalks();
     }
 
-    if (tab === "equipment") {
+    if (requestedTab === "equipment") {
         renderEquipment();
     }
 
-    if (tab === "jobs") {
+    if (requestedTab === "jobs") {
         renderJobsManagement();
     }
 
-    if (tab === "workOrders") {
+    if (requestedTab === "workOrders") {
         renderAdminWorkOrders();
         renderWorkOrderLabourWorkers();
     }
 
-    if (tab === "backups") {
+    if (requestedTab === "backups") {
         initializeBackupsPage();
     }
 }
@@ -2984,8 +3021,17 @@ function showTab(tab) {
 function getRequestedAdminTab() {
     const params = new URLSearchParams(window.location.search);
     const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
-    const allowed = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
-    return allowed.includes(requested) ? requested : "summary";
+    const stored = localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+
+    if (ADMIN_ALLOWED_TABS.includes(requested)) {
+        return requested;
+    }
+
+    if (ADMIN_ALLOWED_TABS.includes(stored)) {
+        return stored;
+    }
+
+    return "summary";
 }
 
 function formatDate(value) {
@@ -3195,7 +3241,7 @@ async function loadAdminData() {
     await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
     initializeAdminSummaryBaselines();
     renderAdminSectionsSafely();
-    showTab(getRequestedAdminTab());
+    showTab(getActiveAdminTab(), { persist: false });
 }
 
 function getLocalDateValue(date) {
@@ -10560,6 +10606,7 @@ async function signOut() {
     await signOutJgc(supabaseClient);
 }
 
+showTab(getRequestedAdminTab(), { persist: false });
 loadAdminData();
 </script>
 </body>
