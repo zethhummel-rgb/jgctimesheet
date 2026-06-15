@@ -2708,6 +2708,23 @@ function scheduleEventMatchesCurrentWorker(event) {
   return isAdmin || employeeValues.some((value) => aliases.includes(normalizeWorkerName(value)));
 }
 
+function getHomeVacationAgendaDate(request) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = makeLocalDate(request.start_date);
+  const end = makeLocalDate(request.end_date || request.start_date);
+
+  if (Number.isNaN(start.getTime())) {
+    return request.start_date || "";
+  }
+
+  if (!Number.isNaN(end.getTime()) && start <= today && today <= end) {
+    return formatLocalDateValue(today);
+  }
+
+  return request.start_date || "";
+}
+
 function buildHomeAgendaItems(scheduleRows, vacationRows) {
   const scheduleItems = (scheduleRows || [])
     .map((event) => {
@@ -2736,10 +2753,10 @@ function buildHomeAgendaItems(scheduleRows, vacationRows) {
     .map((request) => ({
       source: "vacation",
       type: "vacation",
-      date: request.start_date,
+      date: getHomeVacationAgendaDate(request),
       sortTime: "99:99",
       title: "Vacation - " + (request.worker_display_name || request.worker_name || "Employee"),
-      meta: getVacationReminderRange(request)
+      meta: "Approved Vacation | " + getVacationReminderRange(request)
     }));
 
   return scheduleItems
