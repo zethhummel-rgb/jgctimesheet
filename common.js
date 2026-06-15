@@ -97,7 +97,9 @@ async function markJgcScheduleGoogleSyncStatus(supabaseClient, eventId, status, 
     google_sync_error: errorText || null
   };
 
-  if (status !== "synced") {
+  if (status === "synced") {
+    record.google_synced_at = new Date().toISOString();
+  } else {
     record.google_synced_at = null;
   }
 
@@ -112,14 +114,16 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
     return { ok: false, skipped: true, error: "Missing schedule event." };
   }
 
+  const syncTable = getJgcGoogleSyncTable(event);
+
   if (!JGC_GOOGLE_CALENDAR_SCRIPT_URL) {
-    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", "Google Calendar script URL is not configured.", getJgcGoogleSyncTable(event));
+    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", "Google Calendar script URL is not configured.", syncTable);
     return { ok: false, skipped: true, error: "Google Calendar script URL is not configured." };
   }
 
   try {
     if (action !== "delete") {
-      await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", null, getJgcGoogleSyncTable(event));
+      await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "not_synced", null, syncTable);
     }
 
     await fetch(JGC_GOOGLE_CALENDAR_SCRIPT_URL, {
@@ -131,10 +135,14 @@ async function syncJgcScheduleEventToGoogle(supabaseClient, event, action) {
       body: JSON.stringify(buildJgcGoogleCalendarPayload(event, action || "upsert"))
     });
 
+    if (syncTable === "vacation_requests" && action !== "delete") {
+      await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "synced", null, syncTable);
+    }
+
     return { ok: true };
   } catch (error) {
     const message = error && error.message ? error.message : String(error || "Google Calendar sync failed.");
-    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "sync_failed", message, getJgcGoogleSyncTable(event));
+    await markJgcScheduleGoogleSyncStatus(supabaseClient, event.id, "sync_failed", message, syncTable);
     return { ok: false, error: message };
   }
 }
