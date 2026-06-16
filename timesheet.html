@@ -1439,6 +1439,7 @@ let currentUserDisplay = localStorage.getItem("currentWorkerDisplay") || localSt
 let memoryTimesheets = [];
 let rawSupabaseTimesheetRows = [];
 let editingEntryId = null;
+let isSavingTimeEntry = false;
 let entriesTab = "current";
 let weeklySummaryMobileView = localStorage.getItem("jgcTimesheetWeeklyMobileView") || "cards";
 let previousWeeks = [];
@@ -2027,6 +2028,18 @@ function getDuplicateJobName(entry) {
   return normalizeDuplicateValue(cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || ""));
 }
 
+function getDuplicateJobNumber(entry) {
+  return normalizeDuplicateValue(entry && (entry.jobNumber || entry.job_number));
+}
+
+function getDuplicateEntryType(entry) {
+  return normalizeDuplicateValue(entry && (entry.entryType || entry.entry_type || getEntryType(entry)));
+}
+
+function getDuplicateLeaveType(entry) {
+  return normalizeDuplicateValue(entry && (entry.leaveType || entry.leave_type));
+}
+
 function getDuplicateTime(entry, fieldName, fallbackFieldName) {
   const value = entry && (entry[fieldName] || entry[fallbackFieldName]);
   return normalizeTimeForStorage(value || "00:00");
@@ -2043,6 +2056,9 @@ function isDuplicateTimesheetEntry(existingEntry, newEntry) {
   return getDuplicateWeekStart(existing) === getDuplicateWeekStart(incoming) &&
     getDuplicateDay(existing) === getDuplicateDay(incoming) &&
     getDuplicateJobName(existing) === getDuplicateJobName(incoming) &&
+    getDuplicateJobNumber(existing) === getDuplicateJobNumber(incoming) &&
+    getDuplicateEntryType(existing) === getDuplicateEntryType(incoming) &&
+    getDuplicateLeaveType(existing) === getDuplicateLeaveType(incoming) &&
     getDuplicateTime(existing, "timeIn", "time_in") === getDuplicateTime(incoming, "timeIn", "time_in") &&
     getDuplicateTime(existing, "timeOut", "time_out") === getDuplicateTime(incoming, "timeOut", "time_out") &&
     Math.abs(getEntryHours(existing) - getEntryHours(incoming)) < 0.005;
@@ -2057,6 +2073,10 @@ async function findDuplicateTimesheetEntry(entry) {
     return localDuplicate;
   }
 
+  return findDuplicateOnlineTimesheetEntry(entry);
+}
+
+async function findDuplicateOnlineTimesheetEntry(entry) {
   if (!supabaseClient || !navigator.onLine) {
     return null;
   }
@@ -2318,6 +2338,16 @@ async function syncPendingTimesheetEntries(options) {
   const syncedLocalIds = [];
 
   for (const item of currentWorkerItems) {
+    const queuedEntry = rowToEntry(item.row || {});
+    queuedEntry.id = item.localId || queuedEntry.id;
+    queuedEntry.user = currentUser;
+    const duplicateEntry = await findDuplicateOnlineTimesheetEntry(queuedEntry);
+
+    if (duplicateEntry) {
+      syncedLocalIds.push(item.localId);
+      continue;
+    }
+
     const { data, error } = await supabaseClient
       .from("timesheet_entries")
       .insert(item.row)
@@ -3803,6 +3833,20 @@ async function submitTime() {
     return;
   }
 
+  if (isSavingTimeEntry) {
+    alert("This entry is already saving. Please wait a moment.");
+    return;
+  }
+
+  isSavingTimeEntry = true;
+  const submitButton = document.getElementById("submitButton");
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.dataset.originalText = submitButton.innerText;
+    submitButton.innerText = editingEntryId ? "Updating..." : "Saving...";
+  }
+
+  try {
   const rawWeekStart = document.getElementById("weekStart").value;
   const normalizedWeekStartDate = rawWeekStart ? getWeekStartDate(makeLocalDate(rawWeekStart)) : null;
   const weekStart = normalizedWeekStartDate ? formatDateValue(normalizedWeekStartDate) : "";
@@ -4012,6 +4056,14 @@ async function submitTime() {
   render();
   await loadWoTimesheetRequests();
   status.innerText += " Current entries shown: " + getSelectedWeekVisibleEntries(loadTimesheets()).length + ". Pending sync: " + getPendingTimesheetCount() + ".";
+  } finally {
+    isSavingTimeEntry = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerText = editingEntryId ? "Update Entry" : "Submit Entry";
+      delete submitButton.dataset.originalText;
+    }
+  }
 }
 
 async function clearEntries() {
