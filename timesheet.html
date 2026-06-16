@@ -2064,6 +2064,68 @@ function isDuplicateTimesheetEntry(existingEntry, newEntry) {
     Math.abs(getEntryHours(existing) - getEntryHours(incoming)) < 0.005;
 }
 
+function isTimedOverlapCandidate(entry) {
+  const type = getDuplicateEntryType(entry);
+  const leaveType = getDuplicateLeaveType(entry);
+  const hours = getEntryHours(entry);
+
+  if (hours <= 0) {
+    return false;
+  }
+
+  return type === "work" || (type === "vacation" && leaveType === "half_day");
+}
+
+function getEntryTimeWindow(entry) {
+  const start = getTimeMinutes(entry && (entry.timeIn || entry.time_in));
+  let end = getTimeMinutes(entry && (entry.timeOut || entry.time_out));
+
+  if (start === null || end === null || start === end) {
+    return null;
+  }
+
+  if (end <= start) {
+    end += 24 * 60;
+  }
+
+  return { start, end };
+}
+
+function timeWindowsOverlap(firstWindow, secondWindow) {
+  const secondWindows = [
+    secondWindow,
+    { start: secondWindow.start + 24 * 60, end: secondWindow.end + 24 * 60 },
+    { start: secondWindow.start - 24 * 60, end: secondWindow.end - 24 * 60 }
+  ];
+
+  return secondWindows.some(function(window) {
+    return firstWindow.start < window.end && firstWindow.end > window.start;
+  });
+}
+
+function isOverlappingTimesheetEntry(existingEntry, newEntry) {
+  const existing = normalizeTimesheetEntry(existingEntry || {});
+  const incoming = normalizeTimesheetEntry(newEntry || {});
+
+  if (existing.id && incoming.id && String(existing.id) === String(incoming.id)) {
+    return false;
+  }
+
+  if (!isTimedOverlapCandidate(existing) || !isTimedOverlapCandidate(incoming)) {
+    return false;
+  }
+
+  if (getDuplicateWeekStart(existing) !== getDuplicateWeekStart(incoming) ||
+      getDuplicateDay(existing) !== getDuplicateDay(incoming)) {
+    return false;
+  }
+
+  const existingWindow = getEntryTimeWindow(existing);
+  const incomingWindow = getEntryTimeWindow(incoming);
+
+  return Boolean(existingWindow && incomingWindow && timeWindowsOverlap(existingWindow, incomingWindow));
+}
+
 async function findDuplicateTimesheetEntry(entry) {
   const localDuplicate = loadTimesheets().find(function(existingEntry) {
     return isDuplicateTimesheetEntry(existingEntry, entry);
@@ -2101,6 +2163,47 @@ async function findDuplicateOnlineTimesheetEntry(entry) {
       }) || null;
   } catch (error) {
     console.warn("Duplicate timesheet check could not run.", error);
+    return null;
+  }
+}
+
+async function findOverlappingTimesheetEntry(entry) {
+  const localOverlap = loadTimesheets().find(function(existingEntry) {
+    return isOverlappingTimesheetEntry(existingEntry, entry);
+  });
+
+  if (localOverlap) {
+    return localOverlap;
+  }
+
+  return findOverlappingOnlineTimesheetEntry(entry);
+}
+
+async function findOverlappingOnlineTimesheetEntry(entry) {
+  if (!supabaseClient || !navigator.onLine || !isTimedOverlapCandidate(entry)) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("timesheet_entries")
+      .select("id,worker_name,week_start,week_end,job_name,job_number,day_of_week,time_in,time_out,hours,took_lunch,night_work,entry_type,leave_type,leave_note")
+      .eq("worker_name", currentUser)
+      .eq("week_start", getDuplicateWeekStart(entry))
+      .eq("day_of_week", entry.day || entry.day_of_week || "");
+
+    if (error) {
+      console.warn("Overlapping timesheet check could not run.", error);
+      return null;
+    }
+
+    return (data || [])
+      .map(rowToEntry)
+      .find(function(existingEntry) {
+        return isOverlappingTimesheetEntry(existingEntry, entry);
+      }) || null;
+  } catch (error) {
+    console.warn("Overlapping timesheet check could not run.", error);
     return null;
   }
 }
@@ -2344,6 +2447,13 @@ async function syncPendingTimesheetEntries(options) {
     const duplicateEntry = await findDuplicateOnlineTimesheetEntry(queuedEntry);
 
     if (duplicateEntry) {
+      syncedLocalIds.push(item.localId);
+      continue;
+    }
+
+    const overlappingEntry = await findOverlappingOnlineTimesheetEntry(queuedEntry);
+
+    if (overlappingEntry) {
       syncedLocalIds.push(item.localId);
       continue;
     }
@@ -3975,6 +4085,18 @@ async function submitTime() {
     const duplicateJob = duplicateEntry.jobName || duplicateEntry.job_name || entry.jobName || "";
     status.innerText = "Duplicate blocked. This same day, job, time, and hours entry is already saved.";
     alert("Duplicate entry blocked.\n\n" + duplicateDay + " - " + duplicateJob + " already has the same time and hours.");
+    return;
+  }
+
+  const overlappingEntry = await findOverlappingTimesheetEntry(entry);
+
+  if (overlappingEntry) {
+    const overlapDay = overlappingEntry.day || overlappingEntry.day_of_week || entry.day || "";
+    const overlapJob = overlappingEntry.jobName || overlappingEntry.job_name || "another entry";
+    const overlapTimeIn = formatTimeDisplay(overlappingEntry.timeIn || overlappingEntry.time_in || "");
+    const overlapTimeOut = formatTimeDisplay(overlappingEntry.timeOut || overlappingEntry.time_out || "");
+    status.innerText = "Overlapping time blocked. This entry overlaps another saved entry.";
+    alert("Overlapping time blocked.\n\n" + overlapDay + " - " + overlapJob + " already has time from " + overlapTimeIn + " to " + overlapTimeOut + ".");
     return;
   }
 
