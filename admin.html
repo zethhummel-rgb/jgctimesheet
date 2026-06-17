@@ -5554,6 +5554,162 @@ function renderEmployeeProfileTable(columns, rows, emptyText) {
     `;
 }
 
+function getEmployeeProfileSickRows(account) {
+    return buildAdminSickDayRows()
+        .filter((row) => employeeMatchesValue(account, row.worker))
+        .sort((a, b) => {
+            const dateDifference = (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0);
+            return dateDifference || String(b.submitted || "").localeCompare(String(a.submitted || ""));
+        });
+}
+
+function setEmployeeProfileSickStatus(message, isError) {
+    const status = document.getElementById("employeeProfileSickStatus");
+
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message || "";
+    status.style.color = isError ? "#ffb4a8" : "";
+}
+
+function renderEmployeeProfileSickDays(rows) {
+    const tableHtml = rows.length
+        ? `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Saved / Submitted</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((row) => `
+                            <tr>
+                                <td>${row.date ? escapeHtml(formatTimesheetPdfDate(row.date)) : ""}</td>
+                                <td>${escapeHtml(row.day || "")}</td>
+                                <td>${escapeHtml(row.reason || "")}</td>
+                                <td>${escapeHtml(row.status || "")}</td>
+                                <td>${escapeHtml(formatDate(row.submitted))}</td>
+                                <td><button type="button" class="delete-button" onclick="deleteAdminSickDay('${escapeHtml(row.id)}')">Delete</button></td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `
+        : '<div class="small">No sick days found for this employee.</div>';
+
+    return `
+        <details class="profile-edit-drawer">
+            <summary>Add Sick Day</summary>
+            <div class="form-grid" style="margin-top:10px;">
+                <div>
+                    <label>Sick Date</label>
+                    <input id="employeeProfileSickDate" type="date">
+                </div>
+                <div>
+                    <label>Reason / Note</label>
+                    <input id="employeeProfileSickReason" placeholder="Example: Sick, headache, appointment">
+                </div>
+            </div>
+            <div class="actions" style="margin-top:10px;">
+                <button type="button" onclick="addEmployeeProfileSickDay()">Add Sick Day</button>
+            </div>
+            <div id="employeeProfileSickStatus" class="small" style="margin-top:8px;"></div>
+        </details>
+        ${tableHtml}
+    `;
+}
+
+async function addEmployeeProfileSickDay() {
+    if (!supabaseClient) {
+        setEmployeeProfileSickStatus("Supabase is not available. Sick day could not be saved.", true);
+        return;
+    }
+
+    const account = getSelectedEmployeeProfileAccount();
+    const workerKey = getAdminSickDayWorkerKey(account);
+    const dateInput = document.getElementById("employeeProfileSickDate");
+    const reasonInput = document.getElementById("employeeProfileSickReason");
+    const dateValue = dateInput ? dateInput.value : "";
+    const reason = reasonInput ? reasonInput.value.trim() : "";
+
+    if (!workerKey || !dateValue) {
+        setEmployeeProfileSickStatus("Choose a sick date.", true);
+        return;
+    }
+
+    if (hasAdminSickDayForDate(workerKey, dateValue)) {
+        setEmployeeProfileSickStatus("This employee already has a sick day saved for this date.", true);
+        return;
+    }
+
+    const selectedDate = makeLocalDate(dateValue);
+
+    if (Number.isNaN(selectedDate.getTime())) {
+        setEmployeeProfileSickStatus("Choose a valid sick date.", true);
+        return;
+    }
+
+    const weekStartDate = getAdminTimesheetWeekStartForDate(selectedDate);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+    const row = {
+        worker_name: workerKey,
+        week_start: formatAdminScheduleDateValue(weekStartDate),
+        week_end: formatTimesheetPdfDate(weekEndDate),
+        job_name: "Sick",
+        job_number: reason || "Sick",
+        day_of_week: getTimesheetDayNames()[selectedDate.getDay()],
+        time_in: "07:00",
+        time_out: "12:00",
+        hours: 0.01,
+        took_lunch: false,
+        night_work: false,
+        entry_type: "sick",
+        leave_type: "",
+        leave_note: ""
+    };
+
+    setEmployeeProfileSickStatus("Saving sick day...");
+
+    const { data, error } = await supabaseClient
+        .from("timesheet_entries")
+        .insert(row)
+        .select()
+        .single();
+
+    if (error) {
+        setEmployeeProfileSickStatus("Sick day could not be saved: " + error.message, true);
+        return;
+    }
+
+    if (data) {
+        liveTimesheetEntries = [data].concat(liveTimesheetEntries);
+    }
+
+    if (dateInput) {
+        dateInput.value = "";
+    }
+
+    if (reasonInput) {
+        reasonInput.value = "";
+    }
+
+    renderTimesheets();
+    renderSickDays();
+    renderEmployeeProfile();
+    renderPortalSummary();
+}
+
 async function renderEmployeeProfile() {
     const hero = document.getElementById("employeeProfileHero");
     const dashboard = document.getElementById("employeeProfileDashboard");
@@ -5592,6 +5748,7 @@ async function renderEmployeeProfile() {
     const announcementRows = getEmployeeProfileAnnouncementReceipts(account);
     const equipmentRows = getEmployeeProfileEquipment(account);
     const workOrderRows = getEmployeeProfileWorkOrders(account);
+    const sickRows = getEmployeeProfileSickRows(account);
     const weekRange = getEmployeeCurrentWeekRange();
     const hoursThisWeek = sumEmployeeHours(timesheetEntries, (entry) => isDateInRange(entry.date, weekRange.start, weekRange.end));
     const hoursThisMonth = sumEmployeeHours(timesheetEntries, (entry) => isDateInCurrentMonth(entry.date));
@@ -5657,7 +5814,7 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Hours This Week", hoursThisWeek.toFixed(2), "Live and submitted work hours", "timesheets")}
             ${renderEmployeeProfileTile("Hours This Month", hoursThisMonth.toFixed(2), "Work hours this month", "timesheets")}
             ${renderEmployeeProfileTile("Hours This Year", hoursThisYear.toFixed(2), "Work hours this year", "timesheets")}
-            ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year", "sickDays")}
+            ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year")}
             ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year", "vacation")}
             ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review", "vacation")}
             ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates")}
@@ -5688,6 +5845,25 @@ async function renderEmployeeProfile() {
                     { label: "Expiry", value: (row) => row.expiry_date || "No expiry" },
                     { label: "Status", value: (row) => getCertificateStatus(row.expiry_date) }
                 ], certificateRows.slice(0, 8), "No certificates found.")}
+            </div>
+        </div>
+
+        <div class="profile-two-column profile-section">
+            <div class="profile-panel">
+                <div class="profile-panel-header"><h3>Sick Days</h3><button type="button" onclick="openAdminSummaryTile('timesheets')">View Timesheets</button></div>
+                <div class="small" style="margin-bottom:8px;"><strong>This Month:</strong> ${escapeHtml(String(sickMonth))} &nbsp; <strong>This Year:</strong> ${escapeHtml(String(sickYear))}</div>
+                ${renderEmployeeProfileSickDays(sickRows.slice(0, 12))}
+            </div>
+            <div class="profile-panel">
+                <div class="profile-panel-header"><h3>Attendance Summary</h3><button type="button" onclick="openAdminSummaryTile('vacation')">Vacation</button></div>
+                ${renderEmployeeProfileTable([
+                    { label: "Type", value: (row) => row.type },
+                    { label: "This Month", value: (row) => row.month },
+                    { label: "This Year", value: (row) => row.year }
+                ], [
+                    { type: "Sick Days", month: sickMonth, year: sickYear },
+                    { type: "Vacation Days", month: vacationMonth, year: vacationYear }
+                ], "No attendance records found.")}
             </div>
         </div>
 
@@ -7012,6 +7188,8 @@ async function deleteAdminSickDay(rowId) {
         liveTimesheetEntries = liveTimesheetEntries.filter((entry) => entry.id !== row.id);
         renderTimesheets();
         renderSickDays();
+        renderEmployeeProfile();
+        renderPortalSummary();
         return;
     }
 
@@ -7041,6 +7219,8 @@ async function deleteAdminSickDay(rowId) {
     week.total_hours = totalHours;
     renderTimesheets();
     renderSickDays();
+    renderEmployeeProfile();
+    renderPortalSummary();
 }
 
 async function loadLiveTimesheetEntries() {
