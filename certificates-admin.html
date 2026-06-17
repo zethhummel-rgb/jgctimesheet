@@ -16,13 +16,48 @@ body {
 .top-nav {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 30;
     display: flex;
     justify-content: space-between;
     gap: 10px;
     padding: 10px 18px;
     background: rgba(5, 78, 45, 0.95);
     border-bottom: 1px solid rgba(49, 220, 85, 0.35);
+}
+
+.tabs {
+    position: sticky;
+    top: 59px;
+    z-index: 25;
+    max-width: 1500px;
+    margin: 0 auto 12px;
+    padding: 5px 8px;
+    display: flex;
+    gap: 3px;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    justify-content: center;
+    background: rgba(6, 20, 17, 0.98);
+    border-top: 1px solid rgba(57, 200, 72, 0.25);
+    border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.tab-button {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 5px 7px;
+    border: 1px solid rgba(63, 125, 77, 0.6);
+    border-radius: 999px;
+    background: #20382a;
+    color: #fff;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.tab-button.active {
+    background: #37d650;
+    color: #061411;
 }
 
 .page {
@@ -248,6 +283,27 @@ td {
         padding: 8px;
     }
 
+    .tabs {
+        top: 55px;
+        max-width: none;
+        margin: 0 -9px 12px;
+        padding: 8px 10px;
+        overflow-x: auto;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-button {
+        min-height: 38px;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+
     .page {
         width: min(100% - 18px, 1180px);
         padding-bottom: 88px;
@@ -270,6 +326,25 @@ td {
     <button type="button" onclick="window.location.href='admin.html'">Admin</button>
     <button type="button" class="secondary" onclick="signOutJgc(supabaseClient)">Logout</button>
 </nav>
+
+<div class="tabs">
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
+    <button class="tab-button active" onclick="window.location.href='certificates-admin.html'">Certs</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=noticePolicy'">Notice/Policy</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=jobs'">Job List</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=equipment'">Equipment</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=contacts'">Contacts</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
+    <button class="tab-button" onclick="window.location.href='accounts.html'">Accounts</button>
+</div>
 
 <main class="page">
     <section class="hero">
