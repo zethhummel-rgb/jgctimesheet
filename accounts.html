@@ -11,10 +11,10 @@
 <style>
 body {
     font-family: Arial, sans-serif;
-    background: #8f9691;
+    background: radial-gradient(circle at top, #062817 0, #020b08 58%);
     margin: 0;
-    padding: 20px;
-    color: #1f2a24;
+    padding: 0 20px 20px;
+    color: #f4fff6;
 }
 
 .logo-wrap {
@@ -76,18 +76,18 @@ h1 {
 
 .admin-tabs button {
     flex: 0 0 auto;
-    padding: 5px 7px;
     background: #20382a;
-    border: 1px solid rgba(63, 125, 77, 0.45);
     color: #ffffff;
-    font-size: 11px;
+    border: 1px solid rgba(63, 125, 77, 0.6);
     border-radius: 999px;
+    padding: 5px 7px;
+    font-size: 11px;
     white-space: nowrap;
 }
 
 .admin-tabs button.active {
-    background: #3f7d4d;
-    color: #ffffff;
+    background: #37d650;
+    color: #061411;
 }
 
 .panel {
@@ -219,11 +219,11 @@ button:hover {
 
     .admin-tabs {
         top: 58px;
-        z-index: 20;
+        z-index: 25;
         max-width: none;
         margin: 0 -10px 12px;
         padding: 8px 10px;
-        gap: 8px;
+        gap: 3px;
         flex-wrap: nowrap;
         justify-content: flex-start;
         overflow-x: auto;
@@ -264,15 +264,12 @@ button:hover {
     <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
     <button type="button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
     <button type="button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=sickDays'">Sick</button>
     <button type="button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=certificates'">Certs</button>
+    <button type="button" onclick="window.location.href='certificates-admin.html'">Certs</button>
     <button type="button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
-    <button type="button" onclick="window.location.href='schedule.html'">Schedule</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=announcements'">Notices</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
+    <button type="button" onclick="window.location.href='admin.html?tab=noticePolicy'">Notice/Policy</button>
     <button type="button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=toolboxTalks'">Talks</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=policies'">Policies</button>
     <button type="button" onclick="window.location.href='admin.html?tab=jobs'">Job List</button>
     <button type="button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
     <button type="button" onclick="window.location.href='admin.html?tab=equipment'">Equipment</button>
@@ -314,7 +311,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
