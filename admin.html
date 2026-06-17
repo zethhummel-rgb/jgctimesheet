@@ -1936,7 +1936,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Profiles</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
-    <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certs</button>
+    <button class="tab-button" onclick="window.location.href='certificates-admin.html'">Certs</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
     <button id="noticePolicyTab" class="tab-button" onclick="showTab('noticePolicy')">Notice/Policy</button>
@@ -2702,7 +2702,7 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "noticePolicy", "reports", "jobs", "workOrders", "equipment", "contacts", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "noticePolicy", "reports", "jobs", "workOrders", "equipment", "contacts", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -3026,7 +3026,7 @@ function ensureAdminTabData(tab) {
 }
 
 async function loadAdminTabData(tab) {
-    if (tab === "summary" || tab === "vacation" || tab === "certificates") {
+    if (tab === "summary" || tab === "vacation") {
         return;
     }
 
@@ -3180,11 +3180,6 @@ function renderActiveAdminTab(tab) {
         renderEmployeeProfile();
     }
 
-    if (requestedTab === "certificates") {
-        renderAdminCertificateWorkerOptions();
-        renderCertificates();
-    }
-
     if (requestedTab === "vacation") {
         renderVacationRequests();
     }
@@ -3267,6 +3262,13 @@ function getRequestedAdminTab() {
         announcements: "noticePolicy",
         policies: "noticePolicy"
     };
+
+    if (requested === "certificates" || stored === "certificates") {
+        localStorage.removeItem(ADMIN_TAB_STORAGE_KEY);
+        window.location.href = "certificates-admin.html";
+        return "summary";
+    }
+
     const requestedAlias = tabAliases[requested] || requested;
     const storedAlias = tabAliases[stored] || stored;
 
@@ -3353,8 +3355,6 @@ function renderAdminSectionsSafely() {
     [
         ["timesheets", renderTimesheets],
         ["inspections", renderInspections],
-        ["certificate workers", renderAdminCertificateWorkerOptions],
-        ["certificates", renderCertificates],
         ["vacation", renderVacationRequests],
         ["announcements", renderAnnouncements],
         ["reports", renderReports],
@@ -3384,9 +3384,7 @@ function renderImmediateAdminSectionsSafely() {
     [
         ["schedule calendar", renderAdminScheduleCalendar],
         ["portal summary", renderPortalSummary],
-        ["vacation", renderVacationRequests],
-        ["certificate workers", renderAdminCertificateWorkerOptions],
-        ["certificates", renderCertificates]
+        ["vacation", renderVacationRequests]
     ].forEach(([label, renderer]) => {
         try {
             renderer();
@@ -3470,11 +3468,10 @@ async function loadAdminData(options = {}) {
                 }
             }
 
-            await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
             await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
             await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
             initializeAdminSummaryBaselines();
-            adminTabDataLoaded = new Set(["summary", "vacation", "certificates"]);
+            adminTabDataLoaded = new Set(["summary", "vacation"]);
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
             showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -3570,7 +3567,6 @@ async function loadAdminData(options = {}) {
     equipmentNotifications = equipmentNotificationResult.data || [];
     equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
         contacts = contactResult.data || [];
-        await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
         await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
         await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
         await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
@@ -5078,7 +5074,7 @@ function renderPortalSummary() {
             value: expiringCertificates,
             badgeCount: countNewForAdminTab(certificates, "certificates", ["created_at", "updated_at"]),
             detail: "Certificates expiring within 30 days",
-            action: "openAdminSummaryTile('certificates')"
+            action: "window.location.href='certificates-admin.html'"
         },
         {
             title: "Vacation",
@@ -5502,7 +5498,9 @@ function getLatestEmployeeProfileActivity(items, fields) {
 }
 
 function renderEmployeeProfileTile(title, value, detail, tab) {
-    const action = tab ? ` onclick="openAdminSummaryTile('${tab}')"` : " disabled";
+    const action = tab
+        ? (String(tab).endsWith(".html") ? ` onclick="window.location.href='${escapeHtml(tab)}'"` : ` onclick="openAdminSummaryTile('${tab}')"` )
+        : " disabled";
 
     return `
         <button type="button" class="profile-tile"${action}>
@@ -5799,8 +5797,8 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year")}
             ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year", "vacation")}
             ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review", "vacation")}
-            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates")}
-            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates")}
+            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates-admin.html")}
+            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates-admin.html")}
             ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
             ${renderEmployeeProfileTile("Work Orders", workOrdersCompletedThisWeek, "Completed this week", "workOrders")}
@@ -5821,7 +5819,7 @@ async function renderEmployeeProfile() {
                 ], vacationRows.slice(0, 8), "No vacation requests found.")}
             </div>
             <div class="profile-panel">
-                <div class="profile-panel-header"><h3>Certificates</h3><button type="button" onclick="openAdminSummaryTile('certificates')">View All</button></div>
+                <div class="profile-panel-header"><h3>Certificates</h3><button type="button" onclick="window.location.href='certificates-admin.html'">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Certificate", value: (row) => row.certificate_name || "" },
                     { label: "Expiry", value: (row) => row.expiry_date || "No expiry" },
