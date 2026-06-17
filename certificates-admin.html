@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Admin Certificates</title>
+<style>
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #062817 0, #020b08 58%);
+    color: #f4fff6;
+    font-family: Arial, sans-serif;
+}
+
+.top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(5, 78, 45, 0.95);
+    border-bottom: 1px solid rgba(49, 220, 85, 0.35);
+}
+
+.page {
+    width: min(1180px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 28px 0 70px;
+}
+
+.hero {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    text-align: center;
+    margin-bottom: 18px;
+}
+
+.hero img {
+    width: min(300px, 70vw);
+    height: auto;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 10px;
+}
+
+h1,
+h2 {
+    color: #32dc55;
+}
+
+.small {
+    color: #c8d7ca;
+    line-height: 1.45;
+}
+
+.card,
+.sub-card {
+    background: rgba(5, 24, 18, 0.92);
+    border: 1px solid rgba(50, 220, 85, 0.4);
+    border-top: 5px solid #32dc55;
+    border-radius: 8px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.sub-card {
+    border-top-width: 1px;
+    background: rgba(7, 36, 26, 0.9);
+}
+
+summary {
+    cursor: pointer;
+    color: #32dc55;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.form-grid,
+.filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.full {
+    grid-column: 1 / -1;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    color: #f4fff6;
+    font-weight: bold;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 9px;
+    border: 1px solid #b7c6b8;
+    border-radius: 5px;
+    background: #f7faf6;
+    color: #18241c;
+    font: inherit;
+}
+
+textarea {
+    min-height: 88px;
+}
+
+button,
+.file-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 5px;
+    background: #128a45;
+    color: #fff;
+    font-weight: bold;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+button:hover,
+.file-link:hover {
+    background: #0d6d37;
+}
+
+.secondary {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.delete-button {
+    background: #c91f17;
+}
+
+.delete-button:hover {
+    background: #9c1711;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+    margin-top: 10px;
+    border: 1px solid rgba(50, 220, 85, 0.25);
+    border-radius: 6px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+}
+
+th,
+td {
+    padding: 9px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #103b20;
+    color: #fff;
+}
+
+td {
+    color: #f4fff6;
+}
+
+.status-pill,
+.matrix-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-valid,
+.matrix-status.valid {
+    background: #dcefe1;
+    color: #245832;
+}
+
+.status-expiring,
+.matrix-status.expiring {
+    background: #fff3cd;
+    color: #7a5b00;
+}
+
+.status-expired,
+.status-missing,
+.matrix-status.expired,
+.matrix-status.missing {
+    background: #f8d7da;
+    color: #8f1d14;
+}
+
+.status-no-expiry,
+.matrix-status.no-expiry {
+    background: #e6ece6;
+    color: #354039;
+}
+
+.training-matrix-table {
+    min-width: 980px;
+}
+
+.training-matrix-table th:first-child,
+.training-matrix-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #0d2e1e;
+    font-weight: bold;
+}
+
+.matrix-cell {
+    min-width: 135px;
+    line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+    .top-nav {
+        padding: 8px;
+    }
+
+    .page {
+        width: min(100% - 18px, 1180px);
+        padding-bottom: 88px;
+    }
+
+    .form-grid,
+    .filters {
+        grid-template-columns: 1fr;
+    }
+
+    .card,
+    .sub-card {
+        padding: 14px;
+    }
+}
+</style>
+</head>
+<body>
+<nav id="jgcGlobalTopNav" class="top-nav">
+    <button type="button" onclick="window.location.href='admin.html'">Admin</button>
+    <button type="button" class="secondary" onclick="signOutJgc(supabaseClient)">Logout</button>
+</nav>
+
+<main class="page">
+    <section class="hero">
+        <img src="logo.webp" alt="John Gordon Construction">
+        <div>
+            <h1>Admin Certificates</h1>
+            <div id="currentUser" class="small"></div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Certificate Expiry Alerts</h2>
+        <div id="certificateExpiryAlerts" class="small">Checking expiry notifications...</div>
+    </section>
+
+    <details class="sub-card">
+        <summary>Upload Certificate</summary>
+        <div class="form-grid" style="margin-top:12px;">
+            <div>
+                <label for="adminCertificateWorker">Employee</label>
+                <select id="adminCertificateWorker"></select>
+            </div>
+            <div>
+                <label for="adminCertificateName">Certificate Name</label>
+                <input id="adminCertificateName" placeholder="Example: Working at Heights">
+            </div>
+            <div>
+                <label for="adminCertificateExpiry">Expiry Date</label>
+                <input id="adminCertificateExpiry" type="date">
+            </div>
+            <div>
+                <label for="adminCertificateFile">Certificate File</label>
+                <input id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            </div>
+            <div class="full">
+                <label for="adminCertificateNotes">Notes</label>
+                <textarea id="adminCertificateNotes" placeholder="Optional notes"></textarea>
+            </div>
+        </div>
+        <div class="actions">
+            <button type="button" onclick="uploadAdminCertificate()">Upload Certificate</button>
+        </div>
+        <div id="adminCertificateStatus" class="small" style="margin-top:10px;"></div>
+    </details>
+
+    <section class="card">
+        <h2>Training Matrix</h2>
+        <div id="certificateTrainingMatrix" class="small">Loading training matrix...</div>
+    </section>
+
+    <section class="card">
+        <h2>Certificate Records</h2>
+        <div class="filters">
+            <div>
+                <label for="certificateWorkerFilter">Worker</label>
+                <input id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
+            </div>
+            <div>
+                <label for="certificateStatusFilter">Status</label>
+                <select id="certificateStatusFilter" onchange="renderCertificates()">
+                    <option value="">All</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Expiring Soon">Expiring Soon</option>
+                    <option value="Valid">Valid</option>
+                    <option value="No Expiry">No Expiry</option>
+                </select>
+            </div>
+        </div>
+        <div id="certificatesList" class="small">Loading certificates...</div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=3"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display;
+const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+let accounts = [];
+let certificates = [];
+let certificateNotifications = [];
+let certificateUrls = {};
+
+if (!isAdminWorker(currentWorker, worker.role, worker.email)) {
+    alert("Admin certificates are only available to authorized users.");
+    window.location.href = "home.html";
+}
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+localStorage.setItem("jgcAdminLastViewed_certificates", new Date().toISOString());
+
+function formatDate(value) {
+    return formatDisplayDate(value);
+}
+
+function makeSafeFileName(name) {
+    return String(name || "certificate.pdf")
+        .trim()
+        .replace(/[^a-z0-9.\-_]+/gi, "-")
+        .replace(/-+/g, "-")
+        .toLowerCase();
+}
+
+function getCertificateStatus(expiryDate) {
+    if (!expiryDate) {
+        return "No Expiry";
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilExpiry < 0) {
+        return "Expired";
+    }
+
+    if (daysUntilExpiry <= 30) {
+        return "Expiring Soon";
+    }
+
+    return "Valid";
+}
+
+function getCertificateDaysUntilExpiry(expiryDate) {
+    if (!expiryDate) {
+        return null;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiry = new Date(expiryDate + "T00:00:00");
+    return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+}
+
+function getCertificateExpiryAlerts() {
+    return certificates
+        .map((certificate) => ({
+            ...certificate,
+            daysUntilExpiry: getCertificateDaysUntilExpiry(certificate.expiry_date)
+        }))
+        .filter((certificate) => certificate.expiry_date && certificate.daysUntilExpiry !== null && certificate.daysUntilExpiry >= 0 && certificate.daysUntilExpiry <= 30)
+        .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+}
+
+function hasCertificateNotification(certificate) {
+    return certificateNotifications.some((notification) =>
+        notification.certificate_id === certificate.id &&
+        notification.expiry_date === certificate.expiry_date &&
+        notification.notification_type === "30_day"
+    );
+}
+
+function getStatusClass(status) {
+    const normalized = String(status || "").toLowerCase();
+
+    if (normalized === "valid") {
+        return "status-valid";
+    }
+
+    if (normalized === "expiring soon") {
+        return "status-expiring";
+    }
+
+    if (normalized === "no expiry") {
+        return "status-no-expiry";
+    }
+
+    return "status-expired";
+}
+
+async function prepareCertificateUrls() {
+    certificateUrls = {};
+
+    for (const certificate of certificates) {
+        if (!certificate.file_path) {
+            continue;
+        }
+
+        const { data } = await supabaseClient
+            .storage
+            .from("certificates")
+            .createSignedUrl(certificate.file_path, 3600);
+
+        if (data && data.signedUrl) {
+            certificateUrls[certificate.id] = data.signedUrl;
+        }
+    }
+}
+
+function renderCertificateExpiryAlerts() {
+    const panel = document.getElementById("certificateExpiryAlerts");
+    const alerts = getCertificateExpiryAlerts();
+
+    if (!alerts.length) {
+        panel.innerHTML = '<strong>Expiry Notifications:</strong> No certificates expiring in the next 30 days.';
+        return;
+    }
+
+    panel.innerHTML = `
+        <strong>Expiry Notifications:</strong> ${alerts.length} certificate${alerts.length === 1 ? "" : "s"} expiring within 30 days.
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
+                </thead>
+                <tbody>
+                    ${alerts.map((certificate) => {
+                        const sent = hasCertificateNotification(certificate);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(certificate.worker_name)}</td>
+                                <td>${escapeHtml(certificate.certificate_name)}</td>
+                                <td>${escapeHtml(certificate.expiry_date)}</td>
+                                <td>${certificate.daysUntilExpiry}</td>
+                                <td>${sent ? "Email sent" : "Email pending"}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function processCertificateExpiryNotifications() {
+    renderCertificateExpiryAlerts();
+    const alertsToSend = getCertificateExpiryAlerts().filter((certificate) => !hasCertificateNotification(certificate));
+
+    for (const certificate of alertsToSend) {
+        await sendCertificateExpiryEmail(certificate);
+    }
+
+    renderCertificateExpiryAlerts();
+}
+
+async function sendCertificateExpiryEmail(certificate) {
+    const subject = "JGC Certificate Expiry Notice - " + certificate.worker_name + " - " + certificate.certificate_name;
+    const body = [
+        "JGC Certificate Expiry Notice",
+        "",
+        "Worker: " + certificate.worker_name,
+        "Certificate: " + certificate.certificate_name,
+        "Expiry Date: " + certificate.expiry_date,
+        "Days Until Expiry: " + certificate.daysUntilExpiry,
+        "",
+        "Please review this certificate in the JGC Portal admin certificates page."
+    ].join("\n");
+
+    try {
+        await fetch(CERTIFICATE_EMAIL_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                subject,
+                body,
+                text: body,
+                source: "certificate_expiry",
+                certificateId: certificate.id,
+                workerName: certificate.worker_name,
+                certificateName: certificate.certificate_name,
+                expiryDate: certificate.expiry_date
+            })
+        });
+
+        const { data, error } = await supabaseClient
+            .from("certificate_expiry_notifications")
+            .insert({
+                certificate_id: certificate.id,
+                worker_name: certificate.worker_name,
+                certificate_name: certificate.certificate_name,
+                expiry_date: certificate.expiry_date,
+                notification_type: "30_day",
+                emailed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (!error && data) {
+            certificateNotifications.unshift(data);
+        }
+    } catch (error) {
+        console.warn("Certificate expiry email could not be sent.", error);
+    }
+}
+
+function getMatrixStatusClass(status) {
+    const normalized = String(status || "").toLowerCase();
+
+    if (normalized === "valid") {
+        return "valid";
+    }
+
+    if (normalized === "expiring soon") {
+        return "expiring";
+    }
+
+    if (normalized === "no expiry") {
+        return "no-expiry";
+    }
+
+    if (normalized === "missing") {
+        return "missing";
+    }
+
+    return "expired";
+}
+
+function getCertificateSortTime(certificate) {
+    if (certificate.expiry_date) {
+        return new Date(certificate.expiry_date + "T00:00:00").getTime();
+    }
+
+    if (certificate.created_at) {
+        return new Date(certificate.created_at).getTime();
+    }
+
+    return 0;
+}
+
+function isTrainingMatrixHiddenAccount(account) {
+    const email = normalizeWorkerName(account && account.email);
+    const names = [
+        account && account.display_name,
+        account && account.worker_key,
+        account && account.email
+    ].map(normalizeWorkerName).filter(Boolean);
+
+    return email === "zethhummel@gmail.com" ||
+        names.includes("test account") ||
+        names.includes("john smith");
+}
+
+function getTrainingMatrixHiddenWorkerKeys() {
+    const hiddenKeys = new Set(["test account", "john smith"]);
+
+    accounts
+        .filter(isTrainingMatrixHiddenAccount)
+        .forEach((account) => {
+            [
+                account.worker_key,
+                account.display_name,
+                account.email
+            ].map(normalizeWorkerName).filter(Boolean).forEach((value) => hiddenKeys.add(value));
+        });
+
+    return hiddenKeys;
+}
+
+function isHiddenTrainingMatrixWorker(workerName, hiddenKeys) {
+    const workerKey = normalizeWorkerName(workerName);
+    return Boolean(workerKey && hiddenKeys.has(workerKey));
+}
+
+function getTrainingMatrixCertificateKey(name) {
+    return String(name || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function getTrainingMatrixCertificateLabel(name) {
+    return String(name || "").replace(/\s+/g, " ").trim();
+}
+
+function getTrainingMatrixCertificateColumns(certificateRows) {
+    const byKey = {};
+
+    certificateRows.forEach((certificate) => {
+        const key = getTrainingMatrixCertificateKey(certificate.certificate_name);
+        const label = getTrainingMatrixCertificateLabel(certificate.certificate_name);
+
+        if (!key || !label) {
+            return;
+        }
+
+        if (!byKey[key]) {
+            byKey[key] = { key, label };
+        }
+    });
+
+    return Object.values(byKey).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function renderCertificateTrainingMatrix() {
+    const matrix = document.getElementById("certificateTrainingMatrix");
+    const workerNamesByKey = {};
+    const hiddenWorkerKeys = getTrainingMatrixHiddenWorkerKeys();
+    const visibleCertificates = certificates.filter((certificate) =>
+        !isHiddenTrainingMatrixWorker(certificate.worker_name, hiddenWorkerKeys)
+    );
+
+    accounts
+        .filter((account) => String(account.account_status || "").toLowerCase() !== "inactive")
+        .filter((account) => !isTrainingMatrixHiddenAccount(account))
+        .forEach((account) => {
+            const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
+
+            if (workerKey) {
+                workerNamesByKey[workerKey] = account.display_name || account.worker_key || account.email || workerKey;
+            }
+        });
+
+    visibleCertificates.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name);
+
+        if (workerKey && !workerNamesByKey[workerKey]) {
+            workerNamesByKey[workerKey] = certificate.worker_name;
+        }
+    });
+
+    const workers = Object.keys(workerNamesByKey).sort((a, b) => workerNamesByKey[a].localeCompare(workerNamesByKey[b]));
+    const certificateColumns = getTrainingMatrixCertificateColumns(visibleCertificates);
+
+    if (!workers.length || !certificateColumns.length) {
+        matrix.textContent = "Upload certificates to build the training matrix.";
+        return;
+    }
+
+    const certificatesByWorkerAndName = {};
+
+    visibleCertificates.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name);
+        const certificateKey = getTrainingMatrixCertificateKey(certificate.certificate_name);
+
+        if (!workerKey || !certificateKey) {
+            return;
+        }
+
+        const key = workerKey + "::" + certificateKey;
+        const existing = certificatesByWorkerAndName[key];
+
+        if (!existing || getCertificateSortTime(certificate) >= getCertificateSortTime(existing)) {
+            certificatesByWorkerAndName[key] = certificate;
+        }
+    });
+
+    matrix.innerHTML = `
+        <div class="table-wrap">
+            <table class="training-matrix-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        ${certificateColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${workers.map((workerKey) => `
+                        <tr>
+                            <td>${escapeHtml(workerNamesByKey[workerKey])}</td>
+                            ${certificateColumns.map((column) => {
+                                const certificate = certificatesByWorkerAndName[workerKey + "::" + column.key];
+
+                                if (!certificate) {
+                                    return '<td class="matrix-cell"><span class="matrix-status missing">Missing</span></td>';
+                                }
+
+                                const status = getCertificateStatus(certificate.expiry_date);
+                                const expiryText = certificate.expiry_date ? formatDate(certificate.expiry_date) : "No expiry date";
+
+                                return `
+                                    <td class="matrix-cell">
+                                        <div>${escapeHtml(expiryText)}</div>
+                                        <span class="matrix-status ${escapeHtml(getMatrixStatusClass(status))}">${escapeHtml(status)}</span>
+                                    </td>
+                                `;
+                            }).join("")}
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderAdminCertificateWorkerOptions() {
+    const select = document.getElementById("adminCertificateWorker");
+    const existingValue = select.value;
+    const workersByKey = {};
+
+    accounts
+        .filter((account) => String(account.account_status || "").toLowerCase() !== "inactive")
+        .forEach((account) => {
+            const workerKey = normalizeWorkerName(account.worker_key || account.display_name || account.email);
+
+            if (!workerKey) {
+                return;
+            }
+
+            workersByKey[workerKey] = account.display_name || account.worker_key || account.email || workerKey;
+        });
+
+    certificates.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name);
+
+        if (workerKey && !workersByKey[workerKey]) {
+            workersByKey[workerKey] = certificate.worker_name;
+        }
+    });
+
+    if (currentWorker && !workersByKey[currentWorker]) {
+        workersByKey[currentWorker] = currentWorkerDisplay || currentWorker;
+    }
+
+    const workerOptions = Object.keys(workersByKey).sort((a, b) => workersByKey[a].localeCompare(workersByKey[b]));
+
+    if (!workerOptions.length) {
+        select.innerHTML = '<option value="">No employees found</option>';
+        return;
+    }
+
+    select.innerHTML = '<option value="">Select Employee</option>' + workerOptions.map((workerKey) =>
+        '<option value="' + escapeHtml(workerKey) + '">' + escapeHtml(workersByKey[workerKey]) + '</option>'
+    ).join("");
+
+    if (existingValue && workersByKey[existingValue]) {
+        select.value = existingValue;
+    }
+}
+
+function renderCertificates() {
+    const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
+    const statusFilter = document.getElementById("certificateStatusFilter").value;
+    const list = document.getElementById("certificatesList");
+    renderCertificateExpiryAlerts();
+    renderCertificateTrainingMatrix();
+
+    const filtered = certificates.filter((certificate) => {
+        const workerName = String(certificate.worker_name || "").toLowerCase();
+        const status = getCertificateStatus(certificate.expiry_date);
+        return (!workerFilter || workerName.includes(workerFilter)) && (!statusFilter || status === statusFilter);
+    });
+
+    if (!filtered.length) {
+        list.textContent = "No certificates found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${filtered.map((certificate) => {
+                        const status = getCertificateStatus(certificate.expiry_date);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(certificate.worker_name)}</td>
+                                <td>${escapeHtml(certificate.certificate_name)}</td>
+                                <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+                                <td><span class="status-pill ${escapeHtml(getStatusClass(status))}">${escapeHtml(status)}</span></td>
+                                <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                                <td><button type="button" class="delete-button" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function setAdminCertificateStatus(message) {
+    document.getElementById("adminCertificateStatus").textContent = message || "";
+}
+
+async function uploadAdminCertificate() {
+    const workerName = document.getElementById("adminCertificateWorker").value;
+    const certificateName = document.getElementById("adminCertificateName").value.trim();
+    const expiryDate = document.getElementById("adminCertificateExpiry").value || null;
+    const notes = document.getElementById("adminCertificateNotes").value.trim();
+    const fileInput = document.getElementById("adminCertificateFile");
+    const file = fileInput.files[0];
+
+    if (!workerName || !certificateName || !file) {
+        alert("Choose an employee, enter a certificate name, and choose a file.");
+        return;
+    }
+
+    setAdminCertificateStatus("Uploading certificate...");
+
+    const filePath = workerName + "/" + Date.now() + "-" + makeSafeFileName(file.name);
+    const fileType = file.type || "application/octet-stream";
+    const { error: uploadError } = await supabaseClient
+        .storage
+        .from("certificates")
+        .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: fileType
+        });
+
+    if (uploadError) {
+        setAdminCertificateStatus("Certificate file upload failed: " + (uploadError.message || uploadError));
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("certificates")
+        .insert({
+            worker_name: workerName,
+            certificate_name: certificateName,
+            expiry_date: expiryDate,
+            notes,
+            file_path: filePath,
+            file_name: file.name,
+            file_type: fileType
+        })
+        .select()
+        .single();
+
+    if (error) {
+        await supabaseClient.storage.from("certificates").remove([filePath]);
+        setAdminCertificateStatus("Certificate record could not be saved: " + (error.message || error));
+        return;
+    }
+
+    certificates.push(data);
+    document.getElementById("adminCertificateName").value = "";
+    document.getElementById("adminCertificateExpiry").value = "";
+    document.getElementById("adminCertificateNotes").value = "";
+    fileInput.value = "";
+    setAdminCertificateStatus("Certificate uploaded.");
+    await prepareCertificateUrls();
+    renderAdminCertificateWorkerOptions();
+    renderCertificates();
+}
+
+async function deleteAdminCertificate(certificateId) {
+    const certificate = certificates.find((item) => item.id === certificateId);
+
+    if (!certificate) {
+        alert("Certificate could not be found.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Delete this certificate permanently?\n\n" +
+        certificate.worker_name + " - " + certificate.certificate_name +
+        "\n\nThis will remove the file and cannot be undone."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    if (certificate.file_path) {
+        await supabaseClient.storage.from("certificates").remove([certificate.file_path]);
+    }
+
+    const { error } = await supabaseClient
+        .from("certificates")
+        .delete()
+        .eq("id", certificateId);
+
+    if (error) {
+        alert("Certificate could not be deleted: " + (error.message || error));
+        return;
+    }
+
+    certificates = certificates.filter((item) => item.id !== certificateId);
+    delete certificateUrls[certificateId];
+    certificateNotifications = certificateNotifications.filter((notification) => notification.certificate_id !== certificateId);
+    renderCertificates();
+}
+
+async function loadCertificatesAdminData() {
+    const status = document.getElementById("certificatesList");
+
+    try {
+        const [accountResult, certificateResult, notificationResult] = await Promise.all([
+            supabaseClient
+                .from("profiles")
+                .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity")
+                .order("display_name", { ascending: true }),
+            supabaseClient
+                .from("certificates")
+                .select("*")
+                .order("worker_name", { ascending: true }),
+            supabaseClient
+                .from("certificate_expiry_notifications")
+                .select("*")
+                .order("created_at", { ascending: false })
+        ]);
+
+        if (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column")) {
+            const fallback = await supabaseClient
+                .from("profiles")
+                .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at")
+                .order("display_name", { ascending: true });
+
+            accounts = fallback.data || [];
+        } else if (accountResult.error) {
+            throw accountResult.error;
+        } else {
+            accounts = accountResult.data || [];
+        }
+
+        if (certificateResult.error) {
+            throw certificateResult.error;
+        }
+
+        if (notificationResult.error) {
+            throw notificationResult.error;
+        }
+
+        certificates = certificateResult.data || [];
+        certificateNotifications = notificationResult.data || [];
+        await prepareCertificateUrls();
+        await processCertificateExpiryNotifications();
+        renderAdminCertificateWorkerOptions();
+        renderCertificates();
+    } catch (error) {
+        console.warn("Admin certificates could not load.", error);
+        status.textContent = "Certificates could not load: " + (error.message || error);
+        document.getElementById("certificateExpiryAlerts").textContent = "Certificate expiry alerts could not load.";
+        document.getElementById("certificateTrainingMatrix").textContent = "Training matrix could not load.";
+    }
+}
+
+loadCertificatesAdminData();
+</script>
+</body>
+</html>
