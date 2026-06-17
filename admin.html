@@ -1935,14 +1935,12 @@ button.admin-schedule-event-button.admin-event-vacation {
     <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Jobs</button>
     <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Profiles</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
-    <button id="sickDaysTab" class="tab-button" onclick="showTab('sickDays')">Sick</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certs</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
     <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Notices</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
-    <button id="toolboxTalksTab" class="tab-button" onclick="showTab('toolboxTalks')">Talks</button>
     <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
     <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Job List</button>
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">WO</button>
@@ -2364,9 +2362,8 @@ button.admin-schedule-event-button.admin-event-vacation {
             <div id="employeeInjuryReportsList" class="small">Loading employee injury reports...</div>
         </div>
     </div>
-</div>
 
-<div id="toolboxTalksSection" class="card" hidden>
+    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
     <h2>Tool Box Talks</h2>
     <div class="announcement-grid">
         <div>
@@ -2703,7 +2700,7 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -3027,7 +3024,7 @@ function ensureAdminTabData(tab) {
 }
 
 async function loadAdminTabData(tab) {
-    if (tab === "summary" || tab === "sickDays" || tab === "vacation" || tab === "certificates") {
+    if (tab === "summary" || tab === "vacation" || tab === "certificates") {
         return;
     }
 
@@ -3050,14 +3047,16 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "reports") {
-        const [dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxReportResult] = await runAdminQueries([
+        const [dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
             { label: "daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "incident reports", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "accident reports", query: () => supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "accident acknowledgements", query: () => supabaseClient.from("accident_report_acknowledgements").select("*").order("created_at", { ascending: false }) },
             { label: "employee injury reports", query: () => supabaseClient.from("employee_injury_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "employee injury acknowledgements", query: () => supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }) },
-            { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) }
+            { label: "toolbox talks", query: () => supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }) },
+            { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) },
+            { label: "toolbox talk attendance", query: () => supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }) }
         ]);
         dailySiteReports = dailyResult.data || [];
         incidentReports = incidentResult.data || [];
@@ -3065,17 +3064,15 @@ async function loadAdminTabData(tab) {
         accidentAcknowledgements = accidentAckResult.data || [];
         employeeInjuryReports = injuryResult.data || [];
         employeeInjuryAcknowledgements = injuryAckResult.data || [];
+        toolboxTalks = toolboxTalkResult.data || [];
         toolboxReports = toolboxReportResult.data || [];
+        toolboxAttendance = toolboxAttendanceResult.data || [];
+        await prepareToolboxTalkUrls();
         return;
     }
 
     if (tab === "announcements") {
         await loadAnnouncements();
-        return;
-    }
-
-    if (tab === "toolboxTalks") {
-        await loadToolboxTalks();
         return;
     }
 
@@ -3185,10 +3182,6 @@ function renderActiveAdminTab(tab) {
         renderEmployeeProfile();
     }
 
-    if (requestedTab === "sickDays") {
-        renderSickDays();
-    }
-
     if (requestedTab === "certificates") {
         renderAdminCertificateWorkerOptions();
         renderCertificates();
@@ -3216,9 +3209,6 @@ function renderActiveAdminTab(tab) {
 
     if (requestedTab === "reports") {
         renderReports();
-    }
-
-    if (requestedTab === "toolboxTalks") {
         renderToolboxTalks();
     }
 
@@ -3361,7 +3351,6 @@ async function safeAdminSetupStep(label, callback) {
 function renderAdminSectionsSafely() {
     [
         ["timesheets", renderTimesheets],
-        ["sick days", renderSickDays],
         ["inspections", renderInspections],
         ["certificate workers", renderAdminCertificateWorkerOptions],
         ["certificates", renderCertificates],
@@ -3395,7 +3384,6 @@ function renderImmediateAdminSectionsSafely() {
         ["schedule calendar", renderAdminScheduleCalendar],
         ["portal summary", renderPortalSummary],
         ["vacation", renderVacationRequests],
-        ["sick days", renderSickDays],
         ["certificate workers", renderAdminCertificateWorkerOptions],
         ["certificates", renderCertificates]
     ].forEach(([label, renderer]) => {
@@ -3485,7 +3473,7 @@ async function loadAdminData(options = {}) {
             await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
             await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
             initializeAdminSummaryBaselines();
-            adminTabDataLoaded = new Set(["summary", "sickDays", "vacation", "certificates"]);
+            adminTabDataLoaded = new Set(["summary", "vacation", "certificates"]);
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
             showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -3634,7 +3622,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "sickDays", "inspections", "reports", "certificates", "vacation", "tasks", "announcements", "toolboxTalks", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "announcements", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -5066,9 +5054,9 @@ function renderPortalSummary() {
         {
             title: "Sick",
             value: sickDaysThisWeek,
-            badgeCount: countNewForAdminTab(liveTimesheetEntries.filter((entry) => String(entry.entry_type || "").toLowerCase() === "sick"), "sickDays", ["created_at", "updated_at"]),
+            badgeCount: countNewForAdminTab(liveTimesheetEntries.filter((entry) => String(entry.entry_type || "").toLowerCase() === "sick"), "employeeProfile", ["created_at", "updated_at"]),
             detail: "Sick entries logged this week",
-            action: "openAdminSummaryTile('sickDays')"
+            action: "openAdminSummaryTile('employeeProfile')"
         },
         {
             title: "Inspections",
@@ -5108,9 +5096,9 @@ function renderPortalSummary() {
         {
             title: "Talks",
             value: toolboxReports.length,
-            badgeCount: countNewForAdminTab(toolboxReports.concat(toolboxAttendance), "toolboxTalks", ["created_at", "acknowledged_at"]),
+            badgeCount: countNewForAdminTab(toolboxReports.concat(toolboxAttendance), "reports", ["created_at", "acknowledged_at"]),
             detail: "New reports or acknowledgements",
-            action: "openAdminSummaryTile('toolboxTalks')"
+            action: "openAdminSummaryTile('reports')"
         },
         {
             title: "Policies",
@@ -5822,7 +5810,7 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
             ${renderEmployeeProfileTile("Work Orders", workOrdersCompletedThisWeek, "Completed this week", "workOrders")}
-            ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "toolboxTalks")}
+            ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "reports")}
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "announcements")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
             ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
@@ -5910,7 +5898,7 @@ async function renderEmployeeProfile() {
 
         <div class="profile-two-column profile-section">
             <div class="profile-panel">
-                <div class="profile-panel-header"><h3>Toolbox Talks</h3><button type="button" onclick="openAdminSummaryTile('toolboxTalks')">View All</button></div>
+                <div class="profile-panel-header"><h3>Toolbox Talks</h3><button type="button" onclick="openAdminSummaryTile('reports')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Talk", value: (row) => row.talk_title || row.toolbox_talk_title || row.title || "" },
                     { label: "Status", value: (row) => row.acknowledged_at ? "Acknowledged" : "Outstanding" },
