@@ -56,7 +56,7 @@ h1 {
     flex-wrap: wrap;
 }
 
-.admin-tabs {
+.tabs {
     position: sticky;
     top: 66px;
     z-index: 120;
@@ -74,7 +74,7 @@ h1 {
     box-shadow: 0 10px 24px rgba(0,0,0,0.18);
 }
 
-.admin-tabs button {
+.tab-button {
     flex: 0 0 auto;
     background: #20382a;
     color: #ffffff;
@@ -85,12 +85,12 @@ h1 {
     white-space: nowrap;
 }
 
-.admin-tabs button.active {
+.tab-button.active {
     background: #37d650;
     color: #061411;
 }
 
-.admin-tabs button {
+.tab-button {
     flex: 0 0 auto !important;
     width: auto !important;
     min-width: 0 !important;
@@ -105,7 +105,7 @@ h1 {
     white-space: nowrap !important;
 }
 
-.admin-tabs button.active {
+.tab-button.active {
     background: #37d650 !important;
     color: #061411 !important;
 }
@@ -237,7 +237,7 @@ button:hover {
         padding: 10px;
     }
 
-    .admin-tabs {
+    .tabs {
         top: 58px;
         z-index: 25;
         max-width: none;
@@ -254,11 +254,12 @@ button:hover {
         scrollbar-width: none;
     }
 
-    .admin-tabs::-webkit-scrollbar {
+    .tabs::-webkit-scrollbar {
         display: none;
     }
 
-    .admin-tabs button {
+    .tabs button,
+    .tabs .tab-button {
         flex: 0 0 auto;
         width: auto;
         min-width: max-content;
@@ -279,23 +280,19 @@ button:hover {
 </head>
 
 <body>
-<div class="admin-tabs">
-    <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button type="button" onclick="window.location.href='certificates-admin.html'">Certs</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=noticePolicy'">Notice/Policy</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=jobs'">Job List</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=equipment'">Equipment</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=contacts'">Contacts</button>
-    <button type="button" onclick="window.location.href='admin.html?tab=backups'">Backups</button>
-    <button type="button" class="active">Accounts</button>
+<div class="tabs">
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
+    <button type="button" class="tab-button" onclick="window.location.href='certificates-admin.html'">Certs</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
+    <button type="button" class="tab-button active">Accounts</button>
 </div>
 
 <div class="logo-wrap">
