@@ -21,16 +21,21 @@ body {
     z-index: 120;
     max-width: 1500px;
     margin: 0 auto 12px;
-    padding: 5px 8px;
+    padding: 7px 10px;
     display: flex;
-    gap: 3px;
+    gap: 5px;
     flex-wrap: nowrap;
-    overflow-x: visible;
+    overflow-x: auto;
     justify-content: center;
     background: rgba(6, 20, 17, 0.98);
     border-top: 1px solid rgba(57, 200, 72, 0.25);
     border-bottom: 1px solid rgba(57, 200, 72, 0.25);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-button {
@@ -39,8 +44,13 @@ body {
     color: #ffffff;
     border: 1px solid rgba(63, 125, 77, 0.6);
     border-radius: 999px;
-    padding: 5px 7px;
-    font-size: 11px;
+    min-width: 86px;
+    padding: 8px 13px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0;
+    text-align: center;
     white-space: nowrap;
 }
 
@@ -167,15 +177,18 @@ button:hover,
 .tabs .tab-button {
     flex: 0 0 auto !important;
     width: auto !important;
-    min-width: 0 !important;
+    min-width: 86px !important;
     min-height: 0 !important;
-    padding: 5px 7px !important;
+    padding: 8px 13px !important;
     border: 1px solid rgba(63, 125, 77, 0.6) !important;
     border-radius: 999px !important;
     background: #20382a !important;
     color: #ffffff !important;
-    font-size: 11px !important;
-    line-height: normal !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+    text-align: center !important;
     white-space: nowrap !important;
 }
 
@@ -340,15 +353,15 @@ td {
 <body>
 <div class="tabs">
     <button class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Profiles</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Employee Profiles</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button class="tab-button active" onclick="window.location.href='certificates-admin.html'">Certs</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation</button>
+    <button class="tab-button active" onclick="window.location.href='certificates-admin.html'">Certificates</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">WO</button>
+    <button class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
     <button class="tab-button" onclick="window.location.href='accounts.html'">Accounts</button>
 </div>
