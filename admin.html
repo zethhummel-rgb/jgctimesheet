@@ -2766,6 +2766,7 @@ let adminDataLoading = false;
 let pendingAdminTabRender = "";
 let adminTabDataLoaded = new Set();
 let adminTabDataLoading = {};
+let timesheetsTabRefreshInFlight = false;
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -3081,14 +3082,6 @@ function ensureAdminTabData(tab) {
         return false;
     }
 
-    if (tab === "timesheets") {
-        const list = document.getElementById("timesheetsList");
-
-        if (list) {
-            list.textContent = "Refreshing live timesheet entries...";
-        }
-    }
-
     adminTabDataLoading[tab] = true;
     loadAdminTabData(tab)
         .catch((error) => logAdminLoadError("lazy load " + tab, error))
@@ -3306,10 +3299,6 @@ function renderActiveAdminTab(tab) {
 function showTab(tab, options = {}) {
     const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : "summary";
 
-    if (requestedTab === "timesheets") {
-        adminTabDataLoaded.delete("timesheets");
-    }
-
     if (options.persist !== false) {
         persistAdminTab(requestedTab);
     } else {
@@ -3345,6 +3334,33 @@ function showTab(tab, options = {}) {
     }
 
     renderActiveAdminTab(requestedTab);
+
+    if (requestedTab === "timesheets") {
+        refreshTimesheetsTabOnOpen();
+    }
+}
+
+async function refreshTimesheetsTabOnOpen() {
+    if (!supabaseClient || timesheetsTabRefreshInFlight) {
+        return;
+    }
+
+    timesheetsTabRefreshInFlight = true;
+
+    try {
+        await loadAdminTabData("timesheets");
+
+        if (getActiveAdminTab() === "timesheets") {
+            renderTimesheets();
+            renderSickDays();
+            renderPortalSummary();
+        }
+    } catch (error) {
+        logAdminLoadError("refresh timesheets tab", error);
+    } finally {
+        timesheetsTabRefreshInFlight = false;
+        adminTabDataLoaded.add("timesheets");
+    }
 }
 
 function renderAdminTools() {
@@ -3581,7 +3597,7 @@ async function loadAdminData(options = {}) {
             await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
             await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
             initializeAdminSummaryBaselines();
-            adminTabDataLoaded = new Set(["summary", "vacation"]);
+            adminTabDataLoaded = new Set(["summary", "vacation", "timesheets"]);
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
             showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
