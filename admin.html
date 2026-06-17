@@ -433,6 +433,41 @@ button:hover,
     color: #061411;
 }
 
+.admin-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
+.admin-tool-card {
+    min-height: 108px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid rgba(57, 200, 72, 0.35);
+    border-radius: 8px;
+    background: rgba(15, 55, 31, 0.95);
+    color: #f7fff7;
+    text-align: left;
+}
+
+.admin-tool-card:hover {
+    background: rgba(20, 92, 46, 0.95);
+}
+
+.admin-tool-card strong {
+    color: #ffffff;
+    font-size: 16px;
+}
+
+.admin-tool-card span {
+    color: #dce8dd;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
 .admin-task-frame {
     width: 100%;
     min-height: 520px;
@@ -1939,13 +1974,9 @@ button.admin-schedule-event-button.admin-event-vacation {
     <button class="tab-button" onclick="window.location.href='certificates-admin.html'">Certs</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
-    <button id="noticePolicyTab" class="tab-button" onclick="showTab('noticePolicy')">Notice/Policy</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
-    <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Job List</button>
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">WO</button>
-    <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment</button>
-    <button id="contactsTab" class="tab-button" onclick="showTab('contacts')">Contacts</button>
-    <button id="backupsTab" class="tab-button" onclick="showTab('backups')">Backups</button>
+    <button id="adminToolsTab" class="tab-button" onclick="showTab('adminTools')">Admin Tools</button>
     <button class="secondary" onclick="window.location.href='accounts.html'">Accounts</button>
 </div>
 
@@ -1985,6 +2016,33 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
         <div id="adminScheduleCalendar" class="admin-schedule-grid"></div>
         <div id="adminScheduleAgenda" class="admin-schedule-agenda small">Loading schedule...</div>
+    </div>
+</div>
+
+<div id="adminToolsSection" class="card" hidden>
+    <h2>Admin Tools</h2>
+    <div class="small" style="margin-bottom:12px;">Setup and maintenance tools. These sections still load only when you open them.</div>
+    <div class="admin-tools-grid">
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('jobs')">
+            <strong>Job List</strong>
+            <span>Import jobs, update job types, project managers, and drawing links.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('equipment')">
+            <strong>Equipment / Vehicles</strong>
+            <span>Manage equipment, vehicles, trailers, expiries, and maintenance logs.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('contacts')">
+            <strong>Contacts</strong>
+            <span>Add and edit company contact names, phone numbers, and emails.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('noticePolicy')">
+            <strong>Notice / Policy</strong>
+            <span>Post announcements, upload policies, and review acknowledgement status.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('backups')">
+            <strong>Backups</strong>
+            <span>Check backup status, force backup prep, and inspect backup files.</span>
+        </button>
     </div>
 </div>
 
@@ -2702,7 +2760,8 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "noticePolicy", "reports", "jobs", "workOrders", "equipment", "contacts", "backups"];
+const ADMIN_TOOL_TABS = ["noticePolicy", "jobs", "equipment", "contacts", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -3026,7 +3085,7 @@ function ensureAdminTabData(tab) {
 }
 
 async function loadAdminTabData(tab) {
-    if (tab === "summary" || tab === "vacation") {
+    if (tab === "summary" || tab === "vacation" || tab === "adminTools") {
         return;
     }
 
@@ -3184,6 +3243,10 @@ function renderActiveAdminTab(tab) {
         renderVacationRequests();
     }
 
+    if (requestedTab === "adminTools") {
+        renderAdminTools();
+    }
+
     if (requestedTab === "noticePolicy") {
         renderAnnouncements();
         renderPolicies();
@@ -3242,6 +3305,12 @@ function showTab(tab, options = {}) {
         }
     });
 
+    const adminToolsTab = document.getElementById("adminToolsTab");
+
+    if (adminToolsTab) {
+        adminToolsTab.classList.toggle("active", requestedTab === "adminTools" || ADMIN_TOOL_TABS.includes(requestedTab));
+    }
+
     const employeeProfileEditSection = document.getElementById("employeeProfileEditSection");
     if (employeeProfileEditSection) {
         employeeProfileEditSection.hidden = requestedTab !== "employeeProfile";
@@ -3252,6 +3321,23 @@ function showTab(tab, options = {}) {
     }
 
     renderActiveAdminTab(requestedTab);
+}
+
+function renderAdminTools() {
+    const section = document.getElementById("adminToolsSection");
+
+    if (!section) {
+        return;
+    }
+}
+
+function openAdminTool(tab) {
+    if (!ADMIN_TOOL_TABS.includes(tab)) {
+        showTab("adminTools");
+        return;
+    }
+
+    showTab(tab);
 }
 
 function getRequestedAdminTab() {
@@ -3619,7 +3705,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "noticePolicy", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
