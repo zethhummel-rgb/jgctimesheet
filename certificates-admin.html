@@ -13,22 +13,10 @@ body {
     font-family: Arial, sans-serif;
 }
 
-.top-nav {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px 18px;
-    background: rgba(5, 78, 45, 0.95);
-    border-bottom: 1px solid rgba(49, 220, 85, 0.35);
-}
-
 .tabs {
     position: sticky;
-    top: 59px;
-    z-index: 25;
+    top: 66px;
+    z-index: 120;
     max-width: 1500px;
     margin: 0 auto 12px;
     padding: 5px 8px;
@@ -45,12 +33,11 @@ body {
 
 .tab-button {
     flex: 0 0 auto;
-    min-height: 30px;
-    padding: 5px 7px;
+    background: #20382a;
+    color: #ffffff;
     border: 1px solid rgba(63, 125, 77, 0.6);
     border-radius: 999px;
-    background: #20382a;
-    color: #fff;
+    padding: 5px 7px;
     font-size: 11px;
     white-space: nowrap;
 }
@@ -278,18 +265,19 @@ td {
     line-height: 1.35;
 }
 
-@media (max-width: 760px) {
-    .top-nav {
-        padding: 8px;
-    }
-
+@media (max-width: 720px) {
     .tabs {
-        top: 55px;
+        top: 58px;
+        z-index: 25;
         max-width: none;
-        margin: 0 -9px 12px;
+        margin: 0 -10px 12px;
         padding: 8px 10px;
+        flex-wrap: nowrap;
         overflow-x: auto;
         justify-content: flex-start;
+        background: rgba(6, 20, 17, 0.98);
+        border-top: 1px solid rgba(57, 200, 72, 0.25);
+        border-bottom: 1px solid rgba(57, 200, 72, 0.25);
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
     }
@@ -298,10 +286,16 @@ td {
         display: none;
     }
 
-    .tab-button {
-        min-height: 38px;
+    .tabs button,
+    .tabs .tab-button,
+    .tabs .secondary {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: max-content;
         padding: 9px 12px;
         font-size: 13px;
+        border-radius: 999px;
+        text-align: center;
     }
 
     .page {
@@ -322,11 +316,6 @@ td {
 </style>
 </head>
 <body>
-<nav id="jgcGlobalTopNav" class="top-nav">
-    <button type="button" onclick="window.location.href='admin.html'">Admin</button>
-    <button type="button" class="secondary" onclick="signOutJgc(supabaseClient)">Logout</button>
-</nav>
-
 <div class="tabs">
     <button class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
