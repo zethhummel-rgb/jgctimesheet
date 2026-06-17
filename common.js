@@ -197,6 +197,7 @@ function applyJgcPortalName() {
     "accident-report.html": "Supervisor Accident Investigation",
     "admin.html": "Admin",
     "aerial-lifts.html": "Aerial Lift Inspection",
+    "certificates-admin.html": "Admin Certificates",
     "certificates.html": "Certificates",
     "contacts.html": "Contacts",
     "daily-site-report.html": "Daily Site Report",
