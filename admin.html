@@ -2695,6 +2695,8 @@ let editingEquipmentId = "";
 let adminDataLoaded = false;
 let adminDataLoading = false;
 let pendingAdminTabRender = "";
+let adminTabDataLoaded = new Set();
+let adminTabDataLoading = {};
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -3000,11 +3002,172 @@ function getActiveAdminTab() {
     return ADMIN_ALLOWED_TABS.includes(currentAdminTab) ? currentAdminTab : getRequestedAdminTab();
 }
 
+function ensureAdminTabData(tab) {
+    if (!supabaseClient || adminTabDataLoaded.has(tab)) {
+        return true;
+    }
+
+    if (adminTabDataLoading[tab]) {
+        return false;
+    }
+
+    adminTabDataLoading[tab] = true;
+    loadAdminTabData(tab)
+        .catch((error) => logAdminLoadError("lazy load " + tab, error))
+        .finally(() => {
+            adminTabDataLoaded.add(tab);
+            adminTabDataLoading[tab] = false;
+
+            if (getActiveAdminTab() === tab) {
+                renderActiveAdminTab(tab);
+            }
+        });
+
+    return false;
+}
+
+async function loadAdminTabData(tab) {
+    if (tab === "summary" || tab === "sickDays" || tab === "vacation" || tab === "certificates") {
+        return;
+    }
+
+    if (tab === "timesheets") {
+        const [submittedResult, liveResult] = await runAdminQueries([
+            { label: "submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
+            { label: "live timesheet entries", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) }
+        ]);
+        timesheets = submittedResult.data || [];
+        liveTimesheetEntries = liveResult.data || [];
+        return;
+    }
+
+    if (tab === "inspections") {
+        const [inspectionResult] = await runAdminQueries([
+            { label: "inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) }
+        ]);
+        inspections = inspectionResult.data || [];
+        return;
+    }
+
+    if (tab === "reports") {
+        const [dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxReportResult] = await runAdminQueries([
+            { label: "daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "incident reports", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "accident reports", query: () => supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "accident acknowledgements", query: () => supabaseClient.from("accident_report_acknowledgements").select("*").order("created_at", { ascending: false }) },
+            { label: "employee injury reports", query: () => supabaseClient.from("employee_injury_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "employee injury acknowledgements", query: () => supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }) },
+            { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) }
+        ]);
+        dailySiteReports = dailyResult.data || [];
+        incidentReports = incidentResult.data || [];
+        accidentReports = accidentResult.data || [];
+        accidentAcknowledgements = accidentAckResult.data || [];
+        employeeInjuryReports = injuryResult.data || [];
+        employeeInjuryAcknowledgements = injuryAckResult.data || [];
+        toolboxReports = toolboxReportResult.data || [];
+        return;
+    }
+
+    if (tab === "announcements") {
+        await loadAnnouncements();
+        return;
+    }
+
+    if (tab === "toolboxTalks") {
+        await loadToolboxTalks();
+        return;
+    }
+
+    if (tab === "policies") {
+        await loadPolicies();
+        return;
+    }
+
+    if (tab === "jobs") {
+        await loadJobsManagement();
+        return;
+    }
+
+    if (tab === "workOrders") {
+        await loadAdminWorkOrders();
+        return;
+    }
+
+    if (tab === "equipment") {
+        await loadEquipment();
+        return;
+    }
+
+    if (tab === "contacts") {
+        await loadContacts();
+        return;
+    }
+
+    if (tab === "jobDashboard") {
+        const [liveResult, inspectionResult, dailyResult, workOrderResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
+            { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "job dashboard work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "job dashboard labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
+            { label: "job dashboard purchase orders", query: () => supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }) },
+            { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
+            { label: "job dashboard travel", query: () => supabaseClient.from("work_order_travel").select("*") }
+        ]);
+        liveTimesheetEntries = liveResult.data || [];
+        inspections = inspectionResult.data || [];
+        dailySiteReports = dailyResult.data || [];
+        workOrders = workOrderResult.data || [];
+        workOrderLabourRows = labourResult.data || [];
+        workOrderPurchaseOrders = poResult.data || [];
+        workOrderEquipmentRows = equipmentResult.data || [];
+        workOrderTravelRows = travelResult.data || [];
+        return;
+    }
+
+    if (tab === "employeeProfile") {
+        const [submittedResult, liveResult, inspectionResult, dailyResult, incidentResult, certificateResult, vacationResult, workOrderResult, labourResult, toolboxReportResult, toolboxAttendanceResult, policyResult, announcementAckResult] = await runAdminQueries([
+            { label: "profile submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
+            { label: "profile live timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "profile inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "profile daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "profile incidents", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "profile certificates", query: () => supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }) },
+            { label: "profile vacations", query: () => supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }) },
+            { label: "profile work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "profile work order labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
+            { label: "profile toolbox reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) },
+            { label: "profile toolbox attendance", query: () => supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }) },
+            { label: "profile policies", query: () => supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }) },
+            { label: "profile announcement acknowledgements", query: () => supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }) }
+        ]);
+        timesheets = submittedResult.data || [];
+        liveTimesheetEntries = liveResult.data || [];
+        inspections = inspectionResult.data || [];
+        dailySiteReports = dailyResult.data || [];
+        incidentReports = incidentResult.data || [];
+        certificates = certificateResult.data || [];
+        vacationRequests = vacationResult.data || [];
+        workOrders = workOrderResult.data || [];
+        workOrderLabourRows = labourResult.data || [];
+        toolboxReports = toolboxReportResult.data || [];
+        toolboxAttendance = toolboxAttendanceResult.data || [];
+        policies = policyResult.data || [];
+        announcementAcknowledgements = announcementAckResult.data || [];
+        await prepareCertificateUrls();
+    }
+}
+
 function renderActiveAdminTab(tab) {
     const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : getActiveAdminTab();
 
     if (!adminDataLoaded && adminDataLoading) {
         pendingAdminTabRender = requestedTab;
+        return;
+    }
+
+    if (!ensureAdminTabData(requestedTab)) {
         return;
     }
 
@@ -3048,7 +3211,7 @@ function renderActiveAdminTab(tab) {
     }
 
     if (requestedTab === "contacts") {
-        loadContacts();
+        renderContacts();
     }
 
     if (requestedTab === "reports") {
@@ -3227,7 +3390,41 @@ function renderAdminSectionsSafely() {
     });
 }
 
-async function loadAdminData() {
+function renderImmediateAdminSectionsSafely() {
+    [
+        ["schedule calendar", renderAdminScheduleCalendar],
+        ["portal summary", renderPortalSummary],
+        ["vacation", renderVacationRequests],
+        ["sick days", renderSickDays],
+        ["certificate workers", renderAdminCertificateWorkerOptions],
+        ["certificates", renderCertificates]
+    ].forEach(([label, renderer]) => {
+        try {
+            renderer();
+        } catch (error) {
+            logAdminLoadError("render " + label, error);
+        }
+    });
+}
+
+async function runAdminQueries(definitions) {
+    const results = await Promise.all(definitions.map((definition, index) =>
+        Promise.resolve(definition.query()).then((result) => {
+            if (result && result.error) {
+                logAdminLoadError(definition.label || ("query " + index), result.error);
+            }
+
+            return result || { data: [] };
+        }).catch((error) => {
+            logAdminLoadError(definition.label || ("query " + index), error);
+            return { data: [], error };
+        })
+    ));
+
+    return results;
+}
+
+async function loadAdminData(options = {}) {
     if (!supabaseClient) {
         document.getElementById("timesheetsList").textContent = "Supabase is not available.";
         return;
@@ -3241,6 +3438,60 @@ async function loadAdminData() {
         currentUserId = sessionResult.data.session && sessionResult.data.session.user
             ? sessionResult.data.session.user.id
             : "";
+
+        if (!options.full) {
+            const adminDataResults = await runAdminQueries([
+                { label: "live timesheet entries", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
+                { label: "certificates", query: () => supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }) },
+                { label: "certificate notifications", query: () => supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }) },
+                { label: "vacation requests", query: () => supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }) },
+                { label: "schedule events", query: () => supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }) },
+                { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
+                { label: "jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) },
+                { label: "work order labour workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
+                { label: "equipment", query: () => supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }) },
+                { label: "equipment notifications", query: () => supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }) },
+                { label: "equipment maintenance", query: () => supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }) }
+            ]);
+
+            const [liveTimesheetResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult] = adminDataResults;
+
+            liveTimesheetEntries = liveTimesheetResult.data || [];
+            certificates = certificateResult.data || [];
+            certificateNotifications = certificateNotificationResult.data || [];
+            vacationRequests = vacationResult.data || [];
+            scheduleEvents = scheduleResult.data || [];
+            accounts = accountResult.data || [];
+            jobs = jobsResult.data || [];
+            workOrderLabourWorkers = workOrderWorkerResult.data || [];
+            equipmentItems = equipmentResult.data || [];
+            equipmentNotifications = equipmentNotificationResult.data || [];
+            equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
+
+            if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
+                const { data: fallbackAccounts, error: fallbackAccountError } = await supabaseClient
+                    .from("profiles")
+                    .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at")
+                    .order("display_name", { ascending: true });
+
+                if (fallbackAccountError) {
+                    logAdminLoadError("fallback profiles query", fallbackAccountError);
+                } else {
+                    accounts = fallbackAccounts || [];
+                }
+            }
+
+            await safeAdminSetupStep("prepare certificate URLs", prepareCertificateUrls);
+            await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
+            await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
+            initializeAdminSummaryBaselines();
+            adminTabDataLoaded = new Set(["summary", "sickDays", "vacation", "certificates"]);
+            adminDataLoaded = true;
+            renderImmediateAdminSectionsSafely();
+            showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
+            pendingAdminTabRender = "";
+            return;
+        }
 
         const adminDataResults = await Promise.all([
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
@@ -3337,6 +3588,7 @@ async function loadAdminData() {
         await safeAdminSetupStep("prepare toolbox talk URLs", prepareToolboxTalkUrls);
         await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
         initializeAdminSummaryBaselines();
+        adminTabDataLoaded = new Set(ADMIN_ALLOWED_TABS);
         adminDataLoaded = true;
         renderAdminSectionsSafely();
         showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -3347,6 +3599,10 @@ async function loadAdminData() {
             renderActiveAdminTab(getActiveAdminTab());
         }
     }
+}
+
+async function loadAllAdminData() {
+    await loadAdminData({ full: true });
 }
 
 function getLocalDateValue(date) {
