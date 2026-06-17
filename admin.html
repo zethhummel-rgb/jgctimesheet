@@ -1939,9 +1939,8 @@ button.admin-schedule-event-button.admin-event-vacation {
     <button id="certificatesTab" class="tab-button" onclick="showTab('certificates')">Certs</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
-    <button id="announcementsTab" class="tab-button" onclick="showTab('announcements')">Notices</button>
+    <button id="noticePolicyTab" class="tab-button" onclick="showTab('noticePolicy')">Notice/Policy</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
-    <button id="policiesTab" class="tab-button" onclick="showTab('policies')">Policies</button>
     <button id="jobsTab" class="tab-button" onclick="showTab('jobs')">Job List</button>
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">WO</button>
     <button id="equipmentTab" class="tab-button" onclick="showTab('equipment')">Equipment</button>
@@ -2310,32 +2309,67 @@ button.admin-schedule-event-button.admin-event-vacation {
     <iframe class="admin-task-frame" src="tasks.html?embedded=1&admin=1" title="Admin Tasks" scrolling="no"></iframe>
 </div>
 
-<div id="announcementsSection" class="card" hidden>
-    <h2>Announcements</h2>
-    <div class="announcement-grid">
-        <div>
-            <label>Title</label>
-            <input id="announcementTitle" placeholder="Example: Safety meeting Friday">
+<div id="noticePolicySection" class="card" hidden>
+    <h2>Notice / Policy</h2>
+    <details class="sub-card admin-collapsible-panel" open>
+        <summary>Announcements / Notices</summary>
+        <div class="announcement-grid" style="margin-top:12px;">
+            <div>
+                <label>Title</label>
+                <input id="announcementTitle" placeholder="Example: Safety meeting Friday">
+            </div>
+            <div>
+                <label>Expires On (optional)</label>
+                <input id="announcementExpires" type="date">
+            </div>
+            <div class="full">
+                <label>Message</label>
+                <textarea id="announcementBody" placeholder="Write the announcement here"></textarea>
+            </div>
+            <div class="full">
+                <label>Attach PDF (optional)</label>
+                <input id="announcementFile" type="file" accept="application/pdf,.pdf">
+            </div>
         </div>
-        <div>
-            <label>Expires On (optional)</label>
-            <input id="announcementExpires" type="date">
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="publishAnnouncement()">Publish Announcement</button>
+            <button class="secondary" type="button" onclick="loadAnnouncements()">Refresh Announcements</button>
         </div>
-        <div class="full">
-            <label>Message</label>
-            <textarea id="announcementBody" placeholder="Write the announcement here"></textarea>
+        <div id="announcementStatus" class="small" style="margin-top:10px;"></div>
+        <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
+    </details>
+
+    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;">
+        <summary>Policies</summary>
+        <div class="announcement-grid" style="margin-top:12px;">
+            <div>
+                <label>Policy Title</label>
+                <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+            </div>
+            <div>
+                <label>Category</label>
+                <input id="policyCategory" placeholder="Example: Safety" value="General">
+            </div>
+            <div>
+                <label>Display Order</label>
+                <input id="policyOrder" type="number" value="0">
+            </div>
+            <div class="full">
+                <label>Description</label>
+                <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+            </div>
+            <div class="full">
+                <label>Policy PDF</label>
+                <input id="policyFile" type="file" accept="application/pdf,.pdf">
+            </div>
         </div>
-        <div class="full">
-            <label>Attach PDF (optional)</label>
-            <input id="announcementFile" type="file" accept="application/pdf,.pdf">
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="publishPolicy()">Add Policy</button>
+            <button class="secondary" type="button" onclick="loadPolicies()">Refresh Policies</button>
         </div>
-    </div>
-    <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="publishAnnouncement()">Publish Announcement</button>
-        <button class="secondary" type="button" onclick="loadAnnouncements()">Refresh Announcements</button>
-    </div>
-    <div id="announcementStatus" class="small" style="margin-top:10px;"></div>
-    <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
+        <div id="policyStatus" class="small" style="margin-top:10px;"></div>
+        <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
+    </details>
 </div>
 
 <div id="reportsSection" class="card" hidden>
@@ -2386,38 +2420,6 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
     <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
     <div id="toolboxTalkList" class="small">Loading toolbox talks...</div>
-</div>
-
-<div id="policiesSection" class="card" hidden>
-    <h2>Policies</h2>
-    <div class="announcement-grid">
-        <div>
-            <label>Policy Title</label>
-            <input id="policyTitle" placeholder="Example: Fall Protection Policy">
-        </div>
-        <div>
-            <label>Category</label>
-            <input id="policyCategory" placeholder="Example: Safety" value="General">
-        </div>
-        <div>
-            <label>Display Order</label>
-            <input id="policyOrder" type="number" value="0">
-        </div>
-        <div class="full">
-            <label>Description</label>
-            <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
-        </div>
-        <div class="full">
-            <label>Policy PDF</label>
-            <input id="policyFile" type="file" accept="application/pdf,.pdf">
-        </div>
-    </div>
-    <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="publishPolicy()">Add Policy</button>
-        <button class="secondary" type="button" onclick="loadPolicies()">Refresh Policies</button>
-    </div>
-    <div id="policyStatus" class="small" style="margin-top:10px;"></div>
-    <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
 </div>
 
 <div id="equipmentSection" class="card" hidden>
@@ -2700,7 +2702,7 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "announcements", "reports", "policies", "jobs", "workOrders", "equipment", "contacts", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "noticePolicy", "reports", "jobs", "workOrders", "equipment", "contacts", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -3071,12 +3073,8 @@ async function loadAdminTabData(tab) {
         return;
     }
 
-    if (tab === "announcements") {
+    if (tab === "noticePolicy") {
         await loadAnnouncements();
-        return;
-    }
-
-    if (tab === "policies") {
         await loadPolicies();
         return;
     }
@@ -3191,16 +3189,13 @@ function renderActiveAdminTab(tab) {
         renderVacationRequests();
     }
 
-    if (requestedTab === "announcements") {
+    if (requestedTab === "noticePolicy") {
         renderAnnouncements();
+        renderPolicies();
     }
 
     if (requestedTab === "tasks" && typeof renderTasks === "function") {
         renderTasks();
-    }
-
-    if (requestedTab === "policies" && typeof renderPolicies === "function") {
-        renderPolicies();
     }
 
     if (requestedTab === "contacts") {
@@ -3268,13 +3263,19 @@ function getRequestedAdminTab() {
     const params = new URLSearchParams(window.location.search);
     const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
     const stored = localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+    const tabAliases = {
+        announcements: "noticePolicy",
+        policies: "noticePolicy"
+    };
+    const requestedAlias = tabAliases[requested] || requested;
+    const storedAlias = tabAliases[stored] || stored;
 
-    if (ADMIN_ALLOWED_TABS.includes(requested)) {
-        return requested;
+    if (ADMIN_ALLOWED_TABS.includes(requestedAlias)) {
+        return requestedAlias;
     }
 
-    if (ADMIN_ALLOWED_TABS.includes(stored)) {
-        return stored;
+    if (ADMIN_ALLOWED_TABS.includes(storedAlias)) {
+        return storedAlias;
     }
 
     return "summary";
@@ -3622,7 +3623,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "announcements", "policies", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "noticePolicy", "jobs", "workOrders", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -5087,11 +5088,11 @@ function renderPortalSummary() {
             action: "openAdminSummaryTile('vacation')"
         },
         {
-            title: "Notices",
-            value: activeAnnouncements,
+            title: "Notice / Policy",
+            value: activeAnnouncements + " / " + policies.length,
             badgeCount: null,
-            detail: "Active announcements",
-            action: "openAdminSummaryTile('announcements')"
+            detail: "Active notices / policies",
+            action: "openAdminSummaryTile('noticePolicy')"
         },
         {
             title: "Talks",
@@ -5099,13 +5100,6 @@ function renderPortalSummary() {
             badgeCount: countNewForAdminTab(toolboxReports.concat(toolboxAttendance), "reports", ["created_at", "acknowledged_at"]),
             detail: "New reports or acknowledgements",
             action: "openAdminSummaryTile('reports')"
-        },
-        {
-            title: "Policies",
-            value: policies.length,
-            badgeCount: null,
-            detail: "Active policies available to employees",
-            action: "openAdminSummaryTile('policies')"
         },
         {
             title: "Job List",
@@ -5811,7 +5805,7 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
             ${renderEmployeeProfileTile("Work Orders", workOrdersCompletedThisWeek, "Completed this week", "workOrders")}
             ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "reports")}
-            ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "announcements")}
+            ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "noticePolicy")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
             ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
             ${renderEmployeeProfileTile("Last Activity", profileActivity ? formatDate(profileActivity) : "None", "Latest saved portal activity")}
@@ -5906,7 +5900,7 @@ async function renderEmployeeProfile() {
                 ], toolboxRows.slice(0, 8), "No toolbox talk records found.")}
             </div>
             <div class="profile-panel">
-                <div class="profile-panel-header"><h3>Announcements</h3><button type="button" onclick="openAdminSummaryTile('announcements')">View All</button></div>
+                <div class="profile-panel-header"><h3>Announcements</h3><button type="button" onclick="openAdminSummaryTile('noticePolicy')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Announcement", value: (row) => row.announcement_title || row.title || row.announcement_id || "" },
                     { label: "Read", value: (row) => row.read_at ? "Read" : "Unread" },
