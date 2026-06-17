@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v279";
+const JGC_CACHE_NAME = "jgc-portal-v280";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -40,12 +40,12 @@ const JGC_APP_SHELL = [
   "./common.js?v=3",
   "./auth.js",
   "./inspection-records.js",
-  "./manifest.json?v=3",
+  "./manifest.json?v=4",
   "./logo.webp",
   "./login-background.webp",
-  "./icon-180.png?v=3",
-  "./icon-192.png?v=3",
-  "./icon-512.png?v=3"
+  "./icon-180.png?v=4",
+  "./icon-192.png?v=4",
+  "./icon-512.png?v=4"
 ];
 
 self.addEventListener("install", (event) => {
