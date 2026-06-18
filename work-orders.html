@@ -833,6 +833,8 @@ let profileEmployees = [];
 let timesheetEntries = [];
 let editingWorkOrderId = "";
 let workOrderManagementView = "active";
+let currentWorkOrderSubmitInFlight = false;
+const workOrderFinalizeLocks = new Set();
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
 document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
@@ -1777,6 +1779,9 @@ function getStatusLabel(status) {
   if (status === "ready_for_submission") {
     return "Ready For Submission";
   }
+  if (status === "submitting") {
+    return "Submitting";
+  }
   return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
@@ -2422,10 +2427,66 @@ async function markWorkOrderReady(id, waitingFor) {
 
 async function finalizeWorkOrder(id, options) {
   const settings = options || {};
+  const lockKey = String(id || "");
+
+  if (!lockKey) {
+    return false;
+  }
+
+  if (workOrderFinalizeLocks.has(lockKey)) {
+    if (!settings.silent) {
+      setFormStatus("This Work Order is already being submitted.");
+    }
+    return false;
+  }
+
+  workOrderFinalizeLocks.add(lockKey);
+
+  const existingWorkOrder = workOrders.find((item) => item.id === id);
+  const previousStatus = existingWorkOrder && existingWorkOrder.status ? existingWorkOrder.status : "ready_for_submission";
+
+  const { data: claimRows, error: claimError } = await supabaseClient
+    .from("work_orders")
+    .update({
+      status: "submitting",
+      locked: true,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .in("status", ["draft", "ready_for_submission"])
+    .or("locked.is.false,locked.is.null")
+    .select("id");
+
+  if (claimError) {
+    workOrderFinalizeLocks.delete(lockKey);
+    if (!settings.silent) {
+      setFormStatus("Work Order could not be prepared for submission: " + claimError.message, true);
+    }
+    return false;
+  }
+
+  if (!claimRows || !claimRows.length) {
+    workOrderFinalizeLocks.delete(lockKey);
+    await loadWorkOrders(false);
+    if (!settings.silent) {
+      setFormStatus("This Work Order is already submitted or being submitted.");
+      alert("This Work Order is already submitted or being submitted.");
+    }
+    return false;
+  }
 
   const emailSent = await emailWorkOrderPdf(id, { silent: settings.silent });
 
   if (!emailSent) {
+    await supabaseClient
+      .from("work_orders")
+      .update({
+        status: previousStatus === "submitting" ? "ready_for_submission" : previousStatus,
+        locked: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id);
+    workOrderFinalizeLocks.delete(lockKey);
     if (!settings.silent) {
       setFormStatus("Work Order was not submitted because the email could not be sent.", true);
     }
@@ -2445,6 +2506,7 @@ async function finalizeWorkOrder(id, options) {
     .eq("id", id);
 
   if (error) {
+    workOrderFinalizeLocks.delete(lockKey);
     if (!settings.silent) {
       setFormStatus("Email sent, but Work Order could not be locked: " + error.message, true);
     }
@@ -2452,6 +2514,7 @@ async function finalizeWorkOrder(id, options) {
   }
 
   await loadWorkOrders(false);
+  workOrderFinalizeLocks.delete(lockKey);
 
   if (!settings.silent) {
     finishWorkOrderAndStartNext("Work Order submitted, emailed, and locked. Ready for the next Work Order.");
@@ -2462,34 +2525,52 @@ async function finalizeWorkOrder(id, options) {
 }
 
 async function submitCurrentWorkOrder() {
-  await loadTimesheetEntries();
-  const workOrderId = await saveWorkOrder({ silent: true });
-
-  if (!workOrderId) {
+  if (currentWorkOrderSubmitInFlight) {
+    setFormStatus("This Work Order is already being submitted.");
     return;
   }
 
-  const wo = workOrders.find((item) => item.id === workOrderId);
-
-  if (!wo) {
-    setFormStatus("Work Order saved, but could not be reloaded for submission.", true);
-    return;
+  currentWorkOrderSubmitInFlight = true;
+  const submitButton = document.getElementById("submitButton");
+  if (submitButton) {
+    submitButton.disabled = true;
   }
 
-  setFormStatus("Checking Work Order for submission...");
-  await refreshSavedLabourRowsForWorkOrder(wo);
-  const check = getWorkOrderCompleteness(workOrderId);
+  try {
+    await loadTimesheetEntries();
+    const workOrderId = await saveWorkOrder({ silent: true });
 
-  if (check.complete) {
-    await finalizeWorkOrder(workOrderId);
-    return;
-  }
+    if (!workOrderId) {
+      return;
+    }
 
-  const markedReady = await markWorkOrderReady(workOrderId, check.waitingFor);
+    const wo = workOrders.find((item) => item.id === workOrderId);
 
-  if (markedReady) {
-    finishWorkOrderAndStartNext("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
-    alert("Work Order is ready, but not complete yet. Waiting for: " + check.waitingFor.join(", "));
+    if (!wo) {
+      setFormStatus("Work Order saved, but could not be reloaded for submission.", true);
+      return;
+    }
+
+    setFormStatus("Checking Work Order for submission...");
+    await refreshSavedLabourRowsForWorkOrder(wo);
+    const check = getWorkOrderCompleteness(workOrderId);
+
+    if (check.complete) {
+      await finalizeWorkOrder(workOrderId);
+      return;
+    }
+
+    const markedReady = await markWorkOrderReady(workOrderId, check.waitingFor);
+
+    if (markedReady) {
+      finishWorkOrderAndStartNext("Work Order is ready for submission and waiting for: " + check.waitingFor.join(", "));
+      alert("Work Order is ready, but not complete yet. Waiting for: " + check.waitingFor.join(", "));
+    }
+  } finally {
+    currentWorkOrderSubmitInFlight = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
   }
 }
 
