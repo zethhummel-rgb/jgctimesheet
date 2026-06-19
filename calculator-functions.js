@@ -85,12 +85,14 @@
   function risePrimary(engine) {
     try {
       const pitch = engine.getRegister("pitch");
-      const run = requireLength(engine, "run");
       if (!pitch) {
         engine.handleRegisterKey("rise");
+        engine.state.lastFunction = "rise";
         return;
       }
+      const run = requireLength(engine, "run");
       const rise = run * (pitch.baseValue / 12);
+      engine.state.lastFunction = "rise";
       return setResult(engine, Engine.makeValue(rise, "length", "ft"), "Rise from pitch");
     } catch (error) {
       engine.setError(error.message);
@@ -100,12 +102,14 @@
   function runPrimary(engine) {
     try {
       const pitch = engine.getRegister("pitch");
-      const rise = requireLength(engine, "rise");
       if (!pitch || !pitch.baseValue) {
         engine.handleRegisterKey("run");
+        engine.state.lastFunction = "run";
         return;
       }
+      const rise = requireLength(engine, "rise");
       const run = rise / (pitch.baseValue / 12);
+      engine.state.lastFunction = "run";
       return setResult(engine, Engine.makeValue(run, "length", "ft"), "Run from pitch");
     } catch (error) {
       engine.setError(error.message);
@@ -161,9 +165,22 @@
 
   function stair(engine) {
     try {
-      const totalRise = requireLength(engine, "rise");
+      let riseValue = engine.getRegister("rise");
+      if (!riseValue && engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0) {
+        riseValue = Engine.makeValue(engine.state.current.baseValue, "length", engine.state.current.unit || "in");
+        engine.state.registers.rise = Engine.makeValue(riseValue.baseValue, "length", riseValue.unit);
+      }
+      if (!riseValue) {
+        throw new Error("Missing rise");
+      }
+      if (riseValue.dimension !== "length" || riseValue.baseValue <= 0) {
+        throw new Error("Rise must be a positive length");
+      }
+      const totalRise = riseValue.baseValue;
       const maxRiser = engine.state.preferences.stairRiserLimit || 7.75;
       const treadDepth = engine.state.preferences.treadDepth || 10;
+      const headroom = engine.state.preferences.headroomHeight || 80;
+      const floorThickness = engine.state.preferences.floorThickness || 10;
       const risers = Math.ceil(totalRise / maxRiser);
       if (risers <= 0) {
         throw new Error("Invalid stair rise");
@@ -171,20 +188,37 @@
       const actualRiser = totalRise / risers;
       const treads = Math.max(risers - 1, 0);
       const totalRun = treads * treadDepth;
-      const angle = Math.atan(totalRise / totalRun) * 180 / PI;
-      const stringer = Math.sqrt(totalRise * totalRise + totalRun * totalRun);
-      const rows = [
-        ["Risers", String(risers)],
-        ["Actual riser", Engine.inchesToFeetInches(actualRiser, engine.state.preferences.fractionDenominator || 16)],
-        ["Treads", String(treads)],
-        ["Total run", Engine.inchesToFeetInches(totalRun, engine.state.preferences.fractionDenominator || 16)],
-        ["Stair angle", Engine.roundForDisplay(angle, 3) + "\u00b0"],
-        ["Stringer", Engine.inchesToFeetInches(stringer, engine.state.preferences.fractionDenominator || 16)],
-        ["Note", "Estimating tool only. Verify local building-code requirements."]
+      const stairRiseForRun = actualRiser * treads;
+      const angle = totalRun > 0 ? Math.atan(stairRiseForRun / totalRun) * 180 / PI : 0;
+      const stringer = Math.sqrt(stairRiseForRun * stairRiseForRun + totalRun * totalRun);
+      const opening = actualRiser > 0 ? (headroom + floorThickness) * treadDepth / actualRiser : 0;
+      const totalRiseKey = Math.round(totalRise * 10000) / 10000;
+      const cycle = (engine.state.lastFunction === "stair" && engine.state.stairTotalRise === totalRiseKey ? (engine.state.stairCycle || 0) + 1 : 0) % 12;
+      engine.state.lastFunction = "stair";
+      engine.state.stairCycle = cycle;
+      engine.state.stairTotalRise = totalRiseKey;
+      const stairLength = (inches) => Engine.makeValue(inches, "length", "in", { format: "inch-fraction", forceInches: true });
+
+      const results = [
+        { label: "Riser height", value: stairLength(actualRiser) },
+        { label: "Risers", value: Engine.makeValue(risers, "count", "count") },
+        { label: "Tread width stored", value: stairLength(treadDepth) },
+        { label: "Treads", value: Engine.makeValue(treads, "count", "count") },
+        { label: "Stairwell opening", value: stairLength(opening) },
+        { label: "Stringer length", value: stairLength(stringer) },
+        { label: "Stair angle", value: Engine.makeValue(Engine.roundForDisplay(angle, 2), "angle", "deg") },
+        { label: "Run", value: stairLength(totalRun) },
+        { label: "Rise stored", value: stairLength(totalRise) },
+        { label: "Riser height stored", value: stairLength(maxRiser) },
+        { label: "Staircase headroom stored", value: Engine.makeValue(headroom, "length", "ft", { format: "feet-inch" }) },
+        { label: "Floor thickness stored", value: stairLength(floorThickness) }
       ];
-      engine.setCurrent(Engine.makeValue(actualRiser, "length", "in"), "Stair riser");
-      engine.addHistory("Stair", rows.map((row) => row.join(": ")).join(" | "));
-      return rows;
+      const result = results[cycle];
+      engine.setCurrent(result.value, result.label);
+      if (cycle === 0) {
+        engine.addHistory("Stair", "Rise " + Engine.inchesToFeetInches(totalRise, engine.state.preferences.fractionDenominator || 16) + " | " + risers + " risers | " + treads + " treads");
+      }
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
