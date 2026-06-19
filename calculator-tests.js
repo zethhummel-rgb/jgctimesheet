@@ -91,6 +91,10 @@ function runTests() {
   approx(Engine.convertDisplay(calc.state.current, "ft"), 100, 0.0001, "cycled linear feet display value");
 
   calc = newCalc();
+  calc.state.current = Engine.valueFromDisplay(55296, "cuin");
+  assert(calc.getDisplay().main === "55,296." && calc.getDisplay().unit === "CUBIC INCH", "calculator display formats cubic inches like field calculator");
+
+  calc = newCalc();
   pressSequence(calc, ["5", "yd", "yd", "yd"]);
   assert(calc.state.current.dimension === "volume" && calc.state.current.unit === "cuyd", "5 yds yds yds becomes cubic yards");
 
@@ -146,11 +150,14 @@ function runTests() {
   approx(calc.state.current.baseValue, 50, 0.001, "roof slope percent");
 
   calc = newCalc();
-  calc.state.registers.radius = Engine.valueFromDisplay(5, "ft");
-  const circleRows = Fn.circle(calc);
-  const circleText = circleRows.map((row) => row.join(":")).join(" ");
-  assert(circleText.includes("31.416") || circleText.includes("31.415"), "circle circumference");
-  approx(calc.state.current.baseValue / 144, 78.5398, 0.001, "circle area");
+  pressSequence(calc, ["8", "in"]);
+  Fn.circle(calc);
+  assert(calc.getDisplay().mode === "Diameter" && calc.getDisplay().main === "8" && calc.getDisplay().unit === "INCH", "circle starts with diameter");
+  Fn.circle(calc);
+  assert(calc.getDisplay().mode === "Circumference" && calc.getDisplay().main === "25 1/8" && calc.getDisplay().unit === "INCH", "circle circumference cycles as fractional inches");
+  Fn.circle(calc);
+  approx(calc.state.current.baseValue, 50.265482, 0.000001, "8 inch circle area");
+  assert(calc.getDisplay().mode === "Area" && calc.getDisplay().unit === "SQUARE INCH", "circle area displays square inches");
 
   calc = newCalc();
   calc.state.registers.radius = Engine.valueFromDisplay(10, "ft");
