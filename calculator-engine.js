@@ -184,7 +184,30 @@
     return cloneValue(b);
   }
 
-  function formatNumber(number, precision) {
+  const DISPLAY_UNIT_LABELS = {
+    sqin: "SQUARE INCH",
+    sqft: "SQUARE FEET",
+    sqyd: "SQUARE YARD",
+    sqm: "SQUARE METER",
+    sqcm: "SQUARE CENTIMETER",
+    sqmm: "SQUARE MILLIMETER",
+    acre: "ACRE",
+    cuin: "CUBIC INCH",
+    cuft: "CUBIC FEET",
+    cuyd: "CUBIC YARD",
+    cum: "CUBIC METER",
+    cucm: "CUBIC CENTIMETER",
+    cumm: "CUBIC MILLIMETER"
+  };
+
+  function addCommaSeparators(text) {
+    const parts = String(text).split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return parts.join(".");
+  }
+
+  function formatNumber(number, precision, preferences) {
+    const prefs = preferences || {};
     const rounded = roundForDisplay(number, precision);
     if (!Number.isFinite(rounded)) {
       return "Error";
@@ -192,7 +215,31 @@
     if (Math.abs(rounded) >= 1000000000 || (Math.abs(rounded) > 0 && Math.abs(rounded) < 0.00001)) {
       return rounded.toExponential(5);
     }
-    return String(rounded).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    let text = String(rounded).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    if (prefs.commaSeparator !== false) {
+      text = addCommaSeparators(text);
+    }
+    if (prefs.trailingDecimalForWholeNumbers !== false && !text.includes(".")) {
+      text += ".";
+    }
+    return text;
+  }
+
+  function displayUnitLabel(unit, def) {
+    return DISPLAY_UNIT_LABELS[unit] || (def && def.label) || "";
+  }
+
+  function displayModeLabel(state, formatted, value) {
+    if (state.error || state.status) {
+      return state.error || state.status;
+    }
+    if (state.memory) {
+      return "M";
+    }
+    if (value && (value.dimension === "area" || value.dimension === "volume")) {
+      return "";
+    }
+    return formatted.mode;
   }
 
   function inchesToFeetInches(totalInches, denominator) {
@@ -279,21 +326,25 @@
       return { main: "0", unit: "", mode: "READY" };
     }
     const prefs = preferences || {};
-    const precision = prefs.precision || 5;
     const unit = value.unit || DIMENSION_DEFAULT_UNIT[value.dimension] || "scalar";
     const meta = value.meta || {};
+    const precision = typeof meta.precision === "number" ? meta.precision : prefs.precision || 5;
+    const formatPrefs = Object.assign({}, prefs);
+    if (meta.noTrailingDecimal) {
+      formatPrefs.trailingDecimalForWholeNumbers = false;
+    }
     if (value.dimension === "length" && unit === "ft" && meta.format === "feet-inch") {
       return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && meta.format === "inch-fraction" && (Math.abs(value.baseValue) < 12 || meta.forceInches)) {
-      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: "IN", mode: "LENGTH" };
+      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: meta.unitLabel || "IN", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && Math.abs(value.baseValue) >= 12 && meta.format !== "decimal") {
       return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
     }
     const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
     const display = value.baseValue / def.factor;
-    return { main: formatNumber(display, precision), unit: def.label, mode: String(value.dimension || "scalar").toUpperCase() };
+    return { main: formatNumber(display, precision, formatPrefs), unit: meta.unitLabel || displayUnitLabel(unit, def), mode: String(value.dimension || "scalar").toUpperCase() };
   }
 
   function parseNumberBuffer(buffer) {
@@ -432,7 +483,7 @@
     return {
       main: this.state.inputBuffer && this.state.current.dimension === "scalar" && this.state.pendingFractionNumerator === null ? this.state.inputBuffer : formatted.main,
       unit: formatted.unit,
-      mode: this.state.error || this.state.status || formatted.mode,
+      mode: displayModeLabel(this.state, formatted, displayValue),
       expression: this.state.pendingOperator && this.state.accumulator ? formatValue(this.state.accumulator, this.state.preferences).main + " " + this.state.pendingOperator : "",
       conversionMode: this.state.conversionMode,
       registers: Object.assign({}, this.state.registers),
