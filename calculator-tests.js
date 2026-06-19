@@ -172,10 +172,44 @@ function runTests() {
 
   calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(108, "in");
-  const stairRows = Fn.stair(calc);
-  assert(stairRows.some((row) => row[0] === "Risers" && row[1] === "14"), "stair risers");
+  Fn.stair(calc);
   approx(calc.state.current.baseValue, 7.7142857, 0.0001, "actual stair riser");
-  assert(stairRows.some((row) => row[0] === "Treads" && row[1] === "13"), "stair treads");
+  assert(calc.state.status === "Riser height", "stair starts with riser height");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 14 && calc.state.status === "Risers", "stair risers");
+  Fn.stair(calc);
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 13 && calc.state.status === "Treads", "stair treads");
+
+  calc = newCalc();
+  calc.updatePreferences({ stairRiserLimit: 7.5, treadDepth: 10, headroomHeight: 80, floorThickness: 10 });
+  calc.state.current = Engine.valueFromDisplay(49, "in");
+  Fn.risePrimary(calc);
+  assert(calc.state.registers.rise && calc.state.registers.rise.baseValue === 49, "rise stores without run");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 7, 0.0001, "49 inch stair riser height");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 7 && calc.state.status === "Risers", "49 inch stair risers");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 10, 0.0001, "49 inch stair tread width");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 6 && calc.state.status === "Treads", "49 inch stair treads");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 128.5714, 0.001, "49 inch stairwell opening");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 73.2393, 0.001, "49 inch stringer length");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 34.992, 0.01, "49 inch stair angle");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 60, 0.0001, "49 inch stair run");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 49, 0.0001, "49 inch stored rise");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 7.5, 0.0001, "stored riser preference");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 80, 0.0001, "stored headroom");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 10, 0.0001, "stored floor thickness");
 
   calc = newCalc();
   calc.state.current = Engine.makeValue(1, "scalar", "scalar");
