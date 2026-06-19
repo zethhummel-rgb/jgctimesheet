@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050908">
+  <title>JGC Portal - Field Calculator</title>
+  <link rel="manifest" href="manifest.json?v=4">
+  <link rel="stylesheet" href="field-calculator.css?v=3">
+</head>
+<body class="field-calculator-page">
+  <main class="field-calculator-shell">
+    <section class="field-calculator" aria-label="JGC Field Calculator">
+      <header class="calc-toolbar">
+        <div class="toolbar-brand-mark" aria-hidden="true">JGC</div>
+        <div class="toolbar-title">JGC Field Calculator</div>
+        <button id="calcHomeButton" type="button" class="toolbar-button home-button" onclick="window.JgcFieldCalculator.goBack()" aria-label="Back to portal">Home</button>
+        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHistory()" aria-label="Open calculation history">Tape</button>
+        <div id="convIndicator" class="toolbar-indicator" aria-live="polite">PRI</div>
+        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator help and settings">Help</button>
+      </header>
+
+      <section class="calc-display" aria-live="polite">
+        <div id="calcExpression" class="calc-expression"></div>
+        <div id="calcMainValue" class="calc-main-value">0</div>
+        <div class="calc-meta-line">
+          <span id="calcMode">READY</span>
+          <span id="calcUnit">JGC</span>
+        </div>
+      </section>
+
+      <section id="calcKeypad" class="calc-keypad" aria-label="Calculator keypad"></section>
+
+      <footer class="calc-footer" aria-hidden="true">
+        <span class="footer-tool-icon">JGC</span>
+        <span>Built for the field. Trusted everywhere.</span>
+        <span class="footer-version">v2.6</span>
+      </footer>
+    </section>
+  </main>
+
+  <div id="calcOverlay" class="calc-overlay-backdrop" onclick="window.JgcFieldCalculator.closeOverlay(event)">
+    <section class="calc-overlay" onclick="event.stopPropagation()">
+      <header class="calc-overlay-header">
+        <h2 id="calcOverlayTitle">Calculator</h2>
+        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.closeOverlay()">Close</button>
+      </header>
+      <div id="calcOverlayBody" class="calc-overlay-body"></div>
+    </section>
+  </div>
+
+  <script src="common.js?v=3"></script>
+  <script src="calculator-engine.js?v=4"></script>
+  <script src="calculator-functions.js?v=1"></script>
+  <script src="field-calculator.js?v=5"></script>
+</body>
+</html>
