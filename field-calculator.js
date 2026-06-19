@@ -221,6 +221,9 @@
     }
 
     const beforeConv = calculator.state.conversionMode;
+    if (action.startsWith("digit:") || action === "decimal" || action === "fraction" || action.startsWith("unit:") || action.startsWith("op:")) {
+      calculator.state.lastFunction = "";
+    }
 
     try {
       if (action.startsWith("digit:")) {
@@ -636,6 +639,105 @@
   }
 
   function openHelp() {
+    openOverlay("JGC Pocket Guide", `
+      <div class="guide-screen">
+        <p class="guide-intro">
+          This original JGC guide follows the same workflow covered by the CM pocket guide and full manual:
+          enter a number, choose a unit, press a function, then read the answer.
+        </p>
+
+        <div class="guide-actions">
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openPreferences()">Preferences</button>
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHistory()">Tape</button>
+        </div>
+
+        <details class="guide-section" open>
+          <summary>1. Basic Keys</summary>
+          <table class="guide-table">
+            <tr><th>Key</th><th>Use</th></tr>
+            <tr><td><span class="guide-key">Clear</span></td><td>Clears the current entry or error. Press again when needed to reset the entry.</td></tr>
+            <tr><td><span class="guide-key">Conv</span></td><td>Turns on the green/red secondary labels for the next key press.</td></tr>
+            <tr><td><span class="guide-key">Conv</span> + <span class="guide-key">x</span></td><td>Clear all working values.</td></tr>
+            <tr><td><span class="guide-key">Conv</span> + <span class="guide-key">=</span></td><td>Open the calculation tape.</td></tr>
+            <tr><td><span class="guide-key">Conv</span> + <span class="guide-key">Store</span></td><td>Open calculator preferences.</td></tr>
+          </table>
+        </details>
+
+        <details class="guide-section" open>
+          <summary>2. Entering Dimensions</summary>
+          <table class="guide-table">
+            <tr><th>Tap sequence</th><th>Result</th></tr>
+            <tr><td>5 <span class="guide-key">Feet</span> 1 <span class="guide-key">Inch</span> 1 <span class="guide-key">/</span> 2</td><td>5 feet - 1 1/2 inch</td></tr>
+            <tr><td>5 <span class="guide-key">Yds</span></td><td>5 yards</td></tr>
+            <tr><td>17 <span class="guide-key">.</span> 5 <span class="guide-key">m</span></td><td>17.5 meters</td></tr>
+            <tr><td>100 <span class="guide-key">Feet</span> <span class="guide-key">Feet</span></td><td>100 square feet</td></tr>
+            <tr><td>100 <span class="guide-key">Feet</span> <span class="guide-key">Feet</span> <span class="guide-key">Feet</span></td><td>100 cubic feet</td></tr>
+          </table>
+          <p class="guide-note">Pressing the same unit key again changes linear to square, then cubic, when that makes sense.</p>
+        </details>
+
+        <details class="guide-section" open>
+          <summary>3. Conversions</summary>
+          <table class="guide-table">
+            <tr><th>Tap sequence</th><th>Result</th></tr>
+            <tr><td>10 <span class="guide-key">Feet</span> <span class="guide-key">Conv</span> <span class="guide-key">m</span></td><td>3.048 meters</td></tr>
+            <tr><td>100 <span class="guide-key">cm</span> <span class="guide-key">Conv</span> <span class="guide-key">Inch</span></td><td>39.3701 inches</td></tr>
+            <tr><td>17.32 <span class="guide-key">Feet</span> <span class="guide-key">Conv</span> <span class="guide-key">Feet</span></td><td>Feet-inch-fraction display</td></tr>
+            <tr><td>9.0625 <span class="guide-key">Inch</span> <span class="guide-key">Conv</span> <span class="guide-key">Inch</span></td><td>9 1/16 inch</td></tr>
+          </table>
+        </details>
+
+        <details class="guide-section">
+          <summary>4. Basic Math</summary>
+          <table class="guide-table">
+            <tr><th>Tap sequence</th><th>Result</th></tr>
+            <tr><td>4 <span class="guide-key">Feet</span> 6 <span class="guide-key">Inch</span> + 2 <span class="guide-key">Feet</span> 3 <span class="guide-key">Inch</span> =</td><td>6 feet - 9 inch</td></tr>
+            <tr><td>10 <span class="guide-key">Feet</span> x 12 <span class="guide-key">Feet</span> =</td><td>120 square feet</td></tr>
+            <tr><td>100 + 10 <span class="guide-key">%</span></td><td>110</td></tr>
+            <tr><td><span class="guide-key">Conv</span> + <span class="guide-key">%</span></td><td>Square the current value.</td></tr>
+            <tr><td><span class="guide-key">Conv</span> + <span class="guide-key">Clear</span></td><td>Square root of the current value.</td></tr>
+          </table>
+        </details>
+
+        <details class="guide-section">
+          <summary>5. Registers and Material Functions</summary>
+          <div class="guide-keyline"><span class="guide-key">Length</span> <span class="guide-key">Width</span> <span class="guide-key">Height</span> <span class="guide-key">Rise</span> <span class="guide-key">Run</span> <span class="guide-key">Diag</span></div>
+          <p>With a current value showing, pressing one of these keys stores that value. With no new value entered, pressing the key recalls it.</p>
+          <table class="guide-table">
+            <tr><th>Function</th><th>Workflow</th></tr>
+            <tr><td>Concrete / Footing</td><td>Store Length, Width, Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Width</span>.</td></tr>
+            <tr><td>Drywall</td><td>Store Length and Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Height</span>.</td></tr>
+            <tr><td>Studs</td><td>Store Length, then press <span class="guide-key">Conv</span> + <span class="guide-key">5</span>.</td></tr>
+            <tr><td>Board Feet</td><td>Store thickness as Height, board width as Width, length as Length, then press <span class="guide-key">Conv</span> + <span class="guide-key">8</span>.</td></tr>
+            <tr><td>Blocks</td><td>Store wall Length and Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Length</span>.</td></tr>
+          </table>
+        </details>
+
+        <details class="guide-section">
+          <summary>6. Roof, Stairs, Circle and Arc</summary>
+          <table class="guide-table">
+            <tr><th>Function</th><th>Workflow</th></tr>
+            <tr><td>Pitch</td><td>Store Rise and Run, then press <span class="guide-key">Pitch</span>. Repeated presses cycle pitch, angle, and slope.</td></tr>
+            <tr><td>Diagonal / Rafter</td><td>Store Rise and Run, then press <span class="guide-key">Diag</span>.</td></tr>
+            <tr><td>Hip / Valley</td><td>Store Rise and Run, then press <span class="guide-key">Hip/V</span>.</td></tr>
+            <tr><td>Stairs</td><td>Store total Rise, then press <span class="guide-key">Stair</span>. Repeated presses cycle riser height, risers, tread width, treads, opening, stringer, angle, run, rise, and stored settings.</td></tr>
+            <tr><td>Circle</td><td>Enter radius or diameter, then press <span class="guide-key">Circ</span>.</td></tr>
+            <tr><td>Arc</td><td>Store Radius and angle, then press <span class="guide-key">Arc</span>.</td></tr>
+          </table>
+        </details>
+
+        <details class="guide-section">
+          <summary>7. Preferences and Current Limits</summary>
+          <p>Use Preferences for fraction resolution, display precision, concrete waste, drywall waste, stud spacing, stair defaults, spring angle, and stored construction defaults.</p>
+          <p class="guide-note">Irregular pitch and irregular jack functions are shown on the keypad for future expansion, but this calculator will not return unverified advanced roof math.</p>
+        </details>
+
+        <div class="calculator-notice">Calculation aid only. Verify critical measurements, engineering requirements, and applicable building codes before construction.</div>
+      </div>
+    `, "guide-overlay");
+  }
+
+  function openLegacyHelp() {
     openOverlay("Calculator Help", `
       <ul class="help-list">
         <li>Enter dimensions as Number → Unit. Example: 4 → Feet → 6 → Inch.</li>
@@ -776,6 +878,7 @@
     closeOverlay,
     openHelp,
     openHistory,
+    openPreferences,
     savePreferences: savePreferencesFromOverlay,
     resetCalculatorData,
     goBack,
