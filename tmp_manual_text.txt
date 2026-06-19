@@ -1,0 +1,3567 @@
+
+
+===== PAGE 1 =====
+CONSTRUCTION MASTER
+®
+PRO
+User’s Guide
+For Models:
+4065 Construction Master Pro v3.0
+4080 Construction Master Pro Trig v3.0
+44080 Construction Master Pro Desktop v3.0
+4065/4080 UG CVR ENGLISH_mod  7/21/04  10:43 AM  Page 1
+
+
+===== PAGE 2 =====
+USER’S GUIDE — 1
+This User’s Guide helps you solve common construction math and
+material estimation problems using the latest Construction Master Pro
+calculators—three of the most powerful feet-inch-fraction calculators
+to date:
+The 
+Construction Master Pro III Series —
+1. Construction Master Pro v3.0 (#4065) 
+2. Construction Master Pro Trig v3.0 (#4080)
+3. Construction Master Pro Desktop v3.0 (#44080)
+IMPORTANT:The 
+Construction Master Pro Trig does not have
+Block, Concrete Footing, Drywall, or Length, Width, and Height
+functions. These keys are replaced with standard trigonometric keys.
+CONSTRUCTION MASTER® PRO V3.0 USER’S GUIDE
+4065UG-E-B  6/9/04  1:49 PM  Page 1
+
+
+===== PAGE 3 =====
+2 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+The Construction Master Pro line includes the most advanced feet-
+inch-fraction calculators designed specifically for building pro’s!
+The Pro calculators handle practically any problem involving meas -
+urements and can be used to save time, prevent errors, and accu -
+rately perform common building projects such as: estimating con -
+crete volume, squaring-up foundations, framing roofs, ordering lum -
+ber, building stairs, walls, laying driveways, carpet or floor covering,
+figuring precise angle calculations, or simply working in feet-inch-
+fractions or decimal feet!
+Your Calculator Helps You Solve:
+• Dimensional Math Problems
+• Conversions Between Feet-Inch-Fractions, Decimal Feet,
+Decimal Inches, and Yards
+• Imperial/Metric Conversions
+• Problems Involving All Common Fractions — 1/2” to 1/64”!
+• Area/Volume Calculations
+• Board Feet/Lumber Calculations
+• Circle Calculations
+• Column/Cone Area and Volume 
+• Compound Miter Cuts for Crown Moulding
+• Material Estimations and Costs
+• Polygons
+• Rake-Walls
+• Right Angle/Triangle Solutions
+• Roofing Materials
+• Stair Layout (Risers/Treads)
+• Studs
+• Weight/Volume Conversions
+Pro and Desktop Models (NOT AVAILABLE ON TRIG MODEL #4080)
+Also Solve:
+• Block/Bricks, Concrete Footings and Drywall
+• Instant Square-up, Perimeter, Wall Area, Room Area and
+Volume
+INTRODUCTION
+4065UG-E-B  6/9/04  1:49 PM  Page 2
+
+
+===== PAGE 4 =====
+USER’S GUIDE — 3
+GETTING STARTED..........................................................................8
+KEY DEFINITIONS .........................................................................8
+Basic Operation Keys ..................................................................8
+Convert  Key – Unit Conversions and Second Functions ....8
+Memory and Storage Functions...................................................9
+Recall ¤ Key...........................................................................10
+Dimensional Measurement Unit Keys........................................10
+Area and Volume Keys (NOT AVAILABLE ON TRIG MODEL #4080)....11
+Weight Keys ...............................................................................12
+Construction Project Keys..........................................................13
+Block/Brick Keys (NOT AVAILABLE ON TRIG MODEL #4080)..............13
+Circular/Arc Function Keys ........................................................13
+Column/Cone Key......................................................................15
+Compound Miter/Crown Moulding Keys ....................................15
+Drywall Keys (NOT AVAILABLE ON TRIG MODEL #4080)....................16
+Footing Keys (NOT AVAILABLE ON TRIG MODEL #4080) ...................16
+Polygon Key...............................................................................16
+Right Triangle/Roof Framing Keys .............................................17
+Hip/Valley and Jack Rafter Keys ................................................18
+Rake-Wall Function....................................................................20
+Roof Materials/Covering Keys ...................................................21
+Stair Key ....................................................................................21
+Studs..........................................................................................23
+Trigonometric Keys (TRIG #4080 AND DESKTOP #44080 
+MODELS ONLY) ...........................................................................23
+ENTERING DIMENSIONS ............................................................25
+Entering Linear Dimensions.......................................................25
+Entering Square/Cubic Dimensions ...........................................25
+SETTING FRACTIONAL RESOLUTION.......................................27
+Setting Fraction Resolution – Using the Preference 
+Setting Mode...........................................................................27
+Setting Fraction Resolution – Using  ..................................28
+Converting Fractional Value to Different Resolution ..................28
+Setting Fixed/Constant Fractional Resolution............................29
+CONVERSIONS (LINEAR, AREA, VOLUME) ..............................30
+Linear Conversions ....................................................................30
+Converting Feet-Inch-Fractions to Decimal Feet .......................30
+Converting Decimal Feet to Feet-Inch-Fractions .......................30
+Converting Fractional Inches to Decimal Inches .......................31
+TABLE OF CONTENTS
+4065UG-E-B  6/9/04  1:49 PM  Page 3
+
+
+===== PAGE 5 =====
+4 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Converting Decimal Inches to Fractional Inches .......................31
+Square Conversions ..................................................................31
+Cubic Conversions.....................................................................31
+PERFORMING BASIC MATH WITH DIMENSIONS .....................32
+Adding Dimensions ....................................................................32
+Subtracting Dimensions .............................................................32
+Multiplying Dimensions ..............................................................32
+Dividing Dimensions ..................................................................32
+Percentage Calculations ............................................................33
+MEMORY OPERATION ................................................................33
+Basic Cumulative Memory (M+).................................................34
+Permanent Storage Registers (M1 and M2) ..............................34
+PAPERLESS TAPE OPERATION .................................................35
+EXAMPLES – USING THE CONSTRUCTION  MASTER PRO ......37
+LINEAR MEASUREMENT EXAMPLES........................................37
+Adding Linear Measurements ....................................................37
+Cutting Boards ...........................................................................37
+Window Measurement ...............................................................38
+Calculating the Center Point ......................................................38
+AREA CALCULATIONS ................................................................39
+Square Area (x2) ........................................................................39
+Area of a Rectangular Room (LxW) ..........................................39
+Using Multi-Function W Key to Find Area, Square-up and 
+Perimeter (NOT AVAILABLE ON TRIG MODEL #4080)......................39
+VOLUME CALCULATIONS...........................................................40
+Rectangular Containers (LxWxH) ..............................................40
+Using the Multi-Function h Key to Find Volume, Area, 
+Square-Up, Perimeter, Wall Area and Room Area 
+(NOT AVAILABLE ON TRIG MODEL #4080) ......................................40
+Volume of a Cylinder..................................................................41
+Volume of a Cone ......................................................................41
+WEIGHT/VOLUME CONVERSIONS ............................................42
+Weight Conversions ...................................................................42
+Weight per Volume/Volume Conversions...................................42
+BLOCKS/BRICKS (NOT AVAILABLE ON TRIG MODEL #4080)...............43
+Number of Blocks, Based on Calculated Area .........................43
+Number of Blocks, Based on Entered Area...............................43
+Number of Blocks, Based on Calculated Perimeter ..................44
+Number of Blocks, Based on Length .........................................44
+Number of “Face” Bricks ...........................................................45
+Number of “Paver” Bricks .........................................................45
+4065UG-E-B  6/9/04  1:49 PM  Page 4
+
+
+===== PAGE 6 =====
+USER’S GUIDE — 5
+BOARD FEET – LUMBER ESTIMATION .....................................46
+Total Board Feet – With Dollar Cost ..........................................46
+Number of Board Feet Based on Entered Volume ....................46
+CIRCLE AND ARC CALCULATIONS............................................47
+Circumference and Area of a Circle...........................................47
+Arc Length – Degree and Diameter Known ...............................47
+Arc Length – Degree and Radius Known ..................................47
+Arc Calculations – Arc Length and Diameter Known ................48
+Arched/Circular Rake-Walls – Chord Length and Segment Rise 
+Known.....................................................................................49
+Arched Windows ........................................................................50
+COMPOUND MITER.....................................................................51
+Compound Miter Cuts ................................................................51
+CONCRETE/PAVING ....................................................................52
+Volume of Concrete for a Driveway ...........................................52
+Concrete Columns .....................................................................53
+Complex Concrete Volume ........................................................54
+Polygon, Finding Angles Based on Entered Radius and 
+Number of Sides .....................................................................55
+Concrete Footings (NOT AVAILABLE ON TRIG MODEL #4080) ...........56
+Squaring-up a Foundation .........................................................57
+DRYWALL (NOT AVAILABLE ON TRIG MODEL #4080)...........................58
+Number of Drywall Sheets for a Given Area..............................58
+Number of Drywall Sheets for a Given Length ..........................58
+GRADE/SLOPE.............................................................................59
+Back-Fill on a Slope – Percent of Grade Known .......................59
+RIGHT TRIANGLE AND ROOF FRAMING EXAMPLES ..............60
+Roof Framing Definitions ...........................................................61
+Degree of Pitch ..........................................................................63
+Percent Grade............................................................................63
+Pitch Ratio or Slope ...................................................................63
+Common Rafter Length..............................................................64
+Common Rafter Length – Pitch Unknown .................................64
+Angle and Diagonal (Hypotenuse) .............................................65
+Rise............................................................................................65
+Rise and Diagonal......................................................................65
+Sheathing Cut ............................................................................66
+Regular Hip/Valley and Jack Rafters ........................................66
+Jack Rafters – Using Other Than 16 Inch On-Center 
+Spacing ..................................................................................67
+4065UG-E-B  6/9/04  1:49 PM  Page 5
+
+
+===== PAGE 7 =====
+6 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Irregular Hip/Valley and Jack Rafters – Descending, with 
+On-Center Spacing Maintained ..............................................68
+Irregular Hip/Valley and Jack Rafters – Ascending, with 
+Jacks Mating at Hip/Valley......................................................70
+Rake-Wall – No Base.................................................................72
+Rake-Wall – With Base ..............................................................73
+ROOFING MATERIALS ................................................................74
+Roof Covering – Entering Pitch, Length and Width ..................74
+Roof Covering – Entering Rise, Run (No Pitch) and Area.........75
+STAIR LAYOUT EXAMPLES ........................................................76
+Stair Layout Definitions ..............................................................76
+Stairs – Given Only Floor-to-Floor Rise.....................................78
+Stairs – Given Only the Run ......................................................80
+Stairs – Given Rise and Run .....................................................81
+Stairs – Given Rise and Run, Using “Riser Limited” Function 
+for Code Restrictions ..............................................................82
+Baluster Spacing........................................................................83
+STUDS ..........................................................................................84
+BASIC D:M:S AND TRIGONOMETRY EXAMPLES .....................84
+Converting Degrees:Minutes:Seconds ......................................84
+Time Calculations Using D:M:S .................................................84
+TRIGONOMETRIC FUNCTIONS..................................................85
+Converting Percent Grade to D:M:S ..........................................86
+Converting Tangent/Pitch to Angle.............................................86
+Converting Roof Angle in Degrees to Pitch in Inches ................86
+Angle – Rise and Hypotenuse Known .......................................87
+APPENDIX A – DEFAULT SETTINGS ............................................88
+APPENDIX B – PREFERENCE SETTINGS....................................89
+How to Set Preferences .............................................................91
+Accessing Preference Settings ..................................................92
+APPENDIX C – CARE INSTRUCTIONS .........................................94
+APPENDIX D – IMPORTANT NOTES FOR  OWNERS OF 
+PREVIOUS CONSTRUCTION  MASTERS ..................................95
+APPENDIX E – ACCURACY/ERRORS, AUTO SHUT-OFF, 
+BATTERIES, RESET ....................................................................96
+ACCURACY/ERRORS..................................................................96
+Error Codes................................................................................96
+AUTO SHUT-OFF .........................................................................96
+BATTERIES...................................................................................97
+Replacing the Battery(ies)..........................................................97
+Battery Replacement Instructions ..............................................97
+4065UG-E-B  6/9/04  1:49 PM  Page 6
+
+
+===== PAGE 8 =====
+USER’S GUIDE — 7
+RESET KEY ..................................................................................97
+APPENDIX F – AREA/VOLUME FORMULAS................................98
+AREA FORMULAS........................................................................98
+SURFACE AREA/VOLUME FORMULAS .....................................99
+REPAIR AND RETURN .................................................................100
+WARRANTY...................................................................................101
+INDEX.............................................................................................104
+4065UG-E-B  6/9/04  1:49 PM  Page 7
+
+
+===== PAGE 9 =====
+8 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+KEY DEFINITIONS
+Basic Operation Keys
+o On/Clear — Turns power on. Pressing once clears
+the display. Pressing twice clears all temporary 
+values.
+O Turns all power off, clearing all non-permanent 
+registers.
++ — x Arithmetic operation keys.
+Ö =
+% Four-function (+, -, x, ÷) percent key. (See page 33
+for examples.)
+0 – 9 and ¥ Keys used for entering digits.
+) (DESKTOP ONLY) Enters “00” to save keystrokes (e.g.,
+1 ) to enter 100).
+B Backspace Key — Used to delete entries one key -
+stroke at a time (unlike the o function, which
+deletes the entire entry).
+Convert  Key — Unit Conversions and Second Functions
+The  key is to convert between measurement units or to access
+the second functions listed below:
+ x Clear All — Clears all values, including Memory.
+Resets all permanent entries to default values
+(except Preference Settings which are retained).
+Note: Use only when necessary, as it resets all stored values to
+factory defaults. See page 88 for a listing of default values.
+ % x2 — Squares the value in the display. For example,
+to square the value 10, enter 1 0 then  %.
+ B Square Root Function ( ) — Used to find the
+square root of a non-dimensional or area value
+(e.g., 1 0 0  B = 10).
+ /
+x10y — Allows entry of an exponent. For example,
+8  / 1 4 is 8 times 10 to the 14th power.
+GETTING STARTED
+4065UG-E-B  6/9/04  1:49 PM  Page 8
+
+
+===== PAGE 10 =====
+USER’S GUIDE — 9
+ Ö 1/x — Finds the reciprocal of a number (e.g., 8
+ Ö = 0.125). 
+ — Change Sign (+/–) — Toggles the sign of the dis-
+played value to positive or negative.
+ + Pi (π) — Constant = 3.141593
+ ¥ Degrees:Minutes:Seconds — Converts between
+D:M:S and decimal degree formats.
+ 0 Total Cost — Calculates total material cost given a
+unit dimension and an entered Per Unit Cost. 
+ § Access Preference Settings — Used to access
+various customizable settings, such as dimensional
+answer formats (see Preference Settings on page
+89).
+Memory and Storage Functions
+Your calculator has two types of Memory: 
+1) basic memory or semi-permanent, cumulative µ; 
+2) non-cumulative Storage Registers (M1-M3).
+µ Semi-Permanent Memory — Adds any displayed
+number, dimensioned or unitless, to the semi-per -
+manent, cumulative Memory. Values can be sub-
+tracted from this Memory using  µ (M–). ¤
+µ will display the value in the Memory. ¤ ¤
+will display and clear the value in the Memory . 
+¤ will clear the cumulative Memory without dis -
+turbing the existing display.
+§ 1 – 3 Storage Registers (M1) through (M3) — Stores
+the displayed value in non-cumulative, permanent
+Memory (e.g., 1 0 § 1). Good for storing a 
+single value, for future reference (¤ 1 = 10). 
+Note: Non-cumulative means it only accepts one value (does not
+add or subtract) and a second entered value will replace the first.
+Permanent means the value is stored even after the calculator is
+shut off. To delete a stored value, enter a new value or perform a
+Clear All  x.
+4065UG-E-B  6/9/04  1:49 PM  Page 9
+
+
+===== PAGE 11 =====
+10 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Recall ¤ Key
+The ¤ key is used to recall or review stored values (e.g., ¤ p
+to recall a previously entered pitch value). It is also used in reviewing
+stored settings, or in Paperless Tape and Memory operation (see
+below).
+¤ =
+(Paperless) Tape — Accesses the paperless tape
+mode (see “Paperless Tape” page 35), which keeps
+track of your past 20 entries. Useful for checking
+strings of numbers.
+¤ ¤
+Clear M+ — Displays and clears M+.
+¤ µ Recall M+ — Displays value stored in M+.
+¤ 1 – 3 Recall (M1) through (M3) — Recalls the value
+stored in M1, M2, or M3.
+Dimensional Measurement Unit Keys
+The following keys are used for entering units of measure, with ease
+and accuracy:
+y Yards — Enters or converts to yards.
+f Enters or converts to feet. Also used with the i
+and / keys for entering feet-inch values (e.g., 6
+f 9 i 1 / 2 ).
+Note: Repeated presses of f after  toggle between feet-
+inches and decimal feet (e.g., 6 f 9 i 1 / 2  f
+= 6.791667 feet; press f again to return to feet-inch-fractions).
+i Enters or converts to inches. Also used with the /
+key for entering fractional inch values (e.g., 9 i
+1 / 2).
+Note: Repeated presses of i after  toggle between frac-
+tional and decimal inches (e.g., 9 i 1 / 2  i = 9.5
+inch; press i again to return to inch-fractions).
+/ Fraction Bar — Used to enter fractions. Fractions
+may be entered as proper (1/2, 1/8, 1/16) or improper
+(3/2, 9/8). If the denominator (bottom) is not entered,
+the calculator's fractional resolution setting is auto -
+matically used (e.g., entering 1 5 / = or + will
+display 15/16, based on the default fractional resolu -
+tion setting of 16ths.
+4065UG-E-B  6/9/04  1:49 PM  Page 10
+
+
+===== PAGE 12 =====
+USER’S GUIDE — 11
+m Meters — Enters or converts to meters.
+ 7 Centimeters — Enters or converts to centimeters.
+ 9 Millimeters — Enters or converts to millimeters.
+ 2 Acres — Enters or converts (a square value) to
+acres. 
+ 8 Board Feet — Enters or converts cubic values to
+board feet. One board foot is equal to 144 cubic
+inches. 
+Area and Volume Keys (NOT AVAILABLE ON TRIG MODEL #4080)
+l Enters a length for calculation of area or volume. 
+W A multi-function key used to enter a width for calcu -
+lation of area or volume (if a length and height are
+also entered). Consecutive presses of this key dis -
+plays or calculates:
+Press
+Result
+1 Displays Entered Width
+2 Area
+3 Square-up
+4 Perimeter
+5 Redisplays Entered Length
+6 Redisplays Entered Width
+h A multi-function key used to enter a height for calcu -
+lation of volume (if a length and width are also
+entered). Consecutive presses of this key displays
+or calculates:
+Press
+Result
+1 Displays Entered Height
+2 Volume
+3 Area
+4 Square-up
+5 Perimeter
+6 Wall Area
+7 Total Room Area
+8 Redisplays Entered Length
+9 Redisplays Entered Width
+4065UG-E-B  6/9/04  1:49 PM  Page 11
+
+
+===== PAGE 13 =====
+12 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Weight Keys
+ 1 Kilograms (kg) — Enters or converts (a weight or
+volume value) to kilograms. A dimensioned volume
+will convert using the stored weight per volume
+value.
+ 3
+Metric Tons (met tons) — Enters or converts (a
+weight or volume value) to Metric tons. A dimen-
+sioned volume will convert using the stored weight
+per volume value.
+ 4
+Pounds (lbs) — Enters or converts (a weight or vol -
+ume value) to pounds. A dimensioned volume will
+convert using the stored weight per volume value.
+ 6 Tons — Enters or converts (a weight or volume
+value) to tons. A dimensioned volume will convert
+using the stored weight per volume value.
+§ 0 Store Weight per Volume — Stores a new weight
+per volume value as tons per cubic yard or other for -
+mat, as listed below:
+Note: After entering a value and pressing § 0, continue
+pressing the 0 digit key until you’ve reached the desired weight
+per volume format. To recall your setting, press ¤ 0.
+• Ton Per CU YD
+• LB Per CU YD
+• LB Per CU FEET
+• MET Ton Per CU M
+• kG Per CU M
+This value is permanently stored until you change it
+or perform a 
+Clear All ( x).
+4065UG-E-B  6/9/04  1:49 PM  Page 12
+
+
+===== PAGE 14 =====
+USER’S GUIDE — 13
+Construction Project Keys
+The following Construction Project Keys help you instantly figure
+quantities and costs of materials, so you can build like a pro!
+Block/Brick Keys (NOT AVAILABLE ON TRIG MODEL #4080) 
+The Blocks function helps you quickly estimate the quantity of blocks
+or bricks required for building walls, walkways or other areas. 
+ l Number of Blocks or Bricks — Calculates the total
+number of concrete blocks required to fill a given
+area. Uses a standard block/mortar area of 128
+square inches. This key can also be used for calcu -
+lating the number of “face” or “paver” bricks by stor -
+ing a brick size (see below). 
+§ 4 Store Block or Brick Size (Blk Area) — Used to
+store a size other than the default block size of 128
+square inches (e.g., 1 2 0 i i § 4
+stores a size of 120 square inches). This value is
+permanently stored until you change it or perform a
+Clear All ( x). To recall the stored setting, press
+¤ 4.
+Note: For Brick Estimates — You may also enter a brick size
+using § 4. For example, when building with standard “face”
+bricks, enter a brick size of 21 square inches ( 2 1 i i
+§ 4) or store a “paver” brick size of 32 square inches ( 3 2
+i i § 4; based on Modular U.S. brick size of 3-5/8 inch -
+es x 2-1/4 inches x 7-5/8 inches, including 3/8 inch mortar = 4
+inches x 2-5/8 inches x 8 inches).
+Circular/Arc Function Keys
+The circle key helps you quickly solve circular area, volume or arc
+problems.
+C Circle — Displays and calculates the following val -
+ues, given an entered circle diameter* or radius: 
+• diameter 
+• circle area
+• circumference
+*To enter a diameter (e.g., 10 feet), press 1 0 f C.
+4065UG-E-B  6/9/04  1:49 PM  Page 13
+
+
+===== PAGE 15 =====
+14 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+ a Radius — Enters or calculates the circle radius
+(e.g., 5 f  a).
+a Arc Length or Degree of Arc — A multi-function
+key that enters or calculates arc length or degree of
+arc, and further solves for additional circular/arc val -
+ues, including arched rake-walls (based on the
+stored on-center spacing), listed below. 
+If a circle diameter is entered into the C key and
+arc degree (or arc length) entered into the a key,
+further presses of a will display and calculate the
+following:
+Press
+Result
+1 Arc Length or Degree of Arc
+2 Chord Length
+3 Segment Area
+4 Pie Slice Area
+5 Segment Rise
+6 Stored On-Center Spacing
+7 Length of Arched Wall 1
+8 Length of Arched Wall 2
+9 Length of Arched Wall 3 (if applicable), etc.*
+*Note: The calculator will calculate arched rake-wall stud sizes
+with consecutive presses of the a key until it reaches the last
+stud.
+R Run (Chord Length) — Enters or calculates the
+chord length. Used in conjunction with an entered
+segment rise to solve for the radius of a circle or
+with an entered radius to solve for the segment rise.
+r
+Rise (Segment Rise) — Enters or calculates the
+segment rise. Used in conjunction with an entered
+chord length to solve for the radius of a circle or with
+an entered radius to solve for the chord length.
+4065UG-E-B  6/9/04  1:49 PM  Page 14
+
+
+===== PAGE 16 =====
+USER’S GUIDE — 15
+Column/Cone Key
+The Column and Cone functions help you quickly estimate volume
+and surface area of columns or cones.
+ C Column and Cone — With an entered diameter
+and rise, the first and second presses of C (follow-
+ing ) will calculate the total volume and surface
+area of a column; the third and fourth consecutive
+presses of C calculate the total volume and sur-
+face area of a cone.
+Compound Miter/Crown Moulding Keys
+The Construction Master Pro also calculates compound miter cut
+angle solutions for cutting and installing crown moulding on a wall.
+The Compound Miter function can also be used for finding angle
+cuts for many types of compound miter problems, such as siding,
+railing and trim.
+å
+Compound Miter — With an entered crown angle
+and wall corner angle*, consecutive presses of å
+will calculate the following:
+Press Result
+1 Miter Gauge (0° reference)
+2 Miter Gauge Angle (90° reference)
+3 Blade Tilt Angle
+4 Butt Blade Tilt Angle
+5 Redisplays Stored Crown Angle
+6 Redisplays Entered Wall Angle 
+*Note: Wall Angle entries of less than 25 into å will be assumed
+to be the number of sides; in this case, the calculator will calcu -
+late the unknown Wall Angle first, then proceed with the above
+angle calculations. 
+§ å Store Crown Angle — Stores a value other than
+the default crown angle of 45° (e.g., 3 8 § å
+stores 38° crown angle). This value is permanently
+stored until you change it or perform a Clear All
+( x). To recall the stored setting, press ¤ å.
+4065UG-E-B  6/9/04  1:49 PM  Page 15
+
+
+===== PAGE 17 =====
+16 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Drywall Keys (NOT AVAILABLE ON TRIG MODEL #4080)
+ h Drywall Sheets — Calculates the number of 4x8,
+4x9, and 4x12 sheets for an entered or calculated
+area.  
+Footing Keys (NOT AVAILABLE ON TRIG MODEL #4080)
+The Footing keys help you quickly estimate the volume of concrete
+required for concrete footings. 
+ W Footing — Calculates total quantity of concrete
+required for concrete footings based on an entered
+wall length and footing size. Size based on the
+default footing size of 1.8 square feet or 259.2
+square inches (industry standard).
+§ 6
+Store Footing Area — Used to store a value other
+than the default footing size of 1.8 square feet (e.g.,
+1 2 8 i i § 6 stores a footing size of
+128 square inches). This value is permanently stored
+until you change it or perform a Clear All ( x).
+To recall the stored setting, press ¤ 6.
+Polygon Key
+The Polygon function is handy for calculating multi-sided shapes
+(such as found in concrete applications).
+ R Polygon — With an entered radius and number of
+sides of a polygon-shaped figure,  R, calcu-
+lates the following:
+Press Result
+1 Full Angle
+2 Bi-Sect, or Half Angle
+3 Side Length
+4 Perimeter of Polygon
+5 Area of Polygon
+6 Redisplays Entered Radius
+7 Redisplays Entered Number of Sides
+4065UG-E-B  6/9/04  1:49 PM  Page 16
+
+
+===== PAGE 18 =====
+USER’S GUIDE — 17
+Right  Triangle/Roof Framing Keys
+Right Triangle:
+Using the Pythagorean theorem, the top row of keys on your
+Construction Master Pro will calculate instant solutions in dimensional
+format to right triangle problems (particularly, roof framing).
+The Construction Master Pro’s keys are labeled in easy to remember
+roofing terms. The right triangle is calculated simply by entering two
+of four variables: rise, run, diagonal, or pitch.
+p Enters or calculates the pitch (slope) of a roof (or
+right triangle). Pitch is the amount of “rise” over 12
+inches (or 1 meter) of “run.” Pitch may be entered as:
+• a dimension:  9 i p
+• an angle or degrees:  3 0 p
+• a percentage (percent grade):  7 5 % p
+• a pitch ratio:  0 ¥ 7 5  p
+Once a pitch in one of the above formats is entered,
+consecutive presses of p will convert to the
+remaining pitch formats listed above (e.g., pitch in
+inches will convert to pitch degrees, percent grade
+and pitch ratio/slope).
+Note: An entered (vs. calculated) pitch is a permanent entry. This
+means that it will remain stored even after you turn the calculator
+off. To change the pitch, simply enter a new pitch value.
+In contrast, a calculated pitch value is not permanently stored.
+This means that the calculator will return to the pitch value you
+last entered when you clear the calculator or press o twice.
+4065UG-E-B  6/9/04  1:49 PM  Page 17
+
+
+===== PAGE 19 =====
+18 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+ p Pitch Ratio or Slope — Enters the pitch as a ratio
+or slope of a roof (or right triangle). For example,
+0.58 slope is entered as ¥ 5 8  p. 
+r Enters or calculates the rise or vertical leg (height)
+of a right triangle. 
+R Enters or calculates the run or horizontal leg (base)
+of a right triangle.
+d Diagonal — Enters or calculates the diagonal leg
+(hypotenuse) of a right triangle. Typical applications
+are “squaring up” slabs or finding common rafter
+lengths. Additional presses of the d key will also
+display plumb and level cut angles in degrees.
+Note: The Common rafter calculation is the “point-to-point” length
+and does not include the overhang or ridge adjustment.
+Hip/Valley and Jack Rafter Keys
+The Construction Master Pro uses the rise, run, diagonal, pitch and
+on-center spacing values to calculate regular and irregular hip/valley
+and jack rafter lengths (excluding wood thickness, etc.).
+4065UG-E-B  6/9/04  1:49 PM  Page 18
+
+
+===== PAGE 20 =====
+USER’S GUIDE — 19
+When calculating regular and irregular jack rafter lengths, you will
+see the letters “JK” (regular pitch side) or “IJ” (irregular pitch side)
+and the corresponding jack number to the left of your calculator dis -
+play. This will help you keep track of the descending sizes and which
+side the corresponding rafter is based on.
+H
+Hip/Valley Rafter — Finds the regular or irregular
+hip/valley rafter length. 
+• Regular Hip/Valley Length: After right
+triangle/rafter values are entered or calculated
+(e.g., pitch, rise, run), pressing H will calcu-
+late the length of the 
+regular hip/valley rafter.
+• Irregular Hip/Valley Length: If an irregular
+pitch is entered (see next definition), pressing
+H will calculate the 
+irregular hip/valley rafter
+length. (An irregular or “non-standard” roof has
+two different pitches/slopes.)
+• Subsequent presses of the H key will also
+display plumb, level, and cheek cut angle values
+in degrees.
+ H
+Irregular Pitch — Enters the irregular or secondary
+pitch value used to calculate lengths of the irregular
+hip/valley and jack rafters.
+You may enter the irregular pitch as: 
+• a dimension:  9 i  H
+• an angle:  3 0  H
+• a percentage:  7 5 %  H
+Note: An entered irregular pitch can be recalled by pressing ¤
+ H.
+j Jack Rafters — Finds the descending Jack rafter
+sizes for regular pitched roofs, based on the stored
+on-center spacing and previously entered or calcu -
+lated right triangle/rafter values (e.g., pitch, rise, run).
+Repeated presses of the j key will display all the rafter sizes
+(on the regular pitch side) as well as display the plumb, level,
+and cheek cut angle values. Additional presses will display the
+rafter sizes on the irregular pitch side (if an irregular pitch was
+entered; see above), or repeat the previously displayed values.
+(Cont’d)
+4065UG-E-B  6/9/04  1:49 PM  Page 19
+
+
+===== PAGE 21 =====
+20 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+Note: You may set your calculator to display the jack rafter
+lengths in either ascending or descending order (see Preference
+Settings on page 89).
+Note: You may program your calculator to “mate up” with the jack
+rafters, rather than using the entered or default on-center spacing
+for both sides (see Preference Settings on page 89).
+§ 5 Store On-Center (o.c.) Spacing — Used to store a
+value other than the default of 16 inches on-center
+(e.g., 1 8 i § 5 stores an 18-inch on-center)
+for Jack Rafter calculations. Press ¤ 5 to review
+the stored value.
+ j Irregular Side Jacks — Operates same as j,
+but displays the rafter values from the irregular
+pitched side first.
+Rake-Wall Function
+ r Rake-Wall — This function finds the stud sizes in a
+rake-wall based on calculated or entered values for
+pitch, rise and/or run. Repeated presses of r will
+display the various sizes. The sizes can be displayed
+in either descending (from longest to shortest) or 
+ascending (from shortest to the longest) order,
+depending upon your preference setting (see
+Preference Settings on page 89). If a dimensional
+value is entered before pressing  r, this value
+will be taken as the rake-wall base size and auto -
+matically added to the various rafter lengths.
+§ 5
+Store On-Center (o.c.) Spacing — Used to store a
+value other than the default of 16 inches on-center
+(e.g., 1 8 i § 5 stores an 18-inch on-center)
+for rake-wall stud calculations. Press ¤ 5 to
+review the stored value.
+4065UG-E-B  6/9/04  1:49 PM  Page 20
+
+
+===== PAGE 22 =====
+USER’S GUIDE — 21
+Roof Materials/Covering Keys
+The Construction Master Pro's Roof function provides a quick calcu-
+lation of roof area, number of squares and bundles, and number of
+4x8 sheets required for roof coverage.
+ d
+Roof — Given an entered pitch (or rise and run)
+and plan area (or Length and W idth), calculates 
+the following: 
+Press Result
+1 Roof Area
+2 Number of Roof Squares
+3 Number of Roof Bundles
+4 Roof Bundle Size* 
+5 Number of 4x8 Sheets
+6 Stored Pitch
+7 Entered or Calculated Plan Area
+*Note: Roof bundle size is 33.33 square feet.
+Stair Key
+The Construction Master Pro easily calculates stair layout solutions.
+With entered values for floor-to-floor rise and/or run, it will calculate
+riser, tread, stringer, and incline angle values simply by pressing the
+s key.
+s A multi-function key that uses a stored riser height,
+stored tread width, stored headroom height and floor
+thickness, and entered rise and run values to calcu -
+late and display the following:
+Press
+Result
+1 Actual Riser Height (R-HT)
+2 Number of Risers (RSRS)
+3 Riser Overage/Underage (R+/-)
+4 Tread Width (T-WD)
+5 Number of Treads (TRDS)
+6 Tread Overage/Underage (T+/-)
+7 Stairwell Opening (OPEN)
+8 Stringer Length (STRG)
+9 Incline Angle* (INCL)
+10 Run of Treads (RUN)
+11 Floor-to-Floor Rise (RISE)
+(Cont’d)
+4065UG-E-B  6/9/04  1:49 PM  Page 21
+
+
+===== PAGE 23 =====
+22 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+Press Result
+12 Stored (Desired) Riser Height (R-HTSTORED)
+13 Stored (Desired) Tread Width (T-WD STORED)
+14 Stored Headroom (HDRM STORED)
+15 Stored Floor Thickness (FLOR STORED)
+Note: Default values are 7-1/2 inches for Desired Riser Height
+and 10 inches for Desired Tread Width, 10 inches for Floor
+Thickness, and 6 feet 8 inches for Headroom Height.
+Note: It is not possible for the calculator to include the nose/over -
+hang measurement. Thus, you need to adjust for this measure -
+ment per local codes.
+*Note: If the inclination angle exceeds the stored riser height and
+tread width ratio by 10%, the yield symbol will appear , indicating
+a steep incline.
+§ 7 Store Desired Riser Height — Stores a value other
+than the default desired stair riser height of 7-1/2
+inches (e.g., 8 i § 7 stores an 8-inch desired
+stair riser height). To recall the stored setting, press
+¤ 7.
+§ 8 Store Floor Thickness/Height — Stores a value
+other than the default desired floor thickness of 10
+inches (e.g., 8 i § 8 stores an 8-inch desired
+floor thickness). To recall the stored setting, press
+¤ 8. This is used, along with stored headroom
+height, for calculating the length of the stairwell
+opening.
+§ 9
+Store Desired Tread Width — Stores a value other
+than the default desired stair tread width of 10 inches
+(e.g., 1 2 i § 9 stores a 12-inch desired
+stair tread width). To recall the stored setting, press
+¤ 9.
+ § § Store Headroom Height — Stores the desired
+§ § headroom height for calculation of the stairwell
+opening. Default is 6 feet 8 inches. Use the + key 
+to increase and the — key to decrease the stored
+headroom height. See Preference Settings instruc-
+tions on page 89.
+4065UG-E-B  6/9/04  1:49 PM  Page 22
+
+
+===== PAGE 24 =====
+USER’S GUIDE — 23
+ s Riser Limited — Used for situations when the riser
+height is limited by local code. When you press 
+s, the calculator will recalculate stair values so
+that the actual riser height will not exceed your
+stored desired riser height (e.g., it will never exceed
+the stored desired riser height of 7-1/2 inches, if 
+7-1/2 inches is the value stored using § 7). To
+compensate for this limitation, the calculator will add
+one to the number of risers.
+Studs
+The Construction Master Pro also calculates the number of studs
+required for a wall using an entered length and stored on-center
+spacing value.
+ 5
+Studs — Calculates the number of studs for an
+entered or displayed linear value. Based on the
+stored on-center spacing (16 inches is the default). 
+Trigonometric Keys (TRIG #4080 AND DESKTOP #44080 MODELS ONLY) 
+Tangent Ø = Opposite
+Adjacent 
+Sine Ø = Opposite
+Hypotenuse 
+Cosine Ø = Adjacent
+Hypotenuse
+4065UG-E-B  6/9/04  1:49 PM  Page 23
+
+
+===== PAGE 25 =====
+24 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+The Trig model (#4080) and Desktop (#44080) calculators have
+standard trigonometric keys, in addition to right triangle/rafter keys
+(e.g., rise, run, diagonal), for advanced right triangle mathematics.
+The sine, cosine and tangent of an angle are defined in relation to
+the sides of a right triangle.
+Using the  key with the trigonometric function displays the
+inverse (arcsine, arccosine, and arctangent). These are used to find
+the angle for the sine, cosine, or tangent value entered.
+S
+Sine Function — Calculates the sine of an entered
+degree or non-dimensioned* value.
+ S Arcsine (sin -1) — Calculates the angle for the
+entered or calculated sine value.
+ Cosine Function — Calculates the cosine of a
+degree or non-dimensioned* value.
+  Arccosine (cos -1) — Calculates the angle for the
+entered or calculated cosine value.
+t Tangent Function — Calculates the tangent of a
+degree or non-dimensioned* value.
+ t Arctangent (tan -1) — Calculates the angle for the
+entered or calculated tangent value.
+*Note: Cannot use on dimensioned values.
+4065UG-E-B  6/9/04  1:49 PM  Page 24
+
+
+===== PAGE 26 =====
+USER’S GUIDE — 25
+ENTERING DIMENSIONS
+Entering Linear Dimensions
+When entering feet-inch-fraction values, enter dimensions from
+largest to smallest — e.g., feet before inches, and inches before
+fractions. Enter fractions by entering the numerator (top), pressing 
+/ (fraction bar key), and then the denominator (bottom).
+Note: If a denominator is not entered, the fractional setting value is used.
+Examples of Entering Linear Dimensions:
+DIMENSION KEYSTROKES
+Clear calculator o
+5 Feet 1-1/2 Inch 5 f 1 i 1 / 2
+Clear calculator o
+5 Yards 5 y
+Clear calculator o
+17.5 Meters 1 7 ¥ 5 m
+Entering Square/Cubic Dimensions
+The Construction Master Pro lets you easily enter square and cubic
+values. Simply press a dimensional unit key two times to label a
+number as a square value, or three times to label a cubic value.
+Note: If you pass the desired dimensional format, keep on pressing the dimensional
+unit key until the desired result is displayed again.
+Enter square and cubic dimensions in the following order:
+(1) Enter numerical value (e.g., 1 0 0).
+(2) Press desired unit key (e.g., f) to label value as “linear.”
+KEYSTROKE DISPLAY
+o o 0.
+1 0 0 f 100 FEET
+(3) Second press of unit key (e.g., f f) labels value as “square.”
+KEYSTROKE DISPLAY
+o o 0.
+1 0 0 f f 100 SQ FEET
+(4) Third press of unit key (e.g., f f f) labels value as “cubic.”
+KEYSTROKE DISPLAY
+o o 0.
+1 0 0 f f f 100 CU FEET
+Note: Feet-Inches format cannot be used to enter square or cubic values.
+4065UG-E-B  6/9/04  1:49 PM  Page 25
+
+
+===== PAGE 27 =====
+26 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Examples of Entering Square and Cubic Dimensions:
+YARDS
+y y — Square Yards
+(e.g., 5 y y will display 5. SQ YD).
+y y y — Cubic Yards
+(e.g., 5 y y y will display 5. CU YD).
+FEET
+f f — Square Feet
+(e.g., 5 f f will display 5. SQ FEET).
+f f f — Cubic Feet
+(e.g., 5 f f f will display 5. CU FEET).
+INCHES
+i i — Square Inches
+(e.g., 5 i i will display 5. SQ INCH).
+i i i — Cubic Inches
+(e.g., 5 i i i will display 5. CU INCH).
+METERS
+m m — Square Meters
+(e.g., 5 m m will display 5. SQ M).
+m m m — Cubic Meters
+(e.g., 5 m m m will display 5. CU M).
+CENTIMETERS
+ 7 7 — Square Centimeters
+(e.g., 5  7 7 will display 5. SQ CM).
+ 7 7 7 — Cubic Centimeters
+(e.g., 5  7 7 7 will display 5. CU CM).
+MILLIMETERS
+ 9 9 — Square Millimeters
+(e.g., 5  9 9 will display 5. SQ MM).
+ 9 9 9— Cubic Millimeters
+(e.g., 5  9 9 9 will display 5. CU MM).
+4065UG-E-B  6/9/04  1:49 PM  Page 26
+
+
+===== PAGE 28 =====
+USER’S GUIDE — 27
+SETTING FRACTIONAL RESOLUTION
+The Construction Master Pro is set to display fractional answers in
+16ths of an inch. All examples in this User ’s Guide are based on
+1/16”. However, you may select the fractional resolution to be dis -
+played in other formats (e.g., 1/64”, 1/32”, etc.). The two methods of
+changing fractional resolution are shown below.
+Setting Fractional Resolution 
+— Using the Preference Setting Mode
+KEYSTROKE DISPLAY
+1. Access Preference Settings:
+ § FRAC  0-1/16 INCH*
+2. Access Next Fraction Subsetting:
++ FRAC  0-1/32 INCH
++ FRAC  0-1/64 INCH
++ FRAC  0-1/2 INCH
++ FRAC  0-1/4 INCH
++ FRAC  0-1/8 INCH
++ (returns to 16ths) FRAC  0-1/16 INCH
+3. To Permanently Set the Fractional Resolution You Have Selected
+Above, press o (or any key) to set the displayed Fractional
+Resolution and Exit Preference Settings.
+o 0.
+4. To Recall Your Selected Fractional Resolution:
+¤ / STD  0-1/16 INCH
+* 1/16” is the default setting. The display may differ from the example depending on
+what the resolution is currently set to.
+4065UG-E-B  6/9/04  1:49 PM  Page 27
+
+
+===== PAGE 29 =====
+28 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Setting Fractional Resolution — Using 
+KEYSTROKE DISPLAY
+1. Clear calculator:
+o o 0.00
+2. Set calculator to 1/2:
+ 2 FRAC  0-1/2 INCH
+3. Set calculator to 1/32:
+ 3 FRAC  0-1/32 INCH
+4. Set calculator to 1/4:
+ 4 FRAC  0-1/4 INCH
+5. Set calculator to 1/64:
+ 6 FRAC  0-1/ 64 INCH
+6. Set calculator to 1/8:
+ 8 FRAC  0-1/8 INCH
+7. Return calculator to 1/16:
+ 1 FRAC  0-1/16 INCH
+Note: Display will flash the new fractional setting for one second. 
+Converting a Fractional Value to a Different Resolution
+Add 44/64th to 1/64th of an inch and then convert the answer to
+other fractional resolutions:
+KEYSTROKE DISPLAY
+o o 0.
+4 4 / 6 4 0-44/64 INCH
++ 1 / 6 4 = 0-45/64
+ 1 (1/16) 0-11/16
+ 2 (1/2) 0-1/2
+ 3 (1/32) 0-23/32
+ 4 (1/4) 0-3/4
+ 6 (1/64) 0-45/64
+ 8 (1/8) 0-3/4
+o o* 0.
+*Changing the Fractional Resolution on a displayed value does not alter your
+Fractional Resolution Setting.
+4065UG-E-B  6/9/04  1:49 PM  Page 28
+
+
+===== PAGE 30 =====
+USER’S GUIDE — 29
+Setting Fixed/Constant Fractional Resolution 
+You can also program your calculator so that the displayed fraction
+will always show in the fractional resolution you have set (following
+the above instructions). That is, instead of solving for the closest
+fraction, it will always display the chosen fractional resolution. For
+example, if you have chosen 1/64ths via  6, 1/2 will be displayed
+as 32/64.
+If you do not use this feature, Standard Fractional Resolution will be
+displayed. In other words, in the above example, 1/2 will be displayed
+as 1/2.
+To change your calculator to Fixed (or Constant) Fractional Resolution:
+1) Turn off your calculator; 2) hold down the fraction bar /, then; 3)
+Turn your calculator back on.
+To display your setting, press ¤ / and it will read “CNST” and
+whatever fractional resolution you’ve selected (e.g., CNST 0-1/64 
+INCH).
+To return your calculator to the default 1/16” Standard Fractional
+Resolution, repeat the above steps, then press  1. Press ¤
+/ to display your setting. In this case, it will read “ STD  0 1/16 INCH.”
+4065UG-E-B  6/9/04  1:49 PM  Page 29
+
+
+===== PAGE 31 =====
+30 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+CONVERSIONS (LINEAR, AREA, VOLUME)
+Linear Conversions
+Convert 14 feet to other dimensions:
+KEYSTROKE DISPLAY
+o o 0.
+1 4 f 14 FEET
+ y 4.666667 YD
+f 14 FEET 0 INCH
+i 168 INCH
+m 4.267 M
+ 7 (cm) 426.720 CM
+ 9 (mm) 4267.200 MM
+Note: When performing multiple conversions, you only have to press the  key
+once except when accessing secondary functions, such as  7 for centimeters.
+Converting Feet-Inch-Fractions to Decimal Feet
+Convert 15 feet 9-1/2 inches to decimal feet. Then convert back to
+feet-inch-fractions.
+KEYSTROKE DISPLAY
+o o 0.
+1 5 f 9 i 1 / 2 15 FEET 9-1/2 INCH
+ f 15.79167 FEET
+f* 15 FEET 9-1/2 INCH
+Converting Decimal Feet to Feet-Inch-Fractions
+Convert 17.32 feet to feet-inch-fractions. 
+KEYSTROKE DISPLAY
+o o 0.
+1 7 ¥ 3 2 f 17.32 FEET
+ f 17 FEET 3-13/16 INCH
+f* 17.32 FEET
+*Repeated presses of f or i will toggle between Feet-Inch-Fractions and
+Decimal Feet or Inches.
+4065UG-E-B  6/9/04  1:49 PM  Page 30
+
+
+===== PAGE 32 =====
+USER’S GUIDE — 31
+Converting Fractional Inches to Decimal Inches
+Convert 8-1/8 inches to decimal inches. Then convert to decimal feet.
+KEYSTROKE DISPLAY
+o o 0.
+8 i 1 / 8 8-1/8 INCH
+ i 8.125 INCH
+f 0.677083 FEET
+i* 8.125 INCH
+Converting Decimal Inches to Fractional Inches
+Convert 9.0625 inches to fractional inches. Then convert to decimal
+feet. 
+KEYSTROKE DISPLAY
+o o 0.
+9 ¥ 0 6 2 5 i 9.0625 INCH
+ i 9-1/16 INCH
+f f* 0.755208 FEET
+*Repeated presses of f or i will toggle between Feet-Inch-Fractions and
+Decimal Feet or Inches.
+Square Conversions
+Convert 14 square feet to other square dimensions:
+KEYSTROKE DISPLAY
+o o 0.
+1 4 f f 14. SQ FEET
+ i 2016. SQ INCH
+y 1.555556 SQ YD
+m 1.300643 SQ M
+ 7 (cm) 13006.43 SQ CM
+Cubic Conversions
+Convert 14 cubic feet to other cubic dimensions:
+KEYSTROKE DISPLAY
+o o 0.
+1 4 f f f 14. CU FEET
+ i 24192. CU INCH
+y 0.518519 CU YD
+m 0.396436 CU M
+4065UG-E-B  6/9/04  1:49 PM  Page 31
+
+
+===== PAGE 33 =====
+32 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+PERFORMING BASIC MATH WITH DIMENSIONS
+Adding Dimensions
+KEYSTROKE DISPLAY
+Add 11 inches to 2 feet 1 inch:
+1 1 i + 2 f 1 i = 3 FEET 0 INCH
+Add 5 feet 7-1/2 inches to 18 feet 8 inches:
+5 f 7 i 1 / 2 + 1 8 f 8 i =
+24 FEET 3-1/2 INCH
+Subtracting Dimensions
+KEYSTROKE DISPLAY
+Subtract 3 feet from 11 feet 7-1/2 inches:
+1 1 f 7 i 1 / 2 — 3 f = 8 FEET 7-1/2 INCH
+Subtract 32 inches from 81 inches:
+8 1 i — 3 2 i = 49 INCH
+Multiplying Dimensions
+KEYSTROKE DISPLAY
+Multiply 5 feet 3 inches by 11 feet 6-1/2 inches:
+5 f 3 i x 1 1 f 6 i 1 / 2 =
+60.59375 SQ FEET
+Multiply 2 feet 7 inches by 10:
+2 f 7 i x 1 0 = 25 FEET 10 INCH
+Dividing Dimensions
+KEYSTROKE DISPLAY
+Divide 30 feet 4 inches by 7 inches:
+3 0 f 4 i Ö 7 i = 52.
+Divide 20 feet 3 inches by 9:
+2 0 f 3 i Ö 9 = 2 FEET 3 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 32
+
+
+===== PAGE 34 =====
+USER’S GUIDE — 33
+Percentage Calculations
+The percent % key is used to find a given percent of a number or to
+perform add-on, discount or division percentage calculations. You
+may also perform percentage calculations with dimensional units
+(feet, inch, etc.), in any format (linear, square or cubic).
+Examples:
+KEYSTROKE DISPLAY
+Find 18% of 500 feet:
+5 0 0 f x 1 8 % 90 FEET 0 INCH
+Add 10% to 137 square feet:
+1 3 7 f f + 1 0 % 150.7 SQ FEET
+Subtract 20% from 552 feet 6 inches:
+5 5 2 f 6 i — 2 0 % 442 FEET 0 INCH
+Divide 350 cubic yards by 80%:
+3 5 0 y y y Ö 8 0 % 437.5 CU YD
+MEMORY OPERATION
+Your calculator has two types of Memory operations: 
+1) a standard, cumulative, semi-permanent memory µ; and 
+2) three storage registers [M1], [M2], and [M3], used to perma-
+nently store single, non-cumulative values.
+Memory commands are listed below.
+FUNCTION KEYSTROKES
+µ:
+Add value to M+ µ
+Subtract value from M+  µ
+Clear M+  ¤
+Display and Clear M+ ¤ ¤
+Recall stored value ¤ µ
+M1/M2/M3:
+Store single value in M1 § 1
+Store single value in M2 § 2
+Store single value in M3 § 3
+Clear register M1 0 § 1
+(Cont’d)
+4065UG-E-B  6/9/04  1:49 PM  Page 33
+
+
+===== PAGE 35 =====
+34 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+FUNCTION KEYSTROKES
+Clear register M2 0 § 2
+Clear register M3 0 § 3
+Recall stored value in M1 ¤ 1
+Recall stored value in M2 ¤ 2
+Recall stored value in M3 ¤ 3
+Basic Cumulative Memory (M+)
+Example:
+Store 100 into M+, add 200, and then subtract 50. Clear the
+Memory:
+KEYSTROKE DISPLAY
+1 0 0 µ M+ 100.
+2 0 0 µ M+ 200.
+5 0  µ M- 50.
+¤ ¤ M+ 250.
+Note: To Clear Memory (M+):
+- press ¤ ¤;
+-  ¤; or
+- turn off the calculator.
+Permanent Storage Registers (M1 and M2)
+Examples:
+Store a rate of $175 into M1 and recall the value:
+KEYSTROKE DISPLAY
+1 7 5 § 1 M-1  175.
+O o 0.
+¤ 1 M-1 STORED 175.
+Store 1,575 square yards into M2 and recall the value:
+KEYSTROKE DISPLAY
+1 5 7 5 y y § 2 M-2  1575. SQ YD
+O o 0.
+¤ 2 M-2 STORED 1575. SQ YD
+Note: To Clear M1-M3: Values stored in M1-M3 will remain permanently stored, even
+after you turn the calculator off. You will never need to clear the storage registers;
+simply enter a new value. However, if you wish to clear M1-M3 to “zero”:
+- Enter 0 § 1, 0 § 2, or 0 § 3 OR  x to clear all registers
+4065UG-E-B  6/9/04  1:49 PM  Page 34
+
+
+===== PAGE 36 =====
+USER’S GUIDE — 35
+PAPERLESS TAPE OPERATION
+Note: Not available on DT (Desktop) Printer — Model #44065.
+The Paperless Tape allows you to display and review the last twenty
+entries of a regular math or basic dimensional math string calculation.
+To access this mode after entering values, press ¤ =. Then,
+press + or — to scroll forward or backward through the entries. 
+While in the Paperless Tape mode, the display will show the previously
+entered or calculated value, along with the sequential number of
+entry (e.g., 01, 02, 03, etc.) and the math operator (+, –, x, ÷, %) in
+the upper left corner of the display. 
+Note: If = has been used in the middle of a string, SUB (for Subtotal) will display in
+the upper left. If = was the last operation performed, the display will show TTL (Total)
+as the last entry.
+To exit this mode, press = to exit and maintain the last entry on the
+display. When exiting, the last entry (or TTL) will be displayed, allow-
+ing you to continue using the last tape value for another operation, if
+desired.
+Note: The Paperless Tape is cleared when:
+- o is pressed twice;
+- upon a new calculation (new equation string is started); or
+- when the calculator is shut off.
+Example:
+KEYSTROKE DISPLAY
+1. Enter a string of numbers:
+4 f + 4 FEET 0 INCH
+5 f + 9 FEET 0 INCH
+6 f + 15 FEET 0 INCH
+7 f = 22 FEET 0 INCH
+2. Access the tape function:
+¤ = TTL=  22 FEET 0 INCH
+3. Scroll from first value to total:
++ 01  4 FEET 0 INCH
++ 02+  5 FEET 0 INCH
++ 03+  6 FEET 0 INCH
++ 04+  7 FEET 0 INCH
++ TTL =  22 FEET 0 INCH
+(Cont’d)
+4065UG-E-B  6/9/04  1:49 PM  Page 35
+
+
+===== PAGE 37 =====
+36 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+KEYSTROKE DISPLAY
+4. Scroll last two values:
+— 04+  7 FEET 0 INCH
+— 03+  6 FEET 0 INCH
+5. Exit tape function and continue:
+= TTL=  22 FEET 0 INCH
++ 22 FEET 0 INCH
+2 f = 24 FEET 0 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 36
+
+
+===== PAGE 38 =====
+USER’S GUIDE — 37
+The Construction Master Pro calculators have keys and functions
+labeled in common building terms. Just follow the examples and
+adapt the keystrokes to your specific application. 
+Please note that some of the following examples will not apply to
+your specific calculator model. For example, the 
+Trig Model (#4080)
+has trigonometry functions, but does not have l, W or h
+keys, or Block, Footing or Drywall functions. 
+It is good practice to clear your calculator (press o twice) before
+beginning each problem. And remember to use the Backspace B
+key to correct entries one entry at a time.
+LINEAR MEASUREMENT EXAMPLES 
+Adding Linear Measurements
+Find the total length of the following measurements: 5 feet 4-1/2
+inches, 8 inches and 3.5 yards.
+KEYSTROKE DISPLAY
+1. Add the measurements:
+o o 0.
+5 f 4 i 1 / 2 + 5 FEET 4-1/2 INCH
+8 i + 6 FEET 0-1/2 INCH
+3 ¥ 5 y 3.5 YD
+2. Find the total:
+= 16 FEET 6-1/2 INCH
+Cutting Boards
+How many 2 foot 2 inch pieces can be cut from one 10-foot board?
+KEYSTROKE DISPLAY
+Divide board length by smaller cuts:
+o o 0.
+1 0 f 10 FEET
+Ö 2 f 2 i = 4.615385
+(4 whole pieces)
+EXAMPLES — USING THE CONSTRUCTION
+MASTER PRO
+4065UG-E-B  6/9/04  1:49 PM  Page 37
+
+
+===== PAGE 39 =====
+38 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Window Measurement
+What is the total width of three window openings, if each measures
+2 feet 5 inches in width?
+KEYSTROKE DISPLAY
+1. Enter window width:
+o o 0.
+2 f 5 i 2 FEET 5 INCH
+2. Find total width:
+x 3 = 7 FEET 3 INCH
+3. Convert to decimal feet:
+f 7.25 FEET
+Calculating the Center Point
+You have a room that measures 13 feet 8 inches by 14 feet 10 inch -
+es. Find the center point to install a ceiling fan. 
+KEYSTROKE DISPLAY
+1. Divide length in half, to figure first center point:
+o o 0.
+1 3 f 8 i 13 FEET 8 INCH
+Ö 2 = 6 FEET 10 INCH
+2. Divide width in half, to figure second center point:
+1 4 f 1 0 i 14 FEET 10 INCH
+Ö 2 = 7 FEET 5 INCH
+Therefore, you should install the fan at the intersection of 6 feet 10
+inches length and 7 feet 5 inches width.
+4065UG-E-B  6/9/04  1:49 PM  Page 38
+
+
+===== PAGE 40 =====
+USER’S GUIDE — 39
+AREA CALCULATIONS
+Square Area (x2)
+What is the area of a square room with sides measuring 7 feet 4
+inches?
+KEYSTROKE DISPLAY
+o o 0.
+7 f 4 i  % (x2) 53.77778 SQ FEET
+Area of a Rectangular Room (LxW)
+What is the area of a room measuring 12 feet 6 inches by 15 feet 8
+inches?
+KEYSTROKE DISPLAY
+o o 0.
+1 2 f 6 i 12 FEET 6 INCH
+x 1 5 f 8 i = 195.8333 SQ FEET
+*Note: You can also find area using the l and W keys as seen in the next prob -
+lem. However, these keys are not available on the T rig Model (#4080).
+Using Multi-Function W Key to Find Area, Square-up and
+Perimeter (NOT AVAILABLE ON TRIG MODEL #4080)
+Find the area, square-up and perimeter of a space measuring 20
+feet 6 inches by 25 feet 6 inches:
+KEYSTROKE DISPLAY
+o o 0.
+2 0 f 6 i l LNTH  20 FEET 6 INCH
+2 5 f 6 i W WDTH  25 FEET 6 INCH
+W AREA  522.75 SQ FEET
+W SQUP  32 FEET 8-5/8 INCH
+W PER  92 FEET 0 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 39
+
+
+===== PAGE 41 =====
+40 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+VOLUME CALCULATIONS
+Rectangular Containers (LxWxH)
+What is the volume of a rectangular container that measures 3 feet
+by 1 foot 9-5/8 inches by 2 feet 4 inches? 
+KEYSTROKE DISPLAY
+1. Find volume in cubic feet:
+o o 0.
+3 f 3 FEET
+x 1 f 9 i 5 / 8 1 FEET 9-5/8 INCH
+x 2 f 4 i = 12.61458 CU FEET*
+2. Convert to cubic yards:
+ y 0.467207 CU YD
+*Note: If the “Volume Display Format” Preference Setting is set to cubic yards or
+cubic meters, your result will display accordingly. (See Preference Settings on page
+89.)
+Using the Multi-Function h Key to Find Volume, Area, Square-
+up, Perimeter, Wall Area and Room Area (NOT AVAILABLE ON TRIG
+MODEL #4080)
+Find the volume, area, square-up, perimeter, wall area and total sur-
+face/room area* if you have a length of 15 feet, width of 20 feet and
+height of 12 feet. 
+*Room Area includes 4 walls plus ceiling area.
+KEYSTROKE DISPLAY
+o o 0.
+1 5 f l LNTH  15 FEET 0 INCH
+2 0 f W WDTH  20 FEET 0 INCH
+1 2 f h HGHT  12 FEET 0 INCH
+h VOL  3600. CU FEET
+h AREA  300. SQ FEET
+h SQUP  25 FEET 0 INCH
+h PER  70 FEET 0 INCH
+h WALL  840. SQ FEET
+h ROOM  1140. SQ FEET
+4065UG-E-B  6/9/04  1:49 PM  Page 40
+
+
+===== PAGE 42 =====
+USER’S GUIDE — 41
+Volume of a Cylinder
+Calculate the volume of a cylinder with a diameter of 2 feet 4 inches
+and a height of 4 feet 6 inches:
+*Note: For a cylinder, use the Column function.
+KEYSTROKE DISPLAY
+1. Find circle area:
+o o 0.
+2 f 4 i 2 FEET 4 INCH
+C C AREA  4.276057 SQ FEET
+2. Enter height (as rise) and find volume:
+4 f 6 i r RISE  4 FEET 6 INCH
+ C COL 19.24226 CU FEET
+Volume of a Cone
+Calculate the volume of a cone with a diameter of 3 feet 6 inches
+and a height of 5 feet: 
+KEYSTROKE DISPLAY
+1. Find circle area:
+o o 0.
+3 f 6 i C DIA  3 FEET 6 INCH
+C AREA  9.621128 SQ FEET
+2. Enter height (as rise) and find volume:*
+5 f r RISE  5 FEET 0 INCH
+ C C C* CONE  16.03521 CU FEET
+*Note: To access Cone volume, you must press the C key three times after .
+4065UG-E-B  6/9/04  1:49 PM  Page 41
+
+
+===== PAGE 43 =====
+42 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+WEIGHT/VOLUME CONVERSIONS
+Weight Conversions
+Convert 2,500 pounds to kilograms, tons and metric tons:
+KEYSTROKE DISPLAY
+1. Enter pounds:
+o o 0.
+2 5 0 0  4 (lbs) 2500 LB
+2. Convert to kilograms, tons and metric tons:
+ 1 (kg) 1133.981 kG
+ 6 (tons) 1.25 Ton
+ 3 (met tons) 1.133981 MET Ton
+Weight per Volume/Volume Conversions
+Convert 5 cubic yards of concrete to pounds, tons and kilograms, if
+concrete weighs 1.5 tons per cubic yard.
+KEYSTROKE DISPLAY
+1. Store weight per volume:
+o o 0.
+1 ¥ 5 § 0* (wt/vol) 1.5 Ton Per CU YD
+2. Enter concrete volume:
+5 y y y 5. CU YD
+3. Convert to pounds, tons and kilograms:
+ 4 (lbs) 15000. LB
+ 6 (tons) 7.5 Ton
+ 1 (kg) 6803.886 kG
+*If calculator does not display Tons per Cubic Yard, keep pressing the 0 key until the
+desired format is displayed (e.g., Ton Per CU YD, LB Per CU YD, LB Per CU FEET,
+MET Ton Per CU M, or kG Per CU M). 
+4065UG-E-B  6/9/04  1:49 PM  Page 42
+
+
+===== PAGE 44 =====
+USER’S GUIDE — 43
+BLOCKS/BRICKS (NOT AVAILABLE ON TRIG MODEL #4080)
+Number of Blocks, Based on Calculated Area 
+You are building an “L” shaped retaining wall out of standard 8-inch
+x 16-inch size blocks (Note: this is the default block size of 128 sq.
+inches). One side of the retaining wall is 22 feet long, and the other
+side is 15 feet 8 inches long. The wall is to be 4 feet high. How many
+blocks are required to build this wall? Add a 5% waste allowance.
+KEYSTROKE DISPLAY
+1. Find total wall length:
+o o 0.
+¤  4* B--AR STORED 128. SQ INCH
+2 2 f + 1 5 f 8 i = 37 FEET 8 INCH
+l 37 FEET 8 INCH
+2. Enter wall height as width and find wall area:
+4 f W 4 FEET 0 INCH
+W 150.6667 SQ FEET
+3. Find the number of blocks and add 5% waste allowance:
+ l BLKS  169.5
++ 5 % 177.975
+(178 Blocks)
+*If ¤  l (Blocks) does not result in 128 square inches, then
+enter the following:
+1 2 8 i i § 4 B--AR STORED 128. SQ INCH
+-OR-
+8 i x 1 6 i = 128. SQ INCH
+§ 4 B--AR STORED 128. SQ INCH
+Number of Blocks, Based on Entered Area 
+Find the number of blocks required for an area measuring 300
+square feet. Add a 3% waste allowance.
+KEYSTROKE DISPLAY
+o o 0.
+3 0 0 f f  l BLKS  337.5
++ 3 % 347.625
+(348 Blocks)
+4065UG-E-B  6/9/04  1:49 PM  Page 43
+
+
+===== PAGE 45 =====
+44 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Number of Blocks, Based on Calculated Perimeter 
+Calculate the wall’s perimeter if the length is 30 feet and width 45
+feet. Then, find the number of blocks required. Add a 3% waste
+allowance.
+KEYSTROKE DISPLAY
+1. Find wall area:
+o o 0.
+3 0 f l LNTH  30 FEET 0 INCH
+4 5 f W WDTH  45 FEET 0 INCH
+2. Find the perimeter:
+W W W PER  150 FEET 0 INCH
+3. Find the number of blocks for the displayed perimeter , and add
+3% waste allowance:
+ l BLKS  112.50
++ 3 % 115.875
+(116 Blocks)
+Number of Blocks, Based on Length 
+Calculate the number of blocks required for a length of 20 feet. 
+KEYSTROKE DISPLAY
+1. Enter length then convert to number of blocks:
+o o 0.
+2 0 f  l BLKS  15.
+2. Display the stored on-center*:
+l BLK STORED 16 INCH
+*The calculator will calculate the number of blocks based on the entered length and
+stored on-center.
+4065UG-E-B  6/9/04  1:49 PM  Page 44
+
+
+===== PAGE 46 =====
+USER’S GUIDE — 45
+Number of “Face” Bricks 
+How many “face” bricks (21 square inch size) will you need to purchase
+to fill a 40 foot by 8 foot wall, if you include a 3% waste allowance?
+Use the Block function for calculating bricks.
+KEYSTROKE DISPLAY
+1. Enter and store brick size into Block Area storage key:
+o o 0.
+2 1 i i § 4 B--AR STORED 21. SQ INCH
+2. Find area of wall:
+4 0 f l LNTH  40 FEET 0 INCH
+8 f W W AREA  320. SQ FEET
+3. Find the number of bricks and add a 3% waste allowance:
+ l BLKS  2194.286
++ 3 % 2260.114
+(2261 Bricks)
+4. Reset Block Area to default value:
+1 2 8 i i § 4 B--AR STORED  128. SQ INCH
+Number of “Paver” Bricks 
+How many “paver” bricks (32 square inch size) will you need to fill a
+5-foot by 15-foot walkway?
+KEYSTROKE DISPLAY
+1. Enter brick size into Block Area storage key:
+o o 0.
+3 2 i i § 4 B--AR STORED 32. SQ INCH
+2. Find area of walkway:
+5 f l LNTH  5 FEET 0 INCH
+1 5 f W W AREA  75. SQ FEET
+3. Find the number of bricks:
+ l BLKS  337.5
+(338 Bricks)
+4. Reset Block Area to default value:
+1 2 8 i i § 4 B--AR STORED  128. SQ INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 45
+
+
+===== PAGE 47 =====
+46 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+BOARD FEET — LUMBER ESTIMATION
+The Construction Master Pro easily calculates board feet for lumber
+estimation problems. Simply enter the board’s cubic dimensions and
+press  8 to convert to board feet. Use  0 (Cost) to figure
+total lumber cost. 
+Note: Unit cost is entered in the standard per thousand board foot measure (Mbm)
+format.
+Total Board Feet — With Dollar Cost
+Find the total board feet for the following board sizes:
+If the boards cost $250 per Mbm., what is the total cost?
+KEYSTROKE DISPLAY
+1. Enter board sizes, convert to board feet and store in memory:
+o o 0.
+2 x 4 x 14  8 µ BDFT  9.333333 
+2 x 1 0 x 1 6  8 µ BDFT  26.66667 
+2 x 1 2 x 1 8  8 µ BDFT  36.
+2. Recall total board feet and calculate total cost:
+¤ ¤ BDFT  72.
+x 2 5 0  0 (Cost) $18.00
+Number of Board Feet Based on Entered Volume
+Find the number of board feet required for a volume of 150 cubic feet.
+KEYSTROKE DISPLAY
+Enter cubic feet and convert to board feet:
+o o 0.
+1 5 0 f f f 150. CU FEET
+ 8 BDFT  1800.
+M
+M
+M
+4065UG-E-B  6/9/04  1:49 PM  Page 46
+
+
+===== PAGE 48 =====
+USER’S GUIDE — 47
+CIRCLE AND ARC CALCULATIONS
+Circumference and Area of a Circle
+Find the area and circumference of a circle with a diameter of 1 1
+inches:
+KEYSTROKE DISPLAY
+o o 0.
+1 1 i C DIA  11 INCH
+C AREA  95.03318 SQ INCH
+C CIRC  34-9/16 INCH
+Arc Length — Degree and Diameter Known
+Find the arc length of an 85° portion of a circle with a 5-foot diameter:
+KEYSTROKE DISPLAY
+o o 0.
+5 f C DIA  5 FEET 0 INCH
+8 5 a ARC  85.00°
+a ARC  3 FEET 8-1/2 INCH
+Arc Length — Degree and Radius Known
+Find the arc length of a circle with a 24-inch radius and 77 ° of arc:
+KEYSTROKE DISPLAY
+o o 0.
+2 4 i  a RAD  24 INCH
+7 7 a ARC  77.00°
+a ARC  32-1/4 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 47
+
+
+===== PAGE 49 =====
+48 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Arc Calculations — Arc Length and Diameter Known
+Find the arc degree, chord length, segment rise, segment and pie
+slice area, and segment rise, given a 5-foot diameter and an arc
+length of 3 feet 3 inches:
+KEYSTROKE DISPLAY
+1. Enter circle diameter (Note: enter diameter into the C key):
+o o 0.
+5 f C DIA  5 FEET 0 INCH
+2. Enter arc length:
+3 f 3 i a ARC  3 FEET 3 INCH
+3. Find degree of arc:
+a ARC  74.48°
+4. Find chord length:
+a CORD  3 FEET 0-5/16 INCH
+5. Find segment area:
+a SEG  1.051381 SQ FEET
+6. Find pie slice area:
+a PIE  4.0625 SQ FEET
+7. Find segment rise:
+a RISE  0 FEET 6-1/8 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 48
+
+
+===== PAGE 50 =====
+USER’S GUIDE — 49
+Arched/Circular Rake-Walls — Chord Length and 
+Segment Rise Known
+You’re building a circular or arched rake wall. Given a chord length
+of 15 feet and a rise of 5 feet, find all arc values and lengths of the
+arched walls. The on-center spacing is 16 inches.KEYSTROKE DISPLAY
+1. Enter chord length and segment rise:
+o o 0.
+1 5 f R RUN  15 FEET 0 INCH
+5 f r RISE  5 FEET 0 INCH
+2. Calculate radius:
+ a RAD  8 FEET 1-1/2 INCH
+3. Find arc angle:
+a ARC  134.76º
+4. Find arc length:
+a ARC  19 FEET 1-5/16 INCH
+5. Display entered chord length:
+a CORD  15 FEET 0 INCH
+6. Find segment area:
+a SEG  54.19722 SQ FEET
+7. Find pie slice area:
+a PIE  77.63472 SQ FEET
+8. Display entered segment rise:
+a RISE  5 FEET 0 INCH
+9. Display stored on-center spacing for the wall:
+a OC  16 INCH*
+(Cont’d)
+4065UG-E-B  6/9/04  1:49 PM  Page 49
+
+
+===== PAGE 51 =====
+50 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+KEYSTROKE DISPLAY
+10. Find arched wall stud lengths:
+a AW1  4 FEET 10-11/16 INCH
+a AW2  4 FEET 6-5/8 INCH
+a AW3  3 FEET 11-3/8 INCH
+a AW4  3 FEET 0-1/16 INCH
+a AW5  1 FEET 6-1/4 INCH
+Note: Successive presses of a will toggle to the beginning. 
+Arched Windows
+Find the radius of an arched window with a chord length of 2 feet 7
+inches and a rise of 10-1/2 inches. Then, find the arc angle, arc
+length and segment area of the window.
+KEYSTROKE DISPLAY
+1. Enter chord length:
+o o 0.
+2 f 7 i R RUN  2 FEET 7 INCH
+2. Enter rise:
+1 0 i 1 / 2 r RISE  10-1/2 INCH
+3. Find radius:
+ a RAD  16-11/16 INCH
+4. Find arc angle:
+a ARC  136.46°
+5. Find arc length:
+a ARC  39-3/4 INCH
+6. Find segment area:
+a a SEG  235.7767 SQ INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 50
+
+
+===== PAGE 52 =====
+USER’S GUIDE — 51
+COMPOUND MITER 
+Compound Miter Cuts
+You’re installing crown moulding on the upper wall of your living
+room. If the wall corner angle is 60 ° and the crown angle is 38°, find
+the miter angle cut and blade tilt cuts.
+KEYSTROKE DISPLAY
+1. Enter and store crown angle:
+o o 0.
+3 8 § å CRWN STORED 38.00°
+2. Enter wall (corner) angle and calculate miter gauge from 0 °:
+6 0 å 0° 53.77°
+3. Calculate miter gauge angle from 90 °:
+å 90° 36.23°
+4. Calculate blade tilt angle:
+å MITR  32.22°
+5. Calculate butt blade tilt angle:
+å BUTT  45.92°
+6. Display stored crown angle:
+å CRWN STORED 38.00°
+7. Display entered wall angle:
+å WALL  60.00°
+4065UG-E-B  6/9/04  1:49 PM  Page 51
+
+
+===== PAGE 53 =====
+52 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+CONCRETE/PAVING
+Volume of Concrete for a Driveway
+Find the cubic yards of concrete required to pour a driveway with the
+following dimensions: 36 feet 3 inches long by 1 1 feet 6 inches wide
+by 4 inches deep. If concrete costs $55 per cubic yard, what is the
+total cost?
+KEYSTROKE DISPLAY
+1. Multiply the length times the width to find the area:
+o o 0.
+3 6 f 3 i 36 FEET 3 INCH
+x 1 1 f 6 i 11 FEET 6 INCH
+= 416.875 SQ FEET
+2. Multiply times the depth to find the volume:
+x 4 i = 5.146605 CU YD*
+3. Multiply times the per unit cost to find the total cost of concrete:
+x 5 5  0 (Cost) $283.06
+*Note: This answer will automatically display in cubic yards due to the multiplication
+of mixed units, unless the preference setting for volume display has been changed
+from the default Standard Setting. (See Preference Settings on page 89.)
+4065UG-E-B  6/9/04  1:49 PM  Page 52
+
+
+===== PAGE 54 =====
+USER’S GUIDE — 53
+Concrete Columns 
+Find the cubic yards of concrete required to pour five columns, if
+each has a diameter of 3 feet 4-1/2 inches and a height of 1 1 feet 6
+inches. If the concrete weighs 1.75 tons per cubic yard, what is the
+total weight in tons? In pounds? In kilograms?
+KEYSTROKE DISPLAY
+1. Enter weight in tons per cubic yards:
+1 ¥ 7 5 § 0 1.75 Ton Per CU YD
+2. Enter diameter and find circle area:
+o 0.
+3 f 4 i 1 / 2 3 FEET 4-1/2 INCH
+C C AREA 8.946176 SQ FEET
+3. Enter height and find total volume of concrete:
+1 1 f 6 i r RISE  11 FEET 6 INCH
+ C (Column/Cone) COL  102.881 CU FEET
+ y 3.810408 CU YD
+x 5 = 19.05204 CU YD
+4. Convert volume to weight in tons, pounds, and kilograms:
+ 6 (tons) 33.34107 Ton
+ 4 (lbs) 66682.14 LB
+ 1 (kg) 30246.51 kG
+4065UG-E-B  6/9/04  1:49 PM  Page 53
+
+
+===== PAGE 55 =====
+54 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Complex Concrete Volume
+You’re going to pour an odd-shaped patio 4-1/2 inches deep with the
+dimensions shown below. Calculate the total area (by dividing the
+drawing into three rectangles) and determine the total yards of con -
+crete required. Then, find the total cost, if concrete costs $45 per
+cubic yard.
+KEYSTROKE DISPLAY
+1. Find area of Part A and store into Memory:
+o o 0.
+2 4 f 6 i — 24 FEET 6 INCH
+7 f = 17 FEET 6 INCH
+x 2 7 f = 472.5 SQ FEET
+µ M+  472.5 SQ FEET
+2. Find area of Part B and store into Memory:
+7 f 7 FEET
+x 9 f = 63. SQ FEET
+µ M+  63. SQ FEET
+3. Find area of Part C and store into Memory:
+9 f 9 FEET
+x 9 f = 81. SQ FEET
+µ M+  81. SQ FEET
+(Cont’d)
+M
+M
+M
+M
+M
+M
+M
+4065UG-E-B  6/9/04  1:49 PM  Page 54
+
+
+===== PAGE 56 =====
+USER’S GUIDE — 55
+(Cont’d)
+KEYSTROKE DISPLAY
+4. Find total area and clear memory:
+¤ ¤ M+  616.5 SQ FEET
+5. Find total cubic yards:
+x 4 i 1 / 2 = 8.5625 CU YD
+6. Find total cost:
+x 4 5  0 (Cost) $385.31
+Polygon, Finding Angles Based on Entered Radius and 
+Number of Sides
+You’re going to pour a polygon-shaped patio. Find the polygon val -
+ues if the radius is 15 feet and the number of sides is 6.
+KEYSTROKE DISPLAY
+1. Enter radius and number of sides* to calculate the full angle:
+o o 0.
+1 5 f  a RAD  15 FEET 0 INCH
+6  R FULL  120.00*
+2. Then calculate the bi-sect angle, side length, perimeter , and 
+polygon area:
+R HALF  60.00*
+R SIDE  15 FEET 0 INCH
+R PER  90 FEET 0 INCH
+R AREA  584.5671 SQ FEET
+*Note: You must enter more than 3 sides for a multi-sided polygon figure or the calcu -
+lator will display “None.”
+4065UG-E-B  6/9/04  1:49 PM  Page 55
+
+
+===== PAGE 57 =====
+56 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Concrete Footings (NOT AVAILABLE ON TRIG MODEL #4080)
+Find the volume of concrete required for a 16 inch by 8 inch footing
+that measures 232 feet 6 inches in length. Then find the volume of
+five columns of the same size.
+KEYSTROKE DISPLAY
+1. Calculate and store footing area:
+o o 0.
+1 6 i x 8 i = § 6 STORED F-AR  128. SQ INCH
+2. Enter length and find footing volume:
+2 3 2 f 6 i  W FTG  7.654321 CU YD
+To find the volume of multiple footings of the same size, multiply
+times the total number of footings:
+3. Multiply by 5 footings to find total concrete volume:
+x 5 = 38.27161 CU YD
+4. Clear and return stored footing size to default:
+ x ALL CLEARED
+4065UG-E-B  6/9/04  1:49 PM  Page 56
+
+
+===== PAGE 58 =====
+USER’S GUIDE — 57
+Squaring-up a Foundation
+A concrete foundation measures 45 feet 6 inches by 23 feet 8 inch -
+es. Find the diagonal measurement (square-up) to ensure the form
+is perfectly square.
+KEYSTROKE DISPLAY
+1. Enter sides as rise/run:
+o o 0.
+2 3 f 8 i r RISE  23 FEET 8 INCH
+4 5 f 6 i R RUN  45 FEET 6 INCH
+2. Find the square-up (diagonal):
+d DIAG  51 FEET 3-7/16 INCH
+Alternative Method using l and W keys (NOT AVAILABLE ON
+TRIG MODEL #4080):
+1. Enter sides as length and width:
+o o 0.
+2 3 f 8 i l LNTH  23 FEET 8 INCH
+4 5 f 6 i W WDTH  45 FEET 6 INCH
+2. Find the square-up (diagonal):
+W W SQUP  51 FEET 3-7/16 INCH
+4065UG-E-B  6/9/04  1:49 PM  Page 57
+
+
+===== PAGE 59 =====
+58 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+DRYWALL (NOT AVAILABLE ON TRIG MODEL #4080)
+Number of Drywall Sheets for a Given Area
+Find the number of 4x8, 4x9 and 4x12 sheets to cover an area of
+150 square feet.
+KEYSTROKE DISPLAY
+1. Enter area:
+o o 0.
+1 5 0 f f 150. SQ FEET
+2. Find the number of 4x8 sheets, 4x9 sheets and 4x12 sheets
+required:
+ h 4X8  4.6875
+(5 - 4x8 Sheets)
+h 4X9  4.166667
+(5 - 4x9 Sheets)
+h 4X12  3.125
+(4 - 4x12 Sheets)
+h 150 SQ FEET
+Number of Drywall Sheets for a Given Length
+Find the number of 4x8, 4x9 and 4x12 sheets to cover a length of 40
+feet.
+KEYSTROKE DISPLAY
+1. Enter length:
+o o 0.
+4 0 f 40 FEET
+2. Find the number of 4x8 sheets, 4x9 sheets and 4x12 sheets
+required:
+ h 4X8  10.*
+h 4X9  10.
+h 4X12  10.
+*It is the same amount for all three of the sheet sizes because it is based on length
+and not area.
+Note: The order in which the different sheet size answers appear may differ from that
+of the guide. The order is based on the last displayed sheet size when previously cal -
+culated.
+4065UG-E-B  6/9/04  1:49 PM  Page 58
+
+
+===== PAGE 60 =====
+USER’S GUIDE — 59
+GRADE/SLOPE
+Back-Fill on a Slope — Percent of Grade Known
+You’ve built 55 linear feet of a 3-foot high retaining wall that is 3 feet
+from the base of a 65% grade. You need to pour back-fill within 12
+inches of the top of the wall (for a 2 foot depth). How many cubic
+yards of fill should you have delivered?
+KEYSTROKE DISPLAY
+1. Find volume for “A”:
+o o 0.
+5 5 f 55 FEET
+x 3 f 3 FEET
+x 2 f = µ M+  330. CU FEET
+2. Find run/diagonal of “B”:
+6 5 % p %GRD  65.
+2 f r RISE  2 FEET 0 INCH
+R RUN  3 FEET 0-15/16 INCH
+3. Find volume of triangle “B”:
+5 5 f 55 FEET
+x ¤ R RUN  3 FEET 0-15/16 INCH
+x 2 f = 338.4615 CU FEET
+Ö 2 = µ M+  169.2308 CU FEET
+4. Find total volume:
+¤ ¤ M+  499.2308 CU FEET
+ y 18.49003 CU YD
+M
+M
+M
+M
+M
+M
+M
+M
+4065UG-E-B  6/9/04  1:49 PM  Page 59
+
+
+===== PAGE 61 =====
+60 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+RIGHT TRIANGLE AND ROOF FRAMING EXAMPLES
+4065UG-E-B  6/9/04  1:49 PM  Page 60
+
+
+===== PAGE 62 =====
+USER’S GUIDE — 61
+Roof Framing Definitions
+Rise: The vertical distance measured from the wall’ s top plate to the
+top of the ridge.
+Span: The horizontal distance or full width between the outside
+edges of the wall’s top plates.
+Run: The horizontal distance between the outside edge of the wall’ s
+top plate and the center of the ridge; in most cases this is equivalent
+to half of the span.
+Pitch: Pitch and slope are synonymous in modern trade language.
+Pitch/slope of a roof is generally expressed in two types of measure -
+ment:
+1) Ratio of unit rise to unit run* — 7/12 or 7 inch
+2) Angle of rafters, in degrees — 30.26 °
+*Note: The unit rise is the number of inches of rise per foot (12 inches) of unit run.
+The unit run is expressed as one foot (12 inches).
+Plate: The top horizontal wall member that the ceiling joist and
+rafters sit on and fasten to.
+Ridge: The uppermost point of two roof planes. This rafter is the
+uppermost rafter that all Hip, Valley, Valley Jack and Common rafters
+are fastened to.
+Rafters: Rafters are inclined roof support members. Rafters include
+the following types:
+• Common Rafter: The Common connects the plate to the ridge
+and is perpendicular to the ridge.
+• Hip Rafter: The Hip rafter extends from the corner of two wall
+plates to the ridge or King rafter at angle other than 90 °. The Hip
+rafter is an external angle of two planes.
+• Valley Rafter: The Valley rafter extends from the corner of two
+wall plates to the ridge or King rafter at angle other than 90 °.
+The Valley rafter is an internal angle of two planes.
+• Jack Rafters: Rafters that connect the Hip or Valley rafter to the
+wall plate.
+• Irregular Hip/Valley Jacks: Jack rafters found in dual pitch or
+“irregular” roofs. 
+4065UG-E-B  6/9/04  1:50 PM  Page 61
+
+
+===== PAGE 63 =====
+62 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Regular Roof: A standard roof where the Hips and/or Valleys run at
+45° and have the same pitch/slope on both sides of the Hip and/or
+Valley.
+Irregular Roof: A non-standard roof where the Hips and/or Valleys
+bisect two different pitches/slopes, or have “skewed wings” or irregu -
+lar Jacks.
+Rake Wall: A gable end wall that follows the pitch/slope of a roof.
+Plumb: Vertical Cut. The angle of cut from the edge of the board
+that allows the rafter to mate on the vertical side of the ridge rafter .
+Level: Horizontal Cut. The angle of cut from the edge of the board
+that allows the rafter to seat flat on the wall plate. 
+Cheek: Side Cut(s). The angle to cut from the SIDE of the Jack
+rafter to match up against the Hip or V alley rafter, usually made by
+tilting the blade from 90°. Jack rafters typically have one Cheek cut.
+If there is only one pitch (no irregular pitch), the angle will be 45 °. If
+there are two pitches, each side will have a dif ferent Cheek cut for
+the Jack rafter and the angles will total 90 °.
+4065UG-E-B  6/9/04  1:50 PM  Page 62
+
+
+===== PAGE 64 =====
+USER’S GUIDE — 63
+Degree of Pitch 
+If the degree of pitch is 30.45 °, what is the percent grade, slope and
+pitch in inches?
+KEYSTROKE DISPLAY
+o o 0.
+3 0 ¥ 4 5 p PTCH  30.45°
+p %GRD  58.78702
+p SLP  0.58787
+p PTCH  7-1/16 INCH
+Note: To convert Pitch in Inches: Simply enter the pitch in inches first (e.g., 7 i p),
+then continuously press the p key to calculate the pitch conversions, as above.
+Percent Grade
+If the percent grade is 47.25%, what is the slope, pitch in inches,
+and degree of pitch?
+KEYSTROKE DISPLAY
+o o 0.
+4 7 ¥ 2 5 % * p %GRD  47.25
+p SLP  0.4725
+p PTCH  5-11/16 INCH
+p PTCH  25.29°
+*Note: For entering percent grade, you need to label the value with the percent key .
+Pitch Ratio or Slope 
+If the pitch ratio is 0.65, what is the pitch in inches, degree of pitch,
+and percent grade?
+KEYSTROKE DISPLAY
+o o 0.
+¥ 6 5 * p SLP  0.65
+p PTCH  7-13/16
+p PTCH  33.02°
+p %GRD  65.
+*Note: For entering pitch ratio, you must press the  key first.
+4065UG-E-B  6/9/04  1:50 PM  Page 63
+
+
+===== PAGE 65 =====
+64 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Common Rafter Length
+If a roof has a 7/12 pitch and a span of 14 feet 4 inches, what is the
+point-to-point length of the Common rafter (excluding the overhang
+or ridge adjustment)? What are the Plumb and Level cuts?
+Note: Run is half the Span.
+KEYSTROKE DISPLAY
+1. Find diagonal or point-to-point length of the Common rafter:
+o o 0.
+7 i p PTCH  7 INCH
+1 4 f 4 i Ö 2 = 7 FEET 2 INCH
+R RUN  7 FEET 2 INCH
+d DIAG  8 FEET 3-9/16 INCH
+2. Find Plumb and Level cuts:
+d PLMB  30.26°
+d LEVL  59.74°
+Note: The Common rafter calculation is the "point-to-point" length and does not
+include the overhang or ridge adjustment.
+Common Rafter Length — Pitch Unknown
+Find the common rafter length for a roof with a rise of 6 feet 1 1-1/2
+inches and a run of 14 feet 6 inches. Solve for the pitch in degrees
+and in inches.
+KEYSTROKE DISPLAY
+Find diagonal and pitch:
+o o 0.
+6 f 1 1 i 1 / 2 r RISE  6 FEET 11-1/2 INCH
+1 4 f 6 i R RUN  14 FEET 6 INCH
+d DIAG  16 FEET 1 INCH
+p PTCH  5-3/4 INCH
+p PTCH  25.64°
+4065UG-E-B  6/9/04  1:50 PM  Page 64
+
+
+===== PAGE 66 =====
+USER’S GUIDE — 65
+Angle and Diagonal (Hypotenuse) 
+Find the diagonal (hypotenuse) and degree of angle of a right triangle
+that is 9 feet high and 12 feet long.
+KEYSTROKE DISPLAY
+1. Enter rise and run:
+o o 0.
+9 f r RISE  9 FEET 0 INCH
+1 2 f R RUN  12 FEET 0 INCH
+2. Solve for diagonal/hypotenuse and pitch in inches and degree of
+angle:
+d DIAG  15 FEET 0 INCH
+p PTCH  9 INCH
+p PTCH  36.87°
+Rise
+Find the rise given a 7/12 pitch and a run of 1 1 feet 6 inches.
+KEYSTROKE DISPLAY
+o o 0.
+7 i p PTCH  7 INCH
+1 1 f 6 i R RUN  11 FEET 6 INCH
+r RISE  6 FEET 8-1/2 INCH
+Rise and Diagonal
+Find the rise and diagonal of a right triangle given a 30 ° pitch and a
+run of 20 feet 4 inches.
+KEYSTROKE DISPLAY
+o o 0.
+3 0 p PTCH  30.00°
+2 0 f 4 i R RUN  20 FEET 4 INCH
+r RISE  11 FEET 8-7/8 INCH
+d DIAG  23 FEET 5-3/4 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 65
+
+
+===== PAGE 67 =====
+66 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Sheathing Cut 
+You have framed an equal pitch roof and need to apply the roof
+sheathing. Find the distance from the corner of the sheathing so that
+you can finish the run at the Hip rafter and cut the material. The
+pitch is 6 inches and you are using 4-foot by 8-foot plywood, with the
+8-foot side along the plate.
+KEYSTROKE DISPLAY
+1. Enter pitch:
+o o 0.
+6 i p PTCH  6 INCH
+2. Enter width of plywood:
+4 f d DIAG  4 FEET 0 INCH
+3. Find length of sheathing:
+R RUN  3 FEET 6-15/16 INCH
+Regular Hip/Valley and Jack Rafters 
+You’re working with a 7/12 pitch, and half your total span is 8 feet 5
+inches: 
+(1) Find point-to-point length and cut angles for the common rafter;
+(2) Find the length and cut angles of the adjoining Hip (or Valley) and;
+(3) Find the regular jack rafter lengths and cut angles (jack rafters
+at 16 inches on-center spacing).
+KEYSTROKE DISPLAY
+1. Find Common rafter length and Plumb and Level cuts:
+o o 0.
+8 f 5 i R RUN  8 FEET 5 INCH
+7 i p PTCH  7 INCH
+d DIAG  9 FEET 8-15/16 INCH
+d PLMB  30.26°
+d LEVL  59.74°
+2. Find Hip/Valley rafter length and cut angles:
+H H/V  12 FEET 10-1/2 INCH
+H PLMB  22.42°
+H LEVL  67.58°
+H CHK1  45.00°
+(Cont’d)
+4065UG-E-B  6/9/04  1:50 PM  Page 66
+
+
+===== PAGE 68 =====
+USER’S GUIDE — 67
+(Cont’d)
+KEYSTROKE DISPLAY
+3. Find Jack rafter lengths and cut angles:
+j JKOC  16 INCH*
+j JK1  8 FEET 2-3/8 INCH
+j JK2  6 FEET 7-7/8 INCH
+j JK3  5 FEET 1-3/8 INCH
+j JK4  3 FEET 6-13/16 INCH
+j JK5  2 FEET 0-5/16 INCH
+j JK6  0 FEET 5-13/16 INCH
+j JK7  0 FEET 0 INCH
+j PLMB  30.26°
+j LEVL  59.74°
+j CHK1  45.00°
+*Note: If display does not read JKOC 16 INCH (the default), then reset on-center
+spacing by pressing 1 6 i § 5.
+Jack Rafters — Using Other Than 16 Inch On-Center Spacing
+A roof has a 9/12 pitch and a run of 6 feet 9 inches. Find the jack
+rafter lengths and cut angles at 18-inch (versus 16-inch) on-center
+spacing. The on-center spacing is used for both regular and irregular
+jack calculations.
+KEYSTROKE DISPLAY
+1. Enter pitch, run and spacing:
+o o 0.
+9 i p PTCH  9 INCH
+6 f 9 i R RUN  6 FEET 9 INCH
+1 8 i § 5 OC STORED  18 INCH
+2. Find Jack rafter lengths and cut angles:
+j JKOC  18 INCH
+j JK1  6 FEET 6-3/4 INCH
+j JK2  4 FEET 8-1/4 INCH
+j JK3  2 FEET 9-3/4 INCH
+j JK4  0 FEET 11-1/4 INCH
+j JK5  0 FEET 0 INCH
+j PLMB  36.87°
+j LEVL  53.13°
+j CHK1  45.00°
+3. Reset on-center spacing to default 16-inch:
+1 6 i § 5 OC STORED  16 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 67
+
+
+===== PAGE 69 =====
+68 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Irregular Hip/Valley and Jack Rafters — Descending, with 
+On-Center Spacing Maintained
+You’re working with a 7/12 pitch and half your overall span is 4 feet.
+The irregular pitch is 8/12, and 16 inch on-center spacing is main -
+tained on both sides. Complete the following steps:
+(1) Find the length of the common rafter; 
+(2) Reset calculator to 16 inch on-center spacing;
+(3) Enter the irregular pitch; find the length of the adjoining 
+“irregular” Hip (or Valley) and the cut angles; 
+(4) Find the jack lengths on the “irregular” pitch side (16 inch 
+on-center spacing); 
+(5) Find the cut angles;
+(6) Find the jack lengths on the “regular” pitch side (16 inch 
+on-center spacing);
+(7) Find the cut angles.
+KEYSTROKE DISPLAY
+1. Find Common rafter length:
+o o 0.
+7 i p PTCH  7 INCH
+4 f R RUN  4 FEET 0 INCH
+d DIAG  4 FEET 7-9/16 INCH
+2. Enter on-center spacing:
+1 6 i § 5 OC STORED  16 INCH
+3. Find irregular Hip/Valley rafter length and cut angles:
+8 i  H IPCH  8 INCH
+H IH/V  5 FEET 9-11/16 INCH
+H PLMB  23.70°
+H LEVL  66.30°
+H CHK1  41.19°
+H CHK2  48.81°
+(Cont’d)
+4065UG-E-B  6/9/04  1:50 PM  Page 68
+
+
+===== PAGE 70 =====
+USER’S GUIDE — 69
+(Cont’d)
+KEYSTROKE DISPLAY
+4. Find irregular jack lengths:
+ j IJOC  16 INCH
+j* IJ1  2 FEET 9-5/8 INCH
+j IJ2  1 FEET 4-13/16 INCH
+j IJ3  0 FEET 0 INCH
+*Note: It is not necessary to continue pressing  when displaying each Jack rafter
+size.
+5. Find irregular jack plumb, level and cheek cut angles:
+j PLMB  33.69°
+j LEVL  56.31°
+j CHK1  41.19°
+6. Find regular jack lengths:
+j JKOC  16 INCH
+j JK1  2 FEET 10-3/8 INCH
+j JK2  1 FEET 1-1/4 INCH
+j JK3  0 FEET 0 INCH
+7. Find regular jack plumb, level and cheek cut angles:
+j PLMB  30.26°
+j LEVL  59.74°
+j CHK1  48.81°
+4065UG-E-B  6/9/04  1:50 PM  Page 69
+
+
+===== PAGE 71 =====
+70 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Irregular Hip/Valley and Jack Rafters — Ascending, with Jacks
+Mating at Hip/Valley
+You’re working with a 7/12 pitch and half your overall span is 4 feet.
+The irregular pitch is 8/12, and the jacks need to mate at the Hip.
+The maximum allowable on-center spacing is 16 inches. Find the
+jack rafter sizes from smallest to largest (ascending order).
+Complete the following steps:
+(1) Set Preference display to “JK ASCEND” (jack sizes in ascend-
+ing order);
+(2) Set Preference display to “IRJK JAC-JAC” (jacks mate);
+(3) Find the length of the common rafter; 
+(4) Find the length of the adjoining “irregular” Hip (or V alley) and
+the cut angles; 
+(5) Find the o.c., jack lengths and cut angles on the “irregular”
+pitched side; 
+(6) Find the o.c., jack lengths and cut angles on the “regular”
+pitched side.
+Note: After completing this example, you may need to reset the Preferences back to
+“IRJK OC-OC” if you do not normally figure jacks in this manner . (See Preference
+Settings on page 89.)
+KEYSTROKE DISPLAY
+1. Review Preferences until you find “Jack Descend”:
+o o 0.
+ § FRAC  0-1/16 INCH
+(If not at 1/16, press + until 1/16 is displayed)
+§ AREA  Std.
+§ VOL  Std.
+§ HDRM  6 FEET 8 INCH
+§ RAKE  dESCEnd
+§ JACK  dESCEnd
+Set Preference to “Ascend”:
++ (plus sign) JACK  ASCEnd
+2. Set Preference to “Jacks Mate”:
+§ IRJK  OC-OC
++ (plus sign) IRJK  JAC-JAC
+3. Find common rafter length:
+7 i p PTCH  7 INCH
+4 f R RUN  4 FEET 0 INCH
+d DIAG  4 FEET 7-9/16 INCH
+(Cont’d)
+4065UG-E-B  6/9/04  1:50 PM  Page 70
+
+
+===== PAGE 72 =====
+USER’S GUIDE — 71
+(Cont’d)
+KEYSTROKE DISPLAY
+4. Enter irregular pitch and find irregular Hip/V alley rafter length and
+cut angles:
+8 i  H IPCH  8 INCH
+H IH/V  5 FEET 9-11/16 INCH
+H PLMB  23.70°
+H LEVL  66.30°
+H CHK1  41.19°
+H CHK2  48.81°
+5. Display the o.c. and find the irregular jack lengths and cut angles:
+ j IJOC  16 INCH*
+j IJ1  1 FEET 4-13/16 INCH
+j IJ2  2 FEET 9-5/8 INCH
+j IJ3  4 FEET 2-1/2 INCH
+j PLMB  33.69°
+j LEVL  56.31°
+j CHK1  41.19°
+6. Find the o.c., regular jack lengths and cut angles:
+j JKOC  14 INCH*
+j JK1  1 FEET 6-1/2 INCH
+j JK2  3 FEET 1-1/16 INCH
+j JK3  4 FEET 7-9/16 INCH
+j PLMB  30.26°
+j LEVL  59.74°
+j CHK1  48.81°
+7. Reset jack rafter Preference Settings:
+o o 0.
+ § § § § § § JACK  ASCEnd
+Set Preference to “Descend”:
++ (plus sign) JACK  dESCEnd
+Set Preference to “Jacks On-Center”:
+§ IRJK  JAC-JAC
++ IRJK  OC-OC
+Exit Preference Settings:
+o 0.
+*Note: The stored on-center spacing is used as the maximum allowable spacing.
+Therefore, it is assigned to the side with the largest entered pitch. In this example, the
+“irregular” side pitch is larger than the “regular” side pitch; thus, the irregular side is
+calculated using the maximum on-center value (16 inches). If the regular pitch side
+had the larger pitch, it would require the larger (16 inches) on-center .
+4065UG-E-B  6/9/04  1:50 PM  Page 71
+
+
+===== PAGE 73 =====
+72 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Rake-Wall – No Base
+Find each stud size in a rake-wall with a peak (rise) of 4 feet, and a
+length (run) of 8 feet. Use 16 inches as your spacing.
+Note: The wall has no base.
+KEYSTROKE DISPLAY
+1. Enter rise and run and display o.c. spacing:
+o o 0.
+4 f r RISE  4 FEET 0 INCH
+8 f R RUN  8 FEET 0 INCH
+¤ 5* STORED OC  16 INCH
+*If 16 inch is not displayed, enter 1 6 § 5.
+2. Find stud lengths:
+ r (R/Wall) RWOC STORED  16 INCH
+r RW 1   3 FEET 4 INCH
+r RW 2   2 FEET 8 INCH
+r RW 3   2 FEET 0 INCH
+r RW 4   1 FEET 4 INCH
+r RW 5   0 FEET 8 INCH
+r BASE   0 FEET 0 INCH
+3. Find Rake-Wall angle of incline:
+r RW  26.57°
+Note: By setting the Rake “Ascend” Preference (see Preference Settings on page
+90), you may view rake-wall stud lengths from smallest to largest size.
+Note: You can also solve if you only know the rise and pitch, run and pitch, or diagonal
+and pitch. Simply enter the known values via p, r, R, or d keys, similar to
+Step #1 above, then solve for rake-wall stud lengths, as seen in Step #2.
+4065UG-E-B  6/9/04  1:50 PM  Page 72
+
+
+===== PAGE 74 =====
+USER’S GUIDE — 73
+Rake-Wall – With Base
+Find each stud size in a rake-wall with a peak (rise) of 4 feet, a
+length (run) of 8 feet, and a base of 5 feet. Use 16 inches as your
+on-center spacing.
+KEYSTROKE DISPLAY
+1. Enter rise, run, and o.c. spacing:
+o o 0.
+4 f r RISE  4 FEET 0 INCH
+8 f R RUN  8 FEET 0 INCH
+¤ 5* OC STORED  16 INCH
+*If 16 inch is not displayed, enter 1 6 i § 5.
+2. Enter base and recall on-center spacing, then find stud lengths
+and angle of incline:
+5 f  r (R/Wall) RWOC STORED  16 INCH
+r RW 1   8 FEET 4 INCH
+r RW 2   7 FEET 8 INCH
+r RW 3   7 FEET 0 INCH
+r RW 4   6 FEET 4 INCH
+r RW 5   5 FEET 8 INCH
+r BASE   5 FEET 0 INCH
+r RW  26.57°
+4065UG-E-B  6/9/04  1:50 PM  Page 73
+
+
+===== PAGE 75 =====
+74 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+ROOFING MATERIALS
+The Roof function solves for the amount of bundles and squares for
+standard gable-end style roofs. Bundles are based on a coverage
+area of 33.33 square feet, and squares are based on 100 square feet. 
+Roof Covering — Entering Pitch, Length and Width
+Find the roof area and number of roofing squares, number of bundles
+and 4x8 sheets required for a 10-inch pitch roof covering a floor area
+of 14 feet by 11 feet. Also calculate the plan area.
+KEYSTROKE DISPLAY
+1. Enter pitch and floor area*:
+o o 0.
+1 0 i p PTCH  10 INCH
+1 4 f l LNTH  14 FEET 0 INCH
+1 1 f W WDTH  11 FEET 0 INCH
+2. Find roof area:
+ d ROOF  200.4631 SQ FEET
+3. Find number of roofing squares:
+d SQRS  2.00
+4. Find number of bundles:
+d BNDL  6.01
+5. Display bundle size/area:
+d B-SZ  33.33 SQ FEET
+6. Find number of 4x8 sheets:
+d 4X8  6.26
+7. Display stored pitch:
+d PTCH STORED  10 INCH
+8. Find floor/plan area:
+d PLAN  154. SQ FEET
+*Note: If you know the area (and do not need to calculate it), once you have entered
+the pitch, enter the area and label it as square feet, then press  d. For example,
+if the plan/floor area is 100 square feet, enter 1 0 0 f f  d .
+For Trig Model (4080) Users:
+*Note: As this model does not have l and W keys, you must calculate area the
+standard way (e.g., L x W, or entering 154 square feet), then press  d.
+4065UG-E-B  6/9/04  1:50 PM  Page 74
+
+
+===== PAGE 76 =====
+USER’S GUIDE — 75
+Roof Covering — Entering Rise, Run (No Pitch) and Area
+Find the roof covering, pitch and plan area if the rise is 15 feet and
+run 30 is feet. The length of the floor area is 10 feet and width 20 feet.
+KEYSTROKE DISPLAY
+1. Enter rise, run, length and width*:
+o o 0.
+1 5 f r RISE  15 FEET 0 INCH
+3 0 f R RUN  30 FEET 0 INCH
+1 0 f l* LNTH  10 FEET 0 INCH
+2 0 f W* WDTH  20 FEET 0 INCH
+2. Find roof area, number of roofing squares, number of bundles,
+stored bundle size, number of 4x8 sheets, pitch and plan area:
+ d ROOF  223.6068 SQ FEET
+d SQRS  2.24
+d BNDL  6.71
+d B-SZ  33.33 SQ FEET
+d 4X8  6.99
+d PTCH  6 INCH
+d PLAN  200. SQ FEET
+For Trig Plus Users:
+*Note: As this model does not have l and W keys, you must calculate area the
+standard way (e.g., L x W, or entering 200 square feet), then press  d.
+4065UG-E-B  6/9/04  1:50 PM  Page 75
+
+
+===== PAGE 77 =====
+76 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+STAIR LAYOUT EXAMPLES
+Stair Layout Definitions
+Rise: The “floor-to-floor” or “landing-to-landing” rise is the actual ver -
+tical rise required for building a stairway after the finish flooring has
+been installed.
+Run: The run of a stairway is the amount of horizontal space
+required. The total run of a stairway is equal to the width of each
+tread multiplied by the number of treads.
+Desired Riser Height: The desired riser height is the amount of 
+vertical rise you allow for each individual riser in the stairway . This 
+is sometimes dictated by local code.
+Actual Riser Height: The actual height of each riser is measured
+from the top of one tread to the top of the next tread.
+4065UG-E-B  6/9/04  1:50 PM  Page 76
+
+
+===== PAGE 78 =====
+USER’S GUIDE — 77
+Number of Risers: The number of risers includes both the first and
+the last riser of the stairway.
+Riser Overage or Underage: The riser overage or underage is the
+difference between the “floor-to-floor” rise and the total height of all
+of the risers. Many times the riser height does not divide evenly into
+the floor-to-floor rise and a small fraction of an inch is left over . A
+positive remainder is an overage, while a negative remainder is an
+underage.
+Tread Width: The width of each tread is measured from the front of
+one riser to the front of the next riser . The width of each tread does
+NOT include the nosing or overhang of the tread. The nosing or
+overhang of a tread is the rounded front of the tread that projects
+beyond the face of the riser.
+Number of Treads: The number of treads is one less than the 
+number of risers. 
+Tread Overage or Underage: The tread overage or underage is the
+difference between the run or horizontal space that a stairway must
+fit into and the total width of the treads. Similar to the riser
+overage/underage, many times the total width of the treads does not
+divide evenly into the run or horizontal space for the stairway and a
+small fraction of an inch is left over. A positive remainder is an over-
+age, a negative remainder is an underage.
+Stringers: Also called carriages, stair horses or stair jacks. Stringers
+are the diagonal members that support the treads and risers.
+Angle of Incline: The angle of incline of the stairway is determined
+by the rise and run of each stair. The angle of incline should not be
+confused with the pitch of the stairway. The pitch of a stairway is the
+angle based on the floor-to-floor rise and the horizontal run of the
+stairway. The angle of incline is based on the “actual” riser height
+and the “actual” tread width of the stair.
+Stairwell Opening: The length of the opening at the top of the
+stairs. The computation is based on the headroom height (the
+desired spacing between the stairs and upper floor ceiling) and
+thickness of the upper floor where the opening is located. 
+4065UG-E-B  6/9/04  1:50 PM  Page 77
+
+
+===== PAGE 79 =====
+78 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Stairs — Given Only Floor-to-Floor Rise
+You’re building a stairway with a total rise of 9 feet 1 1 inches. Your
+desired riser height is 7-1/2 inches and desired tread width is 10
+inches. The desired headroom is 6 feet 8 inches and floor thickness
+10 inches*. Find all stair values, then calculate the run.
+*Note: Headroom and floor thickness are required to calculate the length of the stair -
+well opening.
+KEYSTROKE DISPLAY
+1. Enter known rise:
+o o 0.
+9 f 1 1 i r RISE  9 FEET 11 INCH
+2. Recall stored desired stair riser height: 
+¤ 7 R-HT STORED  7-1/2 INCH
+3. Recall stored desired stair tread width: 
+¤ 9 T-WD STORED  10 INCH
+4. Recall stored desired floor thickness: 
+¤ 8 FLOR STORED  10 INCH
+5. Display stored headroom (via Preference Setting Mode): 
+ § § § § HDRM  6 FEET 8 INCH
+6. Find riser height, number of risers, riser underage/overage, tread
+width, number of treads, tread overage/underage, length of stairwell
+opening, stringer length and angle of incline. As a final step, calcu-
+late the run.
+s R-HT  7-7/16 INCH
+s RSRS  16.
+s R+/–  0 INCH
+s T-WD  10 INCH
+s TRDS  15.
+s T+/–  0 INCH
+s OPEN  10 FEET 1 INCH
+s STRG  15 FEET 6-15/16 INCH
+s INCL  36.64°
+s RUN  12 FEET 6 INCH
+s* RISE STORED  9 FEET 11 INCH
+*Continuous presses of s will also recall stored desired riser height, tread, head -
+room and floor thickness values.
+4065UG-E-B  6/9/04  1:50 PM  Page 78
+
+
+===== PAGE 80 =====
+USER’S GUIDE — 79
+Notes on Changing Stored Stair Variables:
+To Change Desired Riser Height: If you wish to use a Desired
+Riser Height of other than 7-1/2 inches (the calculator ’s default),
+simply enter a new value. For example, to enter 8 inches, enter 8
+i § 7. Press ¤ 7 to review your new entry. This value will
+be permanently stored until you change it.
+To Change Desired Tread Width: If you wish to use a Desired
+Tread Width of other than 10 inches (the calculator ’s default), simply
+enter a new value. For example, to enter 10-1/2 inches, enter 1 0
+i 1 / 2 § 9 . Press ¤ 9 to review your new entry. This
+value will be permanently stored until you change it.
+To Change Desired Floor Thickness: If you wish to use a Desired
+Floor Thickness of other than 10 inches (the calculator ’s default),
+simply enter a new value. For example, to enter 12 inches, enter 1
+2 i § 8. Press ¤ 8 to review your new entry. This value
+will be permanently stored until you change it.
+To Change Desired Headroom: If you wish to use a Desired
+Headroom other than 6 feet 8 inches (the calculator’s default), simply
+select a new value via the Preference Mode and use the + or —
+keys to increase/decrease by one inch. See below examples. This
+value will be permanently stored until you change it.
+KEYSTROKE DISPLAY
+1. Select Headroom via Preference Mode: 
+o o 0.
+ § § § § HDRM  6 FEET 8 INCH
+2. Decrease Headroom Height by 2 Inches: 
+— — HDRM  6 FEET 6 INCH
+3. Then increase Headroom Height by 4 Inches: 
++ + + + HDRM  6 FEET 10 INCH
+4. Return Headroom Height to default of 6 feet 8 inches: 
+— — HDRM  6 FEET 8 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 79
+
+
+===== PAGE 81 =====
+80 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Stairs — Given Only the Run
+You’re building a stairway with a total run of 20 feet. Your desired
+riser height is 7-1/2 inches and desired tread width is 10 inches. The
+desired headroom is 6 feet 8 inches and floor thickness 10 inches.
+Find all stair values, then calculate the rise.
+KEYSTROKE DISPLAY
+1. Enter run: 
+o o 0.
+2 0 f R RUN  20 FEET 0 INCH
+2. Find riser height, number of risers, riser underage/overage, tread
+width, number of treads, tread overage/underage, stairwell opening,
+stringer length and angle of incline. As a final step, calculate the rise.
+s R-HT  7-1/2 INCH
+s RSRS  25.
+s R+/–  0 INCH
+s T-WD  10 INCH
+s TRDS  24.
+s T+/–  0 INCH
+s OPEN  10 FEET 0 INCH
+s STRG  25 FEET 0 INCH
+s INCL  36.87°
+s STORED RUN  20 FEET 0 INCH
+s RISE  15 FEET 7-1/2 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 80
+
+
+===== PAGE 82 =====
+USER’S GUIDE — 81
+Stairs — Given Rise and Run
+You need to build a stairway with a floor-to-floor height of 10 feet 1
+inch, a run of 15 feet 5 inches, and a nominal desired riser height of
+7-1/2 inches (default). Calculate all stair values.
+KEYSTROKE DISPLAY
+1. Enter rise and run:
+o o 0.
+1 0 f 1 i r RISE  10 FEET 1 INCH
+1 5 f 5 i R RUN  15 FEET 5 INCH
+2. Find stair values:
+s R-HT 7-9/16 INCH*
+s RSRS  16.
+s R+/–  0 INCH
+s T-WD  12-5/16 INCH
+s TRDS  15.
+s T+/–  – 0-5/16 INCH
+s OPEN  12 FEET 2-1/2 INCH
+s STRG  18 FEET 0-3/4 INCH
+s INCL  31.56°
+s RUN STORED  15 FEET 5 INCH
+s RISE STORED  10 FEET 1 INCH
+s R-HT STORED  7-1/2 INCH
+s T-WD STORED 10 INCH
+s HDRM STORED  6 FEET 8 INCH
+s FLOR STORED  10 INCH
+*A in the display means that the calculated riser height exceeds the stored
+desired riser height.
+4065UG-E-B  6/9/04  1:50 PM  Page 81
+
+
+===== PAGE 83 =====
+82 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Stairs — Given Rise and Run, Using “Riser Limited” Function
+for Code Restrictions
+Your local code prohibits risers greater than 7-1/2 inches. You need
+to build a stairway with a floor-to-floor height of 10 feet 1 inch, a run
+of 15 feet 5 inches. Calculate all stair values. Use the “Riser Limited”
+function (second function of the s key) to calculate a riser height
+that does not exceed the stored Desired Riser Height of 7-1/2.”
+KEYSTROKE DISPLAY
+1. Enter rise and run:
+o o 0.
+1 0 f 1 i r RISE  10 FEET 1 INCH
+1 5 f 5 i R RUN  15 FEET 5 INCH
+2. Find stair values using “Riser Limited”:
+ s R-HT  7-1/8 INCH
+s RSRS  17.
+s R+/–   1/8 INCH
+s T-WD  11-9/16 INCH
+s TRDS  16.
+s T+/–   0 INCH
+s OPEN  12 FEET 2-1/16 INCH
+s STRG  18 FEET 1-5/16 INCH
+s INCL  31.64°
+s RUN STORED  15 FEET 5 INCH
+s RISE STORED  10 FEET 1 INCH
+s R-HT STORED  7-1/2 INCH
+s T-WD STORED  10 INCH
+s HDRM STORED  6 FEET 8 INCH
+s FLOR STORED  10 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 82
+
+
+===== PAGE 84 =====
+USER’S GUIDE — 83
+Baluster Spacing
+You are going to install a handrail at the top of a balcony . Your total
+span is 156 inches and you would like the space between the balus -
+ters to be about 4 inches. If each baluster is 1-1/2 inches wide, what
+is the exact spacing between each baluster?
+KEYSTROKE DISPLAY
+1. Estimate number of balusters in span.
+o o 0.
+1 5 6 i Ö 156 INCH
+5 i 1 / 2 = * 28.36364
+(28 balusters)
+*desired spacing plus baluster width (4” plus 1-1/2”).
+2. Find total space ‘occupied’ by the balusters by multiplying the
+width of each baluster by the rounded number of balusters (found
+above):
+1 i 1 / 2 x 1-1/2 INCH
+2 8 = 42 INCH
+3. Find total space between all balusters:
+1 5 6 i — 156 INCH
+4 2 i = 114 INCH
+4. Find actual baluster spacing by dividing total space between all
+balusters by the number of spaces between the balusters (number
+of balusters plus one equals 29):
+1 1 4 i Ö 114 INCH
+2 9 = 3-15/16 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 83
+
+
+===== PAGE 85 =====
+84 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+STUDS
+Find the number of 16-inch on-center studs needed for a wall with a
+length of 18 feet 7-1/2 inches. 
+KEYSTROKE DISPLAY
+1. Enter length and convert to Studs*.
+o o 0.
+1 8 f 7 i 1 / 2 18 FEET 7-1/2 INCH
+ 5 15.
+(studs)
+*Note: The length is divided by the on-center spacing; in this case, 16 inches (default
+setting). Press ¤ 5 to review the stored on-center value. If you need to enter a
+new on-center, for example 18 inches, enter 1 8 i § 5.
+BASIC D:M:S AND TRIGONOMETRY EXAMPLES
+Converting Degrees:Minutes:Seconds
+Convert 23°42’39” to decimal degrees:
+KEYSTROKE DISPLAY
+o o 0.
+2 3 ¥ 4 2 ¥ 3 9 DMS  23.42.39
+ ¥ (deg) DEG  23.71
+Convert 44.29° to degrees:minutes:seconds format:
+KEYSTROKE DISPLAY
+o o 0.
+4 4 ¥ 2 9  ¥ (d:m:s) DMS  44.17.24
+Note: Improperly formatted entries will be redisplayed in the correct convention after
+any operator key is pressed. For example, 30 °89’ entered will be corrected and dis-
+played at 31°29’ 0” or 31.48333°.
+Time Calculations Using D:M:S
+Add 7 hours 45 minutes 33 seconds to 11 hours 16 minutes 20 seconds:
+KEYSTROKE DISPLAY
+o o 0.
+7 ¥ 4 5 ¥ 3 3 DMS  7.45.33°
++ 1 1 ¥ 1 6 ¥ 2 0 = DMS  19.01.53°
+4065UG-E-B  6/9/04  1:50 PM  Page 84
+
+
+===== PAGE 86 =====
+USER’S GUIDE — 85
+TRIGONOMETRIC FUNCTIONS
+Trigonometric functions are available on the Construction Master
+Pro Trig and Construction Master Pro Desktop calculators.
+The drawing and formulas below list basic trigonometric formulas, for
+your reference:
+Given side A and angle a, find:
+Side C A Ö a  =
+(i.e., 3 f Ö 5 3 ¥ 1 3  = )
+Side B A x a t =
+Angle b 90° — a =
+Given side A and angle b, find:
+Side B A Ö b t =
+Side C A Ö b S =
+Angle a 90° — b =
+Given side B and angle a, find:
+Side A B Ö a t =
+Side C B Ö a S =
+Given side C and angle a, find:
+Side A C x a  =
+Side B C x a S =
+Given side A and side C, find:
+Angle a A Ö C =  
+Angle b A Ö C =  S
+Given side B and angle b, find:
+Side C B Ö b  =
+Side A B x b t =
+4065UG-E-B  6/9/04  1:50 PM  Page 85
+
+
+===== PAGE 87 =====
+86 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Converting Percent Grade to D:M:S
+You are grading a piece of property and the site plans call for an
+embankment with a grade “no steeper than 35%.” Your level shows
+the slope at an 18°15’ angle. Will this pass?
+KEYSTROKE DISPLAY
+Enter grade and convert to degrees:minutes:seconds:
+o o 0.
+3 5 %  t  ¥ * DMS  19.17.24
+Since your level reading of 18°15’ is less steep than 19°17’24”, the
+slope will pass inspection.
+Converting Tangent/Pitch to Angle
+Find the angle and corresponding tangent for a roof with an 8/12 pitch.
+KEYSTROKE DISPLAY
+1. Enter pitch:
+o o 0.
+8 i p PTCH  8 INCH
+2. Convert pitch to degrees:
+p 33.69°
+3. Find tangent or slope:
+t 0.666667
+Converting Roof Angle in Degrees to Pitc h in Inches 
+Convert a roof angle of 30.25° to pitch in inches.
+KEYSTROKE DISPLAY
+1. Enter angle:
+o o 0.
+3 0 ¥ 2 5 t 0.583183
+2. Convert to pitch:
+ p SLP  0.583183
+p PTCH  7 INCH
+4065UG-E-B  6/9/04  1:50 PM  Page 86
+
+
+===== PAGE 88 =====
+USER’S GUIDE — 87
+Angle — Rise and Hypotenuse Known
+Find the angle that connects the rise and hypotenuse of a right trian -
+gle, if the rise is 6 feet and the hypotenuse is 10 feet in length.
+KEYSTROKE DISPLAY
+1. Use trigonometric formula (divide rise(A) by hypotenuse(C)):
+o o 0.
+6 f Ö 1 0 f = 0.6
+2. Solve for degrees:minutes:seconds or angle:
+  DEG  53.13°
+ ¥ DMS  53.07.48
+4065UG-E-B  6/9/04  1:50 PM  Page 87
+
+
+===== PAGE 89 =====
+88 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+After a Clear All ( x), your calculator will return to the following
+settings:
+STORED VALUES DEFAULT VALUE 
+Desired Riser Height 7-1/2 Inch
+Desired Tread Width 10 Inch
+Floor Height 10 Inch
+On-Center Spacing 16 Inch
+Weight per Volume 1.5 Tons/Cu Yd
+Block Area (except Trig model) 128 Sq Inch
+Footing Area (except Trig model) 1.8 Sq Feet
+Crown Angle 45.00°
+If you replace your batteries or perform a Full Reset* (press O, hold
+down x, and press o), your calculator will return to the following
+settings (in addition to those listed above):
+PREFERENCE SETTINGS DEFAULT VALUE 
+Fractional Resolution 1/16 
+Area Display Standard
+Volume Display Standard
+Stairway Headroom 6 Feet 8 Inch
+Rake Wall Descending
+Jack Rafters Descending
+Irregular Jack Spacing OC-OC
+Exponent Off
+Meter Linear Display 0.000
+Decimal Degree Display 0.00°
+*Depressing the Reset button located above the p key will also perform a Full Reset.
+APPENDIX A — DEFAULT SETTINGS
+4065UG-E-B  6/9/04  1:50 PM  Page 88
+
+
+===== PAGE 90 =====
+USER’S GUIDE — 89
+The Construction Master Pro calculators have Preference Settings
+that allow you to customize or set desired dimensional formats and
+calculations. The options vary per model.
+If you replace your batteries or perform a 
+Full Reset* (press O, hold
+down x, and press o), your calculator will return to the following
+settings (in addition to those listed on the previous page):
+PREFERENCE OPTIONS
+1) Fractional Resolution – *1/16 (displays fractional values to the
+nearest 16th of an inch)
+– 
+– 1/32
+– 1/64
+– 1/2
+– 1/4
+– 1/8
+2) Area Display Format – *Standard (if units entered are the
+same—e.g., feet x feet—the answer will
+remain in this format (sq. ft), but if units
+entered are different —e.g., inches x
+feet—area answer will be displayed in
+square feet) 
+– Square Feet (area answers always
+displayed in sq. ft, regardless of unit
+entry—e.g., inches x inches = sq. ft)
+– Square Yards (area answers always
+displayed in sq. yards—e.g., feet x feet
+= sq. yds)
+– Square Meters (area answers always
+displayed in sq. meters—e.g., feet x feet
+= sq. meters)
+Note: To check the current Fractional Resolution, press ¤ /. Either “Std” (standard
+fractional resolution) or “Cnst” (constant) will be displayed, along with the fractional
+resolution). 
+(Cont’d)
+APPENDIX B — PREFERENCE SETTINGS
+4065UG-E-B  6/9/04  1:50 PM  Page 89
+
+
+===== PAGE 91 =====
+90 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+(Cont’d)
+PREFERENCE OPTIONS
+3) Volume Display Format – *Standard (if units entered are the
+same—e.g., ft x ft x ft—the answer will
+remain in this format (cu. ft), but if units
+entered are different—e.g., feet x feet x
+inches—vol. answer will always be dis-
+played in cubic yards)
+– Cubic Yards (vol. answers always dis-
+played in cu. yards, regardless of unit
+entry—e.g., feet x feet x feet = cu. yds)
+– Cubic Feet (vol. answers always dis-
+played in cu. feet, regardless of unit
+entry—e.g., inches x inches x inches =
+cu. ft)
+– Cubic Meters (vol. answers always
+displayed in cu. meters, regardless of
+unit entry—e.g., feet x feet x feet = 
+cu. meters)
+4) Stairwell—Headroom – *6 Feet 8 Inch (default)
+Height – Use + or — key to increase or
+decrease above value by increments 
+of 1 inch
+5) Rake-Wall Descending – *Descending (Rake-Wall studs are
+or Ascending displayed from largest to smallest size)
+– Ascending (Rake-Wall studs are 
+displayed from smallest to largest size)
+6) Jack Rafters Descending – *Descending (Jack rafters are
+or Ascending displayed from largest to smallest size)
+– Ascending (Jack rafters are displayed
+from smallest to largest size)
+7) Irregular Jack Rafters – *OC-OC (on-center spacing maintained
+O-C or Mate on both regular and irregular sides)
+– JAC-JAC (regular/irregular Jack rafters
+“mate” at the hip/valley, i.e., on-center
+spacing not maintained on both sides)
+(Cont’d)
+4065UG-E-B  6/9/04  1:50 PM  Page 90
+
+
+===== PAGE 92 =====
+USER’S GUIDE — 91
+(Cont’d)
+PREFERENCE OPTIONS
+8) Exponent Off or On – *Off (Exponential Mode is Off; turns
+on Auto-ranging; i.e., if display can’t
+show seven digits, will display in next
+largest unit).
+– On (Exponential Mode is On)
+9) Meter Linear Display – *0.000 (linear meter answers are
+always displayed to third decimal place)
+– FLOAT (linear meter answers are dis-
+played to the maximum number of deci -
+mal places—e.g., 1.234 M + 2.56
+M=3.794 M)
+10) Decimal Degree – *0.00°
+Display – FLOAT
+How to Set Preferences
+The following sections detail Preference Setting options for the
+Construction Master Pro calculators.
+Enter the Preference Mode by pressing  § (Prefs). Access
+each category by pressing the § key until you reach the desired
+setting. Within each category, press the + or — keys to toggle
+between individual selections. Press o to exit and set your
+Preference.
+Note: Press + to advance and press — to back up. Pressing the § key continuously
+in this mode will cycle through all of the Preference Settings.
+You may change these settings at any time by repeating the above,
+and setting in a new preference. Or, you may review settings by
+pressing ¤ §.
+To clear preferences, press  x. 
+For example, if you wish to display all your dimensional area answers
+in square meters, press  § § (Area Std), then the + key
+until “AREA  0. SQ M” is displayed. Simply exit this mode by pressing
+o or any key, and all your future area answers will be displayed
+in square meters.
+(See the following pages for Preference Settings per model)
+4065UG-E-B  6/9/04  1:50 PM  Page 91
+
+
+===== PAGE 93 =====
+92 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Accessing Preference Settings
+KEYSTROKE DISPLAY
+To Set “Fractional Resolution”:
+ § (Prefs) (1st press of §) FRAC  0-1/16 INCH
++ (plus sign) FRAC  0-1/32 INCH
++ FRAC  0-1/64 INCH
++ FRAC  0-1/2 INCH
++ FRAC  0-1/4 INCH
++ FRAC  0-1/8 INCH
+To Set “Area” Answer Format:
+§ (2nd press of §) AREA  Std.
++ (plus sign) AREA  0. SQ FEET
++ AREA  0. SQ YD
++ AREA  0. SQ M
+To Set “Volume” Answer Format:
+§ (3rd press of §) VOL  Std.
++ (plus sign) VOL  0. CU YD
++ VOL  0. CU FEET
++ VOL  0. CU M
+To Increase or Decrease Stairwell “Headroom” from Default of 6’8”:
+§ (4th press of §) HDRM  6 FEET 8 INCH
++* (plus sign increases height by 1 inch) HDRM  6 FEET 9 INCH
+—* (minus sign decreases height by 1 inch) HDRM  6 FEET 8 INCH
+*keep pressing plus or minus to increase or decrease an inch at a time.
+To Set Rake-Wall Stud Sizes to “Descending” or “Ascending”:
+§ (5th press of §) RAKE  dESCEnd
++ (plus sign) RAKE  ASCEnd
+To Set Jack Rafter to “Descending” or “Ascending”: 
+§ (6th press of §) JACK dESCEnd
++ (plus sign) JACK  ASCEnd
+To Set Irregular Jack Spacing to “On-Center” or “Mate”: 
+§ (7th press of §) IRJK  OC-OC
++ (plus sign) IRJK  JAC-JAC
+To Set “Exponential Mode” On or Off: 
+§ (8th press of §) EXP  OFF
++ (plus sign) EXP  On
+(Cont’d)
+4065UG-E-B  6/9/04  1:50 PM  Page 92
+
+
+===== PAGE 94 =====
+USER’S GUIDE — 93
+(Cont’d)
+KEYSTROKE DISPLAY
+To Set “Meter” Linear Decimal Format:
+§ (9th press of §) METR  0.000 M
++ (plus sign) METR  FLOAT M
+To Set “Number of Decimal Places for Degree Displays”:
+§ (10th press of §) DEG  0.00°
++ (plus sign) DEG  FLOAT
+Note: Press o at any time to exit the Preference Mode.
+4065UG-E-B  6/9/04  1:50 PM  Page 93
+
+
+===== PAGE 95 =====
+94 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Please follow the guidelines listed in this section for proper care and
+operation of your calculator.  Not following the instructions listed
+below may result in damage not covered by your warranty .  Refer to
+the Repair and Return section on page 100 for more details.
+Do not expose calculator to temperatures outside the operating
+temperature range of 32ºF – 104ºF (0ºC – 40ºC).
+Do not expose calculator to high moisture such as submersion
+in water, heavy rain, etc.
+APPENDIX C — CARE INSTRUCTIONS
+4065UG-E-B  6/9/04  1:50 PM  Page 94
+
+
+===== PAGE 96 =====
+USER’S GUIDE — 95
+If you are an owner of a previous Construction Master calculator, the
+following list will help you compare several new or enhanced features
+available on selected 
+Construction Master Pro calculators.
+NEW/ENHANCED FUNCTION DESCRIPTION
+Arched Rake Walls – Calculates the arched rake wall stud
+lengths using the Arc function (8th press
+of a).
+Compound Miter – Calculates compound miter cut angle
+solutions.
+Drywall – Calculates the number of 4x8, 4x9, or
+4x12 sheets by pressing  h.
+Length, Width, Height – Length, width, and height keys added
+for easier dimensional entry and quicker
+area, volume, square-up, perimeter, wall
+area, and total room area calculations.
+Memory – Added a third permanent single-value
+memory accessed by pressing § 3.
+Polygon – Polygon function added for solving
+angles, side length, perimeter, and area
+of multi-sided shapes.
+Riser Limited – Calculates stair values so that the
+actual riser height will not exceed your
+stored desired riser height.
+Stairwell Opening – Calculates the height of the opening at
+the top of the stairs.
+Stud – New construction project keys have
+been added for quickly figuring quantities
+and costs of materials.
+APPENDIX D — IMPORTANT NOTES FOR OWNERS
+OF PREVIOUS CONSTRUCTION MASTERS
+4065UG-E-B  6/9/04  1:50 PM  Page 95
+
+
+===== PAGE 97 =====
+96 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+ACCURACY/ERRORS
+Accuracy/Display Capacity — Your calculator has a twelve-digit
+display made up of eight digits (normal display) and four fractional
+digits. You may enter or calculate values up to 19,999,999.99. Each
+calculation is carried out internally to ten digits.
+Errors — When an incorrect entry is made, or the answer is beyond
+the range of the calculator, it will display the word “ ERROR.” To clear
+an error condition you must hit the o button once. At this point
+you must determine what caused the error and re-key the problem.
+Error Codes
+DISPLAY ERROR TYPE
+OFLO Overflow (too large)
+MATH Error Divide by 0
+DIM Error Dimension error
+ENT Error Invalid entry error
+TRIG Error Trig. error (for example, tan of 1 foot)
+None Attempt to calculate stairs without enter-
+ing rise or run
+Auto-Range — If an “overflow” is created because of an input and
+calculation with small units that are out of the standard seven-digit
+range of the display, the answer will be automatically expressed in
+the next larger units (instead of showing “ ERROR”) — e.g.,
+10,000,000 mm is shown as 10,000 m. Also applies to inches, feet
+and yards.
+Note: If Exponential Notation is activated through the Preference Setting, the value
+will be shown in scientific notation (e.g., 10 million mm—1.000007 mm).
+AUTO SHUT-OFF
+Your calculator is designed to shut itself of f after about 8-12 minutes
+of non-use.
+APPENDIX E — ACCURACY/ERRORS, 
+AUTO SHUT-OFF, BATTERIES, RESET
+4065UG-E-B  6/9/04  1:50 PM  Page 96
+
+
+===== PAGE 98 =====
+USER’S GUIDE — 97
+BATTERIES
+• Construction Master Pro v3.0 (#4065) and Construction Master Pro
+Trig v3.0 (#4080)
+Two LR-44 batteries.
+• Construction Master Pro Desktop v3.0 (#44080)
+One 3-Volt Lithium CR-2032 battery.
+Replacing the Battery(ies)
+Should your calculator display become very dim or erratic, replace
+the battery(ies).
+Note: Please use caution when disposing of your old battery , as it contains hazardous
+chemicals.
+Replacement batteries are available at most discount or electronics
+stores. You may also call Calculated Industries at 1-775-885-4975.
+Battery Replacement Instructions
+• The Hand-held Models — 
+– Construction Master Pro v3.0 (#4065)
+– Construction Master Pro Trig v3.0 (#4080)
+To replace the batteries, slide open the battery door (at top
+backside of unit) and replace with new batteries. Make sure the
+batteries are facing positive side up.
+• 
+Construction Master Pro Desktop v3.0 (#44080):
+To replace the battery, use a small Phillips’ head screwdriver
+and unscrew the two (2) screws on the base of the unit.
+Carefully remove the lower back housing. Remove the battery
+from the clip and replace it with a new battery , with the positive
+side up. Then replace the backplate and reattach the screws.
+RESET KEY
+If your calculator should ever “lock up,” press Reset — a small hole
+located to the left (or right for the Construction Master Pro Desktop)
+of the O key — to perform a total reset.
+4065UG-E-B  6/9/04  1:50 PM  Page 97
+
+
+===== PAGE 99 =====
+98 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+AREA FORMULAS
+APPENDIX F — AREA/VOLUME FORMULAS
+4065UG-E-B  6/9/04  1:50 PM  Page 98
+
+
+===== PAGE 100 =====
+USER’S GUIDE — 99
+SURFACE AREA/VOLUME FORMULAS
+4065UG-E-B  6/9/04  1:50 PM  Page 99
+
+
+===== PAGE 101 =====
+100 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+WARRANTY, REPAIR AND RETURN INFORMATION 
+Return Guidelines
+1. Please read the Warranty in this User's Guide to determine if
+your Calculated Industries calculator, measuring device or elec-
+tronic tool remains under warranty before calling or returning
+any device for evaluation or repairs.
+2. If your calculator won't turn on, try pressing the Reset button
+first.  If it still won't turn on, check the batteries as outlined in the
+User's Guide. 
+3. If there is a black spot on the LCD screen, THIS IS NO
+T A
+WARRANTY DEFECT. The unit can be repaired. Call for a
+repair quote before returning your unit.
+4. If you need more assistance, please go to our website at
+www.calculated.com and click on Support, then Repair Services
+FAQs. 
+5. If you believe you need to return your calculator , please speak to
+a Calculated Industries representative for additional information!
+Call Toll Free: 1-800-854-8075
+REPAIR AND RETURN
+4065UG-E-B  6/9/04  1:50 PM  Page 100
+
+
+===== PAGE 102 =====
+USER’S GUIDE — 101
+Warranty Repair Service – U.S.A.
+Calculated Industries (“CI”) warrants this product against defects in materi -
+als and workmanship for a period of one (1) year from the date of original
+consumer purchase in the U.S. If a defect exists during the warranty peri -
+od, CI at its option will either repair (using new or remanufactured parts) or
+replace (with a new or remanufactured calculator) the product at no charge. 
+THE WARRANTY WILL NOT APPLY TO THE PRODUCT IF IT HAS BEEN
+DAMAGED BYMISUSE, ALTERATION, ACCIDENT, IMPROPERHANDLING
+OR OPERATION, OR IF UNAUTHORIZED REPAIRS ARE ATTEMPTED
+OR MADE. SOME EXAMPLES OF DAMAGES NOT COVERED BY WAR-
+RANTY INCLUDE, BUT ARE NOT LIMITED TO, BATTERY LEAKAGE,
+BENDING, OR VISIBLE CRACKING OF THE LCD, WHICH ARE PRE-
+SUMED TO BE DAMAGES RESULTING FROM MISUSE OR ABUSE.
+To obtain warranty service in the U.S., ship the product postage paid to
+Calculated Industries (address listed on the last page). Please provide an
+explanation of the service requirement, your name, address, day phone
+number and dated proof of purchase (typically a sales receipt). If the prod -
+uct is over 90 days old, include payment of $6.95 for return shipping and
+handling within the contiguous 48 states. (Outside the contiguous 48 states,
+please call CI for return shipping costs.)
+A repaired or replacement product assumes the remaining warranty of the
+original product or 90 days, whichever is longer.
+Non-Warranty Repair Service – U.S.A.
+Non-warranty repair covers service beyond the warranty period, or service
+requested due to damage resulting from misuse or abuse.
+Contact Calculated Industries at the number listed above to obtain current
+product repair information and charges. Repairs are guaranteed for 90 days.
+Repair Service – Outside the U.S.A.
+To obtain warranty or non-warranty repair service for goods purchased out -
+side the U.S., contact the dealer through which you initially purchased the
+product. If you cannot reasonably have the product repaired in your area,
+you may contact CI to obtain current product repair information and charges,
+including freight and duties.
+WARRANTY
+4065UG-E-B  6/9/04  1:50 PM  Page 101
+
+
+===== PAGE 103 =====
+102 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Disclaimer
+CI MAKES NO WARRANTY OR REPRESENTATION, EITHER EXPRESS
+OR IMPLIED, WITH RESPECT TO THE PRODUCT’S QUALITY, PERFOR-
+MANCE, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PUR-
+POSE. AS A RESULT, THIS PRODUCT, INCLUDING BUT NOT LIMITED
+TO, KEYSTROKE PROCEDURES, MATHEMATICAL ACCURACY AND
+PREPROGRAMMED MATERIAL, IS SOLD “AS IS,” AND YOU THE PUR-
+CHASER ASSUME THE ENTIRE RISK AS TO ITS QUALITY AND PER-
+FORMANCE.
+IN NO EVENT WILL CI BE LIABLE FOR DIRECT, INDIRECT, SPECIAL,
+INCIDENTAL, OR CONSEQUENTIAL DAMAGES RESULTING FROM ANY
+DEFECT IN THE PRODUCT OR ITS DOCUMENTATION.
+The warranty, disclaimer, and remedies set forth above are exclusive and
+replace all others, oral or written, expressed or implied. No CI dealer , agent,
+or employee is authorized to make any modification, extension, or addition
+to this warranty.
+Some states do not allow the exclusion or limitation of implied warranties or
+liability for incidental or consequential damages, so the above limitation or
+exclusion may not apply to you. This warranty gives you specific rights, and
+you may also have other rights, which vary from state to state.
+4065UG-E-B  6/9/04  1:50 PM  Page 102
+
+
+===== PAGE 104 =====
+USER’S GUIDE — 103
+FCC Class B
+This equipment has been certified to comply with the limits for a Class B
+calculating device, pursuant to Subpart J of Part 15 of FCC rules.
+Legal Notes
+Software copyrighted and licensed to Calculated Industries by Construction
+Master Technologies, LLC, 2004.
+User’s Guide copyrighted by Calculated Industries, Inc., 2004.
+Construction Master® and Calculated Industries® are registered trade-
+marks of Calculated Industries, Inc.
+PATENT PENDING
+ALL RIGHTS RESERVED
+Designed in the U.S.A.
+Looking For New Ideas
+Calculated Industries, a leading manufacturer of special-function calculators
+and digital measuring instruments, is always looking for new product ideas
+in these areas.
+If you have an idea, or a suggestion for improving this product or User ’s
+Guide, please submit your comments online at: www.calculated.com under
+“Contact Us,” “Product Idea.” Thank you.
+4065UG-E-B  6/9/04  1:50 PM  Page 103
+
+
+===== PAGE 105 =====
+104 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Accuracy/Errors, 96
+Adding Linear Measurements, 37
+Angle – 
+Rise and Hypotenuse Known, 87
+Angle and Diagonal (Hypotenuse), 65
+Arc Length, 47, 48
+Arched Windows, 50
+Area and Volume Keys, 11
+Area Calculations, 39
+Area, Rectangular, 39
+Area, Square, 39
+Area/Volume, 99
+Auto Shut-Off, 96
+Baluster Spacing, 83
+Basic Math with Dimensions, 32
+Basic Operation Keys, 8
+Batteries, 97
+Battery(ies), Replacing, 97
+Block/Brick Keys, 13, 43
+Blocks, Number of, Based on Calculated Area, 43
+Blocks, Number of, Based on Calculated Perimeter, 44
+Blocks, Number of, Based on Entered Area, 43
+Blocks, Number of, Based on Length, 44
+Board Feet – 
+With Dollar Cost, 46
+Board Feet, Number of, Based on Entered Volume, 46
+Bricks (Face), Number of, 45
+Bricks (Paver), Number of, 45
+Center Point, Finding, 38
+Circular/Arc Function Keys, 13
+Circumference and Area of a Circle, 47
+Column/Cone Key, 15
+Common Rafter Length, 64
+Common Rafter Length – 
+Pitch Unknown, 64
+Compound Miter/Crown Moulding Keys, 15
+Concrete (Driveway), Volume, 52
+Concrete Columns, 53
+Concrete Footings, 56
+Concrete Volume, Complex, 54
+Concrete/Paving, 52
+Cone, Volume, 41
+Construction Master, New Features, 95
+Construction Project Keys, 13
+Conversions, Area, 31
+Conversions, Linear, 30
+Conversions, Volume/Cubic, 31
+Conversions, Weight, 42
+Conversions/Weight per Volume, 42
+Convert  Key, 8
+Convert Degree of Pitch, 63
+Convert Percent Grade, 63
+Converting Decimal Feet to Feet-Inches-Fractions, 30
+Converting Decimal Inches to Fractional Inches, 31
+Converting Degrees:Minutes:Seconds, 84
+Converting Feet-Inches-Fractions to Decimal Feet, 30
+Converting Fractional Inches to Decimal Inches, 31
+Converting Percent Grade to D:M:S, 85
+Converting Roof Angle in Degrees to Pitch in Inches, 87
+INDEX
+4065UG-E-B  6/9/04  1:50 PM  Page 104
+
+
+===== PAGE 106 =====
+USER’S GUIDE — 105
+Converting Tangent/Pitch to Angle, 87
+Cutting Boards, 37
+Cylinder, Volume, 41
+Default Settings, 88
+Degrees:Minutes:Seconds, Converting, 84
+Dimensional Measurement Unit Keys, 10
+Dimensions (Linear), Entering, 25
+Dimensions (Square/Cubic), Entering, 25
+Dimensions, Adding, 32
+Dimensions, Dividing, 32
+Dimensions, Multiplying, 32
+Dimensions, Subtracting, 32
+Drywall, 58
+Drywall Keys (Not Available on Trig Model #4080), 16
+Drywall Sheets, Number of (For a Given Area), 58
+Drywall Sheets, Number of (For a Given Length), 58
+Entering Dimensions, 25
+Error Codes, 96
+Examples, 37
+Footing Keys, 16
+Grade/Slope, 59
+Hip/Valley and Jack Rafter Keys, 18
+Hip/Valley Rafter, 19
+Irregular Pitch, 19
+Irregular Side Jacks, 20
+Jack Rafters, 19
+Irregular Hip/Valley and Jack Rafters, 68, 70
+Jack Rafters – 
+Using Other Than 16 Inch, 67
+Lumber Estimation, 46
+Memory and Storage Functions, 9
+Memory Operation, 33
+Multi-Function h Example, 40
+Multi-Function W Example, 39
+Paperless Tape Operation, 35
+Percentage Calculations, 33
+Pitch Ratio, 63
+Polygon Key, 16
+Preference Settings, Appendix B, 89
+Preferences, How to Set, 91
+Rake-Wall Function, 20
+Rake-Wall – 
+No Base, 72
+Rake-Wall – With Base, 73
+Recall ¤ Key, 10
+Regular Hip/Valley and Jack Rafters, 66
+Reset Key, 97
+Right Triangle and Roof Framing, 60
+Right Triangle/Roof Framing Keys, 17
+Rise, 65
+Rise and Diagonal, 65
+Roof Covering – 
+Entering Pitch, Length and Width, 74
+Roof Covering – Entering Rise, Run (No Pitch) and Area, 75
+Roof Framing Definitions, 61
+Roof Materials/Covering Keys, 21, 74
+Sheathing Cut, 66
+Squaring-Up a Foundation, 57
+Stair Key, 21
+Stair Layout Definitions, 76
+Stair Layout Examples, 76
+Stairs – 
+Given Only Floor-to-Floor Rise, 78
+4065UG-E-B  6/9/04  1:50 PM  Page 105
+
+
+===== PAGE 107 =====
+106 — CONSTRUCTION MASTER® PRO / TRIG / DESKTOP
+Stairs – Given Only the Run, 80
+Stairs – Given Rise and Run, 81
+Stairs – Given Rise and Run, Using “Riser Limited” Function for Code Restrictions , 82
+Studs, Number of, 84
+Time Calculations Using D:M:S, 84
+Trigonometric Keys (Trig #4080 and Desktop #44080 Models only), 23
+Volume Calculations, 40
+Volume, Concrete Columns , 53
+Volume, Concrete (Complex), 54
+Volume, Concrete (Driveway), 52
+Volume, Rectangular Containers, 40
+Warranty, 101
+Warranty Repair Service, 100
+Weight Keys, 12
+Window Measurement, 38
+4840 Hytech Drive
+Carson City, NV 89706 U.S.A.
+1-800-854-8075 • Fax: 1-775-885-4949
+E-mail: info@calculated.com
+www.calculated.com
+4065UG-E-B
+3/04
+4065UG-E-B  6/9/04  1:50 PM  Page 106
+
+
+===== PAGE 108 =====
+Designed in the United States of America
+Printed in China
+2/04
+4065UG-E-B
+4065/4080 UG CVR ENGLISH_mod  7/21/04  10:43 AM  Page 2
