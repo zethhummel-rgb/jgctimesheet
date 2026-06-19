@@ -343,7 +343,6 @@
       "roof-summary": () => Fn.roofSummary(calculator),
       stair: () => Fn.stair(calculator),
       "riser-limit": () => Fn.setRiserLimit(calculator),
-      circle: () => Fn.circle(calculator),
       arc: () => Fn.arc(calculator),
       "column-cone": () => Fn.columnCone(calculator, false),
       concrete: () => Fn.concrete(calculator),
@@ -386,6 +385,9 @@
         break;
       case "radius":
         calculator.handleRegisterKey("radius");
+        break;
+      case "circle":
+        Fn.circle(calculator);
         break;
       case "percent":
         calculator.percent();
