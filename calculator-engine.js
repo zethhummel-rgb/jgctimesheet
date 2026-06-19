@@ -285,11 +285,11 @@
     if (value.dimension === "length" && unit === "ft" && meta.format === "feet-inch") {
       return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
     }
+    if (value.dimension === "length" && unit === "in" && meta.format === "inch-fraction" && (Math.abs(value.baseValue) < 12 || meta.forceInches)) {
+      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: "IN", mode: "LENGTH" };
+    }
     if (value.dimension === "length" && unit === "in" && Math.abs(value.baseValue) >= 12 && meta.format !== "decimal") {
       return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
-    }
-    if (value.dimension === "length" && unit === "in" && meta.format === "inch-fraction") {
-      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: "IN", mode: "LENGTH" };
     }
     const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
     const display = value.baseValue / def.factor;
