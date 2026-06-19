@@ -272,6 +272,25 @@
       background: rgba(94, 225, 47, 0.1);
     }
 
+    .public-tool-button {
+      margin-top: 4px;
+      background: linear-gradient(135deg, #d99527, #93651c);
+      color: #111817;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .public-tool-button:hover {
+      background: linear-gradient(135deg, #efaa35, #a87420);
+    }
+
+    .public-tool-note {
+      margin: -5px 0 14px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
     .small {
       font-size: 13px;
       color: var(--muted);
@@ -426,6 +445,8 @@
 
       <button type="button" onclick="signIn()">Sign In</button>
       <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
+      <button type="button" class="public-tool-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
+      <div class="public-tool-note">No sign-in required. Works offline after the app has loaded once.</div>
       <div id="loginStatus" class="status"></div>
       <div class="security-note">Secure. Private. Trusted.</div>
 
