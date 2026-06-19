@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050908">
   <title>JGC Portal - Field Calculator</title>
   <link rel="manifest" href="manifest.json?v=4">
-  <link rel="stylesheet" href="field-calculator.css?v=3">
+  <link rel="stylesheet" href="field-calculator.css?v=5">
 </head>
 <body class="field-calculator-page">
   <main class="field-calculator-shell">
@@ -17,7 +17,8 @@
         <button id="calcHomeButton" type="button" class="toolbar-button home-button" onclick="window.JgcFieldCalculator.goBack()" aria-label="Back to portal">Home</button>
         <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHistory()" aria-label="Open calculation history">Tape</button>
         <div id="convIndicator" class="toolbar-indicator" aria-live="polite">PRI</div>
-        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator help and settings">Help</button>
+        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openPreferences()" aria-label="Open calculator preferences">Prefs</button>
+        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator pocket guide">Guide</button>
       </header>
 
       <section class="calc-display" aria-live="polite">
@@ -50,8 +51,8 @@
   </div>
 
   <script src="common.js?v=3"></script>
-  <script src="calculator-engine.js?v=4"></script>
-  <script src="calculator-functions.js?v=1"></script>
-  <script src="field-calculator.js?v=5"></script>
+  <script src="calculator-engine.js?v=5"></script>
+  <script src="calculator-functions.js?v=2"></script>
+  <script src="field-calculator.js?v=9"></script>
 </body>
 </html>
