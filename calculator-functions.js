@@ -241,30 +241,82 @@
     }
   }
 
+  function circleCanContinue(engine) {
+    const cycle = engine.state.circleCycle;
+    const current = engine.state.current;
+    return Boolean(cycle && current &&
+      current.dimension === cycle.lastDimension &&
+      Math.abs(current.baseValue - cycle.lastBaseValue) < 0.000001);
+  }
+
+  function circleSource(engine) {
+    if (circleCanContinue(engine)) {
+      return engine.state.circleCycle;
+    }
+    const current = engine.state.current;
+    if (current && current.dimension === "length" && current.baseValue > 0) {
+      return {
+        diameter: current.baseValue,
+        unit: current.unit || "in",
+        step: -1
+      };
+    }
+    const radius = engine.getRegister("radius");
+    if (radius && radius.dimension === "length" && radius.baseValue > 0) {
+      return {
+        diameter: radius.baseValue * 2,
+        unit: radius.unit || "in",
+        step: -1
+      };
+    }
+    throw new Error("Missing diameter");
+  }
+
+  function circleDisplayValue(diameter, step, unit) {
+    if (step === 0) {
+      return {
+        label: "Diameter",
+        value: Engine.makeValue(diameter, "length", unit || "in", {
+          format: "decimal",
+          noTrailingDecimal: true,
+          unitLabel: unit === "in" ? "INCH" : undefined
+        })
+      };
+    }
+    if (step === 1) {
+      return {
+        label: "Circumference",
+        value: Engine.makeValue(PI * diameter, "length", "in", {
+          format: "inch-fraction",
+          forceInches: true,
+          unitLabel: "INCH"
+        })
+      };
+    }
+    return {
+      label: "Area",
+      value: Engine.makeValue(PI * (diameter / 2) * (diameter / 2), "area", "sqin", {
+        precision: 6,
+        noTrailingDecimal: true
+      })
+    };
+  }
+
   function circle(engine) {
     try {
-      let radius = engine.getRegister("radius");
-      if (!radius) {
-        const current = engine.state.current;
-        if (current && current.dimension === "length" && current.baseValue > 0) {
-          radius = current;
-        }
-      }
-      if (!radius) {
-        throw new Error("Missing radius");
-      }
-      const r = radius.baseValue;
-      const circumference = 2 * PI * r;
-      const area = PI * r * r;
-      const rows = [
-        ["Radius", Engine.roundForDisplay(r / 12, 4) + " FT"],
-        ["Diameter", Engine.roundForDisplay((r * 2) / 12, 4) + " FT"],
-        ["Circumference", Engine.roundForDisplay(circumference / 12, 4) + " FT"],
-        ["Area", formatValue(Engine.makeValue(area, "area", "sqft"), engine.state.preferences)]
-      ];
-      engine.setCurrent(Engine.makeValue(area, "area", "sqft"), "Circle area");
-      engine.addHistory("Circle", rows.map((row) => row.join(": ")).join(" | "));
-      return rows;
+      const source = circleSource(engine);
+      const nextStep = (source.step + 1) % 3;
+      const result = circleDisplayValue(source.diameter, nextStep, source.unit);
+      engine.setCurrent(result.value, result.label);
+      engine.state.lastFunction = "circle";
+      engine.state.circleCycle = {
+        diameter: source.diameter,
+        unit: source.unit,
+        step: nextStep,
+        lastBaseValue: engine.state.current.baseValue,
+        lastDimension: engine.state.current.dimension
+      };
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
