@@ -1779,9 +1779,6 @@ function getStatusLabel(status) {
   if (status === "ready_for_submission") {
     return "Ready For Submission";
   }
-  if (status === "submitting") {
-    return "Submitting";
-  }
   return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
@@ -1794,6 +1791,10 @@ function getSubmittedDateLabel(wo) {
 }
 
 function getWorkOrderStatusText(wo) {
+  if (wo && wo.locked && wo.status !== "submitted") {
+    return "Submitting";
+  }
+
   const label = getStatusLabel(wo && wo.status);
   const submittedDate = getSubmittedDateLabel(wo);
 
@@ -2448,7 +2449,6 @@ async function finalizeWorkOrder(id, options) {
   const { data: claimRows, error: claimError } = await supabaseClient
     .from("work_orders")
     .update({
-      status: "submitting",
       locked: true,
       updated_at: new Date().toISOString()
     })
@@ -2481,7 +2481,7 @@ async function finalizeWorkOrder(id, options) {
     await supabaseClient
       .from("work_orders")
       .update({
-        status: previousStatus === "submitting" ? "ready_for_submission" : previousStatus,
+        status: previousStatus,
         locked: false,
         updated_at: new Date().toISOString()
       })
