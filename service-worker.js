@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v280";
+const JGC_CACHE_NAME = "jgc-portal-v286";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -17,6 +17,7 @@ const JGC_APP_SHELL = [
   "./contacts.html",
   "./policies-announcements.html",
   "./equipment-vehicles.html",
+  "./field-calculator.html",
   "./jobs.html",
   "./work-orders.html",
   "./permits.html",
@@ -38,6 +39,10 @@ const JGC_APP_SHELL = [
   "./tele-handler.html",
   "./styles.css?v=2",
   "./common.js?v=3",
+  "./field-calculator.css?v=3",
+  "./calculator-engine.js?v=4",
+  "./calculator-functions.js?v=1",
+  "./field-calculator.js?v=5",
   "./auth.js",
   "./inspection-records.js",
   "./manifest.json?v=4",
