@@ -1,0 +1,800 @@
+(function() {
+  "use strict";
+
+  const PREF_KEY = "jgc_field_calculator_preferences";
+  const HISTORY_KEY = "jgc_field_calculator_history";
+  const EngineApi = window.JgcCalculatorEngine;
+  const Fn = window.JgcCalculatorFunctions;
+
+  const KEY_ROWS = [
+    [
+      { primary: "Pitch", secondary: "Slope", action: "pitch", secondaryAction: "slope", type: "function" },
+      { primary: "Rise", secondary: "R/Wall", action: "rise", secondaryAction: "rake-wall", type: "function" },
+      { primary: "Run", secondary: "Polygon", action: "run", secondaryAction: "polygon", type: "function" },
+      { primary: "Diag", secondary: "Roof", action: "diag", secondaryAction: "roof-summary", type: "function" },
+      { primary: "Hip/V", secondary: "Ir/Pitch", action: "hip", secondaryAction: "irregular-pitch", type: "function" }
+    ],
+    [
+      { primary: "Comp Miter", secondary: "Spring Angle", action: "compound-miter", secondaryAction: "spring-angle", type: "function" },
+      { primary: "Stair", secondary: "Riser Limit", action: "stair", secondaryAction: "riser-limit", type: "function" },
+      { primary: "Arc", secondary: "Radius", action: "arc", secondaryAction: "radius", type: "function" },
+      { primary: "Circ", secondary: "Column/Cone", action: "circle", secondaryAction: "column-cone", type: "function" },
+      { primary: "Jack", secondary: "Ir/Jack", action: "jack", secondaryAction: "irregular-jack", type: "function" }
+    ],
+    [
+      { primary: "m", action: "unit:m", type: "function" },
+      { primary: "Length", secondary: "Blocks", action: "register:length", secondaryAction: "blocks", type: "function" },
+      { primary: "Width", secondary: "Footing", action: "register:width", secondaryAction: "concrete", type: "function" },
+      { primary: "Height", secondary: "Drywall", action: "register:height", secondaryAction: "drywall", type: "function" },
+      { primary: "%", secondary: "x\u00b2", action: "percent", secondaryAction: "square", type: "operator" }
+    ],
+    [
+      { primary: "Yds", action: "unit:yd", type: "function" },
+      { primary: "Feet", action: "unit:ft", type: "function" },
+      { primary: "Inch", action: "unit:in", type: "function" },
+      { primary: "/", action: "fraction", type: "operator" },
+      { primary: "Clear", secondary: "\u221ax", action: "clear", secondaryAction: "sqrt", type: "danger" }
+    ],
+    [
+      { primary: "Conv", action: "conv", type: "convert" },
+      { primary: "7", secondary: "cm", action: "digit:7", secondaryAction: "unit:cm", type: "number" },
+      { primary: "8", secondary: "Bd ft", action: "digit:8", secondaryAction: "board-feet", type: "number" },
+      { primary: "9", secondary: "mm", action: "digit:9", secondaryAction: "unit:mm", type: "number" },
+      { primary: "\u00f7", secondary: "1/x", action: "op:/", secondaryAction: "reciprocal", type: "operator" }
+    ],
+    [
+      { primary: "Store", secondary: "Prefs", action: "store", secondaryAction: "prefs", type: "function" },
+      { primary: "4", secondary: "lbs", action: "digit:4", secondaryAction: "unit:lb", type: "number" },
+      { primary: "5", secondary: "Studs", action: "digit:5", secondaryAction: "studs", type: "number" },
+      { primary: "6", secondary: "tons", action: "digit:6", secondaryAction: "unit:ton", type: "number" },
+      { primary: "\u00d7", secondary: "Clear All", action: "op:*", secondaryAction: "clear-all", type: "operator" }
+    ],
+    [
+      { primary: "Rcl", secondary: "MC", action: "recall", secondaryAction: "memory-clear", type: "function" },
+      { primary: "1", secondary: "kg", action: "digit:1", secondaryAction: "unit:kg", type: "number" },
+      { primary: "2", secondary: "Acre", action: "digit:2", secondaryAction: "unit:acre", type: "number" },
+      { primary: "3", secondary: "met tons", action: "digit:3", secondaryAction: "unit:metricTon", type: "number" },
+      { primary: "\u2212", secondary: "+/-", action: "op:-", secondaryAction: "sign", type: "operator" }
+    ],
+    [
+      { primary: "M+", secondary: "M-", action: "mplus", secondaryAction: "mminus", type: "function" },
+      { primary: "0", secondary: "Cost", action: "digit:0", secondaryAction: "cost", type: "number" },
+      { primary: ".", secondary: "dms\u25c4\u25badeg", action: "decimal", secondaryAction: "dms", type: "number" },
+      { primary: "=", secondary: "Tape", action: "equals", secondaryAction: "history", type: "operator" },
+      { primary: "+", secondary: "\u03c0", action: "op:+", secondaryAction: "pi", type: "operator" }
+    ]
+  ];
+
+  let calculator;
+
+  function loadJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function saveStatePieces() {
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify(calculator.state.preferences));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(calculator.state.history.slice(0, 60)));
+    } catch (error) {
+      // localStorage can be blocked in private mode; calculator still works.
+    }
+  }
+
+  function getPortalBackDestination() {
+    if (typeof getCurrentWorkerRecord === "function") {
+      const worker = getCurrentWorkerRecord();
+      if (worker && worker.key) {
+        if (typeof isAdminWorker === "function" && isAdminWorker(worker.key, worker.role, worker.email)) {
+          return { href: "admin.html", label: "Admin" };
+        }
+        return { href: "home.html", label: "Home" };
+      }
+    }
+
+    return { href: "index.html", label: "Login" };
+  }
+
+  function goBack() {
+    window.location.href = getPortalBackDestination().href;
+  }
+
+  function updateBackButton() {
+    const button = document.getElementById("calcHomeButton");
+    if (!button) {
+      return;
+    }
+    const destination = getPortalBackDestination();
+    button.textContent = destination.label;
+    button.setAttribute("aria-label", "Back to " + destination.label);
+  }
+
+  function keyToAria(key) {
+    return key.primary + (key.secondary ? ", secondary " + key.secondary : "");
+  }
+
+  function renderKeypad() {
+    const pad = document.getElementById("calcKeypad");
+    pad.innerHTML = KEY_ROWS.flat().map((key) => {
+      const classes = ["calc-key", key.type || "function"];
+      if (!key.secondaryAction && key.secondary) {
+        classes.push("disabled-secondary");
+      }
+      return `
+        <button type="button" class="${classes.join(" ")}" data-action="${key.action}" data-secondary-action="${key.secondaryAction || ""}" aria-label="${escapeHtml(keyToAria(key))}">
+          ${key.secondary ? `<span class="secondary-label">${escapeHtml(key.secondary)}</span>` : ""}
+          <span class="primary-label">${escapeHtml(key.primary)}</span>
+        </button>
+      `;
+    }).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function updateDisplay() {
+    const display = calculator.getDisplay();
+    const main = document.getElementById("calcMainValue");
+    main.textContent = display.main;
+    main.style.fontSize = display.main.length > 13 ? "clamp(24px, 7vw, 38px)" : "";
+    document.getElementById("calcUnit").textContent = display.unit || "JGC";
+    document.getElementById("calcMode").textContent = display.mode || "READY";
+    document.getElementById("calcExpression").textContent = display.expression || "";
+    document.getElementById("convIndicator").classList.toggle("active", calculator.state.conversionMode);
+    document.getElementById("convIndicator").textContent = calculator.state.conversionMode ? "CONV" : "PRI";
+    document.querySelectorAll(".calc-key.convert").forEach((button) => button.classList.toggle("active", calculator.state.conversionMode));
+    saveStatePieces();
+  }
+
+  function resetConvIfNeeded(action) {
+    if (calculator.state.conversionMode && action !== "conv") {
+      calculator.state.conversionMode = calculator.state.conversionLocked;
+    }
+  }
+
+  function showRowsOverlay(title, rows) {
+    if (!rows || !rows.length) {
+      updateDisplay();
+      return;
+    }
+    openOverlay(title, `
+      <table class="calc-result-table">
+        <tbody>
+          ${rows.map((row) => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    `);
+  }
+
+  function openOverlay(title, bodyHtml, modifierClass) {
+    const overlayShell = document.querySelector(".calc-overlay");
+    if (overlayShell) {
+      overlayShell.className = "calc-overlay" + (modifierClass ? " " + modifierClass : "");
+    }
+    document.getElementById("calcOverlayTitle").textContent = title;
+    document.getElementById("calcOverlayBody").innerHTML = bodyHtml;
+    document.getElementById("calcOverlay").classList.add("open");
+  }
+
+  function closeOverlay(event) {
+    if (event && event.target !== event.currentTarget) {
+      return;
+    }
+    document.getElementById("calcOverlay").classList.remove("open");
+  }
+
+  function runSecondary(action) {
+    runAction(action, true);
+  }
+
+  function runAction(rawAction, secondary) {
+    if (!rawAction) {
+      calculator.setError("Function not ready");
+      updateDisplay();
+      return;
+    }
+    let action = rawAction;
+    if (!calculator.state.conversionMode && calculator.state.repeatUnitRawAction === rawAction && calculator.state.repeatUnitAction) {
+      action = calculator.state.repeatUnitAction;
+    }
+    if (calculator.state.conversionMode && !secondary) {
+      const fractionResolution = getFractionResolutionShortcut(rawAction);
+      if (fractionResolution && isClearForPreferenceShortcut()) {
+        action = "fraction-resolution:" + fractionResolution;
+      } else {
+        const button = Array.from(document.querySelectorAll(".calc-key")).find((item) => item.getAttribute("data-action") === rawAction);
+        const secondaryAction = button ? button.getAttribute("data-secondary-action") : "";
+        if (secondaryAction) {
+          action = secondaryAction;
+        }
+      }
+    }
+
+    const beforeConv = calculator.state.conversionMode;
+
+    try {
+      if (action.startsWith("digit:")) {
+        calculator.pressDigit(action.split(":")[1]);
+      } else if (action === "decimal") {
+        calculator.pressDecimal();
+      } else if (action === "fraction") {
+        calculator.pressFraction();
+      } else if (action.startsWith("unit:")) {
+        const unit = action.split(":")[1];
+        if (beforeConv) {
+          calculator.convertCurrent(normalizeConversionUnit(unit));
+        } else {
+          calculator.applyUnit(unit);
+        }
+      } else if (action.startsWith("op:")) {
+        calculator.pressOperator(action.split(":")[1]);
+      } else if (action.startsWith("register:")) {
+        calculator.handleRegisterKey(action.split(":")[1]);
+      } else {
+        runNamedAction(action);
+      }
+    } catch (error) {
+      calculator.setError(error.message);
+    }
+
+    if (navigator.vibrate && calculator.state.preferences.haptic) {
+      navigator.vibrate(8);
+    }
+    rememberRepeatUnit(rawAction, action, beforeConv);
+    resetConvIfNeeded(action);
+    updateDisplay();
+  }
+
+  function rememberRepeatUnit(rawAction, action, wasConv) {
+    if (wasConv && rawAction && rawAction.startsWith("digit:") && action && action.startsWith("unit:")) {
+      calculator.state.repeatUnitRawAction = rawAction;
+      calculator.state.repeatUnitAction = action;
+      return;
+    }
+    if (rawAction === calculator.state.repeatUnitRawAction && action === calculator.state.repeatUnitAction) {
+      return;
+    }
+    if (action !== "conv") {
+      calculator.state.repeatUnitRawAction = "";
+      calculator.state.repeatUnitAction = "";
+    }
+  }
+
+  function normalizeConversionUnit(unit) {
+    const current = calculator.state.current;
+    if (!current) {
+      return unit;
+    }
+    if (unit === "m" && current.dimension === "area") {
+      return "sqm";
+    }
+    if (unit === "m" && current.dimension === "volume") {
+      return "cum";
+    }
+    if (unit === "cm" && current.dimension === "area") {
+      return "sqcm";
+    }
+    if (unit === "cm" && current.dimension === "volume") {
+      return "cucm";
+    }
+    if (unit === "mm" && current.dimension === "area") {
+      return "sqmm";
+    }
+    if (unit === "mm" && current.dimension === "volume") {
+      return "cumm";
+    }
+    if (unit === "yd" && current.dimension === "area") {
+      return "sqyd";
+    }
+    if (unit === "yd" && current.dimension === "volume") {
+      return "cuyd";
+    }
+    if (unit === "ft" && current.dimension === "area") {
+      return "sqft";
+    }
+    if (unit === "ft" && current.dimension === "volume") {
+      return "cuft";
+    }
+    if (unit === "in" && current.dimension === "area") {
+      return "sqin";
+    }
+    if (unit === "in" && current.dimension === "volume") {
+      return "cuin";
+    }
+    return unit;
+  }
+
+  function getFractionResolutionShortcut(rawAction) {
+    const map = {
+      "digit:1": 16,
+      "digit:2": 2,
+      "digit:3": 32,
+      "digit:4": 4,
+      "digit:6": 64,
+      "digit:8": 8
+    };
+    return map[rawAction] || 0;
+  }
+
+  function isClearForPreferenceShortcut() {
+    const current = calculator.state.current;
+    return !calculator.state.inputBuffer &&
+      !calculator.state.pendingOperator &&
+      current &&
+      current.dimension === "scalar" &&
+      Math.abs(current.baseValue) < 1e-10;
+  }
+
+  function runNamedAction(action) {
+    const rowsByAction = {
+      "roof-summary": () => Fn.roofSummary(calculator),
+      stair: () => Fn.stair(calculator),
+      "riser-limit": () => Fn.setRiserLimit(calculator),
+      circle: () => Fn.circle(calculator),
+      arc: () => Fn.arc(calculator),
+      "column-cone": () => Fn.columnCone(calculator, false),
+      concrete: () => Fn.concrete(calculator),
+      drywall: () => Fn.drywall(calculator),
+      studs: () => Fn.studs(calculator),
+      "board-feet": () => Fn.boardFeet(calculator),
+      blocks: () => Fn.blocks(calculator),
+      "compound-miter": () => Fn.compoundMiter(calculator),
+      "spring-angle": () => Fn.setSpringAngle(calculator),
+      polygon: () => Fn.polygon(calculator),
+      "rake-wall": () => Fn.rakeWall(calculator),
+      jack: () => Fn.jack(calculator),
+      cost: () => Fn.cost(calculator),
+      dms: () => Fn.dmsDecimal(calculator)
+    };
+    switch (action) {
+      case "conv":
+        calculator.state.conversionMode = !calculator.state.conversionMode;
+        calculator.state.status = calculator.state.conversionMode ? "Secondary functions active" : "";
+        break;
+      case "pitch":
+      case "slope":
+        Fn.pitchPrimary(calculator);
+        break;
+      case "rise":
+        Fn.risePrimary(calculator);
+        break;
+      case "run":
+        Fn.runPrimary(calculator);
+        break;
+      case "diag":
+        Fn.diagPrimary(calculator);
+        break;
+      case "hip":
+        Fn.hipValley(calculator);
+        break;
+      case "irregular-pitch":
+      case "irregular-jack":
+        calculator.setError("Advanced irregular calc not verified yet");
+        break;
+      case "radius":
+        calculator.handleRegisterKey("radius");
+        break;
+      case "percent":
+        calculator.percent();
+        break;
+      case "square":
+        calculator.square();
+        break;
+      case "sqrt":
+        calculator.squareRoot();
+        break;
+      case "clear":
+        calculator.clear();
+        break;
+      case "clear-all":
+        calculator.clearAll();
+        break;
+      case "reciprocal":
+        calculator.reciprocal();
+        break;
+      case "sign":
+        calculator.toggleSign();
+        break;
+      case "equals":
+        calculator.equals();
+        break;
+      case "pi":
+        calculator.pi();
+        break;
+      case "store":
+        calculator.storeMemory();
+        break;
+      case "recall":
+        calculator.recallMemory();
+        break;
+      case "mplus":
+        calculator.memoryPlus(1);
+        break;
+      case "mminus":
+        calculator.memoryPlus(-1);
+        break;
+      case "memory-clear":
+        calculator.memoryClear();
+        break;
+      case "prefs":
+        openPreferences();
+        break;
+      case "history":
+        openHistory();
+        break;
+      default:
+        if (action.startsWith("fraction-resolution:")) {
+          calculator.setFractionResolution(Number(action.split(":")[1]));
+        } else if (rowsByAction[action]) {
+          const rows = rowsByAction[action]();
+          if (Array.isArray(rows) && rows.length) {
+            showRowsOverlay(action.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()), rows);
+          }
+        } else {
+          calculator.setError("Function not ready");
+        }
+    }
+  }
+
+  function openHistory() {
+    const rows = calculator.state.history || [];
+    openOverlay("Tape / History", `
+      ${rows.length ? `<table class="calc-result-table"><tbody>${rows.map((item) => `<tr><th>${escapeHtml(item.label)}</th><td>${escapeHtml(item.value)}</td></tr>`).join("")}</tbody></table>` : `<p>No history yet.</p>`}
+      <div class="calculator-notice">History is stored on this device only.</div>
+      <p><button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.clearHistory()">Clear History</button></p>
+    `);
+  }
+
+  function openPreferences() {
+    const prefs = calculator.state.preferences;
+    const pref = (key, fallback) => prefs[key] === undefined || prefs[key] === null ? fallback : prefs[key];
+    const checked = (key, fallback) => pref(key, fallback) ? " checked" : "";
+    const value = (key, fallback) => escapeHtml(pref(key, fallback));
+    const options = (items, current) => items.map((item) => {
+      const selected = String(item.value) === String(current) ? " selected" : "";
+      return `<option value="${escapeHtml(item.value)}"${selected}>${escapeHtml(item.label)}</option>`;
+    }).join("");
+
+    openOverlay("Preferences", `
+      <div class="preferences-screen">
+        <details class="preferences-section" open>
+          <summary class="pref-section-toggle">General</summary>
+          <label class="pref-row">
+            <span>Key Clicks</span>
+            <input id="prefSound" class="pref-switch-input" type="checkbox"${checked("sound", false)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Haptic Feedback</span>
+            <input id="prefHaptic" class="pref-switch-input" type="checkbox"${checked("haptic", true)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Trig Mode</span>
+            <input id="prefTrigMode" class="pref-switch-input" type="checkbox"${checked("trigMode", false)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Legacy Mode</span>
+            <input id="prefLegacyMode" class="pref-switch-input" type="checkbox"${checked("legacyMode", false)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Full Screen Mode</span>
+            <input id="prefFullScreenMode" class="pref-switch-input" type="checkbox"${checked("fullScreenMode", true)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+        </details>
+
+        <details class="preferences-section">
+          <summary class="pref-section-toggle">Display Settings</summary>
+          <label class="pref-row">
+            <span>Fractional Resolution</span>
+            <select id="prefFraction">${options([2, 4, 8, 16, 32, 64].map((item) => ({ value: item, label: "1/" + item })), pref("fractionDenominator", 16))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Fractional Mode</span>
+            <select id="prefFractionMode">${options([{ value: "standard", label: "Standard" }, { value: "fixed", label: "Fixed" }], pref("fractionMode", "standard"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Exponential</span>
+            <input id="prefExponential" class="pref-switch-input" type="checkbox"${checked("exponential", false)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Area Display</span>
+            <select id="prefAreaDisplay">${options([{ value: "standard", label: "Standard" }, { value: "sqft", label: "Square Feet" }, { value: "sqyd", label: "Square Yards" }, { value: "sqm", label: "Square Meters" }], pref("areaDisplay", "standard"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Volume Display</span>
+            <select id="prefVolumeDisplay">${options([{ value: "standard", label: "Standard" }, { value: "cuft", label: "Cubic Feet" }, { value: "cuyd", label: "Cubic Yards" }, { value: "cum", label: "Cubic Meters" }], pref("volumeDisplay", "standard"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Meters</span>
+            <select id="prefMeterPrecision">${options([{ value: 2, label: "0.00" }, { value: 3, label: "0.000" }, { value: 4, label: "0.0000" }], pref("meterPrecision", 3))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Decimal Degrees</span>
+            <select id="prefDegreePrecision">${options([{ value: 1, label: "0.0" }, { value: 2, label: "0.00" }, { value: 3, label: "0.000" }], pref("degreePrecision", 2))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Comma Separator</span>
+            <input id="prefCommaSeparator" class="pref-switch-input" type="checkbox"${checked("commaSeparator", true)}>
+            <span class="pref-switch" aria-hidden="true"></span>
+          </label>
+          <label class="pref-row">
+            <span>Unitless Decimal Display</span>
+            <select id="prefUnitlessDisplay">${options([{ value: "float", label: "Float" }, { value: "fixed", label: "Fixed" }], pref("unitlessDisplay", "float"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Display Precision</span>
+            <input id="prefPrecision" type="number" min="2" max="8" value="${value("precision", 5)}">
+          </label>
+        </details>
+
+        <details class="preferences-section">
+          <summary class="pref-section-toggle">Function Settings</summary>
+          <label class="pref-row">
+            <span>Rake Wall</span>
+            <select id="prefRakeWallOrder">${options([{ value: "descending", label: "Descending" }, { value: "ascending", label: "Ascending" }], pref("rakeWallOrder", "descending"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Arched Wall</span>
+            <select id="prefArchedWallSide">${options([{ value: "outside", label: "Outside" }, { value: "inside", label: "Inside" }], pref("archedWallSide", "outside"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Jack Rafters</span>
+            <select id="prefJackOrder">${options([{ value: "descending", label: "Descending" }, { value: "ascending", label: "Ascending" }], pref("jackOrder", "descending"))}</select>
+          </label>
+          <label class="pref-row">
+            <span>Irregular Jack Rafters</span>
+            <select id="prefIrregularJackMode">${options([{ value: "on-center", label: "On-Center" }, { value: "spacing", label: "Spacing" }], pref("irregularJackMode", "on-center"))}</select>
+          </label>
+        </details>
+
+        <details class="preferences-section">
+          <summary class="pref-section-toggle">Stored Settings</summary>
+          <label class="pref-row">
+            <span>Headroom Height</span>
+            <input id="prefHeadroomHeight" type="number" min="0" step="0.01" value="${value("headroomHeight", 80)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Riser Height</span>
+            <input id="prefRiserLimit" type="number" step="0.01" min="1" value="${value("stairRiserLimit", 7.75)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Floor Thickness</span>
+            <input id="prefFloorThickness" type="number" min="0" step="0.01" value="${value("floorThickness", 10)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Tread Width</span>
+            <input id="prefTreadDepth" type="number" step="0.01" min="1" value="${value("treadDepth", 10)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Block Area</span>
+            <input id="prefBlockArea" type="number" min="1" step="0.01" value="${value("blockArea", 128)}">
+            <small>square inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Block Length</span>
+            <input id="prefBlockLength" type="number" min="1" step="0.01" value="${value("blockLength", 16)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Spring Angle</span>
+            <input id="prefSpringAngle" type="number" step="0.1" min="1" value="${value("springAngle", 38)}">
+            <small>degrees</small>
+          </label>
+          <label class="pref-row">
+            <span>On-Center Spacing</span>
+            <input id="prefStudSpacing" type="number" min="8" max="32" value="${value("studSpacing", 16)}">
+            <small>inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Footing Area</span>
+            <input id="prefFootingArea" type="number" min="1" step="0.01" value="${value("footingArea", 264)}">
+            <small>square inches</small>
+          </label>
+          <label class="pref-row">
+            <span>Weight / Volume</span>
+            <input id="prefWeightPerVolume" type="number" min="0" step="0.01" value="${value("weightPerVolume", 1.5)}">
+            <small>ton/yard3</small>
+          </label>
+          <label class="pref-row">
+            <span>Concrete Waste</span>
+            <input id="prefConcreteWaste" type="number" min="0" max="50" value="${value("concreteWaste", 5)}">
+            <small>percent</small>
+          </label>
+          <label class="pref-row">
+            <span>Drywall Waste</span>
+            <input id="prefDrywallWaste" type="number" min="0" max="50" value="${value("drywallWaste", 10)}">
+            <small>percent</small>
+          </label>
+        </details>
+
+        <button type="button" class="pref-reset-button" onclick="window.JgcFieldCalculator.resetCalculatorData()">Reset calculator data and settings</button>
+        <div class="pref-bottom-bar">
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.savePreferences()">Save Preferences</button>
+        </div>
+      </div>
+      <div class="calculator-notice">Calculation aid only. Verify critical measurements, engineering requirements, and applicable building codes before construction.</div>
+    `, "preferences-overlay");
+  }
+
+  function openHelp() {
+    openOverlay("Calculator Help", `
+      <ul class="help-list">
+        <li>Enter dimensions as Number → Unit. Example: 4 → Feet → 6 → Inch.</li>
+        <li>Fractions: 5 → / → 8 → Inch enters 5/8 inch.</li>
+        <li>Conv activates the red secondary label on the next button.</li>
+        <li>Length, Width, Height, Rise, Run, Diag, Radius store the current value. Press with no current value to recall.</li>
+        <li>Length × Width creates area. Area × Height creates volume.</li>
+        <li>Use Conv + = for the tape/history panel.</li>
+        <li>Use Conv + Store for preferences.</li>
+      </ul>
+      <div class="calculator-notice">Calculation aid only. Verify critical measurements, engineering requirements, and applicable building codes before construction.</div>
+    `);
+  }
+
+  function savePreferencesFromOverlay() {
+    const numberValue = (id, fallback) => {
+      const node = document.getElementById(id);
+      if (!node) {
+        return fallback;
+      }
+      const value = Number(node.value);
+      return Number.isFinite(value) ? value : fallback;
+    };
+    const textValue = (id, fallback) => {
+      const node = document.getElementById(id);
+      return node ? node.value : fallback;
+    };
+    const checkedValue = (id, fallback) => {
+      const node = document.getElementById(id);
+      return node ? node.checked : fallback;
+    };
+
+    calculator.updatePreferences({
+      fractionDenominator: numberValue("prefFraction", 16),
+      precision: numberValue("prefPrecision", 5),
+      concreteWaste: numberValue("prefConcreteWaste", 5),
+      drywallWaste: numberValue("prefDrywallWaste", 10),
+      studSpacing: numberValue("prefStudSpacing", 16),
+      stairRiserLimit: numberValue("prefRiserLimit", 7.75),
+      treadDepth: numberValue("prefTreadDepth", 10),
+      springAngle: numberValue("prefSpringAngle", 38),
+      sound: checkedValue("prefSound", false),
+      haptic: checkedValue("prefHaptic", true),
+      trigMode: checkedValue("prefTrigMode", false),
+      legacyMode: checkedValue("prefLegacyMode", false),
+      fullScreenMode: checkedValue("prefFullScreenMode", true),
+      fractionMode: textValue("prefFractionMode", "standard"),
+      exponential: checkedValue("prefExponential", false),
+      areaDisplay: textValue("prefAreaDisplay", "standard"),
+      volumeDisplay: textValue("prefVolumeDisplay", "standard"),
+      meterPrecision: numberValue("prefMeterPrecision", 3),
+      degreePrecision: numberValue("prefDegreePrecision", 2),
+      commaSeparator: checkedValue("prefCommaSeparator", true),
+      unitlessDisplay: textValue("prefUnitlessDisplay", "float"),
+      rakeWallOrder: textValue("prefRakeWallOrder", "descending"),
+      archedWallSide: textValue("prefArchedWallSide", "outside"),
+      jackOrder: textValue("prefJackOrder", "descending"),
+      irregularJackMode: textValue("prefIrregularJackMode", "on-center"),
+      headroomHeight: numberValue("prefHeadroomHeight", 80),
+      floorThickness: numberValue("prefFloorThickness", 10),
+      blockArea: numberValue("prefBlockArea", 128),
+      blockLength: numberValue("prefBlockLength", 16),
+      footingArea: numberValue("prefFootingArea", 264),
+      weightPerVolume: numberValue("prefWeightPerVolume", 1.5)
+    });
+    saveStatePieces();
+    closeOverlay();
+    updateDisplay();
+  }
+
+  function resetCalculatorData() {
+    if (!confirm("Reset calculator data and settings on this device?")) {
+      return;
+    }
+    localStorage.removeItem(PREF_KEY);
+    localStorage.removeItem(HISTORY_KEY);
+    calculator = new EngineApi.CalculatorEngine({}, []);
+    closeOverlay();
+    updateDisplay();
+  }
+
+  function handleKeyboard(event) {
+    const key = event.key;
+    if (/^\d$/.test(key)) {
+      runAction("digit:" + key);
+      event.preventDefault();
+    } else if (key === ".") {
+      runAction("decimal");
+      event.preventDefault();
+    } else if (key === "+") {
+      runAction("op:+");
+      event.preventDefault();
+    } else if (key === "-") {
+      runAction("op:-");
+      event.preventDefault();
+    } else if (key === "*") {
+      runAction("op:*");
+      event.preventDefault();
+    } else if (key === "/") {
+      runAction("op:/");
+      event.preventDefault();
+    } else if (key === "Enter" || key === "=") {
+      runAction("equals");
+      event.preventDefault();
+    } else if (key === "Escape") {
+      runAction("clear");
+      event.preventDefault();
+    } else if (key === "Backspace") {
+      calculator.state.inputBuffer = calculator.state.inputBuffer.slice(0, -1);
+      calculator.state.current = EngineApi.makeValue(Number(calculator.state.inputBuffer || 0), "scalar", "scalar");
+      updateDisplay();
+      event.preventDefault();
+    }
+  }
+
+  function init() {
+    if (!EngineApi || !Fn) {
+      alert("Calculator engine could not load.");
+      return;
+    }
+    calculator = new EngineApi.CalculatorEngine(loadJson(PREF_KEY, {}), loadJson(HISTORY_KEY, []));
+    updateBackButton();
+    renderKeypad();
+    document.getElementById("calcKeypad").addEventListener("click", (event) => {
+      const button = event.target.closest(".calc-key");
+      if (!button) {
+        return;
+      }
+      button.classList.add("pressed");
+      setTimeout(() => button.classList.remove("pressed"), 110);
+      runAction(button.getAttribute("data-action"));
+    });
+    document.addEventListener("keydown", handleKeyboard);
+    updateDisplay();
+  }
+
+  window.JgcFieldCalculator = {
+    closeOverlay,
+    openHelp,
+    openHistory,
+    savePreferences: savePreferencesFromOverlay,
+    resetCalculatorData,
+    goBack,
+    clearHistory() {
+      calculator.state.history = [];
+      saveStatePieces();
+      openHistory();
+      updateDisplay();
+    },
+    runAction,
+    runSecondary,
+    getEngine() {
+      return calculator;
+    }
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
