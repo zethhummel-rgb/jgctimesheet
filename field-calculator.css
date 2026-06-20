@@ -235,6 +235,11 @@ body.field-calculator-page {
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.8);
 }
 
+.calc-key-spacer {
+  min-width: 0;
+  min-height: 0;
+}
+
 .calc-key .secondary-label {
   position: absolute;
   left: 4px;
@@ -981,14 +986,12 @@ body.field-calculator-page {
     font-size: clamp(24px, 8.1vw, 34px);
   }
 
-  .calc-key[data-action="function:compound-miter"] .primary-label,
   .calc-key[data-action="register:length"] .primary-label,
   .calc-key[data-action="register:width"] .primary-label,
   .calc-key[data-action="register:height"] .primary-label {
     font-size: 0.82em;
   }
 
-  .calc-key[data-action="function:compound-miter"] .secondary-label,
   .calc-key[data-action="function:column-cone"] .secondary-label,
   .calc-key[data-action="function:dms"] .secondary-label {
     font-size: clamp(6.5px, 2vw, 8px);
