@@ -39,6 +39,14 @@
     return engine.state.current.baseValue;
   }
 
+  function currentOrRegisterLength(engine, name) {
+    engine.commitInputAsScalar();
+    if (engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue >= 0) {
+      return engine.state.current.baseValue;
+    }
+    return requireLength(engine, name);
+  }
+
   function setResult(engine, value, label) {
     engine.setCurrent(value, label);
     return value;
@@ -425,16 +433,12 @@
 
   function studs(engine) {
     try {
-      const length = requireLength(engine, "length");
+      const length = currentOrRegisterLength(engine, "length");
       const spacing = engine.state.preferences.studSpacing || 16;
-      const count = Math.floor(length / spacing) + 1;
-      const rows = [
-        ["Wall length", formatValue(Engine.makeValue(length, "length", "ft"), engine.state.preferences)],
-        ["Spacing", spacing + " IN OC"],
-        ["Base studs", String(count)]
-      ];
-      engine.setCurrent(Engine.makeValue(count, "count", "count"), "Stud count");
-      return rows;
+      const count = Math.ceil(length / spacing) + 1;
+      engine.setCurrent(Engine.makeValue(count, "count", "count", { noTrailingDecimal: true }), "Stud count");
+      engine.addHistory("Studs", formatValue(Engine.makeValue(length, "length", "ft"), engine.state.preferences) + " @ " + spacing + " IN OC = " + count);
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
@@ -443,6 +447,22 @@
 
   function boardFeet(engine) {
     try {
+      engine.commitInputAsScalar();
+      if (engine.state.pendingOperator && engine.state.accumulator) {
+        engine.equals();
+        if (engine.state.error) {
+          return [];
+        }
+      }
+      if (engine.state.current && engine.state.current.dimension === "scalar" && engine.state.current.baseValue) {
+        const boardFeetValue = engine.state.current.baseValue / 12;
+        const rows = [
+          ["Board feet", Engine.roundForDisplay(boardFeetValue, 5) + " BD FT"],
+          ["Formula", "thickness x width x length / 12"]
+        ];
+        engine.setCurrent(Engine.makeValue(boardFeetValue, "volume-lumber", "boardft"), "Board feet");
+        return rows;
+      }
       const thickness = requireLength(engine, "height");
       const width = requireLength(engine, "width");
       const length = requireLength(engine, "length");
