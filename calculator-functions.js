@@ -72,6 +72,21 @@
 
   function pitchPrimary(engine) {
     try {
+      const storedRise = engine.getRegister("rise");
+      const storedRun = engine.getRegister("run");
+      engine.commitInputAsScalar();
+      if (!storedRise || !storedRun) {
+        if (engine.state.current && Math.abs(engine.state.current.baseValue) > 0.000001) {
+          const pitchMeta = Object.assign({}, engine.state.current.meta || {}, {
+            noTrailingDecimal: true,
+            unitLabel: engine.state.current.unit === "in" ? "INCH" : undefined
+          });
+          engine.state.registers.pitch = Engine.makeValue(engine.state.current.baseValue, engine.state.current.dimension, engine.state.current.unit, pitchMeta);
+          engine.setCurrent(engine.state.registers.pitch, "Pitch");
+          engine.state.lastFunction = "pitch";
+          return;
+        }
+      }
       const rise = requireLength(engine, "rise");
       const run = requireLength(engine, "run");
       const roof = roofFromRiseRun(rise, run);
@@ -101,7 +116,7 @@
       const run = requireLength(engine, "run");
       const rise = run * (pitch.baseValue / 12);
       engine.state.lastFunction = "rise";
-      return setResult(engine, Engine.makeValue(rise, "length", "ft"), "Rise from pitch");
+      return setResult(engine, Engine.makeValue(rise, "length", "ft", { format: "feet-inch" }), "Rise");
     } catch (error) {
       engine.setError(error.message);
     }
@@ -109,16 +124,28 @@
 
   function runPrimary(engine) {
     try {
+      if (polygonCanContinue(engine)) {
+        polygonCycleNext(engine);
+        return;
+      }
       const pitch = engine.getRegister("pitch");
+      const rise = engine.getRegister("rise");
+      engine.commitInputAsScalar();
+      if ((!pitch || !rise) && engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0) {
+        engine.state.registers.run = Engine.makeValue(engine.state.current.baseValue, "length", engine.state.current.unit || "ft", engine.state.current.meta || {});
+        engine.setCurrent(engine.state.registers.run, "Run");
+        engine.state.lastFunction = "run";
+        return;
+      }
       if (!pitch || !pitch.baseValue) {
         engine.handleRegisterKey("run");
         engine.state.lastFunction = "run";
         return;
       }
-      const rise = requireLength(engine, "rise");
-      const run = rise / (pitch.baseValue / 12);
+      const storedRise = requireLength(engine, "rise");
+      const run = storedRise / (pitch.baseValue / 12);
       engine.state.lastFunction = "run";
-      return setResult(engine, Engine.makeValue(run, "length", "ft"), "Run from pitch");
+      return setResult(engine, Engine.makeValue(run, "length", "ft", { format: "feet-inch" }), "Run");
     } catch (error) {
       engine.setError(error.message);
     }
@@ -488,6 +515,27 @@
 
   function arcRadius(engine) {
     try {
+      engine.commitInputAsScalar();
+      if (engine.getRegister("run") && engine.getRegister("rise")) {
+        const data = arcFromChordRise(engine);
+        setArcResult(engine, data, 0);
+        engine.state.registers.radius = Engine.makeValue(data.radius, "length", "ft", { format: "feet-inch" });
+        engine.addHistory("Arc radius", "Chord " + formatValue(Engine.makeValue(data.chord, "length", "ft"), engine.state.preferences) +
+          " | Rise " + formatValue(Engine.makeValue(data.rise, "length", "ft"), engine.state.preferences) +
+          " | Radius " + formatValue(engine.state.current, engine.state.preferences));
+        return [];
+      }
+      if (engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0) {
+        const radiusValue = Engine.makeValue(engine.state.current.baseValue, "length", engine.state.current.unit || "ft", {
+          format: "feet-inch",
+          showZeroFeet: true
+        });
+        engine.state.registers.radius = radiusValue;
+        engine.setCurrent(radiusValue, "Radius");
+        engine.state.lastFunction = "arc-radius";
+        engine.addHistory("Radius", formatValue(radiusValue, engine.state.preferences));
+        return [];
+      }
       const data = arcFromChordRise(engine);
       setArcResult(engine, data, 0);
       engine.state.registers.radius = Engine.makeValue(data.radius, "length", "ft", { format: "feet-inch" });
@@ -727,23 +775,79 @@
     }
   }
 
+  function polygonCanContinue(engine) {
+    const cycle = engine.state.polygonCycle;
+    const current = engine.state.current;
+    return Boolean(cycle && current &&
+      current.dimension === cycle.lastDimension &&
+      Math.abs(current.baseValue - cycle.lastBaseValue) < 0.000001);
+  }
+
+  function polygonDisplayValue(data, step) {
+    if (step === 0) {
+      return {
+        label: "Full Angle",
+        value: Engine.makeValue(data.fullAngle, "angle", "deg", { precision: 2, noTrailingDecimal: true })
+      };
+    }
+    if (step === 1) {
+      return {
+        label: "Half Angle",
+        value: Engine.makeValue(data.halfAngle, "angle", "deg", { precision: 2, noTrailingDecimal: true })
+      };
+    }
+    if (step === 2) {
+      return {
+        label: "Side Length",
+        value: Engine.makeValue(data.sideLength, "length", "ft", { format: "feet-inch", showZeroFeet: true })
+      };
+    }
+    if (step === 3) {
+      return {
+        label: "Perimeter",
+        value: Engine.makeValue(data.perimeter, "length", "ft", { format: "feet-inch", showZeroFeet: true })
+      };
+    }
+    return {
+      label: "Area",
+      value: Engine.makeValue(data.area, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+    };
+  }
+
+  function setPolygonResult(engine, data, step) {
+    const result = polygonDisplayValue(data, step);
+    engine.setCurrent(result.value, result.label);
+    engine.state.lastFunction = "polygon";
+    engine.state.polygonCycle = Object.assign({}, data, {
+      step,
+      lastBaseValue: engine.state.current.baseValue,
+      lastDimension: engine.state.current.dimension
+    });
+    return result.value;
+  }
+
+  function polygonCycleNext(engine) {
+    const nextStep = (engine.state.polygonCycle.step + 1) % 5;
+    setPolygonResult(engine, engine.state.polygonCycle, nextStep);
+  }
+
   function polygon(engine) {
     try {
       const sides = Math.round(currentAsNumber(engine));
-      const sideLength = requireLength(engine, "length");
+      const radius = requireLength(engine, "radius");
       if (sides < 3) {
         throw new Error("Polygon needs at least 3 sides");
       }
-      const perimeter = sides * sideLength;
-      const area = (sides * sideLength * sideLength) / (4 * Math.tan(PI / sides));
-      const interior = ((sides - 2) * 180) / sides;
-      const rows = [
-        ["Perimeter", formatValue(Engine.makeValue(perimeter, "length", "ft"), engine.state.preferences)],
-        ["Area", formatValue(Engine.makeValue(area, "area", "sqft"), engine.state.preferences)],
-        ["Interior angle", Engine.roundForDisplay(interior, 3) + "\u00b0"]
-      ];
-      engine.setCurrent(Engine.makeValue(area, "area", "sqft"), "Polygon area");
-      return rows;
+      const fullAngle = ((sides - 2) * 180) / sides;
+      const halfAngle = fullAngle / 2;
+      const sideLength = 2 * radius * Math.sin(PI / sides);
+      const perimeter = sideLength * sides;
+      const area = (sides / 2) * radius * radius * Math.sin((2 * PI) / sides);
+      const data = { sides, radius, fullAngle, halfAngle, sideLength, perimeter, area };
+      setPolygonResult(engine, data, 0);
+      engine.addHistory("Polygon", sides + " sides @ radius " +
+        formatValue(Engine.makeValue(radius, "length", "ft", { format: "feet-inch", showZeroFeet: true }), engine.state.preferences));
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
