@@ -220,6 +220,27 @@ function runTests() {
   assert(calc.getDisplay().mode === "Arc Length" && calc.getDisplay().main === "4\u2032-7 1/16\u2033", "arc cycles to arc length");
 
   calc = newCalc();
+  pressSequence(calc, ["5", "ft"]);
+  Fn.circle(calc);
+  assert(calc.getDisplay().mode === "Diameter", "circle stores diameter for arc");
+  pressSequence(calc, ["3", "ft", "3", "in"]);
+  Fn.arc(calc);
+  assert(calc.getDisplay().mode === "Arc Length" && calc.getDisplay().main === "3\u2032-3\u2033", "diameter arc starts with arc length");
+  Fn.arc(calc);
+  approx(calc.state.current.baseValue, 74.48, 0.01, "diameter arc angle");
+  assert(calc.getDisplay().mode === "Arc Angle", "diameter arc cycles to angle");
+  Fn.arc(calc);
+  assert(calc.getDisplay().mode === "Chord Length" && calc.getDisplay().main === "3\u2032-0 5/16\u2033", "diameter arc cycles to chord length");
+  Fn.arc(calc);
+  approx(calc.state.current.baseValue / 144, 1.051381, 0.00001, "diameter arc segment area");
+  assert(calc.getDisplay().mode === "Segment Area", "diameter arc cycles to segment area");
+  Fn.arc(calc);
+  approx(calc.state.current.baseValue / 144, 4.0625, 0.00001, "diameter arc pie slice area");
+  assert(calc.getDisplay().mode === "Pie Slice Area", "diameter arc cycles to pie slice area");
+  Fn.arc(calc);
+  assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "0\u2032-6 1/8\u2033", "diameter arc cycles to rise");
+
+  calc = newCalc();
   calc.state.registers.height = Engine.valueFromDisplay(2, "in");
   calc.state.registers.width = Engine.valueFromDisplay(10, "in");
   calc.state.registers.length = Engine.valueFromDisplay(12, "ft");
