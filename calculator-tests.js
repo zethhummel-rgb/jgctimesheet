@@ -136,8 +136,23 @@ function runTests() {
   calc.convertCurrent("in");
   assert(calc.getDisplay().main === "9 1/16" && calc.getDisplay().unit === "IN", "conv inch toggles decimal inches to fractional inches");
   calc.applyUnit("ft");
-  calc.applyUnit("ft");
   assert(calc.getDisplay().main === "0.75521" && calc.getDisplay().unit === "FT", "feet feet returns decimal feet after fractional inches");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().main === "0\u2032-9 1/16\u2033" && calc.getDisplay().unit === "FEET INCH", "feet toggles decimal feet to feet-inch after fractional inches");
+
+  calc = newCalc();
+  pressSequence(calc, ["5", ".", "2", "5", "in"]);
+  assert(calc.getDisplay().main === "5.25" && calc.getDisplay().unit === "IN", "5.25 inches stays decimal after entry");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().main === "0.4375" && calc.getDisplay().unit === "FT", "5.25 inches converts to decimal feet");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().main === "0\u2032-5 1/4\u2033" && calc.getDisplay().unit === "FEET INCH", "feet toggles to feet-inch-fraction");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().main === "0.4375" && calc.getDisplay().unit === "FT", "feet toggles back to decimal feet");
+  calc.applyUnit("in");
+  assert(calc.getDisplay().main === "5 1/4" && calc.getDisplay().unit === "IN", "inches shows fractional inches after feet");
+  calc.applyUnit("in");
+  assert(calc.getDisplay().main === "5.25" && calc.getDisplay().unit === "IN", "inches toggles back to decimal inches");
 
   calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(6, "in");
