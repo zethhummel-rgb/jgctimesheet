@@ -632,7 +632,7 @@
           </label>
           <label class="pref-row">
             <span>Riser Height</span>
-            <input id="prefRiserLimit" type="number" step="0.001" min="4" max="7.875" value="${boundedValue("stairRiserLimit", 7.75, 4, 7.875)}">
+            <input id="prefRiserLimit" type="number" step="0.001" min="4" max="7.875" value="${boundedValue("stairRiserLimit", 7.5, 4, 7.875)}">
             <small>inches</small>
           </label>
           <label class="pref-row">
@@ -808,7 +808,7 @@
       fractionDenominator: numberValue("prefFraction", 16),
       precision: numberValue("prefPrecision", 5),
       studSpacing: numberValue("prefStudSpacing", 16),
-      stairRiserLimit: boundedNumberValue("prefRiserLimit", 7.75, 4, 7.875),
+      stairRiserLimit: boundedNumberValue("prefRiserLimit", 7.5, 4, 7.875),
       treadDepth: boundedNumberValue("prefTreadDepth", 10, 4, 24),
       springAngle: numberValue("prefSpringAngle", 38),
       sound: checkedValue("prefSound", false),
