@@ -227,6 +227,22 @@ function runTests() {
   assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "12\u2032-7 7/16\u2033", "run from 9 ft rise and 35.5 degree pitch matches CMPro");
 
   calc = newCalc();
+  pressSequence(calc, ["9", "ft"]);
+  Fn.risePrimary(calc);
+  pressSequence(calc, ["1", "5", "ft"]);
+  Fn.runPrimary(calc);
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "17\u2032-5 15/16\u2033", "diag from 9 ft rise and 15 ft run matches CMPro");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Plumb Cut", "diag cycles to plumb cut");
+  approx(calc.state.current.baseValue, 30.96, 0.01, "plumb cut from 9 ft rise and 15 ft run matches CMPro");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Level Cut", "diag cycles to level cut");
+  approx(calc.state.current.baseValue, 59.04, 0.01, "level cut from 9 ft rise and 15 ft run matches CMPro");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "17\u2032-5 15/16\u2033", "diag cycles back to diagonal");
+
+  calc = newCalc();
   pressSequence(calc, ["8", "in"]);
   Fn.circle(calc);
   assert(calc.getDisplay().mode === "Diameter" && calc.getDisplay().main === "8" && calc.getDisplay().unit === "INCH", "circle starts with diameter");
