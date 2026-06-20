@@ -242,7 +242,8 @@
     return formatted.mode;
   }
 
-  function inchesToFeetInches(totalInches, denominator) {
+  function inchesToFeetInches(totalInches, denominator, options) {
+    const opts = options || {};
     const negative = totalInches < -EPSILON;
     let inches = Math.abs(totalInches);
     const feet = Math.floor(inches / 12);
@@ -265,11 +266,11 @@
       fractionText = (fraction / div) + "/" + (denominator / div);
     }
     let text = "";
-    if (displayFeet) {
+    if (displayFeet || opts.showZeroFeet) {
       text += displayFeet + "\u2032";
     }
     if (displayInches || fractionText || !displayFeet) {
-      if (displayFeet) {
+      if (displayFeet || opts.showZeroFeet) {
         text += "-";
       }
       text += displayInches ? displayInches : (displayFeet && fractionText ? "0" : "");
@@ -321,6 +322,47 @@
     return "";
   }
 
+  function isWholeDisplayValue(value, unit) {
+    const def = UNIT_DEFS[unit];
+    if (!value || !def) {
+      return false;
+    }
+    const display = value.baseValue / def.factor;
+    return Math.abs(display - Math.round(display)) < EPSILON;
+  }
+
+  function toggleLengthDisplayFormat(current, unit) {
+    if (!current || current.dimension !== "length" || current.unit !== unit) {
+      return false;
+    }
+    const meta = current.meta || {};
+    if (unit === "ft") {
+      current.meta = Object.assign({}, meta, {
+        format: meta.format === "feet-inch" ? "decimal" : "feet-inch",
+        showZeroFeet: meta.format === "feet-inch" ? false : true
+      });
+      return true;
+    }
+    if (unit === "in") {
+      current.meta = Object.assign({}, meta, {
+        format: meta.format === "inch-fraction" ? "decimal" : "inch-fraction",
+        forceInches: meta.format === "inch-fraction" ? false : true
+      });
+      return true;
+    }
+    return false;
+  }
+
+  function lengthConversionMetaForUnit(unit) {
+    if (unit === "in") {
+      return { format: "inch-fraction", forceInches: true };
+    }
+    if (unit === "ft") {
+      return { format: "decimal" };
+    }
+    return lengthDisplayMeta(unit, "decimal");
+  }
+
   function formatValue(value, preferences) {
     if (!value) {
       return { main: "0", unit: "", mode: "READY" };
@@ -334,13 +376,13 @@
       formatPrefs.trailingDecimalForWholeNumbers = false;
     }
     if (value.dimension === "length" && unit === "ft" && meta.format === "feet-inch") {
-      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
+      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, meta), unit: "FEET INCH", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && meta.format === "inch-fraction" && (Math.abs(value.baseValue) < 12 || meta.forceInches)) {
       return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: meta.unitLabel || "IN", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && Math.abs(value.baseValue) >= 12 && meta.format !== "decimal") {
-      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16), unit: "FEET INCH", mode: "LENGTH" };
+      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, meta), unit: "FEET INCH", mode: "LENGTH" };
     }
     const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
     const display = value.baseValue / def.factor;
@@ -595,13 +637,8 @@
 
     if (this.state.inputBuffer === "") {
       if (this.state.current && this.state.current.dimension === "length" && this.state.current.unit === unit) {
-        if (unit === "ft" && this.state.current.meta && this.state.current.meta.format === "feet-inch") {
-          this.state.current.meta = Object.assign({}, this.state.current.meta, { format: "decimal" });
-          this.state.lastUnitEntry = "";
-          return;
-        }
-        if (unit === "in" && this.state.current.meta && this.state.current.meta.format === "inch-fraction") {
-          this.state.current.meta = Object.assign({}, this.state.current.meta, { format: "decimal" });
+        if (this.state.lastUnitEntry !== unit || !isWholeDisplayValue(this.state.current, unit)) {
+          toggleLengthDisplayFormat(this.state.current, unit);
           this.state.lastUnitEntry = "";
           return;
         }
@@ -617,7 +654,7 @@
       }
       if (this.state.current && this.state.current.dimension !== "scalar" && def.dimension === this.state.current.dimension) {
         this.state.current.unit = unit;
-        this.state.current.meta = Object.assign({}, this.state.current.meta || {}, lengthDisplayMeta(unit, "decimal"));
+        this.state.current.meta = Object.assign({}, this.state.current.meta || {}, lengthConversionMetaForUnit(unit));
         this.state.compound = { feet: null, inches: null };
         this.state.preInputValue = null;
         this.state.lastUnitEntry = "";
@@ -693,10 +730,10 @@
         this.state.current.unit = unit;
         if (this.state.current.dimension === "length" && unit === "ft") {
           const wasFeetInch = this.state.current.meta && this.state.current.meta.format === "feet-inch";
-          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: wasFeetInch ? "decimal" : "feet-inch" });
+          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: wasFeetInch ? "decimal" : "feet-inch", showZeroFeet: wasFeetInch ? false : true });
         } else if (this.state.current.dimension === "length" && unit === "in") {
           const wasFraction = this.state.current.meta && this.state.current.meta.format === "inch-fraction";
-          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: wasFraction ? "decimal" : "inch-fraction" });
+          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: wasFraction ? "decimal" : "inch-fraction", forceInches: wasFraction ? false : true });
         } else if (this.state.current.dimension === "length") {
           this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: "decimal" });
         }
