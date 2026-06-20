@@ -211,9 +211,33 @@ function runTests() {
   approx(calc.state.current.baseValue, 20, 0.0001, "board feet");
 
   calc = newCalc();
+  pressSequence(calc, ["2", "*", "4", "*", "1", "6"]);
+  Fn.boardFeet(calc);
+  approx(calc.state.current.baseValue, 10.666667, 0.00001, "board feet from live multiplication");
+
+  calc = newCalc();
+  pressSequence(calc, ["2", "*", "4", "*", "1", "6"]);
+  Fn.boardFeet(calc);
+  calc.memoryPlus(1);
+  pressSequence(calc, ["2", "*", "1", "0", "*", "1", "8"]);
+  Fn.boardFeet(calc);
+  calc.memoryPlus(1);
+  pressSequence(calc, ["2", "*", "1", "2", "*", "2", "0"]);
+  Fn.boardFeet(calc);
+  calc.memoryPlus(1);
+  approx(calc.state.memory.baseValue, 80.666667, 0.00001, "board feet accumulates with M+");
+
+  calc = newCalc();
   calc.state.registers.length = Engine.valueFromDisplay(20, "ft");
   Fn.studs(calc);
   approx(calc.state.current.baseValue, 16, 0.0001, "studs");
+
+  calc = newCalc();
+  pressSequence(calc, ["1", "8", "ft", "7", "in", "1", "/", "2"]);
+  const studRows = Fn.studs(calc);
+  approx(calc.state.current.baseValue, 15, 0.0001, "studs uses current wall length");
+  assert(calc.getDisplay().mode === "Stud count" && calc.getDisplay().main === "15", "studs displays in main screen");
+  assert(Array.isArray(studRows) && studRows.length === 0, "studs does not open an overlay");
 
   calc = newCalc();
   calc.state.registers.length = Engine.valueFromDisplay(10, "ft");
