@@ -202,6 +202,22 @@ function runTests() {
   calc.state.current = Engine.makeValue(90, "angle", "deg");
   Fn.arc(calc);
   approx(calc.state.current.baseValue / 12, 15.708, 0.001, "arc length");
+  assert(calc.getDisplay().mode === "Arc Length", "radius plus angle arc displays on main screen");
+
+  calc = newCalc();
+  pressSequence(calc, ["3", "ft", "6", "in"]);
+  Fn.runPrimary(calc);
+  pressSequence(calc, ["1", "ft", "3", "in"]);
+  Fn.risePrimary(calc);
+  Fn.arcRadius(calc);
+  approx(calc.state.current.baseValue, 22.2, 0.001, "arc radius from chord and segment rise");
+  assert(calc.getDisplay().mode === "Radius" && calc.getDisplay().main === "1\u2032-10 3/16\u2033", "arc radius displays like manual");
+  Fn.arc(calc);
+  approx(calc.state.current.baseValue, 142.15, 0.05, "arc angle from chord and segment rise");
+  assert(calc.getDisplay().mode === "Arc Angle", "arc cycles to angle");
+  Fn.arc(calc);
+  approx(calc.state.current.baseValue, 55.05, 0.05, "arc length from chord and segment rise");
+  assert(calc.getDisplay().mode === "Arc Length" && calc.getDisplay().main === "4\u2032-7 1/16\u2033", "arc cycles to arc length");
 
   calc = newCalc();
   calc.state.registers.height = Engine.valueFromDisplay(2, "in");
