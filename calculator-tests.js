@@ -38,6 +38,13 @@ function pressSequence(calc, items) {
 
 function runTests() {
   let calc = newCalc();
+  calc = new Engine.CalculatorEngine({ stairRiserLimit: 7.75 }, []);
+  assert(calc.state.preferences.stairRiserLimit === 7.5, "old saved stair default migrates to CMPro-style 7 1/2 inch");
+
+  calc = new Engine.CalculatorEngine({ stairRiserLimit: 7.875, preferenceVersion: 2 }, []);
+  assert(calc.state.preferences.stairRiserLimit === 7.875, "new explicit 7 7/8 inch stair preference is preserved");
+
+  calc = newCalc();
   pressSequence(calc, ["4", "ft", "6", "in", "+", "2", "ft", "3", "in", "="]);
   assert(Engine.formatValue(calc.state.current, calc.state.preferences).main === "6\u2032-9\u2033", "4 ft 6 in + 2 ft 3 in");
 
@@ -544,13 +551,13 @@ function runTests() {
   calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(108, "in");
   Fn.stair(calc);
-  approx(calc.state.current.baseValue, 7.6875, 0.0001, "actual stair riser");
+  approx(calc.state.current.baseValue, 7.1875, 0.0001, "actual stair riser");
   assert(calc.state.status === "Riser height", "stair starts with riser height");
   Fn.stair(calc);
-  assert(calc.state.current.baseValue === 14 && calc.state.status === "Risers", "stair risers");
+  assert(calc.state.current.baseValue === 15 && calc.state.status === "Risers", "stair risers");
   Fn.stair(calc);
   Fn.stair(calc);
-  assert(calc.state.current.baseValue === 13 && calc.state.status === "Treads", "stair treads");
+  assert(calc.state.current.baseValue === 14 && calc.state.status === "Treads", "stair treads");
 
   calc = newCalc();
   calc.updatePreferences({ stairRiserLimit: 182.95, treadDepth: 10, headroomHeight: 80, floorThickness: 10, fractionDenominator: 16 });
@@ -558,7 +565,7 @@ function runTests() {
   Fn.risePrimary(calc);
   Fn.stair(calc);
   approx(calc.state.current.baseValue, 6.875, 0.0001, "bad stair preference resets to real riser height");
-  assert(calc.state.preferences.stairRiserLimit === 7.75, "bad stair preference reset to default");
+  assert(calc.state.preferences.stairRiserLimit === 7.5, "bad stair preference reset to default");
   Fn.stair(calc);
   assert(calc.state.current.baseValue === 7 && calc.state.status === "Risers", "48 inch stair uses seven risers");
 
