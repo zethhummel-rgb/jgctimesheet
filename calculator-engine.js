@@ -733,6 +733,48 @@
     this.state.status = "Fraction numerator " + number;
   };
 
+  CalculatorEngine.prototype.backspace = function() {
+    this.clearError();
+    this.state.clearArmed = false;
+
+    if (this.state.pendingFractionNumerator !== null) {
+      if (this.state.inputBuffer !== "") {
+        this.state.inputBuffer = this.state.inputBuffer.slice(0, -1);
+        try {
+          const preview = pendingFractionValue(this.state, "in", true);
+          if (preview) {
+            this.state.current = preview;
+          }
+        } catch (error) {
+          this.setError(error.message);
+        }
+        this.state.status = "Backspace";
+        return;
+      }
+      this.state.pendingFractionNumerator = null;
+      this.state.pendingFractionBase = null;
+      this.state.inputBuffer = "";
+      this.state.current = this.state.preInputValue ? cloneValue(this.state.preInputValue) : makeValue(0, "scalar", "scalar");
+      this.state.preInputValue = null;
+      this.state.status = "Backspace";
+      return;
+    }
+
+    if (this.state.inputBuffer !== "") {
+      this.state.inputBuffer = this.state.inputBuffer.slice(0, -1);
+      if (this.state.inputBuffer === "" || this.state.inputBuffer === "-" || this.state.inputBuffer === "." || this.state.inputBuffer === "-.") {
+        this.state.current = makeValue(0, "scalar", "scalar");
+      } else {
+        this.state.current = valueFromInputBuffer(this.state.inputBuffer);
+      }
+      this.state.lastUnitEntry = "";
+      this.state.status = "Backspace";
+      return;
+    }
+
+    this.state.status = "Nothing to delete";
+  };
+
   CalculatorEngine.prototype.applyUnit = function(unit) {
     this.clearError();
     const def = UNIT_DEFS[unit];
