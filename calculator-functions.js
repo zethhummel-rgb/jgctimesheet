@@ -370,7 +370,76 @@
     };
   }
 
+  function arcDiameterSource(engine) {
+    const circle = engine.state.circleCycle;
+    if (circle && circle.diameter > 0) {
+      return circle.diameter;
+    }
+    const radius = engine.getRegister("radius");
+    if (radius && radius.dimension === "length" && radius.baseValue > 0) {
+      return radius.baseValue * 2;
+    }
+    return 0;
+  }
+
+  function arcFromDiameterArcLength(engine) {
+    engine.commitInputAsScalar();
+    const diameter = arcDiameterSource(engine);
+    const current = engine.state.current;
+    if (!diameter || !current || current.dimension !== "length" || current.baseValue <= 0) {
+      throw new Error("Missing diameter or arc length");
+    }
+    const radius = diameter / 2;
+    const arcLength = current.baseValue;
+    const angleRadians = arcLength / radius;
+    if (angleRadians <= 0 || angleRadians > PI * 2 + 0.000001) {
+      throw new Error("Arc length is out of range");
+    }
+    const angle = angleRadians * 180 / PI;
+    const chord = 2 * radius * Math.sin(angleRadians / 2);
+    const rise = radius - Math.sqrt(Math.max(0, radius * radius - (chord / 2) * (chord / 2)));
+    const pieSliceArea = 0.5 * radius * radius * angleRadians;
+    const segmentArea = 0.5 * radius * radius * (angleRadians - Math.sin(angleRadians));
+    return { radius, diameter, angle, arcLength, chord, rise, sectorArea: pieSliceArea, segmentArea, pieSliceArea, source: "diameter-arclength" };
+  }
+
   function arcDisplayValue(data, step) {
+    if (data.source === "diameter-arclength") {
+      if (step === 0) {
+        return {
+          label: "Arc Length",
+          value: Engine.makeValue(data.arcLength, "length", "ft", { format: "feet-inch" })
+        };
+      }
+      if (step === 1) {
+        return {
+          label: "Arc Angle",
+          value: Engine.makeValue(data.angle, "angle", "deg", { precision: 2, noTrailingDecimal: true })
+        };
+      }
+      if (step === 2) {
+        return {
+          label: "Chord Length",
+          value: Engine.makeValue(data.chord, "length", "ft", { format: "feet-inch" })
+        };
+      }
+      if (step === 3) {
+        return {
+          label: "Segment Area",
+          value: Engine.makeValue(data.segmentArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+        };
+      }
+      if (step === 4) {
+        return {
+          label: "Pie Slice Area",
+          value: Engine.makeValue(data.pieSliceArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+        };
+      }
+      return {
+        label: "Rise",
+        value: Engine.makeValue(data.rise, "length", "ft", { format: "feet-inch", showZeroFeet: true })
+      };
+    }
     if (step === 0) {
       return {
         label: "Radius",
@@ -431,10 +500,21 @@
   function arc(engine) {
     try {
       if (arcCanContinue(engine)) {
-        const nextStep = engine.state.arcCycle.source === "chord-rise"
-          ? (engine.state.arcCycle.step + 1) % 5
-          : (engine.state.arcCycle.step + 1) % 4;
+        const cycleLength = engine.state.arcCycle.source === "diameter-arclength"
+          ? 6
+          : engine.state.arcCycle.source === "chord-rise"
+            ? 5
+            : 4;
+        const nextStep = (engine.state.arcCycle.step + 1) % cycleLength;
         setArcResult(engine, engine.state.arcCycle, nextStep);
+        return [];
+      }
+
+      if (engine.state.current && engine.state.current.dimension === "length" && arcDiameterSource(engine)) {
+        const data = arcFromDiameterArcLength(engine);
+        setArcResult(engine, data, 0);
+        engine.addHistory("Arc", "Diameter " + formatValue(Engine.makeValue(data.diameter, "length", "ft"), engine.state.preferences) +
+          " | Arc length " + formatValue(engine.state.current, engine.state.preferences));
         return [];
       }
 
