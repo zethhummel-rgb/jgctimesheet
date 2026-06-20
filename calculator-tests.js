@@ -188,6 +188,16 @@ function runTests() {
   approx(calc.state.current.baseValue, 50, 0.001, "roof slope percent");
 
   calc = newCalc();
+  calc.state.registers.rise = Engine.valueFromDisplay(6, "in");
+  calc.state.registers.run = Engine.valueFromDisplay(12, "in");
+  calc.state.circleCycle = { step: 1, lastBaseValue: 1, lastDimension: "length" };
+  calc.clear();
+  assert(calc.getRegister("rise") && calc.getRegister("run"), "single clear keeps temporary construction registers");
+  calc.clear();
+  assert(!calc.getRegister("rise") && !calc.getRegister("run"), "double clear removes temporary construction registers");
+  assert(!calc.state.circleCycle && calc.state.status === "Working values cleared", "double clear removes temporary cycles");
+
+  calc = newCalc();
   pressSequence(calc, ["7", "in"]);
   Fn.pitchPrimary(calc);
   assert(calc.state.registers.pitch && calc.state.registers.pitch.baseValue === 7, "manual pitch stores 7 inch pitch");
