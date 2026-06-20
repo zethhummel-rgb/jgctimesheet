@@ -241,6 +241,27 @@ function runTests() {
   assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "0\u2032-6 1/8\u2033", "diameter arc cycles to rise");
 
   calc = newCalc();
+  pressSequence(calc, ["2", "ft", "4", "in"]);
+  Fn.circle(calc);
+  Fn.circle(calc);
+  pressSequence(calc, ["4", "ft", "6", "in"]);
+  calc.handleRegisterKey("height");
+  Fn.columnCone(calc, false);
+  approx(calc.state.current.baseValue / 1728, 19.242255, 0.00001, "column volume from circle diameter and height");
+  assert(calc.getDisplay().mode === "Column Volume" && calc.getDisplay().unit === "CUBIC FEET", "column volume displays on main screen");
+
+  calc = newCalc();
+  pressSequence(calc, ["3", "ft", "6", "in"]);
+  Fn.circle(calc);
+  Fn.circle(calc);
+  pressSequence(calc, ["5", "ft"]);
+  calc.handleRegisterKey("height");
+  Fn.columnCone(calc, false);
+  Fn.circle(calc);
+  approx(calc.state.current.baseValue / 1728, 16.035213, 0.00001, "cone volume cycles from column/cone");
+  assert(calc.getDisplay().mode === "Cone Volume" && calc.getDisplay().unit === "CUBIC FEET", "cone volume displays on main screen");
+
+  calc = newCalc();
   calc.state.registers.height = Engine.valueFromDisplay(2, "in");
   calc.state.registers.width = Engine.valueFromDisplay(10, "in");
   calc.state.registers.length = Engine.valueFromDisplay(12, "ft");
