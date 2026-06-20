@@ -57,6 +57,22 @@ function runTests() {
   assert(calc.getDisplay().main === "2.7", "LCD backspace keeps decimal input intact");
 
   calc = newCalc();
+  pressSequence(calc, ["5", "+"]);
+  calc.pressOperator("-");
+  assert(calc.getDisplay().expression === "5. -", "pressing a new operator replaces the pending operator");
+  assert(calc.getDisplay().main === "5.", "operator replacement does not calculate 5 plus itself");
+  pressSequence(calc, ["2", "="]);
+  approx(calc.state.current.baseValue, 3, 0.000001, "5 minus 2 after operator replacement");
+
+  calc = newCalc();
+  pressSequence(calc, ["5", "+"]);
+  calc.clear();
+  assert(!calc.state.pendingOperator && !calc.state.accumulator, "clear cancels pending equation with no second number");
+  assert(calc.getDisplay().expression === "", "clear removes pending equation from display");
+  calc.clear();
+  assert(!calc.state.pendingOperator && !calc.state.accumulator, "second clear keeps pending equation cleared");
+
+  calc = newCalc();
   pressSequence(calc, ["4", "ft", "6", "in", "+", "2", "ft", "3", "in", "="]);
   assert(Engine.formatValue(calc.state.current, calc.state.preferences).main === "6\u2032-9\u2033", "4 ft 6 in + 2 ft 3 in");
 
