@@ -377,10 +377,14 @@
       throw new Error("Run and rise are required");
     }
     const radius = (chord * chord) / (8 * rise) + rise / 2;
-    const angle = 2 * Math.asin(Math.min(1, chord / (2 * radius))) * 180 / PI;
-    const arcLength = radius * angle * PI / 180;
-    const sectorArea = (angle / 360) * PI * radius * radius;
-    return { radius, angle, arcLength, chord, rise, sectorArea, source: "chord-rise" };
+    const minorAngleRadians = 2 * Math.asin(Math.min(1, chord / (2 * radius)));
+    const angleRadians = rise > radius ? (2 * PI) - minorAngleRadians : minorAngleRadians;
+    const angle = angleRadians * 180 / PI;
+    const arcLength = radius * angleRadians;
+    const triangleArea = 0.5 * radius * radius * Math.sin(minorAngleRadians);
+    const pieSliceArea = 0.5 * radius * radius * angleRadians;
+    const segmentArea = rise > radius ? pieSliceArea + triangleArea : pieSliceArea - triangleArea;
+    return { radius, angle, arcLength, chord, rise, segmentArea, pieSliceArea, source: "chord-rise" };
   }
 
   function arcFromRadiusAngle(engine) {
@@ -491,13 +495,25 @@
     }
     if (step === 3) {
       return {
-        label: "Chord",
+        label: "Chord Length",
         value: Engine.makeValue(data.chord, "length", "ft", { format: "feet-inch" })
       };
     }
+    if (step === 4) {
+      return {
+        label: "Segment Area",
+        value: Engine.makeValue(data.segmentArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+      };
+    }
+    if (step === 5) {
+      return {
+        label: "Pie Slice Area",
+        value: Engine.makeValue(data.pieSliceArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+      };
+    }
     return {
-      label: "Segment Area",
-      value: Engine.makeValue(data.sectorArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+      label: "Rise",
+      value: Engine.makeValue(data.rise, "length", "ft", { format: "feet-inch", showZeroFeet: true })
     };
   }
 
@@ -555,7 +571,7 @@
         const cycleLength = engine.state.arcCycle.source === "diameter-arclength"
           ? 6
           : engine.state.arcCycle.source === "chord-rise"
-            ? 5
+            ? 7
             : 4;
         const nextStep = (engine.state.arcCycle.step + 1) % cycleLength;
         setArcResult(engine, engine.state.arcCycle, nextStep);
