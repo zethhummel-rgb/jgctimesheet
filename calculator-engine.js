@@ -613,6 +613,13 @@
     this.state.status = this.state.error;
   };
 
+  function sameWorkingValue(left, right) {
+    return !!left &&
+      !!right &&
+      left.dimension === right.dimension &&
+      Math.abs(left.baseValue - right.baseValue) < EPSILON;
+  }
+
   CalculatorEngine.prototype.addHistory = function(label, value) {
     const formatted = typeof value === "string" ? value : formatValue(value, this.state.preferences).main + " " + formatValue(value, this.state.preferences).unit;
     this.state.history.unshift({
@@ -944,6 +951,23 @@
 
   CalculatorEngine.prototype.pressOperator = function(operator) {
     this.clearError();
+    const replacingPendingOperator = this.state.pendingOperator &&
+      this.state.accumulator &&
+      this.state.inputBuffer === "" &&
+      this.state.pendingFractionNumerator === null &&
+      this.state.pendingFractionBase === null &&
+      this.state.compound.feet === null &&
+      this.state.compound.inches === null &&
+      sameWorkingValue(this.state.current, this.state.accumulator);
+
+    if (replacingPendingOperator) {
+      this.state.pendingOperator = operator;
+      this.state.status = "";
+      this.state.lastUnitEntry = "";
+      this.state.clearArmed = false;
+      return;
+    }
+
     this.commitInputAsScalar();
     this.state.compound = { feet: null, inches: null };
     if (this.state.pendingOperator && this.state.accumulator) {
@@ -984,6 +1008,15 @@
   };
 
   CalculatorEngine.prototype.clear = function() {
+    const hasActiveEntry = this.state.inputBuffer !== "" ||
+      this.state.pendingFractionNumerator !== null ||
+      this.state.pendingFractionBase !== null ||
+      this.state.preInputValue !== null ||
+      this.state.compound.feet !== null ||
+      this.state.compound.inches !== null;
+    const shouldCancelPendingEquation = !hasActiveEntry &&
+      (this.state.pendingOperator || this.state.accumulator);
+
     const entryAlreadyClear = this.state.inputBuffer === "" &&
       this.state.pendingFractionNumerator === null &&
       this.state.pendingFractionBase === null &&
@@ -1003,6 +1036,10 @@
     this.state.preInputValue = null;
     this.state.compound = { feet: null, inches: null };
     this.state.current = makeValue(0, "scalar", "scalar");
+    if (shouldCancelPendingEquation) {
+      this.state.accumulator = null;
+      this.state.pendingOperator = null;
+    }
     this.state.lastUnitEntry = "";
     this.state.suppressCompoundOnce = false;
     this.clearError();
