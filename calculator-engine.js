@@ -370,7 +370,7 @@
     const prefs = preferences || {};
     const unit = value.unit || DIMENSION_DEFAULT_UNIT[value.dimension] || "scalar";
     const meta = value.meta || {};
-    const precision = typeof meta.precision === "number" ? meta.precision : prefs.precision || 5;
+    const precision = typeof meta.precision === "number" ? meta.precision : (value.dimension === "area" || value.dimension === "volume" ? 6 : prefs.precision || 5);
     const formatPrefs = Object.assign({}, prefs);
     if (meta.noTrailingDecimal) {
       formatPrefs.trailingDecimalForWholeNumbers = false;
@@ -572,7 +572,7 @@
       }
       return;
     }
-    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && !this.state.pendingOperator) {
+    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
       this.state.preInputValue = cloneValue(this.state.current);
     } else if (this.state.inputBuffer === "") {
       this.state.preInputValue = null;
@@ -588,7 +588,7 @@
 
   CalculatorEngine.prototype.pressDecimal = function() {
     this.clearError();
-    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && !this.state.pendingOperator) {
+    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
       this.state.preInputValue = cloneValue(this.state.current);
     } else if (this.state.inputBuffer === "") {
       this.state.preInputValue = null;
@@ -687,7 +687,7 @@
       this.state.compound.feet = number;
       this.state.current = valueFromDisplay(number, "ft", { format: "decimal" });
       this.state.inputBuffer = "";
-      this.state.preInputValue = null;
+      this.state.preInputValue = cloneValue(this.state.current);
       this.state.lastUnitEntry = "ft";
       return;
     }
@@ -697,13 +697,13 @@
       this.state.current.unit = "ft";
       this.state.compound = { feet: null, inches: null };
       this.state.inputBuffer = "";
-      this.state.preInputValue = null;
+      this.state.preInputValue = cloneValue(this.state.current);
       this.state.lastUnitEntry = "";
       return;
     }
     this.state.current = valueFromDisplay(number, unit, lengthDisplayMeta(unit, "decimal"));
     this.state.inputBuffer = "";
-    this.state.preInputValue = null;
+    this.state.preInputValue = this.state.current.dimension === "length" ? cloneValue(this.state.current) : null;
     this.state.lastUnitEntry = unit;
   };
 
