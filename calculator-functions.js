@@ -70,13 +70,31 @@
     return { pitch, angle, slope, diag, commonFactor, hipFactor };
   }
 
+  function pitchSlopeRatio(pitch) {
+    if (!pitch || !Number.isFinite(pitch.baseValue)) {
+      throw new Error("Pitch is required");
+    }
+    if (pitch.dimension === "angle" || pitch.unit === "deg") {
+      return Math.tan(pitch.baseValue * PI / 180);
+    }
+    return pitch.baseValue / 12;
+  }
+
   function pitchPrimary(engine) {
     try {
       const storedRise = engine.getRegister("rise");
       const storedRun = engine.getRegister("run");
+      const rawInput = engine.state.inputBuffer || "";
       engine.commitInputAsScalar();
       if (!storedRise || !storedRun) {
         if (engine.state.current && Math.abs(engine.state.current.baseValue) > 0.000001) {
+          if (engine.state.current.dimension === "scalar" && rawInput.includes(".")) {
+            const anglePitch = Engine.makeValue(engine.state.current.baseValue, "angle", "deg", { noTrailingDecimal: true });
+            engine.state.registers.pitch = anglePitch;
+            engine.setCurrent(anglePitch, "Pitch");
+            engine.state.lastFunction = "pitch";
+            return;
+          }
           const pitchMeta = Object.assign({}, engine.state.current.meta || {}, {
             noTrailingDecimal: true,
             unitLabel: engine.state.current.unit === "in" ? "INCH" : undefined
@@ -114,7 +132,7 @@
         return;
       }
       const run = requireLength(engine, "run");
-      const rise = run * (pitch.baseValue / 12);
+      const rise = run * pitchSlopeRatio(pitch);
       engine.state.lastFunction = "rise";
       return setResult(engine, Engine.makeValue(rise, "length", "ft", { format: "feet-inch" }), "Rise");
     } catch (error) {
@@ -143,7 +161,11 @@
         return;
       }
       const storedRise = requireLength(engine, "rise");
-      const run = storedRise / (pitch.baseValue / 12);
+      const ratio = pitchSlopeRatio(pitch);
+      if (!ratio) {
+        throw new Error("Pitch is required");
+      }
+      const run = storedRise / ratio;
       engine.state.lastFunction = "run";
       return setResult(engine, Engine.makeValue(run, "length", "ft", { format: "feet-inch" }), "Run");
     } catch (error) {
