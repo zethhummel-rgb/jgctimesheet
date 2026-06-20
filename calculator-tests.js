@@ -57,6 +57,11 @@ function runTests() {
   assert(calc.getDisplay().main === "0-15/16" && calc.getDisplay().unit === "IN", "bare fraction uses default denominator");
 
   calc = newCalc();
+  calc.updatePreferences({ fractionDenominator: 64, fractionMode: "fixed" });
+  calc.state.current = Engine.valueFromDisplay(0.6875, "in", { format: "inch-fraction", forceInches: true });
+  assert(calc.getDisplay().main === "0-44/64", "constant fraction mode keeps denominator");
+
+  calc = newCalc();
   calc.setFractionResolution(8);
   calc.pressDigit("1");
   calc.pressFraction();
@@ -76,6 +81,9 @@ function runTests() {
   calc = newCalc();
   pressSequence(calc, ["1", "0", "ft", "*", "1", "2", "ft", "="]);
   approx(calc.state.current.baseValue / 144, 120, 0.0001, "10 ft x 12 ft sq ft");
+  calc.updatePreferences({ areaDisplay: "sqm" });
+  assert(Engine.formatValue(calc.state.current, calc.state.preferences).unit === "SQUARE METER", "area display preference changes formatted unit");
+  approx(Number(Engine.formatValue(calc.state.current, calc.state.preferences).main.replace(/,/g, "")), 11.1484, 0.0001, "area display preference converts to square meters");
 
   calc = newCalc();
   pressSequence(calc, ["7", "ft", "*", "7", "ft", "1", "in", "3", "/", "4"]);
@@ -107,11 +115,15 @@ function runTests() {
   calc = newCalc();
   pressSequence(calc, ["1", "0", "ft", "*", "1", "2", "ft", "*", "4", "in", "="]);
   approx(calc.state.current.baseValue / 46656, 1.481481, 0.0001, "10 ft x 12 ft x 4 in cu yd");
+  calc.updatePreferences({ volumeDisplay: "cuyd" });
+  assert(Engine.formatValue(calc.state.current, calc.state.preferences).unit === "CUBIC YARD", "volume display preference changes formatted unit");
 
   calc = newCalc();
   pressSequence(calc, ["1", "0", "ft"]);
   calc.convertCurrent("m");
   approx(Engine.convertDisplay(calc.state.current, "m"), 3.048, 0.00001, "10 ft to m");
+  calc.updatePreferences({ meterPrecision: 2 });
+  assert(calc.getDisplay().main === "3.05", "meter precision preference affects display");
 
   calc = newCalc();
   calc.pressDigit("1");
@@ -197,6 +209,25 @@ function runTests() {
   calc.state.registers.length = Engine.valueFromDisplay(20, "ft");
   Fn.studs(calc);
   approx(calc.state.current.baseValue, 16, 0.0001, "studs");
+
+  calc = newCalc();
+  calc.state.registers.length = Engine.valueFromDisplay(10, "ft");
+  calc.updatePreferences({ footingArea: 288, volumeDisplay: "cuft" });
+  Fn.concrete(calc);
+  approx(calc.state.current.baseValue / 1728, 20, 0.0001, "footing area preference creates footing volume without width/height");
+
+  calc = newCalc();
+  calc.state.registers.length = Engine.valueFromDisplay(10, "ft");
+  calc.state.registers.height = Engine.valueFromDisplay(8, "ft");
+  calc.updatePreferences({ blockArea: 160, blockLength: 20 });
+  Fn.blocks(calc);
+  assert(calc.state.current.baseValue === 76, "block area preference changes block estimate");
+
+  calc = newCalc();
+  calc.state.current = Engine.valueFromDisplay(2, "cuyd");
+  calc.updatePreferences({ weightPerVolume: 1.25 });
+  calc.convertVolumeToWeight("ton");
+  approx(Engine.convertDisplay(calc.state.current, "ton"), 2.5, 0.0001, "weight per volume preference converts cubic yards to tons");
 
   calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(108, "in");
