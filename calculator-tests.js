@@ -553,6 +553,29 @@ function runTests() {
   assert(calc.state.current.baseValue === 13 && calc.state.status === "Treads", "stair treads");
 
   calc = newCalc();
+  calc.updatePreferences({ stairRiserLimit: 182.95, treadDepth: 10, headroomHeight: 80, floorThickness: 10, fractionDenominator: 16 });
+  calc.state.current = Engine.valueFromDisplay(48, "in");
+  Fn.risePrimary(calc);
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 6.875, 0.0001, "bad stair preference resets to real riser height");
+  assert(calc.state.preferences.stairRiserLimit === 7.75, "bad stair preference reset to default");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 7 && calc.state.status === "Risers", "48 inch stair uses seven risers");
+
+  calc = newCalc();
+  calc.state.current = Engine.valueFromDisplay(182.95, "in");
+  Fn.setRiserLimit(calc);
+  assert(calc.state.error === "Riser height must be 4-7 7/8 inches", "reject impossible riser preference");
+
+  calc = newCalc();
+  calc.state.current = Engine.valueFromDisplay(7.875, "in");
+  Fn.setRiserLimit(calc);
+  assert(calc.state.preferences.stairRiserLimit === 7.875, "allow 7 7/8 inch riser preference");
+  calc.state.current = Engine.valueFromDisplay(8, "in");
+  Fn.setRiserLimit(calc);
+  assert(calc.state.error === "Riser height must be 4-7 7/8 inches", "reject riser preference above 7 7/8");
+
+  calc = newCalc();
   calc.updatePreferences({ stairRiserLimit: 7.5, treadDepth: 10, headroomHeight: 80, floorThickness: 10 });
   calc.state.current = Engine.valueFromDisplay(49, "in");
   Fn.risePrimary(calc);
