@@ -57,6 +57,120 @@
     return (formatted.main + " " + formatted.unit).trim();
   }
 
+  function activeEntry(engine) {
+    return engine.state.inputBuffer !== "" || engine.state.pendingFractionNumerator !== null;
+  }
+
+  function cloneForRegister(value) {
+    return Engine.makeValue(value.baseValue, value.dimension, value.unit, Object.assign({}, value.meta || {}));
+  }
+
+  function registerInputKey(engine, names) {
+    return names.map((name) => {
+      const value = engine.getRegister(name);
+      return value ? name + ":" + Engine.roundForDisplay(value.baseValue, 8) : name + ":";
+    }).join("|");
+  }
+
+  function storeLengthRegister(engine, name, label) {
+    engine.commitInputAsScalar();
+    if (!engine.state.current || engine.state.current.dimension !== "length") {
+      throw new Error(label + " must be a length");
+    }
+    engine.state.registers[name] = cloneForRegister(engine.state.current);
+    engine.setCurrent(engine.state.registers[name], label);
+    engine.state.lastFunction = name;
+    if (name === "length") {
+      engine.state.widthCycle = null;
+      engine.state.widthInputKey = null;
+      engine.state.heightCycle = null;
+      engine.state.heightInputKey = null;
+    } else if (name === "width") {
+      engine.state.widthCycle = -1;
+      engine.state.widthInputKey = registerInputKey(engine, ["length", "width"]);
+      engine.state.heightCycle = null;
+      engine.state.heightInputKey = null;
+    } else if (name === "height") {
+      engine.state.heightCycle = -1;
+      engine.state.heightInputKey = registerInputKey(engine, ["length", "width", "height"]);
+    }
+  }
+
+  function shouldStoreDimension(engine, name) {
+    return activeEntry(engine) || (engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0 && engine.state.lastFunction !== name);
+  }
+
+  function lengthPrimary(engine) {
+    try {
+      if (shouldStoreDimension(engine, "length")) {
+        storeLengthRegister(engine, "length", "Length");
+        return;
+      }
+      engine.recallRegister("length");
+      engine.state.lastFunction = "length";
+    } catch (error) {
+      engine.setError(error.message);
+    }
+  }
+
+  function widthPrimary(engine) {
+    try {
+      if (shouldStoreDimension(engine, "width")) {
+        storeLengthRegister(engine, "width", "Width");
+        return;
+      }
+      const length = requireLength(engine, "length");
+      const width = requireLength(engine, "width");
+      const key = registerInputKey(engine, ["length", "width"]);
+      if (engine.state.widthInputKey !== key || engine.state.lastFunction !== "width") {
+        engine.state.widthCycle = -1;
+        engine.state.widthInputKey = key;
+      }
+      const cycle = (engine.state.widthCycle + 1) % 3;
+      engine.state.widthCycle = cycle;
+      engine.state.lastFunction = "width";
+      if (cycle === 0) {
+        return setResult(engine, Engine.makeValue(length * width, "area", "sqft", { noTrailingDecimal: true }), "Area");
+      }
+      if (cycle === 1) {
+        return setResult(engine, Engine.makeValue(Math.sqrt(length * length + width * width), "length", "ft", { format: "feet-inch" }), "Square-Up");
+      }
+      return setResult(engine, Engine.makeValue(2 * (length + width), "length", "ft", { format: "feet-inch", showZeroFeet: true }), "Perimeter");
+    } catch (error) {
+      engine.setError(error.message);
+    }
+  }
+
+  function heightPrimary(engine) {
+    try {
+      if (shouldStoreDimension(engine, "height")) {
+        storeLengthRegister(engine, "height", "Height");
+        return;
+      }
+      const length = requireLength(engine, "length");
+      const width = requireLength(engine, "width");
+      const height = requireLength(engine, "height");
+      const key = registerInputKey(engine, ["length", "width", "height"]);
+      if (engine.state.heightInputKey !== key || engine.state.lastFunction !== "height") {
+        engine.state.heightCycle = -1;
+        engine.state.heightInputKey = key;
+      }
+      const cycle = (engine.state.heightCycle + 1) % 3;
+      engine.state.heightCycle = cycle;
+      engine.state.lastFunction = "height";
+      if (cycle === 0) {
+        return setResult(engine, Engine.makeValue(length * width * height, "volume", "cuft", { noTrailingDecimal: true }), "Volume");
+      }
+      const wallArea = (2 * length * height) + (2 * width * height);
+      if (cycle === 1) {
+        return setResult(engine, Engine.makeValue(wallArea, "area", "sqft", { noTrailingDecimal: true }), "Wall Area");
+      }
+      return setResult(engine, Engine.makeValue(wallArea + (length * width), "area", "sqft", { noTrailingDecimal: true }), "Surface Area");
+    } catch (error) {
+      engine.setError(error.message);
+    }
+  }
+
   function roofFromRiseRun(rise, run) {
     if (!run) {
       throw new Error("Run is required");
@@ -996,6 +1110,9 @@
   }
 
   global.JgcCalculatorFunctions = {
+    lengthPrimary,
+    widthPrimary,
+    heightPrimary,
     pitchPrimary,
     risePrimary,
     runPrimary,
