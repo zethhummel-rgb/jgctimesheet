@@ -514,6 +514,10 @@
     const pref = (key, fallback) => prefs[key] === undefined || prefs[key] === null ? fallback : prefs[key];
     const checked = (key, fallback) => pref(key, fallback) ? " checked" : "";
     const value = (key, fallback) => escapeHtml(pref(key, fallback));
+    const boundedValue = (key, fallback, min, max) => {
+      const number = Number(pref(key, fallback));
+      return escapeHtml(Number.isFinite(number) && number >= min && number <= max ? number : fallback);
+    };
     const options = (items, current) => items.map((item) => {
       const selected = String(item.value) === String(current) ? " selected" : "";
       return `<option value="${escapeHtml(item.value)}"${selected}>${escapeHtml(item.label)}</option>`;
@@ -620,22 +624,22 @@
           <summary class="pref-section-toggle">Stored Settings</summary>
           <label class="pref-row">
             <span>Headroom Height</span>
-            <input id="prefHeadroomHeight" type="number" min="0" step="0.01" value="${value("headroomHeight", 80)}">
+            <input id="prefHeadroomHeight" type="number" min="48" max="120" step="0.01" value="${boundedValue("headroomHeight", 80, 48, 120)}">
             <small>inches</small>
           </label>
           <label class="pref-row">
             <span>Riser Height</span>
-            <input id="prefRiserLimit" type="number" step="0.01" min="1" value="${value("stairRiserLimit", 7.75)}">
+            <input id="prefRiserLimit" type="number" step="0.001" min="4" max="7.875" value="${boundedValue("stairRiserLimit", 7.75, 4, 7.875)}">
             <small>inches</small>
           </label>
           <label class="pref-row">
             <span>Floor Thickness</span>
-            <input id="prefFloorThickness" type="number" min="0" step="0.01" value="${value("floorThickness", 10)}">
+            <input id="prefFloorThickness" type="number" min="0" max="36" step="0.01" value="${boundedValue("floorThickness", 10, 0, 36)}">
             <small>inches</small>
           </label>
           <label class="pref-row">
             <span>Tread Width</span>
-            <input id="prefTreadDepth" type="number" step="0.01" min="1" value="${value("treadDepth", 10)}">
+            <input id="prefTreadDepth" type="number" step="0.01" min="4" max="24" value="${boundedValue("treadDepth", 10, 4, 24)}">
             <small>inches</small>
           </label>
           <label class="pref-row">
@@ -784,6 +788,10 @@
       const value = Number(node.value);
       return Number.isFinite(value) ? value : fallback;
     };
+    const boundedNumberValue = (id, fallback, min, max) => {
+      const value = numberValue(id, fallback);
+      return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+    };
     const textValue = (id, fallback) => {
       const node = document.getElementById(id);
       return node ? node.value : fallback;
@@ -797,8 +805,8 @@
       fractionDenominator: numberValue("prefFraction", 16),
       precision: numberValue("prefPrecision", 5),
       studSpacing: numberValue("prefStudSpacing", 16),
-      stairRiserLimit: numberValue("prefRiserLimit", 7.75),
-      treadDepth: numberValue("prefTreadDepth", 10),
+      stairRiserLimit: boundedNumberValue("prefRiserLimit", 7.75, 4, 7.875),
+      treadDepth: boundedNumberValue("prefTreadDepth", 10, 4, 24),
       springAngle: numberValue("prefSpringAngle", 38),
       sound: checkedValue("prefSound", false),
       haptic: checkedValue("prefHaptic", true),
@@ -817,8 +825,8 @@
       archedWallSide: textValue("prefArchedWallSide", "outside"),
       jackOrder: textValue("prefJackOrder", "descending"),
       irregularJackMode: textValue("prefIrregularJackMode", "on-center"),
-      headroomHeight: numberValue("prefHeadroomHeight", 80),
-      floorThickness: numberValue("prefFloorThickness", 10),
+      headroomHeight: boundedNumberValue("prefHeadroomHeight", 80, 48, 120),
+      floorThickness: boundedNumberValue("prefFloorThickness", 10, 0, 36),
       weightPerVolume: numberValue("prefWeightPerVolume", 1.5)
     });
     saveStatePieces();
