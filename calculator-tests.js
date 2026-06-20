@@ -217,6 +217,16 @@ function runTests() {
   assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "6\u2032-8 1/2\u2033", "rise display matches manual");
 
   calc = newCalc();
+  pressSequence(calc, ["9", "ft"]);
+  Fn.risePrimary(calc);
+  approx(calc.state.registers.rise.baseValue, 108, 0.0001, "manual rise stores 9 feet");
+  pressSequence(calc, ["3", "5", ".", "5"]);
+  Fn.pitchPrimary(calc);
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().unit === "DEG", "decimal pitch stores as roof angle");
+  Fn.runPrimary(calc);
+  assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "12\u2032-7 7/16\u2033", "run from 9 ft rise and 35.5 degree pitch matches CMPro");
+
+  calc = newCalc();
   pressSequence(calc, ["8", "in"]);
   Fn.circle(calc);
   assert(calc.getDisplay().mode === "Diameter" && calc.getDisplay().main === "8" && calc.getDisplay().unit === "INCH", "circle starts with diameter");
