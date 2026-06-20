@@ -87,6 +87,74 @@
     };
   }
 
+  function dmsPartsFromBuffer(buffer) {
+    const text = String(buffer || "");
+    if ((text.match(/\./g) || []).length < 2) {
+      return null;
+    }
+    const negative = text.trim().startsWith("-");
+    const clean = text.replace(/^-/, "");
+    const parts = clean.split(".");
+    if (parts.length !== 3 || parts.some((part) => part !== "" && !/^\d+$/.test(part))) {
+      return null;
+    }
+    const degrees = Number(parts[0] || 0);
+    const minutes = Number(parts[1] || 0);
+    const seconds = Number(parts[2] || 0);
+    if (minutes >= 60 || seconds >= 60) {
+      return null;
+    }
+    return { negative, degrees, minutes, seconds };
+  }
+
+  function padDmsPart(value) {
+    return String(Math.abs(Math.round(value))).padStart(2, "0");
+  }
+
+  function dmsTextFromParts(parts) {
+    const sign = parts.negative ? "-" : "";
+    return "DMS " + sign + parts.degrees + "." + padDmsPart(parts.minutes) + "." + padDmsPart(parts.seconds);
+  }
+
+  function decimalFromDmsParts(parts) {
+    const value = parts.degrees + (parts.minutes / 60) + (parts.seconds / 3600);
+    return parts.negative ? -value : value;
+  }
+
+  function decimalDegreesToDmsParts(value) {
+    const negative = value < -EPSILON;
+    let remaining = Math.abs(value);
+    let degrees = Math.floor(remaining + EPSILON);
+    remaining = (remaining - degrees) * 60;
+    let minutes = Math.floor(remaining + EPSILON);
+    remaining = (remaining - minutes) * 60;
+    let seconds = Math.round(remaining);
+    if (seconds >= 60) {
+      seconds = 0;
+      minutes += 1;
+    }
+    if (minutes >= 60) {
+      minutes = 0;
+      degrees += 1;
+    }
+    return { negative, degrees, minutes, seconds };
+  }
+
+  function decimalDegreesToDmsText(value) {
+    return dmsTextFromParts(decimalDegreesToDmsParts(value));
+  }
+
+  function valueFromInputBuffer(buffer) {
+    const dmsParts = dmsPartsFromBuffer(buffer);
+    if (dmsParts) {
+      return makeValue(decimalFromDmsParts(dmsParts), "angle", "deg", {
+        format: "dms",
+        dmsText: dmsTextFromParts(dmsParts)
+      });
+    }
+    return makeValue(parseNumberBuffer(buffer), "scalar", "scalar");
+  }
+
   function cloneValue(value) {
     if (!value) {
       return null;
@@ -124,7 +192,13 @@
     if (a.dimension !== b.dimension) {
       throw new Error("Incompatible units");
     }
-    return makeValue(a.baseValue + sign * b.baseValue, a.dimension, a.unit || b.unit, Object.assign({}, b.meta || {}, a.meta || {}));
+    const result = a.baseValue + sign * b.baseValue;
+    const meta = Object.assign({}, b.meta || {}, a.meta || {});
+    if (a.dimension === "angle" && ((a.meta && a.meta.format === "dms") || (b.meta && b.meta.format === "dms"))) {
+      meta.format = "dms";
+      meta.dmsText = decimalDegreesToDmsText(result);
+    }
+    return makeValue(result, a.dimension, a.unit || b.unit, meta);
   }
 
   function multiplyValues(a, b) {
@@ -398,6 +472,9 @@
       formatPrefs.fixedDecimalPlaces = true;
     }
     const fractionOptions = Object.assign({}, meta, { fractionMode: prefs.fractionMode });
+    if (value.dimension === "angle" && meta.format === "dms") {
+      return { main: meta.dmsText || decimalDegreesToDmsText(value.baseValue), unit: "", mode: "DMS" };
+    }
     if (value.dimension === "length" && unit === "ft" && meta.format === "feet-inch") {
       return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, fractionOptions), unit: "FEET INCH", mode: "LENGTH" };
     }
@@ -464,6 +541,7 @@
       history: [],
       lastFunction: "",
       lastUnitEntry: "",
+      suppressCompoundOnce: false,
       clearArmed: false,
       preferences: {
         fractionDenominator: 16,
@@ -571,7 +649,7 @@
       return this.state.current;
     }
     if (this.state.inputBuffer !== "") {
-      this.state.current = makeValue(parseNumberBuffer(this.state.inputBuffer), "scalar", "scalar");
+      this.state.current = valueFromInputBuffer(this.state.inputBuffer);
       this.state.inputBuffer = "";
     }
     this.state.pendingFractionNumerator = null;
@@ -595,7 +673,10 @@
       }
       return;
     }
-    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
+    if (this.state.inputBuffer === "" && this.state.suppressCompoundOnce) {
+      this.state.preInputValue = null;
+      this.state.suppressCompoundOnce = false;
+    } else if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
       this.state.preInputValue = cloneValue(this.state.current);
     } else if (this.state.inputBuffer === "") {
       this.state.preInputValue = null;
@@ -605,21 +686,27 @@
     } else {
       this.state.inputBuffer += text;
     }
-    this.state.current = makeValue(parseNumberBuffer(this.state.inputBuffer), "scalar", "scalar");
+    this.state.current = valueFromInputBuffer(this.state.inputBuffer);
     this.state.lastUnitEntry = "";
   };
 
   CalculatorEngine.prototype.pressDecimal = function() {
     this.clearError();
-    if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
+    if (this.state.inputBuffer === "" && this.state.suppressCompoundOnce) {
+      this.state.preInputValue = null;
+      this.state.suppressCompoundOnce = false;
+    } else if (this.state.inputBuffer === "" && this.state.current && this.state.current.dimension !== "scalar" && (!this.state.pendingOperator || this.state.preInputValue)) {
       this.state.preInputValue = cloneValue(this.state.current);
     } else if (this.state.inputBuffer === "") {
       this.state.preInputValue = null;
     }
-    if (!this.state.inputBuffer.includes(".")) {
+    const dotCount = (this.state.inputBuffer.match(/\./g) || []).length;
+    if (dotCount === 0) {
       this.state.inputBuffer = this.state.inputBuffer ? this.state.inputBuffer + "." : "0.";
+    } else if (dotCount === 1 && /\.\d+$/.test(this.state.inputBuffer)) {
+      this.state.inputBuffer += ".";
     }
-    this.state.current = makeValue(parseNumberBuffer(this.state.inputBuffer), "scalar", "scalar");
+    this.state.current = valueFromInputBuffer(this.state.inputBuffer);
     this.state.lastUnitEntry = "";
   };
 
@@ -865,6 +952,7 @@
     this.state.compound = { feet: null, inches: null };
     this.state.current = makeValue(0, "scalar", "scalar");
     this.state.lastUnitEntry = "";
+    this.state.suppressCompoundOnce = false;
     this.clearError();
     this.state.status = "";
     this.state.clearArmed = true;
@@ -886,6 +974,7 @@
     this.state.status = "Working values cleared";
     this.state.lastFunction = "";
     this.state.lastUnitEntry = "";
+    this.state.suppressCompoundOnce = false;
     this.state.pitchCycle = null;
     this.state.widthCycle = null;
     this.state.widthInputKey = null;
@@ -982,6 +1071,9 @@
     this.commitInputAsScalar();
     this.state.registers[name] = cloneValue(this.state.current);
     this.state.status = name + " stored";
+    this.state.compound = { feet: null, inches: null };
+    this.state.preInputValue = null;
+    this.state.suppressCompoundOnce = true;
   };
 
   CalculatorEngine.prototype.recallRegister = function(name) {
@@ -993,6 +1085,9 @@
     this.state.current = cloneValue(value);
     this.state.inputBuffer = "";
     this.state.status = name + " recalled";
+    this.state.compound = { feet: null, inches: null };
+    this.state.preInputValue = null;
+    this.state.suppressCompoundOnce = true;
     return this.state.current;
   };
 
@@ -1055,8 +1150,10 @@
     this.state.inputBuffer = "";
     this.state.pendingFractionNumerator = null;
     this.state.pendingFractionBase = null;
+    this.state.compound = { feet: null, inches: null };
     this.state.preInputValue = null;
     this.state.status = label || "";
+    this.state.suppressCompoundOnce = true;
     if (label) {
       this.addHistory(label, value);
     }
@@ -1095,6 +1192,9 @@
     formatValue,
     inchesToFeetInches,
     inchesToInchesFraction,
+    decimalDegreesToDmsText,
+    dmsPartsFromBuffer,
+    decimalFromDmsParts,
     roundForDisplay,
     assertFinite,
     constants: { INCHES_PER_METER }
