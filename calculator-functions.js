@@ -312,6 +312,10 @@
 
   function circle(engine) {
     try {
+      if (columnConeCanContinue(engine)) {
+        columnCone(engine, !engine.state.columnConeCycle.isCone);
+        return [];
+      }
       const source = circleSource(engine);
       const nextStep = (source.step + 1) % 3;
       const result = circleDisplayValue(source.diameter, nextStep, source.unit);
@@ -532,30 +536,44 @@
 
   function columnCone(engine, isCone) {
     try {
+      const circle = engine.state.circleCycle;
       const radiusValue = engine.getRegister("radius");
       const height = requireLength(engine, "height");
-      if (!radiusValue) {
-        throw new Error("Missing radius");
+      let radius = 0;
+      if (circle && circle.diameter > 0) {
+        radius = circle.diameter / 2;
+      } else if (radiusValue && radiusValue.dimension === "length") {
+        radius = radiusValue.baseValue;
       }
-      const radius = radiusValue.baseValue;
+      if (!radius) {
+        throw new Error("Missing diameter");
+      }
       let volume = PI * radius * radius * height;
       if (isCone) {
         volume /= 3;
       }
-      const tonsPerCubicYard = Number(engine.state.preferences.weightPerVolume) || 1.5;
-      const tons = volume / 46656 * tonsPerCubicYard;
-      const rows = [
-        [isCone ? "Cone volume" : "Column volume", formatValue(Engine.makeValue(volume, "volume", "cuft"), engine.state.preferences)],
-        ["Cubic yards", Engine.roundForDisplay(volume / 46656, 5) + " CU YD"],
-        ["Cubic meters", Engine.roundForDisplay(volume / (Engine.constants.INCHES_PER_METER ** 3), 5) + " CU M"],
-        ["Weight", Engine.roundForDisplay(tons, 3) + " TON"]
-      ];
-      engine.setCurrent(Engine.makeValue(volume, "volume", "cuft"), isCone ? "Cone volume" : "Column volume");
-      return rows;
+      engine.setCurrent(Engine.makeValue(volume, "volume", "cuft", { precision: 6, noTrailingDecimal: true }), isCone ? "Cone Volume" : "Column Volume");
+      engine.state.columnConeCycle = {
+        radius,
+        height,
+        isCone: Boolean(isCone),
+        lastBaseValue: engine.state.current.baseValue,
+        lastDimension: engine.state.current.dimension
+      };
+      engine.addHistory(isCone ? "Cone volume" : "Column volume", formatValue(engine.state.current, engine.state.preferences));
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
     }
+  }
+
+  function columnConeCanContinue(engine) {
+    const cycle = engine.state.columnConeCycle;
+    const current = engine.state.current;
+    return Boolean(cycle && current &&
+      current.dimension === cycle.lastDimension &&
+      Math.abs(current.baseValue - cycle.lastBaseValue) < 0.000001);
   }
 
   function concrete(engine) {
