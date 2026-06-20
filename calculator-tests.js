@@ -84,6 +84,9 @@ function runTests() {
   calc.updatePreferences({ areaDisplay: "sqm" });
   assert(Engine.formatValue(calc.state.current, calc.state.preferences).unit === "SQUARE METER", "area display preference changes formatted unit");
   approx(Number(Engine.formatValue(calc.state.current, calc.state.preferences).main.replace(/,/g, "")), 11.1484, 0.0001, "area display preference converts to square meters");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().unit === "SQUARE FEET", "manual area conversion overrides area display preference");
+  approx(Engine.convertDisplay(calc.state.current, "sqft"), 120, 0.0001, "manual square feet conversion keeps area value");
 
   calc = newCalc();
   pressSequence(calc, ["7", "ft", "*", "7", "ft", "1", "in", "3", "/", "4"]);
@@ -122,6 +125,9 @@ function runTests() {
   approx(calc.state.current.baseValue / 46656, 1.481481, 0.0001, "10 ft x 12 ft x 4 in cu yd");
   calc.updatePreferences({ volumeDisplay: "cuyd" });
   assert(Engine.formatValue(calc.state.current, calc.state.preferences).unit === "CUBIC YARD", "volume display preference changes formatted unit");
+  calc.applyUnit("ft");
+  assert(calc.getDisplay().unit === "CUBIC FEET", "manual volume conversion overrides volume display preference");
+  approx(Engine.convertDisplay(calc.state.current, "cuft"), 40, 0.0001, "manual cubic feet conversion keeps volume value");
 
   calc = newCalc();
   pressSequence(calc, ["1", "0", "ft"]);
