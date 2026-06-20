@@ -331,26 +331,119 @@
     }
   }
 
+  function arcCanContinue(engine) {
+    const cycle = engine.state.arcCycle;
+    const current = engine.state.current;
+    return Boolean(cycle && current &&
+      current.dimension === cycle.lastDimension &&
+      Math.abs(current.baseValue - cycle.lastBaseValue) < 0.000001);
+  }
+
+  function arcFromChordRise(engine) {
+    const chord = requireLength(engine, "run");
+    const rise = requireLength(engine, "rise");
+    if (chord <= 0 || rise <= 0) {
+      throw new Error("Run and rise are required");
+    }
+    const radius = (chord * chord) / (8 * rise) + rise / 2;
+    const angle = 2 * Math.asin(Math.min(1, chord / (2 * radius))) * 180 / PI;
+    const arcLength = radius * angle * PI / 180;
+    const sectorArea = (angle / 360) * PI * radius * radius;
+    return { radius, angle, arcLength, chord, rise, sectorArea, source: "chord-rise" };
+  }
+
+  function arcFromRadiusAngle(engine) {
+    const radius = requireLength(engine, "radius");
+    const angleValue = engine.getRegister("springAngle") || (engine.state.current && engine.state.current.dimension === "angle" ? engine.state.current : null);
+    const angle = angleValue ? angleValue.baseValue : currentAsNumber(engine);
+    if (!angle) {
+      throw new Error("Missing angle");
+    }
+    const radians = angle * PI / 180;
+    return {
+      radius,
+      angle,
+      arcLength: radius * radians,
+      chord: 2 * radius * Math.sin(radians / 2),
+      sectorArea: (angle / 360) * PI * radius * radius,
+      source: "radius-angle"
+    };
+  }
+
+  function arcDisplayValue(data, step) {
+    if (step === 0) {
+      return {
+        label: "Radius",
+        value: Engine.makeValue(data.radius, "length", "ft", { format: "feet-inch" })
+      };
+    }
+    if (step === 1) {
+      return {
+        label: "Arc Angle",
+        value: Engine.makeValue(data.angle, "angle", "deg", { precision: 2, noTrailingDecimal: true })
+      };
+    }
+    if (step === 2) {
+      return {
+        label: "Arc Length",
+        value: Engine.makeValue(data.arcLength, "length", "ft", { format: "feet-inch" })
+      };
+    }
+    if (step === 3) {
+      return {
+        label: "Chord",
+        value: Engine.makeValue(data.chord, "length", "ft", { format: "feet-inch" })
+      };
+    }
+    return {
+      label: "Segment Area",
+      value: Engine.makeValue(data.sectorArea, "area", "sqft", { precision: 6, noTrailingDecimal: true })
+    };
+  }
+
+  function setArcResult(engine, data, step) {
+    const result = arcDisplayValue(data, step);
+    engine.setCurrent(result.value, result.label);
+    engine.state.lastFunction = "arc";
+    engine.state.arcCycle = Object.assign({}, data, {
+      step,
+      lastBaseValue: engine.state.current.baseValue,
+      lastDimension: engine.state.current.dimension
+    });
+    return result.value;
+  }
+
+  function arcRadius(engine) {
+    try {
+      const data = arcFromChordRise(engine);
+      setArcResult(engine, data, 0);
+      engine.state.registers.radius = Engine.makeValue(data.radius, "length", "ft", { format: "feet-inch" });
+      engine.addHistory("Arc radius", "Chord " + formatValue(Engine.makeValue(data.chord, "length", "ft"), engine.state.preferences) +
+        " | Rise " + formatValue(Engine.makeValue(data.rise, "length", "ft"), engine.state.preferences) +
+        " | Radius " + formatValue(engine.state.current, engine.state.preferences));
+      return [];
+    } catch (error) {
+      engine.setError(error.message);
+      return [];
+    }
+  }
+
   function arc(engine) {
     try {
-      const radius = requireLength(engine, "radius");
-      const angleValue = engine.getRegister("springAngle") || (engine.state.current && engine.state.current.dimension === "angle" ? engine.state.current : null);
-      const angle = angleValue ? angleValue.baseValue : currentAsNumber(engine);
-      if (!angle) {
-        throw new Error("Missing angle");
+      if (arcCanContinue(engine)) {
+        const nextStep = engine.state.arcCycle.source === "chord-rise"
+          ? (engine.state.arcCycle.step + 1) % 5
+          : (engine.state.arcCycle.step + 1) % 4;
+        setArcResult(engine, engine.state.arcCycle, nextStep);
+        return [];
       }
-      const radians = angle * PI / 180;
-      const arcLength = radius * radians;
-      const chord = 2 * radius * Math.sin(radians / 2);
-      const sectorArea = (angle / 360) * PI * radius * radius;
-      const rows = [
-        ["Arc length", Engine.roundForDisplay(arcLength / 12, 4) + " FT"],
-        ["Chord", Engine.roundForDisplay(chord / 12, 4) + " FT"],
-        ["Sector area", formatValue(Engine.makeValue(sectorArea, "area", "sqft"), engine.state.preferences)]
-      ];
-      engine.setCurrent(Engine.makeValue(arcLength, "length", "ft"), "Arc length");
-      engine.addHistory("Arc", rows.map((row) => row.join(": ")).join(" | "));
-      return rows;
+
+      const data = arcFromRadiusAngle(engine);
+      setArcResult(engine, data, 2);
+      engine.addHistory("Arc", "Radius " + formatValue(Engine.makeValue(data.radius, "length", "ft"), engine.state.preferences) +
+        " | Angle " + Engine.roundForDisplay(data.angle, 3) + "\u00b0" +
+        " | Length " + formatValue(engine.state.current, engine.state.preferences));
+      return [];
     } catch (error) {
       engine.setError(error.message);
       return [];
@@ -662,6 +755,7 @@
     setRiserLimit,
     circle,
     arc,
+    arcRadius,
     columnCone,
     concrete,
     drywall,
