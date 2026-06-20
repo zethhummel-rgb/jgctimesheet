@@ -877,8 +877,7 @@
       runAction("clear");
       event.preventDefault();
     } else if (key === "Backspace") {
-      calculator.state.inputBuffer = calculator.state.inputBuffer.slice(0, -1);
-      calculator.state.current = EngineApi.makeValue(Number(calculator.state.inputBuffer || 0), "scalar", "scalar");
+      calculator.backspace();
       updateDisplay();
       event.preventDefault();
     }
@@ -901,6 +900,17 @@
       button.classList.add("pressed");
       setTimeout(() => button.classList.remove("pressed"), 110);
       runAction(button.getAttribute("data-action"));
+    });
+    document.getElementById("calcDisplay").addEventListener("click", () => {
+      calculator.backspace();
+      updateDisplay();
+    });
+    document.getElementById("calcDisplay").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        calculator.backspace();
+        updateDisplay();
+        event.preventDefault();
+      }
     });
     document.addEventListener("keydown", handleKeyboard);
     updateDisplay();
