@@ -1047,6 +1047,9 @@
   CalculatorEngine.prototype.setCurrent = function(value, label) {
     this.state.current = cloneValue(value);
     this.state.inputBuffer = "";
+    this.state.pendingFractionNumerator = null;
+    this.state.pendingFractionBase = null;
+    this.state.preInputValue = null;
     this.state.status = label || "";
     if (label) {
       this.addHistory(label, value);
