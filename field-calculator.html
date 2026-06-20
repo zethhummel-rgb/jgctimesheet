@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#050908">
   <title>JGC Portal - Field Calculator</title>
   <link rel="manifest" href="manifest.json?v=4">
-  <link rel="stylesheet" href="field-calculator.css?v=8">
+  <link rel="stylesheet" href="field-calculator.css?v=9">
 </head>
 <body class="field-calculator-page">
   <main class="field-calculator-shell">
@@ -21,7 +21,7 @@
         <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator pocket guide">Guide</button>
       </header>
 
-      <section class="calc-display" aria-live="polite">
+      <section id="calcDisplay" class="calc-display" aria-live="polite" role="button" tabindex="0" aria-label="Calculator display. Tap to delete the last typed digit.">
         <div id="calcExpression" class="calc-expression"></div>
         <div id="calcMainValue" class="calc-main-value">0</div>
         <div class="calc-meta-line">
@@ -51,8 +51,8 @@
   </div>
 
   <script src="common.js?v=3"></script>
-  <script src="calculator-engine.js?v=22"></script>
+  <script src="calculator-engine.js?v=23"></script>
   <script src="calculator-functions.js?v=27"></script>
-  <script src="field-calculator.js?v=20"></script>
+  <script src="field-calculator.js?v=21"></script>
 </body>
 </html>
