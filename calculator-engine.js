@@ -463,6 +463,7 @@
       history: [],
       lastFunction: "",
       lastUnitEntry: "",
+      clearArmed: false,
       preferences: {
         fractionDenominator: 16,
         precision: 5,
@@ -838,6 +839,19 @@
   };
 
   CalculatorEngine.prototype.clear = function() {
+    const entryAlreadyClear = this.state.inputBuffer === "" &&
+      this.state.pendingFractionNumerator === null &&
+      this.state.pendingFractionBase === null &&
+      this.state.preInputValue === null &&
+      !this.state.accumulator &&
+      !this.state.pendingOperator &&
+      this.state.current &&
+      this.state.current.dimension === "scalar" &&
+      Math.abs(this.state.current.baseValue) < EPSILON;
+    if (this.state.clearArmed && entryAlreadyClear) {
+      this.clearWorkingData();
+      return;
+    }
     this.state.inputBuffer = "";
     this.state.pendingFractionNumerator = null;
     this.state.pendingFractionBase = null;
@@ -847,6 +861,33 @@
     this.state.lastUnitEntry = "";
     this.clearError();
     this.state.status = "";
+    this.state.clearArmed = true;
+  };
+
+  CalculatorEngine.prototype.clearWorkingData = function() {
+    this.state.inputBuffer = "";
+    this.state.pendingFractionNumerator = null;
+    this.state.pendingFractionBase = null;
+    this.state.preInputValue = null;
+    this.state.compound = { feet: null, inches: null };
+    this.state.current = makeValue(0, "scalar", "scalar");
+    this.state.accumulator = null;
+    this.state.pendingOperator = null;
+    this.state.registers = {};
+    this.state.conversionMode = false;
+    this.state.conversionLocked = false;
+    this.state.error = "";
+    this.state.status = "Working values cleared";
+    this.state.lastFunction = "";
+    this.state.lastUnitEntry = "";
+    this.state.pitchCycle = null;
+    this.state.stairCycle = null;
+    this.state.stairTotalRise = null;
+    this.state.circleCycle = null;
+    this.state.arcCycle = null;
+    this.state.columnConeCycle = null;
+    this.state.polygonCycle = null;
+    this.state.clearArmed = false;
   };
 
   CalculatorEngine.prototype.clearAll = function() {
