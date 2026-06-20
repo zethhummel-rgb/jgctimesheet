@@ -188,6 +188,19 @@ function runTests() {
   approx(calc.state.current.baseValue, 50, 0.001, "roof slope percent");
 
   calc = newCalc();
+  pressSequence(calc, ["7", "in"]);
+  Fn.pitchPrimary(calc);
+  assert(calc.state.registers.pitch && calc.state.registers.pitch.baseValue === 7, "manual pitch stores 7 inch pitch");
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().main === "7" && calc.getDisplay().unit === "INCH", "pitch display matches manual entry");
+  pressSequence(calc, ["1", "1", "ft", "6", "in"]);
+  Fn.runPrimary(calc);
+  approx(calc.state.registers.run.baseValue, 138, 0.0001, "manual run stores 11 ft 6 in");
+  assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "11\u2032-6\u2033", "run display matches manual entry");
+  Fn.risePrimary(calc);
+  approx(calc.state.current.baseValue, 80.5, 0.0001, "rise from 7/12 pitch and 11 ft 6 in run");
+  assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "6\u2032-8 1/2\u2033", "rise display matches manual");
+
+  calc = newCalc();
   pressSequence(calc, ["8", "in"]);
   Fn.circle(calc);
   assert(calc.getDisplay().mode === "Diameter" && calc.getDisplay().main === "8" && calc.getDisplay().unit === "INCH", "circle starts with diameter");
@@ -239,6 +252,25 @@ function runTests() {
   assert(calc.getDisplay().mode === "Pie Slice Area", "diameter arc cycles to pie slice area");
   Fn.arc(calc);
   assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "0\u2032-6 1/8\u2033", "diameter arc cycles to rise");
+
+  calc = newCalc();
+  pressSequence(calc, ["1", "5", "ft"]);
+  Fn.arcRadius(calc);
+  assert(calc.getDisplay().mode === "Radius" && calc.getDisplay().main === "15\u2032", "conv arc stores radius from current length");
+  pressSequence(calc, ["6"]);
+  Fn.polygon(calc);
+  approx(calc.state.current.baseValue, 120, 0.0001, "polygon full angle from radius and sides");
+  assert(calc.getDisplay().mode === "Full Angle" && calc.getDisplay().main === "120", "polygon starts with full angle");
+  Fn.runPrimary(calc);
+  approx(calc.state.current.baseValue, 60, 0.0001, "polygon half angle");
+  assert(calc.getDisplay().mode === "Half Angle" && calc.getDisplay().main === "60", "polygon cycles to half angle");
+  Fn.runPrimary(calc);
+  assert(calc.getDisplay().mode === "Side Length" && calc.getDisplay().main === "15\u2032", "polygon cycles to side length");
+  Fn.runPrimary(calc);
+  assert(calc.getDisplay().mode === "Perimeter" && calc.getDisplay().main === "90\u2032", "polygon cycles to perimeter");
+  Fn.runPrimary(calc);
+  approx(calc.state.current.baseValue / 144, 584.567148, 0.000001, "polygon area");
+  assert(calc.getDisplay().mode === "Area" && calc.getDisplay().unit === "SQUARE FEET", "polygon cycles to area");
 
   calc = newCalc();
   pressSequence(calc, ["2", "ft", "4", "in"]);
