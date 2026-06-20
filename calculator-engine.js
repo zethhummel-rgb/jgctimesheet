@@ -212,10 +212,12 @@
     if (!Number.isFinite(rounded)) {
       return "Error";
     }
-    if (Math.abs(rounded) >= 1000000000 || (Math.abs(rounded) > 0 && Math.abs(rounded) < 0.00001)) {
+    if (prefs.exponential || Math.abs(rounded) >= 1000000000 || (Math.abs(rounded) > 0 && Math.abs(rounded) < 0.00001)) {
       return rounded.toExponential(5);
     }
-    let text = String(rounded).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    let text = prefs.fixedDecimalPlaces === true
+      ? rounded.toFixed(Math.max(0, Number(precision) || 0))
+      : String(rounded).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
     if (prefs.commaSeparator !== false) {
       text = addCommaSeparators(text);
     }
@@ -262,7 +264,7 @@
     }
     let fractionText = "";
     if (fraction) {
-      const div = gcd(fraction, denominator);
+      const div = opts.fractionMode === "fixed" || opts.fractionMode === "constant" ? 1 : gcd(fraction, denominator);
       fractionText = (fraction / div) + "/" + (denominator / div);
     }
     let text = "";
@@ -282,7 +284,8 @@
     return (negative ? "-" : "") + text;
   }
 
-  function inchesToInchesFraction(totalInches, denominator) {
+  function inchesToInchesFraction(totalInches, denominator, options) {
+    const opts = options || {};
     const negative = totalInches < -EPSILON;
     const absInches = Math.abs(totalInches);
     const wholeInches = Math.floor(absInches + EPSILON);
@@ -294,7 +297,7 @@
     }
     let fractionText = "";
     if (fraction) {
-      const div = gcd(fraction, denominator);
+      const div = opts.fractionMode === "fixed" || opts.fractionMode === "constant" ? 1 : gcd(fraction, denominator);
       fractionText = (fraction / div) + "/" + (denominator / div);
     }
     const text = displayInches + (fractionText ? (displayInches ? " " : "-") + fractionText : "");
@@ -368,23 +371,41 @@
       return { main: "0", unit: "", mode: "READY" };
     }
     const prefs = preferences || {};
-    const unit = value.unit || DIMENSION_DEFAULT_UNIT[value.dimension] || "scalar";
+    let unit = value.unit || DIMENSION_DEFAULT_UNIT[value.dimension] || "scalar";
     const meta = value.meta || {};
-    const precision = typeof meta.precision === "number" ? meta.precision : (value.dimension === "area" || value.dimension === "volume" ? 6 : prefs.precision || 5);
+    if (value.dimension === "area" && prefs.areaDisplay && prefs.areaDisplay !== "standard" && UNIT_DEFS[prefs.areaDisplay]) {
+      unit = prefs.areaDisplay;
+    }
+    if (value.dimension === "volume" && prefs.volumeDisplay && prefs.volumeDisplay !== "standard" && UNIT_DEFS[prefs.volumeDisplay]) {
+      unit = prefs.volumeDisplay;
+    }
+    const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
+    const precision = typeof meta.precision === "number"
+      ? meta.precision
+      : unit === "m" || unit === "cm" || unit === "mm"
+        ? Number(prefs.meterPrecision) || 3
+        : unit === "deg"
+          ? Number(prefs.degreePrecision) || 2
+          : value.dimension === "area" || value.dimension === "volume"
+            ? 6
+            : prefs.precision || 5;
     const formatPrefs = Object.assign({}, prefs);
     if (meta.noTrailingDecimal) {
       formatPrefs.trailingDecimalForWholeNumbers = false;
     }
+    if (value.dimension === "scalar" && prefs.unitlessDisplay === "fixed") {
+      formatPrefs.fixedDecimalPlaces = true;
+    }
+    const fractionOptions = Object.assign({}, meta, { fractionMode: prefs.fractionMode });
     if (value.dimension === "length" && unit === "ft" && meta.format === "feet-inch") {
-      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, meta), unit: "FEET INCH", mode: "LENGTH" };
+      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, fractionOptions), unit: "FEET INCH", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && meta.format === "inch-fraction" && (Math.abs(value.baseValue) < 12 || meta.forceInches)) {
-      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16), unit: meta.unitLabel || "IN", mode: "LENGTH" };
+      return { main: inchesToInchesFraction(value.baseValue, prefs.fractionDenominator || 16, fractionOptions), unit: meta.unitLabel || "IN", mode: "LENGTH" };
     }
     if (value.dimension === "length" && unit === "in" && Math.abs(value.baseValue) >= 12 && meta.format !== "decimal") {
-      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, meta), unit: "FEET INCH", mode: "LENGTH" };
+      return { main: inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, fractionOptions), unit: "FEET INCH", mode: "LENGTH" };
     }
-    const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
     const display = value.baseValue / def.factor;
     return { main: formatNumber(display, precision, formatPrefs), unit: meta.unitLabel || displayUnitLabel(unit, def), mode: String(value.dimension || "scalar").toUpperCase() };
   }
@@ -747,6 +768,34 @@
     }
   };
 
+  CalculatorEngine.prototype.convertVolumeToWeight = function(unit) {
+    this.clearError();
+    this.commitInputAsScalar();
+    const def = UNIT_DEFS[unit];
+    if (!def || def.dimension !== "weight") {
+      this.setError("Unsupported weight conversion");
+      return;
+    }
+    try {
+      if (this.state.current.dimension === "weight") {
+        this.convertCurrent(unit);
+        return;
+      }
+      if (this.state.current.dimension !== "volume") {
+        this.setError("Need volume for weight conversion");
+        return;
+      }
+      const tonsPerCubicYard = Number(this.state.preferences.weightPerVolume) || 1.5;
+      const cubicYards = this.state.current.baseValue / UNIT_DEFS.cuyd.factor;
+      const pounds = cubicYards * tonsPerCubicYard * UNIT_DEFS.ton.factor;
+      this.state.current = makeValue(pounds, "weight", unit);
+      this.state.lastUnitEntry = "";
+      this.addHistory("Converted volume to " + def.label, this.state.current);
+    } catch (error) {
+      this.setError(error.message);
+    }
+  };
+
   CalculatorEngine.prototype.pressOperator = function(operator) {
     this.clearError();
     this.commitInputAsScalar();
@@ -989,6 +1038,7 @@
     operate,
     formatValue,
     inchesToFeetInches,
+    inchesToInchesFraction,
     roundForDisplay,
     assertFinite,
     constants: { INCHES_PER_METER }
