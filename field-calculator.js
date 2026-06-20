@@ -17,7 +17,7 @@
     [
       { primary: "Comp Miter", secondary: "Spring Angle", action: "compound-miter", secondaryAction: "spring-angle", type: "function" },
       { primary: "Stair", secondary: "Riser Limit", action: "stair", secondaryAction: "riser-limit", type: "function" },
-      { primary: "Arc", secondary: "Radius", action: "arc", secondaryAction: "radius", type: "function" },
+      { primary: "Arc", secondary: "Radius", action: "arc", secondaryAction: "arc-radius", type: "function" },
       { primary: "Circ", secondary: "Column/Cone", action: "circle", secondaryAction: "column-cone", type: "function" },
       { primary: "Jack", secondary: "Ir/Jack", action: "jack", secondaryAction: "irregular-jack", type: "function" }
     ],
@@ -424,6 +424,9 @@
         break;
       case "radius":
         calculator.handleRegisterKey("radius");
+        break;
+      case "arc-radius":
+        Fn.arcRadius(calculator);
         break;
       case "circle":
         Fn.circle(calculator);
