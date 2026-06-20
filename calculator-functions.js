@@ -178,7 +178,18 @@
       const rise = requireLength(engine, "rise");
       const run = requireLength(engine, "run");
       const roof = roofFromRiseRun(rise, run);
-      return setResult(engine, Engine.makeValue(roof.diag, "length", "ft"), "Common rafter");
+      const inputKey = Math.round(rise * 10000) + ":" + Math.round(run * 10000);
+      const cycle = (engine.state.lastFunction === "diag" && engine.state.diagInputKey === inputKey ? (engine.state.diagCycle || 0) + 1 : 0) % 3;
+      engine.state.lastFunction = "diag";
+      engine.state.diagCycle = cycle;
+      engine.state.diagInputKey = inputKey;
+      if (cycle === 1) {
+        return setResult(engine, Engine.makeValue(roof.angle, "angle", "deg", { precision: 2, noTrailingDecimal: true }), "Plumb Cut");
+      }
+      if (cycle === 2) {
+        return setResult(engine, Engine.makeValue(90 - roof.angle, "angle", "deg", { precision: 2, noTrailingDecimal: true }), "Level Cut");
+      }
+      return setResult(engine, Engine.makeValue(roof.diag, "length", "ft", { format: "feet-inch" }), "Diagonal");
     } catch (error) {
       engine.setError(error.message);
     }
