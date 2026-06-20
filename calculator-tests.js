@@ -78,6 +78,12 @@ function runTests() {
   approx(calc.state.current.baseValue / 144, 120, 0.0001, "10 ft x 12 ft sq ft");
 
   calc = newCalc();
+  pressSequence(calc, ["7", "ft", "*", "7", "ft", "1", "in", "3", "/", "4"]);
+  assert(calc.getDisplay().main === "7\u2032-1 3/4\u2033", "fraction appends to compound second operand while multiplying");
+  calc.equals();
+  approx(calc.state.current.baseValue / 144, 50.020833, 0.000001, "7 ft x 7 ft 1 3/4 in sq ft");
+
+  calc = newCalc();
   pressSequence(calc, ["1", "0", "0", "ft", "ft"]);
   assert(calc.state.current.dimension === "area" && calc.state.current.unit === "sqft", "100 ft ft becomes square feet");
   approx(Engine.convertDisplay(calc.state.current, "sqft"), 100, 0.0001, "100 square feet display value");
