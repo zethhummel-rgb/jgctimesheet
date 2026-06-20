@@ -23,9 +23,9 @@
     ],
     [
       { primary: "m", action: "unit:m", type: "function" },
-      { primary: "Length", secondary: "Blocks", action: "register:length", secondaryAction: "blocks", type: "function" },
-      { primary: "Width", secondary: "Footing", action: "register:width", secondaryAction: "concrete", type: "function" },
-      { primary: "Height", secondary: "Drywall", action: "register:height", secondaryAction: "drywall", type: "function" },
+      { primary: "Length", action: "register:length", type: "function" },
+      { primary: "Width", action: "register:width", type: "function" },
+      { primary: "Height", action: "register:height", type: "function" },
       { primary: "%", secondary: "x\u00b2", action: "percent", secondaryAction: "square", type: "operator" }
     ],
     [
@@ -58,7 +58,7 @@
     ],
     [
       { primary: "M+", secondary: "M-", action: "mplus", secondaryAction: "mminus", type: "function" },
-      { primary: "0", secondary: "Cost", action: "digit:0", secondaryAction: "cost", type: "number" },
+      { primary: "0", action: "digit:0", type: "number" },
       { primary: ".", secondary: "dms\u25c4\u25badeg", action: "decimal", secondaryAction: "dms", type: "number" },
       { primary: "=", secondary: "Tape", action: "equals", secondaryAction: "history", type: "operator" },
       { primary: "+", secondary: "\u03c0", action: "op:+", secondaryAction: "pi", type: "operator" }
@@ -393,17 +393,13 @@
       "riser-limit": () => Fn.setRiserLimit(calculator),
       arc: () => Fn.arc(calculator),
       "column-cone": () => Fn.columnCone(calculator, false),
-      concrete: () => Fn.concrete(calculator),
-      drywall: () => Fn.drywall(calculator),
       studs: () => Fn.studs(calculator),
       "board-feet": () => Fn.boardFeet(calculator),
-      blocks: () => Fn.blocks(calculator),
       "compound-miter": () => Fn.compoundMiter(calculator),
       "spring-angle": () => Fn.setSpringAngle(calculator),
       polygon: () => Fn.polygon(calculator),
       "rake-wall": () => Fn.rakeWall(calculator),
       jack: () => Fn.jack(calculator),
-      cost: () => Fn.cost(calculator),
       dms: () => Fn.dmsDecimal(calculator)
     };
     switch (action) {
@@ -428,6 +424,8 @@
         Fn.hipValley(calculator);
         break;
       case "irregular-pitch":
+        Fn.irregularPitch(calculator);
+        break;
       case "irregular-jack":
         calculator.setError("Advanced irregular calc not verified yet");
         break;
@@ -641,16 +639,6 @@
             <small>inches</small>
           </label>
           <label class="pref-row">
-            <span>Block Area</span>
-            <input id="prefBlockArea" type="number" min="1" step="0.01" value="${value("blockArea", 128)}">
-            <small>square inches</small>
-          </label>
-          <label class="pref-row">
-            <span>Block Length</span>
-            <input id="prefBlockLength" type="number" min="1" step="0.01" value="${value("blockLength", 16)}">
-            <small>inches</small>
-          </label>
-          <label class="pref-row">
             <span>Spring Angle</span>
             <input id="prefSpringAngle" type="number" step="0.1" min="1" value="${value("springAngle", 38)}">
             <small>degrees</small>
@@ -661,24 +649,9 @@
             <small>inches</small>
           </label>
           <label class="pref-row">
-            <span>Footing Area</span>
-            <input id="prefFootingArea" type="number" min="1" step="0.01" value="${value("footingArea", 264)}">
-            <small>square inches</small>
-          </label>
-          <label class="pref-row">
             <span>Weight / Volume</span>
             <input id="prefWeightPerVolume" type="number" min="0" step="0.01" value="${value("weightPerVolume", 1.5)}">
             <small>ton/yard3</small>
-          </label>
-          <label class="pref-row">
-            <span>Concrete Waste</span>
-            <input id="prefConcreteWaste" type="number" min="0" max="50" value="${value("concreteWaste", 5)}">
-            <small>percent</small>
-          </label>
-          <label class="pref-row">
-            <span>Drywall Waste</span>
-            <input id="prefDrywallWaste" type="number" min="0" max="50" value="${value("drywallWaste", 10)}">
-            <small>percent</small>
           </label>
         </details>
 
@@ -758,11 +731,8 @@
           <p>With a current value showing, pressing one of these keys stores that value. With no new value entered, pressing the key recalls it.</p>
           <table class="guide-table">
             <tr><th>Function</th><th>Workflow</th></tr>
-            <tr><td>Concrete / Footing</td><td>Store Length, Width, Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Width</span>.</td></tr>
-            <tr><td>Drywall</td><td>Store Length and Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Height</span>.</td></tr>
             <tr><td>Studs</td><td>Store Length, then press <span class="guide-key">Conv</span> + <span class="guide-key">5</span>.</td></tr>
             <tr><td>Board Feet</td><td>Store thickness as Height, board width as Width, length as Length, then press <span class="guide-key">Conv</span> + <span class="guide-key">8</span>.</td></tr>
-            <tr><td>Blocks</td><td>Store wall Length and Height, then press <span class="guide-key">Conv</span> + <span class="guide-key">Length</span>.</td></tr>
           </table>
         </details>
 
@@ -781,7 +751,7 @@
 
         <details class="guide-section">
           <summary>7. Preferences and Current Limits</summary>
-          <p>Use Preferences for fraction resolution, display precision, concrete waste, drywall waste, stud spacing, stair defaults, spring angle, and stored construction defaults.</p>
+          <p>Use Preferences for fraction resolution, display precision, stud spacing, stair defaults, spring angle, and stored construction defaults.</p>
           <p class="guide-note">Irregular pitch and irregular jack functions are shown on the keypad for future expansion, but this calculator will not return unverified advanced roof math.</p>
         </details>
 
@@ -826,8 +796,6 @@
     calculator.updatePreferences({
       fractionDenominator: numberValue("prefFraction", 16),
       precision: numberValue("prefPrecision", 5),
-      concreteWaste: numberValue("prefConcreteWaste", 5),
-      drywallWaste: numberValue("prefDrywallWaste", 10),
       studSpacing: numberValue("prefStudSpacing", 16),
       stairRiserLimit: numberValue("prefRiserLimit", 7.75),
       treadDepth: numberValue("prefTreadDepth", 10),
@@ -851,9 +819,6 @@
       irregularJackMode: textValue("prefIrregularJackMode", "on-center"),
       headroomHeight: numberValue("prefHeadroomHeight", 80),
       floorThickness: numberValue("prefFloorThickness", 10),
-      blockArea: numberValue("prefBlockArea", 128),
-      blockLength: numberValue("prefBlockLength", 16),
-      footingArea: numberValue("prefFootingArea", 264),
       weightPerVolume: numberValue("prefWeightPerVolume", 1.5)
     });
     saveStatePieces();
