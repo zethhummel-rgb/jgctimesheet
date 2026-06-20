@@ -601,7 +601,7 @@
   function normalizeStairPreferences(engine) {
     const prefs = engine.state.preferences || {};
     const clean = {
-      stairRiserLimit: boundedPreference(prefs.stairRiserLimit, 7.75, 4, 7.875),
+      stairRiserLimit: boundedPreference(prefs.stairRiserLimit, 7.5, 4, 7.875),
       treadDepth: boundedPreference(prefs.treadDepth, 10, 4, 24),
       headroomHeight: boundedPreference(prefs.headroomHeight, 80, 48, 120),
       floorThickness: boundedPreference(prefs.floorThickness, 10, 0, 36)
