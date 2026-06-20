@@ -280,7 +280,16 @@
       } else if (action.startsWith("op:")) {
         calculator.pressOperator(action.split(":")[1]);
       } else if (action.startsWith("register:")) {
-        calculator.handleRegisterKey(action.split(":")[1]);
+        const registerName = action.split(":")[1];
+        if (registerName === "length") {
+          Fn.lengthPrimary(calculator);
+        } else if (registerName === "width") {
+          Fn.widthPrimary(calculator);
+        } else if (registerName === "height") {
+          Fn.heightPrimary(calculator);
+        } else {
+          calculator.handleRegisterKey(registerName);
+        }
       } else {
         runNamedAction(action);
       }
