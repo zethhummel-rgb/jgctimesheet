@@ -153,7 +153,40 @@
     document.getElementById("convIndicator").classList.toggle("active", calculator.state.conversionMode);
     document.getElementById("convIndicator").textContent = calculator.state.conversionMode ? "CONV" : "PRI";
     document.querySelectorAll(".calc-key.convert").forEach((button) => button.classList.toggle("active", calculator.state.conversionMode));
+    applyPreferenceClasses();
     saveStatePieces();
+  }
+
+  let audioContext;
+
+  function playKeyClick() {
+    if (!calculator.state.preferences.sound) {
+      return;
+    }
+    try {
+      audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "square";
+      oscillator.frequency.value = 620;
+      gain.gain.setValueAtTime(0.025, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.035);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.035);
+    } catch (error) {
+      // Audio is optional; ignore browser/autoplay restrictions.
+    }
+  }
+
+  function applyPreferenceClasses() {
+    if (!document.body || !calculator) {
+      return;
+    }
+    document.body.classList.toggle("calc-fullscreen-mode", calculator.state.preferences.fullScreenMode !== false);
+    document.body.classList.toggle("calc-windowed-mode", calculator.state.preferences.fullScreenMode === false);
+    document.body.classList.toggle("calc-high-contrast", calculator.state.preferences.themeContrast === "high");
   }
 
   function resetConvIfNeeded(action) {
@@ -235,7 +268,12 @@
       } else if (action.startsWith("unit:")) {
         const unit = action.split(":")[1];
         if (beforeConv) {
-          calculator.convertCurrent(normalizeConversionUnit(unit));
+          const targetUnit = normalizeConversionUnit(unit);
+          if (["lb", "kg", "ton", "metricTon"].includes(targetUnit) && calculator.state.current && calculator.state.current.dimension === "volume") {
+            calculator.convertVolumeToWeight(targetUnit);
+          } else {
+            calculator.convertCurrent(targetUnit);
+          }
         } else {
           calculator.applyUnit(unit);
         }
@@ -253,6 +291,7 @@
     if (navigator.vibrate && calculator.state.preferences.haptic) {
       navigator.vibrate(8);
     }
+    playKeyClick();
     rememberRepeatUnit(rawAction, action, beforeConv);
     resetConvIfNeeded(action);
     updateDisplay();
@@ -509,7 +548,7 @@
           </label>
           <label class="pref-row">
             <span>Fractional Mode</span>
-            <select id="prefFractionMode">${options([{ value: "standard", label: "Standard" }, { value: "fixed", label: "Fixed" }], pref("fractionMode", "standard"))}</select>
+            <select id="prefFractionMode">${options([{ value: "standard", label: "Standard" }, { value: "fixed", label: "Constant" }], pref("fractionMode", "standard"))}</select>
           </label>
           <label class="pref-row">
             <span>Exponential</span>
@@ -807,6 +846,7 @@
     });
     saveStatePieces();
     closeOverlay();
+    applyPreferenceClasses();
     updateDisplay();
   }
 
@@ -818,6 +858,7 @@
     localStorage.removeItem(HISTORY_KEY);
     calculator = new EngineApi.CalculatorEngine({}, []);
     closeOverlay();
+    applyPreferenceClasses();
     updateDisplay();
   }
 
@@ -861,6 +902,7 @@
       return;
     }
     calculator = new EngineApi.CalculatorEngine(loadJson(PREF_KEY, {}), loadJson(HISTORY_KEY, []));
+    applyPreferenceClasses();
     updateBackButton();
     renderKeypad();
     document.getElementById("calcKeypad").addEventListener("click", (event) => {
