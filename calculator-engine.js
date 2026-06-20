@@ -657,7 +657,7 @@
     }
 
     if (this.state.inputBuffer === "") {
-      if (this.state.current && this.state.current.dimension === "length" && this.state.current.unit === unit) {
+      if (this.state.current && this.state.current.dimension === "length" && this.state.current.unit === unit && (unit === "ft" || unit === "in")) {
         if (this.state.lastUnitEntry !== unit || !isWholeDisplayValue(this.state.current, unit)) {
           toggleLengthDisplayFormat(this.state.current, unit);
           this.state.lastUnitEntry = "";
