@@ -50,6 +50,22 @@ function runTests() {
   assert(calc.getDisplay().main === "8 1/8" && calc.getDisplay().unit === "IN", "8 in 1/8 displays fractional inches");
 
   calc = newCalc();
+  pressSequence(calc, ["2", "3", ".", "4", "2", ".", "3", "9"]);
+  assert(calc.getDisplay().main === "DMS 23.42.39", "DMS entry displays as degrees minutes seconds");
+  Fn.dmsDecimal(calc);
+  approx(calc.state.current.baseValue, 23.710833, 0.000001, "23.42.39 DMS converts to decimal degrees");
+  assert(calc.getDisplay().main === "23.71" && calc.getDisplay().unit === "DEG", "DMS conversion displays decimal degrees");
+
+  calc = newCalc();
+  pressSequence(calc, ["4", "4", ".", "2", "9"]);
+  Fn.dmsDecimal(calc);
+  assert(calc.getDisplay().main === "DMS 44.17.24", "44.29 decimal degrees converts to DMS");
+
+  calc = newCalc();
+  pressSequence(calc, ["7", ".", "4", "5", ".", "3", "3", "+", "1", "1", ".", "1", "6", ".", "2", "0", "="]);
+  assert(calc.getDisplay().main === "DMS 19.01.53", "DMS values add like CMPro example");
+
+  calc = newCalc();
   calc.pressDigit("1");
   calc.pressDigit("5");
   calc.pressFraction();
@@ -256,6 +272,37 @@ function runTests() {
   approx(calc.state.current.baseValue, 59.04, 0.01, "level cut from 9 ft rise and 15 ft run matches CMPro");
   Fn.diagPrimary(calc);
   assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "17\u2032-5 15/16\u2033", "diag cycles back to diagonal");
+
+  calc = newCalc();
+  pressSequence(calc, ["7", "in"]);
+  Fn.pitchPrimary(calc);
+  pressSequence(calc, ["1", "4", "ft", "4", "in", "/op", "2", "="]);
+  assert(calc.getDisplay().main === "7\u2032-2\u2033", "roof span divided by 2 gives run length");
+  Fn.runPrimary(calc);
+  assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "7\u2032-2\u2033", "run stores half-span for rafter");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "8\u2032-3 9/16\u2033", "diag from 7/12 pitch and 7 ft 2 in run matches CMPro");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Plumb Cut", "diag cycles to plumb cut from pitch and run");
+  approx(calc.state.current.baseValue, 30.26, 0.01, "plumb cut from 7/12 pitch and 7 ft 2 in run matches CMPro");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Level Cut", "diag cycles to level cut from pitch and run");
+  approx(calc.state.current.baseValue, 59.74, 0.01, "level cut from 7/12 pitch and 7 ft 2 in run matches CMPro");
+
+  calc = newCalc();
+  pressSequence(calc, ["6", "ft", "1", "1", "in", "1", "/", "2"]);
+  Fn.risePrimary(calc);
+  assert(calc.getDisplay().mode === "Rise" && calc.getDisplay().main === "6\u2032-11 1/2\u2033", "rise stores compound fractional input");
+  pressSequence(calc, ["1", "4", "ft", "6", "in"]);
+  Fn.runPrimary(calc);
+  assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "14\u2032-6\u2033", "run stores compound input for pitch solve");
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "16\u2032-1\u2033", "diag from rise and run matches CMPro");
+  Fn.pitchPrimary(calc);
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().main === "5 3/4" && calc.getDisplay().unit === "INCH", "pitch from rise and run displays inches first");
+  Fn.pitchPrimary(calc);
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().unit === "DEG", "pitch cycles to degree angle");
+  approx(calc.state.current.baseValue, 25.64, 0.01, "pitch angle from rise and run matches CMPro");
 
   calc = newCalc();
   pressSequence(calc, ["8", "in"]);
@@ -497,7 +544,7 @@ function runTests() {
   calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(108, "in");
   Fn.stair(calc);
-  approx(calc.state.current.baseValue, 7.7142857, 0.0001, "actual stair riser");
+  approx(calc.state.current.baseValue, 7.6875, 0.0001, "actual stair riser");
   assert(calc.state.status === "Riser height", "stair starts with riser height");
   Fn.stair(calc);
   assert(calc.state.current.baseValue === 14 && calc.state.status === "Risers", "stair risers");
@@ -534,6 +581,84 @@ function runTests() {
   approx(calc.state.current.baseValue, 80, 0.0001, "stored headroom");
   Fn.stair(calc);
   approx(calc.state.current.baseValue, 10, 0.0001, "stored floor thickness");
+
+  calc = newCalc();
+  calc.updatePreferences({ stairRiserLimit: 7.5, treadDepth: 10, headroomHeight: 80, floorThickness: 10, fractionDenominator: 16 });
+  pressSequence(calc, ["1", "0", "ft", "1", "in"]);
+  Fn.risePrimary(calc);
+  pressSequence(calc, ["1", "5", "ft", "5", "in"]);
+  Fn.runPrimary(calc);
+  Fn.setRiserLimit(calc);
+  approx(calc.state.current.baseValue, 7.125, 0.0001, "stored run stair riser limited height");
+  assert(calc.state.status === "Riser Height", "stored run stair starts with riser height");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 17 && calc.state.status === "Risers", "stored run stair risers");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 0.125, 0.0001, "stored run stair riser overage");
+  assert(calc.state.status === "Riser Overage/Underage", "stored run riser overage label");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 11.5625, 0.0001, "stored run stair calculated tread width");
+  assert(calc.state.status === "Tread Width", "stored run tread width label");
+  Fn.stair(calc);
+  assert(calc.state.current.baseValue === 16 && calc.state.status === "Treads", "stored run stair treads");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 0, 0.0001, "stored run stair tread overage");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 146.0526, 0.001, "stored run stairwell opening");
+  assert(calc.state.status === "Stairwell Opening", "stored run opening label");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 217.3028, 0.002, "stored run stringer length");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 31.64, 0.01, "stored run stair angle");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 185, 0.0001, "stored run stair run stored");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 121, 0.0001, "stored run stair rise stored");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 7.5, 0.0001, "stored run stair riser preference");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 10, 0.0001, "stored run stair tread preference");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 80, 0.0001, "stored run stair headroom");
+  Fn.stair(calc);
+  approx(calc.state.current.baseValue, 10, 0.0001, "stored run stair floor thickness");
+
+  calc = newCalc();
+  pressSequence(calc, ["8", "ft", "5", "in"]);
+  Fn.runPrimary(calc);
+  pressSequence(calc, ["7", "in"]);
+  Fn.pitchPrimary(calc);
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 154.5, 0.02, "regular hip valley rafter length");
+  assert(calc.state.status === "Hip/Valley Rafter Length", "regular hip length label");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 22.42, 0.01, "regular hip plumb cut");
+  assert(calc.state.status === "Plumb Cut", "regular hip plumb label");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 67.58, 0.01, "regular hip level cut");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 45, 0.01, "regular hip cheek cut");
+  assert(calc.state.status === "Cheek Cut 1", "regular hip cheek label");
+
+  calc = newCalc();
+  pressSequence(calc, ["4", "ft"]);
+  Fn.runPrimary(calc);
+  pressSequence(calc, ["7", "in"]);
+  Fn.pitchPrimary(calc);
+  pressSequence(calc, ["8", "in"]);
+  Fn.irregularPitch(calc);
+  assert(calc.state.status === "Irregular Pitch", "irregular pitch stores");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 69.66, 0.04, "irregular hip valley rafter length");
+  assert(calc.state.status === "Irregular Hip/Valley Rafter Length", "irregular hip length label");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 23.70, 0.01, "irregular hip plumb cut");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 66.30, 0.01, "irregular hip level cut");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 41.19, 0.01, "irregular hip cheek cut 1");
+  Fn.hipValley(calc);
+  approx(calc.state.current.baseValue, 48.81, 0.01, "irregular hip cheek cut 2");
 
   calc = newCalc();
   calc.state.current = Engine.makeValue(1, "scalar", "scalar");
