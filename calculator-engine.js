@@ -549,7 +549,7 @@
         concreteWaste: 5,
         drywallWaste: 10,
         studSpacing: 16,
-        stairRiserLimit: 7.75,
+        stairRiserLimit: 7.5,
         treadDepth: 10,
         springAngle: 38,
         sound: false,
@@ -575,14 +575,24 @@
         blockLength: 16,
         footingArea: 264,
         weightPerVolume: 1.5,
-        themeContrast: "standard"
+        themeContrast: "standard",
+        preferenceVersion: 2
       }
     };
   }
 
+  function migratePreferences(savedPreferences) {
+    const migrated = Object.assign({}, savedPreferences || {});
+    if (!migrated.preferenceVersion && Number(migrated.stairRiserLimit) === 7.75) {
+      migrated.stairRiserLimit = 7.5;
+    }
+    migrated.preferenceVersion = 2;
+    return migrated;
+  }
+
   function CalculatorEngine(savedPreferences, savedHistory) {
     this.state = createState();
-    this.state.preferences = Object.assign(this.state.preferences, savedPreferences || {});
+    this.state.preferences = Object.assign(this.state.preferences, migratePreferences(savedPreferences));
     this.state.history = Array.isArray(savedHistory) ? savedHistory.slice(0, 50) : [];
   }
 
