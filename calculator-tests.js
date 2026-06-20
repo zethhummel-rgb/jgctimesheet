@@ -227,6 +227,21 @@ function runTests() {
   assert(calc.getDisplay().mode === "Run" && calc.getDisplay().main === "12\u2032-7 7/16\u2033", "run from 9 ft rise and 35.5 degree pitch matches CMPro");
 
   calc = newCalc();
+  pressSequence(calc, ["6", "ft"]);
+  Fn.risePrimary(calc);
+  pressSequence(calc, ["1", "0", "ft"]);
+  Fn.diagPrimary(calc);
+  assert(calc.getDisplay().mode === "Diagonal" && calc.getDisplay().main === "10\u2032", "manual diagonal stores 10 feet");
+  Fn.pitchPrimary(calc);
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().unit === "DEG", "pitch from rise and diagonal displays degrees");
+  approx(calc.state.current.baseValue, 36.87, 0.01, "pitch from 6 ft rise and 10 ft diagonal matches CMPro");
+
+  calc = newCalc();
+  pressSequence(calc, ["3", "0"]);
+  Fn.pitchPrimary(calc);
+  assert(calc.getDisplay().mode === "Pitch" && calc.getDisplay().unit === "DEG", "plain scalar pitch stores as degrees");
+
+  calc = newCalc();
   pressSequence(calc, ["9", "ft"]);
   Fn.risePrimary(calc);
   pressSequence(calc, ["1", "5", "ft"]);
