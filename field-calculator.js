@@ -15,11 +15,11 @@
       { primary: "Hip/V", secondary: "Ir/Pitch", action: "hip", secondaryAction: "irregular-pitch", type: "function" }
     ],
     [
-      { primary: "Comp Miter", secondary: "Spring Angle", action: "compound-miter", secondaryAction: "spring-angle", type: "function" },
+      { spacer: true },
       { primary: "Stair", secondary: "Riser Limit", action: "stair", secondaryAction: "riser-limit", type: "function" },
       { primary: "Arc", secondary: "Radius", action: "arc", secondaryAction: "arc-radius", type: "function" },
       { primary: "Circ", secondary: "Column/Cone", action: "circle", secondaryAction: "column-cone", type: "function" },
-      { primary: "Jack", secondary: "Ir/Jack", action: "jack", secondaryAction: "irregular-jack", type: "function" }
+      { spacer: true }
     ],
     [
       { primary: "m", action: "unit:m", type: "function" },
@@ -120,6 +120,9 @@
   function renderKeypad() {
     const pad = document.getElementById("calcKeypad");
     pad.innerHTML = KEY_ROWS.flat().map((key) => {
+      if (key.spacer) {
+        return `<div class="calc-key-spacer" aria-hidden="true"></div>`;
+      }
       const classes = ["calc-key", key.type || "function"];
       if (!key.secondaryAction && key.secondary) {
         classes.push("disabled-secondary");
