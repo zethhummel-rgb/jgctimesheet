@@ -45,6 +45,18 @@ function runTests() {
   assert(calc.state.preferences.stairRiserLimit === 7.875, "new explicit 7 7/8 inch stair preference is preserved");
 
   calc = newCalc();
+  pressSequence(calc, ["8", "8"]);
+  calc.backspace();
+  assert(calc.getDisplay().main === "8", "LCD backspace removes the last typed digit");
+  calc.backspace();
+  assert(calc.getDisplay().main === "0.", "LCD backspace clears the final typed digit");
+
+  calc = newCalc();
+  pressSequence(calc, ["2", ".", "7", "8"]);
+  calc.backspace();
+  assert(calc.getDisplay().main === "2.7", "LCD backspace keeps decimal input intact");
+
+  calc = newCalc();
   pressSequence(calc, ["4", "ft", "6", "in", "+", "2", "ft", "3", "in", "="]);
   assert(Engine.formatValue(calc.state.current, calc.state.preferences).main === "6\u2032-9\u2033", "4 ft 6 in + 2 ft 3 in");
 
