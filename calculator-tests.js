@@ -113,6 +113,11 @@ function runTests() {
   assert(calc.state.current.dimension === "volume" && calc.state.current.unit === "cuyd", "5 yds yds yds becomes cubic yards");
 
   calc = newCalc();
+  pressSequence(calc, ["2", ".", "7", "8", "yd", "yd", "yd"]);
+  assert(calc.state.current.dimension === "volume" && calc.state.current.unit === "cuyd", "2.78 yds yds yds becomes decimal cubic yards");
+  approx(Engine.convertDisplay(calc.state.current, "cuyd"), 2.78, 0.000001, "2.78 cubic yards value is preserved");
+
+  calc = newCalc();
   pressSequence(calc, ["1", "0", "ft", "*", "1", "2", "ft", "*", "4", "in", "="]);
   approx(calc.state.current.baseValue / 46656, 1.481481, 0.0001, "10 ft x 12 ft x 4 in cu yd");
   calc.updatePreferences({ volumeDisplay: "cuyd" });
