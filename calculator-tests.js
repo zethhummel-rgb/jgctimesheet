@@ -448,6 +448,38 @@ function runTests() {
   approx(Engine.convertDisplay(calc.state.current, "ton"), 2.5, 0.0001, "weight per volume preference converts cubic yards to tons");
 
   calc = newCalc();
+  pressSequence(calc, ["2", "0", "ft", "6", "in"]);
+  Fn.lengthPrimary(calc);
+  pressSequence(calc, ["2", "5", "ft", "6", "in"]);
+  Fn.widthPrimary(calc);
+  Fn.widthPrimary(calc);
+  approx(Engine.convertDisplay(calc.state.current, "sqft"), 522.75, 0.0001, "width cycle area");
+  assert(calc.state.status === "Area", "width cycle starts at area");
+  Fn.widthPrimary(calc);
+  approx(calc.state.current.baseValue, Math.sqrt((20.5 * 12) ** 2 + (25.5 * 12) ** 2), 0.001, "width cycle square-up");
+  assert(calc.state.status === "Square-Up", "width cycle square-up label");
+  Fn.widthPrimary(calc);
+  approx(calc.state.current.baseValue, 92 * 12, 0.001, "width cycle perimeter");
+  assert(calc.state.status === "Perimeter", "width cycle perimeter label");
+
+  calc = newCalc();
+  pressSequence(calc, ["1", "5", "ft"]);
+  Fn.lengthPrimary(calc);
+  pressSequence(calc, ["2", "0", "ft"]);
+  Fn.widthPrimary(calc);
+  pressSequence(calc, ["1", "2", "ft"]);
+  Fn.heightPrimary(calc);
+  Fn.heightPrimary(calc);
+  approx(Engine.convertDisplay(calc.state.current, "cuft"), 3600, 0.0001, "height cycle volume");
+  assert(calc.state.status === "Volume", "height cycle starts at volume");
+  Fn.heightPrimary(calc);
+  approx(Engine.convertDisplay(calc.state.current, "sqft"), 840, 0.0001, "height cycle wall area");
+  assert(calc.state.status === "Wall Area", "height cycle wall area label");
+  Fn.heightPrimary(calc);
+  approx(Engine.convertDisplay(calc.state.current, "sqft"), 1140, 0.0001, "height cycle surface area");
+  assert(calc.state.status === "Surface Area", "height cycle surface area label");
+
+  calc = newCalc();
   calc.state.registers.rise = Engine.valueFromDisplay(108, "in");
   Fn.stair(calc);
   approx(calc.state.current.baseValue, 7.7142857, 0.0001, "actual stair riser");
