@@ -361,10 +361,13 @@
       if (isCone) {
         volume /= 3;
       }
+      const tonsPerCubicYard = Number(engine.state.preferences.weightPerVolume) || 1.5;
+      const tons = volume / 46656 * tonsPerCubicYard;
       const rows = [
         [isCone ? "Cone volume" : "Column volume", formatValue(Engine.makeValue(volume, "volume", "cuft"), engine.state.preferences)],
         ["Cubic yards", Engine.roundForDisplay(volume / 46656, 5) + " CU YD"],
-        ["Cubic meters", Engine.roundForDisplay(volume / (Engine.constants.INCHES_PER_METER ** 3), 5) + " CU M"]
+        ["Cubic meters", Engine.roundForDisplay(volume / (Engine.constants.INCHES_PER_METER ** 3), 5) + " CU M"],
+        ["Weight", Engine.roundForDisplay(tons, 3) + " TON"]
       ];
       engine.setCurrent(Engine.makeValue(volume, "volume", "cuft"), isCone ? "Cone volume" : "Column volume");
       return rows;
@@ -377,10 +380,12 @@
   function concrete(engine) {
     try {
       const length = requireLength(engine, "length");
-      const width = requireLength(engine, "width");
-      const height = requireLength(engine, "height");
+      const widthValue = engine.getRegister("width");
+      const heightValue = engine.getRegister("height");
       const waste = (engine.state.preferences.concreteWaste || 0) / 100;
-      const volume = length * width * height;
+      const volume = widthValue && heightValue
+        ? length * requireLength(engine, "width") * requireLength(engine, "height")
+        : length * (Number(engine.state.preferences.footingArea) || 264);
       const adjusted = volume * (1 + waste);
       const rows = [
         ["Cubic feet", Engine.roundForDisplay(volume / 1728, 5) + " CU FT"],
@@ -460,11 +465,15 @@
       const length = requireLength(engine, "length");
       const height = requireLength(engine, "height");
       const wallSqFt = length * height / 144;
-      const blockSqFt = (16 * 8) / 144;
+      const blockAreaSqIn = Number(engine.state.preferences.blockArea) || 128;
+      const blockLength = Number(engine.state.preferences.blockLength) || 16;
+      const blockSqFt = blockAreaSqIn / 144;
       const waste = 1.05;
       const count = Math.ceil((wallSqFt / blockSqFt) * waste);
       const rows = [
         ["Wall area", Engine.roundForDisplay(wallSqFt, 3) + " SQ FT"],
+        ["Block area", Engine.roundForDisplay(blockAreaSqIn, 3) + " SQ IN"],
+        ["Block length", Engine.roundForDisplay(blockLength, 3) + " IN"],
         ["Estimated blocks", String(count)]
       ];
       engine.setCurrent(Engine.makeValue(count, "count", "count"), "Blocks");
@@ -536,15 +545,21 @@
       const run = requireLength(engine, "run");
       const pitch = engine.getRegister("pitch");
       const spacing = engine.state.preferences.studSpacing || 16;
+      const denom = engine.state.preferences.fractionDenominator || 16;
       if (!pitch) {
         throw new Error("Missing pitch");
       }
       const count = Math.floor(run / spacing) + 1;
       const increment = spacing * (pitch.baseValue / 12);
-      const rows = [["Studs", String(count)], ["Increment", Engine.inchesToFeetInches(increment, 16)]];
+      const rows = [["Studs", String(count)], ["Increment", Engine.inchesToFeetInches(increment, denom, { fractionMode: engine.state.preferences.fractionMode })]];
+      const studRows = [];
       for (let i = 0; i < Math.min(count, 20); i += 1) {
-        rows.push(["Stud " + (i + 1), Engine.inchesToFeetInches(startHeight + i * increment, 16)]);
+        studRows.push(["Stud " + (i + 1), Engine.inchesToFeetInches(startHeight + i * increment, denom, { fractionMode: engine.state.preferences.fractionMode })]);
       }
+      if (engine.state.preferences.rakeWallOrder === "descending") {
+        studRows.reverse();
+      }
+      rows.push.apply(rows, studRows);
       engine.addHistory("Rake wall", rows.map((row) => row.join(": ")).join(" | "));
       engine.state.status = "Rake wall list ready";
       return rows;
@@ -558,20 +573,26 @@
     try {
       const pitch = engine.getRegister("pitch");
       const spacing = engine.state.preferences.studSpacing || 16;
+      const denom = engine.state.preferences.fractionDenominator || 16;
       const longest = requireLength(engine, "diag");
       if (!pitch) {
         throw new Error("Missing pitch");
       }
       const factor = Math.sqrt(12 * 12 + pitch.baseValue * pitch.baseValue) / 12;
       const increment = spacing * factor;
-      const rows = [["Jack difference", Engine.inchesToFeetInches(increment, 16)]];
+      const rows = [["Jack difference", Engine.inchesToFeetInches(increment, denom, { fractionMode: engine.state.preferences.fractionMode })]];
+      const jackRows = [];
       for (let i = 0; i < 12; i += 1) {
         const length = longest - i * increment;
         if (length <= 0) {
           break;
         }
-        rows.push(["Jack " + (i + 1), Engine.inchesToFeetInches(length, 16)]);
+        jackRows.push(["Jack " + (i + 1), Engine.inchesToFeetInches(length, denom, { fractionMode: engine.state.preferences.fractionMode })]);
       }
+      if (engine.state.preferences.jackOrder === "ascending") {
+        jackRows.reverse();
+      }
+      rows.push.apply(rows, jackRows);
       engine.setCurrent(Engine.makeValue(increment, "length", "ft"), "Jack increment");
       return rows;
     } catch (error) {
@@ -598,7 +619,8 @@
     const minutesDecimal = Math.abs(value - degrees) * 60;
     const minutes = Math.trunc(minutesDecimal);
     const seconds = (minutesDecimal - minutes) * 60;
-    const text = degrees + "\u00b0 " + minutes + "\u2032 " + Engine.roundForDisplay(seconds, 2) + "\u2033";
+    const precision = Number(engine.state.preferences.degreePrecision) || 2;
+    const text = degrees + "\u00b0 " + minutes + "\u2032 " + Engine.roundForDisplay(seconds, precision) + "\u2033";
     engine.state.status = text;
     engine.addHistory("DMS", text);
     return [["DMS", text]];
