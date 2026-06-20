@@ -191,6 +191,9 @@
     if (pitch.dimension === "angle" || pitch.unit === "deg") {
       return Math.tan(pitch.baseValue * PI / 180);
     }
+    if (pitch.unit === "percent") {
+      return pitch.baseValue;
+    }
     return pitch.baseValue / 12;
   }
 
@@ -198,11 +201,31 @@
     try {
       const storedRise = engine.getRegister("rise");
       const storedRun = engine.getRegister("run");
-      const rawInput = engine.state.inputBuffer || "";
       engine.commitInputAsScalar();
+      if (storedRise && !storedRun) {
+        const storedDiag = engine.getRegister("diag");
+        if (storedDiag && storedDiag.dimension === "length" && storedDiag.baseValue > 0) {
+          const rise = storedRise.baseValue;
+          const diag = storedDiag.baseValue;
+          if (rise > diag) {
+            throw new Error("Rise cannot exceed diagonal");
+          }
+          const angle = Math.asin(rise / diag) * 180 / PI;
+          engine.state.registers.pitch = Engine.makeValue(angle, "angle", "deg", { precision: 2, noTrailingDecimal: true });
+          engine.state.lastFunction = "pitch";
+          return setResult(engine, engine.state.registers.pitch, "Pitch");
+        }
+      }
       if (!storedRise || !storedRun) {
         if (engine.state.current && Math.abs(engine.state.current.baseValue) > 0.000001) {
-          if (engine.state.current.dimension === "scalar" && rawInput.includes(".")) {
+          if (engine.state.current.dimension === "scalar" && engine.state.current.unit === "percent") {
+            const percentPitch = Engine.makeValue(engine.state.current.baseValue, "scalar", "percent", { noTrailingDecimal: true });
+            engine.state.registers.pitch = percentPitch;
+            engine.setCurrent(percentPitch, "Pitch");
+            engine.state.lastFunction = "pitch";
+            return;
+          }
+          if (engine.state.current.dimension === "scalar") {
             const anglePitch = Engine.makeValue(engine.state.current.baseValue, "angle", "deg", { noTrailingDecimal: true });
             engine.state.registers.pitch = anglePitch;
             engine.setCurrent(anglePitch, "Pitch");
@@ -289,6 +312,16 @@
 
   function diagPrimary(engine) {
     try {
+      if (activeEntry(engine) || (engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0 && !engine.getRegister("run"))) {
+        engine.commitInputAsScalar();
+        if (!engine.state.current || engine.state.current.dimension !== "length") {
+          throw new Error("Diagonal must be a length");
+        }
+        engine.state.registers.diag = Engine.makeValue(engine.state.current.baseValue, "length", engine.state.current.unit || "ft", Object.assign({}, engine.state.current.meta || {}, { format: "feet-inch" }));
+        engine.setCurrent(engine.state.registers.diag, "Diagonal");
+        engine.state.lastFunction = "diag";
+        return;
+      }
       const rise = requireLength(engine, "rise");
       const run = requireLength(engine, "run");
       const roof = roofFromRiseRun(rise, run);
