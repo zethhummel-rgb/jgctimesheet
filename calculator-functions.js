@@ -480,6 +480,7 @@
 
   function stair(engine) {
     try {
+      const stairPrefs = normalizeStairPreferences(engine);
       let riseValue = engine.getRegister("rise");
       if (!riseValue && engine.state.current && engine.state.current.dimension === "length" && engine.state.current.baseValue > 0) {
         riseValue = Engine.makeValue(engine.state.current.baseValue, "length", engine.state.current.unit || "in");
@@ -492,10 +493,10 @@
         throw new Error("Rise must be a positive length");
       }
       const totalRise = riseValue.baseValue;
-      const maxRiser = engine.state.preferences.stairRiserLimit || 7.75;
-      const treadDepth = engine.state.preferences.treadDepth || 10;
-      const headroom = engine.state.preferences.headroomHeight || 80;
-      const floorThickness = engine.state.preferences.floorThickness || 10;
+      const maxRiser = stairPrefs.stairRiserLimit;
+      const treadDepth = stairPrefs.treadDepth;
+      const headroom = stairPrefs.headroomHeight;
+      const floorThickness = stairPrefs.floorThickness;
       const runValue = engine.getRegister("run");
       const storedRun = runValue && runValue.dimension === "length" && runValue.baseValue > 0 ? runValue.baseValue : 0;
       const risers = Math.ceil(totalRise / maxRiser);
@@ -578,17 +579,56 @@
         return stair(engine);
       }
       const inches = currentAsLengthInches(engine);
-      engine.updatePreferences({ stairRiserLimit: inches });
-      engine.state.status = "Riser limit set";
+      setValidatedRiserLimit(engine, inches);
     } catch (error) {
       const number = currentAsNumber(engine);
       if (number > 0) {
-        engine.updatePreferences({ stairRiserLimit: number });
-        engine.state.status = "Riser limit set";
+        setValidatedRiserLimit(engine, number);
       } else {
         engine.setError(error.message);
       }
     }
+  }
+
+  function boundedPreference(value, fallback, min, max) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < min || number > max) {
+      return fallback;
+    }
+    return number;
+  }
+
+  function normalizeStairPreferences(engine) {
+    const prefs = engine.state.preferences || {};
+    const clean = {
+      stairRiserLimit: boundedPreference(prefs.stairRiserLimit, 7.75, 4, 7.875),
+      treadDepth: boundedPreference(prefs.treadDepth, 10, 4, 24),
+      headroomHeight: boundedPreference(prefs.headroomHeight, 80, 48, 120),
+      floorThickness: boundedPreference(prefs.floorThickness, 10, 0, 36)
+    };
+    const changed = clean.stairRiserLimit !== prefs.stairRiserLimit ||
+      clean.treadDepth !== prefs.treadDepth ||
+      clean.headroomHeight !== prefs.headroomHeight ||
+      clean.floorThickness !== prefs.floorThickness;
+    if (changed) {
+      engine.updatePreferences(clean);
+    }
+    return clean;
+  }
+
+  function setValidatedRiserLimit(engine, inches) {
+    const value = Number(inches);
+    if (!Number.isFinite(value) || value < 4 || value > 7.875) {
+      engine.setError("Riser height must be 4-7 7/8 inches");
+      return;
+    }
+    engine.updatePreferences({ stairRiserLimit: value });
+    engine.setCurrent(Engine.makeValue(value, "length", "in", {
+      format: "inch-fraction",
+      forceInches: true,
+      unitLabel: "INCH"
+    }), "Riser limit set");
+    engine.state.status = "Riser limit set";
   }
 
   function circleCanContinue(engine) {
