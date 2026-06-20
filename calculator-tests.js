@@ -227,6 +227,17 @@ function runTests() {
   assert(calc.getDisplay().mode === "Area" && calc.getDisplay().unit === "SQUARE INCH", "circle area displays square inches");
 
   calc = newCalc();
+  pressSequence(calc, ["3", "ft", "4", "in", "1", "/", "1", "2"]);
+  Fn.circle(calc);
+  assert(calc.getDisplay().mode === "Diameter" && calc.getDisplay().main === "3.34028", "fractional feet-inch circle starts with entered diameter");
+  Fn.circle(calc);
+  assert(calc.getDisplay().mode === "Circumference" && calc.getDisplay().main !== "3\u2032-4 1/16\u2033", "fractional feet-inch circle updates value when cycling");
+  approx(calc.state.current.baseValue, Math.PI * (40 + 1 / 12), 0.000001, "fractional feet-inch circumference uses entered diameter");
+  Fn.circle(calc);
+  approx(calc.state.current.baseValue, Math.PI * Math.pow((40 + 1 / 12) / 2, 2), 0.000001, "fractional feet-inch circle area uses entered diameter");
+  assert(calc.getDisplay().mode === "Area" && calc.getDisplay().unit === "SQUARE INCH", "fractional feet-inch circle cycles to area");
+
+  calc = newCalc();
   calc.state.registers.radius = Engine.valueFromDisplay(10, "ft");
   calc.state.current = Engine.makeValue(90, "angle", "deg");
   Fn.arc(calc);
