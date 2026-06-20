@@ -373,10 +373,11 @@
     const prefs = preferences || {};
     let unit = value.unit || DIMENSION_DEFAULT_UNIT[value.dimension] || "scalar";
     const meta = value.meta || {};
-    if (value.dimension === "area" && prefs.areaDisplay && prefs.areaDisplay !== "standard" && UNIT_DEFS[prefs.areaDisplay]) {
+    const hasManualDisplayUnit = meta.displayUnitOverride === true;
+    if (!hasManualDisplayUnit && value.dimension === "area" && prefs.areaDisplay && prefs.areaDisplay !== "standard" && UNIT_DEFS[prefs.areaDisplay]) {
       unit = prefs.areaDisplay;
     }
-    if (value.dimension === "volume" && prefs.volumeDisplay && prefs.volumeDisplay !== "standard" && UNIT_DEFS[prefs.volumeDisplay]) {
+    if (!hasManualDisplayUnit && value.dimension === "volume" && prefs.volumeDisplay && prefs.volumeDisplay !== "standard" && UNIT_DEFS[prefs.volumeDisplay]) {
       unit = prefs.volumeDisplay;
     }
     const def = UNIT_DEFS[unit] || UNIT_DEFS.scalar;
@@ -676,7 +677,7 @@
       }
       if (this.state.current && this.state.current.dimension !== "scalar" && def.dimension === this.state.current.dimension) {
         this.state.current.unit = unit;
-        this.state.current.meta = Object.assign({}, this.state.current.meta || {}, lengthConversionMetaForUnit(unit));
+        this.state.current.meta = Object.assign({}, this.state.current.meta || {}, lengthConversionMetaForUnit(unit), { displayUnitOverride: true });
         this.state.compound = { feet: null, inches: null };
         this.state.preInputValue = null;
         this.state.lastUnitEntry = "";
@@ -686,6 +687,7 @@
         const areaUnit = REPEATED_UNIT_MAP[unit] && REPEATED_UNIT_MAP[unit].area;
         if (areaUnit) {
           this.state.current.unit = areaUnit;
+          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { displayUnitOverride: true });
           this.state.compound = { feet: null, inches: null };
           this.state.preInputValue = null;
           this.state.lastUnitEntry = "";
@@ -696,6 +698,7 @@
         const volumeUnit = REPEATED_UNIT_MAP[unit] && REPEATED_UNIT_MAP[unit].volume;
         if (volumeUnit) {
           this.state.current.unit = volumeUnit;
+          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { displayUnitOverride: true });
           this.state.compound = { feet: null, inches: null };
           this.state.preInputValue = null;
           this.state.lastUnitEntry = "";
@@ -758,6 +761,9 @@
           this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: wasFraction ? "decimal" : "inch-fraction", forceInches: wasFraction ? false : true });
         } else if (this.state.current.dimension === "length") {
           this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { format: "decimal" });
+        }
+        if (this.state.current.dimension === "area" || this.state.current.dimension === "volume") {
+          this.state.current.meta = Object.assign({}, this.state.current.meta || {}, { displayUnitOverride: true });
         }
         this.state.lastUnitEntry = "";
         this.addHistory("Converted to " + def.label, this.state.current);
