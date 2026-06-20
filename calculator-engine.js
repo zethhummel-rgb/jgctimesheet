@@ -887,6 +887,8 @@
     this.state.lastFunction = "";
     this.state.lastUnitEntry = "";
     this.state.pitchCycle = null;
+    this.state.diagCycle = null;
+    this.state.diagInputKey = null;
     this.state.stairCycle = null;
     this.state.stairTotalRise = null;
     this.state.circleCycle = null;
