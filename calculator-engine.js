@@ -488,6 +488,29 @@
     return { main: formatNumber(display, precision, formatPrefs), unit: meta.unitLabel || displayUnitLabel(unit, def), mode: String(value.dimension || "scalar").toUpperCase() };
   }
 
+  function historyValueText(value, preferences) {
+    if (typeof value === "string") return value;
+    const formatted = formatValue(value, preferences || {});
+    return (formatted.main + (formatted.unit ? " " + formatted.unit : "")).trim();
+  }
+
+  function formatTapeOperand(value, preferences) {
+    if (!value) return "0";
+    const prefs = preferences || {};
+    if (value.dimension === "length") {
+      return inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, {
+        fractionMode: prefs.fractionMode,
+        showZeroFeet: false
+      }).replace(/\u2032/g, "'").replace(/\u2033/g, '"');
+    }
+    return historyValueText(value, prefs);
+  }
+
+  function operatorForTape(operator) {
+    if (operator === "*") return "x";
+    return operator || "";
+  }
+
   function parseNumberBuffer(buffer) {
     if (!buffer || buffer === "-" || buffer === ".") {
       return 0;
@@ -620,11 +643,54 @@
       Math.abs(left.baseValue - right.baseValue) < EPSILON;
   }
 
+  function historyValueText(value, preferences) {
+    if (typeof value === "string") {
+      return value;
+    }
+    const formatted = formatValue(value, preferences || {});
+    return (formatted.main + (formatted.unit ? " " + formatted.unit : "")).trim();
+  }
+
+  function formatTapeOperand(value, preferences) {
+    if (!value) {
+      return "0";
+    }
+    const prefs = preferences || {};
+    if (value.dimension === "length") {
+      return inchesToFeetInches(value.baseValue, prefs.fractionDenominator || 16, {
+        fractionMode: prefs.fractionMode,
+        showZeroFeet: false
+      }).replace(/\u2032/g, "'").replace(/\u2033/g, '"');
+    }
+    return historyValueText(value, prefs);
+  }
+
+  function operatorForTape(operator) {
+    if (operator === "*") {
+      return "x";
+    }
+    return operator || "";
+  }
+
   CalculatorEngine.prototype.addHistory = function(label, value) {
-    const formatted = typeof value === "string" ? value : formatValue(value, this.state.preferences).main + " " + formatValue(value, this.state.preferences).unit;
+    const formatted = historyValueText(value, this.state.preferences);
     this.state.history.unshift({
       label,
       value: formatted.trim(),
+      timestamp: new Date().toISOString()
+    });
+    this.state.history = this.state.history.slice(0, 60);
+  };
+
+  CalculatorEngine.prototype.addHistoryResult = function(left, operator, right, result) {
+    const expression = [
+      formatTapeOperand(left, this.state.preferences),
+      operatorForTape(operator),
+      formatTapeOperand(right, this.state.preferences)
+    ].filter(Boolean).join(" ");
+    this.state.history.unshift({
+      label: expression || "Result",
+      value: historyValueText(result, this.state.preferences),
       timestamp: new Date().toISOString()
     });
     this.state.history = this.state.history.slice(0, 60);
@@ -995,8 +1061,11 @@
       return;
     }
     try {
-      const result = operate(this.state.accumulator, this.state.pendingOperator, this.state.current);
-      this.addHistory("Result", result);
+      const left = this.state.accumulator;
+      const operator = this.state.pendingOperator;
+      const right = this.state.current;
+      const result = operate(left, operator, right);
+      this.addHistoryResult(left, operator, right, result);
       this.state.current = result;
       this.state.accumulator = null;
       this.state.pendingOperator = null;
@@ -1279,6 +1348,7 @@
     convertDisplay,
     operate,
     formatValue,
+    formatTapeOperand,
     inchesToFeetInches,
     inchesToInchesFraction,
     decimalDegreesToDmsText,
