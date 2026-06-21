@@ -291,6 +291,15 @@
       line-height: 1.35;
     }
 
+    .public-tool-button-top {
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    .public-tool-note-top {
+      margin: 0 0 24px;
+    }
+
     .small {
       font-size: 13px;
       color: var(--muted);
@@ -429,6 +438,8 @@
         <img src="logo.png" alt="John Gordon Construction" />
       </div>
       <div class="divider"></div>
+      <button type="button" class="public-tool-button public-tool-button-top" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
+      <div class="public-tool-note public-tool-note-top">No sign-in required. Works offline after the app has loaded once.</div>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
@@ -445,8 +456,6 @@
 
       <button type="button" onclick="signIn()">Sign In</button>
       <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
-      <button type="button" class="public-tool-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
-      <div class="public-tool-note">No sign-in required. Works offline after the app has loaded once.</div>
       <div id="loginStatus" class="status"></div>
       <div class="security-note">Secure. Private. Trusted.</div>
 
