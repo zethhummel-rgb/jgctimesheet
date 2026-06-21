@@ -112,8 +112,9 @@ body.field-calculator-page.quick-calc-active {
   opacity: 0.48;
 }
 
-.calc-view-panel[hidden] {
-  display: none;
+.calc-view-panel[hidden],
+.quick-calc-form[hidden] {
+  display: none !important;
 }
 
 .field-calculator {
