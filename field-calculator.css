@@ -25,11 +25,16 @@ body {
   min-height: 100%;
 }
 
+html {
+  background-color: var(--calc-page);
+}
+
 body.field-calculator-page {
   min-height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background-color: var(--calc-page);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 16px),
     radial-gradient(circle at 78% 16%, rgba(57, 200, 72, 0.16), transparent 22rem),
@@ -1277,8 +1282,9 @@ body.quick-calc-active .quick-calc-panel {
 @media (max-width: 520px) {
   html,
   body.field-calculator-page {
-    height: 100%;
+    min-height: 100dvh;
     overflow: hidden;
+    background-color: var(--calc-page);
   }
 
   body.field-calculator-page.quick-calc-active {
