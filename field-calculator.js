@@ -3,6 +3,17 @@
 
   const PREF_KEY = "jgc_field_calculator_preferences";
   const HISTORY_KEY = "jgc_field_calculator_history";
+  const QUICK_PREF_KEY = "jgc_field_quick_calc_preferences";
+  const QUICK_PREF_REMOTE_KEY = "field_quick_calcs";
+  const QUICK_PREF_REMOTE_TABLE = "user_preferences";
+  const SONO_BAG_YIELDS_FT3 = {
+    "25kg": 0.424,
+    "30kg": 0.5,
+    "40lb": 0.3,
+    "50lb": 0.375,
+    "60lb": 0.45,
+    "80lb": 0.6
+  };
   const EngineApi = window.JgcCalculatorEngine;
   const Fn = window.JgcCalculatorFunctions;
 
@@ -66,6 +77,8 @@
   ];
 
   let calculator;
+  let quickPrefs = {};
+  let quickRemoteSaveTimer;
 
   function loadJson(key, fallback) {
     try {
@@ -83,6 +96,302 @@
     } catch (error) {
       // localStorage can be blocked in private mode; calculator still works.
     }
+  }
+
+  function quickDefaults() {
+    return {
+      lastTab: "main",
+      unitSystem: "imperial",
+      sonoSizePreset: "24",
+      sonoDiameter: 24,
+      sonoDiameterUnit: "in",
+      sonoHeight: 5,
+      sonoHeightUnit: "ft",
+      sonoQuantity: 1,
+      sonoWaste: 5,
+      sonoMixType: "bags",
+      sonoBagSize: "25kg",
+      sonoBagYield: SONO_BAG_YIELDS_FT3["25kg"],
+      sonoDensity: 2400
+    };
+  }
+
+  function getQuickPrefsOwner() {
+    try {
+      if (typeof getCurrentWorkerRecord === "function") {
+        const worker = getCurrentWorkerRecord();
+        const key = worker && (worker.email || worker.key || worker.name || worker.display_name);
+        if (key) {
+          return String(key).trim().toLowerCase();
+        }
+      }
+    } catch (error) {
+      // Public/offline calculator has no user context.
+    }
+    return "guest";
+  }
+
+  function quickPrefsLocalKey() {
+    return QUICK_PREF_KEY + ":" + getQuickPrefsOwner();
+  }
+
+  function loadQuickPrefsLocal() {
+    return Object.assign({}, quickDefaults(), loadJson(quickPrefsLocalKey(), {}));
+  }
+
+  function saveQuickPrefsLocal() {
+    try {
+      localStorage.setItem(quickPrefsLocalKey(), JSON.stringify(quickPrefs));
+    } catch (error) {
+      // Offline calculator should keep working even when storage is unavailable.
+    }
+  }
+
+  function getSupabaseForQuickPrefs() {
+    try {
+      if (typeof getSupabaseClient === "function") {
+        return getSupabaseClient();
+      }
+      if (window.supabaseClient) {
+        return window.supabaseClient;
+      }
+    } catch (error) {
+      return null;
+    }
+    return null;
+  }
+
+  async function loadQuickPrefsRemote() {
+    const owner = getQuickPrefsOwner();
+    const client = getSupabaseForQuickPrefs();
+    if (!client || owner === "guest" || !navigator.onLine) {
+      return;
+    }
+    try {
+      const response = await client
+        .from(QUICK_PREF_REMOTE_TABLE)
+        .select("preferences")
+        .eq("user_key", owner)
+        .eq("preference_key", QUICK_PREF_REMOTE_KEY)
+        .maybeSingle();
+      if (!response.error && response.data && response.data.preferences) {
+        quickPrefs = Object.assign({}, quickDefaults(), quickPrefs, response.data.preferences);
+        applySonotubePrefs();
+        calculateSonotube();
+        showQuickCalc(quickPrefs.lastTab || "main", false);
+        saveQuickPrefsLocal();
+      }
+    } catch (error) {
+      console.warn("Quick calculator remote preferences could not be loaded.", error);
+    }
+  }
+
+  async function saveQuickPrefsRemote() {
+    const owner = getQuickPrefsOwner();
+    const client = getSupabaseForQuickPrefs();
+    if (!client || owner === "guest" || !navigator.onLine) {
+      return;
+    }
+    try {
+      await client
+        .from(QUICK_PREF_REMOTE_TABLE)
+        .upsert({
+          user_key: owner,
+          preference_key: QUICK_PREF_REMOTE_KEY,
+          preferences: quickPrefs,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_key,preference_key" });
+    } catch (error) {
+      console.warn("Quick calculator remote preferences could not be saved.", error);
+    }
+  }
+
+  function scheduleQuickPrefsSave() {
+    saveQuickPrefsLocal();
+    clearTimeout(quickRemoteSaveTimer);
+    quickRemoteSaveTimer = setTimeout(saveQuickPrefsRemote, 750);
+  }
+
+  function setInputValue(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.value = value;
+    }
+  }
+
+  function getInputValue(id, fallback) {
+    const element = document.getElementById(id);
+    return element ? element.value : fallback;
+  }
+
+  function numericInputValue(id, fallback) {
+    const value = Number(getInputValue(id, fallback));
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function lengthToFeet(value, unit) {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    switch (unit) {
+      case "in":
+        return value / 12;
+      case "m":
+        return value / 0.3048;
+      case "cm":
+        return value / 30.48;
+      default:
+        return value;
+    }
+  }
+
+  function formatQuickNumber(value, digits) {
+    if (!Number.isFinite(value)) {
+      return "-";
+    }
+    return Number(value.toFixed(digits == null ? 3 : digits)).toLocaleString("en-US");
+  }
+
+  function formatQuickResult(value, unit, digits) {
+    return formatQuickNumber(value, digits) + " " + unit;
+  }
+
+  function applySonotubePrefs() {
+    setInputValue("sonoSizePreset", quickPrefs.sonoSizePreset || "24");
+    setInputValue("sonoDiameter", quickPrefs.sonoDiameter || 24);
+    setInputValue("sonoDiameterUnit", quickPrefs.sonoDiameterUnit || "in");
+    setInputValue("sonoHeight", quickPrefs.sonoHeight || 5);
+    setInputValue("sonoHeightUnit", quickPrefs.sonoHeightUnit || "ft");
+    setInputValue("sonoQuantity", quickPrefs.sonoQuantity || 1);
+    setInputValue("sonoWaste", quickPrefs.sonoWaste == null ? 5 : quickPrefs.sonoWaste);
+    setInputValue("sonoMixType", quickPrefs.sonoMixType || "bags");
+    setInputValue("sonoBagSize", quickPrefs.sonoBagSize || "25kg");
+    setInputValue("sonoBagYield", quickPrefs.sonoBagYield || SONO_BAG_YIELDS_FT3["25kg"]);
+    setInputValue("sonoDensity", quickPrefs.sonoDensity || 2400);
+  }
+
+  function collectSonotubePrefs() {
+    quickPrefs.sonoSizePreset = getInputValue("sonoSizePreset", "24");
+    quickPrefs.sonoDiameter = numericInputValue("sonoDiameter", 24);
+    quickPrefs.sonoDiameterUnit = getInputValue("sonoDiameterUnit", "in");
+    quickPrefs.sonoHeight = numericInputValue("sonoHeight", 5);
+    quickPrefs.sonoHeightUnit = getInputValue("sonoHeightUnit", "ft");
+    quickPrefs.sonoQuantity = Math.max(1, Math.floor(numericInputValue("sonoQuantity", 1)));
+    quickPrefs.sonoWaste = Math.max(0, numericInputValue("sonoWaste", 0));
+    quickPrefs.sonoMixType = getInputValue("sonoMixType", "bags");
+    quickPrefs.sonoBagSize = getInputValue("sonoBagSize", "25kg");
+    quickPrefs.sonoBagYield = Math.max(0.01, numericInputValue("sonoBagYield", SONO_BAG_YIELDS_FT3["25kg"]));
+    quickPrefs.sonoDensity = Math.max(0, numericInputValue("sonoDensity", 2400));
+  }
+
+  function calculateSonotube() {
+    const results = document.getElementById("sonotubeResults");
+    if (!results) {
+      return;
+    }
+
+    const diameterFt = lengthToFeet(Math.max(0, quickPrefs.sonoDiameter || 0), quickPrefs.sonoDiameterUnit);
+    const heightFt = lengthToFeet(Math.max(0, quickPrefs.sonoHeight || 0), quickPrefs.sonoHeightUnit);
+    const quantity = Math.max(1, Math.floor(quickPrefs.sonoQuantity || 1));
+    const wasteFactor = 1 + Math.max(0, quickPrefs.sonoWaste || 0) / 100;
+    const radiusFt = diameterFt / 2;
+    const perTubeFt3 = Math.PI * radiusFt * radiusFt * heightFt;
+    const totalFt3 = perTubeFt3 * quantity;
+    const wasteFt3 = totalFt3 * wasteFactor;
+    const wasteYd3 = wasteFt3 / 27;
+    const wasteM3 = wasteFt3 * 0.028316846592;
+    const weightKg = wasteM3 * (quickPrefs.sonoDensity || 2400);
+    const weightLb = weightKg * 2.2046226218;
+    const bags = quickPrefs.sonoMixType === "bags" ? Math.ceil(wasteFt3 / Math.max(0.01, quickPrefs.sonoBagYield || SONO_BAG_YIELDS_FT3["25kg"])) : null;
+
+    const rows = [
+      ["Volume per tube", formatQuickResult(perTubeFt3, "cu ft", 3)],
+      ["Total volume", formatQuickResult(totalFt3, "cu ft", 3)],
+      ["With waste", formatQuickResult(wasteFt3, "cu ft", 3)],
+      ["Cubic yards", formatQuickResult(wasteYd3, "cu yd", 4)],
+      ["Cubic meters", formatQuickResult(wasteM3, "m\u00b3", 4)],
+      ["Weight estimate", formatQuickResult(weightKg, "kg", 1) + " / " + formatQuickResult(weightLb, "lb", 0)]
+    ];
+    if (bags !== null) {
+      rows.push(["Bags required", formatQuickNumber(bags, 0) + " bags"]);
+    } else {
+      rows.push(["Ready-mix order", formatQuickResult(wasteYd3, "cu yd", 3) + " (" + formatQuickResult(wasteM3, "m\u00b3", 3) + ")"]);
+    }
+
+    results.innerHTML = rows.map((row) => `
+      <div class="quick-result-row">
+        <span>${escapeHtml(row[0])}</span>
+        <strong>${escapeHtml(row[1])}</strong>
+      </div>
+    `).join("");
+  }
+
+  function syncSonotubePreset(sourceId) {
+    const preset = getInputValue("sonoSizePreset", "24");
+    if (sourceId === "sonoSizePreset" && preset !== "custom") {
+      setInputValue("sonoDiameter", preset);
+      setInputValue("sonoDiameterUnit", "in");
+    }
+    const bagSize = getInputValue("sonoBagSize", "25kg");
+    if (sourceId === "sonoBagSize" && SONO_BAG_YIELDS_FT3[bagSize]) {
+      setInputValue("sonoBagYield", SONO_BAG_YIELDS_FT3[bagSize]);
+    }
+  }
+
+  function showQuickCalc(tab, persist) {
+    const normalized = tab === "sonotube" ? "sonotube" : "main";
+    const main = document.getElementById("mainCalculatorPanel");
+    const quick = document.getElementById("quickCalcPanel");
+    if (!main || !quick) {
+      return;
+    }
+    main.hidden = normalized !== "main";
+    quick.hidden = normalized === "main";
+    main.classList.toggle("active", normalized === "main");
+    quick.classList.toggle("active", normalized !== "main");
+    document.body.classList.toggle("quick-calc-active", normalized !== "main");
+    document.querySelectorAll("[data-quick-calc]").forEach((button) => {
+      button.classList.toggle("active", button.getAttribute("data-quick-calc") === normalized);
+    });
+    if (persist !== false) {
+      quickPrefs.lastTab = normalized;
+      scheduleQuickPrefsSave();
+    }
+  }
+
+  function initQuickCalcs() {
+    quickPrefs = loadQuickPrefsLocal();
+    applySonotubePrefs();
+    collectSonotubePrefs();
+    calculateSonotube();
+
+    document.querySelectorAll("[data-quick-calc]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled) {
+          return;
+        }
+        showQuickCalc(button.getAttribute("data-quick-calc"));
+      });
+    });
+
+    const form = document.getElementById("sonotubeCalcForm");
+    if (form) {
+      form.addEventListener("input", (event) => {
+        syncSonotubePreset(event.target && event.target.id);
+        collectSonotubePrefs();
+        calculateSonotube();
+        scheduleQuickPrefsSave();
+      });
+      form.addEventListener("change", (event) => {
+        syncSonotubePreset(event.target && event.target.id);
+        collectSonotubePrefs();
+        calculateSonotube();
+        scheduleQuickPrefsSave();
+      });
+    }
+
+    showQuickCalc(quickPrefs.lastTab || "main", false);
+    loadQuickPrefsRemote();
   }
 
   function getPortalBackDestination() {
@@ -913,6 +1222,7 @@
       }
     });
     document.addEventListener("keydown", handleKeyboard);
+    initQuickCalcs();
     updateDisplay();
   }
 
@@ -932,6 +1242,7 @@
     },
     runAction,
     runSecondary,
+    showQuickCalc,
     getEngine() {
       return calculator;
     }
