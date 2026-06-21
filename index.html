@@ -296,8 +296,145 @@
       margin-bottom: 8px;
     }
 
+    .public-notes-button {
+      margin-top: 8px;
+      background: linear-gradient(135deg, #16843f, #0b5e3b);
+      color: #ffffff;
+    }
+
+    .public-notes-button:hover {
+      background: linear-gradient(135deg, #1a9a4a, #0d7045);
+    }
+
     .public-tool-note-top {
       margin: 0 0 24px;
+    }
+
+    .notes-overlay[hidden] {
+      display: none;
+    }
+
+    .notes-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+    }
+
+    .notes-panel {
+      width: min(760px, 100%);
+      max-height: min(88dvh, 760px);
+      overflow: auto;
+      border: 1px solid rgba(57, 200, 72, 0.45);
+      border-top: 5px solid #39c848;
+      border-radius: 18px;
+      background: rgba(6, 24, 18, 0.98);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+      color: #ffffff;
+    }
+
+    .notes-panel-inner {
+      padding: 22px;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .notes-header h3 {
+      margin: 0 0 5px;
+      color: #39c848;
+      font-size: 1.55rem;
+      text-align: left;
+    }
+
+    .notes-header p,
+    .notes-status {
+      margin: 0;
+      color: #c4d0c8;
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .notes-close-button,
+    .notes-clear-button,
+    .notes-done-button {
+      width: auto;
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .notes-close-button {
+      flex: 0 0 auto;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .notes-card {
+      border: 1px solid rgba(57, 200, 72, 0.28);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.045);
+      padding: 14px;
+    }
+
+    .notes-card label {
+      display: block;
+      margin-bottom: 8px;
+      color: #ffffff;
+      font-size: 0.95rem;
+    }
+
+    .notes-card textarea {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      box-sizing: border-box;
+      border: 1px solid rgba(57, 200, 72, 0.25);
+      border-radius: 12px;
+      background: #f4f7f2;
+      color: #111817;
+      padding: 12px;
+      font: 600 0.98rem/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .notes-card textarea:focus {
+      outline: 3px solid rgba(57, 200, 72, 0.34);
+      border-color: #39c848;
+    }
+
+    .notes-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .notes-clear-button {
+      background: #9f1f1a;
+    }
+
+    .notes-done-button {
+      background: #118844;
     }
 
     .small {
@@ -405,6 +542,27 @@
         border-radius: 14px;
         padding: 22px;
       }
+
+      .notes-overlay {
+        align-items: stretch;
+        padding: 12px;
+      }
+
+      .notes-panel {
+        max-height: calc(100dvh - 24px);
+      }
+
+      .notes-panel-inner {
+        padding: 18px;
+      }
+
+      .notes-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .notes-card textarea {
+        min-height: 170px;
+      }
     }
   </style>
 </head>
@@ -440,6 +598,8 @@
       <div class="divider"></div>
       <button type="button" class="public-tool-button public-tool-button-top" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
       <div class="public-tool-note public-tool-note-top">No sign-in required. Works offline after the app has loaded once.</div>
+      <button type="button" class="public-tool-button public-notes-button" onclick="openLoginNotes()">Notes</button>
+      <div class="public-tool-note public-tool-note-top">Measurement scratch pad and material list. Auto-saves on this device.</div>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
@@ -482,14 +642,137 @@
   </section>
 </main>
 
+<div id="loginNotesOverlay" class="notes-overlay" hidden onclick="closeLoginNotes()">
+  <section class="notes-panel" role="dialog" aria-modal="true" aria-labelledby="loginNotesTitle" onclick="event.stopPropagation()">
+    <div class="notes-panel-inner">
+      <div class="notes-header">
+        <div>
+          <h3 id="loginNotesTitle">Notes</h3>
+          <p>Quick scratch pads for measurements and material lists. These save only on this device.</p>
+        </div>
+        <button type="button" class="notes-close-button" onclick="closeLoginNotes()">Close</button>
+      </div>
+
+      <div class="notes-grid">
+        <div class="notes-card">
+          <label for="loginMeasurementNotes">Measurement Scratch Pad</label>
+          <textarea id="loginMeasurementNotes" placeholder="Example: Opening 42 1/2 x 81, footing 10 ft x 24 in x 8 in"></textarea>
+        </div>
+
+        <div class="notes-card">
+          <label for="loginMaterialNotes">Material List Scratch Pad</label>
+          <textarea id="loginMaterialNotes" placeholder="Example: 12 - 2x4x8, 3 sheets 5/8 plywood, 2 bags concrete"></textarea>
+        </div>
+      </div>
+
+      <div class="notes-actions">
+        <p id="loginNotesStatus" class="notes-status">Auto-saves on this device.</p>
+        <div>
+          <button type="button" class="notes-clear-button" onclick="clearLoginNotes()">Clear Notes</button>
+          <button type="button" class="notes-done-button" onclick="closeLoginNotes()">Done</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=2"></script>
 <script src="auth.js?v=5"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
+const LOGIN_NOTES_KEY = "jgc_login_notes_v1";
+let loginNotesTimer = null;
 
 function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
+}
+
+function getLoginNotesFields() {
+  return {
+    overlay: document.getElementById("loginNotesOverlay"),
+    measurements: document.getElementById("loginMeasurementNotes"),
+    materials: document.getElementById("loginMaterialNotes"),
+    status: document.getElementById("loginNotesStatus")
+  };
+}
+
+function setLoginNotesStatus(message) {
+  const { status } = getLoginNotesFields();
+  if (status) {
+    status.innerText = message || "";
+  }
+}
+
+function readLoginNotes() {
+  try {
+    return JSON.parse(localStorage.getItem(LOGIN_NOTES_KEY) || "{}") || {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function loadLoginNotes() {
+  const { measurements, materials } = getLoginNotesFields();
+  const saved = readLoginNotes();
+  if (measurements) measurements.value = saved.measurements || "";
+  if (materials) materials.value = saved.materials || "";
+
+  if (saved.updatedAt) {
+    setLoginNotesStatus("Saved " + new Date(saved.updatedAt).toLocaleString());
+  } else {
+    setLoginNotesStatus("Auto-saves on this device.");
+  }
+}
+
+function saveLoginNotes() {
+  const { measurements, materials } = getLoginNotesFields();
+  const payload = {
+    measurements: measurements ? measurements.value : "",
+    materials: materials ? materials.value : "",
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem(LOGIN_NOTES_KEY, JSON.stringify(payload));
+    setLoginNotesStatus("Saved " + new Date(payload.updatedAt).toLocaleString());
+  } catch (err) {
+    setLoginNotesStatus("Notes could not be saved on this device.");
+  }
+}
+
+function scheduleLoginNotesSave() {
+  clearTimeout(loginNotesTimer);
+  setLoginNotesStatus("Saving...");
+  loginNotesTimer = setTimeout(saveLoginNotes, 250);
+}
+
+function openLoginNotes() {
+  const { overlay, measurements } = getLoginNotesFields();
+  loadLoginNotes();
+  if (overlay) overlay.hidden = false;
+  setTimeout(() => measurements && measurements.focus(), 50);
+}
+
+function closeLoginNotes() {
+  const { overlay } = getLoginNotesFields();
+  saveLoginNotes();
+  if (overlay) overlay.hidden = true;
+}
+
+function clearLoginNotes() {
+  if (!confirm("Clear both scratch pads from this device?")) return;
+  const { measurements, materials } = getLoginNotesFields();
+  if (measurements) measurements.value = "";
+  if (materials) materials.value = "";
+  saveLoginNotes();
+}
+
+function setupLoginNotes() {
+  const { measurements, materials } = getLoginNotesFields();
+  loadLoginNotes();
+  if (measurements) measurements.addEventListener("input", scheduleLoginNotesSave);
+  if (materials) materials.addEventListener("input", scheduleLoginNotesSave);
 }
 
 function cleanLoginEmail(value) {
@@ -674,6 +957,7 @@ function submitOnEnter(event) {
   }
 }
 
+setupLoginNotes();
 checkExistingSession();
 </script>
 
