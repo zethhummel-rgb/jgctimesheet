@@ -52,9 +52,29 @@
     return value;
   }
 
+  function setResultWithTapeLabel(engine, value, label, tapeLabel) {
+    const result = setResult(engine, value, label);
+    const latest = engine.state.history && engine.state.history[0];
+    if (latest && latest.label === label && tapeLabel) {
+      latest.label = tapeLabel;
+    }
+    return result;
+  }
+
   function formatValue(value, prefs) {
     const formatted = Engine.formatValue(value, prefs || {});
     return (formatted.main + " " + formatted.unit).trim();
+  }
+
+  function tapeLength(engine, inches) {
+    return Engine.formatTapeOperand(
+      Engine.makeValue(inches, "length", "ft", { format: "feet-inch" }),
+      engine.state.preferences
+    );
+  }
+
+  function tapeProduct(engine, values) {
+    return values.map((inches) => tapeLength(engine, inches)).join(" x ");
   }
 
   function activeEntry(engine) {
@@ -130,12 +150,12 @@
       engine.state.widthCycle = cycle;
       engine.state.lastFunction = "width";
       if (cycle === 0) {
-        return setResult(engine, Engine.makeValue(length * width, "area", "sqft", { noTrailingDecimal: true }), "Area");
+        return setResultWithTapeLabel(engine, Engine.makeValue(length * width, "area", "sqft", { noTrailingDecimal: true }), "Area", "Area: " + tapeProduct(engine, [length, width]));
       }
       if (cycle === 1) {
-        return setResult(engine, Engine.makeValue(Math.sqrt(length * length + width * width), "length", "ft", { format: "feet-inch" }), "Square-Up");
+        return setResultWithTapeLabel(engine, Engine.makeValue(Math.sqrt(length * length + width * width), "length", "ft", { format: "feet-inch" }), "Square-Up", "Square-Up: " + tapeProduct(engine, [length, width]));
       }
-      return setResult(engine, Engine.makeValue(2 * (length + width), "length", "ft", { format: "feet-inch", showZeroFeet: true }), "Perimeter");
+      return setResultWithTapeLabel(engine, Engine.makeValue(2 * (length + width), "length", "ft", { format: "feet-inch", showZeroFeet: true }), "Perimeter", "Perimeter: 2 x (" + tapeLength(engine, length) + " + " + tapeLength(engine, width) + ")");
     } catch (error) {
       engine.setError(error.message);
     }
@@ -159,13 +179,13 @@
       engine.state.heightCycle = cycle;
       engine.state.lastFunction = "height";
       if (cycle === 0) {
-        return setResult(engine, Engine.makeValue(length * width * height, "volume", "cuft", { noTrailingDecimal: true }), "Volume");
+        return setResultWithTapeLabel(engine, Engine.makeValue(length * width * height, "volume", "cuft", { noTrailingDecimal: true }), "Volume", "Volume: " + tapeProduct(engine, [length, width, height]));
       }
       const wallArea = (2 * length * height) + (2 * width * height);
       if (cycle === 1) {
-        return setResult(engine, Engine.makeValue(wallArea, "area", "sqft", { noTrailingDecimal: true }), "Wall Area");
+        return setResultWithTapeLabel(engine, Engine.makeValue(wallArea, "area", "sqft", { noTrailingDecimal: true }), "Wall Area", "Wall Area: 2 x (" + tapeLength(engine, length) + " x " + tapeLength(engine, height) + ") + 2 x (" + tapeLength(engine, width) + " x " + tapeLength(engine, height) + ")");
       }
-      return setResult(engine, Engine.makeValue(wallArea + (length * width), "area", "sqft", { noTrailingDecimal: true }), "Surface Area");
+      return setResultWithTapeLabel(engine, Engine.makeValue(wallArea + (length * width), "area", "sqft", { noTrailingDecimal: true }), "Surface Area", "Surface Area: wall area + " + tapeProduct(engine, [length, width]));
     } catch (error) {
       engine.setError(error.message);
     }
