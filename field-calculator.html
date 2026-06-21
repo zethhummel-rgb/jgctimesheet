@@ -14,6 +14,7 @@
       <nav class="quick-calc-rail" aria-label="Quick calculations">
         <button type="button" class="quick-calc-tab active" data-quick-calc="main" aria-label="Show field calculator">Calc</button>
         <button type="button" class="quick-calc-tab" data-quick-calc="sonotube" aria-label="Open Sonotube calculator">Sono</button>
+        <button type="button" class="quick-calc-tab" data-quick-calc="stairs" aria-label="Open stair calculator">Stairs</button>
         <button type="button" class="quick-calc-tab coming-soon" data-quick-calc="gravel" aria-label="Gravel calculator coming soon" disabled>Gravel</button>
       </nav>
 
@@ -50,12 +51,12 @@
         <header class="quick-calc-header">
           <div>
             <span class="quick-calc-kicker">Quick Calculations</span>
-            <h1>Sonotubes</h1>
+            <h1 id="quickCalcTitle">Sonotubes</h1>
           </div>
           <button type="button" class="toolbar-button home-button" data-quick-calc="main">Calculator</button>
         </header>
 
-        <form id="sonotubeCalcForm" class="quick-calc-form">
+        <form id="sonotubeCalcForm" class="quick-calc-form" data-quick-form="sonotube">
           <section class="quick-calc-card">
             <h2>Requirements</h2>
             <label>
@@ -152,6 +153,85 @@
             <div id="sonotubeResults" class="quick-calc-results" aria-live="polite"></div>
           </section>
         </form>
+
+        <form id="stairsCalcForm" class="quick-calc-form" data-quick-form="stairs" hidden>
+          <section class="quick-calc-card">
+            <h2>Your Stairs</h2>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Total rise</span>
+                <input id="stairTotalRise" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9]*[.]?[0-9]*">
+              </label>
+              <label>
+                <span>Unit</span>
+                <select id="stairTotalRiseUnit">
+                  <option value="in">in</option>
+                  <option value="ft">ft</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                </select>
+              </label>
+            </div>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Run of one step</span>
+                <input id="stairTreadRun" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9]*[.]?[0-9]*">
+              </label>
+              <label>
+                <span>Unit</span>
+                <select id="stairTreadRunUnit">
+                  <option value="in">in</option>
+                  <option value="ft">ft</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                </select>
+              </label>
+            </div>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Max riser height</span>
+                <input id="stairMaxRiser" type="text" inputmode="decimal" autocomplete="off" pattern="[0-9]*[.]?[0-9]*">
+              </label>
+              <label>
+                <span>Unit</span>
+                <select id="stairMaxRiserUnit">
+                  <option value="in">in</option>
+                  <option value="ft">ft</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                </select>
+              </label>
+            </div>
+            <fieldset class="quick-calc-mount">
+              <legend>Mount</legend>
+              <label>
+                <input type="radio" name="stairMount" value="standard" checked>
+                <span>Standard mount</span>
+              </label>
+              <p>The platform/deck acts as the top riser, so treads equal risers minus one.</p>
+              <label>
+                <input type="radio" name="stairMount" value="flush">
+                <span>Flush mount</span>
+              </label>
+              <p>The top tread finishes flush with the platform surface, so treads equal risers.</p>
+            </fieldset>
+            <p class="quick-calc-hint">Use total rise and the run of one step. Riser range: 5 in to 7 7/8 in. Tread run range: 10 in to 14 in.</p>
+            <label>
+              <span>Number of risers (optional)</span>
+              <input id="stairRiserCount" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]*" placeholder="Auto">
+            </label>
+          </section>
+
+          <section class="quick-calc-card output-card">
+            <h2>Results</h2>
+            <div id="stairsResults" class="quick-calc-results" aria-live="polite"></div>
+          </section>
+
+          <section class="quick-calc-card output-card">
+            <h2>Stringer</h2>
+            <div id="stairsStringerResults" class="quick-calc-results" aria-live="polite"></div>
+          </section>
+        </form>
       </section>
     </div>
   </main>
@@ -169,6 +249,6 @@
   <script src="common.js?v=3"></script>
   <script src="calculator-engine.js?v=25"></script>
   <script src="calculator-functions.js?v=28"></script>
-  <script src="field-calculator.js?v=25"></script>
+  <script src="field-calculator.js?v=29"></script>
 </body>
 </html>
