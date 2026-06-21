@@ -618,12 +618,14 @@ function activateGlobalTopNavigation() {
       border-bottom: 1px solid rgba(255, 255, 255, 0.16);
       box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
       font-family: Arial, sans-serif;
+      overflow: hidden;
     }
 
     .jgc-global-top-nav button,
     .jgc-global-top-nav a {
       width: auto !important;
-      min-width: 0 !important;
+      min-width: max-content !important;
+      flex: 0 0 auto;
       box-sizing: border-box;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 7px;
@@ -634,7 +636,7 @@ function activateGlobalTopNavigation() {
       line-height: 1;
       font-weight: 800;
       text-decoration: none;
-      white-space: nowrap;
+      white-space: nowrap !important;
       cursor: pointer;
     }
 
@@ -660,16 +662,45 @@ function activateGlobalTopNavigation() {
 
     .jgc-nav-center {
       display: flex;
+      flex: 1 1 auto;
+      min-width: 0;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 8px;
-      max-width: 100%;
+      max-width: calc(100vw - 280px);
       overflow-x: auto;
-      scrollbar-width: thin;
+      overflow-y: hidden;
+      padding: 0 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .jgc-nav-center::-webkit-scrollbar {
+      display: none;
     }
 
     .jgc-old-nav-hidden {
       display: none !important;
+    }
+
+    @media (min-width: 781px) and (max-width: 1180px) {
+      .jgc-global-top-nav {
+        padding: 8px 108px;
+        justify-content: flex-start;
+      }
+
+      .jgc-nav-center {
+        max-width: calc(100vw - 230px);
+        justify-content: flex-start;
+      }
+
+      .jgc-global-top-nav button,
+      .jgc-global-top-nav a {
+        min-height: 42px;
+        padding: 8px 12px;
+        font-size: 13px;
+        white-space: nowrap !important;
+      }
     }
 
     @media (max-width: 780px) {
@@ -700,7 +731,7 @@ function activateGlobalTopNavigation() {
         font-size: 11px;
         line-height: 1.15;
         text-align: center;
-        white-space: normal;
+        white-space: nowrap !important;
         overflow: hidden;
         word-break: normal;
       }
