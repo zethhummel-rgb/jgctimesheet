@@ -531,6 +531,67 @@
     document.getElementById("calcOverlay").classList.add("open");
   }
 
+  function tapeLabel(label) {
+    const raw = String(label || "").trim();
+    return raw
+      .replace(/^Entered\s+/i, "")
+      .replace(/^Converted\s+(?:volume\s+)?to\s+/i, "")
+      .replace(/^Stored\s+/i, "")
+      .replace(/\s+/g, " ")
+      .trim() || "Result";
+  }
+
+  function isTapeInput(label) {
+    const clean = tapeLabel(label).toLowerCase();
+    return /^(length|width|height|rise|run|pitch|radius|diameter|diagonal|arc length|spring angle|riser height|tread width|floor thickness|headroom height)$/.test(clean) ||
+      /^entered\s+/i.test(String(label || ""));
+  }
+
+  function tapeSectionTitle(rows) {
+    const text = rows.map((item) => `${item.label || ""} ${item.value || ""}`).join(" ").toLowerCase();
+    if (/stair|riser|tread|stringer|headroom|floor thickness|stairwell/.test(text)) return "Stairs";
+    if (/arc|chord|segment|pie slice/.test(text)) return "Arc";
+    if (/polygon|perimeter|full angle|half angle|side length/.test(text)) return "Polygon";
+    if (/circle|circumference|diameter|radius/.test(text)) return "Circle";
+    if (/diagonal|plumb|level|rafter|hip|valley/.test(text)) return "Diagonal";
+    if (/volume|wall area|surface area|height/.test(text)) return "Height";
+    return "Results";
+  }
+
+  function tapeValue(value) {
+    return escapeHtml(value || "").replace(/\bSTORED\b/g, '<span class="tape-stored-badge">STORED</span>');
+  }
+
+  function tapeRow(item) {
+    return `<tr><th>${escapeHtml(tapeLabel(item.label))}</th><td>${tapeValue(item.value)}</td></tr>`;
+  }
+
+  function buildTapeMarkup(rows) {
+    const chronologicalRows = (rows || []).slice().reverse();
+    const inputRows = [];
+    const resultRows = [];
+    chronologicalRows.forEach((item) => {
+      if (isTapeInput(item.label) && !/^(result|converted)/i.test(String(item.label || ""))) {
+        inputRows.push(item);
+      } else {
+        resultRows.push(item);
+      }
+    });
+    const section = tapeSectionTitle(resultRows.length ? resultRows : chronologicalRows);
+    return `
+      <div class="tape-screen">
+        <div class="tape-section-title">Input</div>
+        ${inputRows.length ? `<table class="tape-table"><tbody>${inputRows.map(tapeRow).join("")}</tbody></table>` : `<div class="tape-empty">No saved inputs yet.</div>`}
+        <div class="tape-section-title">${escapeHtml(section)}</div>
+        ${resultRows.length ? `<table class="tape-table tape-result-table-cm"><tbody>${resultRows.map(tapeRow).join("")}</tbody></table>` : `<div class="tape-empty">No saved calculations yet.</div>`}
+        <div class="tape-device-note">Saved tape is stored on this device only.</div>
+        <div class="tape-actions">
+          <button type="button" class="tape-clear-button" onclick="window.JgcFieldCalculator.clearHistory()">Clear Saved Tape</button>
+        </div>
+      </div>
+    `;
+  }
+
   function closeOverlay(event) {
     if (event && event.target !== event.currentTarget) {
       return;
@@ -814,11 +875,7 @@
 
   function openHistory() {
     const rows = calculator.state.history || [];
-    openOverlay("Tape / History", `
-      ${rows.length ? `<table class="calc-result-table"><tbody>${rows.map((item) => `<tr><th>${escapeHtml(item.label)}</th><td>${escapeHtml(item.value)}</td></tr>`).join("")}</tbody></table>` : `<p>No history yet.</p>`}
-      <div class="calculator-notice">History is stored on this device only.</div>
-      <p><button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.clearHistory()">Clear History</button></p>
-    `);
+    openOverlay("Saved Tapes", buildTapeMarkup(rows), "tape-overlay");
   }
 
   function openPreferences() {
