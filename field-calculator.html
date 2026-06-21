@@ -6,38 +6,154 @@
   <meta name="theme-color" content="#050908">
   <title>JGC Portal - Field Calculator</title>
   <link rel="manifest" href="manifest.json?v=4">
-  <link rel="stylesheet" href="field-calculator.css?v=9">
+  <link rel="stylesheet" href="field-calculator.css?v=10">
 </head>
 <body class="field-calculator-page">
   <main class="field-calculator-shell">
-    <section class="field-calculator" aria-label="JGC Field Calculator">
-      <header class="calc-toolbar">
-        <div class="toolbar-brand-mark" aria-hidden="true">JGC</div>
-        <div class="toolbar-title">JGC Field Calculator</div>
-        <button id="calcHomeButton" type="button" class="toolbar-button home-button" onclick="window.JgcFieldCalculator.goBack()" aria-label="Back to portal">Home</button>
-        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHistory()" aria-label="Open calculation history">Tape</button>
-        <div id="convIndicator" class="toolbar-indicator" aria-live="polite">PRI</div>
-        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openPreferences()" aria-label="Open calculator preferences">Prefs</button>
-        <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator pocket guide">Guide</button>
-      </header>
+    <div class="calculator-workbench">
+      <nav class="quick-calc-rail" aria-label="Quick calculations">
+        <button type="button" class="quick-calc-tab active" data-quick-calc="main" aria-label="Show field calculator">Calc</button>
+        <button type="button" class="quick-calc-tab" data-quick-calc="sonotube" aria-label="Open Sonotube calculator">Sono</button>
+        <button type="button" class="quick-calc-tab coming-soon" data-quick-calc="gravel" aria-label="Gravel calculator coming soon" disabled>Gravel</button>
+      </nav>
 
-      <section id="calcDisplay" class="calc-display" aria-live="polite" role="button" tabindex="0" aria-label="Calculator display. Tap to delete the last typed digit.">
-        <div id="calcExpression" class="calc-expression"></div>
-        <div id="calcMainValue" class="calc-main-value">0</div>
-        <div class="calc-meta-line">
-          <span id="calcMode">READY</span>
-          <span id="calcUnit">JGC</span>
-        </div>
+      <section id="mainCalculatorPanel" class="field-calculator calc-view-panel active" aria-label="JGC Field Calculator">
+        <header class="calc-toolbar">
+          <div class="toolbar-brand-mark" aria-hidden="true">JGC</div>
+          <div class="toolbar-title">JGC Field Calculator</div>
+          <button id="calcHomeButton" type="button" class="toolbar-button home-button" onclick="window.JgcFieldCalculator.goBack()" aria-label="Back to portal">Home</button>
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHistory()" aria-label="Open calculation history">Tape</button>
+          <div id="convIndicator" class="toolbar-indicator" aria-live="polite">PRI</div>
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openPreferences()" aria-label="Open calculator preferences">Prefs</button>
+          <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.openHelp()" aria-label="Open calculator pocket guide">Guide</button>
+        </header>
+
+        <section id="calcDisplay" class="calc-display" aria-live="polite" role="button" tabindex="0" aria-label="Calculator display. Tap to delete the last typed digit.">
+          <div id="calcExpression" class="calc-expression"></div>
+          <div id="calcMainValue" class="calc-main-value">0</div>
+          <div class="calc-meta-line">
+            <span id="calcMode">READY</span>
+            <span id="calcUnit">JGC</span>
+          </div>
+        </section>
+
+        <section id="calcKeypad" class="calc-keypad" aria-label="Calculator keypad"></section>
+
+        <footer class="calc-footer" aria-hidden="true">
+          <span class="footer-tool-icon">JGC</span>
+          <span>Built for the field. Trusted everywhere.</span>
+          <span class="footer-version">v2.6</span>
+        </footer>
       </section>
 
-      <section id="calcKeypad" class="calc-keypad" aria-label="Calculator keypad"></section>
+      <section id="quickCalcPanel" class="quick-calc-panel calc-view-panel" aria-label="Quick calculations" hidden>
+        <header class="quick-calc-header">
+          <div>
+            <span class="quick-calc-kicker">Quick Calculations</span>
+            <h1>Sonotubes</h1>
+          </div>
+          <button type="button" class="toolbar-button home-button" data-quick-calc="main">Calculator</button>
+        </header>
 
-      <footer class="calc-footer" aria-hidden="true">
-        <span class="footer-tool-icon">JGC</span>
-        <span>Built for the field. Trusted everywhere.</span>
-        <span class="footer-version">v2.6</span>
-      </footer>
-    </section>
+        <form id="sonotubeCalcForm" class="quick-calc-form">
+          <section class="quick-calc-card">
+            <h2>Requirements</h2>
+            <label>
+              <span>Sonotube size</span>
+              <select id="sonoSizePreset">
+                <option value="6">6 in</option>
+                <option value="8">8 in</option>
+                <option value="10">10 in</option>
+                <option value="12">12 in</option>
+                <option value="16">16 in</option>
+                <option value="18">18 in</option>
+                <option value="20">20 in</option>
+                <option value="24">24 in</option>
+                <option value="30">30 in</option>
+                <option value="36">36 in</option>
+                <option value="custom">Custom</option>
+              </select>
+            </label>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Diameter</span>
+                <input id="sonoDiameter" type="number" min="0" step="0.01" inputmode="decimal">
+              </label>
+              <label>
+                <span>Unit</span>
+                <select id="sonoDiameterUnit">
+                  <option value="in">in</option>
+                  <option value="cm">cm</option>
+                </select>
+              </label>
+            </div>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Height / depth</span>
+                <input id="sonoHeight" type="number" min="0" step="0.01" inputmode="decimal">
+              </label>
+              <label>
+                <span>Unit</span>
+                <select id="sonoHeightUnit">
+                  <option value="ft">ft</option>
+                  <option value="in">in</option>
+                  <option value="m">m</option>
+                  <option value="cm">cm</option>
+                </select>
+              </label>
+            </div>
+            <div class="quick-calc-inline">
+              <label>
+                <span>Quantity</span>
+                <input id="sonoQuantity" type="number" min="1" step="1" inputmode="numeric">
+              </label>
+              <label>
+                <span>Waste</span>
+                <input id="sonoWaste" type="number" min="0" max="100" step="0.5" inputmode="decimal">
+              </label>
+            </div>
+          </section>
+
+          <section class="quick-calc-card">
+            <h2>Concrete Materials</h2>
+            <label>
+              <span>Concrete mix</span>
+              <select id="sonoMixType">
+                <option value="bags">Pre-mixed bags</option>
+                <option value="ready">Ready-mix / volume only</option>
+              </select>
+            </label>
+            <div class="quick-calc-inline bag-fields">
+              <label>
+                <span>Bag size</span>
+                <select id="sonoBagSize">
+                  <option value="25kg">25 kg</option>
+                  <option value="30kg">30 kg</option>
+                  <option value="40lb">40 lb</option>
+                  <option value="50lb">50 lb</option>
+                  <option value="60lb">60 lb</option>
+                  <option value="80lb">80 lb</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>
+                <span>Bag yield ft3</span>
+                <input id="sonoBagYield" type="number" min="0.01" step="0.001" inputmode="decimal">
+              </label>
+            </div>
+            <label>
+              <span>Concrete density kg/m3</span>
+              <input id="sonoDensity" type="number" min="1" step="1" inputmode="decimal">
+            </label>
+          </section>
+
+          <section class="quick-calc-card output-card">
+            <h2>Results</h2>
+            <div id="sonotubeResults" class="quick-calc-results" aria-live="polite"></div>
+          </section>
+        </form>
+      </section>
+    </div>
   </main>
 
   <div id="calcOverlay" class="calc-overlay-backdrop" onclick="window.JgcFieldCalculator.closeOverlay(event)">
@@ -53,6 +169,6 @@
   <script src="common.js?v=3"></script>
   <script src="calculator-engine.js?v=24"></script>
   <script src="calculator-functions.js?v=27"></script>
-  <script src="field-calculator.js?v=21"></script>
+  <script src="field-calculator.js?v=22"></script>
 </body>
 </html>
