@@ -567,23 +567,11 @@
   }
 
   function buildTapeMarkup(rows) {
-    const chronologicalRows = (rows || []).slice().reverse();
-    const inputRows = [];
-    const resultRows = [];
-    chronologicalRows.forEach((item) => {
-      if (isTapeInput(item.label) && !/^(result|converted)/i.test(String(item.label || ""))) {
-        inputRows.push(item);
-      } else {
-        resultRows.push(item);
-      }
-    });
-    const section = tapeSectionTitle(resultRows.length ? resultRows : chronologicalRows);
+    const newestRows = (rows || []).slice();
     return `
       <div class="tape-screen">
-        <div class="tape-section-title">Input</div>
-        ${inputRows.length ? `<table class="tape-table"><tbody>${inputRows.map(tapeRow).join("")}</tbody></table>` : `<div class="tape-empty">No saved inputs yet.</div>`}
-        <div class="tape-section-title">${escapeHtml(section)}</div>
-        ${resultRows.length ? `<table class="tape-table tape-result-table-cm"><tbody>${resultRows.map(tapeRow).join("")}</tbody></table>` : `<div class="tape-empty">No saved calculations yet.</div>`}
+        <div class="tape-section-title">Latest Entries</div>
+        ${newestRows.length ? `<table class="tape-table tape-result-table-cm"><tbody>${newestRows.map(tapeRow).join("")}</tbody></table>` : `<div class="tape-empty">No saved tape yet.</div>`}
         <div class="tape-device-note">Saved tape is stored on this device only.</div>
         <div class="tape-actions">
           <button type="button" class="tape-clear-button" onclick="window.JgcFieldCalculator.clearHistory()">Clear Saved Tape</button>
