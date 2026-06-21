@@ -1159,7 +1159,21 @@
     updateDisplay();
   }
 
+  function isEditableTarget(target) {
+    if (!target) return false;
+    const tagName = target.tagName ? target.tagName.toLowerCase() : "";
+    return tagName === "input" ||
+      tagName === "textarea" ||
+      tagName === "select" ||
+      target.isContentEditable ||
+      Boolean(target.closest && target.closest("[contenteditable='true']"));
+  }
+
   function handleKeyboard(event) {
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+
     const key = event.key;
     if (/^\d$/.test(key)) {
       runAction("digit:" + key);
