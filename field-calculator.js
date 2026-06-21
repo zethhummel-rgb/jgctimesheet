@@ -109,12 +109,20 @@
       sonoHeightUnit: "ft",
       sonoQuantity: 1,
       sonoWaste: 5,
-      sonoMixType: "bags",
-      sonoBagSize: "25kg",
-      sonoBagYield: SONO_BAG_YIELDS_FT3["25kg"],
-      sonoDensity: 2400
-    };
-  }
+    sonoMixType: "bags",
+    sonoBagSize: "25kg",
+    sonoBagYield: SONO_BAG_YIELDS_FT3["25kg"],
+    sonoDensity: 2400,
+    stairTotalRise: 49,
+    stairTotalRiseUnit: "in",
+    stairTreadRun: 10,
+    stairTreadRunUnit: "in",
+    stairMaxRiser: 7.875,
+    stairMaxRiserUnit: "in",
+    stairRiserCount: "",
+    stairMount: "standard"
+  };
+}
 
   function getQuickPrefsOwner() {
     try {
@@ -130,6 +138,11 @@
     }
     return "guest";
   }
+
+  const STAIR_MIN_RISER_FT = 5 / 12;
+  const STAIR_MAX_RISER_FT = 7.875 / 12;
+  const STAIR_MIN_TREAD_FT = 10 / 12;
+  const STAIR_MAX_TREAD_FT = 14 / 12;
 
   function quickPrefsLocalKey() {
     return QUICK_PREF_KEY + ":" + getQuickPrefsOwner();
@@ -175,12 +188,14 @@
         .eq("preference_key", QUICK_PREF_REMOTE_KEY)
         .maybeSingle();
       if (!response.error && response.data && response.data.preferences) {
-        quickPrefs = Object.assign({}, quickDefaults(), quickPrefs, response.data.preferences);
-        applySonotubePrefs();
-        calculateSonotube();
-        showQuickCalc(quickPrefs.lastTab || "main", false);
-        saveQuickPrefsLocal();
-      }
+      quickPrefs = Object.assign({}, quickDefaults(), quickPrefs, response.data.preferences);
+      applySonotubePrefs();
+      applyStairsPrefs();
+      calculateSonotube();
+      calculateStairs();
+      showQuickCalc(quickPrefs.lastTab || "main", false);
+      saveQuickPrefsLocal();
+    }
     } catch (error) {
       console.warn("Quick calculator remote preferences could not be loaded.", error);
     }
@@ -254,6 +269,48 @@
 
   function formatQuickResult(value, unit, digits) {
     return formatQuickNumber(value, digits) + " " + unit;
+  }
+
+  function quickResultRow(label, value, extraClass) {
+    const className = extraClass ? "quick-result-row " + extraClass : "quick-result-row";
+    return `
+      <div class="${className}">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    `;
+  }
+
+  function quickGcd(a, b) {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y) {
+      const temp = y;
+      y = x % y;
+      x = temp;
+    }
+    return x || 1;
+  }
+
+  function formatQuickLengthFeet(feet) {
+    if (!Number.isFinite(feet)) {
+      return "-";
+    }
+    const sign = feet < 0 ? "-" : "";
+    const totalInches = Math.abs(feet) * 12;
+    let wholeInches = Math.floor(totalInches);
+    let numerator = Math.round((totalInches - wholeInches) * 16);
+    if (numerator >= 16) {
+      wholeInches += 1;
+      numerator = 0;
+    }
+    const wholeFeet = Math.floor(wholeInches / 12);
+    const inches = wholeInches % 12;
+    if (!numerator) {
+      return `${sign}${wholeFeet} ft ${inches} in`;
+    }
+    const divisor = quickGcd(numerator, 16);
+    return `${sign}${wholeFeet} ft ${inches} ${numerator / divisor}/${16 / divisor} in`;
   }
 
   function applySonotubePrefs() {
@@ -338,8 +395,109 @@
     }
   }
 
+  function applyStairsPrefs() {
+    setInputValue("stairTotalRise", quickPrefs.stairTotalRise == null ? 49 : quickPrefs.stairTotalRise);
+    setInputValue("stairTotalRiseUnit", quickPrefs.stairTotalRiseUnit || "in");
+    setInputValue("stairTreadRun", quickPrefs.stairTreadRun == null ? 10 : quickPrefs.stairTreadRun);
+    setInputValue("stairTreadRunUnit", quickPrefs.stairTreadRunUnit || "in");
+    setInputValue("stairMaxRiser", quickPrefs.stairMaxRiser == null ? 7.875 : quickPrefs.stairMaxRiser);
+    setInputValue("stairMaxRiserUnit", quickPrefs.stairMaxRiserUnit || "in");
+    setInputValue("stairRiserCount", quickPrefs.stairRiserCount || "");
+    const stairMount = quickPrefs.stairMount || "standard";
+    document.querySelectorAll('input[name="stairMount"]').forEach((input) => {
+      input.checked = input.value === stairMount;
+    });
+  }
+
+  function collectStairsPrefs() {
+    quickPrefs.stairTotalRise = Math.max(0, numericInputValue("stairTotalRise", 49));
+    quickPrefs.stairTotalRiseUnit = getInputValue("stairTotalRiseUnit", "in");
+    quickPrefs.stairTreadRun = Math.max(0, numericInputValue("stairTreadRun", 10));
+    quickPrefs.stairTreadRunUnit = getInputValue("stairTreadRunUnit", "in");
+    quickPrefs.stairMaxRiser = Math.max(0, numericInputValue("stairMaxRiser", 7.875));
+    quickPrefs.stairMaxRiserUnit = getInputValue("stairMaxRiserUnit", "in");
+    quickPrefs.stairRiserCount = getInputValue("stairRiserCount", "").trim();
+    quickPrefs.stairMount = document.querySelector('input[name="stairMount"]:checked')?.value || "standard";
+  }
+
+  function calculateStairs() {
+    const results = document.getElementById("stairsResults");
+    const stringer = document.getElementById("stairsStringerResults");
+    if (!results || !stringer) {
+      return;
+    }
+
+    const totalRise = Math.max(0, numericInputValue("stairTotalRise", 0));
+    const treadRun = Math.max(0, numericInputValue("stairTreadRun", 0));
+    const maxRiser = Math.max(0, numericInputValue("stairMaxRiser", 7.875));
+    const totalRiseFt = lengthToFeet(totalRise, getInputValue("stairTotalRiseUnit", "in"));
+    const treadFt = lengthToFeet(treadRun, getInputValue("stairTreadRunUnit", "in"));
+    const requestedMaxRiserFt = lengthToFeet(maxRiser, getInputValue("stairMaxRiserUnit", "in"));
+    const maxRiserFt = Math.min(Math.max(requestedMaxRiserFt, STAIR_MIN_RISER_FT), STAIR_MAX_RISER_FT);
+    const manualRisers = Number(getInputValue("stairRiserCount", ""));
+    const mountType = document.querySelector('input[name="stairMount"]:checked')?.value || "standard";
+
+    if (!(totalRiseFt > 0) || !(treadFt > 0) || !(requestedMaxRiserFt > 0)) {
+      results.innerHTML = quickResultRow("Status", "Enter total rise, run of one step, and max riser.");
+      stringer.innerHTML = "";
+      return;
+    }
+
+    const warnings = [];
+    if (requestedMaxRiserFt < STAIR_MIN_RISER_FT - 0.000001) {
+      warnings.push("Max riser was raised to the 5 in minimum.");
+    }
+    if (requestedMaxRiserFt > STAIR_MAX_RISER_FT + 0.000001) {
+      warnings.push("Max riser was capped at 7 7/8 in.");
+    }
+    if (treadFt < STAIR_MIN_TREAD_FT - 0.000001 || treadFt > STAIR_MAX_TREAD_FT + 0.000001) {
+      warnings.push("Run of one step should be between 10 in and 14 in.");
+    }
+
+    const risers = Number.isFinite(manualRisers) && manualRisers > 0
+      ? Math.max(1, Math.round(manualRisers))
+      : Math.max(1, Math.ceil(totalRiseFt / maxRiserFt));
+    const actualRiserFt = totalRiseFt / risers;
+    const treads = mountType === "flush" ? risers : Math.max(0, risers - 1);
+    const totalRunFt = treadFt * treads;
+    const stringerLengthFt = Math.sqrt((totalRiseFt * totalRiseFt) + (totalRunFt * totalRunFt));
+    const angle = totalRunFt > 0 ? Math.atan2(totalRiseFt, totalRunFt) * 180 / Math.PI : 90;
+    const isUnderMin = actualRiserFt < STAIR_MIN_RISER_FT - 0.000001;
+    const isOverMax = actualRiserFt > STAIR_MAX_RISER_FT + 0.000001;
+    if (isUnderMin) {
+      warnings.push("Calculated riser is below the 5 in minimum.");
+    }
+    if (isOverMax) {
+      warnings.push("Calculated riser is above the 7 7/8 in maximum.");
+    }
+
+    results.innerHTML = [
+      quickResultRow("Total rise", formatQuickLengthFeet(totalRiseFt)),
+      quickResultRow("Mount", mountType === "flush" ? "Flush mount" : "Standard mount"),
+      quickResultRow("Riser height", formatQuickLengthFeet(actualRiserFt) + (isOverMax ? " (over max)" : isUnderMin ? " (under min)" : "")),
+      quickResultRow("Risers", formatQuickNumber(risers, 0)),
+      quickResultRow("Run of one step", formatQuickLengthFeet(treadFt)),
+      quickResultRow("Treads", formatQuickNumber(treads, 0)),
+      quickResultRow("Total run", formatQuickLengthFeet(totalRunFt)),
+      quickResultRow("Allowed riser", "5 in to 7 7/8 in", "muted"),
+      quickResultRow("Allowed tread run", "10 in to 14 in", "muted"),
+      ...warnings.map((warning) => quickResultRow("Check", warning, "warning"))
+    ].join("");
+
+    stringer.innerHTML = [
+      quickResultRow("Stringer length", formatQuickLengthFeet(stringerLengthFt)),
+      quickResultRow("Angle", formatQuickNumber(angle, 2) + " deg"),
+      quickResultRow("Max riser used", formatQuickLengthFeet(maxRiserFt)),
+      quickResultRow("Note", "Estimating tool. Verify local code.")
+    ].join("");
+  }
+
   function showQuickCalc(tab, persist) {
-    const normalized = tab === "sonotube" ? "sonotube" : "main";
+    const quickTitles = {
+      sonotube: "Sonotubes",
+      stairs: "Stairs"
+    };
+    const normalized = quickTitles[tab] ? tab : "main";
     const main = document.getElementById("mainCalculatorPanel");
     const quick = document.getElementById("quickCalcPanel");
     if (!main || !quick) {
@@ -353,6 +511,19 @@
     document.querySelectorAll("[data-quick-calc]").forEach((button) => {
       button.classList.toggle("active", button.getAttribute("data-quick-calc") === normalized);
     });
+    document.querySelectorAll("[data-quick-form]").forEach((form) => {
+      form.hidden = form.getAttribute("data-quick-form") !== normalized;
+    });
+    const title = document.getElementById("quickCalcTitle");
+    if (title) {
+      title.textContent = normalized === "main" ? "Quick Calculations" : quickTitles[normalized];
+    }
+    if (normalized === "sonotube") {
+      calculateSonotube();
+    }
+    if (normalized === "stairs") {
+      calculateStairs();
+    }
     if (persist !== false) {
       quickPrefs.lastTab = normalized;
       scheduleQuickPrefsSave();
@@ -362,8 +533,11 @@
   function initQuickCalcs() {
     quickPrefs = loadQuickPrefsLocal();
     applySonotubePrefs();
+    applyStairsPrefs();
     collectSonotubePrefs();
+    collectStairsPrefs();
     calculateSonotube();
+    calculateStairs();
 
     document.querySelectorAll("[data-quick-calc]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -386,6 +560,20 @@
         syncSonotubePreset(event.target && event.target.id);
         collectSonotubePrefs();
         calculateSonotube();
+        scheduleQuickPrefsSave();
+      });
+    }
+
+    const stairsForm = document.getElementById("stairsCalcForm");
+    if (stairsForm) {
+      stairsForm.addEventListener("input", () => {
+        collectStairsPrefs();
+        calculateStairs();
+        scheduleQuickPrefsSave();
+      });
+      stairsForm.addEventListener("change", () => {
+        collectStairsPrefs();
+        calculateStairs();
         scheduleQuickPrefsSave();
       });
     }
