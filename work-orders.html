@@ -796,11 +796,12 @@ th {
         </div>
       </div>
 
-      <div class="actions" style="margin-top:14px;">
-        <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
-        <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
-        <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
-      </div>
+<div class="actions" style="margin-top:14px;">
+  <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
+  <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
+  <button id="earlySubmitButton" type="button" class="secondary" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
+  <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
+</div>
       <div id="formStatus" class="small" style="margin-top:10px;"></div>
     </section>
   </div>
@@ -1900,7 +1901,8 @@ function renderWorkOrders() {
                   <div class="actions">
                     <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                     ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
-                    ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
+          ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
+          ${isLocked ? "" : `<button type="button" class="secondary" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
                     ${isAdmin && !isLocked ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
@@ -2426,6 +2428,72 @@ async function markWorkOrderReady(id, waitingFor) {
   return true;
 }
 
+function parseWorkOrderLocalDate(value) {
+  const parts = String(value || "").split("-").map(Number);
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function getTodayLocalDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function getFollowingMonday(workOrderDateValue) {
+  const date = parseWorkOrderLocalDate(workOrderDateValue);
+  if (!date) {
+    return null;
+  }
+  const monday = new Date(date);
+  const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
+  monday.setDate(monday.getDate() + daysUntilMonday);
+  return monday;
+}
+
+function formatWorkOrderGateDate(date) {
+  if (!date) {
+    return "the following Monday";
+  }
+  return date.toLocaleDateString("en-CA", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+function getWorkOrderSubmissionGate(workOrder) {
+  const dateInput = document.getElementById("woDate");
+  const dateValue = workOrder && workOrder.work_order_date ? workOrder.work_order_date : dateInput ? dateInput.value : "";
+  const monday = getFollowingMonday(dateValue);
+
+  if (!monday) {
+    return { allowed: true, monday: null };
+  }
+
+  return {
+    allowed: getTodayLocalDate() >= monday,
+    monday
+  };
+}
+
+function showWorkOrderSubmissionGateMessage(gate) {
+  const mondayText = formatWorkOrderGateDate(gate && gate.monday);
+  const message = "Work Orders are held until " + mondayText + " so hours can be corrected first. Use Early Submission only when the hours are final.";
+  setFormStatus(message, true);
+  alert(message);
+}
+
+function confirmEarlyWorkOrderSubmission(gate) {
+  const mondayText = formatWorkOrderGateDate(gate && gate.monday);
+  const timingLine = gate && gate.allowed
+    ? "This Work Order is ready for normal submission."
+    : "This Work Order would normally submit on " + mondayText + ".";
+  return confirm("Early Submission\n\n" + timingLine + "\n\nOnce submitted, hours cannot be changed.\n\nSubmit this Work Order early?");
+}
+
 async function finalizeWorkOrder(id, options) {
   const settings = options || {};
   const lockKey = String(id || "");
@@ -2445,6 +2513,23 @@ async function finalizeWorkOrder(id, options) {
 
   const existingWorkOrder = workOrders.find((item) => item.id === id);
   const previousStatus = existingWorkOrder && existingWorkOrder.status ? existingWorkOrder.status : "ready_for_submission";
+  const submissionGate = getWorkOrderSubmissionGate(existingWorkOrder);
+
+  if (!submissionGate.allowed && !settings.early) {
+    workOrderFinalizeLocks.delete(lockKey);
+    if (!settings.silent) {
+      showWorkOrderSubmissionGateMessage(submissionGate);
+    }
+    return false;
+  }
+
+  if (settings.early && !confirmEarlyWorkOrderSubmission(submissionGate)) {
+    workOrderFinalizeLocks.delete(lockKey);
+    if (!settings.silent) {
+      setFormStatus("Early submission cancelled.");
+    }
+    return false;
+  }
 
   const { data: claimRows, error: claimError } = await supabaseClient
     .from("work_orders")
@@ -2524,7 +2609,8 @@ async function finalizeWorkOrder(id, options) {
   return true;
 }
 
-async function submitCurrentWorkOrder() {
+async function submitCurrentWorkOrder(options) {
+  const settings = options || {};
   if (currentWorkOrderSubmitInFlight) {
     setFormStatus("This Work Order is already being submitted.");
     return;
@@ -2532,8 +2618,12 @@ async function submitCurrentWorkOrder() {
 
   currentWorkOrderSubmitInFlight = true;
   const submitButton = document.getElementById("submitButton");
+  const earlySubmitButton = document.getElementById("earlySubmitButton");
   if (submitButton) {
     submitButton.disabled = true;
+  }
+  if (earlySubmitButton) {
+    earlySubmitButton.disabled = true;
   }
 
   try {
@@ -2556,7 +2646,7 @@ async function submitCurrentWorkOrder() {
     const check = getWorkOrderCompleteness(workOrderId);
 
     if (check.complete) {
-      await finalizeWorkOrder(workOrderId);
+      await finalizeWorkOrder(workOrderId, { early: settings.early });
       return;
     }
 
@@ -2571,10 +2661,18 @@ async function submitCurrentWorkOrder() {
     if (submitButton) {
       submitButton.disabled = false;
     }
+    if (earlySubmitButton) {
+      earlySubmitButton.disabled = false;
+    }
   }
 }
 
-async function submitSavedWorkOrder(id) {
+async function submitCurrentWorkOrderEarly() {
+  return submitCurrentWorkOrder({ early: true });
+}
+
+async function submitSavedWorkOrder(id, options) {
+  const settings = options || {};
   const wo = workOrders.find((item) => item.id === id);
 
   if (!wo) {
@@ -2598,7 +2696,7 @@ async function submitSavedWorkOrder(id) {
   const check = getWorkOrderCompleteness(id);
 
   if (check.complete) {
-    await finalizeWorkOrder(id);
+    await finalizeWorkOrder(id, { early: settings.early });
     return;
   }
 
@@ -2610,6 +2708,10 @@ async function submitSavedWorkOrder(id) {
     setFormStatus("Work Order is ready for submission and waiting for: " + waitingMessage);
     alert("Work Order is ready, but not complete yet. Waiting for: " + waitingMessage);
   }
+}
+
+async function submitSavedWorkOrderEarly(id) {
+  return submitSavedWorkOrder(id, { early: true });
 }
 
 async function autoSubmitReadyWorkOrders() {
