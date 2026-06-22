@@ -662,11 +662,12 @@ function activateGlobalTopNavigation() {
 
     .jgc-nav-center {
       display: flex;
-      flex: 1 1 auto;
+      flex: 0 1 auto;
       min-width: 0;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: center;
       gap: 8px;
+      width: min(100%, calc(100vw - 280px));
       max-width: calc(100vw - 280px);
       overflow-x: auto;
       overflow-y: hidden;
@@ -691,6 +692,7 @@ function activateGlobalTopNavigation() {
 
       .jgc-nav-center {
         max-width: calc(100vw - 230px);
+        width: calc(100vw - 230px);
         justify-content: flex-start;
       }
 
