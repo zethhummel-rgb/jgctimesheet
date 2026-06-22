@@ -62,7 +62,7 @@ h1 {
     z-index: 120;
     width: min(1500px, calc(100vw - 40px));
     max-width: 1500px;
-    margin: 0 0 12px calc(50% - min(750px, calc(50vw - 20px)));
+    margin: 0 auto 12px;
     padding: 7px 10px;
     display: flex;
     flex-wrap: nowrap;
@@ -254,6 +254,7 @@ button:hover {
     .tabs {
         top: 58px;
         z-index: 25;
+        width: auto;
         max-width: none;
         margin: 0 -10px 12px;
         padding: 8px 10px;
@@ -343,7 +344,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="common.js?v=4"></script>
+  <script src="common.js?v=5"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
