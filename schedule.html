@@ -991,21 +991,26 @@ function getEventDisplayTitle(event) {
   return event.title || event.job_name || event.location || getEventTypeLabel(getEventType(event));
 }
 
-function getScheduleDuplicateName(event) {
-  return normalizeWorkerName(getEventDisplayTitle(event));
+function getScheduleDuplicateAliases(event) {
+  const names = Array.isArray(event.employee_names) ? event.employee_names : [];
+  const keys = Array.isArray(event.employee_keys) ? event.employee_keys : [];
+  const emails = Array.isArray(event.employee_emails) ? event.employee_emails : [];
+  return names.concat(keys).concat(emails).map(normalizeWorkerName).filter(Boolean);
 }
 
 function isDuplicateScheduleEvent(record, ignoreId) {
-  const duplicateName = getScheduleDuplicateName(record);
+  const duplicateAliases = getScheduleDuplicateAliases(record);
   const start = String(record.start_time || "").slice(0, 5);
-  const end = String(record.end_time || "").slice(0, 5);
+
+  if (!duplicateAliases.length) {
+    return false;
+  }
 
   return scheduleEvents.some((event) =>
     String(event.id || "") !== String(ignoreId || "") &&
     String(event.event_date || "") === String(record.event_date || "") &&
     String(event.start_time || "").slice(0, 5) === start &&
-    String(event.end_time || "").slice(0, 5) === end &&
-    getScheduleDuplicateName(event) === duplicateName
+    getScheduleDuplicateAliases(event).some((alias) => duplicateAliases.includes(alias))
   );
 }
 
@@ -1435,7 +1440,7 @@ async function saveScheduleEvent() {
   const isEditing = Boolean(editingScheduleEventId);
 
   if (isDuplicateScheduleEvent(record, editingScheduleEventId)) {
-    alert("That schedule event already exists for the same day and time.");
+    alert("That employee already has a schedule event for the same day and time.");
     return;
   }
 
