@@ -1791,9 +1791,23 @@ function getSubmittedDateLabel(wo) {
   return formatDisplayDate(wo.submitted_at);
 }
 
+function isWorkOrderPendingSubmission(wo) {
+  const waitingFor = Array.isArray(wo && wo.waiting_for) ? wo.waiting_for : [];
+  return Boolean(wo && wo.status === "ready_for_submission" && wo.labour_complete && !waitingFor.length && !wo.locked);
+}
+
+function getPendingSubmissionDateLabel(wo) {
+  const monday = getFollowingMonday(wo && wo.work_order_date);
+  return monday ? formatWorkOrderGateDate(monday) : "Monday";
+}
+
 function getWorkOrderStatusText(wo) {
   if (wo && wo.locked && wo.status !== "submitted") {
     return "Submitting";
+  }
+
+  if (isWorkOrderPendingSubmission(wo)) {
+    return "Pending Submission - " + getPendingSubmissionDateLabel(wo);
   }
 
   const label = getStatusLabel(wo && wo.status);
@@ -1852,7 +1866,7 @@ function renderWorkOrders() {
       wo.job_number,
       wo.job_name
     ].join(" ").toLowerCase();
-    const isSubmitted = Boolean(wo.locked || wo.status === "submitted");
+    const isSubmitted = Boolean(wo.locked || wo.status === "submitted" || isWorkOrderPendingSubmission(wo));
 
     return (!search || text.includes(search)) &&
       (workOrderManagementView === "submitted" ? isSubmitted : !isSubmitted) &&
@@ -2407,13 +2421,14 @@ async function refreshSavedLabourRowsForWorkOrder(wo) {
   labourRows = labourRows.map((row) => updates.find((updated) => updated.id === row.id) || row);
 }
 
-async function markWorkOrderReady(id, waitingFor) {
+async function markWorkOrderReady(id, waitingFor, options) {
+  const settings = options || {};
   const { error } = await supabaseClient
     .from("work_orders")
     .update({
       status: "ready_for_submission",
-      labour_complete: false,
-      waiting_for: waitingFor,
+      labour_complete: Boolean(settings.labourComplete),
+      waiting_for: waitingFor || [],
       locked: false,
       updated_at: new Date().toISOString()
     })
@@ -2426,6 +2441,25 @@ async function markWorkOrderReady(id, waitingFor) {
 
   await loadWorkOrders(false);
   return true;
+}
+
+async function holdWorkOrderForMondaySubmission(id, gate, options) {
+  const settings = options || {};
+  const markedReady = await markWorkOrderReady(id, [], { labourComplete: true });
+  const mondayText = formatWorkOrderGateDate(gate && gate.monday);
+  const message = "Work Order is ready and will submit automatically on " + mondayText + ".";
+
+  if (markedReady && !settings.silent) {
+    if (settings.fromSavedList) {
+      editWorkOrder(id);
+    } else {
+      finishWorkOrderAndStartNext(message);
+    }
+    setFormStatus(message);
+    alert(message);
+  }
+
+  return markedReady;
 }
 
 function parseWorkOrderLocalDate(value) {
@@ -2646,6 +2680,11 @@ async function submitCurrentWorkOrder(options) {
     const check = getWorkOrderCompleteness(workOrderId);
 
     if (check.complete) {
+      const submissionGate = getWorkOrderSubmissionGate(wo);
+      if (!submissionGate.allowed && !settings.early) {
+        await holdWorkOrderForMondaySubmission(workOrderId, submissionGate);
+        return;
+      }
       await finalizeWorkOrder(workOrderId, { early: settings.early });
       return;
     }
@@ -2696,6 +2735,11 @@ async function submitSavedWorkOrder(id, options) {
   const check = getWorkOrderCompleteness(id);
 
   if (check.complete) {
+    const submissionGate = getWorkOrderSubmissionGate(wo);
+    if (!submissionGate.allowed && !settings.early) {
+      await holdWorkOrderForMondaySubmission(id, submissionGate, { fromSavedList: true });
+      return;
+    }
     await finalizeWorkOrder(id, { early: settings.early });
     return;
   }
