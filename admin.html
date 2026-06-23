@@ -608,15 +608,68 @@ button:hover,
     background: rgba(5, 18, 16, 0.58);
 }
 
-.subcontractor-activity-header {
+.subcontractor-activity-panel > summary,
+.subcontractor-company-summary {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.subcontractor-activity-panel > summary::-webkit-details-marker,
+.subcontractor-company-summary::-webkit-details-marker {
+    display: none;
+}
+
+.subcontractor-activity-panel > summary {
+    color: #32dc55;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.subcontractor-activity-panel[open] > summary {
     margin-bottom: 10px;
 }
 
-.subcontractor-activity-header h2 {
+.subcontractor-activity-count {
+    color: #c8d7ca;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.subcontractor-activity-actions {
+    margin-bottom: 10px;
+}
+
+.subcontractor-company-panel {
+    margin-top: 8px;
+    border: 1px solid rgba(199, 221, 211, 0.16);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.subcontractor-company-summary {
+    padding: 10px;
+}
+
+.subcontractor-company-name {
+    color: #f4fff6;
+    font-weight: 800;
+}
+
+.subcontractor-company-meta {
+    color: #c8d7ca;
+    font-size: 12px;
+    text-align: right;
+}
+
+.subcontractor-company-body {
+    padding: 0 10px 10px;
+}
+
+.subcontractor-activity-panel h2 {
     margin: 0;
 }
 
@@ -2044,13 +2097,16 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div class="small">Loading portal summary...</div>
     </div>
 
-    <div class="subcontractor-activity-panel">
-        <div class="subcontractor-activity-header">
-            <h2>Subcontractor Activity</h2>
+    <details class="subcontractor-activity-panel" id="subcontractorActivityPanel">
+        <summary>
+            <span>Subcontractor Activity</span>
+            <span id="subcontractorActivityCount" class="subcontractor-activity-count">Loading...</span>
+        </summary>
+        <div class="subcontractor-activity-actions">
             <button type="button" class="secondary" onclick="loadSubcontractorActivity()">Refresh</button>
         </div>
         <div id="subcontractorActivityList" class="small">Loading subcontractor activity...</div>
-    </div>
+    </details>
 
     <div class="admin-schedule-summary">
         <div class="admin-schedule-header">
@@ -3589,6 +3645,7 @@ async function runAdminQueries(definitions) {
 
 function renderSubcontractorActivity() {
     const list = document.getElementById("subcontractorActivityList");
+    const count = document.getElementById("subcontractorActivityCount");
 
     if (!list) {
         return;
@@ -3596,47 +3653,95 @@ function renderSubcontractorActivity() {
 
     if (!subcontractorActivity.length) {
         list.textContent = "No subcontractor portal activity yet.";
+        if (count) {
+            count.textContent = "0 companies";
+        }
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap">
-            <table class="subcontractor-activity-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Company</th>
-                        <th>Contact</th>
-                        <th>Email</th>
-                        <th>Activity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${subcontractorActivity.slice(0, 12).map((item) => `
+    const companyGroups = new Map();
+
+    subcontractorActivity.forEach((item) => {
+        const companyName = String(item.company_name || "").trim() || "Unknown Company";
+        const key = companyName.toLowerCase();
+
+        if (!companyGroups.has(key)) {
+            companyGroups.set(key, {
+                companyName,
+                rows: []
+            });
+        }
+
+        companyGroups.get(key).rows.push(item);
+    });
+
+    const groups = Array.from(companyGroups.values()).sort((a, b) => {
+        const aTime = new Date(a.rows[0] && a.rows[0].created_at || 0).getTime();
+        const bTime = new Date(b.rows[0] && b.rows[0].created_at || 0).getTime();
+        return bTime - aTime;
+    });
+
+    if (count) {
+        count.textContent = groups.length + " compan" + (groups.length === 1 ? "y" : "ies");
+    }
+
+    list.innerHTML = groups.map((group) => {
+        const latest = group.rows[0] || {};
+        const contacts = Array.from(new Set(group.rows.map((row) => row.contact_name || row.email || "").filter(Boolean))).slice(0, 3);
+
+        return `
+            <details class="subcontractor-company-panel">
+                <summary class="subcontractor-company-summary">
+                    <span class="subcontractor-company-name">${escapeHtml(group.companyName)}</span>
+                    <span class="subcontractor-company-meta">${escapeHtml(group.rows.length + " visit" + (group.rows.length === 1 ? "" : "s") + " | " + (latest.created_at ? formatDate(latest.created_at) : ""))}</span>
+                </summary>
+                <div class="subcontractor-company-body">
+                    <div class="small" style="margin-bottom:8px;">${escapeHtml(contacts.length ? "Contacts: " + contacts.join(", ") : "No contact names recorded.")}</div>
+                    <div class="table-wrap">
+                        <table class="subcontractor-activity-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Contact</th>
+                                    <th>Email</th>
+                                    <th>Activity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${group.rows.slice(0, 20).map((item) => `
                         <tr>
                             <td>${escapeHtml(item.created_at ? formatDate(item.created_at) : "")}</td>
-                            <td>${escapeHtml(item.company_name || "")}</td>
                             <td>${escapeHtml(item.contact_name || "")}</td>
                             <td>${escapeHtml(item.email || "")}</td>
                             <td>${escapeHtml([item.action, item.page].filter(Boolean).join(" - "))}</td>
                         </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+                                `).join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+        `;
+    }).join("");
 }
 
 async function loadSubcontractorActivity() {
     const list = document.getElementById("subcontractorActivityList");
+    const count = document.getElementById("subcontractorActivityCount");
 
     if (list) {
         list.textContent = "Loading subcontractor activity...";
+    }
+    if (count) {
+        count.textContent = "Loading...";
     }
 
     if (!supabaseClient) {
         if (list) {
             list.textContent = "Subcontractor activity could not be loaded.";
+        }
+        if (count) {
+            count.textContent = "Unavailable";
         }
         return;
     }
@@ -3651,6 +3756,9 @@ async function loadSubcontractorActivity() {
         subcontractorActivity = [];
         if (list) {
             list.textContent = "Subcontractor activity is not set up yet.";
+        }
+        if (count) {
+            count.textContent = "Unavailable";
         }
         logAdminLoadError("subcontractor activity", error);
         return;
