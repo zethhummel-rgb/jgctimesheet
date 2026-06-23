@@ -313,6 +313,13 @@ th {
   color: #634900;
 }
 
+.pill.pending-submission {
+  max-width: 118px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
 .pill.submitted {
   background: #cfe4ff;
   color: #0d3c72;
@@ -1799,7 +1806,9 @@ function isWorkOrderPendingSubmission(wo) {
 
 function getPendingSubmissionDateLabel(wo) {
   const monday = getFollowingMonday(wo && wo.work_order_date);
-  return monday ? formatWorkOrderGateDate(monday) : "Monday";
+  return monday
+    ? monday.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })
+    : "Monday";
 }
 
 function getWorkOrderStatusText(wo) {
@@ -1808,7 +1817,7 @@ function getWorkOrderStatusText(wo) {
   }
 
   if (isWorkOrderPendingSubmission(wo)) {
-    return "Pending Submission - " + getPendingSubmissionDateLabel(wo);
+    return "Pending Submission " + getPendingSubmissionDateLabel(wo);
   }
 
   const label = getStatusLabel(wo && wo.status);
@@ -1910,7 +1919,7 @@ function renderWorkOrders() {
                 <td>${escapeHtml(wo.work_order_date || "")}</td>
                 <td>${escapeHtml(wo.customer || "")}</td>
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
-                <td><span class="pill ${escapeHtml(wo.status || "draft")}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
+                <td><span class="pill ${escapeHtml(wo.status || "draft")} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
                 <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
                 <td>
