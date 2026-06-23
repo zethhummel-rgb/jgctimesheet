@@ -240,7 +240,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=6"></script>
 <script>
 const DAILY_REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -434,13 +434,13 @@ async function submitDailySiteReport() {
             method: "POST",
             mode: "no-cors",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
+            body: JSON.stringify(withJgcSubcontractorEmailCopy({
                 subject,
                 body,
                 pdfHtml,
                 pdfFileName: makeSafeFileName(subject) + ".pdf",
                 source: "daily_site_report"
-            })
+            }))
         });
 
         setReportStatus("Daily site report saved and emailed.");
