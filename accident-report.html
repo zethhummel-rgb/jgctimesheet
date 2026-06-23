@@ -93,7 +93,7 @@ textarea{min-height:88px;resize:vertical}.checks{display:grid;grid-template-colu
   <div id="saveStatus" class="status"></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=6"></script>
 <script>
 const REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -135,7 +135,7 @@ async function submitAccidentReport(){
   await supabaseClient.from("accident_report_acknowledgements").insert({accident_report_id:data.id,worker_name:injured.workerName,worker_display_name:injured.displayName});
   setStatus("Emailing accident report...");
   const subject="Supervisor Accident Investigation - "+injured.displayName+" - "+record.accident_date;
-  try{await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({subject,body:buildBody(record),text:buildBody(record),pdfHtml:buildPdfHtml(record),pdfFileName:makeSafeFileName(subject)+".pdf",source:"accident_report"})});setStatus("Accident report saved and emailed.");alert("Accident report saved and emailed.");}catch(error){setStatus("Report saved, but email could not be sent.");}
+  try{await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(withJgcSubcontractorEmailCopy({subject,body:buildBody(record),text:buildBody(record),pdfHtml:buildPdfHtml(record),pdfFileName:makeSafeFileName(subject)+".pdf",source:"accident_report"}))});setStatus("Accident report saved and emailed.");alert("Accident report saved and emailed.");}catch(error){setStatus("Report saved, but email could not be sent.");}
 }
 async function signOut(){await signOutJgc(supabaseClient);}
 loadEmployees();
