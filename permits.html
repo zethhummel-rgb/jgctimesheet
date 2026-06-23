@@ -192,11 +192,8 @@ const supabaseClient=createJgcSupabaseClient();
 const worker=requireJgcWorker();
 document.getElementById("userBar").textContent="Signed in as: "+(worker.display||worker.key);
 if(isJgcSubcontractorSession(worker)){
-  const subtitles=document.querySelectorAll(".subtitle");
   const grids=document.querySelectorAll(".permit-grid");
-  if(grids[0]){grids[0].remove();}
-  if(subtitles[0]){subtitles[0].textContent="Start a New Permit";}
-  if(subtitles[1]){subtitles[1].remove();}
+  if(grids[0]){grids[0].querySelectorAll("[onclick*='previous-inspections']").forEach((button)=>button.remove());}
 }
 async function signOut(){await signOutJgc(supabaseClient);}
 </script>
