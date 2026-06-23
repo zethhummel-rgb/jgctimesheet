@@ -306,15 +306,28 @@
       background: linear-gradient(135deg, #1a9a4a, #0d7045);
     }
 
+    .subcontractor-access-button {
+      margin-top: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+    }
+
+    .subcontractor-access-button:hover {
+      background: rgba(94, 225, 47, 0.12);
+    }
+
     .public-tool-note-top {
       margin: 0 0 24px;
     }
 
-    .notes-overlay[hidden] {
+    .notes-overlay[hidden],
+    .subcontractor-overlay[hidden] {
       display: none;
     }
 
-    .notes-overlay {
+    .notes-overlay,
+    .subcontractor-overlay {
       position: fixed;
       inset: 0;
       z-index: 50;
@@ -326,7 +339,8 @@
       backdrop-filter: blur(8px);
     }
 
-    .notes-panel {
+    .notes-panel,
+    .subcontractor-panel {
       width: min(760px, 100%);
       max-height: min(88dvh, 760px);
       overflow: auto;
@@ -338,8 +352,16 @@
       color: #ffffff;
     }
 
+    .subcontractor-panel {
+      width: min(560px, 100%);
+    }
+
     .notes-panel-inner {
       padding: 22px;
+    }
+
+    .subcontractor-panel-inner {
+      padding: 24px;
     }
 
     .notes-header {
@@ -357,8 +379,16 @@
       text-align: left;
     }
 
+    .subcontractor-panel h3 {
+      margin: 0 0 8px;
+      color: #39c848;
+      font-size: 1.55rem;
+      text-align: left;
+    }
+
     .notes-header p,
-    .notes-status {
+    .notes-status,
+    .subcontractor-status {
       margin: 0;
       color: #c4d0c8;
       font-size: 0.92rem;
@@ -638,6 +668,9 @@
           <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
         </div>
       </div>
+
+      <button type="button" class="secondary subcontractor-access-button" onclick="openSubcontractorAccess()">Subcontractor Access</button>
+      <div class="public-tool-note">For project partners submitting reports, inspections, permits, or reviewing policies and contacts.</div>
     </div>
   </section>
 </main>
@@ -676,8 +709,33 @@
   </section>
 </div>
 
+<div id="subcontractorAccessOverlay" class="subcontractor-overlay" hidden onclick="closeSubcontractorAccess()">
+  <section class="subcontractor-panel" role="dialog" aria-modal="true" aria-labelledby="subcontractorAccessTitle" onclick="event.stopPropagation()">
+    <div class="subcontractor-panel-inner">
+      <h3 id="subcontractorAccessTitle">Subcontractor Access</h3>
+      <p class="small" style="margin:0 0 16px;">Enter your details so JGC can track portal use and include your email on submitted paperwork.</p>
+
+      <label>Company Name</label>
+      <input id="subcontractorCompany" maxlength="120" placeholder="Example: ABC Electrical" />
+
+      <label>Your Name</label>
+      <input id="subcontractorName" maxlength="80" placeholder="Example: Pat Smith" />
+
+      <label>Email</label>
+      <input id="subcontractorEmail" type="email" maxlength="254" placeholder="name@company.com" />
+
+      <label>Phone <span class="small">(optional)</span></label>
+      <input id="subcontractorPhone" maxlength="40" placeholder="Phone number" />
+
+      <button type="button" onclick="enterSubcontractorPortal()">Continue</button>
+      <button type="button" class="secondary" onclick="closeSubcontractorAccess()">Cancel</button>
+      <p id="subcontractorAccessStatus" class="subcontractor-status"></p>
+    </div>
+  </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=6"></script>
 <script src="auth.js?v=5"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -802,6 +860,66 @@ function toggleCreateAccount() {
 
   panel.hidden = !isOpening;
   button.textContent = isOpening ? "Hide Create Account" : "Create Account";
+}
+
+function setSubcontractorAccessStatus(message) {
+  const status = document.getElementById("subcontractorAccessStatus");
+  if (status) {
+    status.textContent = message || "";
+  }
+}
+
+function openSubcontractorAccess() {
+  const overlay = document.getElementById("subcontractorAccessOverlay");
+  if (overlay) {
+    overlay.hidden = false;
+  }
+  setSubcontractorAccessStatus("");
+  setTimeout(() => {
+    const company = document.getElementById("subcontractorCompany");
+    if (company) {
+      company.focus();
+    }
+  }, 50);
+}
+
+function closeSubcontractorAccess() {
+  const overlay = document.getElementById("subcontractorAccessOverlay");
+  if (overlay) {
+    overlay.hidden = true;
+  }
+}
+
+async function enterSubcontractorPortal() {
+  const companyName = cleanDisplayName(document.getElementById("subcontractorCompany").value);
+  const contactName = cleanDisplayName(document.getElementById("subcontractorName").value);
+  const email = cleanLoginEmail(document.getElementById("subcontractorEmail").value);
+  const phone = cleanDisplayName(document.getElementById("subcontractorPhone").value);
+
+  if (!companyName || !contactName || !email) {
+    alert("Enter your company name, your name, and your email address.");
+    return;
+  }
+
+  if (!isValidDisplayName(contactName) || companyName.length < 2 || companyName.length > 120) {
+    alert("Enter a valid company and contact name.");
+    return;
+  }
+
+  if (!isValidLoginEmail(email)) {
+    alert("Enter a valid email address.");
+    return;
+  }
+
+  setSubcontractorAccessStatus("Opening subcontractor portal...");
+
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+  clearJgcSession();
+  setJgcSubcontractorSession({ companyName, contactName, email, phone });
+  await recordJgcSubcontractorActivity("login");
+  window.location.href = "subcontractor.html";
 }
 
 async function clearSession() {
