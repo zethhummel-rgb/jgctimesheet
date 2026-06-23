@@ -208,7 +208,7 @@ if (!workerName) {
 document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
 
 if (isJgcSubcontractorSession()) {
-    document.querySelectorAll("[onclick*='todays-inspections'], [onclick*='previous-inspections']").forEach((button) => button.remove());
+    document.querySelectorAll("[onclick*='previous-inspections']").forEach((button) => button.remove());
 }
 
 function comingSoon(formName) {
