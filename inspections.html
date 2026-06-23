@@ -194,7 +194,7 @@ h1 {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=6"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 
@@ -206,6 +206,10 @@ if (!workerName) {
 }
 
 document.getElementById('userBar').textContent = workerDisplay ? 'Signed in as: ' + workerDisplay : '';
+
+if (isJgcSubcontractorSession()) {
+    document.querySelectorAll("[onclick*='todays-inspections'], [onclick*='previous-inspections']").forEach((button) => button.remove());
+}
 
 function comingSoon(formName) {
     alert(formName + ' form will be added next.');
