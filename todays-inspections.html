@@ -342,6 +342,13 @@ if (!worker.key) {
 applyInspectionPageCopy();
 document.getElementById("userBar").textContent = worker.display ? "Signed in as: " + worker.display : "";
 
+if (isJgcSubcontractorSession()) {
+    const previousButton = document.getElementById("previousInspectionsButton");
+    if (previousButton) {
+        previousButton.remove();
+    }
+}
+
 function formatDate(value) {
     if (!value) {
         return "";
