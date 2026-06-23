@@ -186,11 +186,18 @@ button:hover,
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=2"></script>
+<script src="common.js?v=6"></script>
 <script>
 const supabaseClient=createJgcSupabaseClient();
 const worker=requireJgcWorker();
 document.getElementById("userBar").textContent="Signed in as: "+(worker.display||worker.key);
+if(isJgcSubcontractorSession(worker)){
+  const subtitles=document.querySelectorAll(".subtitle");
+  const grids=document.querySelectorAll(".permit-grid");
+  if(grids[0]){grids[0].remove();}
+  if(subtitles[0]){subtitles[0].textContent="Start a New Permit";}
+  if(subtitles[1]){subtitles[1].remove();}
+}
 async function signOut(){await signOutJgc(supabaseClient);}
 </script>
 </body>
