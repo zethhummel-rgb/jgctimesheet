@@ -836,6 +836,7 @@ let editingWorkOrderId = "";
 let workOrderManagementView = "active";
 let currentWorkOrderSubmitInFlight = false;
 const workOrderFinalizeLocks = new Set();
+const workOrderSubmitLocks = new Set();
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
 document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
@@ -1902,6 +1903,7 @@ function renderWorkOrders() {
             const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
             const completeCount = woLabourRows.filter((row) => row.complete).length;
             const isLocked = Boolean(wo.locked || wo.status === "submitted");
+            const isPendingSubmission = isWorkOrderPendingSubmission(wo);
             return `
               <tr>
                 <td>${escapeHtml(wo.wo_number || "")}</td>
@@ -1915,7 +1917,7 @@ function renderWorkOrders() {
                   <div class="actions">
                     <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                     ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
-          ${isLocked ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
+          ${isLocked || isPendingSubmission ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
           ${isLocked ? "" : `<button type="button" class="secondary" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
                     <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
                     <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
@@ -2712,45 +2714,57 @@ async function submitCurrentWorkOrderEarly() {
 
 async function submitSavedWorkOrder(id, options) {
   const settings = options || {};
+  const submitKey = String(id || "");
+
+  if (workOrderSubmitLocks.has(submitKey)) {
+    setFormStatus("This Work Order is already being checked for submission.");
+    return;
+  }
+
+  workOrderSubmitLocks.add(submitKey);
   const wo = workOrders.find((item) => item.id === id);
 
-  if (!wo) {
-    alert("Work Order could not be found.");
-    return;
-  }
-
-  if (wo.locked || wo.status === "submitted") {
-    alert("This Work Order has already been submitted.");
-    return;
-  }
-
-  setFormStatus("Checking saved Work Order for submission...");
-  const listStatus = document.getElementById("woListStatus");
-  if (listStatus) {
-    listStatus.textContent = "Checking " + (wo.wo_number || "Work Order") + " for submission...";
-  }
-
-  await loadTimesheetEntries();
-  await refreshSavedLabourRowsForWorkOrder(wo);
-  const check = getWorkOrderCompleteness(id);
-
-  if (check.complete) {
-    const submissionGate = getWorkOrderSubmissionGate(wo);
-    if (!submissionGate.allowed && !settings.early) {
-      await holdWorkOrderForMondaySubmission(id, submissionGate, { fromSavedList: true });
+  try {
+    if (!wo) {
+      alert("Work Order could not be found.");
       return;
     }
-    await finalizeWorkOrder(id, { early: settings.early });
-    return;
-  }
 
-  const markedReady = await markWorkOrderReady(id, check.waitingFor);
+    if (wo.locked || wo.status === "submitted") {
+      alert("This Work Order has already been submitted.");
+      return;
+    }
 
-  if (markedReady) {
-    editWorkOrder(id);
-    const waitingMessage = check.waitingFor.length ? check.waitingFor.join(", ") : "required information";
-    setFormStatus("Work Order is ready for submission and waiting for: " + waitingMessage);
-    alert("Work Order is ready, but not complete yet. Waiting for: " + waitingMessage);
+    setFormStatus("Checking saved Work Order for submission...");
+    const listStatus = document.getElementById("woListStatus");
+    if (listStatus) {
+      listStatus.textContent = "Checking " + (wo.wo_number || "Work Order") + " for submission...";
+    }
+
+    await loadTimesheetEntries();
+    await refreshSavedLabourRowsForWorkOrder(wo);
+    const check = getWorkOrderCompleteness(id);
+
+    if (check.complete) {
+      const submissionGate = getWorkOrderSubmissionGate(wo);
+      if (!submissionGate.allowed && !settings.early) {
+        await holdWorkOrderForMondaySubmission(id, submissionGate, { fromSavedList: true });
+        return;
+      }
+      await finalizeWorkOrder(id, { early: settings.early });
+      return;
+    }
+
+    const markedReady = await markWorkOrderReady(id, check.waitingFor);
+
+    if (markedReady) {
+      editWorkOrder(id);
+      const waitingMessage = check.waitingFor.length ? check.waitingFor.join(", ") : "required information";
+      setFormStatus("Work Order is ready for submission and waiting for: " + waitingMessage);
+      alert("Work Order is ready, but not complete yet. Waiting for: " + waitingMessage);
+    }
+  } finally {
+    workOrderSubmitLocks.delete(submitKey);
   }
 }
 
