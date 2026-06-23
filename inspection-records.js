@@ -474,8 +474,15 @@ async function saveInspection(type) {
         return;
     }
 
+    if (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession()) {
+        setInspectionSaveStatus("Inspection saved. Emailing PDF...");
+        await emailInspectionRecord(record);
+    }
+
     setInspectionSaveStatus("Inspection saved.");
-    window.location.href = "todays-inspections.html";
+    window.location.href = (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
+        ? "inspections.html"
+        : "todays-inspections.html";
 }
 
 function openInspectionMailto(record) {
@@ -506,7 +513,7 @@ async function emailInspectionRecord(record) {
             headers: {
                 "Content-Type": "text/plain;charset=utf-8"
             },
-            body: JSON.stringify({
+            body: JSON.stringify(withJgcSubcontractorEmailCopy({
                 subject,
                 body,
                 text: body,
@@ -515,7 +522,7 @@ async function emailInspectionRecord(record) {
                 inspectionDate: record.inspection_date || "",
                 completedBy: record.worker_display_name || record.worker_name || "",
                 pdfFileName: `inspection-${String(record.inspection_type || "inspection").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${record.inspection_date || "record"}.pdf`
-            })
+            }))
         });
 
         alert("Inspection email sent.");
