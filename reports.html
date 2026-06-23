@@ -258,16 +258,9 @@ const currentWorkerDisplay = worker.display || worker.key;
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 if (isJgcSubcontractorSession(worker)) {
-    const subtitles = document.querySelectorAll(".subtitle");
     const grids = document.querySelectorAll(".reports-grid");
     if (grids[0]) {
-        grids[0].remove();
-    }
-    if (subtitles[0]) {
-        subtitles[0].textContent = "Start a New Report";
-    }
-    if (subtitles[1]) {
-        subtitles[1].remove();
+        grids[0].querySelectorAll("[onclick*='previous-inspections']").forEach((button) => button.remove());
     }
 }
 
