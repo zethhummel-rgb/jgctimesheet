@@ -22,6 +22,7 @@ const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
   "hot-work-permit.html",
   "confined-space-permit.html",
   "excavation-permit.html",
+  "todays-inspections.html",
   "policies-announcements.html",
   "contacts.html",
   "field-calculator.html"
