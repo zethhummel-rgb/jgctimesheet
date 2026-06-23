@@ -600,6 +600,43 @@ button:hover,
     font-size: 9px;
 }
 
+.subcontractor-activity-panel {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid rgba(57, 200, 72, 0.24);
+    border-radius: 8px;
+    background: rgba(5, 18, 16, 0.58);
+}
+
+.subcontractor-activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.subcontractor-activity-header h2 {
+    margin: 0;
+}
+
+.subcontractor-activity-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.subcontractor-activity-table th,
+.subcontractor-activity-table td {
+    border: 1px solid rgba(199, 221, 211, 0.18);
+    padding: 7px;
+    font-size: 12px;
+    vertical-align: top;
+}
+
+.subcontractor-activity-table th {
+    background: rgba(57, 200, 72, 0.14);
+}
+
 .backup-status-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -2007,6 +2044,14 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div class="small">Loading portal summary...</div>
     </div>
 
+    <div class="subcontractor-activity-panel">
+        <div class="subcontractor-activity-header">
+            <h2>Subcontractor Activity</h2>
+            <button type="button" class="secondary" onclick="loadSubcontractorActivity()">Refresh</button>
+        </div>
+        <div id="subcontractorActivityList" class="small">Loading subcontractor activity...</div>
+    </div>
+
     <div class="admin-schedule-summary">
         <div class="admin-schedule-header">
             <div>
@@ -2714,7 +2759,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="common.js?v=5"></script>
+<script src="common.js?v=6"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -2749,6 +2794,7 @@ let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
 let contacts = [];
+let subcontractorActivity = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
 let scheduleEvents = [];
@@ -3498,7 +3544,8 @@ function renderAdminSectionsSafely() {
         ["employee profile options", renderEmployeeProfileOptions],
         ["employee profile", renderEmployeeProfile],
         ["schedule calendar", renderAdminScheduleCalendar],
-        ["portal summary", renderPortalSummary]
+        ["portal summary", renderPortalSummary],
+        ["subcontractor activity", renderSubcontractorActivity]
     ].forEach(([label, renderer]) => {
         try {
             renderer();
@@ -3512,6 +3559,7 @@ function renderImmediateAdminSectionsSafely() {
     [
         ["schedule calendar", renderAdminScheduleCalendar],
         ["portal summary", renderPortalSummary],
+        ["subcontractor activity", renderSubcontractorActivity],
         ["vacation", renderVacationRequests]
     ].forEach(([label, renderer]) => {
         try {
@@ -3537,6 +3585,79 @@ async function runAdminQueries(definitions) {
     ));
 
     return results;
+}
+
+function renderSubcontractorActivity() {
+    const list = document.getElementById("subcontractorActivityList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!subcontractorActivity.length) {
+        list.textContent = "No subcontractor portal activity yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table class="subcontractor-activity-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Company</th>
+                        <th>Contact</th>
+                        <th>Email</th>
+                        <th>Activity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${subcontractorActivity.slice(0, 12).map((item) => `
+                        <tr>
+                            <td>${escapeHtml(item.created_at ? formatDate(item.created_at) : "")}</td>
+                            <td>${escapeHtml(item.company_name || "")}</td>
+                            <td>${escapeHtml(item.contact_name || "")}</td>
+                            <td>${escapeHtml(item.email || "")}</td>
+                            <td>${escapeHtml([item.action, item.page].filter(Boolean).join(" - "))}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadSubcontractorActivity() {
+    const list = document.getElementById("subcontractorActivityList");
+
+    if (list) {
+        list.textContent = "Loading subcontractor activity...";
+    }
+
+    if (!supabaseClient) {
+        if (list) {
+            list.textContent = "Subcontractor activity could not be loaded.";
+        }
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("subcontractor_portal_activity")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+    if (error) {
+        subcontractorActivity = [];
+        if (list) {
+            list.textContent = "Subcontractor activity is not set up yet.";
+        }
+        logAdminLoadError("subcontractor activity", error);
+        return;
+    }
+
+    subcontractorActivity = data || [];
+    renderSubcontractorActivity();
 }
 
 async function loadAdminData(options = {}) {
@@ -3566,10 +3687,11 @@ async function loadAdminData(options = {}) {
                 { label: "work order labour workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
                 { label: "equipment", query: () => supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }) },
                 { label: "equipment notifications", query: () => supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }) },
-                { label: "equipment maintenance", query: () => supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }) }
+                { label: "equipment maintenance", query: () => supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }) },
+                { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
             ]);
 
-            const [liveTimesheetResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult] = adminDataResults;
+            const [liveTimesheetResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, subcontractorActivityResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
             certificates = certificateResult.data || [];
@@ -3582,6 +3704,7 @@ async function loadAdminData(options = {}) {
             equipmentItems = equipmentResult.data || [];
             equipmentNotifications = equipmentNotificationResult.data || [];
             equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
+            subcontractorActivity = subcontractorActivityResult.data || [];
 
             if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
                 const { data: fallbackAccounts, error: fallbackAccountError } = await supabaseClient
@@ -3638,7 +3761,8 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
-        supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true })
+        supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+        supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80)
     ].map((query, index) => Promise.resolve(query).then((result) => {
         if (result && result.error) {
             logAdminLoadError("query " + index, result.error);
@@ -3650,7 +3774,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -3695,6 +3819,7 @@ async function loadAdminData(options = {}) {
     equipmentNotifications = equipmentNotificationResult.data || [];
     equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
         contacts = contactResult.data || [];
+        subcontractorActivity = subcontractorActivityResult.data || [];
         await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
         await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
         await safeAdminSetupStep("prepare announcement URLs", prepareAnnouncementUrls);
