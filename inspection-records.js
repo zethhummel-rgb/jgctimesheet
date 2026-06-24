@@ -16,7 +16,10 @@ function setInspectionSaveStatus(message) {
 function getCurrentWorker() {
     return {
         key: localStorage.getItem("currentWorker"),
-        display: localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker")
+        display: localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker"),
+        email: localStorage.getItem("currentUserEmail") || "",
+        role: localStorage.getItem("currentUserRole") || "",
+        company: localStorage.getItem("jgcSubcontractorCompany") || ""
     };
 }
 
@@ -276,6 +279,18 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
         qrToken: token,
         creator: getCurrentWorker(),
         attendees
+    });
+    const creator = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : getCurrentWorker();
+    const creatorAcknowledgedAt = new Date().toISOString();
+
+    rows.forEach((row) => {
+        if (typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(row, creator)) {
+            row.acknowledgement_status = "acknowledged_by_creator";
+            row.acknowledgement_method = "creator_entry";
+            row.acknowledged_at = creatorAcknowledgedAt;
+            row.acknowledged_by_name = creator.display || creator.key || "";
+            row.acknowledgement_note = "Creator entered and confirmed this person during JSA creation.";
+        }
     });
 
     const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
@@ -627,6 +642,11 @@ async function saveInspection(type) {
     if (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession()) {
         setInspectionSaveStatus("Inspection saved. Emailing PDF...");
         await emailInspectionRecord(savedRecord);
+    }
+
+    if (typeof showJsaSafetyQrAfterSave === "function" && showJsaSafetyQrAfterSave(savedRecord, safetyRows)) {
+        setInspectionSaveStatus("Inspection saved. QR code ready for crew sign-on.");
+        return;
     }
 
     setInspectionSaveStatus("Inspection saved.");
