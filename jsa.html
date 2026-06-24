@@ -304,7 +304,7 @@ button:hover {
 
 <div class="signoff">
     <label>Crew Sign Off (Print Names)</label>
-    <textarea></textarea>
+    <textarea placeholder="One person per line. For subcontractors or visitors, use Name - Company."></textarea>
 </div>
 
 <div class="table-wrap">
@@ -340,8 +340,9 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=6"></script>
-<script src="inspection-records.js?v=3"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
+<script src="inspection-records.js?v=5"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
