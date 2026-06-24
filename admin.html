@@ -2214,6 +2214,10 @@ button.admin-schedule-event-button.admin-event-vacation {
             <strong>Contacts</strong>
             <span>Add and edit company contact names, phone numbers, and emails.</span>
         </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('subcontractorsSuppliers')">
+            <strong>Subcontractors / Suppliers</strong>
+            <span>Add and edit field subcontractors, suppliers, rentals, and service contacts.</span>
+        </button>
         <button type="button" class="admin-tool-card" onclick="openAdminTool('noticePolicy')">
             <strong>Notice / Policy</strong>
             <span>Post announcements, upload policies, and review acknowledgement status.</span>
@@ -2846,6 +2850,82 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="contactsList" class="small" style="margin-top:12px;">Loading contacts...</div>
 </div>
 
+<div id="subcontractorsSuppliersSection" class="card" hidden>
+    <h2>Subcontractors / Suppliers</h2>
+    <div class="filters">
+        <div>
+            <label>Company Name</label>
+            <input id="supplierCompanyName" placeholder="Company name">
+        </div>
+        <div>
+            <label>Category</label>
+            <select id="supplierCategory">
+                <option value="Subcontractor">Subcontractor</option>
+                <option value="Supplier">Supplier</option>
+                <option value="Rental">Rental</option>
+                <option value="Service">Service</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div>
+            <label>Service / Trade</label>
+            <input id="supplierServiceType" placeholder="Example: Electrical, Concrete, Rentals">
+        </div>
+        <div>
+            <label>Order</label>
+            <input id="supplierOrder" type="number" value="0">
+        </div>
+        <div>
+            <label>Notes</label>
+            <input id="supplierNotes" placeholder="Optional note">
+        </div>
+    </div>
+    <div class="actions" style="margin-top:10px;">
+        <button id="supplierSaveButton" type="button" onclick="saveSubcontractorSupplier()">Add Entry</button>
+        <button class="secondary" type="button" onclick="clearSubcontractorSupplierForm()">Clear</button>
+        <button class="secondary" type="button" onclick="loadSubcontractorSuppliers()">Refresh Entries</button>
+    </div>
+    <div id="supplierStatus" class="small" style="margin-top:10px;"></div>
+
+    <div class="sub-card" style="margin-top:14px;">
+        <h3>Contacts for Selected Company</h3>
+        <div id="supplierSelectedCompany" class="small" style="margin-bottom:10px;">Select a company below, or save a new company first.</div>
+        <div class="filters">
+            <div>
+                <label>Contact Name</label>
+                <input id="supplierContactName" placeholder="Example: John Smith">
+            </div>
+            <div>
+                <label>Role / Department</label>
+                <input id="supplierContactRole" placeholder="Example: Dispatch, Sales, Accounting">
+            </div>
+            <div>
+                <label>Phone</label>
+                <input id="supplierContactPhone" placeholder="Phone number">
+            </div>
+            <div>
+                <label>Email</label>
+                <input id="supplierContactEmail" type="email" placeholder="Email address">
+            </div>
+            <div>
+                <label>Order</label>
+                <input id="supplierContactOrder" type="number" value="0">
+            </div>
+            <div>
+                <label>Notes</label>
+                <input id="supplierContactNotes" placeholder="Optional contact note">
+            </div>
+        </div>
+        <div class="actions" style="margin-top:10px;">
+            <button id="supplierContactSaveButton" type="button" onclick="saveSubcontractorSupplierContact()">Add Contact</button>
+            <button class="secondary" type="button" onclick="clearSubcontractorSupplierContactForm()">Clear Contact</button>
+        </div>
+        <div id="supplierContactStatus" class="small" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="subcontractorsSuppliersAdminList" class="small" style="margin-top:12px;">Loading subcontractors and suppliers...</div>
+</div>
+
 <div id="backupsSection" class="card" hidden>
     <h2>Backups</h2>
     <div class="small">Use this before making big website changes. The automatic backup still runs from your computer, so the admin page gives you the command to force it and an inspector to confirm a ZIP contains website files, Supabase tables, and storage exports.</div>
@@ -2930,6 +3010,8 @@ let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
 let contacts = [];
+let subcontractorSuppliers = [];
+let subcontractorSupplierContacts = [];
 let subcontractorActivity = [];
 let announcementAcknowledgements = [];
 let vacationCalendarMonth = new Date();
@@ -2943,6 +3025,9 @@ let policyUrls = {};
 let activeAdminReportSubtab = localStorage.getItem("jgcActiveAdminReportSubtab") || "daily";
 let currentUserId = "";
 let editingContactId = "";
+let editingSubcontractorSupplierId = "";
+let selectedSubcontractorSupplierId = "";
+let editingSubcontractorSupplierContactId = "";
 let editingTimesheetId = "";
 let editingLiveTimesheetEntryId = "";
 let editingEquipmentId = "";
@@ -2958,8 +3043,8 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_TOOL_TABS = ["noticePolicy", "jobs", "equipment", "contacts", "backups"];
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "backups"];
+const ADMIN_TOOL_TABS = ["noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -3360,6 +3445,11 @@ async function loadAdminTabData(tab) {
         return;
     }
 
+    if (tab === "subcontractorsSuppliers") {
+        await loadSubcontractorSuppliers();
+        return;
+    }
+
     if (tab === "jobDashboard") {
         const [liveResult, inspectionResult, dailyResult, workOrderResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
             { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
@@ -3460,6 +3550,10 @@ function renderActiveAdminTab(tab) {
 
     if (requestedTab === "contacts") {
         renderContacts();
+    }
+
+    if (requestedTab === "subcontractorsSuppliers") {
+        renderSubcontractorSuppliers();
     }
 
     if (requestedTab === "reports") {
@@ -3575,7 +3669,10 @@ function getRequestedAdminTab() {
     const stored = localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
     const tabAliases = {
         announcements: "noticePolicy",
-        policies: "noticePolicy"
+        policies: "noticePolicy",
+        subcontractors: "subcontractorsSuppliers",
+        suppliers: "subcontractorsSuppliers",
+        vendors: "subcontractorsSuppliers"
     };
 
     if (requested === "certificates" || stored === "certificates") {
@@ -3682,6 +3779,7 @@ function renderAdminSectionsSafely() {
         ["work order labour workers", renderWorkOrderLabourWorkers],
         ["equipment", renderEquipment],
         ["contacts", renderContacts],
+        ["subcontractors suppliers", renderSubcontractorSuppliers],
         ["employee profile options", renderEmployeeProfileOptions],
         ["employee profile", renderEmployeeProfile],
         ["schedule calendar", renderAdminScheduleCalendar],
@@ -3955,6 +4053,8 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+        supabaseClient.from("subcontractors_suppliers").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("company_name", { ascending: true }),
+        supabaseClient.from("subcontractor_supplier_contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("contact_name", { ascending: true }),
         supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80)
     ].map((query, index) => Promise.resolve(query).then((result) => {
@@ -3968,7 +4068,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -4013,6 +4113,8 @@ async function loadAdminData(options = {}) {
         equipmentNotifications = equipmentNotificationResult.data || [];
         equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
         contacts = contactResult.data || [];
+        subcontractorSuppliers = subcontractorSupplierResult.data || [];
+        subcontractorSupplierContacts = subcontractorSupplierContactResult.data || [];
         safetyAcknowledgements = safetyAcknowledgementResult.data || [];
         subcontractorActivity = subcontractorActivityResult.data || [];
         await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
@@ -4067,7 +4169,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "backups", "accounts"].forEach((tab) => {
+    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -5468,6 +5570,7 @@ function renderPortalSummary() {
     const activeWorkOrders = workOrders.filter((wo) => String(wo.status || "").toLowerCase() !== "submitted").length;
     const activeEquipment = equipmentItems.length;
     const activeContacts = contacts.length;
+    const activeSubcontractorSuppliers = subcontractorSuppliers.length;
     const reportsForBadge = dailySiteReports
         .concat(incidentReports)
         .concat(accidentReports)
@@ -5572,6 +5675,13 @@ function renderPortalSummary() {
             badgeCount: null,
             detail: "Active company contacts",
             action: "openAdminSummaryTile('contacts')"
+        },
+        {
+            title: "Subs/Suppliers",
+            value: activeSubcontractorSuppliers,
+            badgeCount: countNewForAdminTab(subcontractorSuppliers, "subcontractorsSuppliers", ["created_at", "updated_at"]),
+            detail: "Active subcontractors and suppliers",
+            action: "openAdminSummaryTile('subcontractorsSuppliers')"
         },
         {
             title: "Accounts",
@@ -11883,6 +11993,431 @@ async function deleteContact(id) {
     }
 
     await loadContacts();
+}
+
+function setSubcontractorSupplierStatus(message) {
+    document.getElementById("supplierStatus").textContent = message || "";
+}
+
+function setSubcontractorSupplierContactStatus(message) {
+    document.getElementById("supplierContactStatus").textContent = message || "";
+}
+
+function getSubcontractorSupplierById(id) {
+    return subcontractorSuppliers.find((item) => String(item.id) === String(id));
+}
+
+function getSubcontractorSupplierContacts(companyId) {
+    return subcontractorSupplierContacts
+        .filter((contact) => String(contact.company_id) === String(companyId) && contact.is_active !== false)
+        .slice()
+        .sort((a, b) =>
+            Number(a.sort_order || 0) - Number(b.sort_order || 0) ||
+            String(a.contact_name || "").localeCompare(String(b.contact_name || ""))
+        );
+}
+
+function clearSubcontractorSupplierContactForm(options = {}) {
+    editingSubcontractorSupplierContactId = "";
+    document.getElementById("supplierContactName").value = "";
+    document.getElementById("supplierContactRole").value = "";
+    document.getElementById("supplierContactPhone").value = "";
+    document.getElementById("supplierContactEmail").value = "";
+    document.getElementById("supplierContactOrder").value = "0";
+    document.getElementById("supplierContactNotes").value = "";
+    document.getElementById("supplierContactSaveButton").textContent = "Add Contact";
+
+    if (!options.keepCompany) {
+        selectedSubcontractorSupplierId = "";
+    }
+
+    updateSubcontractorSupplierContactSelection();
+    setSubcontractorSupplierContactStatus("");
+}
+
+function updateSubcontractorSupplierContactSelection() {
+    const selected = getSubcontractorSupplierById(selectedSubcontractorSupplierId);
+    const label = document.getElementById("supplierSelectedCompany");
+
+    if (!label) {
+        return;
+    }
+
+    label.textContent = selected
+        ? "Adding contacts for: " + selected.company_name
+        : "Select a company below, or save a new company first.";
+}
+
+function selectSubcontractorSupplierForContact(id) {
+    const selected = getSubcontractorSupplierById(id);
+
+    if (!selected) {
+        alert("Company could not be found.");
+        return;
+    }
+
+    selectedSubcontractorSupplierId = selected.id;
+    clearSubcontractorSupplierContactForm({ keepCompany: true });
+    setSubcontractorSupplierContactStatus("Ready to add a contact for " + selected.company_name + ".");
+}
+
+function clearSubcontractorSupplierForm() {
+    editingSubcontractorSupplierId = "";
+    document.getElementById("supplierCompanyName").value = "";
+    document.getElementById("supplierCategory").value = "Subcontractor";
+    document.getElementById("supplierServiceType").value = "";
+    document.getElementById("supplierOrder").value = "0";
+    document.getElementById("supplierNotes").value = "";
+    document.getElementById("supplierSaveButton").textContent = "Add Company";
+    setSubcontractorSupplierStatus("");
+}
+
+function editSubcontractorSupplier(id) {
+    const entry = subcontractorSuppliers.find((item) => item.id === id);
+
+    if (!entry) {
+        alert("Subcontractor or supplier could not be found.");
+        return;
+    }
+
+    editingSubcontractorSupplierId = id;
+    document.getElementById("supplierCompanyName").value = entry.company_name || "";
+    document.getElementById("supplierCategory").value = entry.category || "Subcontractor";
+    document.getElementById("supplierServiceType").value = entry.service_type || "";
+    document.getElementById("supplierOrder").value = entry.sort_order || 0;
+    document.getElementById("supplierNotes").value = entry.notes || "";
+    document.getElementById("supplierSaveButton").textContent = "Update Company";
+    selectedSubcontractorSupplierId = id;
+    updateSubcontractorSupplierContactSelection();
+    setSubcontractorSupplierStatus("Editing " + (entry.company_name || "company") + ".");
+}
+
+function renderSubcontractorSupplierContactList(entry) {
+    const rows = getSubcontractorSupplierContacts(entry.id);
+
+    if (!rows.length) {
+        return '<div class="small">No contacts added yet.</div>';
+    }
+
+    return rows.map((contact) => `
+        <div class="detail-item" style="margin-bottom:8px;">
+            <strong>${escapeHtml(contact.contact_name || "Contact")}</strong>
+            ${contact.role ? '<div>' + escapeHtml(contact.role) + '</div>' : ""}
+            ${contact.phone ? '<div><a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
+            ${contact.email ? '<div><a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
+            ${contact.notes ? '<div class="small">' + escapeHtml(contact.notes) + '</div>' : ""}
+            <div class="actions" style="margin-top:6px;">
+                <button type="button" class="secondary" onclick="editSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Edit Contact</button>
+                <button type="button" class="delete-button" onclick="deleteSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Delete Contact</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderSubcontractorSuppliers() {
+    const list = document.getElementById("subcontractorsSuppliersAdminList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!subcontractorSuppliers.length) {
+        list.textContent = "No subcontractors or suppliers added yet.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Company</th>
+                        <th>Category</th>
+                        <th>Service / Trade</th>
+                        <th>Contacts</th>
+                        <th>Notes</th>
+                        <th>Order</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${subcontractorSuppliers.map((entry) => `
+                        <tr>
+                            <td>${escapeHtml(entry.company_name)}</td>
+                            <td>${escapeHtml(entry.category || "")}</td>
+                            <td>${escapeHtml(entry.service_type || "")}</td>
+                            <td>${renderSubcontractorSupplierContactList(entry)}</td>
+                            <td>${escapeHtml(entry.notes || "")}</td>
+                            <td>${Number(entry.sort_order || 0)}</td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" class="secondary" onclick="editSubcontractorSupplier('${escapeHtml(entry.id)}')">Edit Company</button>
+                                    <button type="button" onclick="selectSubcontractorSupplierForContact('${escapeHtml(entry.id)}')">Add Contact</button>
+                                    <button type="button" class="delete-button" onclick="deleteSubcontractorSupplier('${escapeHtml(entry.id)}')">Delete Company</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadSubcontractorSuppliers() {
+    const companyResult = await supabaseClient
+        .from("subcontractors_suppliers")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("company_name", { ascending: true });
+
+    if (companyResult.error) {
+        document.getElementById("subcontractorsSuppliersAdminList").textContent = "Subcontractors and suppliers could not be loaded.";
+        return;
+    }
+
+    subcontractorSuppliers = companyResult.data || [];
+    subcontractorSupplierContacts = [];
+
+    const companyIds = subcontractorSuppliers.map((entry) => entry.id).filter(Boolean);
+
+    if (companyIds.length) {
+        const contactResult = await supabaseClient
+            .from("subcontractor_supplier_contacts")
+            .select("*")
+            .in("company_id", companyIds)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .order("contact_name", { ascending: true });
+
+        if (contactResult.error) {
+            setSubcontractorSupplierContactStatus("Contacts could not be loaded. Run the updated setup SQL if this table is new.");
+        } else {
+            subcontractorSupplierContacts = contactResult.data || [];
+        }
+    }
+
+    if (selectedSubcontractorSupplierId && !getSubcontractorSupplierById(selectedSubcontractorSupplierId)) {
+        clearSubcontractorSupplierContactForm();
+    } else {
+        updateSubcontractorSupplierContactSelection();
+    }
+
+    renderSubcontractorSuppliers();
+    renderPortalSummary();
+}
+
+async function saveSubcontractorSupplier() {
+    const companyName = document.getElementById("supplierCompanyName").value.trim();
+    const category = document.getElementById("supplierCategory").value.trim() || "Subcontractor";
+    const serviceType = document.getElementById("supplierServiceType").value.trim();
+    const notes = document.getElementById("supplierNotes").value.trim();
+    const sortOrder = Number(document.getElementById("supplierOrder").value || 0);
+
+    if (!companyName) {
+        alert("Add a company name.");
+        return;
+    }
+
+    setSubcontractorSupplierStatus(editingSubcontractorSupplierId ? "Updating company..." : "Adding company...");
+
+    const values = {
+        company_name: companyName,
+        category,
+        service_type: serviceType,
+        notes,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+        updated_at: new Date().toISOString()
+    };
+
+    let result;
+
+    if (editingSubcontractorSupplierId) {
+        result = await supabaseClient
+            .from("subcontractors_suppliers")
+            .update(values)
+            .eq("id", editingSubcontractorSupplierId)
+            .select()
+            .single();
+    } else {
+        result = await supabaseClient
+            .from("subcontractors_suppliers")
+            .insert({
+                ...values,
+                created_by: currentUserId || null,
+                created_by_name: currentWorkerDisplay,
+                is_active: true
+            })
+            .select()
+            .single();
+    }
+
+    if (result.error) {
+        setSubcontractorSupplierStatus("Company could not be saved.");
+        return;
+    }
+
+    const savedId = result.data && result.data.id ? result.data.id : editingSubcontractorSupplierId;
+    clearSubcontractorSupplierForm();
+    setSubcontractorSupplierStatus("Company saved.");
+    await loadSubcontractorSuppliers();
+
+    if (savedId) {
+        selectSubcontractorSupplierForContact(savedId);
+    }
+}
+
+async function deleteSubcontractorSupplier(id) {
+    const entry = subcontractorSuppliers.find((item) => item.id === id);
+
+    if (!entry) {
+        alert("Subcontractor or supplier could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete " + (entry.company_name || "this entry") + "?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("subcontractors_suppliers")
+        .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Entry could not be deleted.");
+        return;
+    }
+
+    if (editingSubcontractorSupplierId === id) {
+        clearSubcontractorSupplierForm();
+    }
+
+    await loadSubcontractorSuppliers();
+}
+
+function editSubcontractorSupplierContact(id) {
+    const contact = subcontractorSupplierContacts.find((item) => item.id === id);
+
+    if (!contact) {
+        alert("Contact could not be found.");
+        return;
+    }
+
+    selectedSubcontractorSupplierId = contact.company_id;
+    editingSubcontractorSupplierContactId = id;
+    document.getElementById("supplierContactName").value = contact.contact_name || "";
+    document.getElementById("supplierContactRole").value = contact.role || "";
+    document.getElementById("supplierContactPhone").value = contact.phone || "";
+    document.getElementById("supplierContactEmail").value = contact.email || "";
+    document.getElementById("supplierContactOrder").value = contact.sort_order || 0;
+    document.getElementById("supplierContactNotes").value = contact.notes || "";
+    document.getElementById("supplierContactSaveButton").textContent = "Update Contact";
+    updateSubcontractorSupplierContactSelection();
+    setSubcontractorSupplierContactStatus("Editing " + (contact.contact_name || "contact") + ".");
+}
+
+async function saveSubcontractorSupplierContact() {
+    const selected = getSubcontractorSupplierById(selectedSubcontractorSupplierId);
+    const contactName = document.getElementById("supplierContactName").value.trim();
+    const role = document.getElementById("supplierContactRole").value.trim();
+    const phone = document.getElementById("supplierContactPhone").value.trim();
+    const email = document.getElementById("supplierContactEmail").value.trim();
+    const notes = document.getElementById("supplierContactNotes").value.trim();
+    const sortOrder = Number(document.getElementById("supplierContactOrder").value || 0);
+
+    if (!selected) {
+        alert("Select or save a company before adding contacts.");
+        return;
+    }
+
+    if (!contactName) {
+        alert("Add a contact name.");
+        return;
+    }
+
+    if (!phone && !email) {
+        alert("Add at least a phone number or email address.");
+        return;
+    }
+
+    setSubcontractorSupplierContactStatus(editingSubcontractorSupplierContactId ? "Updating contact..." : "Adding contact...");
+
+    const values = {
+        company_id: selected.id,
+        contact_name: contactName,
+        role,
+        phone,
+        email,
+        notes,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+        updated_at: new Date().toISOString()
+    };
+
+    const result = editingSubcontractorSupplierContactId
+        ? await supabaseClient
+            .from("subcontractor_supplier_contacts")
+            .update(values)
+            .eq("id", editingSubcontractorSupplierContactId)
+        : await supabaseClient
+            .from("subcontractor_supplier_contacts")
+            .insert({
+                ...values,
+                created_by: currentUserId || null,
+                created_by_name: currentWorkerDisplay,
+                is_active: true
+            });
+
+    if (result.error) {
+        setSubcontractorSupplierContactStatus("Contact could not be saved.");
+        return;
+    }
+
+    const companyId = selected.id;
+    clearSubcontractorSupplierContactForm({ keepCompany: true });
+    await loadSubcontractorSuppliers();
+    selectedSubcontractorSupplierId = companyId;
+    updateSubcontractorSupplierContactSelection();
+    renderSubcontractorSuppliers();
+    setSubcontractorSupplierContactStatus("Contact saved.");
+}
+
+async function deleteSubcontractorSupplierContact(id) {
+    const contact = subcontractorSupplierContacts.find((item) => item.id === id);
+
+    if (!contact) {
+        alert("Contact could not be found.");
+        return;
+    }
+
+    if (!confirm("Delete " + (contact.contact_name || "this contact") + "?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("subcontractor_supplier_contacts")
+        .update({
+            is_active: false,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+    if (error) {
+        alert("Contact could not be deleted.");
+        return;
+    }
+
+    const companyId = contact.company_id;
+    clearSubcontractorSupplierContactForm({ keepCompany: true });
+    await loadSubcontractorSuppliers();
+    selectedSubcontractorSupplierId = companyId;
+    updateSubcontractorSupplierContactSelection();
+    renderSubcontractorSuppliers();
+    setSubcontractorSupplierContactStatus("Contact deleted.");
 }
 
 async function reviewVacationRequest(id, status) {
