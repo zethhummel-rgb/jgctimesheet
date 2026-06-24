@@ -82,6 +82,7 @@ label {
 
 input[type=text],
 input[type=date],
+select,
 textarea {
     padding: 8px;
     border: 1px solid #b8c2b2;
@@ -91,6 +92,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
     border-color: #3f7d4d;
     outline: 2px solid #d9ead5;
@@ -180,6 +182,56 @@ button:hover {
     min-height: 100px;
 }
 
+.crew-picker-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 10px;
+}
+
+.crew-selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 12px;
+    min-height: 32px;
+}
+
+.crew-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: #dfe9da;
+    color: #1f3d28;
+    font-weight: bold;
+}
+
+.crew-pill button {
+    padding: 2px 7px;
+    min-height: 0;
+    background: #9a3f3f;
+}
+
+.crew-help {
+    margin: 5px 0 8px;
+    font-size: 12px;
+    color: #4f5c54;
+}
+
+.crew-status {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #4f5c54;
+}
+
+.signoff textarea[readonly] {
+    background: #eef3ec;
+    color: #1f2a24;
+}
+
 @media(max-width: 768px) {
     body {
         padding: 10px;
@@ -195,6 +247,10 @@ button:hover {
 
     .actions {
         display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .crew-picker-grid {
         grid-template-columns: 1fr;
     }
 
@@ -222,6 +278,10 @@ button:hover {
     .logo-wrap,
     .user-bar,
     .actions,
+    .crew-picker-grid,
+    .crew-selected-list,
+    .crew-help,
+    .crew-status,
     .delete-column,
     .delete-cell {
         display: none;
@@ -303,8 +363,23 @@ button:hover {
 </div>
 
 <div class="signoff">
-    <label>Crew Sign Off (Print Names)</label>
-    <textarea placeholder="One person per line. For subcontractors or visitors, use Name - Company."></textarea>
+    <label>Crew Sign Off</label>
+    <div class="crew-picker-grid">
+        <div>
+            <label for="approvedCrewSelect">Approved Employee</label>
+            <select id="approvedCrewSelect" data-inspection-skip="true">
+                <option value="">Loading approved employees...</option>
+            </select>
+            <div id="approvedCrewStatus" class="crew-status"></div>
+        </div>
+        <button type="button" onclick="addApprovedCrewMember()">Add Employee</button>
+    </div>
+    <div id="selectedCrewList" class="crew-selected-list"></div>
+    <label for="manualCrewSignOff">Manual Entry</label>
+    <div class="crew-help">Use one person per line. For subcontractors or visitors, use Name - Company.</div>
+    <textarea id="manualCrewSignOff" data-inspection-skip="true" placeholder="Example: Stanley Square - ABC Concrete" oninput="syncCrewSignOffField()"></textarea>
+    <label for="crewSignOffCombined">Crew Sign Off (Print Names)</label>
+    <textarea id="crewSignOffCombined" readonly placeholder="Approved employees and manual entries will appear here."></textarea>
 </div>
 
 <div class="table-wrap">
@@ -342,16 +417,179 @@ button:hover {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=7"></script>
 <script src="safety-acknowledgements.js?v=1"></script>
-<script src="inspection-records.js?v=5"></script>
+<script src="inspection-records.js?v=6"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
+let approvedCrewWorkers = [];
+const selectedCrewMembers = new Map();
 
 if (!currentWorker) {
     window.location.href = "index.html";
 }
 
 document.getElementById("currentUser").innerText = "Signed in as: " + currentWorkerDisplay;
+
+function escapeJsaHtml(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function getCrewWorkerKey(workerRow) {
+    if (workerRow && workerRow.worker_key) {
+        return workerRow.worker_key;
+    }
+
+    if (typeof normalizeWorkerName === "function") {
+        return normalizeWorkerName(workerRow && workerRow.display_name || "");
+    }
+
+    return String(workerRow && workerRow.display_name || "").trim().toLowerCase();
+}
+
+function setApprovedCrewStatus(message) {
+    const status = document.getElementById("approvedCrewStatus");
+    if (status) {
+        status.textContent = message || "";
+    }
+}
+
+function renderApprovedCrewSelect() {
+    const select = document.getElementById("approvedCrewSelect");
+
+    if (!select) {
+        return;
+    }
+
+    const availableWorkers = approvedCrewWorkers.filter((workerRow) => !selectedCrewMembers.has(getCrewWorkerKey(workerRow)));
+
+    if (!availableWorkers.length) {
+        select.innerHTML = '<option value="">No approved employees available</option>';
+        return;
+    }
+
+    select.innerHTML = '<option value="">Select approved employee</option>' + availableWorkers.map((workerRow) => {
+        const key = getCrewWorkerKey(workerRow);
+        const label = workerRow.display_name || key;
+        return `<option value="${escapeJsaHtml(key)}">${escapeJsaHtml(label)}</option>`;
+    }).join("");
+}
+
+function renderSelectedCrewMembers() {
+    const list = document.getElementById("selectedCrewList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!selectedCrewMembers.size) {
+        list.innerHTML = '<div class="crew-help">No approved employees selected yet.</div>';
+        return;
+    }
+
+    list.innerHTML = Array.from(selectedCrewMembers.values()).map((workerRow) => {
+        const key = getCrewWorkerKey(workerRow);
+        const label = workerRow.display_name || key;
+        return `
+            <span class="crew-pill">
+                ${escapeJsaHtml(label)}
+                <button type="button" onclick="removeApprovedCrewMember('${escapeJsaHtml(key)}')" aria-label="Remove ${escapeJsaHtml(label)}">X</button>
+            </span>
+        `;
+    }).join("");
+}
+
+function getManualCrewLines() {
+    return String(document.getElementById("manualCrewSignOff") && document.getElementById("manualCrewSignOff").value || "")
+        .split(/\r?\n|,/)
+        .map((line) => line.trim().replace(/\s+/g, " "))
+        .filter(Boolean);
+}
+
+function syncCrewSignOffField() {
+    const field = document.getElementById("crewSignOffCombined");
+
+    if (!field) {
+        return;
+    }
+
+    const seen = new Set();
+    const lines = Array.from(selectedCrewMembers.values())
+        .map((workerRow) => workerRow.display_name || getCrewWorkerKey(workerRow))
+        .concat(getManualCrewLines())
+        .filter((line) => {
+            const key = typeof normalizeWorkerName === "function" ? normalizeWorkerName(line) : String(line).toLowerCase();
+
+            if (!key || seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+            return true;
+        });
+
+    field.value = lines.join("\n");
+}
+
+function addApprovedCrewMember() {
+    const select = document.getElementById("approvedCrewSelect");
+    const key = select ? select.value : "";
+
+    if (!key) {
+        return;
+    }
+
+    const workerRow = approvedCrewWorkers.find((item) => getCrewWorkerKey(item) === key);
+
+    if (!workerRow) {
+        return;
+    }
+
+    selectedCrewMembers.set(key, workerRow);
+    renderApprovedCrewSelect();
+    renderSelectedCrewMembers();
+    syncCrewSignOffField();
+}
+
+function removeApprovedCrewMember(key) {
+    selectedCrewMembers.delete(key);
+    renderApprovedCrewSelect();
+    renderSelectedCrewMembers();
+    syncCrewSignOffField();
+}
+
+async function loadApprovedCrewWorkers() {
+    if (!inspectionSupabaseClient) {
+        setApprovedCrewStatus("Approved employees could not be loaded.");
+        renderApprovedCrewSelect();
+        renderSelectedCrewMembers();
+        return;
+    }
+
+    const { data, error } = await inspectionSupabaseClient
+        .from("work_order_labour_workers")
+        .select("id, profile_id, display_name, worker_key, approved")
+        .eq("approved", true)
+        .order("display_name", { ascending: true });
+
+    if (error) {
+        approvedCrewWorkers = [];
+        setApprovedCrewStatus("Approved employee list could not be loaded. Use manual entry if needed.");
+        renderApprovedCrewSelect();
+        renderSelectedCrewMembers();
+        return;
+    }
+
+    approvedCrewWorkers = (data || []).filter((workerRow) => workerRow.display_name || workerRow.worker_key);
+    setApprovedCrewStatus(approvedCrewWorkers.length ? approvedCrewWorkers.length + " approved employees loaded." : "No approved employees found.");
+    renderApprovedCrewSelect();
+    renderSelectedCrewMembers();
+    syncCrewSignOffField();
+}
 
 function addRow() {
     const row = `
@@ -375,12 +613,15 @@ function handleInspectionSave(type) {
         return;
     }
 
+    syncCrewSignOffField();
     saveInspection(type);
 }
 
 async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
+
+loadApprovedCrewWorkers();
 </script>
 
 </body>
