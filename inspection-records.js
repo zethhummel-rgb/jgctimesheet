@@ -201,6 +201,15 @@ function getInspectionDate(fields) {
     return dateField ? dateField.value : new Date().toISOString().slice(0, 10);
 }
 
+function getInspectionFieldValue(fields, labelPattern) {
+    const field = (fields || []).find((item) => labelPattern.test(item.label || ""));
+    return field ? String(field.value || "").trim() : "";
+}
+
+function getInspectionRecordTypeKey(type) {
+    return String(type || "").trim().toLowerCase();
+}
+
 function buildInspectionEmail(type, fields, rows) {
     const worker = getCurrentWorker();
     const lines = [
@@ -225,6 +234,59 @@ function buildInspectionEmail(type, fields, rows) {
     return lines.join("\n");
 }
 
+async function createJsaSafetyAcknowledgements(savedRecord, fields) {
+    if (
+        !savedRecord ||
+        getInspectionRecordTypeKey(savedRecord.inspection_type) !== "jsa" ||
+        typeof safetyAckLoadApprovedProfiles !== "function" ||
+        typeof safetyAckParseManualAttendees !== "function" ||
+        typeof safetyAckBuildAttendeesFromNames !== "function" ||
+        typeof safetyAckBuildRowsForRecord !== "function" ||
+        typeof safetyAckSaveRows !== "function"
+    ) {
+        return [];
+    }
+
+    const manualAttendees = safetyAckParseManualAttendees(getInspectionFieldValue(fields, /Crew Sign Off/i), "");
+
+    if (!manualAttendees.length) {
+        return [];
+    }
+
+    const profiles = await safetyAckLoadApprovedProfiles(inspectionSupabaseClient);
+    const attendees = safetyAckBuildAttendeesFromNames(manualAttendees, profiles, { defaultCompany: "" });
+
+    if (!attendees.length) {
+        return [];
+    }
+
+    const token = typeof safetyAckCreateToken === "function"
+        ? safetyAckCreateToken()
+        : "jsa-" + Date.now();
+    const rows = safetyAckBuildRowsForRecord({
+        recordType: "jsa",
+        recordId: savedRecord.id,
+        recordTitle: savedRecord.title || "JSA - " + (savedRecord.inspection_date || ""),
+        recordDate: savedRecord.inspection_date || null,
+        project: savedRecord.project || getInspectionFieldValue(fields, /Project|Job/i),
+        location: savedRecord.location || getInspectionFieldValue(fields, /Location/i),
+        jobNumber: savedRecord.job_number || "",
+        jobName: savedRecord.job_name || "",
+        qrToken: token,
+        creator: getCurrentWorker(),
+        attendees
+    });
+
+    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
+
+    if (error) {
+        console.warn("JSA acknowledgement rows could not be created.", error);
+        return [];
+    }
+
+    return data || [];
+}
+
 function escapeInspectionHtml(value) {
     return String(value || "")
         .replace(/&/g, "&amp;")
@@ -246,6 +308,85 @@ function getInspectionRows(record) {
         : [];
 }
 
+function getInspectionRecordAcknowledgements(record) {
+    if (record && Array.isArray(record.safety_acknowledgements)) {
+        return record.safety_acknowledgements;
+    }
+
+    const formData = record && record.form_data && typeof record.form_data === "object"
+        ? record.form_data
+        : {};
+    const acknowledgements = Array.isArray(formData.acknowledgements)
+        ? formData.acknowledgements
+        : [];
+
+    return acknowledgements.filter((ack) =>
+        ack && (ack.worker_key || ack.worker_name || ack.worker_display_name || ack.name || ack.email)
+    );
+}
+
+function getInspectionRecordAcknowledgementName(ack) {
+    return ack.worker_display_name || ack.worker_name || ack.name || ack.worker_key || ack.email || "Worker";
+}
+
+function formatInspectionRecordAcknowledgementDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function buildInspectionRecordAcknowledgementsHtml(record) {
+    if (String(record && record.inspection_type || "").toLowerCase() !== "jsa") {
+        return "";
+    }
+
+    const acknowledgements = getInspectionRecordAcknowledgements(record);
+
+    if (!acknowledgements.length) {
+        return "";
+    }
+
+    if (typeof safetyAckBuildTableHtml === "function") {
+        return `
+            <h2>Digital JSA Acknowledgements</h2>
+            ${safetyAckBuildTableHtml(acknowledgements)}
+        `;
+    }
+
+    return `
+        <h2>Digital JSA Acknowledgements</h2>
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Company</th><th>Acknowledged</th><th>Email</th></tr>
+            </thead>
+            <tbody>
+                ${acknowledgements.map((ack) => `
+                    <tr>
+                        <td>${escapeInspectionHtml(getInspectionRecordAcknowledgementName(ack))}</td>
+                        <td>${escapeInspectionHtml(ack.company || "")}</td>
+                        <td>${escapeInspectionHtml(formatInspectionRecordAcknowledgementDate(ack.acknowledged_at))}</td>
+                        <td>${escapeInspectionHtml(ack.email || "")}</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
 function buildInspectionPdfHtml(record) {
     const type = String(record.inspection_type || "Inspection");
     const typeKey = type.toLowerCase();
@@ -262,6 +403,7 @@ function buildInspectionPdfHtml(record) {
 
     let inspectionRows = "";
     let heading = "Inspection Details";
+    const acknowledgementSection = buildInspectionRecordAcknowledgementsHtml(record);
 
     if (typeKey === "jsa") {
         heading = "Job Safety Analysis";
@@ -417,6 +559,7 @@ function buildInspectionPdfHtml(record) {
             ${fieldRows ? `<h2>Form Details</h2><table><tbody>${fieldRows}</tbody></table>` : ""}
             <h2>${escapeInspectionHtml(heading)} Items</h2>
             ${inspectionRows}
+            ${acknowledgementSection}
         </body>
         </html>
     `;
@@ -464,9 +607,11 @@ async function saveInspection(type) {
         email_body: emailBody
     };
 
-    const { error } = await inspectionSupabaseClient
+    const { data, error } = await inspectionSupabaseClient
         .from("inspection_records")
-        .insert(record);
+        .insert(record)
+        .select()
+        .single();
 
     if (error) {
         setInspectionSaveStatus("");
@@ -474,9 +619,16 @@ async function saveInspection(type) {
         return;
     }
 
+    const savedRecord = {
+        ...record,
+        ...(data || {})
+    };
+    const safetyRows = await createJsaSafetyAcknowledgements(savedRecord, fields);
+    savedRecord.safety_acknowledgements = safetyRows;
+
     if (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession()) {
         setInspectionSaveStatus("Inspection saved. Emailing PDF...");
-        await emailInspectionRecord(record);
+        await emailInspectionRecord(savedRecord);
     }
 
     setInspectionSaveStatus("Inspection saved.");
