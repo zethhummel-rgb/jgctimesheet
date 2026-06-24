@@ -1805,7 +1805,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="common.js?v=6"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -1816,6 +1817,7 @@ const isAdmin = isAdminWorker(currentWorker, currentUserRole);
 const SCHEDULE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 let announcements = [];
 let announcementUrls = {};
+let safetyAcknowledgements = [];
 let toolboxAcknowledgements = [];
 let accidentAcknowledgements = [];
 let employeeInjuryAcknowledgements = [];
@@ -3451,7 +3453,7 @@ async function loadAnnouncements() {
   }
 
   const userId = await getCurrentUserId();
-  const [announcementResult, acknowledgementResult, toolboxResult, accidentResult, employeeInjuryResult] = await Promise.all([
+  const [announcementResult, acknowledgementResult, safetyResult, toolboxResult, accidentResult, employeeInjuryResult] = await Promise.all([
     supabaseClient
       .from("announcements")
       .select("*")
@@ -3464,6 +3466,13 @@ async function loadAnnouncements() {
         .select("announcement_id")
         .eq("worker_id", userId)
       : Promise.resolve({ data: [], error: null }),
+    supabaseClient
+      .from("safety_acknowledgements")
+      .select("*")
+      .in("acknowledgement_status", ["pending"])
+      .is("removed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(100),
     supabaseClient
       .from("toolbox_talk_attendance")
       .select("*, toolbox_talk_reports(*)")
@@ -3500,6 +3509,9 @@ async function loadAnnouncements() {
       return isTargetedToWorker && !acknowledgedAnnouncementIds.has(announcement.id);
     })
     .slice(0, 3);
+  safetyAcknowledgements = (safetyResult.data || [])
+    .filter((ack) => typeof safetyAckRowMatchesWorker === "function" ? safetyAckRowMatchesWorker(ack, worker) : false)
+    .slice(0, 5);
   toolboxAcknowledgements = toolboxResult.data || [];
   accidentAcknowledgements = accidentResult.data || [];
   employeeInjuryAcknowledgements = employeeInjuryResult.data || [];
@@ -3529,6 +3541,21 @@ async function prepareAnnouncementUrls() {
 function renderAnnouncements() {
   const panel = document.getElementById("announcementsPanel");
   const list = document.getElementById("announcementsList");
+  const safetyCards = safetyAcknowledgements.map((ack) => {
+    const typeLabel = ack.record_type === "toolbox_talk" ? "Toolbox Talk" : "JSA";
+
+    return `
+      <article class="announcement-item">
+        <span class="info-icon"><i data-lucide="shield-check"></i></span>
+        <div>
+          <h2>${escapeHtml(typeLabel)} Acknowledgement Required</h2>
+          <div class="muted">${escapeHtml(ack.record_title || typeLabel)}</div>
+          <div class="muted">${escapeHtml(ack.project || "")}${ack.record_date ? " - " + escapeHtml(formatDisplayDate(ack.record_date)) : ""}</div>
+        </div>
+        <button type="button" class="announcement-file" onclick="acknowledgeSafetyRecord('${escapeHtml(ack.id)}')">Acknowledge</button>
+      </article>
+    `;
+  });
   const toolboxCards = toolboxAcknowledgements.map((ack) => {
     const report = ack.toolbox_talk_reports || {};
 
@@ -3575,7 +3602,7 @@ function renderAnnouncements() {
     `;
   });
 
-  if (!announcements.length && !toolboxCards.length && !accidentCards.length && !injuryCards.length) {
+  if (!announcements.length && !safetyCards.length && !toolboxCards.length && !accidentCards.length && !injuryCards.length) {
     panel.hidden = true;
     return;
   }
@@ -3593,13 +3620,49 @@ function renderAnnouncements() {
     </article>
   `);
 
-  list.innerHTML = accidentCards.concat(injuryCards).concat(toolboxCards).concat(announcementCards).join("");
+  list.innerHTML = accidentCards.concat(injuryCards).concat(safetyCards).concat(toolboxCards).concat(announcementCards).join("");
 
   list.querySelectorAll("[data-announcement-pdf]").forEach((link) => {
     link.addEventListener("click", () => acknowledgeAnnouncement(link.dataset.announcementPdf, "home_pdf"));
   });
 
   renderIcons();
+}
+
+async function acknowledgeSafetyRecord(id) {
+  const ack = safetyAcknowledgements.find((item) => item.id === id);
+
+  if (!ack || (typeof safetyAckRowMatchesWorker === "function" && !safetyAckRowMatchesWorker(ack, worker))) {
+    alert("This safety acknowledgement is not assigned to the current user.");
+    await loadAnnouncements();
+    return;
+  }
+
+  if (!confirm("I confirm I reviewed and understood this JSA/Toolbox Talk and had the opportunity to ask questions.")) {
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("safety_acknowledgements")
+    .update({
+      acknowledgement_status: "acknowledged_by_user",
+      acknowledgement_method: "user_portal",
+      acknowledged_at: new Date().toISOString(),
+      acknowledged_by_name: currentWorkerDisplay,
+      acknowledgement_note: ""
+    })
+    .eq("id", ack.id)
+    .eq("attendee_key", ack.attendee_key)
+    .is("acknowledged_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    alert("Safety acknowledgement could not be saved.");
+    return;
+  }
+
+  await loadAnnouncements();
 }
 
 async function acknowledgeToolboxAttendance(id) {
