@@ -217,7 +217,9 @@ $defaultTables = @(
   "policies",
   "equipment_vehicles",
   "equipment_expiry_notifications",
-  "contacts"
+  "contacts",
+  "subcontractors_suppliers",
+  "subcontractor_supplier_contacts"
 )
 
 $defaultBuckets = @(
