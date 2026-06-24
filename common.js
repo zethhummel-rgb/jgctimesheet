@@ -1308,15 +1308,24 @@ function activateContactsLinks() {
   const isAdminPage = /admin\.html$/i.test(window.location.pathname);
 
   document.querySelectorAll("button").forEach((button) => {
-    if (isAdminPage && (button.id === "contactsTab" || button.closest(".tabs"))) {
+    const currentAction = String(button.getAttribute("onclick") || "").toLowerCase();
+
+    if (
+      isAdminPage &&
+      (
+        button.id === "contactsTab" ||
+        button.closest(".tabs") ||
+        button.closest(".admin-tools-grid") ||
+        currentAction.includes("openadmintool(") ||
+        currentAction.includes("showtab(")
+      )
+    ) {
       return;
     }
 
     const label = button.textContent.replace(/\s+/g, " ").trim().toLowerCase();
-    const currentAction = String(button.getAttribute("onclick") || "").toLowerCase();
     const isContactsLink = label === "contacts"
-      || label.includes("contacts")
-      || currentAction.includes("contacts")
+      || currentAction.includes("contacts.html")
       || currentAction.includes("comingsoon('contacts")
       || currentAction.includes('comingsoon("contacts');
 
