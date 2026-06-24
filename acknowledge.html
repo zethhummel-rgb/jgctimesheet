@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Safety Acknowledgement</title>
+<link rel="stylesheet" href="styles.css?v=3">
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #0b1f18;
+    margin: 0;
+    padding: 16px;
+    color: #1f2a24;
+}
+
+.logo-wrap {
+    max-width: 260px;
+    margin: 0 auto 14px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fbfcf9;
+    border-top: 5px solid #32c848;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+}
+
+h1 {
+    margin: 0 0 6px;
+    color: #0b5e3b;
+    font-size: 26px;
+}
+
+.subtitle {
+    margin-bottom: 16px;
+    color: #47534b;
+    font-weight: bold;
+}
+
+.record-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.meta-item {
+    border: 1px solid #cbd6cb;
+    border-radius: 7px;
+    padding: 10px;
+    background: #f3f7f2;
+}
+
+.meta-label {
+    display: block;
+    font-size: 12px;
+    color: #59665d;
+    font-weight: bold;
+}
+
+.meta-value {
+    display: block;
+    margin-top: 4px;
+    color: #14251c;
+    font-weight: bold;
+}
+
+label {
+    display: block;
+    margin: 12px 0 5px;
+    font-weight: bold;
+}
+
+select,
+input,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px;
+    border: 1px solid #b9c7b9;
+    border-radius: 6px;
+    font-size: 16px;
+    background: #ffffff;
+}
+
+textarea {
+    min-height: 72px;
+    resize: vertical;
+}
+
+.ack-check {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    margin: 14px 0;
+    padding: 12px;
+    background: #eef6ee;
+    border: 1px solid #cbd6cb;
+    border-radius: 7px;
+}
+
+.ack-check input {
+    width: auto;
+    margin-top: 3px;
+}
+
+button {
+    width: 100%;
+    border: none;
+    border-radius: 7px;
+    padding: 13px 15px;
+    background: #0b5e3b;
+    color: #ffffff;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+button:disabled {
+    background: #7b8580;
+    cursor: default;
+}
+
+.status {
+    min-height: 22px;
+    margin-top: 12px;
+    color: #0b5e3b;
+    font-weight: bold;
+}
+
+.error {
+    color: #9a241d;
+}
+
+.hidden {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .record-meta {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+<body>
+<div class="logo-wrap">
+    <img src="logo.webp" alt="John Gordon Construction logo">
+</div>
+
+<main class="container">
+    <h1>Safety Acknowledgement</h1>
+    <div class="subtitle">Review the record, select your name, and acknowledge you were part of the safety review.</div>
+
+    <section id="recordPanel">
+        <div class="status">Loading acknowledgement...</div>
+    </section>
+
+    <section id="ackForm" class="hidden">
+        <div id="recordMeta" class="record-meta"></div>
+
+        <label for="attendeeSelect">Select your name</label>
+        <select id="attendeeSelect" onchange="handleAttendeeChange()"></select>
+
+        <div id="notListedFields" class="hidden">
+            <label for="fullName">Full name</label>
+            <input id="fullName" autocomplete="name">
+        </div>
+
+        <label for="companyName">Company</label>
+        <input id="companyName" autocomplete="organization">
+
+        <label for="emailAddress">Email (optional)</label>
+        <input id="emailAddress" type="email" autocomplete="email">
+
+        <label for="ackNote">Comment (optional)</label>
+        <textarea id="ackNote" placeholder="Example: I was not listed, added after arriving onsite."></textarea>
+
+        <label class="ack-check">
+            <input id="ackConfirm" type="checkbox">
+            <span>I confirm I reviewed and understood this JSA/Toolbox Talk and had the opportunity to ask questions.</span>
+        </label>
+
+        <button id="submitButton" type="button" onclick="submitAcknowledgement()">Submit Acknowledgement</button>
+        <div id="submitStatus" class="status"></div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
+<script>
+const client = createJgcSupabaseClient();
+const params = new URLSearchParams(window.location.search);
+const recordType = params.get("type") || "";
+const recordId = params.get("id") || "";
+const qrToken = params.get("token") || "";
+let publicRecord = null;
+
+function setStatus(message, isError) {
+    const status = document.getElementById("submitStatus");
+    status.textContent = message || "";
+    status.classList.toggle("error", Boolean(isError));
+}
+
+function renderRecordMeta(record) {
+    const typeLabel = record.record_type === "toolbox_talk" ? "Toolbox Talk" : "JSA";
+    document.getElementById("recordMeta").innerHTML = `
+        <div class="meta-item"><span class="meta-label">Record</span><span class="meta-value">${safetyAckEscapeHtml(typeLabel)}</span></div>
+        <div class="meta-item"><span class="meta-label">Title</span><span class="meta-value">${safetyAckEscapeHtml(record.record_title || typeLabel)}</span></div>
+        <div class="meta-item"><span class="meta-label">Date</span><span class="meta-value">${safetyAckEscapeHtml(safetyAckFormatDate(record.record_date))}</span></div>
+        <div class="meta-item"><span class="meta-label">Project</span><span class="meta-value">${safetyAckEscapeHtml(record.project || "-")}</span></div>
+        <div class="meta-item"><span class="meta-label">Location</span><span class="meta-value">${safetyAckEscapeHtml(record.location || "-")}</span></div>
+        <div class="meta-item"><span class="meta-label">Created By</span><span class="meta-value">${safetyAckEscapeHtml(record.created_by_name || "-")}</span></div>
+    `;
+}
+
+function renderAttendeeOptions(record) {
+    const select = document.getElementById("attendeeSelect");
+    const attendees = Array.isArray(record.attendees) ? record.attendees : [];
+    const openAttendees = attendees.filter((attendee) => attendee.acknowledgement_status === "pending");
+    const rows = openAttendees.length ? openAttendees : attendees;
+
+    select.innerHTML = '<option value="">Select your name</option>' + rows.map((attendee) => `
+        <option value="${safetyAckEscapeHtml(attendee.id)}" data-company="${safetyAckEscapeHtml(attendee.attendee_company || "")}">
+            ${safetyAckEscapeHtml(attendee.attendee_name)}${attendee.attendee_company ? " - " + safetyAckEscapeHtml(attendee.attendee_company) : ""}
+        </option>
+    `).join("") + '<option value="not-listed">I am not listed</option>';
+}
+
+function handleAttendeeChange() {
+    const select = document.getElementById("attendeeSelect");
+    const selected = select.options[select.selectedIndex];
+    const isNotListed = select.value === "not-listed";
+    document.getElementById("notListedFields").classList.toggle("hidden", !isNotListed);
+
+    if (!isNotListed && selected) {
+        document.getElementById("companyName").value = selected.dataset.company || "";
+    }
+}
+
+async function loadAcknowledgement() {
+    const panel = document.getElementById("recordPanel");
+
+    if (!client || !recordType || !recordId || !qrToken) {
+        panel.innerHTML = '<div class="status error">This acknowledgement link is missing required information.</div>';
+        return;
+    }
+
+    const { data, error } = await client.rpc("get_public_safety_acknowledgement_record", {
+        p_record_type: recordType,
+        p_record_id: recordId,
+        p_qr_token: qrToken
+    });
+
+    const record = Array.isArray(data) ? data[0] : null;
+
+    if (error || !record) {
+        panel.innerHTML = '<div class="status error">This acknowledgement link is invalid or expired.</div>';
+        return;
+    }
+
+    publicRecord = record;
+    panel.innerHTML = "";
+    document.getElementById("ackForm").classList.remove("hidden");
+    renderRecordMeta(record);
+    renderAttendeeOptions(record);
+}
+
+async function submitAcknowledgement() {
+    const select = document.getElementById("attendeeSelect");
+    const isNotListed = select.value === "not-listed";
+    const selected = publicRecord && Array.isArray(publicRecord.attendees)
+        ? publicRecord.attendees.find((attendee) => attendee.id === select.value)
+        : null;
+    const fullName = document.getElementById("fullName").value.trim();
+    const company = document.getElementById("companyName").value.trim();
+    const email = document.getElementById("emailAddress").value.trim();
+    const note = document.getElementById("ackNote").value.trim();
+    const confirmed = document.getElementById("ackConfirm").checked;
+    const button = document.getElementById("submitButton");
+
+    if (!isNotListed && !selected) {
+        setStatus("Select your name.", true);
+        return;
+    }
+
+    if (isNotListed && !fullName) {
+        setStatus("Enter your full name.", true);
+        return;
+    }
+
+    if (!company) {
+        setStatus("Enter your company.", true);
+        return;
+    }
+
+    if (!confirmed) {
+        setStatus("Check the acknowledgement box before submitting.", true);
+        return;
+    }
+
+    button.disabled = true;
+    setStatus("Saving acknowledgement...", false);
+
+    const { data, error } = await client.rpc("submit_public_safety_acknowledgement", {
+        p_record_type: recordType,
+        p_record_id: recordId,
+        p_qr_token: qrToken,
+        p_acknowledgement_id: isNotListed ? null : selected.id,
+        p_attendee_name: isNotListed ? fullName : selected.attendee_name,
+        p_company: company,
+        p_email: email,
+        p_note: note,
+        p_unmatched: isNotListed
+    });
+
+    const result = Array.isArray(data) ? data[0] : null;
+
+    if (error || !result || !result.success) {
+        setStatus(result && result.message ? result.message : "Acknowledgement could not be saved.", true);
+        button.disabled = false;
+        return;
+    }
+
+    setStatus(result.message || "Acknowledgement saved.", false);
+    button.textContent = "Acknowledgement Saved";
+}
+
+loadAcknowledgement();
+</script>
+</body>
+</html>
