@@ -234,6 +234,7 @@ function applyJgcPortalName() {
     "certificates-admin.html": "Admin Certificates",
     "certificates.html": "Certificates",
     "contacts.html": "Contacts",
+    "subcontractors-suppliers.html": "Subcontractors / Suppliers",
     "daily-site-report.html": "Daily Site Report",
     "equipment-vehicles.html": "Equipment / Vehicles",
     "field-calculator.html": "Field Calculator",
@@ -767,7 +768,8 @@ function activateGlobalTopNavigation() {
     { label: "Reports", href: "reports.html" },
     { label: "Tasks", href: "tasks.html" },
     { label: "Policies", href: "policies-announcements.html" },
-    { label: "Contacts", href: "contacts.html" }
+    { label: "Contacts", href: "contacts.html" },
+    { label: "Subs/Suppliers", href: "subcontractors-suppliers.html" }
   ];
 
   const style = document.createElement("style");
@@ -1022,6 +1024,7 @@ function getJgcMobileNavItems() {
       { label: "Field Calculator", href: "field-calculator.html", icon: "calculator" },
       { label: "Equipment", href: "equipment-vehicles.html", icon: "truck" },
       { label: "Contacts", href: "contacts.html", icon: "phone" },
+      { label: "Subs/Suppliers", href: "subcontractors-suppliers.html", icon: "briefcase" },
       { label: "Policies", href: "policies-announcements.html", icon: "policy" }
     ]
   };
