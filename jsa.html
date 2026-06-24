@@ -190,6 +190,15 @@ button:hover {
     margin-bottom: 10px;
 }
 
+.manual-crew-grid {
+    grid-template-columns: minmax(220px, 420px) auto;
+    max-width: 580px;
+}
+
+.manual-crew-grid input {
+    width: 100%;
+}
+
 .crew-selected-list {
     display: flex;
     flex-wrap: wrap;
@@ -410,9 +419,13 @@ button:hover {
         <button type="button" onclick="addApprovedCrewMember()">Add Employee</button>
     </div>
     <div id="selectedCrewList" class="crew-selected-list"></div>
-    <label for="manualCrewSignOff">Manual Entry</label>
+    <label for="manualCrewInput">Manual Entry</label>
     <div class="crew-help">Use one person per line. For subcontractors or visitors, use Name - Company.</div>
-    <textarea id="manualCrewSignOff" data-inspection-skip="true" placeholder="Example: Stanley Square - ABC Concrete" oninput="syncCrewSignOffField()"></textarea>
+    <div class="crew-picker-grid manual-crew-grid">
+        <input id="manualCrewInput" type="text" data-inspection-skip="true" placeholder="Example: Stanley Square - ABC Concrete" onkeydown="handleManualCrewKey(event)">
+        <button type="button" onclick="addManualCrewMember()">Add Employee</button>
+    </div>
+    <div id="manualCrewList" class="crew-selected-list"></div>
     <label for="crewSignOffCombined">Crew Sign Off (Print Names)</label>
     <textarea id="crewSignOffCombined" readonly placeholder="Approved employees and manual entries will appear here."></textarea>
 </div>
@@ -459,6 +472,7 @@ const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
 let approvedCrewWorkers = [];
 const selectedCrewMembers = new Map();
+const manualCrewMembers = new Map();
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -539,11 +553,34 @@ function renderSelectedCrewMembers() {
     }).join("");
 }
 
+function getManualCrewKey(name) {
+    return typeof normalizeWorkerName === "function"
+        ? normalizeWorkerName(name)
+        : String(name || "").trim().toLowerCase();
+}
+
 function getManualCrewLines() {
-    return String(document.getElementById("manualCrewSignOff") && document.getElementById("manualCrewSignOff").value || "")
-        .split(/\r?\n|,/)
-        .map((line) => line.trim().replace(/\s+/g, " "))
-        .filter(Boolean);
+    return Array.from(manualCrewMembers.values());
+}
+
+function renderManualCrewMembers() {
+    const list = document.getElementById("manualCrewList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!manualCrewMembers.size) {
+        list.innerHTML = '<div class="crew-help">No manual entries added yet.</div>';
+        return;
+    }
+
+    list.innerHTML = Array.from(manualCrewMembers.entries()).map(([key, name]) => `
+        <span class="crew-pill">
+            ${escapeJsaHtml(name)}
+            <button type="button" onclick="removeManualCrewMember('${escapeJsaHtml(encodeURIComponent(key))}')" aria-label="Remove ${escapeJsaHtml(name)}">X</button>
+        </span>
+    `).join("");
 }
 
 function syncCrewSignOffField() {
@@ -596,6 +633,39 @@ function removeApprovedCrewMember(key) {
     renderApprovedCrewSelect();
     renderSelectedCrewMembers();
     syncCrewSignOffField();
+}
+
+function addManualCrewMember() {
+    const input = document.getElementById("manualCrewInput");
+    const name = String(input && input.value || "").trim().replace(/\s+/g, " ");
+    const key = getManualCrewKey(name);
+
+    if (!key) {
+        return;
+    }
+
+    manualCrewMembers.set(key, name);
+
+    if (input) {
+        input.value = "";
+        input.focus();
+    }
+
+    renderManualCrewMembers();
+    syncCrewSignOffField();
+}
+
+function removeManualCrewMember(encodedKey) {
+    manualCrewMembers.delete(decodeURIComponent(encodedKey || ""));
+    renderManualCrewMembers();
+    syncCrewSignOffField();
+}
+
+function handleManualCrewKey(event) {
+    if (event && event.key === "Enter") {
+        event.preventDefault();
+        addManualCrewMember();
+    }
 }
 
 async function loadApprovedCrewWorkers() {
@@ -701,6 +771,7 @@ async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
 
+renderManualCrewMembers();
 loadApprovedCrewWorkers();
 </script>
 
