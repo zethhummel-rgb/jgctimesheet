@@ -157,11 +157,11 @@ button:hover {
 }
 
 .sign-on-button {
-    background: #b77b00;
+    background: #2f6f3c;
 }
 
 .sign-on-button:hover {
-    background: #8d6100;
+    background: #245832;
 }
 
 .sign-on-button:disabled,
@@ -174,8 +174,50 @@ button:hover {
     margin-top: 18px;
     padding: 14px;
     background: #ffffff;
+    color: #1f2a24;
     border: 1px solid #c6cec5;
     border-radius: 6px;
+}
+
+.edit-panel h2,
+.edit-panel h3,
+.edit-panel label,
+.edit-panel p,
+.edit-panel td,
+.edit-panel th,
+.edit-panel .small,
+.edit-panel .ack-checkbox span,
+.edit-panel .ack-status {
+    color: #1f2a24;
+}
+
+.edit-panel a {
+    color: #0b4d8b;
+}
+
+.edit-panel input,
+.edit-panel select,
+.edit-panel textarea {
+    color: #111f18;
+    background: #f7faf6;
+}
+
+.edit-panel button {
+    color: #ffffff;
+}
+
+.edit-panel .table-wrap table {
+    background: #ffffff;
+}
+
+.edit-panel .table-wrap th {
+    background: #dfe9da;
+    color: #1f3d28;
+}
+
+.edit-panel .table-wrap td {
+    background: #ffffff;
+    color: #1f2a24;
 }
 
 .edit-panel[hidden] {
@@ -235,6 +277,20 @@ button:hover {
     gap: 8px;
     margin-top: 12px;
     font-weight: bold;
+    color: #1f2a24;
+}
+
+.ack-checkbox input {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.edit-panel canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 8px;
+    border: 1px solid #d4ded1;
 }
 
 .edit-rows {
@@ -297,8 +353,8 @@ button:hover {
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=7"></script>
-<script src="safety-acknowledgements.js?v=1"></script>
-<script src="inspection-records.js?v=6"></script>
+<script src="safety-acknowledgements.js?v=2"></script>
+<script src="inspection-records.js?v=7"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
@@ -601,11 +657,7 @@ function renderJsaSignOnCell(record) {
         return "-";
     }
 
-    if (currentWorkerHasJsaAcknowledgement(record)) {
-        return '<button class="sign-on-button" type="button" disabled>Signed On</button>';
-    }
-
-    return `<button class="sign-on-button" type="button" onclick="openJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>`;
+    return `<button class="sign-on-button" type="button" onclick="openJsaSignOn('${escapeHtml(record.id)}')">View</button>`;
 }
 
 function buildFieldSummaryText(record) {
@@ -877,7 +929,7 @@ function renderInspectionRows(filteredData) {
                     <th>${typeHeading}</th>
                     <th>Completed By</th>
                     <th>Details</th>
-                    <th>Sign On</th>
+                    <th>View</th>
                     <th>Edit</th>
                     <th>PDF</th>
                     <th>Email</th>
@@ -1114,6 +1166,52 @@ function cancelInspectionEdit() {
     panel.innerHTML = "";
 }
 
+function renderSafetyRecordReadOnlyDetails(record) {
+    const fields = getRecordFields(record).filter((field) => field.value);
+    const rows = getRecordRows(record).filter((row) => (row.cells || []).some((cell) => String(cell || "").trim()));
+    const fieldHtml = fields.length
+        ? `
+            <div class="edit-grid">
+                ${fields.map((field) => `
+                    <div class="edit-field">
+                        <label>${escapeHtml(field.label)}</label>
+                        <input type="text" value="${escapeHtml(field.value)}" disabled>
+                    </div>
+                `).join("")}
+            </div>
+        `
+        : '<div class="small">No form details were saved for this record.</div>';
+    const rowHtml = rows.length
+        ? `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Job Step</th><th>Potential Hazard</th><th>Required Action</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((row) => {
+                            const cells = row.cells || [];
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(cells[0] || "")}</td>
+                                    <td>${escapeHtml(cells[1] || "")}</td>
+                                    <td>${escapeHtml(cells[2] || "")}</td>
+                                </tr>
+                            `;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `
+        : "";
+
+    return `
+        <h3>JSA Details</h3>
+        ${fieldHtml}
+        ${rowHtml}
+    `;
+}
+
 function openJsaSignOn(id) {
     const record = inspectionRecords.find((item) => item.id === id);
     const panel = document.getElementById("editPanel");
@@ -1124,10 +1222,17 @@ function openJsaSignOn(id) {
     }
 
     const current = getPortalWorkerRecord();
-    const alreadySigned = currentWorkerHasJsaAcknowledgement(record);
     const recordLabel = record.report_type || record.inspection_type || "Safety Record";
     const recordType = String(recordLabel).toLowerCase() === "toolbox talk" ? "toolbox_talk" : "jsa";
     const ackRows = getJsaAcknowledgements(record);
+    const currentAck = typeof safetyAckRowMatchesWorker === "function"
+        ? ackRows.find((ack) => safetyAckRowMatchesWorker(ack, current))
+        : null;
+    const alreadySigned = currentAck
+        ? (typeof safetyAckIsAcknowledged === "function" ? safetyAckIsAcknowledged(currentAck) : Boolean(currentAck.acknowledged_at))
+        : currentWorkerHasJsaAcknowledgement(record);
+    const canManageAcknowledgements = currentWorkerCanManageSafetyAcknowledgements(record);
+    const shouldOfferSelfSignOn = !alreadySigned && (!canManageAcknowledgements || currentAck);
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(ackRows) : "";
     const qrUrl = token && typeof safetyAckQrUrl === "function"
         ? safetyAckQrUrl(recordType, record.id, token)
@@ -1162,20 +1267,21 @@ function openJsaSignOn(id) {
             ${summary.pending ? " - " + escapeHtml(String(summary.pending)) + " pending" : ""}
             ${summary.late ? " - " + escapeHtml(String(summary.late)) + " late" : ""}
         </div>
+        ${renderSafetyRecordReadOnlyDetails(record)}
         <h3>Current Acknowledgements</h3>
         ${renderSafetyAcknowledgementManager(record)}
-        ${alreadySigned ? '<div class="ack-status">You are already signed onto this JSA.</div>' : `
+        ${alreadySigned ? '<div class="ack-status">You are already signed onto this JSA.</div>' : shouldOfferSelfSignOn ? `
             <label class="ack-checkbox">
                 <input id="jsaSignOnConfirm" type="checkbox">
                 <span>I confirm I reviewed and understood this ${escapeHtml(recordLabel)} and had the opportunity to ask questions.</span>
             </label>
-        `}
+        ` : '<div class="ack-status">Creator/admin view. Use the QR code or Mark on site for crew acknowledgements.</div>'}
         ${qrUrl ? `
             <h3>QR Sign-On</h3>
             <div id="safetyAckQrWrap" class="small"></div>
         ` : ""}
         <div class="actions">
-            ${alreadySigned ? "" : `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>`}
+            ${shouldOfferSelfSignOn ? `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>` : ""}
             <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
         </div>
         <div id="jsaSignOnStatus" class="ack-status"></div>
