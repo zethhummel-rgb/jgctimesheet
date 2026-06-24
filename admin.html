@@ -1592,6 +1592,33 @@ button.admin-schedule-event-button.admin-event-vacation {
     color: #17231c;
 }
 
+.supplier-contact-card {
+    min-width: 230px;
+    border-color: rgba(57, 200, 72, 0.35);
+    background: rgba(5, 24, 18, 0.92);
+    color: #f5fff6;
+}
+
+.supplier-contact-card strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.supplier-contact-card div {
+    color: #dce8dd;
+}
+
+.supplier-contact-card .small {
+    color: #bcd0c2;
+}
+
+.supplier-contact-card a {
+    color: #7dff9d;
+    font-weight: 800;
+}
+
 .detail-title {
     color: #17331f;
     font-weight: 900;
@@ -2881,7 +2908,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
-        <button id="supplierSaveButton" type="button" onclick="saveSubcontractorSupplier()">Add Entry</button>
+        <button id="supplierSaveButton" type="button" onclick="saveSubcontractorSupplier()">Add Company</button>
         <button class="secondary" type="button" onclick="clearSubcontractorSupplierForm()">Clear</button>
         <button class="secondary" type="button" onclick="loadSubcontractorSuppliers()">Refresh Entries</button>
     </div>
@@ -12099,9 +12126,11 @@ function renderSubcontractorSupplierContactList(entry) {
         return '<div class="small">No contacts added yet.</div>';
     }
 
-    return rows.map((contact) => `
-        <div class="detail-item" style="margin-bottom:8px;">
-            <strong>${escapeHtml(contact.contact_name || "Contact")}</strong>
+    return rows.map((contact) => {
+        const contactName = String(contact.contact_name || "").trim();
+        return `
+        <div class="detail-item supplier-contact-card" style="margin-bottom:8px;">
+            <strong>${escapeHtml(contactName || "Unnamed contact")}</strong>
             ${contact.role ? '<div>' + escapeHtml(contact.role) + '</div>' : ""}
             ${contact.phone ? '<div><a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
             ${contact.email ? '<div><a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
@@ -12111,7 +12140,8 @@ function renderSubcontractorSupplierContactList(entry) {
                 <button type="button" class="delete-button" onclick="deleteSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Delete Contact</button>
             </div>
         </div>
-    `).join("");
+    `;
+    }).join("");
 }
 
 function renderSubcontractorSuppliers() {
