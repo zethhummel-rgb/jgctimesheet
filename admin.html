@@ -2570,6 +2570,11 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
     </div>
 
+    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;" open>
+        <summary>JSA / Toolbox Talk Acknowledgements</summary>
+        <div id="safetyAcknowledgementList" class="small" style="margin-top:12px;">Loading safety acknowledgements...</div>
+    </details>
+
     <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
     <h2>Tool Box Talks</h2>
     <div class="announcement-grid">
@@ -2815,7 +2820,8 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="common.js?v=6"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -2832,6 +2838,7 @@ let announcements = [];
 let toolboxTalks = [];
 let toolboxReports = [];
 let toolboxAttendance = [];
+let safetyAcknowledgements = [];
 let dailySiteReports = [];
 let incidentReports = [];
 let accidentReports = [];
@@ -3870,6 +3877,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("contacts").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("name", { ascending: true }),
+        supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80)
     ].map((query, index) => Promise.resolve(query).then((result) => {
         if (result && result.error) {
@@ -3882,7 +3890,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -3924,9 +3932,10 @@ async function loadAdminData(options = {}) {
     workOrderTravelRows = workOrderTravelResult.data || [];
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
     equipmentItems = equipmentResult.data || [];
-    equipmentNotifications = equipmentNotificationResult.data || [];
-    equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
+        equipmentNotifications = equipmentNotificationResult.data || [];
+        equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
         contacts = contactResult.data || [];
+        safetyAcknowledgements = safetyAcknowledgementResult.data || [];
         subcontractorActivity = subcontractorActivityResult.data || [];
         await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
         await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
@@ -8705,6 +8714,106 @@ function renderInspections() {
     `;
 }
 
+function getJsaReportAcknowledgements(inspection) {
+    return safetyAcknowledgements.filter((ack) =>
+        ack.record_type === "jsa" && ack.record_id === inspection.id && !ack.removed_at
+    );
+}
+
+function getToolboxReportSafetyAcknowledgements(report) {
+    return safetyAcknowledgements.filter((ack) =>
+        ack.record_type === "toolbox_talk" && ack.record_id === report.id && !ack.removed_at
+    );
+}
+
+function formatJsaReportAcknowledgementDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function renderJsaReportAcknowledgements(inspection) {
+    const acknowledgements = getJsaReportAcknowledgements(inspection);
+
+    if (!acknowledgements.length) {
+        return "-";
+    }
+
+    const summary = typeof safetyAckSummary === "function"
+        ? safetyAckSummary(acknowledgements)
+        : { total: acknowledgements.length, acknowledged: acknowledgements.filter((ack) => ack.acknowledged_at).length, pending: 0, late: 0, unmatched: 0 };
+    const detail = acknowledgements.slice(0, 8).map((ack) => {
+        const name = ack.attendee_name || "Worker";
+        const status = typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status || "";
+        const method = typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(ack) : ack.acknowledgement_method || "";
+        const acknowledgedAt = ack.acknowledged_at ? " - " + formatJsaReportAcknowledgementDate(ack.acknowledged_at) : "";
+
+        return escapeHtml(name + ": " + status + (method && method !== "-" ? " / " + method : "") + acknowledgedAt);
+    }).join("<br>");
+
+    return `
+        <strong>${escapeHtml(String(summary.acknowledged))}/${escapeHtml(String(summary.total))}</strong>
+        ${summary.pending ? " Pending: " + escapeHtml(String(summary.pending)) : ""}
+        ${summary.late ? " Late: " + escapeHtml(String(summary.late)) : ""}
+        ${summary.unmatched ? " Unmatched QR: " + escapeHtml(String(summary.unmatched)) : ""}
+        <br>${detail}
+    `;
+}
+
+function renderSafetyAcknowledgementOverview() {
+    const list = document.getElementById("safetyAcknowledgementList");
+
+    if (!list) {
+        return;
+    }
+
+    const rows = safetyAcknowledgements.filter((ack) => !ack.removed_at);
+
+    if (!rows.length) {
+        list.textContent = "No JSA or toolbox talk acknowledgements found.";
+        return;
+    }
+
+    list.innerHTML = `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Record</th><th>Name</th><th>Company</th><th>Type</th><th>Status</th><th>Method</th><th>Acknowledged</th><th>By</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.slice(0, 120).map((ack) => `
+                        <tr>
+                            <td>${escapeHtml((ack.record_type === "toolbox_talk" ? "Toolbox Talk" : "JSA") + " - " + (ack.record_title || ack.record_date || ""))}</td>
+                            <td>${escapeHtml(ack.attendee_name || "")}</td>
+                            <td>${escapeHtml(ack.attendee_company || "")}</td>
+                            <td>${escapeHtml(ack.attendee_type || "")}${ack.matched_employee_id ? " / matched" : ""}</td>
+                            <td>${escapeHtml(typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status || "")}${ack.is_late ? " / Late" : ""}${ack.unmatched_qr_entry ? " / Unmatched QR" : ""}</td>
+                            <td>${escapeHtml(typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(ack) : ack.acknowledgement_method || "")}</td>
+                            <td>${escapeHtml(formatJsaReportAcknowledgementDate(ack.acknowledged_at))}</td>
+                            <td>${escapeHtml(ack.acknowledged_by_name || "")}</td>
+                            <td>${escapeHtml(ack.acknowledgement_note || "")}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderReports() {
     const dailyList = document.getElementById("dailySiteReportsList");
     const jsaList = document.getElementById("jsaReportsList");
@@ -8714,6 +8823,8 @@ function renderReports() {
     const jsaReports = inspections.filter((inspection) =>
         String(inspection.inspection_type || "").toLowerCase().includes("jsa")
     );
+
+    renderSafetyAcknowledgementOverview();
 
     if (dailyList) {
         if (!dailySiteReports.length) {
@@ -8749,13 +8860,14 @@ function renderReports() {
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr><th>Date</th><th>Completed By</th><th>Saved</th></tr>
+                            <tr><th>Date</th><th>Completed By</th><th>Acknowledgements</th><th>Saved</th></tr>
                         </thead>
                         <tbody>
                             ${jsaReports.slice(0, 50).map((inspection) => `
                                 <tr>
                                     <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
                                     <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name || "")}</td>
+                                    <td>${renderJsaReportAcknowledgements(inspection)}</td>
                                     <td>${escapeHtml(formatDate(inspection.created_at))}</td>
                                 </tr>
                             `).join("")}
