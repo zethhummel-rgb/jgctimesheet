@@ -232,6 +232,41 @@ button:hover {
     color: #1f2a24;
 }
 
+.post-save-qr {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #b8cbb4;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2a24;
+}
+
+.post-save-qr[hidden] {
+    display: none;
+}
+
+.post-save-qr h2 {
+    margin-top: 0;
+    color: #2f6f3c;
+}
+
+.post-save-qr .qr-wrap {
+    margin-top: 12px;
+}
+
+.post-save-qr canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 8px;
+    border: 1px solid #d4ded1;
+}
+
+.post-save-qr .small,
+.post-save-qr a {
+    color: #1f2a24;
+}
+
 @media(max-width: 768px) {
     body {
         padding: 10px;
@@ -411,13 +446,14 @@ button:hover {
     <button class="secondary" onclick="signOut()">Sign Out</button>
 </div>
 <div id="inspectionSaveStatus" class="subtitle"></div>
+<div id="jsaPostSaveQrPanel" class="post-save-qr" hidden></div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=7"></script>
-<script src="safety-acknowledgements.js?v=1"></script>
-<script src="inspection-records.js?v=6"></script>
+<script src="safety-acknowledgements.js?v=2"></script>
+<script src="inspection-records.js?v=7"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
@@ -605,6 +641,50 @@ function addRow() {
 
 function removeRow(button) {
     button.closest("tr").remove();
+}
+
+function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
+    const rows = Array.isArray(safetyRows) ? safetyRows : [];
+    const hasManualOrExternal = getManualCrewLines().length > 0 || rows.some((row) =>
+        row && (row.attendee_type !== "employee" || !row.matched_employee_email)
+    );
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
+    const panel = document.getElementById("jsaPostSaveQrPanel");
+
+    if (!savedRecord || !savedRecord.id || !rows.length || !hasManualOrExternal || !token || !panel || typeof safetyAckQrUrl !== "function") {
+        return false;
+    }
+
+    const pendingCount = rows.filter((row) => typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at).length;
+    const qrUrl = safetyAckQrUrl("jsa", savedRecord.id, token);
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h2>Crew QR Sign-On</h2>
+        <p>This JSA was saved. Have subcontractors or manually-entered crew scan this QR code now to acknowledge the JSA.</p>
+        <p><strong>${escapeJsaHtml(String(pendingCount))}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
+        <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
+        <div class="actions">
+            <button type="button" onclick="window.location.href='todays-inspections.html?recordType=reports'">Today's Reports</button>
+            <button type="button" class="secondary" onclick="closeJsaPostSaveQr()">Close QR</button>
+        </div>
+    `;
+
+    if (typeof safetyAckRenderQr === "function") {
+        safetyAckRenderQr(document.getElementById("jsaPostSaveQrWrap"), qrUrl);
+    }
+
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+}
+
+function closeJsaPostSaveQr() {
+    const panel = document.getElementById("jsaPostSaveQrPanel");
+
+    if (panel) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+    }
 }
 
 function handleInspectionSave(type) {
