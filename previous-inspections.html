@@ -190,12 +190,14 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=6"></script>
-<script src="inspection-records.js?v=3"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
+<script src="inspection-records.js?v=5"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const worker = getCurrentWorker();
 let inspectionRecords = [];
+let safetyAcknowledgementRows = [];
 const queryParams = new URLSearchParams(window.location.search);
 const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
 const isPermitsView = String(pageMode).toLowerCase() === "permits";
@@ -438,7 +440,7 @@ async function loadReportRecords(sinceIso) {
         throw firstError.error;
     }
 
-    return []
+    const records = []
         .concat((jsaResult.data || []).filter((record) => String(record.inspection_type || "").toLowerCase() === "jsa").map((record) => normalizeReportRecord("jsa", record)))
         .concat((dailyResult.data || []).map((record) => normalizeReportRecord("daily", record)))
         .concat((toolboxResult.data || []).map((record) => normalizeReportRecord("toolbox", record)))
@@ -446,6 +448,38 @@ async function loadReportRecords(sinceIso) {
         .concat((accidentResult.data || []).map((record) => normalizeReportRecord("accident", record)))
         .concat((injuryResult.data || []).map((record) => normalizeReportRecord("injury", record)))
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    safetyAcknowledgementRows = [];
+
+    if (typeof safetyAckLoadForRecords === "function") {
+        const jsaIds = records
+            .filter((record) => String(record.report_type || record.inspection_type || "").toLowerCase() === "jsa")
+            .map((record) => record.id);
+        const toolboxIds = records
+            .filter((record) => String(record.report_type || "").toLowerCase() === "toolbox talk")
+            .map((record) => record.id);
+        const [jsaAckRows, toolboxAckRows] = await Promise.all([
+            safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaIds),
+            safetyAckLoadForRecords(inspectionSupabaseClient, "toolbox_talk", toolboxIds)
+        ]);
+
+        safetyAcknowledgementRows = jsaAckRows.concat(toolboxAckRows);
+        records.forEach((record) => {
+            const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
+                ? "toolbox_talk"
+                : "jsa";
+
+            if (recordType === "jsa" && String(record.report_type || record.inspection_type || "").toLowerCase() !== "jsa") {
+                return;
+            }
+
+            record.safety_acknowledgements = safetyAcknowledgementRows.filter((row) =>
+                row.record_type === recordType && row.record_id === record.id
+            );
+        });
+    }
+
+    return records;
 }
 
 async function loadInspections() {
@@ -615,6 +649,97 @@ function getJsaRows(record) {
         }));
 }
 
+function getJsaAcknowledgements(record) {
+    if (record && Array.isArray(record.safety_acknowledgements)) {
+        return record.safety_acknowledgements;
+    }
+
+    const formData = record && record.form_data && typeof record.form_data === "object"
+        ? record.form_data
+        : {};
+    const acknowledgements = Array.isArray(formData.acknowledgements)
+        ? formData.acknowledgements
+        : [];
+
+    return acknowledgements.filter((ack) =>
+        ack && (ack.worker_key || ack.worker_name || ack.worker_display_name || ack.name || ack.email)
+    );
+}
+
+function getAcknowledgementName(ack) {
+    return ack.attendee_name || ack.worker_display_name || ack.worker_name || ack.name || ack.worker_key || ack.email || "Worker";
+}
+
+function formatAcknowledgementDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function drawJsaAcknowledgementHeader(doc, margin, y, usable) {
+    const headerFill = [230, 236, 230];
+    drawBoxText(doc, "Digital JSA Acknowledgements", margin, y, usable, 9, { bold: true, fill: headerFill, maxLines: 1 });
+    y += 9;
+    drawBoxText(doc, "Name", margin, y, usable * 0.36, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Company", margin + usable * 0.36, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Acknowledged", margin + usable * 0.60, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Email", margin + usable * 0.84, y, usable * 0.16, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    return y + 8;
+}
+
+function drawJsaAcknowledgements(doc, record, margin, y, usable) {
+    const acknowledgements = getJsaAcknowledgements(record);
+
+    if (!acknowledgements.length) {
+        return y;
+    }
+
+    if (y > 172) {
+        doc.addPage();
+        y = 12;
+    } else {
+        y += 5;
+    }
+
+    y = drawJsaAcknowledgementHeader(doc, margin, y, usable);
+
+    acknowledgements.forEach((ack) => {
+        if (y > 185) {
+            doc.addPage();
+            y = 12;
+            y = drawJsaAcknowledgementHeader(doc, margin, y, usable);
+        }
+
+        const name = getAcknowledgementName(ack);
+        const company = ack.attendee_company || ack.company || "";
+        const date = formatAcknowledgementDate(ack.acknowledged_at);
+        const email = ack.matched_employee_email || ack.email || "";
+        const rowHeight = 9;
+
+        drawBoxText(doc, name, margin, y, usable * 0.36, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, company, margin + usable * 0.36, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, date, margin + usable * 0.60, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, email, margin + usable * 0.84, y, usable * 0.16, rowHeight, { fontSize: 6, maxLines: 2 });
+        y += rowHeight;
+    });
+
+    return y;
+}
+
 function downloadJsaPdf(record) {
     const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -699,6 +824,8 @@ function downloadJsaPdf(record) {
         drawBoxText(doc, row.action, margin + col1 + col2, y, col3, rowHeight, { fontSize: 8, maxLines: 5 });
         y += rowHeight;
     });
+
+    y = drawJsaAcknowledgements(doc, record, margin, y, usable);
 
     doc.save(`jsa-${record.inspection_date || "inspection"}.pdf`);
 }
