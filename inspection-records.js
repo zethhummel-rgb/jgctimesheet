@@ -75,7 +75,7 @@ function getFieldValue(field) {
 function collectFields() {
     const fields = [];
     document.querySelectorAll("input, select, textarea").forEach((field) => {
-        if (field.type === "hidden" || field.closest(".actions")) {
+        if (field.type === "hidden" || field.closest(".actions") || field.dataset.inspectionSkip === "true") {
             return;
         }
 
