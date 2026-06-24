@@ -2821,7 +2821,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="common.js?v=7"></script>
-<script src="safety-acknowledgements.js?v=1"></script>
+<script src="safety-acknowledgements.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -3232,7 +3232,9 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "reports") {
-        const [dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
+        const [inspectionResult, safetyAcknowledgementResult, dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
+            { label: "report inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "report safety acknowledgements", query: () => supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }) },
             { label: "daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "incident reports", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "accident reports", query: () => supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
@@ -3243,6 +3245,8 @@ async function loadAdminTabData(tab) {
             { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) },
             { label: "toolbox talk attendance", query: () => supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }) }
         ]);
+        inspections = inspectionResult.data || [];
+        safetyAcknowledgements = safetyAcknowledgementResult.data || [];
         dailySiteReports = dailyResult.data || [];
         incidentReports = incidentResult.data || [];
         accidentReports = accidentResult.data || [];
@@ -8821,7 +8825,8 @@ function renderReports() {
     const accidentList = document.getElementById("accidentReportsList");
     const employeeInjuryList = document.getElementById("employeeInjuryReportsList");
     const jsaReports = inspections.filter((inspection) =>
-        String(inspection.inspection_type || "").toLowerCase().includes("jsa")
+        String(inspection.inspection_type || "").toLowerCase().includes("jsa") ||
+        String(inspection.inspection_type || "").toLowerCase().includes("job safety")
     );
 
     renderSafetyAcknowledgementOverview();
