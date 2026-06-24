@@ -13,6 +13,7 @@ const SAFETY_ACK_STATUS_LABELS = {
 
 const SAFETY_ACK_METHOD_LABELS = {
     user_portal: "User Portal",
+    creator_entry: "Creator Entry",
     creator_on_behalf: "Creator On Behalf",
     qr_external: "QR External",
     late_user_portal: "Late User Portal",
@@ -515,6 +516,337 @@ function safetyAckGetRecordToken(rows, fallback) {
     return row ? row.qr_token : (fallback || "");
 }
 
+function safetyAckQrTextBytes(text) {
+    const Encoder = typeof TextEncoder !== "undefined"
+        ? TextEncoder
+        : (typeof window !== "undefined" ? window.TextEncoder : null);
+
+    if (Encoder) {
+        return Array.from(new Encoder().encode(String(text || "")));
+    }
+
+    return unescape(encodeURIComponent(String(text || ""))).split("").map((char) => char.charCodeAt(0));
+}
+
+function safetyAckQrAppendBits(bits, value, length) {
+    for (let i = length - 1; i >= 0; i -= 1) {
+        bits.push((value >>> i) & 1);
+    }
+}
+
+function safetyAckQrBuildDataCodewords(text) {
+    const bytes = safetyAckQrTextBytes(text);
+    const dataCodewordCount = 274; // Version 10, error correction L.
+    const capacityBits = dataCodewordCount * 8;
+    const bits = [];
+
+    if (bytes.length > 271) {
+        return null;
+    }
+
+    safetyAckQrAppendBits(bits, 0x4, 4); // Byte mode.
+    safetyAckQrAppendBits(bits, bytes.length, 16);
+    bytes.forEach((byte) => safetyAckQrAppendBits(bits, byte, 8));
+    safetyAckQrAppendBits(bits, 0, Math.min(4, capacityBits - bits.length));
+
+    while (bits.length % 8) {
+        bits.push(0);
+    }
+
+    const data = [];
+    for (let i = 0; i < bits.length; i += 8) {
+        let value = 0;
+        for (let j = 0; j < 8; j += 1) {
+            value = (value << 1) | bits[i + j];
+        }
+        data.push(value);
+    }
+
+    for (let pad = 0; data.length < dataCodewordCount; pad += 1) {
+        data.push(pad % 2 ? 0x11 : 0xEC);
+    }
+
+    return data.length <= dataCodewordCount ? data : null;
+}
+
+function safetyAckQrMultiply(left, right) {
+    let result = 0;
+
+    for (let i = 7; i >= 0; i -= 1) {
+        result = ((result << 1) ^ (((result >>> 7) & 1) ? 0x11D : 0)) & 0xFF;
+        if (((right >>> i) & 1) !== 0) {
+            result ^= left;
+        }
+    }
+
+    return result;
+}
+
+function safetyAckQrReedSolomonDivisor(degree) {
+    const result = new Array(degree).fill(0);
+    let root = 1;
+    result[degree - 1] = 1;
+
+    for (let i = 0; i < degree; i += 1) {
+        for (let j = 0; j < degree; j += 1) {
+            result[j] = safetyAckQrMultiply(result[j], root);
+            if (j + 1 < degree) {
+                result[j] ^= result[j + 1];
+            }
+        }
+        root = safetyAckQrMultiply(root, 0x02);
+    }
+
+    return result;
+}
+
+function safetyAckQrReedSolomonRemainder(data, divisor) {
+    const result = new Array(divisor.length).fill(0);
+
+    data.forEach((byte) => {
+        const factor = byte ^ result.shift();
+        result.push(0);
+        divisor.forEach((coefficient, index) => {
+            result[index] ^= safetyAckQrMultiply(coefficient, factor);
+        });
+    });
+
+    return result;
+}
+
+function safetyAckQrAddErrorCorrection(data) {
+    const totalCodewords = 346; // Version 10.
+    const errorCodewordsPerBlock = 18;
+    const blockCount = 4;
+    const shortBlockCount = blockCount - (totalCodewords % blockCount);
+    const shortBlockLength = Math.floor(totalCodewords / blockCount);
+    const shortDataLength = shortBlockLength - errorCodewordsPerBlock;
+    const divisor = safetyAckQrReedSolomonDivisor(errorCodewordsPerBlock);
+    const blocks = [];
+    let offset = 0;
+
+    for (let blockIndex = 0; blockIndex < blockCount; blockIndex += 1) {
+        const dataLength = shortDataLength + (blockIndex < shortBlockCount ? 0 : 1);
+        const blockData = data.slice(offset, offset + dataLength);
+        const ecc = safetyAckQrReedSolomonRemainder(blockData, divisor);
+        offset += dataLength;
+        blocks.push(blockData.concat(blockIndex < shortBlockCount ? [0] : [], ecc));
+    }
+
+    const result = [];
+    for (let i = 0; i < shortBlockLength + 1; i += 1) {
+        blocks.forEach((block, blockIndex) => {
+            if (i === shortDataLength && blockIndex < shortBlockCount) {
+                return;
+            }
+
+            if (i < block.length) {
+                result.push(block[i]);
+            }
+        });
+    }
+
+    return result;
+}
+
+function safetyAckQrGetBit(value, index) {
+    return ((value >>> index) & 1) !== 0;
+}
+
+function safetyAckQrFormatBits(mask) {
+    const errorCorrectionLevelLow = 1;
+    let data = (errorCorrectionLevelLow << 3) | mask;
+    let remainder = data;
+
+    for (let i = 0; i < 10; i += 1) {
+        remainder = (remainder << 1) ^ (((remainder >>> 9) & 1) ? 0x537 : 0);
+    }
+
+    return ((data << 10) | remainder) ^ 0x5412;
+}
+
+function safetyAckQrVersionBits(version) {
+    let remainder = version;
+
+    for (let i = 0; i < 12; i += 1) {
+        remainder = (remainder << 1) ^ (((remainder >>> 11) & 1) ? 0x1F25 : 0);
+    }
+
+    return (version << 12) | remainder;
+}
+
+function safetyAckQrCreateMatrix(text) {
+    const dataCodewords = safetyAckQrBuildDataCodewords(text);
+    const version = 10;
+    const size = 21 + (version - 1) * 4;
+    const mask = 0;
+
+    if (!dataCodewords) {
+        return null;
+    }
+
+    const modules = Array.from({ length: size }, () => new Array(size).fill(false));
+    const functionModules = Array.from({ length: size }, () => new Array(size).fill(false));
+
+    function setFunctionModule(x, y, isBlack) {
+        if (x < 0 || y < 0 || x >= size || y >= size) {
+            return;
+        }
+
+        modules[y][x] = Boolean(isBlack);
+        functionModules[y][x] = true;
+    }
+
+    function drawFinderPattern(centerX, centerY) {
+        for (let dy = -4; dy <= 4; dy += 1) {
+            for (let dx = -4; dx <= 4; dx += 1) {
+                const distance = Math.max(Math.abs(dx), Math.abs(dy));
+                setFunctionModule(centerX + dx, centerY + dy, distance !== 2 && distance !== 4);
+            }
+        }
+    }
+
+    function drawAlignmentPattern(centerX, centerY) {
+        for (let dy = -2; dy <= 2; dy += 1) {
+            for (let dx = -2; dx <= 2; dx += 1) {
+                setFunctionModule(centerX + dx, centerY + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+            }
+        }
+    }
+
+    function drawFormatBits() {
+        const bits = safetyAckQrFormatBits(mask);
+
+        for (let i = 0; i <= 5; i += 1) {
+            setFunctionModule(8, i, safetyAckQrGetBit(bits, i));
+        }
+        setFunctionModule(8, 7, safetyAckQrGetBit(bits, 6));
+        setFunctionModule(8, 8, safetyAckQrGetBit(bits, 7));
+        setFunctionModule(7, 8, safetyAckQrGetBit(bits, 8));
+
+        for (let i = 9; i < 15; i += 1) {
+            setFunctionModule(14 - i, 8, safetyAckQrGetBit(bits, i));
+        }
+
+        for (let i = 0; i < 8; i += 1) {
+            setFunctionModule(size - 1 - i, 8, safetyAckQrGetBit(bits, i));
+        }
+
+        for (let i = 8; i < 15; i += 1) {
+            setFunctionModule(8, size - 15 + i, safetyAckQrGetBit(bits, i));
+        }
+
+        setFunctionModule(8, size - 8, true);
+    }
+
+    function drawVersionBits() {
+        const bits = safetyAckQrVersionBits(version);
+
+        for (let i = 0; i < 18; i += 1) {
+            const bit = safetyAckQrGetBit(bits, i);
+            const a = size - 11 + (i % 3);
+            const b = Math.floor(i / 3);
+            setFunctionModule(a, b, bit);
+            setFunctionModule(b, a, bit);
+        }
+    }
+
+    for (let i = 0; i < size; i += 1) {
+        setFunctionModule(6, i, i % 2 === 0);
+        setFunctionModule(i, 6, i % 2 === 0);
+    }
+
+    drawFinderPattern(3, 3);
+    drawFinderPattern(size - 4, 3);
+    drawFinderPattern(3, size - 4);
+
+    [6, 28, 50].forEach((y, yIndex) => {
+        [6, 28, 50].forEach((x, xIndex) => {
+            const overlapsFinder = (
+                (xIndex === 0 && yIndex === 0) ||
+                (xIndex === 2 && yIndex === 0) ||
+                (xIndex === 0 && yIndex === 2)
+            );
+
+            if (!overlapsFinder) {
+                drawAlignmentPattern(x, y);
+            }
+        });
+    });
+
+    drawFormatBits();
+    drawVersionBits();
+
+    const allCodewords = safetyAckQrAddErrorCorrection(dataCodewords);
+    let bitIndex = 0;
+
+    for (let right = size - 1; right >= 1; right -= 2) {
+        if (right === 6) {
+            right = 5;
+        }
+
+        for (let vertical = 0; vertical < size; vertical += 1) {
+            for (let j = 0; j < 2; j += 1) {
+                const x = right - j;
+                const upward = ((right + 1) & 2) === 0;
+                const y = upward ? size - 1 - vertical : vertical;
+
+                if (functionModules[y][x]) {
+                    continue;
+                }
+
+                const byte = allCodewords[bitIndex >>> 3] || 0;
+                modules[y][x] = safetyAckQrGetBit(byte, 7 - (bitIndex & 7));
+                bitIndex += 1;
+            }
+        }
+    }
+
+    for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+            if (!functionModules[y][x] && (x + y) % 2 === 0) {
+                modules[y][x] = !modules[y][x];
+            }
+        }
+    }
+
+    drawFormatBits();
+
+    return { size, modules };
+}
+
+function safetyAckDrawLocalQr(canvas, text) {
+    const qr = safetyAckQrCreateMatrix(text);
+
+    if (!canvas || !qr || !canvas.getContext) {
+        return false;
+    }
+
+    const quietZone = 4;
+    const scale = 4;
+    const dimension = (qr.size + quietZone * 2) * scale;
+    const context = canvas.getContext("2d");
+
+    canvas.width = dimension;
+    canvas.height = dimension;
+    canvas.style.width = dimension + "px";
+    canvas.style.height = dimension + "px";
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, dimension, dimension);
+    context.fillStyle = "#000000";
+
+    for (let y = 0; y < qr.size; y += 1) {
+        for (let x = 0; x < qr.size; x += 1) {
+            if (qr.modules[y][x]) {
+                context.fillRect((x + quietZone) * scale, (y + quietZone) * scale, scale, scale);
+            }
+        }
+    }
+
+    return true;
+}
+
 function safetyAckRenderQr(container, url) {
     if (!container) {
         return;
@@ -522,7 +854,7 @@ function safetyAckRenderQr(container, url) {
 
     container.innerHTML = `
         <div class="small" style="word-break:break-all;margin-bottom:8px;">${safetyAckEscapeHtml(url)}</div>
-        <canvas width="220" height="220" aria-label="Acknowledgement QR code"></canvas>
+        <canvas aria-label="Acknowledgement QR code"></canvas>
     `;
 
     const canvas = container.querySelector("canvas");
@@ -530,9 +862,13 @@ function safetyAckRenderQr(container, url) {
     if (window.QRCode && typeof window.QRCode.toCanvas === "function" && canvas) {
         window.QRCode.toCanvas(canvas, url, { width: 220, margin: 2 }, (error) => {
             if (error) {
-                container.innerHTML += '<div class="small">QR code could not be drawn. Use the link above.</div>';
+                if (!safetyAckDrawLocalQr(canvas, url)) {
+                    container.innerHTML += '<div class="small">QR code could not be drawn. Use the link above.</div>';
+                }
             }
         });
+    } else if (canvas && safetyAckDrawLocalQr(canvas, url)) {
+        return;
     } else if (canvas) {
         canvas.remove();
         container.innerHTML += '<div class="small">QR code library did not load. Use the link above.</div>';
