@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v363";
+const JGC_CACHE_NAME = "jgc-portal-v364";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -52,6 +52,8 @@ const JGC_APP_SHELL = [
   "./manifest.json?v=4",
   "./logo.webp",
   "./login-background.webp",
+  "./jgc-login-qr.png",
+  "./jgc-login-qr-print.png",
   "./icon-180.png?v=4",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4"
