@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Subcontractors / Suppliers</title>
+<link rel="stylesheet" href="styles.css?v=2">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background:
+        radial-gradient(circle at 18% 0%, rgba(31, 126, 56, 0.34), transparent 28rem),
+        linear-gradient(135deg, #050908 0%, #0c1717 45%, #07100f 100%);
+    margin: 0;
+    padding: 20px;
+    color: #f5f7f3;
+}
+
+.logo-wrap {
+    max-width: 347px;
+    margin: 0 auto 8px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    max-width: 347px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0 0 8px;
+}
+
+.user-bar {
+    max-width: 1000px;
+    margin: 0 auto 12px;
+    color: #ffffff;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+.actions {
+    max-width: 1000px;
+    margin: 0 auto 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.panel {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: rgba(15, 27, 27, 0.92);
+    border-radius: 8px;
+    border: 1px solid rgba(199, 221, 211, 0.16);
+    border-top: 4px solid #39c848;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.34);
+    padding: 16px;
+}
+
+.contacts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.contact-card {
+    border: 1px solid rgba(199, 221, 211, 0.18);
+    border-top: 4px solid #39c848;
+    border-radius: 8px;
+    padding: 14px;
+    background:
+        linear-gradient(145deg, rgba(18, 34, 34, 0.96), rgba(7, 16, 15, 0.98));
+    color: #f5f7f3;
+    box-shadow: inset 0 -4px 0 rgba(57, 200, 72, 0.22), 0 14px 30px rgba(0,0,0,0.22);
+}
+
+.contact-card h2 {
+    margin: 0 0 6px;
+    color: #ffffff;
+    font-size: 20px;
+}
+
+.contact-role {
+    margin-bottom: 10px;
+    color: #39c848;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.contact-line {
+    margin: 7px 0;
+    overflow-wrap: anywhere;
+}
+
+.contact-line a {
+    color: #6cff82;
+    font-weight: bold;
+}
+
+.supplier-contact-list {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(199, 221, 211, 0.16);
+}
+
+.supplier-contact {
+    margin-top: 9px;
+    padding: 9px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.supplier-contact:first-child {
+    margin-top: 0;
+}
+
+.small {
+    font-size: 13px;
+    color: #bac4bd;
+}
+
+button {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: #08452b;
+}
+
+.secondary {
+    background: #47534b;
+}
+
+.secondary:hover {
+    background: #354039;
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 10px;
+    }
+
+    button {
+        width: 100%;
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="logo-wrap">
+    <img src="logo.webp" alt="John Gordon Construction logo">
+</div>
+
+<h1>Subcontractors / Suppliers</h1>
+<div id="currentUser" class="user-bar"></div>
+
+<div class="actions">
+    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+</div>
+
+<div class="panel">
+    <div id="subcontractorsSuppliersList" class="small">Loading subcontractors and suppliers...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=7"></script>
+<script>
+const supabaseClient = createJgcSupabaseClient();
+const worker = requireJgcWorker();
+const currentWorker = normalizeWorkerName(worker.key);
+const currentWorkerDisplay = worker.display;
+
+document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+async function loadSubcontractorsSuppliers() {
+    const list = document.getElementById("subcontractorsSuppliersList");
+
+    if (!supabaseClient) {
+        list.textContent = "Supabase is not available.";
+        return;
+    }
+
+    const companyResult = await supabaseClient
+        .from("subcontractors_suppliers")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("company_name", { ascending: true });
+
+    if (companyResult.error) {
+        list.textContent = "Subcontractors and suppliers could not be loaded.";
+        return;
+    }
+
+    const entries = companyResult.data || [];
+
+    if (!entries.length) {
+        list.textContent = "No subcontractors or suppliers have been added yet.";
+        return;
+    }
+
+    const companyIds = entries.map((entry) => entry.id).filter(Boolean);
+    let contacts = [];
+
+    if (companyIds.length) {
+        const contactResult = await supabaseClient
+            .from("subcontractor_supplier_contacts")
+            .select("*")
+            .in("company_id", companyIds)
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .order("contact_name", { ascending: true });
+
+        if (!contactResult.error) {
+            contacts = contactResult.data || [];
+        }
+    }
+
+    function getContacts(companyId) {
+        return contacts.filter((contact) => String(contact.company_id) === String(companyId));
+    }
+
+    function renderContacts(entry) {
+        const rows = getContacts(entry.id);
+
+        if (!rows.length) {
+            return '<div class="contact-line small">No contacts listed yet.</div>';
+        }
+
+        return `
+            <div class="supplier-contact-list">
+                ${rows.map((contact) => `
+                    <div class="supplier-contact">
+                        <div><strong>${escapeHtml(contact.contact_name || "Contact")}</strong>${contact.role ? " - " + escapeHtml(contact.role) : ""}</div>
+                        ${contact.phone ? '<div class="contact-line"><strong>Phone:</strong> <a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
+                        ${contact.email ? '<div class="contact-line"><strong>Email:</strong> <a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
+                        ${contact.notes ? '<div class="contact-line small">' + escapeHtml(contact.notes) + '</div>' : ""}
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    list.innerHTML = `
+        <div class="contacts-grid">
+            ${entries.map((entry) => `
+                <article class="contact-card">
+                    <h2>${escapeHtml(entry.company_name)}</h2>
+                    ${entry.category ? '<div class="contact-role">' + escapeHtml(entry.category) + '</div>' : ""}
+                    ${entry.service_type ? '<div class="contact-line"><strong>Service:</strong> ' + escapeHtml(entry.service_type) + '</div>' : ""}
+                    ${entry.notes ? '<div class="contact-line small">' + escapeHtml(entry.notes) + '</div>' : ""}
+                    ${renderContacts(entry)}
+                </article>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function signOut() {
+    await signOutJgc(supabaseClient);
+}
+
+loadSubcontractorsSuppliers();
+</script>
+</body>
+</html>
