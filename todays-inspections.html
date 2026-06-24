@@ -156,6 +156,20 @@ button:hover {
     background: #245832;
 }
 
+.sign-on-button {
+    background: #b77b00;
+}
+
+.sign-on-button:hover {
+    background: #8d6100;
+}
+
+.sign-on-button:disabled,
+.sign-on-button:disabled:hover {
+    background: #6a736d;
+    cursor: default;
+}
+
 .edit-panel {
     margin-top: 18px;
     padding: 14px;
@@ -198,6 +212,29 @@ button:hover {
 .edit-field input:disabled {
     background: #eef2ee;
     color: #58635c;
+}
+
+.ack-status {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #2f6f3c;
+}
+
+.ack-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+}
+
+.ack-list li {
+    margin-bottom: 4px;
+}
+
+.ack-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    font-weight: bold;
 }
 
 .edit-rows {
@@ -259,12 +296,15 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=6"></script>
-<script src="inspection-records.js?v=3"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
+<script src="inspection-records.js?v=5"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 const worker = getCurrentWorker();
 let inspectionRecords = [];
+let safetyAcknowledgementRows = [];
 const queryParams = new URLSearchParams(window.location.search);
 const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
 const isPermitsView = String(pageMode).toLowerCase() === "permits";
@@ -371,18 +411,204 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
-function buildDetails(record) {
-    if (record.report_source) {
-        return [
-            record.project ? "Project: " + record.project : "",
-            record.location ? "Location: " + record.location : "",
-            record.summary ? "Summary: " + record.summary : ""
-        ]
-            .filter(Boolean)
-            .map((line) => escapeHtml(line))
-            .join("<br>");
+function getPortalWorkerRecord() {
+    if (typeof getCurrentWorkerRecord === "function") {
+        const record = getCurrentWorkerRecord();
+
+        return {
+            key: record.key || worker.key || "",
+            display: record.display || worker.display || record.key || worker.key || "",
+            email: record.email || localStorage.getItem("currentUserEmail") || "",
+            role: record.role || localStorage.getItem("currentUserRole") || "",
+            company: record.company || localStorage.getItem("jgcSubcontractorCompany") || ""
+        };
     }
 
+    return {
+        key: worker.key || "",
+        display: worker.display || worker.key || "",
+        email: localStorage.getItem("currentUserEmail") || "",
+        role: localStorage.getItem("currentUserRole") || "",
+        company: localStorage.getItem("jgcSubcontractorCompany") || ""
+    };
+}
+
+function normalizeAcknowledgementValue(value) {
+    if (typeof normalizeWorkerName === "function") {
+        return normalizeWorkerName(value);
+    }
+
+    return String(value || "").trim().toLowerCase();
+}
+
+function isJsaRecord(record) {
+    return String(record && (record.report_type || record.inspection_type) || "").toLowerCase() === "jsa";
+}
+
+function isSafetyAckRecord(record) {
+    const type = String(record && (record.report_type || record.inspection_type) || "").toLowerCase();
+    return type === "jsa" || type === "toolbox talk";
+}
+
+function getJsaAcknowledgements(record) {
+    if (record && Array.isArray(record.safety_acknowledgements)) {
+        return record.safety_acknowledgements;
+    }
+
+    const formData = record && record.form_data && typeof record.form_data === "object"
+        ? record.form_data
+        : {};
+    const acknowledgements = Array.isArray(formData.acknowledgements)
+        ? formData.acknowledgements
+        : [];
+
+    return acknowledgements.filter((ack) =>
+        ack && (ack.worker_key || ack.worker_name || ack.worker_display_name || ack.name || ack.email)
+    );
+}
+
+function getAcknowledgementName(ack) {
+    return ack.attendee_name || ack.worker_display_name || ack.worker_name || ack.name || ack.worker_key || ack.email || "Worker";
+}
+
+function formatAcknowledgementDate(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function currentWorkerHasJsaAcknowledgement(record) {
+    const current = getPortalWorkerRecord();
+
+    if (typeof safetyAckRowMatchesWorker === "function" && typeof safetyAckIsAcknowledged === "function") {
+        return getJsaAcknowledgements(record).some((ack) =>
+            safetyAckRowMatchesWorker(ack, current) && safetyAckIsAcknowledged(ack)
+        );
+    }
+
+    const aliases = [
+        current.key,
+        current.display,
+        current.email
+    ].map(normalizeAcknowledgementValue).filter(Boolean);
+
+    return getJsaAcknowledgements(record).some((ack) => {
+        const ackAliases = [
+            ack.worker_key,
+            ack.worker_display_name,
+            ack.worker_name,
+            ack.name,
+            ack.email
+        ].map(normalizeAcknowledgementValue).filter(Boolean);
+
+        return ackAliases.some((alias) => aliases.includes(alias));
+    });
+}
+
+function currentWorkerCanManageSafetyAcknowledgements(record) {
+    const current = getPortalWorkerRecord();
+
+    if (typeof isAdminWorker === "function" && isAdminWorker(current.key, current.role, current.email)) {
+        return true;
+    }
+
+    const currentAliases = [
+        current.key,
+        current.display,
+        current.email
+    ].map(normalizeAcknowledgementValue).filter(Boolean);
+    const creatorAliases = [
+        record && record.worker_name,
+        record && record.worker_display_name,
+        record && record.submitted_by_worker,
+        record && record.submitted_by_name,
+        record && record.created_by_name,
+        record && record.report_maker_worker,
+        record && record.report_maker_display
+    ].map(normalizeAcknowledgementValue).filter(Boolean);
+
+    return creatorAliases.some((alias) => currentAliases.includes(alias));
+}
+
+function renderJsaAcknowledgementSummary(record) {
+    if (!isSafetyAckRecord(record)) {
+        return "";
+    }
+
+    const rows = getJsaAcknowledgements(record);
+    const summary = typeof safetyAckSummary === "function"
+        ? safetyAckSummary(rows)
+        : { total: rows.length, acknowledged: rows.filter((row) => row.acknowledged_at).length, pending: 0, late: 0, unmatched: 0 };
+
+    if (!summary.total) {
+        return "<strong>Acknowledgements:</strong> none set";
+    }
+
+    return `<strong>Acknowledgements:</strong> ${escapeHtml(String(summary.acknowledged))}/${escapeHtml(String(summary.total))}${summary.pending ? " pending " + escapeHtml(String(summary.pending)) : ""}${summary.late ? " late " + escapeHtml(String(summary.late)) : ""}`;
+}
+
+function renderJsaAcknowledgementList(record) {
+    const acknowledgements = getJsaAcknowledgements(record);
+
+    if (!acknowledgements.length) {
+        return '<div class="small">No one has signed onto this JSA yet.</div>';
+    }
+
+    return `
+        <ul class="ack-list">
+            ${acknowledgements.map((ack) => `
+                <li>
+                    ${escapeHtml(getAcknowledgementName(ack))}
+                    ${ack.attendee_company || ack.company ? " - " + escapeHtml(ack.attendee_company || ack.company) : ""}
+                    ${ack.acknowledgement_status ? " - " + escapeHtml(typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status) : ""}
+                    ${ack.acknowledged_at ? " - " + escapeHtml(formatAcknowledgementDate(ack.acknowledged_at)) : ""}
+                </li>
+            `).join("")}
+        </ul>
+    `;
+}
+
+function getJsaAcknowledgementLines(record) {
+    return getJsaAcknowledgements(record).map((ack) => {
+        const parts = [
+            getAcknowledgementName(ack),
+            ack.attendee_company || ack.company || "",
+            typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status || "",
+            typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(ack) : ack.acknowledgement_method || "",
+            formatAcknowledgementDate(ack.acknowledged_at)
+        ].filter(Boolean);
+
+        return parts.join(" - ");
+    });
+}
+
+function renderJsaSignOnCell(record) {
+    if (!isSafetyAckRecord(record)) {
+        return "-";
+    }
+
+    if (currentWorkerHasJsaAcknowledgement(record)) {
+        return '<button class="sign-on-button" type="button" disabled>Signed On</button>';
+    }
+
+    return `<button class="sign-on-button" type="button" onclick="openJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>`;
+}
+
+function buildFieldSummaryText(record) {
     const fields = record.form_data && Array.isArray(record.form_data.fields)
         ? record.form_data.fields
         : [];
@@ -390,8 +616,35 @@ function buildDetails(record) {
     return fields
         .filter((field) => field.value)
         .slice(0, 5)
-        .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
-        .join("<br>");
+        .map((field) => `${field.label}: ${field.value}`)
+        .join(" | ");
+}
+
+function buildDetails(record) {
+    if (record.report_source) {
+        const lines = [
+            record.project ? "Project: " + record.project : "",
+            record.location ? "Location: " + record.location : "",
+            record.summary ? "Summary: " + record.summary : ""
+        ]
+            .filter(Boolean)
+            .map((line) => escapeHtml(line))
+            .concat(renderJsaAcknowledgementSummary(record))
+            .filter(Boolean);
+
+        return lines.join("<br>");
+    }
+
+    const lines = buildFieldSummaryText(record)
+        .split(" | ")
+        .filter(Boolean)
+        .map((line) => escapeHtml(line));
+
+    if (isJsaRecord(record)) {
+        lines.push(renderJsaAcknowledgementSummary(record));
+    }
+
+    return lines.join("<br>");
 }
 
 function normalizeReportRecord(source, record) {
@@ -404,7 +657,7 @@ function normalizeReportRecord(source, record) {
             completed_by: record.worker_display_name || record.worker_name || "",
             project: findFieldValue(record, /Project|Job/i),
             location: findFieldValue(record, /Location/i),
-            summary: buildDetails(record),
+            summary: buildFieldSummaryText(record),
             supports_inspection_actions: true
         };
     }
@@ -514,7 +767,7 @@ async function loadReportRecords(sinceIso) {
         throw firstError.error;
     }
 
-    return []
+    const records = []
         .concat((jsaResult.data || []).filter((record) => String(record.inspection_type || "").toLowerCase() === "jsa").map((record) => normalizeReportRecord("jsa", record)))
         .concat((dailyResult.data || []).map((record) => normalizeReportRecord("daily", record)))
         .concat((toolboxResult.data || []).map((record) => normalizeReportRecord("toolbox", record)))
@@ -522,6 +775,38 @@ async function loadReportRecords(sinceIso) {
         .concat((accidentResult.data || []).map((record) => normalizeReportRecord("accident", record)))
         .concat((injuryResult.data || []).map((record) => normalizeReportRecord("injury", record)))
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    safetyAcknowledgementRows = [];
+
+    if (typeof safetyAckLoadForRecords === "function") {
+        const jsaIds = records
+            .filter((record) => String(record.report_type || record.inspection_type || "").toLowerCase() === "jsa")
+            .map((record) => record.id);
+        const toolboxIds = records
+            .filter((record) => String(record.report_type || "").toLowerCase() === "toolbox talk")
+            .map((record) => record.id);
+        const [jsaAckRows, toolboxAckRows] = await Promise.all([
+            safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaIds),
+            safetyAckLoadForRecords(inspectionSupabaseClient, "toolbox_talk", toolboxIds)
+        ]);
+
+        safetyAcknowledgementRows = jsaAckRows.concat(toolboxAckRows);
+        records.forEach((record) => {
+            const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
+                ? "toolbox_talk"
+                : "jsa";
+
+            if (recordType === "jsa" && String(record.report_type || record.inspection_type || "").toLowerCase() !== "jsa") {
+                return;
+            }
+
+            record.safety_acknowledgements = safetyAcknowledgementRows.filter((row) =>
+                row.record_type === recordType && row.record_id === record.id
+            );
+        });
+    }
+
+    return records;
 }
 
 async function loadInspections() {
@@ -592,6 +877,7 @@ function renderInspectionRows(filteredData) {
                     <th>${typeHeading}</th>
                     <th>Completed By</th>
                     <th>Details</th>
+                    <th>Sign On</th>
                     <th>Edit</th>
                     <th>PDF</th>
                     <th>Email</th>
@@ -606,6 +892,7 @@ function renderInspectionRows(filteredData) {
                         <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
                         <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
+                        <td>${renderJsaSignOnCell(record)}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>`}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>`}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
@@ -641,6 +928,13 @@ function buildEmailBodyFromRecord(record) {
         rows.forEach((row) => {
             lines.push((row.cells || []).filter(Boolean).join(" | "));
         });
+    }
+
+    const acknowledgementLines = getJsaAcknowledgementLines(record);
+
+    if (acknowledgementLines.length) {
+        lines.push("", "JSA Acknowledgements:");
+        acknowledgementLines.forEach((line) => lines.push(line));
     }
 
     return lines.join("\n");
@@ -820,6 +1114,200 @@ function cancelInspectionEdit() {
     panel.innerHTML = "";
 }
 
+function openJsaSignOn(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+    const panel = document.getElementById("editPanel");
+
+    if (!record || !isSafetyAckRecord(record)) {
+        alert("This safety acknowledgement record could not be found.");
+        return;
+    }
+
+    const current = getPortalWorkerRecord();
+    const alreadySigned = currentWorkerHasJsaAcknowledgement(record);
+    const recordLabel = record.report_type || record.inspection_type || "Safety Record";
+    const recordType = String(recordLabel).toLowerCase() === "toolbox talk" ? "toolbox_talk" : "jsa";
+    const ackRows = getJsaAcknowledgements(record);
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(ackRows) : "";
+    const qrUrl = token && typeof safetyAckQrUrl === "function"
+        ? safetyAckQrUrl(recordType, record.id, token)
+        : "";
+    const summary = typeof safetyAckSummary === "function"
+        ? safetyAckSummary(ackRows)
+        : { total: ackRows.length, acknowledged: 0, pending: 0, late: 0, unmatched: 0 };
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h2>${escapeHtml(recordLabel)} Acknowledgement</h2>
+        <div class="edit-grid">
+            <div class="edit-field">
+                <label>Date</label>
+                <input type="text" value="${escapeHtml(formatDate(record.report_date || record.inspection_date))}" disabled>
+            </div>
+            <div class="edit-field">
+                <label>Signing On As</label>
+                <input type="text" value="${escapeHtml(current.display || current.key)}" disabled>
+            </div>
+            <div class="edit-field">
+                <label>Project</label>
+                <input type="text" value="${escapeHtml(record.project || findFieldValue(record, /Project|Job/i))}" disabled>
+            </div>
+            <div class="edit-field">
+                <label>Location</label>
+                <input type="text" value="${escapeHtml(record.location || findFieldValue(record, /Location/i))}" disabled>
+            </div>
+        </div>
+        <div class="ack-status">
+            ${escapeHtml(String(summary.acknowledged))} acknowledged / ${escapeHtml(String(summary.total))} total
+            ${summary.pending ? " - " + escapeHtml(String(summary.pending)) + " pending" : ""}
+            ${summary.late ? " - " + escapeHtml(String(summary.late)) + " late" : ""}
+        </div>
+        <h3>Current Acknowledgements</h3>
+        ${renderSafetyAcknowledgementManager(record)}
+        ${alreadySigned ? '<div class="ack-status">You are already signed onto this JSA.</div>' : `
+            <label class="ack-checkbox">
+                <input id="jsaSignOnConfirm" type="checkbox">
+                <span>I confirm I reviewed and understood this ${escapeHtml(recordLabel)} and had the opportunity to ask questions.</span>
+            </label>
+        `}
+        ${qrUrl ? `
+            <h3>QR Sign-On</h3>
+            <div id="safetyAckQrWrap" class="small"></div>
+        ` : ""}
+        <div class="actions">
+            ${alreadySigned ? "" : `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>`}
+            <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
+        </div>
+        <div id="jsaSignOnStatus" class="ack-status"></div>
+    `;
+
+    if (qrUrl && typeof safetyAckRenderQr === "function") {
+        safetyAckRenderQr(document.getElementById("safetyAckQrWrap"), qrUrl);
+    }
+
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderSafetyAcknowledgementManager(record) {
+    const rows = getJsaAcknowledgements(record);
+    const canManage = currentWorkerCanManageSafetyAcknowledgements(record);
+
+    if (!rows.length) {
+        return '<div class="small">No attendees were entered for this record yet. Late acknowledgements can still be added.</div>';
+    }
+
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>Company</th><th>Status</th><th>Method</th><th>Time</th>${canManage ? "<th>Creator Action</th>" : ""}</tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => {
+                        const acknowledged = typeof safetyAckIsAcknowledged === "function" ? safetyAckIsAcknowledged(row) : Boolean(row.acknowledged_at);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(row.attendee_name || getAcknowledgementName(row))}</td>
+                                <td>${escapeHtml(row.attendee_company || row.company || "")}</td>
+                                <td>${escapeHtml(typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(row) : row.acknowledgement_status || "Pending")}</td>
+                                <td>${escapeHtml(typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(row) : row.acknowledgement_method || "-")}</td>
+                                <td>${escapeHtml(formatAcknowledgementDate(row.acknowledged_at))}</td>
+                                ${canManage ? `<td>${acknowledged ? "-" : `<button type="button" class="secondary" onclick="markSafetyAckOnBehalf('${escapeHtml(row.id)}', '${escapeHtml(record.id)}')">Mark on site</button>`}</td>` : ""}
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function markSafetyAckOnBehalf(ackId, recordId) {
+    const record = inspectionRecords.find((item) => item.id === recordId);
+
+    if (!record || !currentWorkerCanManageSafetyAcknowledgements(record)) {
+        alert("Only the creator or an admin can mark someone acknowledged on site.");
+        return;
+    }
+
+    const note = prompt("Reason/note for marking this person acknowledged on site:", "Acknowledged verbally during the safety review.");
+
+    if (note === null) {
+        return;
+    }
+
+    const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
+        ? "toolbox_talk"
+        : "jsa";
+    const result = typeof safetyAckMarkOnBehalf === "function"
+        ? await safetyAckMarkOnBehalf(inspectionSupabaseClient, ackId, note, { recordId, recordType })
+        : { ok: false };
+
+    if (!result.ok) {
+        alert(result.message || "Acknowledgement could not be saved.");
+        return;
+    }
+
+    await loadInspections();
+    openJsaSignOn(recordId);
+}
+
+async function confirmJsaSignOn(id) {
+    const checkbox = document.getElementById("jsaSignOnConfirm");
+    const status = document.getElementById("jsaSignOnStatus");
+    const current = getPortalWorkerRecord();
+    const record = inspectionRecords.find((item) => item.id === id);
+
+    if (!checkbox || !checkbox.checked) {
+        alert("Check the acknowledgement box before signing on.");
+        return;
+    }
+
+    if (!current.key || !record) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    if (status) {
+        status.textContent = "Saving acknowledgement...";
+    }
+
+    const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
+        ? "toolbox_talk"
+        : "jsa";
+    const result = typeof safetyAckSubmitCurrentWorker === "function"
+        ? await safetyAckSubmitCurrentWorker(inspectionSupabaseClient, {
+            recordType,
+            recordId: record.id,
+            recordTitle: record.report_type || record.inspection_type || "",
+            recordDate: record.report_date || record.inspection_date || null,
+            project: record.project || findFieldValue(record, /Project|Job/i),
+            location: record.location || findFieldValue(record, /Location/i),
+            qrToken: typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(getJsaAcknowledgements(record)) : "",
+            creator: current
+        })
+        : { ok: false, message: "Acknowledgement could not be saved." };
+
+    if (!result.ok) {
+        if (status) {
+            status.textContent = result.message || "";
+        }
+        alert(result.message || "Acknowledgement could not be saved.");
+        return;
+    }
+
+    if (typeof recordJgcSubcontractorActivity === "function") {
+        recordJgcSubcontractorActivity("jsa_acknowledgement");
+    }
+
+    if (status) {
+        status.textContent = result.message || "Acknowledgement saved.";
+    }
+
+    await loadInspections();
+    openJsaSignOn(id);
+}
+
 async function saveInspectionEdit(id) {
     const record = inspectionRecords.find((item) => item.id === id);
 
@@ -963,6 +1451,56 @@ function getJsaRows(record) {
         }));
 }
 
+function drawJsaAcknowledgementHeader(doc, margin, y, usable) {
+    const headerFill = [230, 236, 230];
+    drawBoxText(doc, "Digital JSA Acknowledgements", margin, y, usable, 9, { bold: true, fill: headerFill, maxLines: 1 });
+    y += 9;
+    drawBoxText(doc, "Name", margin, y, usable * 0.36, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Company", margin + usable * 0.36, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Acknowledged", margin + usable * 0.60, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Email", margin + usable * 0.84, y, usable * 0.16, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    return y + 8;
+}
+
+function drawJsaAcknowledgements(doc, record, margin, y, usable) {
+    const acknowledgements = getJsaAcknowledgements(record);
+
+    if (!acknowledgements.length) {
+        return y;
+    }
+
+    if (y > 172) {
+        doc.addPage();
+        y = 12;
+    } else {
+        y += 5;
+    }
+
+    y = drawJsaAcknowledgementHeader(doc, margin, y, usable);
+
+    acknowledgements.forEach((ack) => {
+        if (y > 185) {
+            doc.addPage();
+            y = 12;
+            y = drawJsaAcknowledgementHeader(doc, margin, y, usable);
+        }
+
+        const name = getAcknowledgementName(ack);
+        const company = ack.attendee_company || ack.company || "";
+        const date = formatAcknowledgementDate(ack.acknowledged_at);
+        const email = ack.matched_employee_email || ack.email || "";
+        const rowHeight = 9;
+
+        drawBoxText(doc, name, margin, y, usable * 0.36, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, company, margin + usable * 0.36, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, date, margin + usable * 0.60, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, email, margin + usable * 0.84, y, usable * 0.16, rowHeight, { fontSize: 6, maxLines: 2 });
+        y += rowHeight;
+    });
+
+    return y;
+}
+
 function downloadJsaPdf(record) {
     const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1047,6 +1585,8 @@ function downloadJsaPdf(record) {
         drawBoxText(doc, row.action, margin + col1 + col2, y, col3, rowHeight, { fontSize: 8, maxLines: 5 });
         y += rowHeight;
     });
+
+    y = drawJsaAcknowledgements(doc, record, margin, y, usable);
 
     doc.save(`jsa-${record.inspection_date || "inspection"}.pdf`);
 }
