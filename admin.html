@@ -186,6 +186,59 @@ textarea {
     grid-column: 1 / -1;
 }
 
+.admin-report-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 14px;
+    border-bottom: 1px solid #d7ded5;
+    padding-bottom: 10px;
+}
+
+.admin-report-tabs button {
+    width: auto;
+    min-width: max-content;
+    padding: 9px 12px;
+    border: 1px solid #2f6f3c;
+    border-radius: 999px;
+    background: #f7fff6;
+    color: #1f3d28;
+    font-weight: bold;
+}
+
+.admin-report-tabs button.active {
+    background: #2f6f3c;
+    color: #ffffff;
+}
+
+.admin-report-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(31, 61, 40, 0.12);
+    font-size: 12px;
+}
+
+.admin-report-tabs button.active .admin-report-count {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.admin-report-panel {
+    margin-top: 10px;
+}
+
+.admin-report-panel[hidden] {
+    display: none;
+}
+
+.admin-report-panel h3 {
+    margin-top: 0;
+}
+
 .table-wrap {
     overflow-x: auto;
 }
@@ -2063,6 +2116,17 @@ button.admin-schedule-event-button.admin-event-vacation {
     .announcement-grid .full {
         grid-column: auto;
     }
+
+    .admin-report-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-report-tabs button {
+        flex: 0 0 auto;
+    }
 }
 </style>
 </head>
@@ -2547,57 +2611,66 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="reportsSection" class="card" hidden>
     <h2>Reports</h2>
-    <div class="announcement-grid">
-        <div>
+    <div class="admin-report-tabs" role="tablist" aria-label="Report categories">
+        <button id="adminReportTabDaily" type="button" class="active" data-report-tab="daily" onclick="switchAdminReportSubtab('daily')">Daily Reports <span id="adminReportCountDaily" class="admin-report-count">0</span></button>
+        <button id="adminReportTabJsa" type="button" data-report-tab="jsa" onclick="switchAdminReportSubtab('jsa')">JSA <span id="adminReportCountJsa" class="admin-report-count">0</span></button>
+        <button id="adminReportTabNearMiss" type="button" data-report-tab="nearMiss" onclick="switchAdminReportSubtab('nearMiss')">Near Miss <span id="adminReportCountNearMiss" class="admin-report-count">0</span></button>
+        <button id="adminReportTabAccident" type="button" data-report-tab="accident" onclick="switchAdminReportSubtab('accident')">Accidents <span id="adminReportCountAccident" class="admin-report-count">0</span></button>
+        <button id="adminReportTabInjury" type="button" data-report-tab="injury" onclick="switchAdminReportSubtab('injury')">Employee Injury <span id="adminReportCountInjury" class="admin-report-count">0</span></button>
+        <button id="adminReportTabAcknowledgements" type="button" data-report-tab="acknowledgements" onclick="switchAdminReportSubtab('acknowledgements')">Acknowledgements <span id="adminReportCountAcknowledgements" class="admin-report-count">0</span></button>
+        <button id="adminReportTabToolbox" type="button" data-report-tab="toolbox" onclick="switchAdminReportSubtab('toolbox')">Toolbox Talks <span id="adminReportCountToolbox" class="admin-report-count">0</span></button>
+    </div>
+
+    <div class="admin-report-panels">
+        <section id="adminReportPanelDaily" class="admin-report-panel" data-report-panel="daily">
             <h3>Daily Site Reports</h3>
             <div id="dailySiteReportsList" class="small">Loading daily site reports...</div>
-        </div>
-        <div>
+        </section>
+        <section id="adminReportPanelJsa" class="admin-report-panel" data-report-panel="jsa" hidden>
             <h3>JSA Reports</h3>
             <div id="jsaReportsList" class="small">Loading JSA reports...</div>
-        </div>
-        <div>
+        </section>
+        <section id="adminReportPanelNearMiss" class="admin-report-panel" data-report-panel="nearMiss" hidden>
             <h3>Near Miss Reports</h3>
             <div id="nearMissReportsList" class="small">Loading incident reports...</div>
-        </div>
-        <div>
+        </section>
+        <section id="adminReportPanelAccident" class="admin-report-panel" data-report-panel="accident" hidden>
             <h3>Accident Reports</h3>
             <div id="accidentReportsList" class="small">Loading accident reports...</div>
-        </div>
-        <div>
+        </section>
+        <section id="adminReportPanelInjury" class="admin-report-panel" data-report-panel="injury" hidden>
             <h3>Employee Injury Reports</h3>
             <div id="employeeInjuryReportsList" class="small">Loading employee injury reports...</div>
-        </div>
+        </section>
+        <section id="adminReportPanelAcknowledgements" class="admin-report-panel" data-report-panel="acknowledgements" hidden>
+            <h3>JSA / Toolbox Talk Acknowledgements</h3>
+            <div id="safetyAcknowledgementList" class="small">Loading safety acknowledgements...</div>
+        </section>
+        <section id="adminReportPanelToolbox" class="admin-report-panel" data-report-panel="toolbox" hidden>
+            <h3>Tool Box Talks</h3>
+            <div class="announcement-grid">
+                <div>
+                    <label>Title</label>
+                    <input id="toolboxTalkTitle" placeholder="Example: Ladder Safety">
+                </div>
+                <div>
+                    <label>PDF</label>
+                    <input id="toolboxTalkFile" type="file" accept="application/pdf,.pdf">
+                </div>
+                <div class="full">
+                    <label>Description</label>
+                    <textarea id="toolboxTalkDescription" placeholder="Optional notes for this toolbox talk"></textarea>
+                </div>
+            </div>
+            <div class="actions" style="margin-top:10px;">
+                <button type="button" onclick="publishToolboxTalk()">Upload Toolbox Talk PDF</button>
+                <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Talks</button>
+            </div>
+            <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
+            <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+            <div id="toolboxTalkList" class="small">Loading toolbox talks...</div>
+        </section>
     </div>
-
-    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;" open>
-        <summary>JSA / Toolbox Talk Acknowledgements</summary>
-        <div id="safetyAcknowledgementList" class="small" style="margin-top:12px;">Loading safety acknowledgements...</div>
-    </details>
-
-    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
-    <h2>Tool Box Talks</h2>
-    <div class="announcement-grid">
-        <div>
-            <label>Title</label>
-            <input id="toolboxTalkTitle" placeholder="Example: Ladder Safety">
-        </div>
-        <div>
-            <label>PDF</label>
-            <input id="toolboxTalkFile" type="file" accept="application/pdf,.pdf">
-        </div>
-        <div class="full">
-            <label>Description</label>
-            <textarea id="toolboxTalkDescription" placeholder="Optional notes for this toolbox talk"></textarea>
-        </div>
-    </div>
-    <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="publishToolboxTalk()">Upload Toolbox Talk PDF</button>
-        <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Talks</button>
-    </div>
-    <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
-    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
-    <div id="toolboxTalkList" class="small">Loading toolbox talks...</div>
 </div>
 
 <div id="equipmentSection" class="card" hidden>
@@ -2867,6 +2940,7 @@ let certificateUrls = {};
 let announcementUrls = {};
 let toolboxTalkUrls = {};
 let policyUrls = {};
+let activeAdminReportSubtab = localStorage.getItem("jgcActiveAdminReportSubtab") || "daily";
 let currentUserId = "";
 let editingContactId = "";
 let editingTimesheetId = "";
@@ -8818,16 +8892,62 @@ function renderSafetyAcknowledgementOverview() {
     `;
 }
 
+function getAdminJsaReports() {
+    return inspections.filter((inspection) =>
+        String(inspection.inspection_type || "").toLowerCase().includes("jsa") ||
+        String(inspection.inspection_type || "").toLowerCase().includes("job safety")
+    );
+}
+
+function setAdminReportSubtabCount(tab, count) {
+    const countElement = document.querySelector(`[data-report-tab="${tab}"] .admin-report-count`);
+
+    if (countElement) {
+        countElement.textContent = String(count || 0);
+    }
+}
+
+function updateAdminReportSubtabCounts() {
+    setAdminReportSubtabCount("daily", dailySiteReports.length);
+    setAdminReportSubtabCount("jsa", getAdminJsaReports().length);
+    setAdminReportSubtabCount("nearMiss", incidentReports.length);
+    setAdminReportSubtabCount("accident", accidentReports.length);
+    setAdminReportSubtabCount("injury", employeeInjuryReports.length);
+    setAdminReportSubtabCount("acknowledgements", safetyAcknowledgements.filter((ack) => !ack.removed_at).length);
+    setAdminReportSubtabCount("toolbox", toolboxTalks.length);
+}
+
+function switchAdminReportSubtab(tab) {
+    const requestedTab = tab || "daily";
+    const targetPanel = document.querySelector(`[data-report-panel="${requestedTab}"]`);
+    const resolvedTab = targetPanel ? requestedTab : "daily";
+
+    activeAdminReportSubtab = resolvedTab;
+    localStorage.setItem("jgcActiveAdminReportSubtab", resolvedTab);
+
+    document.querySelectorAll("[data-report-tab]").forEach((button) => {
+        const isActive = button.getAttribute("data-report-tab") === resolvedTab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    document.querySelectorAll("[data-report-panel]").forEach((panel) => {
+        panel.hidden = panel.getAttribute("data-report-panel") !== resolvedTab;
+    });
+}
+
+function initializeAdminReportSubtabs() {
+    updateAdminReportSubtabCounts();
+    switchAdminReportSubtab(activeAdminReportSubtab || "daily");
+}
+
 function renderReports() {
     const dailyList = document.getElementById("dailySiteReportsList");
     const jsaList = document.getElementById("jsaReportsList");
     const incidentList = document.getElementById("nearMissReportsList");
     const accidentList = document.getElementById("accidentReportsList");
     const employeeInjuryList = document.getElementById("employeeInjuryReportsList");
-    const jsaReports = inspections.filter((inspection) =>
-        String(inspection.inspection_type || "").toLowerCase().includes("jsa") ||
-        String(inspection.inspection_type || "").toLowerCase().includes("job safety")
-    );
+    const jsaReports = getAdminJsaReports();
 
     renderSafetyAcknowledgementOverview();
 
@@ -8981,6 +9101,8 @@ function renderReports() {
             `;
         }
     }
+
+    initializeAdminReportSubtabs();
 }
 
 function renderCertificates() {
@@ -9878,6 +10000,8 @@ function renderToolboxTalks() {
     if (!list) {
         return;
     }
+
+    updateAdminReportSubtabCounts();
 
     if (!toolboxTalks.length) {
         list.textContent = "No toolbox talks uploaded yet.";
