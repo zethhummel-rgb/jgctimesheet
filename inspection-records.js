@@ -263,15 +263,16 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
     const token = typeof safetyAckCreateToken === "function"
         ? safetyAckCreateToken()
         : "jsa-" + Date.now();
+    const formJobContext = savedRecord.form_data && savedRecord.form_data.job_context || {};
     const rows = safetyAckBuildRowsForRecord({
         recordType: "jsa",
         recordId: savedRecord.id,
         recordTitle: savedRecord.title || "JSA - " + (savedRecord.inspection_date || ""),
         recordDate: savedRecord.inspection_date || null,
-        project: savedRecord.project || getInspectionFieldValue(fields, /Project|Job/i),
-        location: savedRecord.location || getInspectionFieldValue(fields, /Location/i),
-        jobNumber: savedRecord.job_number || "",
-        jobName: savedRecord.job_name || "",
+        project: formJobContext.project || getInspectionFieldValue(fields, /Project|Job/i),
+        location: formJobContext.location || getInspectionFieldValue(fields, /Location/i),
+        jobNumber: formJobContext.jobNumber || "",
+        jobName: formJobContext.jobName || "",
         qrToken: token,
         creator: getCurrentWorker(),
         attendees
@@ -596,13 +597,10 @@ async function saveInspection(type) {
             field_count: fields.length,
             row_count: rows.length
         },
-        project: jobContext.project || "",
-        location: jobContext.location || "",
-        job_name: jobContext.jobName || "",
-        job_number: jobContext.jobNumber || "",
         form_data: {
             fields,
-            rows
+            rows,
+            job_context: jobContext
         },
         email_body: emailBody
     };
