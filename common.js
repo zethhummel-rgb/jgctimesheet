@@ -6,6 +6,7 @@ const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
   "subcontractor.html",
+  "acknowledge.html",
   "reports.html",
   "daily-site-report.html",
   "jsa.html",
@@ -226,6 +227,7 @@ function getJgcScheduleSyncClass(event) {
 function applyJgcPortalName() {
   const pageTitles = {
     "accounts.html": "Accounts",
+    "acknowledge.html": "Safety Acknowledgement",
     "accident-report.html": "Supervisor Accident Investigation",
     "admin.html": "Admin",
     "aerial-lifts.html": "Aerial Lift Inspection",
@@ -747,7 +749,7 @@ async function recordJgcSubcontractorActivity(action) {
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
-  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", JGC_SUBCONTRACTOR_HOME_PAGE];
+  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", "acknowledge.html", JGC_SUBCONTRACTOR_HOME_PAGE];
 
   if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcGlobalTopNav")) {
     return;
