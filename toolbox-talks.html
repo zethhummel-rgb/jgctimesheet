@@ -327,6 +327,11 @@ th {
                 <label>Crew Onsite</label>
                 <div id="crewList" class="crew-list">Loading employees...</div>
             </div>
+
+            <div class="field full">
+                <label>Subcontractors / Visitors / Other Onsite Workers</label>
+                <textarea id="externalCrewList" placeholder="One person per line. Use Name - Company when you know the company."></textarea>
+            </div>
         </div>
 
         <div class="actions">
@@ -335,6 +340,7 @@ th {
             <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
         </div>
         <div id="reportStatus" class="status"></div>
+        <div id="toolboxSafetyAckPanel" class="small" style="margin-top:10px;"></div>
     </section>
 
     <section class="card">
@@ -344,7 +350,8 @@ th {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=6"></script>
+<script src="common.js?v=7"></script>
+<script src="safety-acknowledgements.js?v=1"></script>
 <script>
 const TOOLBOX_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -397,6 +404,10 @@ async function loadToolboxData() {
 
     toolboxTalks = talkResult.data || [];
     employees = (profileResult.data || []).map((profile) => ({
+        id: profile.id,
+        email: profile.email || "",
+        accountStatus: profile.account_status || "",
+        workerKey: profile.worker_key || "",
         workerName: normalizeWorkerName(profile.worker_key || profile.display_name || profile.email),
         displayName: profile.display_name || profile.worker_key || profile.email || ""
     })).filter((employee) => employee.workerName);
@@ -499,8 +510,79 @@ function selectToolboxTalk(id) {
 function getSelectedCrew() {
     return Array.from(document.querySelectorAll(".crew-checkbox:checked")).map((box) => ({
         workerName: box.value,
-        displayName: box.dataset.display || box.value
+        displayName: box.dataset.display || box.value,
+        company: SAFETY_ACK_COMPANY_JGC
     }));
+}
+
+function getManualExternalCrew() {
+    if (typeof safetyAckParseManualAttendees !== "function") {
+        return [];
+    }
+
+    return safetyAckParseManualAttendees(getValue("externalCrewList"), "").map((attendee) => ({
+        workerName: safetyAckAttendeeKey(attendee.name, attendee.company || ""),
+        displayName: attendee.name,
+        company: attendee.company || "",
+        external: true
+    }));
+}
+
+async function createToolboxSafetyAcknowledgements(savedReport, allCrew) {
+    if (
+        !savedReport ||
+        typeof safetyAckLoadApprovedProfiles !== "function" ||
+        typeof safetyAckBuildAttendeesFromNames !== "function" ||
+        typeof safetyAckBuildRowsForRecord !== "function" ||
+        typeof safetyAckSaveRows !== "function"
+    ) {
+        return [];
+    }
+
+    const profiles = await safetyAckLoadApprovedProfiles(supabaseClient);
+    const attendees = safetyAckBuildAttendeesFromNames((allCrew || []).map((person) => ({
+        name: person.displayName || person.workerName,
+        company: person.company || ""
+    })), profiles, { defaultCompany: "" });
+
+    if (!attendees.length) {
+        return [];
+    }
+
+    const rows = safetyAckBuildRowsForRecord({
+        recordType: "toolbox_talk",
+        recordId: savedReport.id,
+        recordTitle: selectedTalk ? selectedTalk.title : getValue("selectedTalkTitle"),
+        recordDate: getValue("reportDate") || null,
+        project: getValue("projectName"),
+        location: getValue("location"),
+        qrToken: safetyAckCreateToken(),
+        creator: worker,
+        attendees
+    });
+
+    const { data, error } = await safetyAckSaveRows(supabaseClient, rows);
+
+    if (error) {
+        console.warn("Toolbox talk safety acknowledgements could not be created.", error);
+        return [];
+    }
+
+    return data || [];
+}
+
+function renderToolboxSafetyAckLink(recordId, rows) {
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
+
+    if (!recordId || !token || typeof safetyAckQrUrl !== "function") {
+        return "";
+    }
+
+    const url = safetyAckQrUrl("toolbox_talk", recordId, token);
+    return `
+        <strong>QR acknowledgement link:</strong>
+        <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>
+    `;
 }
 
 function buildEmailBody(record) {
@@ -529,6 +611,9 @@ function buildEmailBody(record) {
 
 function buildPdfHtml(record) {
     const crewRows = record.crew.map((person) => `<tr><td>${escapeHtml(person.displayName)}</td><td></td></tr>`).join("");
+    const acknowledgementRows = typeof safetyAckBuildTableHtml === "function"
+        ? safetyAckBuildTableHtml(record.safety_acknowledgements || [])
+        : "";
 
     return `
         <!doctype html>
@@ -563,6 +648,7 @@ function buildPdfHtml(record) {
                 <tr><th>Name</th><th>Signature / Acknowledgement</th></tr>
                 ${crewRows}
             </table>
+            ${acknowledgementRows ? "<h3>Digital Acknowledgements</h3>" + acknowledgementRows : ""}
         </body>
         </html>
     `;
@@ -588,6 +674,8 @@ async function emailToolboxReport(record) {
 
 async function submitToolboxTalkReport() {
     const crew = getSelectedCrew();
+    const externalCrew = getManualExternalCrew();
+    const allCrew = crew.concat(externalCrew);
 
     if (!selectedTalk) {
         alert("Choose the toolbox talk PDF first.");
@@ -599,7 +687,7 @@ async function submitToolboxTalkReport() {
         return;
     }
 
-    if (!crew.length) {
+    if (!allCrew.length) {
         alert("Select the crew onsite.");
         return;
     }
@@ -617,7 +705,7 @@ async function submitToolboxTalkReport() {
         discussion_notes: getValue("discussionNotes"),
         hazards_discussed: getValue("hazardsDiscussed"),
         corrective_actions: getValue("correctiveActions"),
-        crew
+        crew: allCrew
     };
 
     setReportStatus("Saving toolbox talk report...");
@@ -633,21 +721,26 @@ async function submitToolboxTalkReport() {
         return;
     }
 
-    const attendanceRows = crew.map((person) => ({
-        report_id: data.id,
-        talk_id: selectedTalk.id,
-        worker_name: person.workerName,
-        worker_display_name: person.displayName
-    }));
+    if (crew.length) {
+        const attendanceRows = crew.map((person) => ({
+            report_id: data.id,
+            talk_id: selectedTalk.id,
+            worker_name: person.workerName,
+            worker_display_name: person.displayName
+        }));
 
-    const { error: attendanceError } = await supabaseClient
-        .from("toolbox_talk_attendance")
-        .insert(attendanceRows);
+        const { error: attendanceError } = await supabaseClient
+            .from("toolbox_talk_attendance")
+            .insert(attendanceRows);
 
-    if (attendanceError) {
-        setReportStatus("Report saved, but attendance acknowledgements could not be created.");
-        return;
+        if (attendanceError) {
+            setReportStatus("Report saved, but attendance acknowledgements could not be created.");
+            return;
+        }
     }
+
+    const safetyRows = await createToolboxSafetyAcknowledgements(data, allCrew);
+    record.safety_acknowledgements = safetyRows;
 
     setReportStatus("Emailing toolbox talk report...");
 
@@ -663,6 +756,8 @@ async function submitToolboxTalkReport() {
     document.getElementById("discussionNotes").value = "";
     document.getElementById("hazardsDiscussed").value = "";
     document.getElementById("correctiveActions").value = "";
+    document.getElementById("externalCrewList").value = "";
+    document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(data.id, safetyRows);
     document.querySelectorAll(".crew-checkbox").forEach((box) => {
         box.checked = false;
     });
