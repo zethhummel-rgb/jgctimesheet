@@ -283,14 +283,6 @@
       background: linear-gradient(135deg, #efaa35, #a87420);
     }
 
-    .public-tool-note {
-      margin: -5px 0 14px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
     .public-tool-button-top {
       margin-top: 16px;
       margin-bottom: 8px;
@@ -315,10 +307,6 @@
 
     .subcontractor-access-button:hover {
       background: rgba(94, 225, 47, 0.12);
-    }
-
-    .public-tool-note-top {
-      margin: 0 0 24px;
     }
 
     .portal-share-qr {
@@ -660,9 +648,8 @@
       </div>
       <div class="divider"></div>
       <button type="button" class="public-tool-button public-tool-button-top" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
-      <div class="public-tool-note public-tool-note-top">No sign-in required. Works offline after the app has loaded once.</div>
       <button type="button" class="public-tool-button public-notes-button" onclick="openLoginNotes()">Notes</button>
-      <div class="public-tool-note public-tool-note-top">Measurement scratch pad and material list. Auto-saves on this device.</div>
+      <button type="button" class="secondary subcontractor-access-button" onclick="openSubcontractorAccess()">Subcontractor Access</button>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
@@ -702,8 +689,6 @@
         </div>
       </div>
 
-      <button type="button" class="secondary subcontractor-access-button" onclick="openSubcontractorAccess()">Subcontractor Access</button>
-      <div class="public-tool-note">For project partners submitting reports, inspections, permits, or reviewing policies and contacts.</div>
       <div class="portal-share-qr" aria-label="JGC Portal QR code">
         <h4>Share Portal</h4>
         <img src="jgc-login-qr.png" alt="QR code to open the JGC Portal login page" loading="lazy" />
