@@ -2785,7 +2785,12 @@ async function autoSubmitReadyWorkOrders() {
     const check = getWorkOrderCompleteness(wo.id);
 
     if (check.complete) {
-      await finalizeWorkOrder(wo.id, { silent: true });
+      const submissionGate = getWorkOrderSubmissionGate(wo);
+      if (!submissionGate.allowed) {
+        await holdWorkOrderForMondaySubmission(wo.id, submissionGate, { silent: true });
+      } else {
+        await finalizeWorkOrder(wo.id, { silent: true });
+      }
     } else {
       await supabaseClient
         .from("work_orders")
