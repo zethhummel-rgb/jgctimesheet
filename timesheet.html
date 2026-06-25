@@ -3031,7 +3031,6 @@ function workOrderDateToRequestParts(dateValue) {
 
 function timesheetEntryMatchesWoRequest(entry, request) {
   const entryDate = getDateForTimesheetEntry(entry);
-  const entryWeekStart = entry && (entry.weekStartValue || entry.week_start) || (entryDate ? formatDateValue(getWeekStartDate(makeLocalDate(entryDate))) : "");
   const entryJobNumber = String(entry && (entry.jobNumber || entry.job_number) || "").trim().toLowerCase();
   const entryJobName = cleanRepeatedJobName(entry && (entry.jobName || entry.job_name) || "").trim().toLowerCase();
   const requestJobNumber = String(request.jobNumber || "").trim().toLowerCase();
@@ -3039,11 +3038,7 @@ function timesheetEntryMatchesWoRequest(entry, request) {
   const jobMatches = Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
     Boolean(requestJobName && entryJobName === requestJobName);
 
-  return jobMatches &&
-    (
-      entryDate === request.dateValue ||
-      Boolean(entryWeekStart && request.weekStartValue && entryWeekStart === request.weekStartValue)
-    );
+  return jobMatches && entryDate === request.dateValue;
 }
 
 function renderWoTimesheetRequests() {
