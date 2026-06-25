@@ -1866,7 +1866,9 @@ function renderWorkOrders() {
       wo.customer,
       wo.customer_po_number,
       wo.job_number,
-      wo.job_name
+      wo.job_name,
+      wo.created_by_name,
+      wo.supervisor_name
     ].join(" ").toLowerCase();
     const isSubmitted = Boolean(wo.locked || wo.status === "submitted" || isWorkOrderPendingSubmission(wo));
 
@@ -1892,6 +1894,7 @@ function renderWorkOrders() {
             <th>Date</th>
             <th>Attention</th>
             <th>Job</th>
+            <th>Creator</th>
             <th>Status</th>
             <th>Labour</th>
             <th>POs</th>
@@ -1911,6 +1914,7 @@ function renderWorkOrders() {
                 <td>${escapeHtml(wo.work_order_date || "")}</td>
                 <td>${escapeHtml(wo.customer || "")}</td>
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
+                <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
                 <td><span class="pill ${escapeHtml(wo.status || "draft")} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
                 <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
@@ -2111,9 +2115,9 @@ async function saveWorkOrder(options) {
     notes,
     labour_complete: labourComplete,
     waiting_for: waitingFor,
-    created_by: userId || null,
-    created_by_name: worker.display || worker.key || "",
-    supervisor_name: worker.display || worker.key || "",
+    created_by: existingWorkOrder ? existingWorkOrder.created_by || userId || null : userId || null,
+    created_by_name: existingWorkOrder ? existingWorkOrder.created_by_name || existingWorkOrder.supervisor_name || worker.display || worker.key || "" : worker.display || worker.key || "",
+    supervisor_name: existingWorkOrder ? existingWorkOrder.supervisor_name || worker.display || worker.key || "" : worker.display || worker.key || "",
     updated_at: new Date().toISOString()
   };
 
