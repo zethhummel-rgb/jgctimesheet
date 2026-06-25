@@ -377,6 +377,38 @@ th {
     color: #32dc55;
 }
 
+.admin-time-entry-card summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -2px 0 0;
+    color: #32dc55;
+    font-size: 20px;
+    font-weight: bold;
+    list-style: none;
+}
+
+.admin-time-entry-card summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-time-entry-card summary::after {
+    content: "+";
+    color: #32dc55;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.admin-time-entry-card[open] summary {
+    margin-bottom: 10px;
+}
+
+.admin-time-entry-card[open] summary::after {
+    content: "-";
+}
+
 .admin-time-entry-card label,
 .admin-time-entry-card .small {
     color: #f7fff7 !important;
@@ -2467,8 +2499,8 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="timesheetsSection" class="card" hidden>
     <h2>Timesheets</h2>
-    <div class="sub-card admin-time-entry-card">
-        <h3>Add Employee Time</h3>
+    <details class="sub-card admin-time-entry-card">
+        <summary>Add Employee Time</summary>
         <div class="small" style="margin-bottom:10px;">Admin-entered hours save directly to the selected employee's live timesheet entries.</div>
         <div class="announcement-grid">
             <div>
@@ -2534,7 +2566,7 @@ button.admin-schedule-event-button.admin-event-vacation {
             <button type="button" class="secondary" onclick="resetAdminTimeEntryForm()">Clear</button>
         </div>
         <div id="adminTimeEntryStatus" class="small" style="margin-top:8px;"></div>
-    </div>
+    </details>
     <div class="filters">
         <div>
             <label>Worker</label>
