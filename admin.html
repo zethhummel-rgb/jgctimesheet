@@ -364,6 +364,22 @@ th {
     min-width: 160px;
 }
 
+.admin-time-entry-card {
+    margin-bottom: 14px;
+}
+
+.admin-time-entry-card .checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f7fff7;
+    font-weight: bold;
+}
+
+.admin-time-entry-card .checkbox-line input {
+    width: auto;
+}
+
 .training-matrix-table {
     min-width: 980px;
 }
@@ -2424,6 +2440,74 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="timesheetsSection" class="card" hidden>
     <h2>Timesheets</h2>
+    <div class="sub-card admin-time-entry-card">
+        <h3>Add Employee Time</h3>
+        <div class="small" style="margin-bottom:10px;">Admin-entered hours save directly to the selected employee's live timesheet entries.</div>
+        <div class="announcement-grid">
+            <div>
+                <label>Employee</label>
+                <select id="adminTimeEntryWorker"></select>
+            </div>
+            <div>
+                <label>Date</label>
+                <input id="adminTimeEntryDate" type="date" onchange="handleAdminTimeEntryDateChange()">
+            </div>
+            <div>
+                <label>Entry Type</label>
+                <select id="adminTimeEntryType" onchange="handleAdminTimeEntryTypeChange()">
+                    <option value="work">Work</option>
+                    <option value="sick">Sick Day</option>
+                    <option value="vacation">Vacation Day</option>
+                    <option value="civic_holiday">Civic Holiday</option>
+                </select>
+            </div>
+            <div data-admin-time-vacation hidden>
+                <label>Vacation Type</label>
+                <select id="adminTimeEntryLeaveType" onchange="handleAdminTimeEntryTypeChange()">
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="half_day">Half Day</option>
+                </select>
+            </div>
+            <div data-admin-time-work>
+                <label>Job</label>
+                <select id="adminTimeEntryJob" onchange="fillAdminTimeEntryJob()"></select>
+            </div>
+            <div data-admin-time-work>
+                <label>Job Name</label>
+                <input id="adminTimeEntryJobName" placeholder="Job name">
+            </div>
+            <div data-admin-time-work>
+                <label>Job Number</label>
+                <input id="adminTimeEntryJobNumber" placeholder="Job number">
+            </div>
+            <div data-admin-time-clock>
+                <label>Time In</label>
+                <input id="adminTimeEntryTimeIn" type="time" step="1800" value="07:00">
+            </div>
+            <div data-admin-time-clock>
+                <label>Time Out</label>
+                <input id="adminTimeEntryTimeOut" type="time" step="1800" value="15:30">
+            </div>
+            <label class="checkbox-line" data-admin-time-work>
+                <input id="adminTimeEntryLunch" type="checkbox" checked>
+                Lunch
+            </label>
+            <label class="checkbox-line" data-admin-time-work>
+                <input id="adminTimeEntryNight" type="checkbox">
+                Night Work
+            </label>
+            <div class="full">
+                <label>Reason / Note</label>
+                <textarea id="adminTimeEntryNote" rows="3" placeholder="Example: Employee forgot to submit, phone issue, foreman correction"></textarea>
+            </div>
+        </div>
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" onclick="addAdminTimeEntryToTimesheet()">Add Employee Time</button>
+            <button type="button" class="secondary" onclick="resetAdminTimeEntryForm()">Clear</button>
+        </div>
+        <div id="adminTimeEntryStatus" class="small" style="margin-top:8px;"></div>
+    </div>
     <div class="filters">
         <div>
             <label>Worker</label>
@@ -3400,12 +3484,16 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "timesheets") {
-        const [submittedResult, liveResult] = await runAdminQueries([
+        const [submittedResult, liveResult, accountResult, jobsResult] = await runAdminQueries([
             { label: "submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
-            { label: "live timesheet entries", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) }
+            { label: "live timesheet entries", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at").order("display_name", { ascending: true }) },
+            { label: "jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) }
         ]);
         timesheets = submittedResult.data || [];
         liveTimesheetEntries = liveResult.data || [];
+        accounts = accountResult.data || accounts;
+        jobs = jobsResult.data || jobs;
         return;
     }
 
@@ -7328,6 +7416,8 @@ async function loadEquipment() {
 }
 
 function renderTimesheets() {
+    renderAdminTimeEntryOptions();
+
     const filter = document.getElementById("timesheetWorkerFilter").value.trim().toLowerCase();
     const list = document.getElementById("timesheetsList");
     const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").toLowerCase().includes(filter));
@@ -7463,6 +7553,423 @@ function getAdminSickDayWorkerLabel(account) {
     const name = account && (account.display_name || account.worker_key || account.email || "Unknown Employee");
     const detail = account && account.email && account.email !== name ? " - " + account.email : "";
     return name + detail;
+}
+
+function renderAdminTimeEntryWorkerOptions() {
+    const select = document.getElementById("adminTimeEntryWorker");
+
+    if (!select) {
+        return;
+    }
+
+    const previousValue = select.value;
+    const approvedAccounts = getApprovedAccounts()
+        .filter((account) => getAdminSickDayWorkerKey(account))
+        .slice()
+        .sort((a, b) => getAdminSickDayWorkerLabel(a).localeCompare(getAdminSickDayWorkerLabel(b)));
+
+    select.innerHTML = approvedAccounts.length
+        ? approvedAccounts.map((account) => {
+            const key = getAdminSickDayWorkerKey(account);
+            return `<option value="${escapeHtml(key)}">${escapeHtml(getAdminSickDayWorkerLabel(account))}</option>`;
+        }).join("")
+        : '<option value="">No approved employees found</option>';
+
+    if (previousValue && approvedAccounts.some((account) => getAdminSickDayWorkerKey(account) === previousValue)) {
+        select.value = previousValue;
+    }
+}
+
+function renderAdminTimeEntryJobOptions() {
+    const select = document.getElementById("adminTimeEntryJob");
+
+    if (!select) {
+        return;
+    }
+
+    const previousValue = select.value;
+    const activeJobs = jobs
+        .filter((job) => job.active !== false)
+        .slice()
+        .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+
+    select.innerHTML = '<option value="">Manual / no job selected</option>' + activeJobs.map((job) => {
+        const number = String(job.job_number || "").trim();
+        const name = String(job.job_name || "").trim();
+        return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml((number ? number + " - " : "") + name) + '</option>';
+    }).join("");
+
+    if (previousValue && activeJobs.some((job) => String(job.id) === previousValue)) {
+        select.value = previousValue;
+    }
+}
+
+function renderAdminTimeEntryOptions() {
+    renderAdminTimeEntryWorkerOptions();
+    renderAdminTimeEntryJobOptions();
+
+    const dateInput = document.getElementById("adminTimeEntryDate");
+    if (dateInput && !dateInput.value) {
+        dateInput.value = formatAdminScheduleDateValue(new Date());
+    }
+
+    handleAdminTimeEntryTypeChange();
+}
+
+function fillAdminTimeEntryJob() {
+    const select = document.getElementById("adminTimeEntryJob");
+    const job = select ? jobs.find((item) => item.id === select.value) : null;
+
+    if (!job) {
+        return;
+    }
+
+    document.getElementById("adminTimeEntryJobName").value = job.job_name || "";
+    document.getElementById("adminTimeEntryJobNumber").value = job.job_number || "";
+}
+
+function handleAdminTimeEntryDateChange() {
+    setAdminTimeEntryStatus("");
+}
+
+function handleAdminTimeEntryTypeChange() {
+    const typeInput = document.getElementById("adminTimeEntryType");
+
+    if (!typeInput) {
+        return;
+    }
+
+    const entryType = typeInput.value || "work";
+    const vacationType = document.getElementById("adminTimeEntryLeaveType");
+    const leaveType = vacationType ? vacationType.value : "";
+    const isWork = entryType === "work";
+    const needsClock = isWork || (entryType === "vacation" && leaveType === "half_day");
+
+    document.querySelectorAll("[data-admin-time-work]").forEach((element) => {
+        element.hidden = !isWork;
+    });
+    document.querySelectorAll("[data-admin-time-vacation]").forEach((element) => {
+        element.hidden = entryType !== "vacation";
+    });
+    document.querySelectorAll("[data-admin-time-clock]").forEach((element) => {
+        element.hidden = !needsClock;
+    });
+}
+
+function resetAdminTimeEntryForm() {
+    const workerSelect = document.getElementById("adminTimeEntryWorker");
+    const dateInput = document.getElementById("adminTimeEntryDate");
+    const typeInput = document.getElementById("adminTimeEntryType");
+    const leaveTypeInput = document.getElementById("adminTimeEntryLeaveType");
+    const jobSelect = document.getElementById("adminTimeEntryJob");
+
+    if (dateInput) {
+        dateInput.value = formatAdminScheduleDateValue(new Date());
+    }
+    if (typeInput) {
+        typeInput.value = "work";
+    }
+    if (leaveTypeInput) {
+        leaveTypeInput.value = "paid";
+    }
+    if (jobSelect) {
+        jobSelect.value = "";
+    }
+
+    ["adminTimeEntryJobName", "adminTimeEntryJobNumber", "adminTimeEntryNote"].forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = "";
+        }
+    });
+
+    const timeIn = document.getElementById("adminTimeEntryTimeIn");
+    const timeOut = document.getElementById("adminTimeEntryTimeOut");
+    const lunch = document.getElementById("adminTimeEntryLunch");
+    const night = document.getElementById("adminTimeEntryNight");
+
+    if (timeIn) {
+        timeIn.value = "07:00";
+    }
+    if (timeOut) {
+        timeOut.value = "15:30";
+    }
+    if (lunch) {
+        lunch.checked = true;
+    }
+    if (night) {
+        night.checked = false;
+    }
+
+    if (workerSelect && workerSelect.options.length) {
+        workerSelect.selectedIndex = Math.max(workerSelect.selectedIndex, 0);
+    }
+
+    handleAdminTimeEntryTypeChange();
+    setAdminTimeEntryStatus("");
+}
+
+function setAdminTimeEntryStatus(message, isError) {
+    const status = document.getElementById("adminTimeEntryStatus");
+
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message || "";
+    status.style.color = isError ? "#b42318" : "";
+}
+
+function getAdminTimeEntryAdminName() {
+    return currentWorkerDisplay || worker.display || worker.key || currentWorker || "Admin";
+}
+
+function getAdminTimeEntryDateForRow(row) {
+    const date = getLiveTimesheetEntryDate(row);
+    return date && !Number.isNaN(date.getTime()) ? formatAdminScheduleDateValue(date) : "";
+}
+
+function getAdminTimeEntryMinutes(value) {
+    const parts = String(value || "").slice(0, 5).split(":").map(Number);
+
+    if (parts.length !== 2 || parts.some((part) => Number.isNaN(part))) {
+        return null;
+    }
+
+    return parts[0] * 60 + parts[1];
+}
+
+function isAdminTimedTimesheetRow(row) {
+    return row && (row.entry_type === "work" || (row.entry_type === "vacation" && row.leave_type === "half_day"));
+}
+
+function doAdminTimeWindowsOverlap(first, second) {
+    const firstStart = getAdminTimeEntryMinutes(first.time_in);
+    let firstEnd = getAdminTimeEntryMinutes(first.time_out);
+    const secondStart = getAdminTimeEntryMinutes(second.time_in);
+    let secondEnd = getAdminTimeEntryMinutes(second.time_out);
+
+    if (firstStart === null || firstEnd === null || secondStart === null || secondEnd === null) {
+        return false;
+    }
+
+    if (firstEnd <= firstStart) {
+        firstEnd += 24 * 60;
+    }
+    if (secondEnd <= secondStart) {
+        secondEnd += 24 * 60;
+    }
+
+    return firstStart < secondEnd && firstEnd > secondStart;
+}
+
+function getAdminTimeEntryOverlap(row) {
+    if (!isAdminTimedTimesheetRow(row)) {
+        return null;
+    }
+
+    const rowDate = getAdminTimeEntryDateForRow(row);
+    const rowWorker = normalizeWorkerName(row.worker_name);
+
+    return liveTimesheetEntries.find((entry) =>
+        normalizeWorkerName(entry.worker_name) === rowWorker &&
+        getAdminTimeEntryDateForRow(entry) === rowDate &&
+        isAdminTimedTimesheetRow(entry) &&
+        doAdminTimeWindowsOverlap(entry, row)
+    ) || null;
+}
+
+function getAdminTimeEntryDuplicate(row) {
+    const rowDate = getAdminTimeEntryDateForRow(row);
+    const rowWorker = normalizeWorkerName(row.worker_name);
+    const rowJobName = normalizeWorkerName(row.job_name);
+    const rowJobNumber = normalizeWorkerName(row.job_number);
+    const rowType = normalizeWorkerName(row.entry_type || "work");
+    const rowLeaveType = normalizeWorkerName(row.leave_type || "");
+
+    return liveTimesheetEntries.find((entry) => {
+        const entryType = normalizeWorkerName(entry.entry_type || "work");
+        const sameWorkerDateType = normalizeWorkerName(entry.worker_name) === rowWorker &&
+            getAdminTimeEntryDateForRow(entry) === rowDate &&
+            entryType === rowType;
+
+        if (!sameWorkerDateType) {
+            return false;
+        }
+
+        if (rowType !== "work") {
+            return normalizeWorkerName(entry.leave_type || "") === rowLeaveType;
+        }
+
+        return normalizeWorkerName(entry.job_name) === rowJobName &&
+            normalizeWorkerName(entry.job_number) === rowJobNumber &&
+            String(entry.time_in || "").slice(0, 5) === String(row.time_in || "").slice(0, 5) &&
+            String(entry.time_out || "").slice(0, 5) === String(row.time_out || "").slice(0, 5) &&
+            Math.abs(Number(entry.hours || 0) - Number(row.hours || 0)) < 0.005;
+    }) || null;
+}
+
+function isMissingAdminTimeAuditColumnError(error) {
+    const text = [
+        error && error.message,
+        error && error.details,
+        error && error.hint
+    ].join(" ").toLowerCase();
+
+    return text.includes("schema cache") && (
+        text.includes("admin_entered_by") ||
+        text.includes("admin_entered_at") ||
+        text.includes("admin_entry_note")
+    );
+}
+
+function buildAdminTimeEntryRow() {
+    const workerKey = document.getElementById("adminTimeEntryWorker").value;
+    const dateValue = document.getElementById("adminTimeEntryDate").value;
+    const entryType = document.getElementById("adminTimeEntryType").value || "work";
+    const leaveType = entryType === "vacation" ? document.getElementById("adminTimeEntryLeaveType").value || "paid" : "";
+    const note = document.getElementById("adminTimeEntryNote").value.trim();
+    const selectedDate = makeLocalDate(dateValue);
+
+    if (!workerKey || !dateValue || Number.isNaN(selectedDate.getTime())) {
+        return { error: "Choose an employee and valid date." };
+    }
+
+    const weekStartDate = getAdminTimesheetWeekStartForDate(selectedDate);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+    const timeIn = document.getElementById("adminTimeEntryTimeIn").value;
+    const timeOut = document.getElementById("adminTimeEntryTimeOut").value;
+    const tookLunch = document.getElementById("adminTimeEntryLunch").checked;
+    const nightWork = document.getElementById("adminTimeEntryNight").checked;
+    const needsClock = entryType === "work" || (entryType === "vacation" && leaveType === "half_day");
+    let jobName = document.getElementById("adminTimeEntryJobName").value.trim();
+    let jobNumber = document.getElementById("adminTimeEntryJobNumber").value.trim();
+    let hours = 0.01;
+
+    if (entryType === "work") {
+        if (!jobName || !timeIn || !timeOut) {
+            return { error: "For work hours, fill in job name, time in, and time out." };
+        }
+
+        hours = calculateAdminTimesheetHours(timeIn, timeOut, tookLunch);
+
+        if (hours <= 0) {
+            return { error: "The time in/time out does not create any hours." };
+        }
+    } else {
+        jobName = getAdminSpecialEntryJobName(entryType, leaveType);
+        jobNumber = note || jobName;
+
+        if (entryType === "vacation" && !leaveType) {
+            return { error: "Choose the vacation type." };
+        }
+
+        if (needsClock) {
+            if (!timeIn || !timeOut) {
+                return { error: "Choose time in and time out for the half-day vacation." };
+            }
+
+            hours = calculateAdminTimesheetHours(timeIn, timeOut, false);
+
+            if (hours <= 0) {
+                return { error: "The half-day vacation time does not create any hours." };
+            }
+        }
+    }
+
+    return {
+        row: {
+            worker_name: workerKey,
+            week_start: formatAdminScheduleDateValue(weekStartDate),
+            week_end: formatTimesheetPdfDate(weekEndDate),
+            job_name: jobName,
+            job_number: jobNumber,
+            day_of_week: getTimesheetDayNames()[selectedDate.getDay()],
+            time_in: needsClock ? timeIn : (entryType === "sick" ? "07:00" : "00:00"),
+            time_out: needsClock ? timeOut : (entryType === "sick" ? "12:00" : "00:00"),
+            hours,
+            took_lunch: entryType === "work" ? tookLunch : false,
+            night_work: entryType === "work" ? nightWork : false,
+            entry_type: entryType,
+            leave_type: entryType === "vacation" ? leaveType : "",
+            leave_note: note
+        },
+        note
+    };
+}
+
+async function addAdminTimeEntryToTimesheet() {
+    if (!supabaseClient) {
+        setAdminTimeEntryStatus("Supabase is not available. Time could not be saved.", true);
+        return;
+    }
+
+    const buildResult = buildAdminTimeEntryRow();
+
+    if (buildResult.error) {
+        setAdminTimeEntryStatus(buildResult.error, true);
+        return;
+    }
+
+    const row = buildResult.row;
+    const duplicate = getAdminTimeEntryDuplicate(row);
+
+    if (duplicate) {
+        setAdminTimeEntryStatus("Duplicate blocked. This employee already has the same entry saved for that date.", true);
+        return;
+    }
+
+    const overlap = getAdminTimeEntryOverlap(row);
+
+    if (overlap) {
+        setAdminTimeEntryStatus("Overlapping time blocked. This employee already has time saved during that window.", true);
+        return;
+    }
+
+    const auditValues = {
+        admin_entered_by: getAdminTimeEntryAdminName(),
+        admin_entered_at: new Date().toISOString(),
+        admin_entry_note: buildResult.note || ""
+    };
+
+    setAdminTimeEntryStatus("Saving employee time...");
+
+    let result = await supabaseClient
+        .from("timesheet_entries")
+        .insert({ ...row, ...auditValues })
+        .select()
+        .single();
+    let auditSaved = true;
+
+    if (result.error && isMissingAdminTimeAuditColumnError(result.error)) {
+        auditSaved = false;
+        result = await supabaseClient
+            .from("timesheet_entries")
+            .insert(row)
+            .select()
+            .single();
+    }
+
+    if (result.error) {
+        setAdminTimeEntryStatus("Employee time could not be saved: " + result.error.message, true);
+        return;
+    }
+
+    if (result.data) {
+        liveTimesheetEntries = [result.data].concat(liveTimesheetEntries);
+    }
+
+    resetAdminTimeEntryForm();
+    setAdminTimeEntryStatus(
+        "Employee time saved." + (auditSaved ? "" : " Run supabase-timesheet-admin-entry-audit.sql to save admin audit fields too."),
+        !auditSaved
+    );
+    renderTimesheets();
+    renderSickDays();
+    renderEmployeeProfile();
+    renderPortalSummary();
 }
 
 function renderAdminSickDayWorkerOptions() {
@@ -7891,6 +8398,7 @@ function groupAdminLiveTimesheetRows(rows) {
 
     return groups.map((group) => ({
         ...group,
+        adminEnteredBy: Array.from(new Set(group.rows.map((row) => row.adminEnteredBy).filter(Boolean))).join(", "),
         timeText: group.rows
             .map((row) => row.entryType === "work" || row.leaveType === "half_day" ? row.timeIn + " - " + row.timeOut : "")
             .filter(Boolean)
@@ -7934,7 +8442,9 @@ function renderLiveTimesheetEntries(filter) {
             jobNumber: entry.job_number || "",
             entryType: entry.entry_type || "work",
             leaveType: entry.leave_type || "",
-            leaveNote: entry.leave_note || "",
+            leaveNote: entry.leave_note || entry.admin_entry_note || "",
+            adminEnteredBy: entry.admin_entered_by || "",
+            adminEnteredAt: entry.admin_entered_at || "",
             timeIn: String(entry.time_in || "").slice(0, 5),
             timeOut: String(entry.time_out || "").slice(0, 5),
             lunch: Boolean(entry.took_lunch),
@@ -8024,6 +8534,7 @@ function renderLiveTimesheetEntries(filter) {
                                                         <th>Night</th>
                                                         <th>Hours</th>
                                                         <th>Week Start</th>
+                                                        <th>Entered By</th>
                                                         <th>Actions</th>
                                                     </tr>
                                                 </thead>
@@ -8039,6 +8550,7 @@ function renderLiveTimesheetEntries(filter) {
                                                             <td>${row.nightWork ? "Yes" : "No"}</td>
                                                             <td>${row.hours.toFixed(2)}</td>
                                                             <td>${escapeHtml(row.weekStart)}</td>
+                                                            <td>${escapeHtml(row.adminEnteredBy || "-")}</td>
                                                             <td>
                                                                 <div class="actions">
                                                                     ${row.rows.map((entryRow, index) => `
