@@ -3247,6 +3247,74 @@ async function markMatchingWoLabourComplete(entry) {
 
   if (error) {
     console.warn("WO labour row could not be marked complete.", error);
+    return;
+  }
+
+  await updateWorkOrderAfterLabourMatch(request.workOrderId);
+}
+
+function getRemainingWoWaitingItems(workOrder, labourRows) {
+  const existingWaitingFor = Array.isArray(workOrder && workOrder.waiting_for) ? workOrder.waiting_for : [];
+  const nonTimesheetWaiting = existingWaitingFor.filter(function(item) {
+    return !/timesheet\s*$/i.test(String(item || "").trim());
+  });
+  const missingTimesheets = (labourRows || [])
+    .filter(function(row) {
+      return !row.complete;
+    })
+    .map(function(row) {
+      return (row.employee_name || "Employee") + " Timesheet";
+    });
+
+  return nonTimesheetWaiting.concat(missingTimesheets);
+}
+
+async function updateWorkOrderAfterLabourMatch(workOrderId) {
+  if (!supabaseClient || !workOrderId) {
+    return;
+  }
+
+  const [labourResult, workOrderResult] = await Promise.all([
+    supabaseClient
+      .from("work_order_labour")
+      .select("id, employee_name, complete")
+      .eq("work_order_id", workOrderId)
+      .eq("expected", true),
+    supabaseClient
+      .from("work_orders")
+      .select("id, status, locked, waiting_for")
+      .eq("id", workOrderId)
+      .single()
+  ]);
+
+  if (labourResult.error || workOrderResult.error) {
+    console.warn("WO labour completion could not update parent Work Order.", labourResult.error || workOrderResult.error);
+    return;
+  }
+
+  const workOrder = workOrderResult.data;
+
+  if (!workOrder || workOrder.locked || String(workOrder.status || "").toLowerCase() === "submitted") {
+    return;
+  }
+
+  const labourRows = labourResult.data || [];
+  const labourComplete = labourRows.length > 0 && labourRows.every(function(row) {
+    return Boolean(row.complete);
+  });
+  const waitingFor = getRemainingWoWaitingItems(workOrder, labourRows);
+
+  const { error } = await supabaseClient
+    .from("work_orders")
+    .update({
+      labour_complete: labourComplete,
+      waiting_for: waitingFor,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", workOrderId);
+
+  if (error) {
+    console.warn("WO parent status could not be updated after labour match.", error);
   }
 }
 
