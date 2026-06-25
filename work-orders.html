@@ -1201,8 +1201,6 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
   const normalizedEmployeeName = normalizeEmployeeMatchKey(employee.employee_name);
   const normalizedJob = normalizeJobNumber(jobNumber);
   const normalizedJobName = normalizeText(jobName);
-  const workWeekStart = getWeekStartValueForDate(workDate);
-
   const matchingEntries = timesheetEntries.filter((entry) => {
     if (normalizeText(entry.entry_type || "work") !== "work") {
       return false;
@@ -1225,13 +1223,7 @@ function getLabourMatches(employee, jobNumber, jobName, workDate) {
       jobMatches;
   });
 
-  const exactDateMatches = matchingEntries.filter((entry) => getTimesheetEntryDate(entry) === workDate);
-
-  if (exactDateMatches.length || !workWeekStart) {
-    return exactDateMatches;
-  }
-
-  return matchingEntries.filter((entry) => getTimesheetEntryWeekStartValue(entry) === workWeekStart);
+  return matchingEntries.filter((entry) => getTimesheetEntryDate(entry) === workDate);
 }
 
 function buildLabourPreviewRows() {
