@@ -1799,7 +1799,7 @@ function isWorkOrderPendingSubmission(wo) {
 function getPendingSubmissionDateLabel(wo) {
   const monday = getFollowingMonday(wo && wo.work_order_date);
   return monday
-    ? monday.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })
+    ? monday.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) + " " + formatWorkOrderGateTime(monday)
     : "Monday";
 }
 
@@ -2477,11 +2477,6 @@ function parseWorkOrderLocalDate(value) {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
-function getTodayLocalDate() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
 function getFollowingMonday(workOrderDateValue) {
   const date = parseWorkOrderLocalDate(workOrderDateValue);
   if (!date) {
@@ -2490,19 +2485,28 @@ function getFollowingMonday(workOrderDateValue) {
   const monday = new Date(date);
   const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
   monday.setDate(monday.getDate() + daysUntilMonday);
+  monday.setHours(8, 0, 0, 0);
   return monday;
+}
+
+function formatWorkOrderGateTime(date) {
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHour = hours % 12 || 12;
+  return displayHour + ":" + minutes + " " + period;
 }
 
 function formatWorkOrderGateDate(date) {
   if (!date) {
-    return "the following Monday";
+    return "the following Monday at 8:00 AM";
   }
   return date.toLocaleDateString("en-CA", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric"
-  });
+  }) + " at " + formatWorkOrderGateTime(date);
 }
 
 function getWorkOrderSubmissionGate(workOrder) {
@@ -2515,7 +2519,7 @@ function getWorkOrderSubmissionGate(workOrder) {
   }
 
   return {
-    allowed: getTodayLocalDate() >= monday,
+    allowed: new Date() >= monday,
     monday
   };
 }
