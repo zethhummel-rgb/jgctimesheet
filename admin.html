@@ -8488,6 +8488,11 @@ function sortAdminLiveWeekStarts(weekStarts, currentWeekStart) {
     });
 }
 
+function isAdminLeaveTimesheetEntry(row) {
+    const type = getAdminTimesheetEntryType(row);
+    return type === "sick" || type === "vacation" || type === "civic_holiday";
+}
+
 function renderLiveTimesheetEntries(filter) {
     const rows = liveTimesheetEntries
         .filter((entry) => !filter || String(entry.worker_name || "").toLowerCase().includes(filter))
@@ -8536,7 +8541,8 @@ function renderLiveTimesheetEntries(filter) {
     });
 
     const currentRows = rows.filter((row) => row.weekStart === currentWeekStart);
-    const olderRows = rows.filter((row) => row.weekStart !== currentWeekStart);
+    const olderRows = rows.filter((row) => row.weekStart !== currentWeekStart && !isAdminLeaveTimesheetEntry(row));
+    const hiddenOlderLeaveRows = rows.filter((row) => row.weekStart !== currentWeekStart && isAdminLeaveTimesheetEntry(row));
 
     function renderWorkerGroups(groupRows, options) {
         const settings = options || {};
@@ -8644,24 +8650,28 @@ function renderLiveTimesheetEntries(filter) {
             <details class="timesheet-worker-group" ${filter ? "open" : ""}>
                 <summary>
                     <span>
-                        Older Unsubmitted Live Entries
-                        <span class="timesheet-worker-meta">${olderRows.length} prior-week entr${olderRows.length === 1 ? "y" : "ies"} still saved live</span>
+                        Older Unsubmitted Work Entries
+                        <span class="timesheet-worker-meta">${olderRows.length} prior-week work entr${olderRows.length === 1 ? "y" : "ies"} still saved live</span>
                     </span>
                     <span class="timesheet-worker-count" title="Older live entries">${olderRows.length}</span>
                 </summary>
                 <div class="timesheet-worker-body">
-                    <div class="small" style="margin-bottom:8px;">These are old rows still sitting in live timesheets. They are not counted in this week's saved totals; keep them here only for cleanup, editing, or deleting.</div>
+                    <div class="small" style="margin-bottom:8px;">These are old work rows still sitting in live timesheets. Old vacation, sick, and holiday rows are hidden here because those are tracked in the Vacation and leave admin sections.</div>
                     ${renderWorkerGroups(olderRows, { older: true, open: Boolean(filter) })}
                 </div>
             </details>
         `
         : "";
+    const hiddenLeaveHtml = hiddenOlderLeaveRows.length
+        ? `<div class="small" style="margin:6px 0 14px;">${hiddenOlderLeaveRows.length} older vacation/sick/holiday entr${hiddenOlderLeaveRows.length === 1 ? "y is" : "ies are"} hidden from this cleanup list.</div>`
+        : "";
 
     return `
         <h3>Live Entries Before Weekly Submit</h3>
-        <div class="small" style="margin-bottom:8px;">Main employee panels show only the current week. Older live rows are collapsed below so old vacation or holiday placeholders do not clutter this week's timesheets.</div>
+        <div class="small" style="margin-bottom:8px;">Main employee panels show only the current week. Older work rows are collapsed below for cleanup; older vacation, sick, and holiday placeholders stay in the data but are not shown here.</div>
         ${currentHtml}
         ${olderHtml}
+        ${hiddenLeaveHtml}
     `;
 }
 
