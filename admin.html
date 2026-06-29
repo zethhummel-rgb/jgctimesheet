@@ -1624,6 +1624,51 @@ button.admin-schedule-event-button.admin-event-vacation {
     display: none !important;
 }
 
+.equipment-qr-modal {
+    width: min(560px, 100%);
+}
+
+.equipment-qr-print-area {
+    margin: 12px 0;
+    padding: 18px;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #102018;
+    text-align: center;
+}
+
+.equipment-qr-print-area img {
+    max-width: 220px;
+    height: auto;
+    margin-bottom: 10px;
+}
+
+.equipment-qr-print-area h3,
+.equipment-qr-print-area p,
+.equipment-qr-print-area a {
+    color: #102018;
+}
+
+.equipment-qr-print-area canvas {
+    display: block;
+    margin: 12px auto;
+    width: 220px;
+    height: 220px;
+    border: 1px solid #d7e2da;
+}
+
+.equipment-qr-link {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    color: #0b5e3b !important;
+}
+
+.equipment-qr-fallback {
+    color: #7a2727;
+    font-weight: 800;
+}
+
 .admin-schedule-employees {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -2917,6 +2962,26 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
 </div>
 
+<div id="equipmentQrModal" class="admin-schedule-modal-backdrop" onclick="closeEquipmentQrModal(event)">
+    <section class="admin-schedule-modal equipment-qr-modal" onclick="event.stopPropagation()">
+        <h2 id="equipmentQrTitle">Equipment QR Code</h2>
+        <div id="equipmentQrPrintArea" class="equipment-qr-print-area">
+            <img src="logo.webp" alt="John Gordon Construction logo">
+            <h3 id="equipmentQrUnit">Equipment</h3>
+            <p id="equipmentQrType">Inspection</p>
+            <canvas id="equipmentQrCanvas" width="220" height="220"></canvas>
+            <div id="equipmentQrFallback" class="equipment-qr-fallback"></div>
+            <a id="equipmentQrLink" class="equipment-qr-link" href="#" target="_blank" rel="noopener"></a>
+            <p>Scan to submit or view today's inspection for this unit.</p>
+        </div>
+        <div class="actions">
+            <button type="button" onclick="printEquipmentQr()">Print QR</button>
+            <button type="button" class="secondary" onclick="copyEquipmentQrLink()">Copy Link</button>
+            <button type="button" class="secondary" onclick="closeEquipmentQrModal()">Close</button>
+        </div>
+    </section>
+</div>
+
 <div id="jobsSection" class="card" hidden>
     <h2>Jobs Management</h2>
     <div class="announcement-grid">
@@ -3143,6 +3208,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="common.js?v=7"></script>
 <script src="safety-acknowledgements.js?v=2"></script>
 <script>
@@ -3179,6 +3245,7 @@ let workOrderLabourWorkers = [];
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
+let activeEquipmentQr = null;
 let contacts = [];
 let subcontractorSuppliers = [];
 let subcontractorSupplierContacts = [];
@@ -7102,6 +7169,210 @@ function clearEquipmentForm() {
     setEquipmentStatus("");
 }
 
+function getEquipmentQrInspectionType(item) {
+    const text = [
+        item && item.name,
+        item && item.equipment_type,
+        item && item.identification_number,
+        item && item.notes
+    ].join(" ").toLowerCase();
+
+    if (/(telehandler|tele-handler|tele handler)/.test(text)) {
+        return "Tele Handler";
+    }
+
+    if (/(forklift|fork lift)/.test(text)) {
+        return "Fork Lift";
+    }
+
+    if (/(aerial|scissor|boom|man lift|manlift|lift)/.test(text)) {
+        return "Aerial Lifts";
+    }
+
+    return "";
+}
+
+function getEquipmentQrUrl(token) {
+    const url = new URL("equipment-inspection.html", window.location.href);
+    url.searchParams.set("token", token || "");
+    return url.href;
+}
+
+function renderEquipmentQrCell(item) {
+    const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item);
+
+    if (!inspectionType) {
+        return '<span class="small">No lift QR</span>';
+    }
+
+    const buttonLabel = item.inspection_qr_token ? "View QR" : "Create QR";
+
+    return `
+        <button type="button" class="secondary" onclick="openEquipmentQr('${item.id}')">${buttonLabel}</button>
+        <div class="small">${escapeHtml(inspectionType)}</div>
+    `;
+}
+
+async function ensureEquipmentQrToken(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        throw new Error("Equipment or vehicle could not be found.");
+    }
+
+    if (!getEquipmentQrInspectionType(item) && !item.inspection_qr_type) {
+        throw new Error("Only forklifts, aerial lifts, and telehandlers can use inspection QR codes.");
+    }
+
+    if (item.inspection_qr_token && item.inspection_qr_type) {
+        return item;
+    }
+
+    const { data, error } = await supabaseClient.rpc("ensure_equipment_inspection_qr_token", {
+        p_equipment_id: id
+    });
+
+    if (error) {
+        throw new Error((error.message || "QR code could not be created.") + " If this is the first time using equipment QR codes, run supabase-equipment-qr-inspection-setup.sql in Supabase.");
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (!result || !result.token) {
+        throw new Error("Supabase did not return a QR token.");
+    }
+
+    item.inspection_qr_token = result.token;
+    item.inspection_qr_type = result.inspection_type || getEquipmentQrInspectionType(item);
+    renderEquipment();
+    return item;
+}
+
+async function openEquipmentQr(id) {
+    try {
+        setEquipmentStatus("Preparing QR code...");
+        const item = await ensureEquipmentQrToken(id);
+        const url = getEquipmentQrUrl(item.inspection_qr_token);
+        const unitLabel = getEquipmentNameById(item.id) || item.name || "Equipment";
+        const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item) || "Equipment Inspection";
+        const modal = document.getElementById("equipmentQrModal");
+        const canvas = document.getElementById("equipmentQrCanvas");
+        const fallback = document.getElementById("equipmentQrFallback");
+        const link = document.getElementById("equipmentQrLink");
+
+        activeEquipmentQr = {
+            item,
+            url,
+            unitLabel,
+            inspectionType
+        };
+
+        document.getElementById("equipmentQrTitle").textContent = "QR Code - " + unitLabel;
+        document.getElementById("equipmentQrUnit").textContent = unitLabel;
+        document.getElementById("equipmentQrType").textContent = inspectionType;
+        fallback.textContent = "";
+        link.href = url;
+        link.textContent = url;
+
+        const context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (window.QRCode && typeof window.QRCode.toCanvas === "function") {
+            window.QRCode.toCanvas(canvas, url, { width: 220, margin: 2 }, (error) => {
+                if (error) {
+                    fallback.textContent = "QR code could not render. Use the link above.";
+                }
+            });
+        } else {
+            fallback.textContent = "QR code library did not load. Use the link above.";
+        }
+
+        modal.classList.add("open");
+        modal.style.display = "flex";
+        setEquipmentStatus("QR code ready.");
+    } catch (error) {
+        setEquipmentStatus(error && error.message ? error.message : "QR code could not be opened.", true);
+    }
+}
+
+function closeEquipmentQrModal(event) {
+    if (event && event.target !== event.currentTarget) {
+        return;
+    }
+
+    const modal = document.getElementById("equipmentQrModal");
+    if (modal) {
+        modal.classList.remove("open");
+        modal.style.display = "";
+    }
+}
+
+async function copyEquipmentQrLink() {
+    if (!activeEquipmentQr || !activeEquipmentQr.url) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(activeEquipmentQr.url);
+        setEquipmentStatus("QR link copied.");
+    } catch (error) {
+        setEquipmentStatus("QR link: " + activeEquipmentQr.url);
+    }
+}
+
+function printEquipmentQr() {
+    if (!activeEquipmentQr) {
+        return;
+    }
+
+    const canvas = document.getElementById("equipmentQrCanvas");
+    let qrImage = "";
+
+    try {
+        qrImage = canvas ? canvas.toDataURL("image/png") : "";
+    } catch (error) {
+        qrImage = "";
+    }
+
+    const printWindow = window.open("", "_blank", "width=520,height=720");
+
+    if (!printWindow) {
+        setEquipmentStatus("Popup blocked. Use your browser print button while the QR modal is open.", true);
+        return;
+    }
+
+    printWindow.document.write(`
+        <!doctype html>
+        <html>
+        <head>
+            <title>${escapeHtml(activeEquipmentQr.unitLabel)} QR</title>
+            <style>
+                body { margin: 0; padding: 28px; font-family: Arial, sans-serif; color: #102018; text-align: center; }
+                .label { max-width: 420px; margin: 0 auto; border: 2px solid #102018; border-radius: 10px; padding: 20px; }
+                .logo { width: 230px; max-width: 100%; height: auto; margin-bottom: 12px; }
+                h1 { margin: 6px 0; font-size: 24px; }
+                p { margin: 8px 0; font-size: 15px; }
+                .qr { width: 260px; height: 260px; margin: 14px auto; display: block; }
+                .link { overflow-wrap: anywhere; font-size: 10px; color: #0b5e3b; }
+            </style>
+        </head>
+        <body>
+            <div class="label">
+                <img class="logo" src="logo.webp" alt="John Gordon Construction logo">
+                <h1>${escapeHtml(activeEquipmentQr.unitLabel)}</h1>
+                <p>${escapeHtml(activeEquipmentQr.inspectionType)}</p>
+                ${qrImage ? '<img class="qr" src="' + qrImage + '" alt="Equipment inspection QR code">' : '<p>QR image could not render. Use link below.</p>'}
+                <p>Scan to submit or view today's inspection.</p>
+                <p class="link">${escapeHtml(activeEquipmentQr.url)}</p>
+            </div>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+}
+
 function renderEquipment() {
     const list = document.getElementById("equipmentList");
 
@@ -7130,7 +7401,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -7149,13 +7420,14 @@ function renderEquipment() {
                                 <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
                                 <td>${escapeHtml(status)}</td>
                                 <td>${escapeHtml(item.notes || "")}</td>
+                                <td>${renderEquipmentQrCell(item)}</td>
                                 <td>
                                     <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
                                     <button type="button" class="delete-button" onclick="deleteEquipment('${item.id}')">Delete</button>
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="12">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="13">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
