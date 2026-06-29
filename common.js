@@ -7,6 +7,7 @@ const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
   "subcontractor.html",
   "acknowledge.html",
+  "equipment-inspection.html",
   "reports.html",
   "daily-site-report.html",
   "jsa.html",
@@ -750,7 +751,7 @@ async function recordJgcSubcontractorActivity(action) {
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
-  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", "acknowledge.html", JGC_SUBCONTRACTOR_HOME_PAGE];
+  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", "acknowledge.html", "equipment-inspection.html", JGC_SUBCONTRACTOR_HOME_PAGE];
 
   if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcGlobalTopNav")) {
     return;
@@ -1056,7 +1057,7 @@ function getJgcMobileNavIcon(name) {
 function activateMobileBottomNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
-  const excludedPages = ["index.html", "reset-password.html", "field-calculator.html"];
+  const excludedPages = ["index.html", "reset-password.html", "field-calculator.html", "equipment-inspection.html"];
 
   if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcMobileBottomNav")) {
     return;
