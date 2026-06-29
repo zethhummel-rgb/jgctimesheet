@@ -8542,7 +8542,6 @@ function renderLiveTimesheetEntries(filter) {
 
     const currentRows = rows.filter((row) => row.weekStart === currentWeekStart);
     const olderRows = rows.filter((row) => row.weekStart !== currentWeekStart && !isAdminLeaveTimesheetEntry(row));
-    const hiddenOlderLeaveRows = rows.filter((row) => row.weekStart !== currentWeekStart && isAdminLeaveTimesheetEntry(row));
 
     function renderWorkerGroups(groupRows, options) {
         const settings = options || {};
@@ -8663,16 +8662,11 @@ function renderLiveTimesheetEntries(filter) {
             </details>
         `
         : "";
-    const hiddenLeaveHtml = hiddenOlderLeaveRows.length
-        ? `<div class="small" style="margin:6px 0 14px;">${hiddenOlderLeaveRows.length} older vacation/sick/holiday entr${hiddenOlderLeaveRows.length === 1 ? "y is" : "ies are"} hidden from this cleanup list.</div>`
-        : "";
-
     return `
         <h3>Live Entries Before Weekly Submit</h3>
         <div class="small" style="margin-bottom:8px;">Main employee panels show only the current week. Older work rows are collapsed below for cleanup; older vacation, sick, and holiday placeholders stay in the data but are not shown here.</div>
         ${currentHtml}
         ${olderHtml}
-        ${hiddenLeaveHtml}
     `;
 }
 
