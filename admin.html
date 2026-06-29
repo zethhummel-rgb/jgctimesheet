@@ -3791,6 +3791,10 @@ function renderActiveAdminTab(tab) {
         renderVacationRequests();
     }
 
+    if (requestedTab === "inspections") {
+        renderInspections();
+    }
+
     if (requestedTab === "adminTools") {
         renderAdminTools();
     }
@@ -9874,10 +9878,23 @@ async function deleteSubmittedTimesheet(id) {
 }
 
 function renderInspections() {
-    const workerFilter = document.getElementById("inspectionWorkerFilter").value.trim().toLowerCase();
-    const typeFilter = document.getElementById("inspectionTypeFilter").value.trim().toLowerCase();
     const list = document.getElementById("inspectionsList");
-    const filtered = inspections.filter((inspection) => {
+    const workerInput = document.getElementById("inspectionWorkerFilter");
+    const typeInput = document.getElementById("inspectionTypeFilter");
+
+    if (!list) {
+        return;
+    }
+
+    if (adminTabDataLoading.inspections && !adminTabDataLoaded.has("inspections")) {
+        list.textContent = "Loading inspections...";
+        return;
+    }
+
+    const workerFilter = workerInput ? workerInput.value.trim().toLowerCase() : "";
+    const typeFilter = typeInput ? typeInput.value.trim().toLowerCase() : "";
+    const inspectionRows = Array.isArray(inspections) ? inspections : [];
+    const filtered = inspectionRows.filter((inspection) => {
         const worker = String(inspection.worker_display_name || inspection.worker_name || "").toLowerCase();
         const type = String(inspection.inspection_type || "").toLowerCase();
         return (!workerFilter || worker.includes(workerFilter)) && (!typeFilter || type.includes(typeFilter));
