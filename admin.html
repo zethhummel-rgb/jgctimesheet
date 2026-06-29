@@ -1643,6 +1643,11 @@ button.admin-schedule-event-button.admin-event-vacation {
     margin-bottom: 10px;
 }
 
+.equipment-qr-print-area img[hidden],
+.equipment-qr-print-area canvas[hidden] {
+    display: none !important;
+}
+
 .equipment-qr-print-area h3,
 .equipment-qr-print-area p,
 .equipment-qr-print-area a {
@@ -1655,6 +1660,15 @@ button.admin-schedule-event-button.admin-event-vacation {
     width: 220px;
     height: 220px;
     border: 1px solid #d7e2da;
+}
+
+.equipment-qr-print-area .equipment-qr-image {
+    display: block;
+    width: 220px;
+    height: 220px;
+    margin: 12px auto;
+    border: 1px solid #d7e2da;
+    object-fit: contain;
 }
 
 .equipment-qr-link {
@@ -2970,6 +2984,7 @@ button.admin-schedule-event-button.admin-event-vacation {
             <h3 id="equipmentQrUnit">Equipment</h3>
             <p id="equipmentQrType">Inspection</p>
             <canvas id="equipmentQrCanvas" width="220" height="220"></canvas>
+            <img id="equipmentQrImage" class="equipment-qr-image" src="" alt="Equipment inspection QR code" hidden>
             <div id="equipmentQrFallback" class="equipment-qr-fallback"></div>
             <a id="equipmentQrLink" class="equipment-qr-link" href="#" target="_blank" rel="noopener"></a>
             <p>Scan to submit or view today's inspection for this unit.</p>
@@ -7198,6 +7213,91 @@ function getEquipmentQrUrl(token) {
     return url.href;
 }
 
+function getEquipmentQrImageUrl(url) {
+    return "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&format=png&data=" + encodeURIComponent(url || "");
+}
+
+function showEquipmentQrImageFallback(url, canvas, image, fallback, message) {
+    const imageUrl = getEquipmentQrImageUrl(url);
+
+    if (activeEquipmentQr) {
+        activeEquipmentQr.fallbackQrImageSrc = imageUrl;
+        activeEquipmentQr.qrImageSrc = imageUrl;
+    }
+
+    if (canvas) {
+        canvas.hidden = true;
+    }
+
+    if (image) {
+        image.hidden = false;
+        image.onload = () => {
+            if (fallback) {
+                fallback.textContent = "";
+            }
+        };
+        image.onerror = () => {
+            if (fallback) {
+                fallback.textContent = "QR code could not render. Use the link above.";
+            }
+        };
+        image.src = imageUrl;
+    }
+
+    if (fallback) {
+        fallback.textContent = message || "";
+    }
+}
+
+function renderEquipmentQrCode(url, canvas, image, fallback) {
+    if (activeEquipmentQr) {
+        activeEquipmentQr.qrImageSrc = "";
+        activeEquipmentQr.fallbackQrImageSrc = getEquipmentQrImageUrl(url);
+    }
+
+    if (image) {
+        image.hidden = true;
+        image.removeAttribute("src");
+        image.onload = null;
+        image.onerror = null;
+    }
+
+    if (fallback) {
+        fallback.textContent = "";
+    }
+
+    if (!canvas) {
+        showEquipmentQrImageFallback(url, canvas, image, fallback, "");
+        return;
+    }
+
+    canvas.hidden = false;
+    const context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (window.QRCode && typeof window.QRCode.toCanvas === "function") {
+        window.QRCode.toCanvas(canvas, url, { width: 220, margin: 2 }, (error) => {
+            if (error) {
+                showEquipmentQrImageFallback(url, canvas, image, fallback, "Using backup QR renderer.");
+                return;
+            }
+
+            try {
+                if (activeEquipmentQr) {
+                    activeEquipmentQr.qrImageSrc = canvas.toDataURL("image/png");
+                }
+            } catch (toDataError) {
+                if (activeEquipmentQr) {
+                    activeEquipmentQr.qrImageSrc = activeEquipmentQr.fallbackQrImageSrc || "";
+                }
+            }
+        });
+        return;
+    }
+
+    showEquipmentQrImageFallback(url, canvas, image, fallback, "Using backup QR renderer.");
+}
+
 function renderEquipmentQrCell(item) {
     const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item);
 
@@ -7257,6 +7357,7 @@ async function openEquipmentQr(id) {
         const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item) || "Equipment Inspection";
         const modal = document.getElementById("equipmentQrModal");
         const canvas = document.getElementById("equipmentQrCanvas");
+        const image = document.getElementById("equipmentQrImage");
         const fallback = document.getElementById("equipmentQrFallback");
         const link = document.getElementById("equipmentQrLink");
 
@@ -7264,7 +7365,9 @@ async function openEquipmentQr(id) {
             item,
             url,
             unitLabel,
-            inspectionType
+            inspectionType,
+            qrImageSrc: "",
+            fallbackQrImageSrc: getEquipmentQrImageUrl(url)
         };
 
         document.getElementById("equipmentQrTitle").textContent = "QR Code - " + unitLabel;
@@ -7274,18 +7377,7 @@ async function openEquipmentQr(id) {
         link.href = url;
         link.textContent = url;
 
-        const context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (window.QRCode && typeof window.QRCode.toCanvas === "function") {
-            window.QRCode.toCanvas(canvas, url, { width: 220, margin: 2 }, (error) => {
-                if (error) {
-                    fallback.textContent = "QR code could not render. Use the link above.";
-                }
-            });
-        } else {
-            fallback.textContent = "QR code library did not load. Use the link above.";
-        }
+        renderEquipmentQrCode(url, canvas, image, fallback);
 
         modal.classList.add("open");
         modal.style.display = "flex";
@@ -7326,13 +7418,22 @@ function printEquipmentQr() {
     }
 
     const canvas = document.getElementById("equipmentQrCanvas");
-    let qrImage = "";
+    const image = document.getElementById("equipmentQrImage");
+    let qrImage = activeEquipmentQr.qrImageSrc || "";
 
-    try {
-        qrImage = canvas ? canvas.toDataURL("image/png") : "";
-    } catch (error) {
-        qrImage = "";
+    if (!qrImage && image && !image.hidden && image.src) {
+        qrImage = image.src;
     }
+
+    if (!qrImage && canvas && !canvas.hidden) {
+        try {
+            qrImage = canvas.toDataURL("image/png");
+        } catch (error) {
+            qrImage = "";
+        }
+    }
+
+    qrImage = qrImage || activeEquipmentQr.fallbackQrImageSrc || "";
 
     const printWindow = window.open("", "_blank", "width=520,height=720");
 
