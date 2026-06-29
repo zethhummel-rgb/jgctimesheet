@@ -1357,7 +1357,7 @@
 
     <div id="timeEntryFields">
       <label>Time In</label>
-      <select id="timeIn">
+      <select id="timeIn" onchange="refreshTimeOutOptions()">
         <option value="">Select Time In</option>
       </select>
 
@@ -1366,15 +1366,15 @@
         Did you take Lunch? This will subtract 30 minutes from this input only
       </label>
 
+      <label class="check-row">
+        <input id="nightWork" type="checkbox" onchange="refreshTimeOutOptions()" />
+        Night Work
+      </label>
+
       <label>Time Out</label>
       <select id="timeOut">
         <option value="">Select Time Out</option>
       </select>
-
-      <label class="check-row">
-        <input id="nightWork" type="checkbox" />
-        Night Work
-      </label>
     </div>
   </div>
 
@@ -1934,6 +1934,58 @@ function buildTimeOptions(startHour, endHour, valuePrefix, labelSuffix, includeE
   return options;
 }
 
+function buildTimeOptionsByMinute(startMinute, endMinute, valuePrefix, labelSuffix) {
+  let options = "";
+  const safeStart = Math.max(0, Math.ceil(Number(startMinute || 0) / 30) * 30);
+  const safeEnd = Math.min(23 * 60 + 30, Number(endMinute || 0));
+
+  for (let totalMinutes = safeStart; totalMinutes <= safeEnd; totalMinutes += 30) {
+    const hour = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    const value = formatTimeOption(hour, minute);
+    options += '<option value="' + valuePrefix + value + '">' + formatTimeLabel(hour, minute) + labelSuffix + '</option>';
+  }
+
+  return options;
+}
+
+function refreshTimeOutOptions() {
+  const timeOutInput = document.getElementById("timeOut");
+  const timeInInput = document.getElementById("timeIn");
+  const nightWorkInput = document.getElementById("nightWork");
+
+  if (!timeOutInput) {
+    return;
+  }
+
+  const previousValue = timeOutInput.value;
+  const timeInMinutes = timeInInput ? getTimeMinutes(timeInInput.value) : null;
+  const nightWork = nightWorkInput ? nightWorkInput.checked : false;
+  const sameDayStart = timeInMinutes === null ? 7 * 60 : timeInMinutes + 30;
+  let options = '<option value="">Select Time Out</option>';
+  const sameDayOptions = buildTimeOptionsByMinute(sameDayStart, 23 * 60 + 30, "", "");
+
+  if (sameDayOptions) {
+    options += '<optgroup label="Same Day">';
+    options += sameDayOptions;
+    options += '</optgroup>';
+  }
+
+  if (nightWork) {
+    options += '<optgroup label="Next Morning">';
+    options += buildTimeOptionsByMinute(0, 7 * 60, "next-", " Next Day");
+    options += '</optgroup>';
+  }
+
+  timeOutInput.innerHTML = options;
+
+  if (previousValue && Array.from(timeOutInput.options).some((option) => option.value === previousValue)) {
+    timeOutInput.value = previousValue;
+  } else {
+    timeOutInput.value = "";
+  }
+}
+
 function fillTimeOptions() {
   const timeInputs = [
     document.getElementById("timeIn"),
@@ -1947,12 +1999,9 @@ function fillTimeOptions() {
     let options = '<option value="">' + placeholder + '</option>';
 
     if (input.id === "timeOut") {
-      options += '<optgroup label="Same Day">';
-      options += buildTimeOptions(0, 23, "", "", true);
-      options += '</optgroup>';
-      options += '<optgroup label="Next Morning">';
-      options += buildTimeOptions(0, 7, "next-", " Next Day", false);
-      options += '</optgroup>';
+      input.innerHTML = options;
+      refreshTimeOutOptions();
+      continue;
     } else {
       options += buildTimeOptions(0, 23, "", "", true);
     }
@@ -3100,6 +3149,7 @@ function prefillTimesheetFromWoRequest(request) {
   document.getElementById("timeOut").value = "";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
+  refreshTimeOutOptions();
   renderTimesheetCalendar();
 
   const status = document.getElementById("submitStatus");
@@ -3398,6 +3448,7 @@ function resetTimeEntryFields() {
   document.getElementById("timeOut").value = "";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
+  refreshTimeOutOptions();
   updateEntryTypeFields();
 }
 
@@ -3503,6 +3554,7 @@ function updateEntryTypeFields() {
   jobStatus.style.display = "none";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
+  refreshTimeOutOptions();
 
   setSpecialJobDefaults(entryType);
 
@@ -3578,12 +3630,16 @@ function editEntry(entryId) {
   document.getElementById("jobNumber").value = entry.jobNumber;
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
   document.getElementById("timeIn").value = entry.timeIn;
+  const entryIsOvernight = getTimeMinutes(entry.timeOut) < getTimeMinutes(entry.timeIn);
+  document.getElementById("nightWork").checked = Boolean(entry.nightWork || entryIsOvernight);
+  refreshTimeOutOptions();
   document.getElementById("timeOut").value = getTimeMinutes(entry.timeOut) < getTimeMinutes(entry.timeIn)
     ? "next-" + entry.timeOut
     : entry.timeOut;
   document.getElementById("tookLunch").checked = Boolean(entry.tookLunch);
-  document.getElementById("nightWork").checked = Boolean(entry.nightWork);
   updateEntryTypeFields();
+  refreshTimeOutOptions();
+  document.getElementById("timeOut").value = entryIsOvernight ? "next-" + entry.timeOut : entry.timeOut;
   document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
   document.getElementById("jobNumber").value = entry.jobNumber || getEntryLeaveNote(entry);
   setEditMode(entry);
@@ -4091,6 +4147,11 @@ async function submitTime() {
 
   if (isWorkEntry && hasCompleteWorkTime && (!isHalfHourTime(timeIn) || !isHalfHourTime(rawTimeOut))) {
     alert("Time In and Time Out must be in 30 minute intervals.");
+    return;
+  }
+
+  if (isWorkEntry && hasCompleteWorkTime && !nightWork && (rawTimeOut.startsWith("next-") || getTimeMinutes(rawTimeOut) < getTimeMinutes(timeIn))) {
+    alert("Time Out is earlier than Time In. Check Night Work if this shift ended after midnight.");
     return;
   }
 
