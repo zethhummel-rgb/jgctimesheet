@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Telehandler Inspection Checklist</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="inspection-mobile.css?v=2">
 
 <style>
 body {
@@ -102,7 +103,7 @@ textarea {
 
 table {
     width: 100%;
-    min-width: 980px;
+    min-width: 680px;
     border-collapse: collapse;
     background: white;
 }
@@ -125,7 +126,7 @@ td.item {
 }
 
 .choice {
-    width: 44px;
+    width: 64px;
 }
 
 .bottom-grid {
@@ -209,7 +210,7 @@ button:hover {
     <div class="field"><label>Make and Model</label><input type="text"></div>
     <div class="field"><label>Plant or Serial No.</label><input type="text"></div>
     <div class="field"><label>Machine Hours</label><input type="text"></div>
-    <div class="field"><label>Week Commencing</label><input type="date"></div>
+    <div class="field"><label>Date</label><input type="date"></div>
     <div class="field"><label>Site Location</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
 </div>
 
@@ -217,14 +218,11 @@ button:hover {
 <table>
 <thead>
 <tr>
+<th>#</th>
 <th>Inspection Item</th>
-<th>Monday Defective</th><th>Monday Okay</th>
-<th>Tuesday Defective</th><th>Tuesday Okay</th>
-<th>Wednesday Defective</th><th>Wednesday Okay</th>
-<th>Thursday Defective</th><th>Thursday Okay</th>
-<th>Friday Defective</th><th>Friday Okay</th>
-<th>Saturday Defective</th><th>Saturday Okay</th>
-<th>Sunday Defective</th><th>Sunday Okay</th>
+<th>P</th>
+<th>F</th>
+<th>NA</th>
 </tr>
 </thead>
 <tbody id="telehandlerRows"></tbody>
@@ -254,10 +252,10 @@ button:hover {
 <script src="common.js?v=7"></script>
 <script src="safety-acknowledgements.js?v=2"></script>
 <script src="inspection-records.js?v=7"></script>
+<script src="inspection-mobile.js?v=4"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
 const workerDisplay = localStorage.getItem("currentWorkerDisplay") || workerName;
-const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const inspectionItems = [
     "Engine oil level / Leaks",
     "Fuel Level / Leaks",
@@ -284,12 +282,16 @@ if (!workerName) {
 document.getElementById("userBar").textContent = workerDisplay ? "Signed in as: " + workerDisplay : "";
 
 document.getElementById("telehandlerRows").innerHTML = inspectionItems.map((item, itemIndex) => {
-    const dayCells = days.map((day) => `
-        <td class="choice"><input aria-label="${day} Defective" type="radio" name="tele_${itemIndex}_${day}" value="Defective"></td>
-        <td class="choice"><input aria-label="${day} Okay" type="radio" name="tele_${itemIndex}_${day}" value="Okay"></td>
-    `).join("");
-
-    return `<tr><td class="item">${item}</td>${dayCells}</tr>`;
+    const number = itemIndex + 1;
+    return `
+        <tr>
+            <td>${number}</td>
+            <td class="item">${item}</td>
+            <td class="choice"><input aria-label="${item} Pass" type="radio" name="tele_${itemIndex}" value="P"></td>
+            <td class="choice"><input aria-label="${item} Fail" type="radio" name="tele_${itemIndex}" value="F"></td>
+            <td class="choice"><input aria-label="${item} Not Applicable" type="radio" name="tele_${itemIndex}" value="NA"></td>
+        </tr>
+    `;
 }).join("");
 
 function handleInspectionSave(type) {
