@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Equipment Inspection</title>
+<link rel="manifest" href="manifest.json?v=4">
+<style>
+:root {
+    color-scheme: dark;
+    --page-bg: #020d0a;
+    --panel: #0c1a17;
+    --panel-soft: #10231d;
+    --green: #27d64b;
+    --green-dark: #0c7d3f;
+    --border: rgba(55, 240, 90, 0.34);
+    --text: #ffffff;
+    --muted: #bed0c5;
+    --input-bg: #f7fff7;
+    --input-text: #102018;
+    --fail: #c51f28;
+    --na: #49545d;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top, rgba(20, 92, 46, 0.2), transparent 380px),
+        linear-gradient(180deg, #03120f, var(--page-bg));
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.page-shell {
+    width: min(980px, calc(100% - 24px));
+    margin: 0 auto;
+    padding: 18px 0 34px;
+}
+
+.scan-header {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    text-align: center;
+    margin: 6px 0 16px;
+}
+
+.scan-header img {
+    width: min(240px, 62vw);
+    height: auto;
+}
+
+.eyebrow {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0;
+    color: var(--green);
+}
+
+h1 {
+    color: #ffffff;
+    font-size: clamp(26px, 5vw, 42px);
+    line-height: 1.05;
+}
+
+.card {
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--green);
+    border-radius: 8px;
+    background: rgba(12, 26, 23, 0.96);
+    box-shadow: 0 22px 62px rgba(0, 0, 0, 0.35);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.status-card {
+    border-color: rgba(190, 208, 197, 0.24);
+    border-top-width: 1px;
+    color: var(--muted);
+}
+
+.status-card.error {
+    border-color: rgba(197, 31, 40, 0.65);
+    color: #ffd5d5;
+}
+
+.equipment-grid,
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.equipment-fact {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.equipment-fact span,
+label,
+.small {
+    color: var(--muted);
+}
+
+.equipment-fact strong {
+    display: block;
+    margin-top: 4px;
+    color: #ffffff;
+    font-size: 17px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 900;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #93a696;
+    border-radius: 5px;
+    background: var(--input-bg);
+    color: var(--input-text);
+    padding: 9px 10px;
+    font: inherit;
+}
+
+textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+input[readonly] {
+    background: #eaf4eb;
+    color: #314037;
+}
+
+.field.full {
+    grid-column: 1 / -1;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+button {
+    border: 0;
+    border-radius: 6px;
+    background: #0e9348;
+    color: #ffffff;
+    min-height: 42px;
+    padding: 10px 16px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--green-dark);
+}
+
+button.secondary {
+    background: #2b3834;
+}
+
+button.danger {
+    background: var(--fail);
+}
+
+button:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
+}
+
+.inspection-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.inspection-item {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.045);
+    padding: 12px;
+}
+
+.inspection-item-head {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 10px;
+    align-items: start;
+}
+
+.inspection-number {
+    width: 34px;
+    height: 34px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #0d7940;
+    color: #ffffff;
+    font-weight: 900;
+}
+
+.inspection-question {
+    color: #ffffff;
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.choice-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.choice-button {
+    min-height: 44px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.choice-button.is-selected {
+    background: #0e9348;
+    box-shadow: 0 0 0 2px rgba(39, 214, 75, 0.42);
+}
+
+.choice-button.choice-f.is-selected {
+    background: var(--fail);
+    box-shadow: 0 0 0 2px rgba(197, 31, 40, 0.45);
+}
+
+.choice-button.choice-na.is-selected {
+    background: var(--na);
+    box-shadow: 0 0 0 2px rgba(160, 170, 180, 0.34);
+}
+
+.progress-wrap {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    margin-top: 12px;
+}
+
+.progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: 900;
+}
+
+.progress-track {
+    height: 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.13);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--green);
+    transition: width 0.18s ease;
+}
+
+.today-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.today-table-wrap {
+    overflow-x: auto;
+    margin-top: 12px;
+}
+
+table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #10361e;
+    color: #ffffff;
+}
+
+.result-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: #0e9348;
+    color: #ffffff;
+    font-weight: 900;
+}
+
+.result-pill.fail {
+    background: var(--fail);
+}
+
+.result-pill.na {
+    background: var(--na);
+}
+
+[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 720px) {
+    .page-shell {
+        width: min(100% - 18px, 980px);
+        padding-bottom: 22px;
+    }
+
+    .card {
+        padding: 13px;
+    }
+
+    .equipment-grid,
+    .form-grid,
+    .today-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .choice-row {
+        gap: 7px;
+    }
+
+    .actions button {
+        width: 100%;
+    }
+
+    h1 {
+        font-size: 30px;
+    }
+}
+</style>
+</head>
+<body>
+<main class="page-shell">
+    <header class="scan-header">
+        <img src="logo.webp" alt="John Gordon Construction logo">
+        <div>
+            <p class="eyebrow">Equipment QR Inspection</p>
+            <h1 id="pageTitle">Loading Inspection</h1>
+        </div>
+    </header>
+
+    <section id="statusCard" class="card status-card">Loading equipment QR inspection...</section>
+
+    <section id="equipmentCard" class="card" hidden>
+        <h2 id="equipmentHeading">Equipment</h2>
+        <div class="equipment-grid" id="equipmentFacts"></div>
+        <div class="actions">
+            <button type="button" onclick="showTodayView()">Today's Inspection</button>
+            <button type="button" onclick="showFormView()">Start Inspection</button>
+            <button type="button" class="secondary" onclick="loadEquipmentInspection()">Refresh</button>
+        </div>
+    </section>
+
+    <section id="todayCard" class="card" hidden>
+        <h2>Today's Inspection</h2>
+        <div id="todayInspectionContent" class="small"></div>
+    </section>
+
+    <section id="formCard" class="card" hidden>
+        <h2 id="formHeading">Inspection Form</h2>
+        <form id="inspectionForm">
+            <div class="form-grid" id="inspectorFields">
+                <div class="field">
+                    <label for="inspectorSelect">Inspector</label>
+                    <select id="inspectorSelect" required></select>
+                </div>
+                <div class="field" id="manualNameField" hidden>
+                    <label for="manualInspectorName">Manual Name</label>
+                    <input id="manualInspectorName" placeholder="Inspector full name">
+                </div>
+                <div class="field" id="manualCompanyField" hidden>
+                    <label for="inspectorCompany">Company</label>
+                    <input id="inspectorCompany" placeholder="Company name">
+                </div>
+            </div>
+
+            <div class="form-grid" id="inspectionFields"></div>
+
+            <div class="progress-wrap">
+                <div class="progress-row">
+                    <span>Inspection Progress</span>
+                    <span id="progressText">0 of 0 completed</span>
+                </div>
+                <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+            </div>
+
+            <div id="inspectionList" class="inspection-list"></div>
+
+            <div class="field full" style="margin-top:12px;">
+                <label for="inspectionComments">Comments</label>
+                <textarea id="inspectionComments" placeholder="Notes, defects, or repair comments"></textarea>
+            </div>
+
+            <div class="actions">
+                <button id="submitButton" type="submit">Submit Inspection</button>
+                <button type="button" class="secondary" onclick="showTodayView()">Cancel</button>
+            </div>
+        </form>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js?v=7"></script>
+<script>
+const QR_PARAMS = new URLSearchParams(window.location.search);
+const QR_TOKEN = (QR_PARAMS.get("token") || "").trim();
+const client = createJgcSupabaseClient();
+const state = {
+    equipment: null,
+    employees: [],
+    todayInspection: null,
+    inspectionType: "",
+    checklist: []
+};
+
+const AERIAL_ITEMS = [
+    "Operating and emergency controls are in proper working condition",
+    "Functional upper drive control interlock",
+    "Emergency lowering function operates properly",
+    "Lower controls override upper controls",
+    "Upper and lower controls protected from inadvertent operation",
+    "Control panel clean and visible",
+    "Switch and mechanical guards in good condition",
+    "Safety indicator lights work",
+    "Drive controls function properly",
+    "Motion alarms functional",
+    "Safety decals readable",
+    "Guard rails and basket chains in place",
+    "Platform clean and free of debris",
+    "Platform extension locks properly",
+    "No cracked welds, leaks, damaged wiring or cables",
+    "Tires and wheels in good condition",
+    "Braking devices operating properly",
+    "Operations manual stored on unit",
+    "Oil, Hydraulic Oil, Fuel and Coolant Levels",
+    "Battery Charge",
+    "Outriggers and alarms functioning",
+    "Personal protection in use",
+    "Wind conditions checked",
+    "Floor conditions checked",
+    "Housekeeping inspected",
+    "Electrical hazards reviewed",
+    "Chemical / Gas / Utility hazards reviewed",
+    "Overhead obstructions checked",
+    "Load capacity verified",
+    "Traffic control / barricades in place if required"
+];
+
+const FORKLIFT_ITEMS = [
+    "Tires/wheels/coating/air pressure",
+    "All lights",
+    "Warning devices",
+    "Number of hours/mileage",
+    "Indicator clocks",
+    "Damages to the bodywork",
+    "Oil/fluids/fuel/water leaks",
+    "Engine oil level",
+    "Coolant level",
+    "Fuel level",
+    "Hydraulic oil level",
+    "Battery",
+    "External lubrication points",
+    "Horn",
+    "Hydraulic steering",
+    "Brake",
+    "Emergency brake",
+    "Neutral start safety lock",
+    "Fork inclination",
+    "Raising and lowering the fork",
+    "Hydraulic components",
+    "Fork status and lock",
+    "Safety belts",
+    "Transmission/Steering",
+    "Fire protection equipment",
+    "Reverse alarm"
+];
+
+const TELEHANDLER_ITEMS = [
+    "Engine oil level / Leaks",
+    "Fuel Level / Leaks",
+    "Coolant Level / Leaks",
+    "Hydraulic Oil Level / Leaks",
+    "Wheels and Tires",
+    "Boom Sections",
+    "Carriage / Forks / Stabilisers / Attachments",
+    "Bonnet / Covers / Panels",
+    "Counterweight/Counterweight Bolts",
+    "Cab / Seat Belt",
+    "Brakes / Parking Brake",
+    "Control Leavers",
+    "Beacons / Mirrors / Windows / Wipers",
+    "Gauges and Instrumentation",
+    "Rated Capacity Plate Readable",
+    "Reversing/360 Camera"
+];
+
+function pageEscape(value) {
+    if (typeof escapeHtml === "function") {
+        return escapeHtml(value);
+    }
+
+    return String(value || "").replace(/[&<>"']/g, function(character) {
+        return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        }[character];
+    });
+}
+
+function setStatus(message, isError) {
+    const status = document.getElementById("statusCard");
+    status.textContent = message || "";
+    status.classList.toggle("error", Boolean(isError));
+    status.hidden = !message;
+}
+
+function todayString() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function formatTimestamp(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function getEquipmentLabel() {
+    const equipment = state.equipment || {};
+    return [equipment.equipment_identification, equipment.equipment_name].filter(Boolean).join(" - ") || "Equipment";
+}
+
+function getChecklistItems(type) {
+    if (type === "Fork Lift") {
+        return FORKLIFT_ITEMS;
+    }
+
+    if (type === "Tele Handler") {
+        return TELEHANDLER_ITEMS;
+    }
+
+    return AERIAL_ITEMS;
+}
+
+function inferAerialUnitType(equipment) {
+    const text = [equipment.equipment_name, equipment.equipment_type, equipment.equipment_identification].join(" ").toLowerCase();
+
+    if (text.includes("scissor")) {
+        return "Scissor Lift";
+    }
+
+    if (text.includes("boom")) {
+        return "Articulating Boom";
+    }
+
+    if (text.includes("man lift") || text.includes("manlift")) {
+        return "Man Lift";
+    }
+
+    return "Other";
+}
+
+function getDetailFieldDefinitions() {
+    const equipment = state.equipment || {};
+    const type = state.inspectionType;
+    const commonDate = {
+        key: "inspection_date",
+        label: "Date",
+        type: "date",
+        value: todayString(),
+        required: true
+    };
+
+    if (type === "Fork Lift") {
+        return [
+            commonDate,
+            { key: "equipment", label: "Equipment", type: "text", value: getEquipmentLabel(), readonly: true },
+            { key: "project_site", label: "Project / Site", type: "text", projectJob: true, placeholder: "Select project/job or type manually" },
+            { key: "brand", label: "Brand", type: "text", value: equipment.equipment_name || "" },
+            { key: "capacity", label: "Capacity", type: "text" },
+            { key: "identification", label: "Identification", type: "text", value: equipment.equipment_identification || "" },
+            { key: "hours_mileage", label: "Hours/Mileage", type: "number", step: "0.1", value: equipment.current_hours !== null && equipment.current_hours !== undefined ? equipment.current_hours : "" },
+            { key: "time", label: "Time", type: "time", value: new Date().toTimeString().slice(0, 5) }
+        ];
+    }
+
+    if (type === "Tele Handler") {
+        return [
+            commonDate,
+            { key: "make_model", label: "Make and Model", type: "text", value: equipment.equipment_name || "" },
+            { key: "plant_serial", label: "Plant or Serial No.", type: "text", value: equipment.equipment_identification || "" },
+            { key: "machine_hours", label: "Machine Hours", type: "number", step: "0.1", value: equipment.current_hours !== null && equipment.current_hours !== undefined ? equipment.current_hours : "" },
+            { key: "site_location", label: "Site Location", type: "text", projectJob: true, placeholder: "Select project/job or type manually" }
+        ];
+    }
+
+    return [
+        commonDate,
+        { key: "lift_id", label: "Lift ID #", type: "text", value: getEquipmentLabel(), readonly: true },
+        { key: "location_of_use", label: "Location of Use", type: "text", projectJob: true, placeholder: "Select project/job or type manually" },
+        { key: "unit_type", label: "Unit Type", type: "select", value: inferAerialUnitType(equipment), options: ["Scissor Lift", "Articulating Boom", "Man Lift", "Other"] },
+        { key: "current_hours", label: "Current Unit Hours", type: "number", step: "0.1", value: equipment.current_hours !== null && equipment.current_hours !== undefined ? equipment.current_hours : "" }
+    ];
+}
+
+function renderInputField(field) {
+    const common = [
+        field.required ? "required" : "",
+        field.readonly ? "readonly" : "",
+        field.projectJob ? "data-jgc-project-job" : "",
+        field.step ? 'step="' + pageEscape(field.step) + '"' : "",
+        field.placeholder ? 'placeholder="' + pageEscape(field.placeholder) + '"' : ""
+    ].filter(Boolean).join(" ");
+
+    if (field.type === "select") {
+        return `
+            <div class="field">
+                <label for="detail_${pageEscape(field.key)}">${pageEscape(field.label)}</label>
+                <select id="detail_${pageEscape(field.key)}" data-detail-key="${pageEscape(field.key)}" data-detail-label="${pageEscape(field.label)}" ${field.required ? "required" : ""}>
+                    ${(field.options || []).map((option) => `<option value="${pageEscape(option)}"${option === field.value ? " selected" : ""}>${pageEscape(option)}</option>`).join("")}
+                </select>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="field">
+            <label for="detail_${pageEscape(field.key)}">${pageEscape(field.label)}</label>
+            <input id="detail_${pageEscape(field.key)}" type="${pageEscape(field.type || "text")}" value="${pageEscape(field.value !== null && field.value !== undefined ? field.value : "")}" data-detail-key="${pageEscape(field.key)}" data-detail-label="${pageEscape(field.label)}" ${common}>
+        </div>
+    `;
+}
+
+function renderEquipmentCard() {
+    const equipment = state.equipment || {};
+    document.getElementById("equipmentHeading").textContent = getEquipmentLabel();
+    document.getElementById("pageTitle").textContent = state.inspectionType || "Equipment Inspection";
+    document.getElementById("equipmentFacts").innerHTML = [
+        ["Inspection", state.inspectionType],
+        ["Equipment", equipment.equipment_name],
+        ["ID / Serial", equipment.equipment_identification || "-"],
+        ["Type", equipment.equipment_type || "-"],
+        ["Current Hours", equipment.current_hours !== null && equipment.current_hours !== undefined ? equipment.current_hours : "-"]
+    ].map(([label, value]) => `
+        <div class="equipment-fact">
+            <span>${pageEscape(label)}</span>
+            <strong>${pageEscape(value || "-")}</strong>
+        </div>
+    `).join("");
+    document.getElementById("equipmentCard").hidden = false;
+}
+
+function renderInspectorSelect() {
+    const select = document.getElementById("inspectorSelect");
+    select.innerHTML = `
+        <option value="">Select approved employee</option>
+        ${(state.employees || []).map((employee) => `
+            <option value="${pageEscape(employee.worker_key || employee.display_name || "")}" data-name="${pageEscape(employee.display_name || "")}">
+                ${pageEscape(employee.display_name || employee.worker_key || "Employee")}
+            </option>
+        `).join("")}
+        <option value="manual">Manual name entry</option>
+    `;
+    updateInspectorFields();
+}
+
+function updateInspectorFields() {
+    const select = document.getElementById("inspectorSelect");
+    const manual = select.value === "manual" || !select.value;
+    document.getElementById("manualNameField").hidden = !manual;
+    document.getElementById("manualCompanyField").hidden = false;
+    document.getElementById("manualInspectorName").required = manual;
+    document.getElementById("inspectorCompany").value = document.getElementById("inspectorCompany").value || (manual ? "" : "John Gordon Construction");
+}
+
+function renderForm() {
+    state.checklist = getChecklistItems(state.inspectionType).map((label, index) => ({
+        number: index + 1,
+        label,
+        result: ""
+    }));
+
+    document.getElementById("formHeading").textContent = state.inspectionType || "Equipment Inspection";
+    document.getElementById("inspectionFields").innerHTML = getDetailFieldDefinitions().map(renderInputField).join("");
+    document.getElementById("inspectionList").innerHTML = state.checklist.map((item) => `
+        <article class="inspection-item" data-item-index="${item.number - 1}">
+            <div class="inspection-item-head">
+                <span class="inspection-number">${item.number}</span>
+                <div class="inspection-question">${pageEscape(item.label)}</div>
+            </div>
+            <div class="choice-row">
+                ${["P", "F", "NA"].map((value) => `
+                    <button class="choice-button choice-${value.toLowerCase()}" type="button" data-choice="${value}" onclick="setChecklistResult(${item.number - 1}, '${value}')">${value === "NA" ? "N/A" : value}</button>
+                `).join("")}
+            </div>
+        </article>
+    `).join("");
+    renderInspectorSelect();
+    updateProgress();
+
+    if (typeof enhanceJgcProjectJobInputs === "function") {
+        enhanceJgcProjectJobInputs();
+    }
+}
+
+function setChecklistResult(index, value) {
+    const item = state.checklist[index];
+    if (!item) {
+        return;
+    }
+
+    item.result = value;
+    const wrapper = document.querySelector('[data-item-index="' + index + '"]');
+    if (wrapper) {
+        wrapper.querySelectorAll(".choice-button").forEach((button) => {
+            button.classList.toggle("is-selected", button.dataset.choice === value);
+        });
+    }
+    updateProgress();
+}
+
+function updateProgress() {
+    const total = state.checklist.length;
+    const done = state.checklist.filter((item) => item.result).length;
+    document.getElementById("progressText").textContent = done + " of " + total + " completed";
+    document.getElementById("progressFill").style.width = total ? Math.round(done / total * 100) + "%" : "0";
+}
+
+function showFormView() {
+    renderForm();
+    document.getElementById("formCard").hidden = false;
+    document.getElementById("todayCard").hidden = true;
+    setStatus("");
+    document.getElementById("formCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showTodayView() {
+    document.getElementById("formCard").hidden = true;
+    document.getElementById("todayCard").hidden = false;
+    renderTodayInspection();
+    document.getElementById("todayCard").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getInspectionRows(record) {
+    const formData = record && record.form_data && typeof record.form_data === "object" ? record.form_data : {};
+    return Array.isArray(formData.rows) ? formData.rows : [];
+}
+
+function getInspectionFields(record) {
+    const formData = record && record.form_data && typeof record.form_data === "object" ? record.form_data : {};
+    return Array.isArray(formData.fields) ? formData.fields : [];
+}
+
+function resultPill(value) {
+    const result = String(value || "").trim();
+    const className = result === "F" || result === "UNS" ? " fail" : (result === "NA" || result === "N/A" ? " na" : "");
+    return '<span class="result-pill' + className + '">' + pageEscape(result === "NA" ? "N/A" : result || "-") + '</span>';
+}
+
+function renderTodayInspection() {
+    const container = document.getElementById("todayInspectionContent");
+    const record = state.todayInspection;
+
+    if (!record) {
+        container.innerHTML = `
+            <p>No inspection has been completed for this unit today.</p>
+            <div class="actions">
+                <button type="button" onclick="showFormView()">Start Inspection</button>
+            </div>
+        `;
+        return;
+    }
+
+    const rows = getInspectionRows(record);
+    const fields = getInspectionFields(record);
+    const completedBy = record.worker_display_name || record.worker_name || "";
+    const completedAt = formatTimestamp(record.created_at);
+
+    container.innerHTML = `
+        <div class="today-meta">
+            <div class="equipment-fact"><span>Equipment</span><strong>${pageEscape(getEquipmentLabel())}</strong></div>
+            <div class="equipment-fact"><span>Completed By</span><strong>${pageEscape(completedBy || "-")}</strong></div>
+            <div class="equipment-fact"><span>Date</span><strong>${pageEscape(record.inspection_date || todayString())}</strong></div>
+            <div class="equipment-fact"><span>Saved</span><strong>${pageEscape(completedAt || "-")}</strong></div>
+        </div>
+        ${fields.length ? `
+            <div class="today-table-wrap">
+                <table>
+                    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+                    <tbody>
+                        ${fields.filter((field) => field.value).map((field) => `
+                            <tr><td>${pageEscape(field.label)}</td><td>${pageEscape(field.value)}</td></tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : ""}
+        ${rows.length ? `
+            <div class="today-table-wrap">
+                <table>
+                    <thead><tr><th>#</th><th>Inspection Item</th><th>Result</th></tr></thead>
+                    <tbody>
+                        ${rows.map((row) => {
+                            const cells = row.cells || [];
+                            const firstCell = String(cells[0] || "").trim();
+                            const firstCellIsNumber = /^\d+$/.test(firstCell);
+                            const number = firstCellIsNumber ? firstCell : "";
+                            const label = firstCellIsNumber ? (cells[1] || "") : firstCell;
+                            const result = firstCellIsNumber
+                                ? (cells.slice(2).find(Boolean) || "")
+                                : (cells.slice(1).find(Boolean) || "");
+                            return `<tr><td>${pageEscape(number)}</td><td>${pageEscape(label)}</td><td>${resultPill(result)}</td></tr>`;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : "<p>No checklist details were saved with this record.</p>"}
+        <div class="actions">
+            <button type="button" onclick="showFormView()">Start New Inspection</button>
+            <button type="button" class="secondary" onclick="loadEquipmentInspection()">Refresh</button>
+        </div>
+    `;
+}
+
+function getSelectedInspector() {
+    const select = document.getElementById("inspectorSelect");
+    const selected = select.options[select.selectedIndex];
+    const isManual = select.value === "manual" || !select.value;
+    const manualName = document.getElementById("manualInspectorName").value.trim();
+    const employeeName = selected ? (selected.dataset.name || selected.textContent || "").trim() : "";
+
+    return {
+        name: isManual ? manualName : employeeName,
+        employeeKey: isManual ? "" : select.value,
+        company: document.getElementById("inspectorCompany").value.trim() || (isManual ? "" : "John Gordon Construction")
+    };
+}
+
+function collectDetailFields() {
+    const fields = [];
+    const inspector = getSelectedInspector();
+    fields.push({ label: "Inspector", value: inspector.name });
+    if (inspector.company) {
+        fields.push({ label: "Company", value: inspector.company });
+    }
+
+    document.querySelectorAll("[data-detail-label]").forEach((input) => {
+        fields.push({
+            label: input.dataset.detailLabel,
+            value: input.value || ""
+        });
+    });
+
+    const comments = document.getElementById("inspectionComments").value.trim();
+    if (comments) {
+        fields.push({ label: "Comments", value: comments });
+    }
+
+    return fields;
+}
+
+function collectRows() {
+    return state.checklist.map((item) => ({
+        table: 1,
+        cells: [String(item.number), item.label, item.result === "NA" ? "N/A" : item.result]
+    }));
+}
+
+function getDetailValue(key) {
+    const input = document.querySelector('[data-detail-key="' + key + '"]');
+    return input ? input.value.trim() : "";
+}
+
+function getCurrentHoursValue() {
+    const candidates = ["current_hours", "machine_hours", "hours_mileage"];
+    for (const key of candidates) {
+        const value = Number(getDetailValue(key));
+        if (Number.isFinite(value) && value >= 0) {
+            return value;
+        }
+    }
+    return null;
+}
+
+function buildEmailBody(fields, rows) {
+    const lines = [
+        state.inspectionType,
+        "Equipment: " + getEquipmentLabel(),
+        ""
+    ];
+
+    fields.forEach((field) => {
+        if (field.value) {
+            lines.push(field.label + ": " + field.value);
+        }
+    });
+
+    lines.push("", "Inspection Details:");
+    rows.forEach((row) => {
+        lines.push((row.cells || []).filter(Boolean).join(" | "));
+    });
+
+    return lines.join("\n");
+}
+
+async function submitInspection(event) {
+    event.preventDefault();
+
+    const inspector = getSelectedInspector();
+    if (!inspector.name || inspector.name.length < 2) {
+        setStatus("Enter the inspector name.", true);
+        return;
+    }
+
+    const missing = state.checklist.filter((item) => !item.result);
+    if (missing.length) {
+        setStatus("Please complete every inspection item before submitting.", true);
+        return;
+    }
+
+    const submitButton = document.getElementById("submitButton");
+    submitButton.disabled = true;
+    submitButton.textContent = "Submitting...";
+    setStatus("Saving inspection...");
+
+    const fields = collectDetailFields();
+    const rows = collectRows();
+    const failCount = state.checklist.filter((item) => item.result === "F").length;
+    const naCount = state.checklist.filter((item) => item.result === "NA").length;
+    const inspectionDate = getDetailValue("inspection_date") || todayString();
+    const emailBody = buildEmailBody(fields, rows);
+
+    const payload = {
+        p_token: QR_TOKEN,
+        p_inspector_name: inspector.name,
+        p_inspector_employee_key: inspector.employeeKey || "",
+        p_inspector_company: inspector.company || "",
+        p_inspection_type: state.inspectionType,
+        p_inspection_date: inspectionDate,
+        p_form_data: {
+            fields,
+            rows,
+            equipment: {
+                id: state.equipment.equipment_id,
+                name: state.equipment.equipment_name,
+                identification_number: state.equipment.equipment_identification
+            }
+        },
+        p_summary: {
+            completed_by: inspector.name,
+            company: inspector.company || "",
+            field_count: fields.length,
+            row_count: rows.length,
+            failed_count: failCount,
+            not_applicable_count: naCount,
+            equipment_name: state.equipment.equipment_name,
+            equipment_identification: state.equipment.equipment_identification
+        },
+        p_email_body: emailBody,
+        p_current_hours: getCurrentHoursValue()
+    };
+
+    try {
+        const { data, error } = await client.rpc("submit_public_equipment_inspection", payload);
+        const result = Array.isArray(data) ? data[0] : data;
+
+        if (error || !result || result.success === false) {
+            throw new Error((error && error.message) || (result && result.message) || "Inspection could not be saved.");
+        }
+
+        setStatus(result.message || "Inspection saved.");
+        await loadEquipmentInspection({ keepStatus: true });
+        showTodayView();
+    } catch (error) {
+        setStatus(error && error.message ? error.message : "Inspection could not be saved.", true);
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Submit Inspection";
+    }
+}
+
+async function loadEquipmentInspection(options) {
+    if (!QR_TOKEN) {
+        setStatus("This QR link is missing its equipment token.", true);
+        return;
+    }
+
+    if (!client) {
+        setStatus("Supabase did not load. Check your internet connection and try again.", true);
+        return;
+    }
+
+    if (!options || !options.keepStatus) {
+        setStatus("Loading equipment QR inspection...");
+    }
+
+    try {
+        const { data, error } = await client.rpc("get_public_equipment_inspection", { p_token: QR_TOKEN });
+        const row = Array.isArray(data) ? data[0] : data;
+
+        if (error) {
+            throw error;
+        }
+
+        if (!row) {
+            setStatus("This QR code is not active. Ask the office to generate a fresh equipment QR code.", true);
+            return;
+        }
+
+        state.equipment = row;
+        state.employees = Array.isArray(row.employees) ? row.employees : [];
+        state.todayInspection = row.today_inspection || null;
+        state.inspectionType = row.inspection_type || "Equipment Inspection";
+
+        renderEquipmentCard();
+        setStatus("");
+
+        if (state.todayInspection) {
+            showTodayView();
+        } else {
+            showFormView();
+        }
+    } catch (error) {
+        setStatus("Equipment inspection could not be loaded. " + (error && error.message ? error.message : ""), true);
+    }
+}
+
+document.getElementById("inspectorSelect").addEventListener("change", updateInspectorFields);
+document.getElementById("inspectionForm").addEventListener("submit", submitInspection);
+loadEquipmentInspection();
+</script>
+</body>
+</html>
