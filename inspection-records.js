@@ -102,7 +102,8 @@ function collectTableRows() {
             .filter((cell) => !cell.classList.contains("delete-cell") && !cell.classList.contains("delete-column"))
             .map((cell) => {
                 const values = [];
-                cell.querySelectorAll("input, select, textarea").forEach((field) => {
+                const formFields = cell.querySelectorAll("input, select, textarea");
+                formFields.forEach((field) => {
                     if (field.type === "hidden") {
                         if (field.value) {
                             values.push(field.value);
@@ -120,7 +121,11 @@ function collectTableRows() {
                     }
                 });
 
-                return values.length ? values.join(", ") : cell.innerText.trim();
+                if (values.length) {
+                    return values.join(", ");
+                }
+
+                return formFields.length ? "" : cell.innerText.trim();
             });
 
             if (cells.some(Boolean)) {
