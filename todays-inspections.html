@@ -683,6 +683,18 @@ function renderJsaSignOnCell(record) {
     return `<button class="sign-on-button" type="button" onclick="openJsaSignOn('${escapeHtml(record.id)}')">View</button>`;
 }
 
+function renderInspectionViewCell(record) {
+    if (record.report_source && !record.supports_inspection_actions) {
+        return "-";
+    }
+
+    if (isSafetyAckRecord(record)) {
+        return renderJsaSignOnCell(record);
+    }
+
+    return `<button class="sign-on-button" type="button" onclick="viewInspection('${escapeHtml(record.id)}')">View</button>`;
+}
+
 function buildFieldSummaryText(record) {
     const fields = record.form_data && Array.isArray(record.form_data.fields)
         ? record.form_data.fields
@@ -967,7 +979,7 @@ function renderInspectionRows(filteredData) {
                         <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
                         <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
-                        <td>${renderJsaSignOnCell(record)}</td>
+                        <td>${renderInspectionViewCell(record)}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>`}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>`}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
@@ -1139,6 +1151,161 @@ function buildEditableRowsHtml(record, rows) {
             ${editableRows.join("")}
         </div>
     `;
+}
+
+function getReadableChecklistRows(record) {
+    const rows = getRecordRows(record);
+    const readableRows = [];
+
+    rows.forEach((row) => {
+        const cells = row.cells || [];
+        const first = String(cells[0] || "").trim();
+
+        if (/^\d+$/.test(first) && cells[1]) {
+            readableRows.push({
+                number: first,
+                item: cells[1] || "",
+                result: cells.slice(2).find((cell) => String(cell || "").trim()) || ""
+            });
+            return;
+        }
+
+        if (/^\d+\./.test(first)) {
+            readableRows.push({
+                number: first.replace(/\..*$/, ""),
+                item: first,
+                result: cells.slice(1, 4).find((cell) => String(cell || "").trim()) || ""
+            });
+
+            if (/^\d+\./.test(String(cells[4] || "").trim())) {
+                readableRows.push({
+                    number: String(cells[4] || "").replace(/\..*$/, ""),
+                    item: cells[4] || "",
+                    result: cells.slice(5, 8).find((cell) => String(cell || "").trim()) || ""
+                });
+            }
+            return;
+        }
+
+        const joined = cells.filter((cell) => String(cell || "").trim()).join(" | ");
+        if (joined) {
+            readableRows.push({
+                number: "",
+                item: joined,
+                result: ""
+            });
+        }
+    });
+
+    return readableRows;
+}
+
+function normalizeInspectionResultLabel(value) {
+    const result = String(value || "").trim();
+
+    if (result.toUpperCase() === "NA") {
+        return "N/A";
+    }
+
+    return result;
+}
+
+function getRecordEquipmentLabel(record) {
+    const formData = record && record.form_data && typeof record.form_data === "object"
+        ? record.form_data
+        : {};
+    const equipment = formData.equipment && typeof formData.equipment === "object"
+        ? formData.equipment
+        : {};
+    const parts = [
+        record.equipment_identification,
+        record.equipment_name,
+        equipment.identification_number,
+        equipment.name
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    return [...new Set(parts)].join(" - ");
+}
+
+function viewInspection(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+    const panel = document.getElementById("editPanel");
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    if (isSafetyAckRecord(record)) {
+        openJsaSignOn(id);
+        return;
+    }
+
+    const fields = getRecordFields(record).filter((field) => field.value);
+    const rows = getReadableChecklistRows(record);
+    const equipmentLabel = getRecordEquipmentLabel(record);
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h2>${escapeHtml(record.inspection_type || "Inspection")}</h2>
+        <div class="edit-grid">
+            <div class="edit-field">
+                <label>Inspection Date</label>
+                <input type="text" value="${escapeHtml(formatDate(record.inspection_date))}" disabled>
+            </div>
+            <div class="edit-field">
+                <label>Saved</label>
+                <input type="text" value="${escapeHtml(formatDate(record.created_at))}" disabled>
+            </div>
+            <div class="edit-field">
+                <label>Completed By</label>
+                <input type="text" value="${escapeHtml(record.worker_display_name || record.worker_name || "")}" disabled>
+            </div>
+            ${equipmentLabel ? `
+                <div class="edit-field">
+                    <label>Equipment</label>
+                    <input type="text" value="${escapeHtml(equipmentLabel)}" disabled>
+                </div>
+            ` : ""}
+        </div>
+        <h3>Submitted Details</h3>
+        ${fields.length ? `
+            <div class="edit-grid">
+                ${fields.map((field) => `
+                    <div class="edit-field">
+                        <label>${escapeHtml(field.label)}</label>
+                        <input type="text" value="${escapeHtml(field.value)}" disabled>
+                    </div>
+                `).join("")}
+            </div>
+        ` : '<div class="small">No submitted field details were saved for this inspection.</div>'}
+        <h3>Checklist Answers</h3>
+        ${rows.length ? `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>Inspection Item</th><th>Result</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((row) => `
+                            <tr>
+                                <td>${escapeHtml(row.number)}</td>
+                                <td>${escapeHtml(row.item)}</td>
+                                <td>${escapeHtml(normalizeInspectionResultLabel(row.result))}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : '<div class="small">No checklist answers were saved for this inspection.</div>'}
+        <div class="actions">
+            <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
+            <button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>
+            <button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>
+        </div>
+    `;
+
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function editInspection(id) {
