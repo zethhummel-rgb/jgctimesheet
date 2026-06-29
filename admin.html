@@ -8556,8 +8556,8 @@ function renderLiveTimesheetEntries(filter) {
             const workerMeta = settings.older
                 ? workerRows.length + " older entr" + (workerRows.length === 1 ? "y" : "ies") + " - " + workerTotal.toFixed(2) + " hrs"
                 : workerTotal.toFixed(2) + " hrs saved this week - " + submittedDayCount + " day" + (submittedDayCount === 1 ? "" : "s") + " submitted";
-            const workerCount = settings.older ? workerRows.length : submittedDayCount;
-            const workerCountTitle = settings.older ? "Older live entries" : "Submitted days";
+            const workerCount = settings.older ? 1 : submittedDayCount;
+            const workerCountTitle = settings.older ? "Worker with older live entries" : "Submitted days";
             const weekStarts = sortAdminLiveWeekStarts([...new Set(workerRows.map((row) => row.weekStart || ""))], currentWeekStart);
 
             return `
@@ -8645,15 +8645,16 @@ function renderLiveTimesheetEntries(filter) {
     const currentHtml = currentRows.length
         ? renderWorkerGroups(currentRows)
         : '<div class="small" style="margin-bottom:14px;">No current-week live entries found.</div>';
+    const olderWorkerCount = new Set(olderRows.map((row) => row.worker || "Unknown Worker")).size;
     const olderHtml = olderRows.length
         ? `
             <details class="timesheet-worker-group" ${filter ? "open" : ""}>
                 <summary>
                     <span>
                         Older Unsubmitted Work Entries
-                        <span class="timesheet-worker-meta">${olderRows.length} prior-week work entr${olderRows.length === 1 ? "y" : "ies"} still saved live</span>
+                        <span class="timesheet-worker-meta">${olderWorkerCount} worker${olderWorkerCount === 1 ? "" : "s"} with prior-week work entries</span>
                     </span>
-                    <span class="timesheet-worker-count" title="Older live entries">${olderRows.length}</span>
+                    <span class="timesheet-worker-count" title="Workers with older live entries">${olderWorkerCount}</span>
                 </summary>
                 <div class="timesheet-worker-body">
                     <div class="small" style="margin-bottom:8px;">These are old work rows still sitting in live timesheets. Old vacation, sick, and holiday rows are hidden here because those are tracked in the Vacation and leave admin sections.</div>
