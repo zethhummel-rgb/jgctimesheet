@@ -8511,6 +8511,7 @@ function renderLiveTimesheetEntries(filter) {
             hours: Number(entry.hours || 0),
             createdAt: entry.created_at || ""
         }));
+    const currentWeekStart = getCurrentWeekStartForSummary();
 
     rows.sort((a, b) => {
         const workerDifference = String(a.worker).localeCompare(String(b.worker));
@@ -8534,31 +8535,33 @@ function renderLiveTimesheetEntries(filter) {
         return String(a.timeIn).localeCompare(String(b.timeIn));
     });
 
-    if (!rows.length) {
-        return '<h3>Live Entries Before Weekly Submit</h3><div class="small" style="margin-bottom:14px;">No current live entries found.</div>';
-    }
+    const currentRows = rows.filter((row) => row.weekStart === currentWeekStart);
+    const olderRows = rows.filter((row) => row.weekStart !== currentWeekStart);
 
-    const workers = [...new Set(rows.map((row) => row.worker || "Unknown Worker"))];
+    function renderWorkerGroups(groupRows, options) {
+        const settings = options || {};
+        const workers = [...new Set(groupRows.map((row) => row.worker || "Unknown Worker"))];
 
-    return `
-        <h3>Live Entries Before Weekly Submit</h3>
-        <div class="small" style="margin-bottom:8px;">These are entries currently saved on employee timesheets before they submit/email the full week.</div>
-        ${workers.map((worker) => {
-            const workerRows = rows.filter((row) => (row.worker || "Unknown Worker") === worker);
-            const currentWeekStart = getCurrentWeekStartForSummary();
-            const currentWeekRows = workerRows.filter((row) => row.weekStart === currentWeekStart);
-            const workerTotal = currentWeekRows.reduce((total, row) => total + row.hours, 0);
-            const submittedDayCount = new Set(currentWeekRows.map((row) => row.day).filter(Boolean)).size;
+        return workers.map((worker) => {
+            const workerRows = groupRows.filter((row) => (row.worker || "Unknown Worker") === worker);
+            const summaryRows = settings.older ? workerRows : workerRows.filter((row) => row.weekStart === currentWeekStart);
+            const workerTotal = summaryRows.reduce((total, row) => total + row.hours, 0);
+            const submittedDayCount = new Set(summaryRows.map((row) => row.day).filter(Boolean)).size;
+            const workerMeta = settings.older
+                ? workerRows.length + " older entr" + (workerRows.length === 1 ? "y" : "ies") + " - " + workerTotal.toFixed(2) + " hrs"
+                : workerTotal.toFixed(2) + " hrs saved this week - " + submittedDayCount + " day" + (submittedDayCount === 1 ? "" : "s") + " submitted";
+            const workerCount = settings.older ? workerRows.length : submittedDayCount;
+            const workerCountTitle = settings.older ? "Older live entries" : "Submitted days";
             const weekStarts = sortAdminLiveWeekStarts([...new Set(workerRows.map((row) => row.weekStart || ""))], currentWeekStart);
 
             return `
-                <details class="timesheet-worker-group" ${filter ? "open" : ""}>
+                <details class="timesheet-worker-group" ${filter || settings.open ? "open" : ""}>
                     <summary>
                         <span>
                             ${escapeHtml(worker)}
-                            <span class="timesheet-worker-meta">${workerTotal.toFixed(2)} hrs saved this week - ${submittedDayCount} day${submittedDayCount === 1 ? "" : "s"} submitted</span>
+                            <span class="timesheet-worker-meta">${escapeHtml(workerMeta)}</span>
                         </span>
-                        <span class="timesheet-worker-count" title="Submitted days">${submittedDayCount}</span>
+                        <span class="timesheet-worker-count" title="${escapeHtml(workerCountTitle)}">${workerCount}</span>
                     </summary>
                     <div class="timesheet-worker-body">
                         ${weekStarts.map((weekStart) => {
@@ -8630,7 +8633,35 @@ function renderLiveTimesheetEntries(filter) {
                     </div>
                 </details>
             `;
-        }).join("")}
+        }).join("");
+    }
+
+    const currentHtml = currentRows.length
+        ? renderWorkerGroups(currentRows)
+        : '<div class="small" style="margin-bottom:14px;">No current-week live entries found.</div>';
+    const olderHtml = olderRows.length
+        ? `
+            <details class="timesheet-worker-group" ${filter ? "open" : ""}>
+                <summary>
+                    <span>
+                        Older Unsubmitted Live Entries
+                        <span class="timesheet-worker-meta">${olderRows.length} prior-week entr${olderRows.length === 1 ? "y" : "ies"} still saved live</span>
+                    </span>
+                    <span class="timesheet-worker-count" title="Older live entries">${olderRows.length}</span>
+                </summary>
+                <div class="timesheet-worker-body">
+                    <div class="small" style="margin-bottom:8px;">These are old rows still sitting in live timesheets. They are not counted in this week's saved totals; keep them here only for cleanup, editing, or deleting.</div>
+                    ${renderWorkerGroups(olderRows, { older: true, open: Boolean(filter) })}
+                </div>
+            </details>
+        `
+        : "";
+
+    return `
+        <h3>Live Entries Before Weekly Submit</h3>
+        <div class="small" style="margin-bottom:8px;">Main employee panels show only the current week. Older live rows are collapsed below so old vacation or holiday placeholders do not clutter this week's timesheets.</div>
+        ${currentHtml}
+        ${olderHtml}
     `;
 }
 
