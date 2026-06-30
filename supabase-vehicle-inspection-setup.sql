@@ -33,6 +33,9 @@ alter table public.equipment_vehicles
   add column if not exists odometer_required boolean default true;
 
 alter table public.equipment_vehicles
+  add column if not exists current_km numeric;
+
+alter table public.equipment_vehicles
   add column if not exists vehicle_load text;
 
 alter table public.equipment_vehicles
@@ -461,6 +464,13 @@ begin
       nullif(p_record->>'trailer_1_id', '')::uuid,
       nullif(p_record->>'trailer_2_id', '')::uuid
     );
+
+    if v_record.odometer is not null then
+      update public.equipment_vehicles
+      set current_km = v_record.odometer,
+          updated_at = now()
+      where id = v_vehicle.id;
+    end if;
   end if;
 
   return query select true, case when v_status = 'draft' then 'Draft saved.' else 'Inspection submitted.' end, to_jsonb(v_record);
