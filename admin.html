@@ -2687,6 +2687,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
     </div>
     <div id="inspectionsList" class="small">Loading inspections...</div>
+    <div id="adminInspectionViewPanel" class="sub-card" style="margin-top:14px;" hidden></div>
 </div>
 
 <div id="certificatesSection" class="card" hidden>
@@ -7734,11 +7735,8 @@ function renderEquipment() {
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
                         const status = getEquipmentStatus(item.yearly_inspection_expiry);
-                        const currentKmSource = item.current_km !== null && item.current_km !== undefined && item.current_km !== ""
-                            ? item.current_km
-                            : (group.category === "Vehicles" ? item.current_hours : "");
-                        const currentKm = currentKmSource !== null && currentKmSource !== undefined && currentKmSource !== ""
-                            ? Number(currentKmSource).toLocaleString("en-CA", { maximumFractionDigits: 0 })
+                        const currentKm = item.current_km !== null && item.current_km !== undefined && item.current_km !== ""
+                            ? Number(item.current_km).toLocaleString("en-CA", { maximumFractionDigits: 0 })
                             : "";
                         const currentHours = group.category === "Vehicles"
                             ? ""
@@ -10175,6 +10173,8 @@ function renderInspections() {
     const workerFilter = workerInput ? workerInput.value.trim().toLowerCase() : "";
     const typeFilter = typeInput ? typeInput.value.trim().toLowerCase() : "";
     const standardInspectionRows = (Array.isArray(inspections) ? inspections : []).map((inspection) => ({
+        id: inspection.id,
+        kind: "standard",
         source: "Inspection",
         date: inspection.inspection_date,
         type: inspection.inspection_type,
@@ -10187,9 +10187,12 @@ function renderInspections() {
                 inspection.summary.failed_count ? inspection.summary.failed_count + " failed" : ""
             ].filter(Boolean).join(" | ")
             : "",
-        saved: inspection.created_at
+        saved: inspection.created_at,
+        record: inspection
     }));
     const vehicleInspectionRows = (Array.isArray(vehicleInspections) ? vehicleInspections : []).map((inspection) => ({
+        id: inspection.id,
+        kind: "vehicle",
         source: "Vehicle / Trailer",
         date: inspection.inspection_date,
         type: inspection.inspection_type,
@@ -10202,7 +10205,8 @@ function renderInspections() {
         details: inspection.defects_found
             ? (inspection.major_defects_found ? "Major defects found" : "Minor defects found")
             : "No defects reported",
-        saved: inspection.created_at
+        saved: inspection.created_at,
+        record: inspection
     }));
     const inspectionRows = standardInspectionRows.concat(vehicleInspectionRows)
         .sort((a, b) => String(b.saved || b.date || "").localeCompare(String(a.saved || a.date || "")));
@@ -10221,7 +10225,7 @@ function renderInspections() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Date</th><th>Source</th><th>Type</th><th>Completed By</th><th>Asset</th><th>Details</th><th>Saved</th></tr>
+                    <tr><th>Date</th><th>Source</th><th>Type</th><th>Completed By</th><th>Asset</th><th>Details</th><th>Saved</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${filtered.map((inspection) => `
@@ -10233,12 +10237,286 @@ function renderInspections() {
                             <td>${escapeHtml(inspection.asset || "")}</td>
                             <td>${escapeHtml(inspection.details || "")}</td>
                             <td>${escapeHtml(formatDate(inspection.saved))}</td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" onclick="viewAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">View</button>
+                                    <button type="button" class="delete-button" onclick="deleteAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">Delete</button>
+                                </div>
+                            </td>
                         </tr>
                     `).join("")}
                 </tbody>
             </table>
         </div>
     `;
+}
+
+function getAdminInspectionRecord(kind, id) {
+    const source = kind === "vehicle" ? vehicleInspections : inspections;
+    return (Array.isArray(source) ? source : []).find((record) => String(record.id) === String(id)) || null;
+}
+
+function closeAdminInspectionView() {
+    const panel = document.getElementById("adminInspectionViewPanel");
+    if (panel) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+    }
+}
+
+function getAdminInspectionFields(record) {
+    return record && record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+}
+
+function getAdminInspectionRows(record) {
+    return record && record.form_data && Array.isArray(record.form_data.rows)
+        ? record.form_data.rows
+        : [];
+}
+
+function normalizeAdminInspectionResultLabel(value) {
+    const result = String(value || "").trim();
+    const lower = result.toLowerCase();
+
+    if (lower === "na") {
+        return "N/A";
+    }
+
+    if (lower === "pass") {
+        return "Pass";
+    }
+
+    if (lower === "defect") {
+        return "Defect";
+    }
+
+    return result;
+}
+
+function getAdminReadableChecklistRows(record) {
+    const rows = getAdminInspectionRows(record);
+    const readableRows = [];
+
+    rows.forEach((row) => {
+        const cells = row.cells || [];
+        const first = String(cells[0] || "").trim();
+
+        if (/^\d+$/.test(first) && cells[1]) {
+            readableRows.push({
+                number: first,
+                item: cells[1] || "",
+                result: cells.slice(2).find((cell) => String(cell || "").trim()) || ""
+            });
+            return;
+        }
+
+        if (/^\d+\./.test(first)) {
+            readableRows.push({
+                number: first.replace(/\..*$/, ""),
+                item: first,
+                result: cells.slice(1, 4).find((cell) => String(cell || "").trim()) || ""
+            });
+
+            if (/^\d+\./.test(String(cells[4] || "").trim())) {
+                readableRows.push({
+                    number: String(cells[4] || "").replace(/\..*$/, ""),
+                    item: cells[4] || "",
+                    result: cells.slice(5, 8).find((cell) => String(cell || "").trim()) || ""
+                });
+            }
+            return;
+        }
+
+        const joined = cells.filter((cell) => String(cell || "").trim()).join(" | ");
+        if (joined) {
+            readableRows.push({
+                number: "",
+                item: joined,
+                result: ""
+            });
+        }
+    });
+
+    return readableRows;
+}
+
+function getAdminVehicleInspectionRows(record) {
+    const sections = record && record.form_data && Array.isArray(record.form_data.sections)
+        ? record.form_data.sections
+        : [];
+
+    return sections.flatMap((section) => (section.items || []).map((item) => ({
+        section: section.section || "",
+        number: item.code || "",
+        item: item.label || "",
+        result: normalizeAdminInspectionResultLabel(item.result),
+        severity: item.severity || "",
+        description: item.description || ""
+    })));
+}
+
+function getAdminInspectionEquipmentLabel(record) {
+    const formData = record && record.form_data && typeof record.form_data === "object" ? record.form_data : {};
+    const equipment = formData.equipment && typeof formData.equipment === "object" ? formData.equipment : {};
+    const parts = [
+        record && record.equipment_identification,
+        record && record.equipment_name,
+        equipment.identification_number,
+        equipment.name
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+
+    return [...new Set(parts)].join(" - ");
+}
+
+function renderAdminInspectionFieldGrid(fields) {
+    return fields.length ? `
+        <div class="announcement-grid" style="margin-top:10px;">
+            ${fields.map((field) => `
+                <div>
+                    <label>${escapeHtml(field.label || "")}</label>
+                    <input type="text" value="${escapeHtml(field.value || "")}" readonly>
+                </div>
+            `).join("")}
+        </div>
+    ` : '<div class="small">No submitted field details were saved for this inspection.</div>';
+}
+
+function renderAdminInspectionRowsTable(rows, emptyText) {
+    if (!rows.length) {
+        return `<div class="small">${escapeHtml(emptyText)}</div>`;
+    }
+
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Section</th><th>#</th><th>Inspection Item</th><th>Result</th><th>Severity</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.map((row) => `
+                        <tr>
+                            <td>${escapeHtml(row.section || "")}</td>
+                            <td>${escapeHtml(row.number || "")}</td>
+                            <td>${escapeHtml(row.item || "")}</td>
+                            <td>${escapeHtml(normalizeAdminInspectionResultLabel(row.result))}</td>
+                            <td>${escapeHtml(row.severity || "")}</td>
+                            <td>${escapeHtml(row.description || "")}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function viewAdminInspection(kind, id) {
+    const record = getAdminInspectionRecord(kind, id);
+    const panel = document.getElementById("adminInspectionViewPanel");
+
+    if (!record || !panel) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    panel.hidden = false;
+
+    if (kind === "vehicle") {
+        const rows = getAdminVehicleInspectionRows(record);
+        panel.innerHTML = `
+            <h3>${escapeHtml(record.inspection_type || "Vehicle Inspection")}</h3>
+            <div class="announcement-grid" style="margin-top:10px;">
+                <div><label>Inspection Date</label><input type="text" value="${escapeHtml(formatDate(record.inspection_date))}" readonly></div>
+                <div><label>Saved</label><input type="text" value="${escapeHtml(formatDate(record.created_at))}" readonly></div>
+                <div><label>Driver / Inspector</label><input type="text" value="${escapeHtml(record.driver_name || "")}" readonly></div>
+                <div><label>Vehicle Plate</label><input type="text" value="${escapeHtml(record.vehicle_license_plate || record.vehicle_name || "")}" readonly></div>
+                <div><label>Odometer</label><input type="text" value="${escapeHtml(record.odometer || "")}" readonly></div>
+                <div><label>Location</label><input type="text" value="${escapeHtml(record.location || "")}" readonly></div>
+                <div><label>Trailer 1</label><input type="text" value="${escapeHtml(record.trailer_1_license_plate || record.trailer_1_name || "-")}" readonly></div>
+                <div><label>Trailer 2</label><input type="text" value="${escapeHtml(record.trailer_2_license_plate || record.trailer_2_name || "-")}" readonly></div>
+                <div><label>Status</label><input type="text" value="${escapeHtml(record.defects_found ? (record.major_defects_found ? "Major defects found" : "Minor defects found") : "No defects reported")}" readonly></div>
+            </div>
+            <h3 style="margin-top:14px;">Inspection Answers</h3>
+            ${renderAdminInspectionRowsTable(rows, "No checklist answers were saved for this vehicle inspection.")}
+            ${record.repair_notes ? `<h3>Repair / Notes</h3><div class="small">${escapeHtml(record.repair_notes)}</div>` : ""}
+            <div class="actions" style="margin-top:12px;">
+                <button type="button" class="secondary" onclick="closeAdminInspectionView()">Close</button>
+                <button type="button" class="delete-button" onclick="deleteAdminInspection('vehicle', '${escapeHtml(record.id)}')">Delete</button>
+            </div>
+        `;
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+    }
+
+    const fields = getAdminInspectionFields(record).filter((field) => field.value);
+    const rows = getAdminReadableChecklistRows(record).map((row) => ({
+        section: "",
+        number: row.number,
+        item: row.item,
+        result: row.result,
+        severity: "",
+        description: ""
+    }));
+    const equipmentLabel = getAdminInspectionEquipmentLabel(record);
+
+    panel.innerHTML = `
+        <h3>${escapeHtml(record.inspection_type || "Inspection")}</h3>
+        <div class="announcement-grid" style="margin-top:10px;">
+            <div><label>Inspection Date</label><input type="text" value="${escapeHtml(formatDate(record.inspection_date))}" readonly></div>
+            <div><label>Saved</label><input type="text" value="${escapeHtml(formatDate(record.created_at))}" readonly></div>
+            <div><label>Completed By</label><input type="text" value="${escapeHtml(record.worker_display_name || record.worker_name || "")}" readonly></div>
+            ${equipmentLabel ? `<div><label>Equipment</label><input type="text" value="${escapeHtml(equipmentLabel)}" readonly></div>` : ""}
+        </div>
+        <h3 style="margin-top:14px;">Submitted Details</h3>
+        ${renderAdminInspectionFieldGrid(fields)}
+        <h3 style="margin-top:14px;">Checklist Answers</h3>
+        ${renderAdminInspectionRowsTable(rows, "No checklist answers were saved for this inspection.")}
+        <div class="actions" style="margin-top:12px;">
+            <button type="button" class="secondary" onclick="closeAdminInspectionView()">Close</button>
+            <button type="button" class="delete-button" onclick="deleteAdminInspection('standard', '${escapeHtml(record.id)}')">Delete</button>
+        </div>
+    `;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function deleteAdminInspection(kind, id) {
+    const record = getAdminInspectionRecord(kind, id);
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    const label = [
+        record.inspection_type || (kind === "vehicle" ? "Vehicle inspection" : "Inspection"),
+        kind === "vehicle" ? (record.vehicle_license_plate || record.vehicle_name) : (record.equipment_identification || record.equipment_name),
+        record.inspection_date
+    ].filter(Boolean).join(" - ");
+
+    if (!confirm("Delete " + label + "?")) {
+        return;
+    }
+
+    const table = kind === "vehicle" ? "vehicle_inspection_records" : "inspection_records";
+    const { error } = await supabaseClient
+        .from(table)
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        alert("Inspection could not be deleted: " + (error.message || "Unknown error"));
+        return;
+    }
+
+    if (kind === "vehicle") {
+        vehicleInspections = vehicleInspections.filter((inspection) => String(inspection.id) !== String(id));
+    } else {
+        inspections = inspections.filter((inspection) => String(inspection.id) !== String(id));
+    }
+
+    closeAdminInspectionView();
+    renderInspections();
 }
 
 function getJsaReportAcknowledgements(inspection) {
