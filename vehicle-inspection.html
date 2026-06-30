@@ -136,6 +136,40 @@ textarea {
     resize: vertical;
 }
 
+.inspection-type-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.inspection-type-choice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid #93a696;
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.inspection-type-choice input {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    accent-color: var(--green);
+}
+
+.inspection-type-choice:has(input:checked) {
+    border-color: var(--green);
+    background: #e9ffe9;
+    box-shadow: inset 0 0 0 2px rgba(39, 214, 75, 0.28);
+}
+
 input[readonly] {
     background: #eaf4eb;
     color: #314037;
@@ -343,12 +377,17 @@ button:disabled {
         <h2>Inspection Details</h2>
         <div class="form-grid" style="margin-top:12px;">
             <div class="field">
-                <label for="inspectionType">Inspection Type</label>
-                <select id="inspectionType">
-                    <option>Daily Vehicle Inspection</option>
-                    <option>Pre-Trip Inspection</option>
-                    <option>Post-Trip Inspection</option>
-                </select>
+                <label id="inspectionTypeLabel">Inspection Type</label>
+                <div class="inspection-type-options" role="group" aria-labelledby="inspectionTypeLabel">
+                    <label class="inspection-type-choice" for="inspectionTypePre">
+                        <input id="inspectionTypePre" type="checkbox" checked onchange="selectInspectionType('pre')">
+                        <span>Pre Inspection</span>
+                    </label>
+                    <label class="inspection-type-choice" for="inspectionTypePost">
+                        <input id="inspectionTypePost" type="checkbox" onchange="selectInspectionType('post')">
+                        <span>Post Inspection</span>
+                    </label>
+                </div>
             </div>
             <div class="field">
                 <label for="inspectionDate">Date</label>
@@ -575,6 +614,23 @@ function getAssetName(asset) {
 function isTrailerAsset(asset) {
     const text = [asset && asset.name, asset && asset.equipment_type, asset && asset.asset_category, asset && asset.identification_number, asset && asset.notes].join(" ").toLowerCase();
     return /\b(trailer|trl|float|deck over|deckover)\b/.test(text);
+}
+
+function selectInspectionType(type) {
+    const pre = document.getElementById("inspectionTypePre");
+    const post = document.getElementById("inspectionTypePost");
+
+    if (!pre || !post) {
+        return;
+    }
+
+    pre.checked = type !== "post";
+    post.checked = type === "post";
+}
+
+function getSelectedInspectionType() {
+    const post = document.getElementById("inspectionTypePost");
+    return post && post.checked ? "Post Inspection" : "Pre Inspection";
 }
 
 function getSelectedDriver() {
@@ -822,7 +878,7 @@ async function saveInspection(status) {
 
     const payload = {
         status,
-        inspection_type: document.getElementById("inspectionType").value || "Daily Vehicle Inspection",
+        inspection_type: getSelectedInspectionType(),
         inspection_date: document.getElementById("inspectionDate").value || todayString(),
         inspection_time: document.getElementById("inspectionTime").value || null,
         driver_name: driver.name,
@@ -962,7 +1018,7 @@ function printInspection(row) {
     const driver = getSelectedDriver();
     const formSections = row && row.form_data && Array.isArray(row.form_data.sections) ? row.form_data.sections : buildFormData();
     const printable = row || {
-        inspection_type: document.getElementById("inspectionType").value,
+        inspection_type: getSelectedInspectionType(),
         inspection_date: document.getElementById("inspectionDate").value,
         driver_name: driver.name,
         vehicle_license_plate: getAssetLicense(state.vehicle),
