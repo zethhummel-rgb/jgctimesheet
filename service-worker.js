@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v400";
+const JGC_CACHE_NAME = "jgc-portal-v402";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
