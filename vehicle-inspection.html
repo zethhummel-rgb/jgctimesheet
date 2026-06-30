@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGC Portal - Vehicle Inspection</title>
+<link rel="manifest" href="manifest.json?v=4">
+<style>
+:root {
+    color-scheme: dark;
+    --page-bg: #020d0a;
+    --panel: #0c1a17;
+    --panel-soft: #10231d;
+    --green: #27d64b;
+    --green-dark: #0c7d3f;
+    --border: rgba(55, 240, 90, 0.34);
+    --text: #ffffff;
+    --muted: #bed0c5;
+    --input-bg: #f7fff7;
+    --input-text: #102018;
+    --fail: #c51f28;
+    --warn: #ffcc4d;
+    --na: #49545d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top, rgba(20, 92, 46, 0.2), transparent 380px),
+        linear-gradient(180deg, #03120f, var(--page-bg));
+    color: var(--text);
+    font-family: Arial, sans-serif;
+}
+
+.page-shell {
+    width: min(1000px, calc(100% - 24px));
+    margin: 0 auto;
+    padding: 18px 0 34px;
+}
+
+.scan-header {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    text-align: center;
+    margin: 6px 0 16px;
+}
+
+.scan-header img {
+    width: min(240px, 62vw);
+    height: auto;
+}
+
+h1, h2, h3 {
+    margin: 0;
+    color: var(--green);
+}
+
+h1 {
+    color: #ffffff;
+    font-size: clamp(26px, 5vw, 42px);
+    line-height: 1.05;
+}
+
+.card {
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--green);
+    border-radius: 8px;
+    background: rgba(12, 26, 23, 0.96);
+    box-shadow: 0 22px 62px rgba(0, 0, 0, 0.35);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.status-card {
+    border-top-width: 1px;
+    color: var(--muted);
+}
+
+.status-card.error {
+    border-color: rgba(197, 31, 40, 0.65);
+    color: #ffd5d5;
+}
+
+.asset-grid,
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.asset-fact {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.asset-fact span,
+label,
+.small {
+    color: var(--muted);
+}
+
+.asset-fact strong {
+    display: block;
+    margin-top: 4px;
+    color: #ffffff;
+    font-size: 17px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 900;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #93a696;
+    border-radius: 5px;
+    background: var(--input-bg);
+    color: var(--input-text);
+    padding: 9px 10px;
+    font: inherit;
+}
+
+textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+input[readonly] {
+    background: #eaf4eb;
+    color: #314037;
+}
+
+.field.full {
+    grid-column: 1 / -1;
+}
+
+.progress-card {
+    display: grid;
+    gap: 8px;
+    color: var(--input-text);
+    background: #f7fff7;
+}
+
+.progress-card h3,
+.progress-card strong {
+    color: var(--input-text);
+}
+
+.progress-bar {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #d7ded5;
+}
+
+.progress-bar span {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-dark), var(--green));
+}
+
+.inspection-section {
+    display: grid;
+    gap: 12px;
+}
+
+.inspection-section h3 {
+    margin-top: 10px;
+}
+
+.inspection-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 14px;
+    background: #f7fff7;
+    color: var(--input-text);
+}
+
+.inspection-card.defect {
+    background: #fff1f1;
+    border-color: rgba(197, 31, 40, 0.45);
+}
+
+.inspection-card h4 {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 12px;
+    color: var(--input-text);
+    font-size: 17px;
+    line-height: 1.3;
+}
+
+.item-number {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #0b6b39;
+    color: #ffffff;
+    font-weight: 900;
+}
+
+.choice-row,
+.severity-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+button {
+    border: 0;
+    border-radius: 6px;
+    background: #159147;
+    color: #ffffff;
+    padding: 11px 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #26322e;
+}
+
+button.delete-button,
+button.choice-defect.is-selected,
+button.severity-major.is-selected {
+    background: var(--fail);
+}
+
+button.choice-pass.is-selected,
+button.severity-minor.is-selected {
+    background: #0e9348;
+    box-shadow: 0 0 0 2px rgba(39, 214, 75, 0.42);
+}
+
+button.choice-na.is-selected {
+    background: var(--na);
+    box-shadow: 0 0 0 2px rgba(160, 170, 180, 0.34);
+}
+
+button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
+.defect-panel {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(197, 31, 40, 0.22);
+}
+
+.inspection-card.defect .defect-panel {
+    display: grid;
+    gap: 10px;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.history-list {
+    display: grid;
+    gap: 8px;
+}
+
+.history-item {
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 6px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 720px) {
+    .asset-grid,
+    .form-grid,
+    .choice-row,
+    .severity-row {
+        grid-template-columns: 1fr;
+    }
+
+    .card {
+        padding: 14px;
+    }
+
+    .actions button {
+        flex: 1 1 100%;
+    }
+}
+</style>
+</head>
+<body>
+<main class="page-shell">
+    <header class="scan-header">
+        <img src="logo.webp" alt="John Gordon Construction logo">
+        <h1>Daily Vehicle Inspection</h1>
+        <div class="small" id="signedInAs">Employee login not required for QR inspection.</div>
+    </header>
+
+    <section id="statusCard" class="card status-card">Loading vehicle inspection...</section>
+
+    <section id="assetCard" class="card" hidden>
+        <h2 id="assetTitle">Vehicle</h2>
+        <div class="asset-grid" id="assetFacts" style="margin-top:12px;"></div>
+    </section>
+
+    <section id="todayCard" class="card" hidden>
+        <h2>Today's Inspection</h2>
+        <div id="todayInspectionDetails" class="small" style="margin-top:10px;"></div>
+        <div class="actions" style="margin-top:12px;">
+            <button type="button" onclick="showInspectionForm()">Start Another Inspection</button>
+            <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>
+            <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+        </div>
+    </section>
+
+    <form id="inspectionForm" class="card" hidden>
+        <h2>Inspection Details</h2>
+        <div class="form-grid" style="margin-top:12px;">
+            <div class="field">
+                <label for="inspectionType">Inspection Type</label>
+                <select id="inspectionType">
+                    <option>Daily Vehicle Inspection</option>
+                    <option>Pre-Trip Inspection</option>
+                    <option>Post-Trip Inspection</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="inspectionDate">Date</label>
+                <input id="inspectionDate" type="date" required>
+            </div>
+            <div class="field">
+                <label for="inspectionTime">Time</label>
+                <input id="inspectionTime" type="time" required>
+            </div>
+            <div class="field">
+                <label for="driverSelect">Driver / Inspector</label>
+                <select id="driverSelect" required></select>
+            </div>
+            <div class="field" id="manualNameField" hidden>
+                <label for="manualDriverName">Manual Name</label>
+                <input id="manualDriverName" placeholder="Driver full name">
+            </div>
+            <div class="field">
+                <label for="driverCompany">Company</label>
+                <input id="driverCompany" placeholder="Company">
+            </div>
+            <div class="field">
+                <label for="inspectionLocation">Location</label>
+                <input id="inspectionLocation" placeholder="Job, shop, or site location">
+            </div>
+            <div class="field">
+                <label for="inspectionOdometer">Odometer</label>
+                <input id="inspectionOdometer" type="number" min="0" step="1" placeholder="Odometer reading">
+            </div>
+            <div class="field">
+                <label for="vehicleLicense">Vehicle License Plate</label>
+                <input id="vehicleLicense" readonly>
+            </div>
+            <div class="field">
+                <label for="vehicleJurisdiction">Jurisdiction</label>
+                <input id="vehicleJurisdiction" readonly>
+            </div>
+            <div class="field">
+                <label for="trailer1Select">Trailer 1</label>
+                <select id="trailer1Select"></select>
+            </div>
+            <div class="field">
+                <label for="trailer2Select">Trailer 2</label>
+                <select id="trailer2Select"></select>
+            </div>
+        </div>
+
+        <div class="card progress-card" style="margin-top:16px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+                <h3>Inspection Progress</h3>
+                <strong id="progressText">0 of 0 completed</strong>
+            </div>
+            <div class="progress-bar"><span id="progressBar"></span></div>
+        </div>
+
+        <section id="inspectionItems" class="inspection-section"></section>
+
+        <div class="field full" style="margin-top:14px;">
+            <label for="repairNotes">Repair / General Notes</label>
+            <textarea id="repairNotes" placeholder="Repair notes, follow-up notes, or general inspection comments"></textarea>
+        </div>
+
+        <div class="actions" style="margin-top:14px;">
+            <button type="button" class="secondary" onclick="saveInspection('draft')">Save Draft</button>
+            <button id="submitButton" type="submit">Submit Inspection</button>
+            <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>
+            <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
+        </div>
+    </form>
+
+    <section id="historyCard" class="card" hidden>
+        <h2>Inspection History</h2>
+        <div id="historyList" class="history-list small" style="margin-top:12px;"></div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
+const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+const params = new URLSearchParams(window.location.search);
+const VEHICLE_ID = params.get("vehicle_id") || "";
+const QR_TOKEN = params.get("token") || "";
+const client = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+const VEHICLE_ITEMS = [
+    ["1", "Air Brake System"],
+    ["2", "Cab"],
+    ["3", "Cargo Securement"],
+    ["4", "Coupling Devices"],
+    ["5", "Dangerous Goods"],
+    ["6", "Driver Controls"],
+    ["7", "Driver Seat"],
+    ["8", "Electric Brakes"],
+    ["9", "Emergency Equipment and Safety Devices"],
+    ["10", "Exhaust System"],
+    ["11", "Frame and Cargo Body"],
+    ["12", "Fuel Systems"],
+    ["13", "General"],
+    ["14", "Glass and Mirrors"],
+    ["15", "Heater / Defroster"],
+    ["16", "Horn"],
+    ["17", "Hydraulic Brakes"],
+    ["18", "Lamps and Reflectors"],
+    ["19", "Steering"],
+    ["20", "Suspension System"],
+    ["21", "Tires"],
+    ["22", "Wheels / Hubs / Fasteners"],
+    ["23", "Windshield Wiper / Washer"]
+];
+
+const TRAILER_ITEMS = [
+    "Air Brake System",
+    "Tires",
+    "Wheels / Hubs / Fasteners",
+    "Suspension System",
+    "Coupling Devices",
+    "Lamps and Reflectors",
+    "Frame and Cargo Body",
+    "Cargo Securement",
+    "Hydraulic Brakes",
+    "Electric Brakes"
+];
+
+const state = {
+    vehicle: null,
+    employees: [],
+    trailers: [],
+    selectedTrailer1: null,
+    selectedTrailer2: null,
+    responses: {},
+    history: [],
+    lastRecord: null
+};
+
+function pageEscape(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+    }[char] || char));
+}
+
+function todayString() {
+    const date = new Date();
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function currentTimeString() {
+    const date = new Date();
+    return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+}
+
+function setStatus(message, isError) {
+    const card = document.getElementById("statusCard");
+    card.textContent = message || "";
+    card.hidden = !message;
+    card.classList.toggle("error", Boolean(isError));
+}
+
+function getAssetLicense(asset) {
+    return (asset && (asset.license_plate || asset.unit_number || asset.identification_number || asset.name)) || "";
+}
+
+function getAssetName(asset) {
+    const plate = getAssetLicense(asset);
+    const name = asset && asset.name ? asset.name : "";
+    if (plate && name && !String(name).toLowerCase().includes(String(plate).toLowerCase())) {
+        return plate + " - " + name;
+    }
+    return plate || name || "Vehicle";
+}
+
+function isTrailerAsset(asset) {
+    const text = [asset && asset.name, asset && asset.equipment_type, asset && asset.asset_category, asset && asset.identification_number, asset && asset.notes].join(" ").toLowerCase();
+    return /\b(trailer|trl|float|deck over|deckover)\b/.test(text);
+}
+
+function getSelectedDriver() {
+    const select = document.getElementById("driverSelect");
+    const selected = select.options[select.selectedIndex];
+    const isManual = select.value === "manual" || !select.value;
+    const manualName = document.getElementById("manualDriverName").value.trim();
+    const employeeName = selected ? (selected.dataset.name || selected.textContent || "").trim() : "";
+
+    return {
+        name: isManual ? manualName : employeeName,
+        employeeKey: isManual ? "" : select.value,
+        company: document.getElementById("driverCompany").value.trim() || (isManual ? "" : "John Gordon Construction")
+    };
+}
+
+function updateDriverFields() {
+    const select = document.getElementById("driverSelect");
+    const manual = select.value === "manual" || !select.value;
+    document.getElementById("manualNameField").hidden = !manual;
+    document.getElementById("manualDriverName").required = manual;
+    document.getElementById("driverCompany").value = document.getElementById("driverCompany").value || (manual ? "" : "John Gordon Construction");
+}
+
+function renderDriverSelect() {
+    const select = document.getElementById("driverSelect");
+    const currentWorker = String(localStorage.getItem("currentWorker") || "").toLowerCase();
+    const currentDisplay = String(localStorage.getItem("currentWorkerDisplay") || "").toLowerCase();
+
+    select.innerHTML = `
+        <option value="">Select approved employee</option>
+        ${state.employees.map((employee) => {
+            const workerKey = employee.worker_key || employee.display_name || "";
+            const display = employee.display_name || employee.worker_key || "Employee";
+            const selected = currentWorker && String(workerKey).toLowerCase() === currentWorker
+                ? " selected"
+                : (!currentWorker && currentDisplay && String(display).toLowerCase() === currentDisplay ? " selected" : "");
+            return `<option value="${pageEscape(workerKey)}" data-name="${pageEscape(display)}"${selected}>${pageEscape(display)}</option>`;
+        }).join("")}
+        <option value="manual">Manual name entry</option>
+    `;
+    updateDriverFields();
+}
+
+function renderAssetCard() {
+    const vehicle = state.vehicle;
+    document.getElementById("assetCard").hidden = false;
+    document.getElementById("assetTitle").textContent = getAssetName(vehicle);
+    document.getElementById("assetFacts").innerHTML = [
+        ["License Plate", getAssetLicense(vehicle)],
+        ["Jurisdiction", vehicle.jurisdiction || ""],
+        ["Make / Model", [vehicle.make, vehicle.model, vehicle.model_year].filter(Boolean).join(" ")],
+        ["VIN", vehicle.vin || ""],
+        ["Type", vehicle.equipment_type || vehicle.asset_category || "Vehicle"],
+        ["Status", vehicle.vehicle_status || "Active"]
+    ].map(([label, value]) => `
+        <div class="asset-fact">
+            <span>${pageEscape(label)}</span>
+            <strong>${pageEscape(value || "-")}</strong>
+        </div>
+    `).join("");
+}
+
+function renderTrailerSelects() {
+    const options = '<option value="">No trailer selected</option>' + state.trailers.map((trailer) => (
+        `<option value="${pageEscape(trailer.id)}">${pageEscape(getAssetName(trailer))}</option>`
+    )).join("");
+
+    document.getElementById("trailer1Select").innerHTML = options;
+    document.getElementById("trailer2Select").innerHTML = options;
+}
+
+function getTrailerById(id) {
+    return state.trailers.find((trailer) => trailer.id === id) || null;
+}
+
+function updateTrailerSelections() {
+    state.selectedTrailer1 = getTrailerById(document.getElementById("trailer1Select").value);
+    state.selectedTrailer2 = getTrailerById(document.getElementById("trailer2Select").value);
+    renderInspectionItems();
+    loadHistory();
+}
+
+function getInspectionSections() {
+    const sections = [{
+        key: "vehicle",
+        title: "Vehicle",
+        items: VEHICLE_ITEMS.map(([code, label]) => ({ code, label }))
+    }];
+
+    if (state.selectedTrailer1) {
+        sections.push({
+            key: "trailer1",
+            title: "Trailer 1 - " + getAssetName(state.selectedTrailer1),
+            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label }))
+        });
+    }
+
+    if (state.selectedTrailer2) {
+        sections.push({
+            key: "trailer2",
+            title: "Trailer 2 - " + getAssetName(state.selectedTrailer2),
+            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label }))
+        });
+    }
+
+    return sections;
+}
+
+function responseKey(sectionKey, code) {
+    return sectionKey + "-" + code;
+}
+
+function renderInspectionItems() {
+    const container = document.getElementById("inspectionItems");
+    const sections = getInspectionSections();
+
+    container.innerHTML = sections.map((section) => `
+        <h3>${pageEscape(section.title)}</h3>
+        ${section.items.map((item) => {
+            const key = responseKey(section.key, item.code);
+            const response = state.responses[key] || {};
+            return `
+                <article class="inspection-card${response.result === "defect" ? " defect" : ""}" data-response-key="${pageEscape(key)}">
+                    <h4><span class="item-number">${pageEscape(item.code)}</span><span>${pageEscape(item.label)}</span></h4>
+                    <div class="choice-row">
+                        <button type="button" class="choice-pass ${response.result === "pass" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','pass')">Pass</button>
+                        <button type="button" class="choice-defect ${response.result === "defect" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','defect')">Defect</button>
+                        <button type="button" class="choice-na ${response.result === "na" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','na')">N/A</button>
+                    </div>
+                    <div class="defect-panel">
+                        <div>
+                            <label>Defect Severity</label>
+                            <div class="severity-row">
+                                <button type="button" class="severity-minor ${response.severity === "minor" ? "is-selected" : ""}" onclick="setItemSeverity('${pageEscape(key)}','minor')">Minor</button>
+                                <button type="button" class="severity-major ${response.severity === "major" ? "is-selected" : ""}" onclick="setItemSeverity('${pageEscape(key)}','major')">Major</button>
+                                <button type="button" class="secondary" onclick="setItemSeverity('${pageEscape(key)}','')">Clear</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label>Defect Description</label>
+                            <textarea data-defect-description="${pageEscape(key)}" oninput="setItemDescription('${pageEscape(key)}', this.value)" placeholder="Describe the defect">${pageEscape(response.description || "")}</textarea>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join("")}
+    `).join("");
+
+    updateProgress();
+}
+
+function setItemResult(key, result) {
+    state.responses[key] = state.responses[key] || {};
+    state.responses[key].result = result;
+    if (result !== "defect") {
+        state.responses[key].severity = "";
+        state.responses[key].description = "";
+    } else {
+        state.responses[key].severity = state.responses[key].severity || "minor";
+    }
+    renderInspectionItems();
+}
+
+function setItemSeverity(key, severity) {
+    state.responses[key] = state.responses[key] || {};
+    state.responses[key].result = "defect";
+    state.responses[key].severity = severity || "minor";
+    renderInspectionItems();
+}
+
+function setItemDescription(key, description) {
+    state.responses[key] = state.responses[key] || {};
+    state.responses[key].description = description;
+}
+
+function getAllDisplayedItemKeys() {
+    return getInspectionSections().flatMap((section) => section.items.map((item) => responseKey(section.key, item.code)));
+}
+
+function updateProgress() {
+    const keys = getAllDisplayedItemKeys();
+    const completed = keys.filter((key) => state.responses[key] && state.responses[key].result).length;
+    const total = keys.length;
+    document.getElementById("progressText").textContent = completed + " of " + total + " completed";
+    document.getElementById("progressBar").style.width = total ? Math.round((completed / total) * 100) + "%" : "0";
+}
+
+function buildFormData() {
+    const sections = getInspectionSections();
+    return sections.map((section) => ({
+        section: section.title,
+        asset_id: section.key === "vehicle" ? state.vehicle.id : (section.key === "trailer1" ? state.selectedTrailer1.id : state.selectedTrailer2.id),
+        items: section.items.map((item) => ({
+            code: item.code,
+            label: item.label,
+            ...(state.responses[responseKey(section.key, item.code)] || {})
+        }))
+    }));
+}
+
+function getDefectSummary(formData) {
+    const defects = [];
+    formData.forEach((section) => {
+        (section.items || []).forEach((item) => {
+            if (item.result === "defect") {
+                defects.push({
+                    section: section.section,
+                    code: item.code,
+                    label: item.label,
+                    severity: item.severity || "minor",
+                    description: item.description || ""
+                });
+            }
+        });
+    });
+    return {
+        count: defects.length,
+        major_count: defects.filter((item) => item.severity === "major").length,
+        defects
+    };
+}
+
+async function saveInspection(status) {
+    const driver = getSelectedDriver();
+    if (!driver.name || driver.name.length < 2) {
+        setStatus("Select an employee name or enter a manual driver name.", true);
+        return;
+    }
+
+    if (status === "submitted") {
+        const missing = getAllDisplayedItemKeys().filter((key) => !state.responses[key] || !state.responses[key].result);
+        if (missing.length) {
+            setStatus("Please complete every visible inspection item before submitting.", true);
+            return;
+        }
+    }
+
+    const formSections = buildFormData();
+    const defectSummary = getDefectSummary(formSections);
+    const majorDefects = defectSummary.major_count > 0;
+    const vehicleStatus = majorDefects ? "Out of Service / Needs Review" : (defectSummary.count ? "Needs Review" : "Active");
+    const odometerValue = document.getElementById("inspectionOdometer").value;
+
+    const payload = {
+        status,
+        inspection_type: document.getElementById("inspectionType").value || "Daily Vehicle Inspection",
+        inspection_date: document.getElementById("inspectionDate").value || todayString(),
+        inspection_time: document.getElementById("inspectionTime").value || null,
+        driver_name: driver.name,
+        driver_employee_key: driver.employeeKey || "",
+        driver_company: driver.company || "",
+        location: document.getElementById("inspectionLocation").value.trim(),
+        odometer: odometerValue === "" ? null : Number(odometerValue),
+        vehicle_id: state.vehicle.id,
+        vehicle_name: state.vehicle.name || "",
+        vehicle_license_plate: getAssetLicense(state.vehicle),
+        vehicle_jurisdiction: state.vehicle.jurisdiction || "",
+        vehicle_vin: state.vehicle.vin || "",
+        vehicle_make: state.vehicle.make || "",
+        vehicle_model: state.vehicle.model || "",
+        vehicle_year: state.vehicle.model_year || "",
+        trailer_1_id: state.selectedTrailer1 ? state.selectedTrailer1.id : null,
+        trailer_1_name: state.selectedTrailer1 ? state.selectedTrailer1.name || "" : "",
+        trailer_1_license_plate: state.selectedTrailer1 ? getAssetLicense(state.selectedTrailer1) : "",
+        trailer_1_jurisdiction: state.selectedTrailer1 ? state.selectedTrailer1.jurisdiction || "" : "",
+        trailer_2_id: state.selectedTrailer2 ? state.selectedTrailer2.id : null,
+        trailer_2_name: state.selectedTrailer2 ? state.selectedTrailer2.name || "" : "",
+        trailer_2_license_plate: state.selectedTrailer2 ? getAssetLicense(state.selectedTrailer2) : "",
+        trailer_2_jurisdiction: state.selectedTrailer2 ? state.selectedTrailer2.jurisdiction || "" : "",
+        defects_found: defectSummary.count > 0,
+        major_defects_found: majorDefects,
+        vehicle_status_after_inspection: vehicleStatus,
+        form_data: {
+            sections: formSections,
+            repair_notes: document.getElementById("repairNotes").value.trim()
+        },
+        defect_summary: defectSummary,
+        repair_notes: document.getElementById("repairNotes").value.trim(),
+        created_by_name: driver.name,
+        updated_at: new Date().toISOString()
+    };
+
+    const submitButton = document.getElementById("submitButton");
+    submitButton.disabled = true;
+    setStatus(status === "draft" ? "Saving draft..." : "Submitting inspection...");
+
+    try {
+        const { data, error } = await client.rpc("submit_vehicle_qr_inspection", {
+            p_vehicle_id: VEHICLE_ID,
+            p_token: QR_TOKEN,
+            p_record: payload
+        });
+        const result = Array.isArray(data) ? data[0] : data;
+
+        if (error || !result || result.success === false) {
+            throw new Error((error && error.message) || (result && result.message) || "Inspection could not be saved.");
+        }
+
+        state.lastRecord = result.record || null;
+        setStatus(status === "draft" ? "Draft saved." : "Inspection submitted.");
+        await loadHistory();
+        showTodayView(state.lastRecord);
+    } catch (error) {
+        setStatus("Vehicle inspection could not be saved. " + (error && error.message ? error.message : ""), true);
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+function showInspectionForm() {
+    document.getElementById("todayCard").hidden = true;
+    document.getElementById("inspectionForm").hidden = false;
+    renderInspectionItems();
+}
+
+function showTodayView(record) {
+    const row = record || state.lastRecord || state.history[0];
+    if (!row) {
+        showInspectionForm();
+        return;
+    }
+
+    document.getElementById("inspectionForm").hidden = true;
+    document.getElementById("todayCard").hidden = false;
+    document.getElementById("todayInspectionDetails").innerHTML = `
+        <strong>${pageEscape(row.status === "draft" ? "Draft saved" : "Inspection submitted")}</strong><br>
+        Date: ${pageEscape(row.inspection_date || "")}<br>
+        Driver / Inspector: ${pageEscape(row.driver_name || "")}<br>
+        Vehicle: ${pageEscape(row.vehicle_license_plate || row.vehicle_name || "")}<br>
+        ${row.trailer_1_license_plate ? "Trailer 1: " + pageEscape(row.trailer_1_license_plate) + "<br>" : ""}
+        ${row.trailer_2_license_plate ? "Trailer 2: " + pageEscape(row.trailer_2_license_plate) + "<br>" : ""}
+        Defects: ${row.defects_found ? (row.major_defects_found ? "Major defects found" : "Minor defects found") : "No defects reported"}
+    `;
+}
+
+function renderHistory() {
+    const card = document.getElementById("historyCard");
+    const list = document.getElementById("historyList");
+    card.hidden = false;
+
+    if (!state.history.length) {
+        list.textContent = "No previous vehicle inspections found for this unit.";
+        return;
+    }
+
+    list.innerHTML = state.history.slice(0, 12).map((row) => `
+        <div class="history-item">
+            <strong>${pageEscape(row.inspection_date || "")} - ${pageEscape(row.inspection_type || "Vehicle Inspection")}</strong><br>
+            ${pageEscape(row.driver_name || "")} | ${row.defects_found ? pageEscape(row.major_defects_found ? "Major defects" : "Minor defects") : "No defects"}<br>
+            <button type="button" class="secondary" style="margin-top:8px;" onclick="printInspectionById('${pageEscape(row.id)}')">Print / PDF</button>
+        </div>
+    `).join("");
+}
+
+async function loadHistory() {
+    if (!state.vehicle) {
+        return;
+    }
+
+    const { data, error } = await client.rpc("get_vehicle_qr_inspection", {
+        p_vehicle_id: VEHICLE_ID,
+        p_token: QR_TOKEN
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (!error && row) {
+        state.history = Array.isArray(row.history) ? row.history : [];
+        state.lastRecord = state.history.find((row) => row.inspection_date === todayString()) || state.lastRecord;
+        renderHistory();
+    }
+}
+
+function printInspectionById(id) {
+    const row = state.history.find((entry) => entry.id === id);
+    printInspection(row);
+}
+
+function printCurrentInspection() {
+    printInspection(state.lastRecord || state.history[0] || null);
+}
+
+function printInspection(row) {
+    const driver = getSelectedDriver();
+    const formSections = row && row.form_data && Array.isArray(row.form_data.sections) ? row.form_data.sections : buildFormData();
+    const printable = row || {
+        inspection_type: document.getElementById("inspectionType").value,
+        inspection_date: document.getElementById("inspectionDate").value,
+        driver_name: driver.name,
+        vehicle_license_plate: getAssetLicense(state.vehicle),
+        vehicle_name: state.vehicle ? state.vehicle.name : "",
+        location: document.getElementById("inspectionLocation").value,
+        defect_summary: getDefectSummary(formSections),
+        form_data: { sections: formSections, repair_notes: document.getElementById("repairNotes").value.trim() }
+    };
+
+    const printWindow = window.open("", "_blank", "width=840,height=980");
+    if (!printWindow) {
+        setStatus("Popup blocked. Use browser print from this page.", true);
+        return;
+    }
+
+    printWindow.document.write(`
+        <!doctype html>
+        <html>
+        <head>
+            <title>Vehicle Inspection</title>
+            <style>
+                body { margin: 0; padding: 26px; font-family: Arial, sans-serif; color: #111; }
+                .logo { width: 220px; height: auto; display: block; margin: 0 auto 14px; }
+                h1 { text-align: center; margin: 0 0 18px; }
+                table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; }
+                th, td { border: 1px solid #999; padding: 7px; text-align: left; vertical-align: top; }
+                th { background: #e9f4eb; }
+                .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+                .meta div { border: 1px solid #bbb; padding: 8px; }
+            </style>
+        </head>
+        <body>
+            <img class="logo" src="logo.webp" alt="John Gordon Construction logo">
+            <h1>${pageEscape(printable.inspection_type || "Vehicle Inspection")}</h1>
+            <div class="meta">
+                <div><strong>Date</strong><br>${pageEscape(printable.inspection_date || "")}</div>
+                <div><strong>Driver / Inspector</strong><br>${pageEscape(printable.driver_name || "")}</div>
+                <div><strong>Vehicle Plate</strong><br>${pageEscape(printable.vehicle_license_plate || printable.vehicle_name || "")}</div>
+                <div><strong>Location</strong><br>${pageEscape(printable.location || "")}</div>
+            </div>
+            ${(formSections || []).map((section) => `
+                <h2>${pageEscape(section.section || "")}</h2>
+                <table>
+                    <thead><tr><th>#</th><th>Item</th><th>Result</th><th>Severity</th><th>Description</th></tr></thead>
+                    <tbody>
+                        ${(section.items || []).map((item) => `
+                            <tr>
+                                <td>${pageEscape(item.code || "")}</td>
+                                <td>${pageEscape(item.label || "")}</td>
+                                <td>${pageEscape(item.result || "")}</td>
+                                <td>${pageEscape(item.severity || "")}</td>
+                                <td>${pageEscape(item.description || "")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `).join("")}
+            <h2>Repair / Notes</h2>
+            <p>${pageEscape(printable.repair_notes || (printable.form_data && printable.form_data.repair_notes) || "")}</p>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+}
+
+async function requireQrClient() {
+    if (!client) {
+        setStatus("Supabase did not load. Check your internet connection and try again.", true);
+        return false;
+    }
+    return true;
+}
+
+async function loadVehicleInspection() {
+    if (!VEHICLE_ID || !QR_TOKEN) {
+        setStatus("This QR link is missing its vehicle information.", true);
+        return;
+    }
+
+    const ready = await requireQrClient();
+    if (!ready) {
+        return;
+    }
+
+    setStatus("Loading vehicle...");
+
+    const { data, error } = await client.rpc("get_vehicle_qr_inspection", {
+        p_vehicle_id: VEHICLE_ID,
+        p_token: QR_TOKEN
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (error || !row || !row.vehicle) {
+        setStatus("This vehicle QR code is not active. Ask admin to generate a fresh vehicle QR code. " + (error ? error.message : ""), true);
+        return;
+    }
+
+    state.vehicle = row.vehicle;
+    state.trailers = Array.isArray(row.trailers) ? row.trailers : [];
+    state.employees = Array.isArray(row.employees) ? row.employees : [];
+    state.history = Array.isArray(row.history) ? row.history : [];
+    state.lastRecord = state.history.find((record) => record.inspection_date === todayString()) || null;
+
+    document.getElementById("inspectionDate").value = todayString();
+    document.getElementById("inspectionTime").value = currentTimeString();
+    document.getElementById("vehicleLicense").value = getAssetLicense(state.vehicle);
+    document.getElementById("vehicleJurisdiction").value = state.vehicle.jurisdiction || "";
+    document.getElementById("inspectionOdometer").required = state.vehicle.odometer_required !== false;
+
+    renderAssetCard();
+    renderDriverSelect();
+    renderTrailerSelects();
+    renderInspectionItems();
+    renderHistory();
+    setStatus("");
+
+    if (state.lastRecord && state.lastRecord.status === "submitted") {
+        showTodayView(state.lastRecord);
+    } else {
+        showInspectionForm();
+    }
+}
+
+document.getElementById("driverSelect").addEventListener("change", updateDriverFields);
+document.getElementById("trailer1Select").addEventListener("change", updateTrailerSelections);
+document.getElementById("trailer2Select").addEventListener("change", updateTrailerSelections);
+document.getElementById("inspectionForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+    saveInspection("submitted");
+});
+
+loadVehicleInspection();
+</script>
+</body>
+</html>
