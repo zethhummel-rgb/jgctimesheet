@@ -2939,6 +2939,10 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
             </div>
             <div>
+                <label>Current KM</label>
+                <input id="equipmentCurrentKm" type="number" min="0" step="1" placeholder="Current vehicle KM">
+            </div>
+            <div>
                 <label>Owned / Rental</label>
                 <select id="equipmentOwnership">
                     <option value="owned">Owned</option>
@@ -7237,6 +7241,7 @@ function clearEquipmentForm() {
     document.getElementById("equipmentType").value = "";
     document.getElementById("equipmentOperator").value = "";
     document.getElementById("equipmentHours").value = "";
+    document.getElementById("equipmentCurrentKm").value = "";
     document.getElementById("equipmentOwnership").value = "owned";
     document.getElementById("equipmentRentalSupplier").value = "";
     document.getElementById("equipmentBillable").value = "true";
@@ -7724,17 +7729,24 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Make</th><th>Model</th><th>Year</th><th>KM</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
                         const status = getEquipmentStatus(item.yearly_inspection_expiry);
+                        const currentKm = item.current_km !== null && item.current_km !== undefined && item.current_km !== ""
+                            ? Number(item.current_km).toLocaleString("en-CA", { maximumFractionDigits: 0 })
+                            : "";
 
                         return `
                             <tr>
                                 <td>${escapeHtml(item.name)}</td>
                                 <td>${escapeHtml(item.equipment_type || "")}</td>
                                 <td>${escapeHtml(item.license_plate || item.identification_number || "")}</td>
+                                <td>${escapeHtml(item.make || "")}</td>
+                                <td>${escapeHtml(item.model || "")}</td>
+                                <td>${escapeHtml(item.model_year || "")}</td>
+                                <td>${escapeHtml(currentKm)}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
                                 <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
                                 <td>${escapeHtml(capitalizeWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
@@ -7750,7 +7762,7 @@ function renderEquipment() {
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="13">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="17">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -7928,6 +7940,7 @@ function editEquipment(id) {
     document.getElementById("equipmentType").value = item.equipment_type || "";
     document.getElementById("equipmentOperator").value = item.operator_name || "";
     document.getElementById("equipmentHours").value = item.current_hours !== null && item.current_hours !== undefined ? item.current_hours : "";
+    document.getElementById("equipmentCurrentKm").value = item.current_km !== null && item.current_km !== undefined ? item.current_km : "";
     document.getElementById("equipmentOwnership").value = item.ownership_type || "owned";
     document.getElementById("equipmentRentalSupplier").value = item.rental_supplier || "";
     document.getElementById("equipmentBillable").value = item.billable_equipment === false ? "false" : "true";
@@ -7953,6 +7966,8 @@ async function saveEquipment() {
     const operatorName = document.getElementById("equipmentOperator").value.trim();
     const currentHoursValue = document.getElementById("equipmentHours").value;
     const currentHours = currentHoursValue === "" ? null : Number(currentHoursValue);
+    const currentKmValue = document.getElementById("equipmentCurrentKm").value;
+    const currentKm = currentKmValue === "" ? null : Number(currentKmValue);
     const ownershipType = document.getElementById("equipmentOwnership").value || "owned";
     const rentalSupplier = document.getElementById("equipmentRentalSupplier").value.trim();
     const billableEquipment = document.getElementById("equipmentBillable").value !== "false";
@@ -7976,6 +7991,11 @@ async function saveEquipment() {
         return;
     }
 
+    if (currentKmValue !== "" && (!Number.isFinite(currentKm) || currentKm < 0)) {
+        setEquipmentStatus("Current KM must be a valid number.", true);
+        return;
+    }
+
     setEquipmentStatus("Saving equipment...");
 
     const payload = {
@@ -7992,6 +8012,7 @@ async function saveEquipment() {
         odometer_required: odometerRequired,
         operator_name: operatorName,
         current_hours: currentHours,
+        current_km: currentKm,
         ownership_type: ownershipType,
         rental_supplier: rentalSupplier,
         billable_equipment: billableEquipment,
