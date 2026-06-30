@@ -7734,9 +7734,15 @@ function renderEquipment() {
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
                         const status = getEquipmentStatus(item.yearly_inspection_expiry);
-                        const currentKm = item.current_km !== null && item.current_km !== undefined && item.current_km !== ""
-                            ? Number(item.current_km).toLocaleString("en-CA", { maximumFractionDigits: 0 })
+                        const currentKmSource = item.current_km !== null && item.current_km !== undefined && item.current_km !== ""
+                            ? item.current_km
+                            : (group.category === "Vehicles" ? item.current_hours : "");
+                        const currentKm = currentKmSource !== null && currentKmSource !== undefined && currentKmSource !== ""
+                            ? Number(currentKmSource).toLocaleString("en-CA", { maximumFractionDigits: 0 })
                             : "";
+                        const currentHours = group.category === "Vehicles"
+                            ? ""
+                            : (item.current_hours !== null && item.current_hours !== undefined ? Number(item.current_hours).toFixed(1) : "");
 
                         return `
                             <tr>
@@ -7748,7 +7754,7 @@ function renderEquipment() {
                                 <td>${escapeHtml(item.model_year || "")}</td>
                                 <td>${escapeHtml(currentKm)}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
-                                <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
+                                <td>${escapeHtml(currentHours)}</td>
                                 <td>${escapeHtml(capitalizeWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
                                 <td>${item.billable_equipment === false ? "No" : "Yes"}</td>
                                 <td>${item.transportation_required ? "Yes" : "No"}</td>
@@ -8024,23 +8030,37 @@ async function saveEquipment() {
 
     let result;
 
-    if (editingEquipmentId) {
-        result = await supabaseClient
-            .from("equipment_vehicles")
-            .update(payload)
-            .eq("id", editingEquipmentId)
-            .select()
-            .single();
-    } else {
-        result = await supabaseClient
+    const savePayload = async (payloadToSave) => {
+        if (editingEquipmentId) {
+            return supabaseClient
+                .from("equipment_vehicles")
+                .update(payloadToSave)
+                .eq("id", editingEquipmentId)
+                .select()
+                .single();
+        }
+
+        return supabaseClient
             .from("equipment_vehicles")
             .insert({
-                ...payload,
+                ...payloadToSave,
                 created_by: currentUserId || null,
                 created_by_name: currentWorkerDisplay
             })
             .select()
             .single();
+    };
+
+    result = await savePayload(payload);
+
+    if (result.error && String(result.error.message || "").includes("current_km")) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.current_km;
+        result = await savePayload(fallbackPayload);
+
+        if (!result.error) {
+            setEquipmentStatus("Equipment saved. Run the updated Supabase vehicle inspection SQL when you want the KM column to save live.");
+        }
     }
 
     if (result.error) {
