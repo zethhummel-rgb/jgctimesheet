@@ -203,6 +203,13 @@ input[readonly] {
     line-height: 1.3;
 }
 
+.item-help {
+    margin: -4px 0 12px 44px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
 .item-number {
     flex: 0 0 auto;
     display: inline-grid;
@@ -454,17 +461,42 @@ const VEHICLE_ITEMS = [
 ];
 
 const TRAILER_ITEMS = [
-    "Air Brake System",
+    "Electric Brakes / Breakaway System",
     "Tires",
     "Wheels / Hubs / Fasteners",
     "Suspension System",
     "Coupling Devices",
     "Lamps and Reflectors",
     "Frame and Cargo Body",
-    "Cargo Securement",
-    "Hydraulic Brakes",
-    "Electric Brakes"
+    "Cargo Securement"
 ];
+
+const ITEM_HELP = {
+    "Air Brake System": "Only applies to vehicles equipped with air brakes. For pickup trucks or units without air brakes, choose N/A.",
+    "Cab": "Seats, doors, floor area, loose objects, visibility, and general cab condition.",
+    "Cargo Securement": "Confirm tools, material, and loads are tied down or contained before moving.",
+    "Coupling Devices": "Check hitch, pintle/ball, chains, pins, latches, and trailer connections.",
+    "Dangerous Goods": "Placards, labels, documents, and securement if dangerous goods are being carried. Otherwise choose N/A.",
+    "Driver Controls": "Steering wheel, pedals, shifter, parking brake, gauges, and warning indicators.",
+    "Driver Seat": "Seat is secure and seat belt works properly.",
+    "Electric Brakes": "Brake controller, plug connection, and trailer brake response if equipped. Otherwise choose N/A.",
+    "Electric Brakes / Breakaway System": "Check trailer brake plug, breakaway cable/switch, breakaway battery if equipped, and brake response.",
+    "Emergency Equipment and Safety Devices": "Fire extinguisher, first aid, triangles/cones, spill kit, and other required safety items.",
+    "Exhaust System": "Leaks, damage, excessive noise, or fumes entering the cab.",
+    "Frame and Cargo Body": "Frame, deck, box, rails, ramps, doors, and body structure are secure and not damaged.",
+    "Fuel Systems": "Fuel cap, tank, lines, leaks, and fuel-related warning lights.",
+    "General": "Anything obvious that could make the unit unsafe or not roadworthy.",
+    "Glass and Mirrors": "Windshield, windows, and mirrors are clean, secure, and not cracked in the driver's view.",
+    "Heater / Defroster": "Heat and defrost work well enough for visibility and safe operation.",
+    "Horn": "Horn works.",
+    "Hydraulic Brakes": "Brake pedal, stopping response, fluid warning light, parking brake, and visible leaks if equipped.",
+    "Lamps and Reflectors": "Headlights, brake lights, signals, hazards, clearance lights, reflectors, and plate light.",
+    "Steering": "No excessive play, binding, loose parts, leaks, or steering warning lights.",
+    "Suspension System": "Springs, shackles, shocks, bags, mounts, and visible damage or sagging.",
+    "Tires": "Inflation, tread, sidewalls, cuts, bulges, exposed cord, and matching/secure tires.",
+    "Wheels / Hubs / Fasteners": "Rims, lug nuts, hubs, wheel seals, missing fasteners, cracks, or leaks.",
+    "Windshield Wiper / Washer": "Wipers and washer fluid work well enough for clear visibility."
+};
 
 const state = {
     vehicle: null,
@@ -630,14 +662,14 @@ function getInspectionSections() {
     const sections = [{
         key: "vehicle",
         title: "Vehicle",
-        items: VEHICLE_ITEMS.map(([code, label]) => ({ code, label }))
+        items: VEHICLE_ITEMS.map(([code, label]) => ({ code, label, help: ITEM_HELP[label] || "" }))
     }];
 
     if (state.selectedTrailer1) {
         sections.push({
             key: "trailer1",
             title: "Trailer 1 - " + getAssetName(state.selectedTrailer1),
-            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label }))
+            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label, help: ITEM_HELP[label] || "" }))
         });
     }
 
@@ -645,7 +677,7 @@ function getInspectionSections() {
         sections.push({
             key: "trailer2",
             title: "Trailer 2 - " + getAssetName(state.selectedTrailer2),
-            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label }))
+            items: TRAILER_ITEMS.map((label, index) => ({ code: String(index + 1), label, help: ITEM_HELP[label] || "" }))
         });
     }
 
@@ -668,6 +700,7 @@ function renderInspectionItems() {
             return `
                 <article class="inspection-card${response.result === "defect" ? " defect" : ""}" data-response-key="${pageEscape(key)}">
                     <h4><span class="item-number">${pageEscape(item.code)}</span><span>${pageEscape(item.label)}</span></h4>
+                    ${item.help ? `<div class="item-help">${pageEscape(item.help)}</div>` : ""}
                     <div class="choice-row">
                         <button type="button" class="choice-pass ${response.result === "pass" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','pass')">Pass</button>
                         <button type="button" class="choice-defect ${response.result === "defect" ? "is-selected" : ""}" onclick="setItemResult('${pageEscape(key)}','defect')">Defect</button>
