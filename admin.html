@@ -2923,6 +2923,10 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
             </div>
             <div>
+                <label>License Plate</label>
+                <input id="equipmentLicensePlate" placeholder="Vehicle plate / unit ID">
+            </div>
+            <div>
                 <label>Type of Equip/Vehicle</label>
                 <input id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
             </div>
@@ -2962,6 +2966,33 @@ button.admin-schedule-event-button.admin-event-vacation {
             <div>
                 <label>Yearly Inspection Expiry</label>
                 <input id="equipmentExpiry" type="date">
+            </div>
+            <div>
+                <label>Jurisdiction</label>
+                <input id="equipmentJurisdiction" placeholder="Example: Ontario">
+            </div>
+            <div>
+                <label>VIN</label>
+                <input id="equipmentVin" placeholder="Vehicle VIN if needed">
+            </div>
+            <div>
+                <label>Make</label>
+                <input id="equipmentMake" placeholder="Example: Chevrolet">
+            </div>
+            <div>
+                <label>Model</label>
+                <input id="equipmentModel" placeholder="Example: Silverado">
+            </div>
+            <div>
+                <label>Year</label>
+                <input id="equipmentModelYear" placeholder="Example: 2023">
+            </div>
+            <div>
+                <label>Odometer Required</label>
+                <select id="equipmentOdometerRequired">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
             </div>
             <div class="full">
                 <label>Notes</label>
@@ -3236,6 +3267,7 @@ const currentWorkerDisplay = worker.display;
 let timesheets = [];
 let liveTimesheetEntries = [];
 let inspections = [];
+let vehicleInspections = [];
 let certificates = [];
 let certificateNotifications = [];
 let vacationRequests = [];
@@ -3641,10 +3673,12 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "inspections") {
-        const [inspectionResult] = await runAdminQueries([
-            { label: "inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) }
+        const [inspectionResult, vehicleInspectionResult] = await runAdminQueries([
+            { label: "inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "vehicle inspection records", query: () => supabaseClient.from("vehicle_inspection_records").select("*").order("created_at", { ascending: false }) }
         ]);
         inspections = inspectionResult.data || [];
+        vehicleInspections = vehicleInspectionResult.data || [];
         return;
     }
 
@@ -3733,10 +3767,11 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "employeeProfile") {
-        const [submittedResult, liveResult, inspectionResult, dailyResult, incidentResult, certificateResult, vacationResult, workOrderResult, labourResult, toolboxReportResult, toolboxAttendanceResult, policyResult, announcementAckResult] = await runAdminQueries([
+        const [submittedResult, liveResult, inspectionResult, vehicleInspectionResult, dailyResult, incidentResult, certificateResult, vacationResult, workOrderResult, labourResult, toolboxReportResult, toolboxAttendanceResult, policyResult, announcementAckResult] = await runAdminQueries([
             { label: "profile submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
             { label: "profile live timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "profile inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "profile vehicle inspections", query: () => supabaseClient.from("vehicle_inspection_records").select("*").order("created_at", { ascending: false }) },
             { label: "profile daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "profile incidents", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "profile certificates", query: () => supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }) },
@@ -3751,6 +3786,7 @@ async function loadAdminTabData(tab) {
         timesheets = submittedResult.data || [];
         liveTimesheetEntries = liveResult.data || [];
         inspections = inspectionResult.data || [];
+        vehicleInspections = vehicleInspectionResult.data || [];
         dailySiteReports = dailyResult.data || [];
         incidentReports = incidentResult.data || [];
         certificates = certificateResult.data || [];
@@ -4289,6 +4325,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }),
         supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("vehicle_inspection_records").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }),
         supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }),
@@ -4332,11 +4369,12 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
     inspections = inspectionResult.data || [];
+    vehicleInspections = vehicleInspectionResult.data || [];
     certificates = certificateResult.data || [];
     certificateNotifications = certificateNotificationResult.data || [];
     vacationRequests = vacationResult.data || [];
@@ -5819,7 +5857,9 @@ function renderPortalSummary() {
 
     const todayValue = getLocalDateValue(new Date());
     const weekStart = getCurrentWeekStartForSummary();
-    const inspectionsToday = inspections.filter((inspection) => isSameLocalDay(inspection.inspection_date || inspection.created_at, todayValue)).length;
+    const inspectionsToday = inspections
+        .concat(vehicleInspections || [])
+        .filter((inspection) => isSameLocalDay(inspection.inspection_date || inspection.created_at, todayValue)).length;
     const reportsToday = countRecentReportsToday(todayValue);
     const expiringCertificates = getCertificateExpiryAlerts().length;
     const equipmentExpiring = countEquipmentExpiryAlerts();
@@ -5874,7 +5914,7 @@ function renderPortalSummary() {
         {
             title: "Inspections",
             value: inspectionsToday,
-            badgeCount: countNewForAdminTab(inspections, "inspections", ["created_at", "updated_at"]),
+            badgeCount: countNewForAdminTab(inspections.concat(vehicleInspections || []), "inspections", ["created_at", "updated_at"]),
             detail: "Inspection records completed today",
             action: "openAdminSummaryTile('inspections')"
         },
@@ -6258,8 +6298,21 @@ function getEmployeeProfileCertificates(account) {
 }
 
 function getEmployeeProfileInspections(account) {
-    return inspections
+    const standardRows = inspections
         .filter((inspection) => employeeMatchesAny(account, inspection, ["worker_name", "worker_display_name"]))
+        .map((inspection) => ({ ...inspection, employee_profile_type: inspection.inspection_type || "" }));
+    const vehicleRows = vehicleInspections
+        .filter((inspection) => employeeMatchesAny(account, inspection, ["driver_employee_key", "driver_name"]))
+        .map((inspection) => ({
+            ...inspection,
+            inspection_type: inspection.inspection_type || "Vehicle / Trailer",
+            employee_profile_type: [
+                inspection.inspection_type || "Vehicle / Trailer",
+                inspection.vehicle_license_plate || inspection.vehicle_name || ""
+            ].filter(Boolean).join(" - ")
+        }));
+
+    return standardRows.concat(vehicleRows)
         .sort((a, b) => String(b.created_at || b.inspection_date || "").localeCompare(String(a.created_at || a.inspection_date || "")));
 }
 
@@ -6685,7 +6738,7 @@ async function renderEmployeeProfile() {
                 <div class="profile-panel-header"><h3>Inspections</h3><button type="button" onclick="openAdminSummaryTile('inspections')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Date", value: (row) => formatDate(row.inspection_date || row.created_at) },
-                    { label: "Type", value: (row) => row.inspection_type || "" },
+                    { label: "Type", value: (row) => row.employee_profile_type || row.inspection_type || "" },
                     { label: "Saved", value: (row) => formatDate(row.created_at) }
                 ], inspectionRows.slice(0, 10), "No inspections found.")}
             </div>
@@ -7180,6 +7233,7 @@ function clearEquipmentForm() {
     editingEquipmentId = "";
     document.getElementById("equipmentName").value = "";
     document.getElementById("equipmentIdentification").value = "";
+    document.getElementById("equipmentLicensePlate").value = "";
     document.getElementById("equipmentType").value = "";
     document.getElementById("equipmentOperator").value = "";
     document.getElementById("equipmentHours").value = "";
@@ -7188,6 +7242,12 @@ function clearEquipmentForm() {
     document.getElementById("equipmentBillable").value = "true";
     document.getElementById("equipmentTransportationRequired").value = "false";
     document.getElementById("equipmentExpiry").value = "";
+    document.getElementById("equipmentJurisdiction").value = "";
+    document.getElementById("equipmentVin").value = "";
+    document.getElementById("equipmentMake").value = "";
+    document.getElementById("equipmentModel").value = "";
+    document.getElementById("equipmentModelYear").value = "";
+    document.getElementById("equipmentOdometerRequired").value = "true";
     document.getElementById("equipmentNotes").value = "";
     document.getElementById("equipmentSaveButton").textContent = "Add Equipment / Vehicle";
     setEquipmentStatus("");
@@ -7219,6 +7279,38 @@ function getEquipmentQrInspectionType(item) {
 function getEquipmentQrUrl(token) {
     const url = new URL("equipment-inspection.html", window.location.href);
     url.searchParams.set("token", token || "");
+    return url.href;
+}
+
+function isVehicleInspectionAsset(item) {
+    if (!item) {
+        return false;
+    }
+
+    if (getEquipmentQrInspectionType(item)) {
+        return false;
+    }
+
+    const text = [
+        item.name,
+        item.equipment_type,
+        item.asset_category,
+        item.identification_number,
+        item.license_plate,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    if (/\b(trailer|trl|float|lift|forklift|telehandler|tele-handler|aerial|scissor|boom)\b/.test(text)) {
+        return false;
+    }
+
+    return /\b(truck|van|vehicle|pickup|car|f-?150|f-?250|f-?350|ram|silverado|sierra|chevy|plate)\b/.test(text) || getEquipmentCategory(item) === "Vehicles";
+}
+
+function getVehicleQrUrl(item) {
+    const url = new URL("vehicle-inspection.html", window.location.href);
+    url.searchParams.set("vehicle_id", item && item.id ? item.id : "");
+    url.searchParams.set("token", item && item.vehicle_qr_token ? item.vehicle_qr_token : "");
     return url.href;
 }
 
@@ -7309,16 +7401,29 @@ function renderEquipmentQrCode(url, canvas, image, fallback) {
 
 function renderEquipmentQrCell(item) {
     const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item);
+    const vehicleQrButton = isVehicleInspectionAsset(item)
+        ? `
+            <button type="button" class="secondary" onclick="openVehicleInspectionQr('${item.id}')">${item.vehicle_qr_token ? "Vehicle QR" : "Create Vehicle QR"}</button>
+            <div class="small">Vehicle / Trailer Daily</div>
+        `
+        : "";
+    const historyButton = `
+        <button type="button" class="secondary" onclick="openEquipmentInspectionHistory('${item.id}')">History</button>
+    `;
 
-    if (!inspectionType) {
+    if (!inspectionType && !vehicleQrButton) {
         return '<span class="small">No lift QR</span>';
     }
 
     const buttonLabel = item.inspection_qr_token ? "View QR" : "Create QR";
 
     return `
-        <button type="button" class="secondary" onclick="openEquipmentQr('${item.id}')">${buttonLabel}</button>
-        <div class="small">${escapeHtml(inspectionType)}</div>
+        ${inspectionType ? `
+            <button type="button" class="secondary" onclick="openEquipmentQr('${item.id}')">${buttonLabel}</button>
+            <div class="small">${escapeHtml(inspectionType)}</div>
+        ` : ""}
+        ${vehicleQrButton}
+        ${historyButton}
     `;
 }
 
@@ -7393,6 +7498,114 @@ async function openEquipmentQr(id) {
         setEquipmentStatus("QR code ready.");
     } catch (error) {
         setEquipmentStatus(error && error.message ? error.message : "QR code could not be opened.", true);
+    }
+}
+
+async function ensureVehicleInspectionQrToken(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        throw new Error("Vehicle could not be found.");
+    }
+
+    if (!isVehicleInspectionAsset(item)) {
+        throw new Error("Vehicle QR codes are for trucks and vehicles. Trailers are selected from the vehicle inspection form.");
+    }
+
+    if (item.vehicle_qr_token) {
+        return item;
+    }
+
+    const { data, error } = await supabaseClient.rpc("ensure_vehicle_inspection_qr_token", {
+        p_equipment_id: id
+    });
+
+    if (error) {
+        throw new Error((error.message || "Vehicle QR code could not be created.") + " If this is the first time using vehicle QR codes, run supabase-vehicle-inspection-setup.sql in Supabase.");
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (!result || !result.token) {
+        throw new Error("Supabase did not return a vehicle QR token.");
+    }
+
+    item.vehicle_qr_token = result.token;
+    item.vehicle_qr_url = result.qr_url || "";
+    renderEquipment();
+    return item;
+}
+
+async function openVehicleInspectionQr(id) {
+    try {
+        setEquipmentStatus("Preparing vehicle QR code...");
+        const item = await ensureVehicleInspectionQrToken(id);
+        const url = getVehicleQrUrl(item);
+        const unitLabel = [item.license_plate || item.unit_number || item.identification_number, item.name].filter(Boolean).join(" - ") || "Vehicle";
+        const modal = document.getElementById("equipmentQrModal");
+        const canvas = document.getElementById("equipmentQrCanvas");
+        const image = document.getElementById("equipmentQrImage");
+        const fallback = document.getElementById("equipmentQrFallback");
+        const link = document.getElementById("equipmentQrLink");
+
+        activeEquipmentQr = {
+            item,
+            url,
+            unitLabel,
+            inspectionType: "Daily Vehicle / Trailer Inspection",
+            qrImageSrc: "",
+            fallbackQrImageSrc: getEquipmentQrImageUrl(url)
+        };
+
+        document.getElementById("equipmentQrTitle").textContent = "Vehicle QR Code - " + unitLabel;
+        document.getElementById("equipmentQrUnit").textContent = unitLabel;
+        document.getElementById("equipmentQrType").textContent = "Daily Vehicle / Trailer Inspection";
+        fallback.textContent = "";
+        link.href = url;
+        link.textContent = url;
+
+        renderEquipmentQrCode(url, canvas, image, fallback);
+
+        modal.classList.add("open");
+        modal.style.display = "flex";
+        setEquipmentStatus("Vehicle QR code ready.");
+    } catch (error) {
+        setEquipmentStatus(error && error.message ? error.message : "Vehicle QR code could not be opened.", true);
+    }
+}
+
+async function openEquipmentInspectionHistory(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        setEquipmentStatus("Equipment or vehicle could not be found.", true);
+        return;
+    }
+
+    const searchValue = item.license_plate || item.unit_number || item.identification_number || item.name || "";
+    showTab("inspections");
+
+    if (!adminTabDataLoaded.has("inspections")) {
+        await loadAdminTabData("inspections");
+        adminTabDataLoaded.add("inspections");
+    }
+
+    const workerInput = document.getElementById("inspectionWorkerFilter");
+    const typeInput = document.getElementById("inspectionTypeFilter");
+
+    if (workerInput) {
+        workerInput.value = "";
+    }
+
+    if (typeInput) {
+        typeInput.value = searchValue;
+    }
+
+    renderInspections();
+
+    const inspectionsSection = document.getElementById("inspectionsSection");
+    if (inspectionsSection) {
+        inspectionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 }
 
@@ -7511,7 +7724,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -7521,7 +7734,7 @@ function renderEquipment() {
                             <tr>
                                 <td>${escapeHtml(item.name)}</td>
                                 <td>${escapeHtml(item.equipment_type || "")}</td>
-                                <td>${escapeHtml(item.identification_number || "")}</td>
+                                <td>${escapeHtml(item.license_plate || item.identification_number || "")}</td>
                                 <td>${escapeHtml(item.operator_name || "")}</td>
                                 <td>${item.current_hours !== null && item.current_hours !== undefined ? escapeHtml(Number(item.current_hours).toFixed(1)) : ""}</td>
                                 <td>${escapeHtml(capitalizeWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
@@ -7711,6 +7924,7 @@ function editEquipment(id) {
     }
     document.getElementById("equipmentName").value = item.name || "";
     document.getElementById("equipmentIdentification").value = item.identification_number || "";
+    document.getElementById("equipmentLicensePlate").value = item.license_plate || "";
     document.getElementById("equipmentType").value = item.equipment_type || "";
     document.getElementById("equipmentOperator").value = item.operator_name || "";
     document.getElementById("equipmentHours").value = item.current_hours !== null && item.current_hours !== undefined ? item.current_hours : "";
@@ -7719,6 +7933,12 @@ function editEquipment(id) {
     document.getElementById("equipmentBillable").value = item.billable_equipment === false ? "false" : "true";
     document.getElementById("equipmentTransportationRequired").value = item.transportation_required ? "true" : "false";
     document.getElementById("equipmentExpiry").value = item.yearly_inspection_expiry || "";
+    document.getElementById("equipmentJurisdiction").value = item.jurisdiction || "";
+    document.getElementById("equipmentVin").value = item.vin || "";
+    document.getElementById("equipmentMake").value = item.make || "";
+    document.getElementById("equipmentModel").value = item.model || "";
+    document.getElementById("equipmentModelYear").value = item.model_year || "";
+    document.getElementById("equipmentOdometerRequired").value = item.odometer_required === false ? "false" : "true";
     document.getElementById("equipmentNotes").value = item.notes || "";
     document.getElementById("equipmentSaveButton").textContent = "Update Equipment / Vehicle";
     setEquipmentStatus("Editing " + item.name + ".");
@@ -7728,6 +7948,7 @@ function editEquipment(id) {
 async function saveEquipment() {
     const name = document.getElementById("equipmentName").value.trim();
     const identificationNumber = document.getElementById("equipmentIdentification").value.trim();
+    const licensePlate = document.getElementById("equipmentLicensePlate").value.trim();
     const equipmentType = document.getElementById("equipmentType").value.trim();
     const operatorName = document.getElementById("equipmentOperator").value.trim();
     const currentHoursValue = document.getElementById("equipmentHours").value;
@@ -7737,6 +7958,12 @@ async function saveEquipment() {
     const billableEquipment = document.getElementById("equipmentBillable").value !== "false";
     const transportationRequired = document.getElementById("equipmentTransportationRequired").value === "true";
     const expiry = document.getElementById("equipmentExpiry").value || null;
+    const jurisdiction = document.getElementById("equipmentJurisdiction").value.trim();
+    const vin = document.getElementById("equipmentVin").value.trim();
+    const make = document.getElementById("equipmentMake").value.trim();
+    const model = document.getElementById("equipmentModel").value.trim();
+    const modelYear = document.getElementById("equipmentModelYear").value.trim();
+    const odometerRequired = document.getElementById("equipmentOdometerRequired").value !== "false";
     const notes = document.getElementById("equipmentNotes").value.trim();
 
     if (!name) {
@@ -7755,6 +7982,14 @@ async function saveEquipment() {
         name,
         equipment_type: equipmentType,
         identification_number: identificationNumber,
+        license_plate: licensePlate,
+        unit_number: licensePlate,
+        jurisdiction,
+        vin,
+        make,
+        model,
+        model_year: modelYear,
+        odometer_required: odometerRequired,
         operator_name: operatorName,
         current_hours: currentHours,
         ownership_type: ownershipType,
@@ -9898,10 +10133,41 @@ function renderInspections() {
 
     const workerFilter = workerInput ? workerInput.value.trim().toLowerCase() : "";
     const typeFilter = typeInput ? typeInput.value.trim().toLowerCase() : "";
-    const inspectionRows = Array.isArray(inspections) ? inspections : [];
+    const standardInspectionRows = (Array.isArray(inspections) ? inspections : []).map((inspection) => ({
+        source: "Inspection",
+        date: inspection.inspection_date,
+        type: inspection.inspection_type,
+        completedBy: inspection.worker_display_name || inspection.worker_name,
+        asset: inspection.equipment_name || inspection.equipment_identification || "",
+        details: inspection.summary && typeof inspection.summary === "object"
+            ? [
+                inspection.summary.equipment_name,
+                inspection.summary.equipment_identification,
+                inspection.summary.failed_count ? inspection.summary.failed_count + " failed" : ""
+            ].filter(Boolean).join(" | ")
+            : "",
+        saved: inspection.created_at
+    }));
+    const vehicleInspectionRows = (Array.isArray(vehicleInspections) ? vehicleInspections : []).map((inspection) => ({
+        source: "Vehicle / Trailer",
+        date: inspection.inspection_date,
+        type: inspection.inspection_type,
+        completedBy: inspection.driver_name,
+        asset: [
+            inspection.vehicle_license_plate || inspection.vehicle_name,
+            inspection.trailer_1_license_plate ? "Trailer 1: " + inspection.trailer_1_license_plate : "",
+            inspection.trailer_2_license_plate ? "Trailer 2: " + inspection.trailer_2_license_plate : ""
+        ].filter(Boolean).join(" | "),
+        details: inspection.defects_found
+            ? (inspection.major_defects_found ? "Major defects found" : "Minor defects found")
+            : "No defects reported",
+        saved: inspection.created_at
+    }));
+    const inspectionRows = standardInspectionRows.concat(vehicleInspectionRows)
+        .sort((a, b) => String(b.saved || b.date || "").localeCompare(String(a.saved || a.date || "")));
     const filtered = inspectionRows.filter((inspection) => {
-        const worker = String(inspection.worker_display_name || inspection.worker_name || "").toLowerCase();
-        const type = String(inspection.inspection_type || "").toLowerCase();
+        const worker = String(inspection.completedBy || "").toLowerCase();
+        const type = [inspection.type, inspection.asset, inspection.source, inspection.details].join(" ").toLowerCase();
         return (!workerFilter || worker.includes(workerFilter)) && (!typeFilter || type.includes(typeFilter));
     });
 
@@ -9914,15 +10180,18 @@ function renderInspections() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Date</th><th>Type</th><th>Completed By</th><th>Saved</th></tr>
+                    <tr><th>Date</th><th>Source</th><th>Type</th><th>Completed By</th><th>Asset</th><th>Details</th><th>Saved</th></tr>
                 </thead>
                 <tbody>
                     ${filtered.map((inspection) => `
                         <tr>
-                            <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
-                            <td>${escapeHtml(inspection.inspection_type)}</td>
-                            <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name)}</td>
-                            <td>${escapeHtml(formatDate(inspection.created_at))}</td>
+                            <td>${escapeHtml(formatDate(inspection.date))}</td>
+                            <td>${escapeHtml(inspection.source)}</td>
+                            <td>${escapeHtml(inspection.type || "")}</td>
+                            <td>${escapeHtml(inspection.completedBy || "")}</td>
+                            <td>${escapeHtml(inspection.asset || "")}</td>
+                            <td>${escapeHtml(inspection.details || "")}</td>
+                            <td>${escapeHtml(formatDate(inspection.saved))}</td>
                         </tr>
                     `).join("")}
                 </tbody>
