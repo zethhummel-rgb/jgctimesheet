@@ -3709,7 +3709,8 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "jobDashboard") {
-        const [liveResult, inspectionResult, dailyResult, workOrderResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
+        const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
+            { label: "job dashboard submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
             { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
             { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
@@ -3719,6 +3720,7 @@ async function loadAdminTabData(tab) {
             { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
             { label: "job dashboard travel", query: () => supabaseClient.from("work_order_travel").select("*") }
         ]);
+        timesheets = submittedResult.data || [];
         liveTimesheetEntries = liveResult.data || [];
         inspections = inspectionResult.data || [];
         dailySiteReports = dailyResult.data || [];
