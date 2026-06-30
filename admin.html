@@ -697,7 +697,7 @@ button:hover,
 }
 
 #portalSummaryGrid .summary-tile.has-summary-badge h3 {
-    margin-right: 20px;
+    margin-right: 14px;
 }
 
 .summary-tile.no-summary-badge h3 {
@@ -720,12 +720,14 @@ button:hover,
 }
 
 #portalSummaryGrid .summary-badge {
-    top: 4px;
-    right: 4px;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 4px;
-    font-size: 9px;
+    top: 7px;
+    right: 7px;
+    min-width: 0;
+    width: 9px;
+    height: 9px;
+    padding: 0;
+    font-size: 0;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.28);
 }
 
 .subcontractor-activity-panel {
@@ -4501,10 +4503,11 @@ function getCurrentWeekStartForSummary() {
 
 function renderSummaryTile(tile) {
     const hasBadge = Number(tile.badgeCount || 0) > 0;
+    const badgeLabel = hasBadge ? escapeHtml(String(tile.badgeCount) + " new update" + (Number(tile.badgeCount) === 1 ? "" : "s")) : "";
 
     return `
         <button type="button" class="summary-tile${hasBadge ? " has-summary-badge" : " no-summary-badge"}" onclick="${tile.action}">
-            ${hasBadge ? '<span class="summary-badge">' + escapeHtml(String(tile.badgeCount)) + '</span>' : ""}
+            ${hasBadge ? '<span class="summary-badge" title="' + badgeLabel + '" aria-label="' + badgeLabel + '"></span>' : ""}
             <h3>${escapeHtml(tile.title)}</h3>
         </button>
     `;
