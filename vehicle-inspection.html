@@ -509,6 +509,28 @@ function getAssetLicense(asset) {
     return (asset && (asset.license_plate || asset.unit_number || asset.identification_number || asset.name)) || "";
 }
 
+function escapeRegExp(value) {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getAssetDisplayName(asset) {
+    const plate = String(getAssetLicense(asset) || "").trim();
+    let name = String((asset && asset.name) || "").trim();
+    if (plate && name) {
+        name = name.replace(new RegExp("^" + escapeRegExp(plate) + "\\s*-\\s*", "i"), "").trim();
+    }
+    return name;
+}
+
+function getAssetMakeModel(asset) {
+    const fromFields = [
+        asset && asset.make,
+        asset && asset.model,
+        asset && asset.model_year
+    ].filter(Boolean).join(" ").trim();
+    return fromFields || getAssetDisplayName(asset);
+}
+
 function getAssetName(asset) {
     const plate = getAssetLicense(asset);
     const name = asset && asset.name ? asset.name : "";
@@ -571,12 +593,12 @@ function renderAssetCard() {
     document.getElementById("assetTitle").textContent = getAssetName(vehicle);
     document.getElementById("assetFacts").innerHTML = [
         ["License Plate", getAssetLicense(vehicle)],
-        ["Jurisdiction", vehicle.jurisdiction || ""],
-        ["Make / Model", [vehicle.make, vehicle.model, vehicle.model_year].filter(Boolean).join(" ")],
-        ["VIN", vehicle.vin || ""],
+        vehicle.jurisdiction ? ["Jurisdiction", vehicle.jurisdiction] : null,
+        ["Make / Model", getAssetMakeModel(vehicle)],
+        vehicle.vin ? ["VIN", vehicle.vin] : null,
         ["Type", vehicle.equipment_type || vehicle.asset_category || "Vehicle"],
         ["Status", vehicle.vehicle_status || "Active"]
-    ].map(([label, value]) => `
+    ].filter(Boolean).map(([label, value]) => `
         <div class="asset-fact">
             <span>${pageEscape(label)}</span>
             <strong>${pageEscape(value || "-")}</strong>
