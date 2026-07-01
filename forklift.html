@@ -284,10 +284,10 @@ button:hover {
 
 <div class="field-grid">
     <div class="field"><label>Project / Site</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
-    <div class="field"><label>Brand</label><input type="text"></div>
+    <div class="field"><label>Forklift</label><input id="forkliftEquipment" type="text" list="forkliftEquipmentOptions" placeholder="Select forklift or type rented unit" onchange="fillForkliftDetails()" oninput="fillForkliftDetails()"><datalist id="forkliftEquipmentOptions"></datalist></div>
     <div class="field"><label>Capacity</label><input type="text"></div>
-    <div class="field"><label>Identification</label><input type="text"></div>
-    <div class="field"><label>Hours/Mileage</label><input type="text"></div>
+    <div class="field"><label>Identification</label><input id="forkliftIdentification" type="text"></div>
+    <div class="field"><label>Hours/Mileage</label><input id="forkliftHours" type="text"></div>
     <div class="field"><label>Date</label><input type="date"></div>
     <div class="field"><label>Time</label><input type="time"></div>
 </div>
@@ -323,6 +323,7 @@ button:hover {
 <script>
 const workerName = localStorage.getItem("currentWorker");
 const workerDisplay = localStorage.getItem("currentWorkerDisplay") || workerName;
+let forkliftEquipmentItems = [];
 
 if (!workerName) {
     window.location.href = "index.html";
@@ -330,18 +331,117 @@ if (!workerName) {
 
 document.getElementById("userBar").textContent = workerDisplay ? "Signed in as: " + workerDisplay : "";
 
-function handleInspectionSave(type) {
+function getForkliftDisplay(item) {
+    const name = String(item.name || "").trim();
+    const id = String(item.identification_number || "").trim();
+    return id ? id + " - " + name : name;
+}
+
+function isForkliftEquipment(item) {
+    const text = [
+        item.name,
+        item.equipment_type,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    return /\b(forklift|fork lift)\b/.test(text);
+}
+
+function updateForkliftOptions() {
+    document.getElementById("forkliftEquipmentOptions").innerHTML = forkliftEquipmentItems
+        .slice()
+        .sort((a, b) => getForkliftDisplay(a).localeCompare(getForkliftDisplay(b), undefined, { numeric: true }))
+        .map((item) => '<option value="' + escapeHtml(getForkliftDisplay(item)) + '"></option>')
+        .join("");
+}
+
+function getSelectedForkliftEquipment() {
+    const selectedValue = document.getElementById("forkliftEquipment").value.trim().toLowerCase();
+    return forkliftEquipmentItems.find((item) => getForkliftDisplay(item).toLowerCase() === selectedValue) || null;
+}
+
+function fillForkliftDetails() {
+    const match = getSelectedForkliftEquipment();
+
+    if (!match) {
+        return;
+    }
+
+    document.getElementById("forkliftIdentification").value = match.identification_number || "";
+    document.getElementById("forkliftHours").value = match.current_hours !== null && match.current_hours !== undefined ? match.current_hours : "";
+}
+
+async function loadForkliftEquipmentOptions() {
+    if (!inspectionSupabaseClient) {
+        return;
+    }
+
+    const { data, error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+    if (error) {
+        console.warn("Forklift equipment could not be loaded.", error);
+        return;
+    }
+
+    forkliftEquipmentItems = (data || []).filter(isForkliftEquipment);
+    updateForkliftOptions();
+}
+
+async function updateSelectedForkliftHours() {
+    const match = getSelectedForkliftEquipment();
+
+    if (!match) {
+        return true;
+    }
+
+    const hoursValue = Number(document.getElementById("forkliftHours").value);
+
+    if (!Number.isFinite(hoursValue) || hoursValue < 0) {
+        alert("Enter the current hours for this forklift.");
+        return false;
+    }
+
+    const { error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .update({
+            current_hours: hoursValue,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", match.id);
+
+    if (error) {
+        alert("The forklift hours could not be updated. " + (error.message || ""));
+        return false;
+    }
+
+    return true;
+}
+
+async function handleInspectionSave(type) {
     if (typeof saveInspection !== "function") {
         alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
         return;
     }
 
-    saveInspection(type);
+    const hoursUpdated = await updateSelectedForkliftHours();
+
+    if (!hoursUpdated) {
+        return;
+    }
+
+    await saveInspection(type);
 }
 
 async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
+
+loadForkliftEquipmentOptions();
 </script>
 </body>
 </html>
