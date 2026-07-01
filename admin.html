@@ -268,6 +268,40 @@ textarea {
     white-space: nowrap;
 }
 
+.admin-wo-editor-panel {
+    margin: 14px 0;
+    border: 1px solid rgba(55, 214, 80, 0.42);
+    border-top: 4px solid #37d650;
+    border-radius: 8px;
+    background: rgba(7, 20, 17, 0.94);
+    padding: 12px;
+}
+
+.admin-wo-editor-panel[hidden] {
+    display: none;
+}
+
+.admin-wo-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.admin-wo-editor-header h3 {
+    margin: 0;
+}
+
+.admin-wo-editor-frame {
+    width: 100%;
+    min-height: 1120px;
+    border: 1px solid rgba(199, 221, 211, 0.22);
+    border-radius: 8px;
+    background: #061411;
+}
+
 .wo-management-tabs {
     display: flex;
     gap: 8px;
@@ -3427,6 +3461,19 @@ button.admin-schedule-event-button.admin-event-vacation {
             </div>
         </div>
         <div id="adminWorkOrderListStatus" class="small">Loading Work Orders...</div>
+        <div id="adminWorkOrderEditorPanel" class="admin-wo-editor-panel" hidden>
+            <div class="admin-wo-editor-header">
+                <div>
+                    <h3 id="adminWorkOrderEditorTitle">Work Order Editor</h3>
+                    <div id="adminWorkOrderEditorStatus" class="small">Loading selected Work Order...</div>
+                </div>
+                <div class="actions">
+                    <button type="button" class="secondary" onclick="refreshAdminWorkOrderEditor()">Refresh Editor</button>
+                    <button type="button" class="secondary" onclick="closeAdminWorkOrderEditor()">Close Editor</button>
+                </div>
+            </div>
+            <iframe id="adminWorkOrderEditorFrame" class="admin-wo-editor-frame" title="Admin Work Order Editor"></iframe>
+        </div>
         <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
     </div>
 </div>
@@ -13630,6 +13677,54 @@ function getAdminWorkOrderPoCount(id) {
     return workOrderPurchaseOrders.filter((row) => row.work_order_id === id).length;
 }
 
+function openAdminWorkOrderEditor(id) {
+    const wo = workOrders.find((item) => String(item.id) === String(id));
+    const panel = document.getElementById("adminWorkOrderEditorPanel");
+    const frame = document.getElementById("adminWorkOrderEditorFrame");
+    const title = document.getElementById("adminWorkOrderEditorTitle");
+    const status = document.getElementById("adminWorkOrderEditorStatus");
+
+    if (!wo || !panel || !frame) {
+        alert("Work Order could not be found.");
+        return;
+    }
+
+    if (title) {
+        title.textContent = (wo.locked || wo.status === "submitted") ? "View Work Order" : "Edit Work Order";
+    }
+
+    if (status) {
+        status.textContent = [wo.wo_number, wo.job_number, wo.job_name].filter(Boolean).join(" - ");
+    }
+
+    panel.hidden = false;
+    frame.src = "work-orders.html?embedded=1&admin=1&wo=" + encodeURIComponent(id);
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function refreshAdminWorkOrderEditor() {
+    const frame = document.getElementById("adminWorkOrderEditorFrame");
+
+    if (frame && frame.src) {
+        frame.src = frame.src;
+    }
+}
+
+async function closeAdminWorkOrderEditor() {
+    const panel = document.getElementById("adminWorkOrderEditorPanel");
+    const frame = document.getElementById("adminWorkOrderEditorFrame");
+
+    if (frame) {
+        frame.removeAttribute("src");
+    }
+
+    if (panel) {
+        panel.hidden = true;
+    }
+
+    await loadAdminWorkOrders();
+}
+
 function renderAdminWorkOrders() {
     const summary = document.getElementById("adminWorkOrdersSummary");
     const list = document.getElementById("adminWorkOrdersList");
@@ -13730,7 +13825,7 @@ function renderAdminWorkOrders() {
                                 <td>${getAdminWorkOrderPoCount(wo.id)}</td>
                                 <td>
                                     <div class="actions">
-                                        <button type="button" class="secondary" onclick="window.location.href='work-orders.html'">${isLocked ? "View" : "Open"}</button>
+                                        <button type="button" class="secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
                                         ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
                                         <button type="button" class="delete-button" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
                                     </div>
@@ -14929,6 +15024,14 @@ if (supplierContactPhoneInput) {
         supplierContactPhoneInput.value = formatSupplierPhoneNumber(supplierContactPhoneInput.value);
     });
 }
+
+window.addEventListener("message", (event) => {
+    if (event.origin !== window.location.origin || !event.data || event.data.type !== "jgc-work-order-updated") {
+        return;
+    }
+
+    loadAdminWorkOrders();
+});
 
 showTab(getRequestedAdminTab(), { persist: false });
 loadAdminData();
