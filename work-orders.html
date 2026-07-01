@@ -16,6 +16,29 @@ body {
   padding: 20px;
 }
 
+body.embedded-work-order {
+  padding: 0;
+  background: #061411;
+}
+
+body.embedded-work-order .logo-wrap,
+body.embedded-work-order h1,
+body.embedded-work-order #currentUser,
+body.embedded-work-order .top-actions,
+body.embedded-work-order #workOrderManagementCard {
+  display: none;
+}
+
+body.embedded-work-order .page {
+  max-width: none;
+  margin: 0;
+}
+
+body.embedded-work-order .card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
 .page {
   max-width: 1220px;
   margin: 0 auto;
@@ -820,6 +843,9 @@ th {
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const isAdmin = isAdminWorker(worker.key, worker.role, worker.email);
+const workOrderPageParams = new URLSearchParams(window.location.search);
+const isEmbeddedWorkOrderPage = workOrderPageParams.get("embedded") === "1";
+const requestedWorkOrderId = workOrderPageParams.get("wo") || "";
 const WORK_ORDER_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const WORK_ORDER_EMAIL_RECIPIENTS = [
   "zeth@johngordonconstruction.com",
@@ -843,6 +869,10 @@ let workOrderManagementView = "active";
 let currentWorkOrderSubmitInFlight = false;
 const workOrderFinalizeLocks = new Set();
 const workOrderSubmitLocks = new Set();
+
+if (isEmbeddedWorkOrderPage) {
+  document.body.classList.add("embedded-work-order");
+}
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
 document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
@@ -2060,6 +2090,32 @@ function editWorkOrder(id) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function openRequestedEmbeddedWorkOrder() {
+  if (!requestedWorkOrderId) {
+    return;
+  }
+
+  const wo = workOrders.find((item) => String(item.id) === String(requestedWorkOrderId));
+
+  if (!wo) {
+    setFormStatus("Requested Work Order could not be found.", true);
+    return;
+  }
+
+  editWorkOrder(wo.id);
+}
+
+function notifyParentWorkOrderChanged(id) {
+  if (!isEmbeddedWorkOrderPage || !window.parent || window.parent === window) {
+    return;
+  }
+
+  window.parent.postMessage({
+    type: "jgc-work-order-updated",
+    id: id || editingWorkOrderId || ""
+  }, window.location.origin);
+}
+
 async function saveWorkOrder(options) {
   const settings = options || {};
   const existingWorkOrder = editingWorkOrderId ? workOrders.find((item) => item.id === editingWorkOrderId) : null;
@@ -2296,10 +2352,19 @@ async function saveWorkOrder(options) {
   if (settings.silent) {
     await loadWorkOrders(false);
     editingWorkOrderId = workOrderId;
+    notifyParentWorkOrderChanged(workOrderId);
     return workOrderId;
   }
 
   await loadWorkOrders(false);
+  notifyParentWorkOrderChanged(workOrderId);
+
+  if (isEmbeddedWorkOrderPage) {
+    editWorkOrder(workOrderId);
+    setFormStatus("Work order saved.");
+    return workOrderId;
+  }
+
   finishWorkOrderAndStartNext("Work order saved. Ready for the next Work Order.");
   return workOrderId;
 }
@@ -2330,6 +2395,7 @@ async function deleteWorkOrder(id) {
   }
 
   await loadWorkOrders(false);
+  notifyParentWorkOrderChanged(id);
 }
 
 function getWorkOrderCompleteness(id) {
@@ -3271,6 +3337,7 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   await refreshOpenWorkOrderLabourRows();
   await loadWorkOrders(false);
   await autoSubmitReadyWorkOrders();
+  openRequestedEmbeddedWorkOrder();
 });
 </script>
 </body>
