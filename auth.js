@@ -51,18 +51,18 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
     return;
   }
 
-  const loginTime = new Date().toISOString();
-  const { error: loginUpdateError } = await supabaseClient
-    .from("profiles")
-    .update({
-      last_login_at: loginTime,
-      last_portal_activity: loginTime
-    })
-    .eq("id", profile.id);
+  if (typeof recordJgcProfileActivity === "function") {
+    const loginActivity = await recordJgcProfileActivity(supabaseClient, {
+      user,
+      profileId: profile.id,
+      isLogin: true
+    });
+    const activityRow = loginActivity && loginActivity.data;
 
-  if (!loginUpdateError) {
-    profile.last_login_at = loginTime;
-    profile.last_portal_activity = loginTime;
+    if (activityRow) {
+      profile.last_login_at = activityRow.last_login_at || profile.last_login_at;
+      profile.last_portal_activity = activityRow.last_portal_activity || profile.last_portal_activity;
+    }
   }
 
   localStorage.setItem("currentWorker", profile.worker_key);
