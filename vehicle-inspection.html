@@ -414,8 +414,8 @@ button:disabled {
                 <input id="inspectionLocation" placeholder="Job, shop, or site location">
             </div>
             <div class="field">
-                <label for="inspectionOdometer">Odometer</label>
-                <input id="inspectionOdometer" type="number" min="0" step="1" placeholder="Odometer reading">
+                <label for="inspectionOdometer">Current KM</label>
+                <input id="inspectionOdometer" type="number" min="0" step="1" placeholder="Current vehicle KM">
             </div>
             <div class="field">
                 <label for="vehicleLicense">Vehicle License Plate</label>
@@ -886,6 +886,7 @@ async function saveInspection(status) {
         driver_company: driver.company || "",
         location: document.getElementById("inspectionLocation").value.trim(),
         odometer: odometerValue === "" ? null : Number(odometerValue),
+        current_km: odometerValue === "" ? null : Number(odometerValue),
         vehicle_id: state.vehicle.id,
         vehicle_name: state.vehicle.name || "",
         vehicle_license_plate: getAssetLicense(state.vehicle),
@@ -1058,6 +1059,7 @@ function printInspection(row) {
                 <div><strong>Driver / Inspector</strong><br>${pageEscape(printable.driver_name || "")}</div>
                 <div><strong>Vehicle Plate</strong><br>${pageEscape(printable.vehicle_license_plate || printable.vehicle_name || "")}</div>
                 <div><strong>Location</strong><br>${pageEscape(printable.location || "")}</div>
+                <div><strong>Current KM</strong><br>${pageEscape(printable.odometer ?? printable.current_km ?? "")}</div>
             </div>
             ${(formSections || []).map((section) => `
                 <h2>${pageEscape(section.section || "")}</h2>
