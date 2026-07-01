@@ -243,6 +243,80 @@ textarea {
     overflow-x: auto;
 }
 
+.admin-wo-management {
+    margin-top: 12px;
+}
+
+.admin-wo-management-table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.admin-wo-management-table table {
+    min-width: 920px;
+}
+
+.admin-wo-management-table .actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
+.admin-wo-management-table .actions button {
+    width: auto;
+    white-space: nowrap;
+}
+
+.wo-management-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 0 12px;
+}
+
+.wo-management-tabs button {
+    width: auto;
+    background: #26352d;
+    color: #ffffff;
+}
+
+.wo-management-tabs button.active {
+    background: #37d650;
+    color: #061411;
+}
+
+.pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #dcefdc;
+    color: #102018;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.pill.draft {
+    background: #dcefdc;
+}
+
+.pill.ready_for_submission {
+    background: #fff2c2;
+    color: #634900;
+}
+
+.pill.pending-submission {
+    max-width: 118px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+}
+
+.pill.submitted {
+    background: #cfe4ff;
+    color: #0d3c72;
+}
+
 table {
     width: 100%;
     min-width: 820px;
@@ -1883,6 +1957,111 @@ button.admin-schedule-event-button.admin-event-vacation {
     font-weight: 800;
 }
 
+.supplier-company-list {
+    display: grid;
+    gap: 10px;
+}
+
+.supplier-company-panel {
+    border: 1px solid rgba(50, 220, 85, 0.36);
+    border-radius: 8px;
+    background: rgba(7, 25, 18, 0.92);
+    overflow: hidden;
+}
+
+.supplier-company-panel[open] {
+    border-color: rgba(61, 220, 86, 0.72);
+    box-shadow: 0 0 0 1px rgba(61, 220, 86, 0.16);
+}
+
+.supplier-company-summary {
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    list-style: none;
+}
+
+.supplier-company-summary::-webkit-details-marker {
+    display: none;
+}
+
+.supplier-company-summary::after {
+    content: "+";
+    color: #32dc55;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 900;
+}
+
+.supplier-company-panel[open] .supplier-company-summary::after {
+    content: "-";
+}
+
+.supplier-company-title {
+    min-width: 0;
+}
+
+.supplier-company-title strong {
+    display: block;
+    color: #ffffff;
+    font-size: 16px;
+    line-height: 1.2;
+}
+
+.supplier-company-title span {
+    display: block;
+    color: #cfe5d4;
+    font-size: 12px;
+    margin-top: 3px;
+}
+
+.supplier-company-count {
+    min-width: 78px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #2ed84b;
+    color: #061411;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.supplier-company-body {
+    padding: 0 14px 14px;
+}
+
+.supplier-company-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.supplier-company-meta {
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 7px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f5fff6;
+}
+
+.supplier-company-meta strong {
+    display: block;
+    color: #2ef05e;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.supplier-company-contacts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 8px;
+    margin: 8px 0 12px;
+}
+
 .detail-title {
     color: #17331f;
     font-weight: 900;
@@ -3197,21 +3376,6 @@ button.admin-schedule-event-button.admin-event-vacation {
 <div id="workOrdersSection" class="card" hidden>
     <h2>Work Orders</h2>
     <div class="small" style="margin-bottom:12px;">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
-    <div class="filters">
-        <div>
-            <label>Search</label>
-            <input id="adminWorkOrderSearch" placeholder="WO #, job, attention, worker" oninput="renderAdminWorkOrders()">
-        </div>
-        <div>
-            <label>Status</label>
-            <select id="adminWorkOrderStatus" onchange="renderAdminWorkOrders()">
-                <option value="">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="ready_for_submission">Ready For Submission</option>
-                <option value="submitted">Submitted</option>
-            </select>
-        </div>
-    </div>
     <div class="actions" style="margin-top:10px;">
         <button class="secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
         <button type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
@@ -3238,7 +3402,33 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
     </details>
     <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
-    <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
+    <div class="admin-wo-management">
+        <div class="wo-management-tabs" aria-label="Admin Work Order Management Views">
+            <button id="adminWoActiveTabButton" type="button" class="active" onclick="setAdminWorkOrderManagementView('active')">Active WOs</button>
+            <button id="adminWoSubmittedTabButton" type="button" onclick="setAdminWorkOrderManagementView('submitted')">Submitted WOs</button>
+        </div>
+        <div class="filters">
+            <div>
+                <label>Search</label>
+                <input id="adminWorkOrderSearch" type="search" placeholder="WO #, job, attention, worker" oninput="renderAdminWorkOrders()">
+            </div>
+            <div>
+                <label>Status</label>
+                <select id="adminWorkOrderStatus" onchange="renderAdminWorkOrders()">
+                    <option value="">All Statuses</option>
+                    <option value="draft">Draft</option>
+                    <option value="ready_for_submission">Ready For Submission</option>
+                    <option value="submitted">Submitted</option>
+                </select>
+            </div>
+            <div>
+                <label>Date</label>
+                <input id="adminWorkOrderDate" type="date" onchange="renderAdminWorkOrders()">
+            </div>
+        </div>
+        <div id="adminWorkOrderListStatus" class="small">Loading Work Orders...</div>
+        <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
+    </div>
 </div>
 
 <div id="contactsSection" class="card" hidden>
@@ -3319,6 +3509,11 @@ button.admin-schedule-event-button.admin-event-vacation {
         <h3>Contacts for Selected Company</h3>
         <div id="supplierSelectedCompany" class="small" style="margin-bottom:10px;">Select a company below, or save a new company first.</div>
         <div class="filters">
+            <div class="full">
+                <label>Company</label>
+                <input id="supplierContactCompanySearch" list="supplierContactCompanyOptions" placeholder="Start typing company name" autocomplete="off">
+                <datalist id="supplierContactCompanyOptions"></datalist>
+            </div>
             <div>
                 <label>Contact Name</label>
                 <input id="supplierContactName" placeholder="Example: John Smith">
@@ -3329,7 +3524,7 @@ button.admin-schedule-event-button.admin-event-vacation {
             </div>
             <div>
                 <label>Phone</label>
-                <input id="supplierContactPhone" placeholder="Phone number">
+                <input id="supplierContactPhone" inputmode="tel" placeholder="Example: (613) 555-1234">
             </div>
             <div>
                 <label>Email</label>
@@ -3436,6 +3631,7 @@ let workOrderPurchaseOrders = [];
 let workOrderEquipmentRows = [];
 let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
+let adminWorkOrderManagementView = "active";
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
@@ -6788,23 +6984,6 @@ async function renderEmployeeProfile() {
     const lastTimesheet = timesheets
         .filter((week) => employeeMatchesAny(account, week, ["worker_name"]))
         .sort((a, b) => String(b.submitted_at || "").localeCompare(String(a.submitted_at || "")))[0];
-    const lastActivity = getLatestEmployeeProfileActivity(
-        timesheetEntries
-            .concat(vacationRows)
-            .concat(certificateRows)
-            .concat(inspectionRows)
-            .concat(dailyReportRows)
-            .concat(toolboxRows)
-            .concat(announcementRows)
-            .concat(workOrderRows)
-            .concat(equipmentRows),
-        ["savedAt", "created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
-    );
-    const profileActivity = getLatestEmployeeProfileDate([
-        account.last_portal_activity,
-        account.last_login_at,
-        lastActivity
-    ]);
     const profileLogin = getLatestEmployeeProfileDate([
         account.last_login_at,
         account.last_portal_activity
@@ -6823,7 +7002,6 @@ async function renderEmployeeProfile() {
                 <div class="profile-fact"><span class="profile-fact-icon">POS</span><div><strong>Position</strong><div class="small">${escapeHtml(account.position || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">DEP</span><div><strong>Department</strong><div class="small">${escapeHtml(account.department || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">LOG</span><div><strong>Last Login</strong><div class="small">${escapeHtml(profileLogin ? formatDate(profileLogin) : "Not logged yet")}</div></div></div>
-                <div class="profile-fact"><span class="profile-fact-icon">ACT</span><div><strong>Portal Activity</strong><div class="small">${escapeHtml(profileActivity ? formatDate(profileActivity) : "None")}</div></div></div>
             </div>
         </div>
     `;
@@ -6847,7 +7025,6 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "noticePolicy")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
             ${renderEmployeeProfileTile("Last Login", profileLogin ? formatDate(profileLogin) : "Not logged yet", "Most recent successful login")}
-            ${renderEmployeeProfileTile("Last Activity", profileActivity ? formatDate(profileActivity) : "None", "Latest saved portal activity")}
         </div>
 
         <div class="profile-two-column profile-section">
@@ -13363,6 +13540,88 @@ function getAdminWorkOrderStatusLabel(status) {
     return capitalizeWords(status || "draft");
 }
 
+function parseAdminWorkOrderLocalDate(value) {
+    const parts = String(value || "").split("-").map(Number);
+    if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+        return null;
+    }
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+function getAdminFollowingMonday(workOrderDateValue) {
+    const date = parseAdminWorkOrderLocalDate(workOrderDateValue);
+    if (!date) {
+        return null;
+    }
+
+    const monday = new Date(date);
+    const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
+    monday.setDate(monday.getDate() + daysUntilMonday);
+    monday.setHours(8, 0, 0, 0);
+    return monday;
+}
+
+function formatAdminWorkOrderGateTime(date) {
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHour = hours % 12 || 12;
+    return displayHour + ":" + minutes + " " + period;
+}
+
+function isAdminWorkOrderPendingSubmission(wo) {
+    const waitingFor = Array.isArray(wo && wo.waiting_for) ? wo.waiting_for : [];
+    return Boolean(wo && wo.status === "ready_for_submission" && wo.labour_complete && !waitingFor.length && !wo.locked);
+}
+
+function getAdminPendingSubmissionDateLabel(wo) {
+    const monday = getAdminFollowingMonday(wo && wo.work_order_date);
+    return monday
+        ? monday.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) + " " + formatAdminWorkOrderGateTime(monday)
+        : "Monday";
+}
+
+function getAdminWorkOrderStatusText(wo) {
+    if (wo && wo.locked && wo.status !== "submitted") {
+        return "Submitting";
+    }
+
+    if (isAdminWorkOrderPendingSubmission(wo)) {
+        return "Pending Submission " + getAdminPendingSubmissionDateLabel(wo);
+    }
+
+    const label = getAdminWorkOrderStatusLabel(wo && wo.status);
+    const submittedDate = wo && wo.submitted_at ? formatDate(wo.submitted_at) : "";
+
+    if ((wo && wo.status) === "submitted" && submittedDate) {
+        return label + " - " + submittedDate;
+    }
+
+    return label;
+}
+
+function isAdminWorkOrderSubmittedForManagement(wo) {
+    return Boolean(wo && (wo.locked || wo.status === "submitted" || isAdminWorkOrderPendingSubmission(wo)));
+}
+
+function setAdminWorkOrderManagementView(view) {
+    adminWorkOrderManagementView = view === "submitted" ? "submitted" : "active";
+    renderAdminWorkOrders();
+}
+
+function updateAdminWorkOrderManagementTabs() {
+    const activeButton = document.getElementById("adminWoActiveTabButton");
+    const submittedButton = document.getElementById("adminWoSubmittedTabButton");
+
+    if (activeButton) {
+        activeButton.classList.toggle("active", adminWorkOrderManagementView === "active");
+    }
+
+    if (submittedButton) {
+        submittedButton.classList.toggle("active", adminWorkOrderManagementView === "submitted");
+    }
+}
+
 function getAdminWorkOrderLabourRows(id) {
     return workOrderLabourRows.filter((row) => row.work_order_id === id);
 }
@@ -13374,6 +13633,7 @@ function getAdminWorkOrderPoCount(id) {
 function renderAdminWorkOrders() {
     const summary = document.getElementById("adminWorkOrdersSummary");
     const list = document.getElementById("adminWorkOrdersList");
+    const listStatus = document.getElementById("adminWorkOrderListStatus");
 
     if (!summary || !list) {
         return;
@@ -13381,6 +13641,7 @@ function renderAdminWorkOrders() {
 
     const search = (document.getElementById("adminWorkOrderSearch")?.value || "").trim().toLowerCase();
     const statusFilter = document.getElementById("adminWorkOrderStatus")?.value || "";
+    const dateFilter = document.getElementById("adminWorkOrderDate")?.value || "";
     const submitted = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "submitted").length;
     const ready = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "ready_for_submission").length;
     const draft = workOrders.filter((wo) => String(wo.status || "").toLowerCase() === "draft" || !wo.status).length;
@@ -13401,12 +13662,19 @@ function renderAdminWorkOrders() {
             wo.job_number,
             wo.job_name,
             wo.status,
+            wo.created_by_name,
+            wo.supervisor_name,
             labour.map((row) => row.employee_name).join(" ")
         ].join(" ").toLowerCase();
+        const isSubmitted = isAdminWorkOrderSubmittedForManagement(wo);
 
         return (!search || text.includes(search)) &&
-            (!statusFilter || String(wo.status || "draft") === statusFilter);
+            (adminWorkOrderManagementView === "submitted" ? isSubmitted : !isSubmitted) &&
+            (!statusFilter || String(wo.status || "draft") === statusFilter) &&
+            (!dateFilter || wo.work_order_date === dateFilter);
     });
+
+    updateAdminWorkOrderManagementTabs();
 
     summary.innerHTML = `
         <div class="summary-grid">
@@ -13418,13 +13686,17 @@ function renderAdminWorkOrders() {
         </div>
     `;
 
+    if (listStatus) {
+        listStatus.textContent = filtered.length + " " + (adminWorkOrderManagementView === "submitted" ? "submitted" : "active") + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
+    }
+
     if (!filtered.length) {
-        list.textContent = "No Work Orders found.";
+        list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (adminWorkOrderManagementView === "submitted" ? "submitted" : "active") + ' Work Orders found.</div>';
         return;
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
+        <div class="table-wrap admin-wo-management-table">
             <table>
                 <thead>
                     <tr>
@@ -13432,10 +13704,10 @@ function renderAdminWorkOrders() {
                         <th>Date</th>
                         <th>Attention</th>
                         <th>Job</th>
+                        <th>Creator</th>
                         <th>Status</th>
                         <th>Labour</th>
                         <th>POs</th>
-                        <th>Submitted</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -13443,20 +13715,23 @@ function renderAdminWorkOrders() {
                     ${filtered.map((wo) => {
                         const labour = getAdminWorkOrderLabourRows(wo.id);
                         const completeCount = labour.filter((row) => row.complete).length;
+                        const isLocked = Boolean(wo.locked || wo.status === "submitted");
+                        const isPendingSubmission = isAdminWorkOrderPendingSubmission(wo);
+                        const statusClass = escapeHtml(wo.status || "draft");
                         return `
                             <tr>
                                 <td>${escapeHtml(wo.wo_number || "")}</td>
                                 <td>${escapeHtml(wo.work_order_date || "")}</td>
                                 <td>${escapeHtml(wo.customer || "")}</td>
                                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
-                                <td>${escapeHtml(getAdminWorkOrderStatusLabel(wo.status))}</td>
+                                <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
+                                <td><span class="pill ${statusClass} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getAdminWorkOrderStatusText(wo))}</span></td>
                                 <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
                                 <td>${getAdminWorkOrderPoCount(wo.id)}</td>
-                                <td>${escapeHtml(wo.submitted_at ? formatDate(wo.submitted_at) : "-")}</td>
                                 <td>
                                     <div class="actions">
-                                        <button type="button" class="secondary" onclick="window.location.href='work-orders.html'">Open</button>
-                                        ${String(wo.status || "").toLowerCase() === "ready_for_submission" && !wo.locked ? `<button type="button" class="secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
+                                        <button type="button" class="secondary" onclick="window.location.href='work-orders.html'">${isLocked ? "View" : "Open"}</button>
+                                        ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
                                         <button type="button" class="delete-button" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
                                     </div>
                                 </td>
@@ -13967,6 +14242,66 @@ function getSubcontractorSupplierContacts(companyId) {
         );
 }
 
+function normalizeSupplierCompanyText(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function formatSupplierPhoneNumber(value) {
+    const raw = String(value || "").trim();
+    const digits = raw.replace(/\D/g, "");
+
+    if (digits.length === 10) {
+        return "(" + digits.slice(0, 3) + ") " + digits.slice(3, 6) + "-" + digits.slice(6);
+    }
+
+    if (digits.length === 11 && digits.charAt(0) === "1") {
+        return "+1 (" + digits.slice(1, 4) + ") " + digits.slice(4, 7) + "-" + digits.slice(7);
+    }
+
+    return raw;
+}
+
+function syncSupplierContactCompanyOptions() {
+    const options = document.getElementById("supplierContactCompanyOptions");
+
+    if (!options) {
+        return;
+    }
+
+    options.innerHTML = subcontractorSuppliers.map((entry) =>
+        `<option value="${escapeHtml(entry.company_name || "")}"></option>`
+    ).join("");
+}
+
+function resolveSupplierCompanyFromInput() {
+    const input = document.getElementById("supplierContactCompanySearch");
+    const typed = normalizeSupplierCompanyText(input ? input.value : "");
+
+    if (!typed) {
+        return null;
+    }
+
+    return subcontractorSuppliers.find((entry) =>
+        normalizeSupplierCompanyText(entry.company_name) === typed
+    ) || null;
+}
+
+function selectSupplierCompanyFromSearch(options = {}) {
+    const selected = resolveSupplierCompanyFromInput();
+
+    if (!selected) {
+        if (options.requireMatch) {
+            alert("Choose a company from the Company box before adding the contact.");
+        }
+        return null;
+    }
+
+    selectedSubcontractorSupplierId = selected.id;
+    updateSubcontractorSupplierContactSelection();
+    renderSubcontractorSuppliers();
+    return selected;
+}
+
 function clearSubcontractorSupplierContactForm(options = {}) {
     editingSubcontractorSupplierContactId = "";
     document.getElementById("supplierContactName").value = "";
@@ -13979,6 +14314,10 @@ function clearSubcontractorSupplierContactForm(options = {}) {
 
     if (!options.keepCompany) {
         selectedSubcontractorSupplierId = "";
+        const companyInput = document.getElementById("supplierContactCompanySearch");
+        if (companyInput) {
+            companyInput.value = "";
+        }
     }
 
     updateSubcontractorSupplierContactSelection();
@@ -13988,6 +14327,7 @@ function clearSubcontractorSupplierContactForm(options = {}) {
 function updateSubcontractorSupplierContactSelection() {
     const selected = getSubcontractorSupplierById(selectedSubcontractorSupplierId);
     const label = document.getElementById("supplierSelectedCompany");
+    const companyInput = document.getElementById("supplierContactCompanySearch");
 
     if (!label) {
         return;
@@ -13996,6 +14336,10 @@ function updateSubcontractorSupplierContactSelection() {
     label.textContent = selected
         ? "Adding contacts for: " + selected.company_name
         : "Select a company below, or save a new company first.";
+
+    if (companyInput && selected) {
+        companyInput.value = selected.company_name || "";
+    }
 }
 
 function selectSubcontractorSupplierForContact(id) {
@@ -14008,6 +14352,7 @@ function selectSubcontractorSupplierForContact(id) {
 
     selectedSubcontractorSupplierId = selected.id;
     clearSubcontractorSupplierContactForm({ keepCompany: true });
+    renderSubcontractorSuppliers();
     setSubcontractorSupplierContactStatus("Ready to add a contact for " + selected.company_name + ".");
 }
 
@@ -14039,6 +14384,7 @@ function editSubcontractorSupplier(id) {
     document.getElementById("supplierSaveButton").textContent = "Update Company";
     selectedSubcontractorSupplierId = id;
     updateSubcontractorSupplierContactSelection();
+    renderSubcontractorSuppliers();
     setSubcontractorSupplierStatus("Editing " + (entry.company_name || "company") + ".");
 }
 
@@ -14051,11 +14397,12 @@ function renderSubcontractorSupplierContactList(entry) {
 
     return rows.map((contact) => {
         const contactName = String(contact.contact_name || "").trim();
+        const phoneDisplay = formatSupplierPhoneNumber(contact.phone || "");
         return `
         <div class="detail-item supplier-contact-card" style="margin-bottom:8px;">
             <strong>${escapeHtml(contactName || "Unnamed contact")}</strong>
             ${contact.role ? '<div>' + escapeHtml(contact.role) + '</div>' : ""}
-            ${contact.phone ? '<div><a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
+            ${phoneDisplay ? '<div><a href="tel:' + escapeHtml(phoneDisplay) + '">' + escapeHtml(phoneDisplay) + '</a></div>' : ""}
             ${contact.email ? '<div><a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
             ${contact.notes ? '<div class="small">' + escapeHtml(contact.notes) + '</div>' : ""}
             <div class="actions" style="margin-top:6px;">
@@ -14065,6 +14412,44 @@ function renderSubcontractorSupplierContactList(entry) {
         </div>
     `;
     }).join("");
+}
+
+function renderSubcontractorSupplierCompanyPanel(entry) {
+    const contacts = getSubcontractorSupplierContacts(entry.id);
+    const isOpen = String(entry.id) === String(selectedSubcontractorSupplierId) ||
+        String(entry.id) === String(editingSubcontractorSupplierId) ||
+        contacts.some((contact) => String(contact.id) === String(editingSubcontractorSupplierContactId));
+    const companyMeta = [entry.category, entry.service_type].filter(Boolean).join(" - ") || "No category or trade entered";
+    const contactCount = contacts.length + " contact" + (contacts.length === 1 ? "" : "s");
+
+    return `
+        <details class="supplier-company-panel" ${isOpen ? "open" : ""}>
+            <summary class="supplier-company-summary">
+                <span class="supplier-company-title">
+                    <strong>${escapeHtml(entry.company_name || "Unnamed company")}</strong>
+                    <span>${escapeHtml(companyMeta)}</span>
+                </span>
+                <span class="supplier-company-count">${escapeHtml(contactCount)}</span>
+            </summary>
+            <div class="supplier-company-body">
+                <div class="supplier-company-meta-grid">
+                    <div class="supplier-company-meta"><strong>Category</strong>${escapeHtml(entry.category || "-")}</div>
+                    <div class="supplier-company-meta"><strong>Service / Trade</strong>${escapeHtml(entry.service_type || "-")}</div>
+                    <div class="supplier-company-meta"><strong>Order</strong>${Number(entry.sort_order || 0)}</div>
+                    <div class="supplier-company-meta"><strong>Notes</strong>${escapeHtml(entry.notes || "-")}</div>
+                </div>
+                <h3 style="margin:0 0 8px;color:#32dc55;">Contacts</h3>
+                <div class="supplier-company-contacts">
+                    ${contacts.length ? renderSubcontractorSupplierContactList(entry) : '<div class="small">No contacts added yet.</div>'}
+                </div>
+                <div class="actions">
+                    <button type="button" class="secondary" onclick="editSubcontractorSupplier('${escapeHtml(entry.id)}')">Edit Company</button>
+                    <button type="button" onclick="selectSubcontractorSupplierForContact('${escapeHtml(entry.id)}')">Add Contact</button>
+                    <button type="button" class="delete-button" onclick="deleteSubcontractorSupplier('${escapeHtml(entry.id)}')">Delete Company</button>
+                </div>
+            </div>
+        </details>
+    `;
 }
 
 function renderSubcontractorSuppliers() {
@@ -14080,39 +14465,9 @@ function renderSubcontractorSuppliers() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Company</th>
-                        <th>Category</th>
-                        <th>Service / Trade</th>
-                        <th>Contacts</th>
-                        <th>Notes</th>
-                        <th>Order</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${subcontractorSuppliers.map((entry) => `
-                        <tr>
-                            <td>${escapeHtml(entry.company_name)}</td>
-                            <td>${escapeHtml(entry.category || "")}</td>
-                            <td>${escapeHtml(entry.service_type || "")}</td>
-                            <td>${renderSubcontractorSupplierContactList(entry)}</td>
-                            <td>${escapeHtml(entry.notes || "")}</td>
-                            <td>${Number(entry.sort_order || 0)}</td>
-                            <td>
-                                <div class="actions">
-                                    <button type="button" class="secondary" onclick="editSubcontractorSupplier('${escapeHtml(entry.id)}')">Edit Company</button>
-                                    <button type="button" onclick="selectSubcontractorSupplierForContact('${escapeHtml(entry.id)}')">Add Contact</button>
-                                    <button type="button" class="delete-button" onclick="deleteSubcontractorSupplier('${escapeHtml(entry.id)}')">Delete Company</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
+        <div class="small" style="margin-bottom:8px;">${subcontractorSuppliers.length} compan${subcontractorSuppliers.length === 1 ? "y" : "ies"} shown. Open a company to view contacts or edit it.</div>
+        <div class="supplier-company-list">
+            ${subcontractorSuppliers.map(renderSubcontractorSupplierCompanyPanel).join("")}
         </div>
     `;
 }
@@ -14157,6 +14512,7 @@ async function loadSubcontractorSuppliers() {
         updateSubcontractorSupplierContactSelection();
     }
 
+    syncSupplierContactCompanyOptions();
     renderSubcontractorSuppliers();
     renderPortalSummary();
 }
@@ -14265,26 +14621,32 @@ function editSubcontractorSupplierContact(id) {
     editingSubcontractorSupplierContactId = id;
     document.getElementById("supplierContactName").value = contact.contact_name || "";
     document.getElementById("supplierContactRole").value = contact.role || "";
-    document.getElementById("supplierContactPhone").value = contact.phone || "";
+    document.getElementById("supplierContactPhone").value = formatSupplierPhoneNumber(contact.phone || "");
     document.getElementById("supplierContactEmail").value = contact.email || "";
     document.getElementById("supplierContactOrder").value = contact.sort_order || 0;
     document.getElementById("supplierContactNotes").value = contact.notes || "";
     document.getElementById("supplierContactSaveButton").textContent = "Update Contact";
     updateSubcontractorSupplierContactSelection();
+    renderSubcontractorSuppliers();
     setSubcontractorSupplierContactStatus("Editing " + (contact.contact_name || "contact") + ".");
 }
 
 async function saveSubcontractorSupplierContact() {
-    const selected = getSubcontractorSupplierById(selectedSubcontractorSupplierId);
+    let selected = getSubcontractorSupplierById(selectedSubcontractorSupplierId);
+    const typedCompany = resolveSupplierCompanyFromInput();
+    if (typedCompany) {
+        selectedSubcontractorSupplierId = typedCompany.id;
+        selected = typedCompany;
+    }
     const contactName = document.getElementById("supplierContactName").value.trim();
     const role = document.getElementById("supplierContactRole").value.trim();
-    const phone = document.getElementById("supplierContactPhone").value.trim();
+    const phone = formatSupplierPhoneNumber(document.getElementById("supplierContactPhone").value);
     const email = document.getElementById("supplierContactEmail").value.trim();
     const notes = document.getElementById("supplierContactNotes").value.trim();
     const sortOrder = Number(document.getElementById("supplierContactOrder").value || 0);
 
     if (!selected) {
-        alert("Select or save a company before adding contacts.");
+        selectSupplierCompanyFromSearch({ requireMatch: true });
         return;
     }
 
@@ -14543,6 +14905,29 @@ async function deleteVacationRequest(id) {
 
 async function signOut() {
     await signOutJgc(supabaseClient);
+}
+
+const supplierContactCompanySearchInput = document.getElementById("supplierContactCompanySearch");
+if (supplierContactCompanySearchInput) {
+    supplierContactCompanySearchInput.addEventListener("input", () => {
+        selectSupplierCompanyFromSearch();
+    });
+    supplierContactCompanySearchInput.addEventListener("change", () => {
+        selectSupplierCompanyFromSearch();
+    });
+}
+
+const supplierContactPhoneInput = document.getElementById("supplierContactPhone");
+if (supplierContactPhoneInput) {
+    supplierContactPhoneInput.addEventListener("input", () => {
+        const digits = supplierContactPhoneInput.value.replace(/\D/g, "");
+        if (digits.length === 10 || (digits.length === 11 && digits.charAt(0) === "1")) {
+            supplierContactPhoneInput.value = formatSupplierPhoneNumber(supplierContactPhoneInput.value);
+        }
+    });
+    supplierContactPhoneInput.addEventListener("blur", () => {
+        supplierContactPhoneInput.value = formatSupplierPhoneNumber(supplierContactPhoneInput.value);
+    });
 }
 
 showTab(getRequestedAdminTab(), { persist: false });
