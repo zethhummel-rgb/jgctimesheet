@@ -298,17 +298,13 @@ button:hover {
 <div class="tabs">
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
-    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Employee Profiles</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button type="button" class="tab-button" onclick="window.location.href='certificates-admin.html'">Certificates</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
-    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
-    <button type="button" class="tab-button" onclick="window.location.href='field-calculator.html'">Calculator</button>
-    <button type="button" class="tab-button active">Accounts</button>
+    <button type="button" class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
 </div>
 
 <div class="logo-wrap">
@@ -320,7 +316,7 @@ button:hover {
 
 <div class="actions">
     <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
-    <button class="secondary" type="button" onclick="window.location.href='admin.html'">Back to Admin</button>
+    <button class="secondary" type="button" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
     <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
