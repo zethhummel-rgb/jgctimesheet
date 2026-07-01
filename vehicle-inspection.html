@@ -358,6 +358,19 @@ button:disabled {
 
     <section id="statusCard" class="card status-card">Loading vehicle inspection...</section>
 
+    <section id="manualVehicleCard" class="card" hidden>
+        <h2>Select Vehicle / Unit</h2>
+        <div class="form-grid" style="margin-top:12px;">
+            <div class="field full">
+                <label for="manualVehicleSelect">Vehicle / Trailer</label>
+                <select id="manualVehicleSelect">
+                    <option value="">Select vehicle or trailer</option>
+                </select>
+            </div>
+        </div>
+        <div class="small" style="margin-top:10px;">Use this if the QR code is missing, damaged, or not available.</div>
+    </section>
+
     <section id="assetCard" class="card" hidden>
         <h2 id="assetTitle">Vehicle</h2>
         <div class="asset-grid" id="assetFacts" style="margin-top:12px;"></div>
@@ -471,6 +484,7 @@ const SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const params = new URLSearchParams(window.location.search);
 const VEHICLE_ID = params.get("vehicle_id") || "";
 const QR_TOKEN = params.get("token") || "";
+const MANUAL_MODE = params.get("mode") === "manual" || params.get("manual") === "1";
 const client = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const VEHICLE_ITEMS = [
@@ -539,6 +553,7 @@ const ITEM_HELP = {
 
 const state = {
     vehicle: null,
+    vehicles: [],
     employees: [],
     trailers: [],
     selectedTrailer1: null,
@@ -574,6 +589,10 @@ function setStatus(message, isError) {
     card.textContent = message || "";
     card.hidden = !message;
     card.classList.toggle("error", Boolean(isError));
+}
+
+function getCurrentWorkerDisplay() {
+    return localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker") || "";
 }
 
 function getAssetLicense(asset) {
@@ -692,6 +711,72 @@ function renderAssetCard() {
             <strong>${pageEscape(value || "-")}</strong>
         </div>
     `).join("");
+}
+
+function renderManualVehicleSelect() {
+    const card = document.getElementById("manualVehicleCard");
+    const select = document.getElementById("manualVehicleSelect");
+    card.hidden = false;
+
+    select.innerHTML = `
+        <option value="">Select vehicle or trailer</option>
+        ${state.vehicles.map((asset) => {
+            const plate = getAssetLicense(asset);
+            const name = getAssetDisplayName(asset) || asset.name || "Vehicle";
+            const type = asset.equipment_type || asset.asset_category || "";
+            const label = [plate, name, type].filter(Boolean).join(" - ");
+            return `<option value="${pageEscape(asset.id)}">${pageEscape(label)}</option>`;
+        }).join("")}
+    `;
+}
+
+function getManualVehicleById(id) {
+    return state.vehicles.find((vehicle) => vehicle.id === id) || null;
+}
+
+function resetInspectionEntry() {
+    state.responses = {};
+    state.selectedTrailer1 = null;
+    state.selectedTrailer2 = null;
+    state.lastRecord = null;
+    document.getElementById("inspectionDate").value = todayString();
+    document.getElementById("inspectionTime").value = currentTimeString();
+    document.getElementById("inspectionLocation").value = "";
+    document.getElementById("inspectionOdometer").value = "";
+    document.getElementById("repairNotes").value = "";
+    selectInspectionType("pre");
+}
+
+async function selectManualVehicle() {
+    const selectedId = document.getElementById("manualVehicleSelect").value;
+    const vehicle = getManualVehicleById(selectedId);
+
+    if (!vehicle) {
+        state.vehicle = null;
+        document.getElementById("assetCard").hidden = true;
+        document.getElementById("todayCard").hidden = true;
+        document.getElementById("inspectionForm").hidden = true;
+        document.getElementById("historyCard").hidden = true;
+        return;
+    }
+
+    state.vehicle = vehicle;
+    resetInspectionEntry();
+    document.getElementById("vehicleLicense").value = getAssetLicense(vehicle);
+    document.getElementById("vehicleJurisdiction").value = vehicle.jurisdiction || "";
+    document.getElementById("inspectionOdometer").required = vehicle.odometer_required !== false;
+
+    renderAssetCard();
+    renderTrailerSelects();
+    renderInspectionItems();
+    setStatus("");
+    await loadHistory();
+
+    if (state.lastRecord && state.lastRecord.status === "submitted") {
+        showTodayView(state.lastRecord);
+    } else {
+        showInspectionForm();
+    }
 }
 
 function renderTrailerSelects() {
@@ -856,6 +941,11 @@ function getDefectSummary(formData) {
 }
 
 async function saveInspection(status) {
+    if (!state.vehicle || !state.vehicle.id) {
+        setStatus("Select a vehicle or trailer before saving this inspection.", true);
+        return;
+    }
+
     const driver = getSelectedDriver();
     if (!driver.name || driver.name.length < 2) {
         setStatus("Select an employee name or enter a manual driver name.", true);
@@ -921,11 +1011,17 @@ async function saveInspection(status) {
     setStatus(status === "draft" ? "Saving draft..." : "Submitting inspection...");
 
     try {
-        const { data, error } = await client.rpc("submit_vehicle_qr_inspection", {
-            p_vehicle_id: VEHICLE_ID,
-            p_token: QR_TOKEN,
-            p_record: payload
-        });
+        const request = MANUAL_MODE
+            ? client.rpc("submit_vehicle_manual_inspection", {
+                p_vehicle_id: state.vehicle.id,
+                p_record: payload
+            })
+            : client.rpc("submit_vehicle_qr_inspection", {
+                p_vehicle_id: VEHICLE_ID,
+                p_token: QR_TOKEN,
+                p_record: payload
+            });
+        const { data, error } = await request;
         const result = Array.isArray(data) ? data[0] : data;
 
         if (error || !result || result.success === false) {
@@ -993,10 +1089,15 @@ async function loadHistory() {
         return;
     }
 
-    const { data, error } = await client.rpc("get_vehicle_qr_inspection", {
-        p_vehicle_id: VEHICLE_ID,
-        p_token: QR_TOKEN
-    });
+    const request = MANUAL_MODE
+        ? client.rpc("get_vehicle_manual_inspection_history", {
+            p_vehicle_id: state.vehicle.id
+        })
+        : client.rpc("get_vehicle_qr_inspection", {
+            p_vehicle_id: VEHICLE_ID,
+            p_token: QR_TOKEN
+        });
+    const { data, error } = await request;
     const row = Array.isArray(data) ? data[0] : data;
 
     if (!error && row) {
@@ -1096,7 +1197,45 @@ async function requireQrClient() {
     return true;
 }
 
+async function loadManualVehicleInspection() {
+    const ready = await requireQrClient();
+    if (!ready) {
+        return;
+    }
+
+    const signedInAs = getCurrentWorkerDisplay();
+    document.getElementById("signedInAs").textContent = signedInAs
+        ? "Signed in as: " + signedInAs
+        : "Select an employee name before submitting.";
+
+    setStatus("Loading vehicles...");
+
+    const { data, error } = await client.rpc("get_vehicle_manual_inspection_data");
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (error || !row) {
+        setStatus("Vehicle inspection list could not be loaded. Make sure the Supabase manual vehicle inspection setup has been run. " + (error ? error.message : ""), true);
+        return;
+    }
+
+    state.vehicles = Array.isArray(row.vehicles) ? row.vehicles : [];
+    state.trailers = Array.isArray(row.trailers) ? row.trailers : [];
+    state.employees = Array.isArray(row.employees) ? row.employees : [];
+    state.history = [];
+    state.lastRecord = null;
+
+    renderManualVehicleSelect();
+    renderDriverSelect();
+    renderTrailerSelects();
+    setStatus(state.vehicles.length ? "Select a vehicle or trailer to start the inspection." : "No active vehicles or trailers were found.", !state.vehicles.length);
+}
+
 async function loadVehicleInspection() {
+    if (MANUAL_MODE) {
+        await loadManualVehicleInspection();
+        return;
+    }
+
     if (!VEHICLE_ID || !QR_TOKEN) {
         setStatus("This QR link is missing its vehicle information.", true);
         return;
@@ -1126,6 +1265,7 @@ async function loadVehicleInspection() {
     state.history = Array.isArray(row.history) ? row.history : [];
     state.lastRecord = state.history.find((record) => record.inspection_date === todayString()) || null;
 
+    document.getElementById("signedInAs").textContent = "Employee login not required for QR inspection.";
     document.getElementById("inspectionDate").value = todayString();
     document.getElementById("inspectionTime").value = currentTimeString();
     document.getElementById("vehicleLicense").value = getAssetLicense(state.vehicle);
@@ -1147,6 +1287,7 @@ async function loadVehicleInspection() {
 }
 
 document.getElementById("driverSelect").addEventListener("change", updateDriverFields);
+document.getElementById("manualVehicleSelect").addEventListener("change", selectManualVehicle);
 document.getElementById("trailer1Select").addEventListener("change", updateTrailerSelections);
 document.getElementById("trailer2Select").addEventListener("change", updateTrailerSelections);
 document.getElementById("inspectionForm").addEventListener("submit", function(event) {
