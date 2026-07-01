@@ -69,6 +69,36 @@ h1 {
     padding: 16px;
 }
 
+.supplier-search {
+    margin-bottom: 14px;
+}
+
+.supplier-search label {
+    display: block;
+    margin-bottom: 5px;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.supplier-search input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    border: 1px solid rgba(199, 221, 211, 0.34);
+    border-radius: 6px;
+    background: #f7fbf6;
+    color: #102018;
+    font-size: 16px;
+}
+
+.supplier-search input::placeholder {
+    color: #5d6b60;
+}
+
+.supplier-results-summary {
+    margin-bottom: 10px;
+}
+
 .contacts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -179,6 +209,10 @@ button:hover {
 </div>
 
 <div class="panel">
+    <div class="supplier-search">
+        <label for="subcontractorSupplierSearch">Search</label>
+        <input id="subcontractorSupplierSearch" type="search" placeholder="Search company, trade, contact, phone, email">
+    </div>
     <div id="subcontractorsSuppliersList" class="small">Loading subcontractors and suppliers...</div>
 </div>
 
@@ -189,8 +223,99 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display;
+let subcontractorSupplierEntries = [];
+let subcontractorSupplierContacts = [];
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+document.getElementById("subcontractorSupplierSearch").addEventListener("input", renderSubcontractorsSuppliers);
+
+function getSubcontractorSupplierContacts(companyId) {
+    return subcontractorSupplierContacts.filter((contact) => String(contact.company_id) === String(companyId));
+}
+
+function renderSupplierContacts(entry) {
+    const rows = getSubcontractorSupplierContacts(entry.id);
+
+    if (!rows.length) {
+        return '<div class="contact-line small">No contacts listed yet.</div>';
+    }
+
+    return `
+        <div class="supplier-contact-list">
+            ${rows.map((contact) => `
+                <div class="supplier-contact">
+                    <div><strong>${escapeHtml(contact.contact_name || "Contact")}</strong>${contact.role ? " - " + escapeHtml(contact.role) : ""}</div>
+                    ${contact.phone ? '<div class="contact-line"><strong>Phone:</strong> <a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
+                    ${contact.email ? '<div class="contact-line"><strong>Email:</strong> <a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
+                    ${contact.notes ? '<div class="contact-line small">' + escapeHtml(contact.notes) + '</div>' : ""}
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function supplierSearchText(entry) {
+    const contactText = getSubcontractorSupplierContacts(entry.id)
+        .map((contact) => [
+            contact.contact_name,
+            contact.role,
+            contact.phone,
+            contact.email,
+            contact.notes
+        ].filter(Boolean).join(" "))
+        .join(" ");
+
+    return [
+        entry.company_name,
+        entry.category,
+        entry.service_type,
+        entry.notes,
+        contactText
+    ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function companyCountLabel(count) {
+    return count + " compan" + (count === 1 ? "y" : "ies");
+}
+
+function renderSubcontractorsSuppliers() {
+    const list = document.getElementById("subcontractorsSuppliersList");
+    const searchInput = document.getElementById("subcontractorSupplierSearch");
+    const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : "";
+
+    if (!subcontractorSupplierEntries.length) {
+        list.textContent = "No subcontractors or suppliers have been added yet.";
+        return;
+    }
+
+    const visibleEntries = searchTerm
+        ? subcontractorSupplierEntries.filter((entry) => supplierSearchText(entry).includes(searchTerm))
+        : subcontractorSupplierEntries;
+
+    if (!visibleEntries.length) {
+        list.innerHTML = `<div class="small">No matches found for "${escapeHtml(searchTerm)}".</div>`;
+        return;
+    }
+
+    const summaryText = searchTerm
+        ? `${companyCountLabel(visibleEntries.length)} of ${companyCountLabel(subcontractorSupplierEntries.length)} shown.`
+        : `${companyCountLabel(subcontractorSupplierEntries.length)} shown.`;
+
+    list.innerHTML = `
+        <div class="small supplier-results-summary">${summaryText}</div>
+        <div class="contacts-grid">
+            ${visibleEntries.map((entry) => `
+                <article class="contact-card">
+                    <h2>${escapeHtml(entry.company_name)}</h2>
+                    ${entry.category ? '<div class="contact-role">' + escapeHtml(entry.category) + '</div>' : ""}
+                    ${entry.service_type ? '<div class="contact-line"><strong>Service:</strong> ' + escapeHtml(entry.service_type) + '</div>' : ""}
+                    ${entry.notes ? '<div class="contact-line small">' + escapeHtml(entry.notes) + '</div>' : ""}
+                    ${renderSupplierContacts(entry)}
+                </article>
+            `).join("")}
+        </div>
+    `;
+}
 
 async function loadSubcontractorsSuppliers() {
     const list = document.getElementById("subcontractorsSuppliersList");
@@ -212,15 +337,15 @@ async function loadSubcontractorsSuppliers() {
         return;
     }
 
-    const entries = companyResult.data || [];
+    subcontractorSupplierEntries = companyResult.data || [];
 
-    if (!entries.length) {
-        list.textContent = "No subcontractors or suppliers have been added yet.";
+    if (!subcontractorSupplierEntries.length) {
+        renderSubcontractorsSuppliers();
         return;
     }
 
-    const companyIds = entries.map((entry) => entry.id).filter(Boolean);
-    let contacts = [];
+    const companyIds = subcontractorSupplierEntries.map((entry) => entry.id).filter(Boolean);
+    subcontractorSupplierContacts = [];
 
     if (companyIds.length) {
         const contactResult = await supabaseClient
@@ -232,48 +357,11 @@ async function loadSubcontractorsSuppliers() {
             .order("contact_name", { ascending: true });
 
         if (!contactResult.error) {
-            contacts = contactResult.data || [];
+            subcontractorSupplierContacts = contactResult.data || [];
         }
     }
 
-    function getContacts(companyId) {
-        return contacts.filter((contact) => String(contact.company_id) === String(companyId));
-    }
-
-    function renderContacts(entry) {
-        const rows = getContacts(entry.id);
-
-        if (!rows.length) {
-            return '<div class="contact-line small">No contacts listed yet.</div>';
-        }
-
-        return `
-            <div class="supplier-contact-list">
-                ${rows.map((contact) => `
-                    <div class="supplier-contact">
-                        <div><strong>${escapeHtml(contact.contact_name || "Contact")}</strong>${contact.role ? " - " + escapeHtml(contact.role) : ""}</div>
-                        ${contact.phone ? '<div class="contact-line"><strong>Phone:</strong> <a href="tel:' + escapeHtml(contact.phone) + '">' + escapeHtml(contact.phone) + '</a></div>' : ""}
-                        ${contact.email ? '<div class="contact-line"><strong>Email:</strong> <a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
-                        ${contact.notes ? '<div class="contact-line small">' + escapeHtml(contact.notes) + '</div>' : ""}
-                    </div>
-                `).join("")}
-            </div>
-        `;
-    }
-
-    list.innerHTML = `
-        <div class="contacts-grid">
-            ${entries.map((entry) => `
-                <article class="contact-card">
-                    <h2>${escapeHtml(entry.company_name)}</h2>
-                    ${entry.category ? '<div class="contact-role">' + escapeHtml(entry.category) + '</div>' : ""}
-                    ${entry.service_type ? '<div class="contact-line"><strong>Service:</strong> ' + escapeHtml(entry.service_type) + '</div>' : ""}
-                    ${entry.notes ? '<div class="contact-line small">' + escapeHtml(entry.notes) + '</div>' : ""}
-                    ${renderContacts(entry)}
-                </article>
-            `).join("")}
-        </div>
-    `;
+    renderSubcontractorsSuppliers();
 }
 
 async function signOut() {
