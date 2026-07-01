@@ -82,6 +82,7 @@ label {
 }
 
 input[type=text],
+input[list],
 input[type=date],
 textarea {
     width: 100%;
@@ -207,9 +208,9 @@ button:hover {
 <div class="subtitle">All checks must be carried out in line with manufacturer's operator manual.</div>
 
 <div class="details-grid">
-    <div class="field"><label>Make and Model</label><input type="text"></div>
-    <div class="field"><label>Plant or Serial No.</label><input type="text"></div>
-    <div class="field"><label>Machine Hours</label><input type="text"></div>
+    <div class="field"><label>Telehandler</label><input id="telehandlerEquipment" type="text" list="telehandlerEquipmentOptions" placeholder="Select telehandler or type rented unit" onchange="fillTelehandlerDetails()" oninput="fillTelehandlerDetails()"><datalist id="telehandlerEquipmentOptions"></datalist></div>
+    <div class="field"><label>Plant or Serial No.</label><input id="telehandlerIdentification" type="text"></div>
+    <div class="field"><label>Machine Hours</label><input id="telehandlerHours" type="text"></div>
     <div class="field"><label>Date</label><input type="date"></div>
     <div class="field"><label>Site Location</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
 </div>
@@ -256,6 +257,7 @@ button:hover {
 <script>
 const workerName = localStorage.getItem("currentWorker");
 const workerDisplay = localStorage.getItem("currentWorkerDisplay") || workerName;
+let telehandlerEquipmentItems = [];
 const inspectionItems = [
     "Engine oil level / Leaks",
     "Fuel Level / Leaks",
@@ -294,18 +296,117 @@ document.getElementById("telehandlerRows").innerHTML = inspectionItems.map((item
     `;
 }).join("");
 
-function handleInspectionSave(type) {
+function getTelehandlerDisplay(item) {
+    const name = String(item.name || "").trim();
+    const id = String(item.identification_number || "").trim();
+    return id ? id + " - " + name : name;
+}
+
+function isTelehandlerEquipment(item) {
+    const text = [
+        item.name,
+        item.equipment_type,
+        item.identification_number,
+        item.notes
+    ].join(" ").toLowerCase();
+
+    return /\b(telehandler|tele-handler|tele handler)\b/.test(text);
+}
+
+function updateTelehandlerOptions() {
+    document.getElementById("telehandlerEquipmentOptions").innerHTML = telehandlerEquipmentItems
+        .slice()
+        .sort((a, b) => getTelehandlerDisplay(a).localeCompare(getTelehandlerDisplay(b), undefined, { numeric: true }))
+        .map((item) => '<option value="' + escapeHtml(getTelehandlerDisplay(item)) + '"></option>')
+        .join("");
+}
+
+function getSelectedTelehandlerEquipment() {
+    const selectedValue = document.getElementById("telehandlerEquipment").value.trim().toLowerCase();
+    return telehandlerEquipmentItems.find((item) => getTelehandlerDisplay(item).toLowerCase() === selectedValue) || null;
+}
+
+function fillTelehandlerDetails() {
+    const match = getSelectedTelehandlerEquipment();
+
+    if (!match) {
+        return;
+    }
+
+    document.getElementById("telehandlerIdentification").value = match.identification_number || "";
+    document.getElementById("telehandlerHours").value = match.current_hours !== null && match.current_hours !== undefined ? match.current_hours : "";
+}
+
+async function loadTelehandlerEquipmentOptions() {
+    if (!inspectionSupabaseClient) {
+        return;
+    }
+
+    const { data, error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+    if (error) {
+        console.warn("Telehandler equipment could not be loaded.", error);
+        return;
+    }
+
+    telehandlerEquipmentItems = (data || []).filter(isTelehandlerEquipment);
+    updateTelehandlerOptions();
+}
+
+async function updateSelectedTelehandlerHours() {
+    const match = getSelectedTelehandlerEquipment();
+
+    if (!match) {
+        return true;
+    }
+
+    const hoursValue = Number(document.getElementById("telehandlerHours").value);
+
+    if (!Number.isFinite(hoursValue) || hoursValue < 0) {
+        alert("Enter the current hours for this telehandler.");
+        return false;
+    }
+
+    const { error } = await inspectionSupabaseClient
+        .from("equipment_vehicles")
+        .update({
+            current_hours: hoursValue,
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", match.id);
+
+    if (error) {
+        alert("The telehandler hours could not be updated. " + (error.message || ""));
+        return false;
+    }
+
+    return true;
+}
+
+async function handleInspectionSave(type) {
     if (typeof saveInspection !== "function") {
         alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
         return;
     }
 
-    saveInspection(type);
+    const hoursUpdated = await updateSelectedTelehandlerHours();
+
+    if (!hoursUpdated) {
+        return;
+    }
+
+    await saveInspection(type);
 }
 
 async function signOut() {
     await signOutJgc(inspectionSupabaseClient);
 }
+
+loadTelehandlerEquipmentOptions();
 </script>
 </body>
 </html>
