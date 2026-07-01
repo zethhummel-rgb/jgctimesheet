@@ -3402,7 +3402,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="common.js?v=7"></script>
+<script src="common.js?v=8"></script>
 <script src="safety-acknowledgements.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -6518,6 +6518,18 @@ function getLatestEmployeeProfileActivity(items, fields) {
     return new Date(Math.max(...dates.map((date) => date.getTime()))).toISOString();
 }
 
+function getLatestEmployeeProfileDate(values) {
+    const dates = values
+        .map(profileDateValue)
+        .filter(Boolean);
+
+    if (!dates.length) {
+        return "";
+    }
+
+    return new Date(Math.max(...dates.map((date) => date.getTime()))).toISOString();
+}
+
 function renderEmployeeProfileTile(title, value, detail, tab) {
     const action = tab
         ? (String(tab).endsWith(".html") ? ` onclick="window.location.href='${escapeHtml(tab)}'"` : ` onclick="openAdminSummaryTile('${tab}')"` )
@@ -6788,7 +6800,15 @@ async function renderEmployeeProfile() {
             .concat(equipmentRows),
         ["savedAt", "created_at", "updated_at", "submitted_at", "read_at", "acknowledged_at"]
     );
-    const profileActivity = account.last_portal_activity || lastActivity;
+    const profileActivity = getLatestEmployeeProfileDate([
+        account.last_portal_activity,
+        account.last_login_at,
+        lastActivity
+    ]);
+    const profileLogin = getLatestEmployeeProfileDate([
+        account.last_login_at,
+        account.last_portal_activity
+    ]);
 
     hero.innerHTML = `
         <div class="profile-avatar">${getProfileAvatarHtml(account, employeeName)}</div>
@@ -6802,7 +6822,7 @@ async function renderEmployeeProfile() {
                 <div class="profile-fact"><span class="profile-fact-icon">AD</span><div><strong>Address</strong><div class="small">${escapeHtml(account.address || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">POS</span><div><strong>Position</strong><div class="small">${escapeHtml(account.position || "Not added")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">DEP</span><div><strong>Department</strong><div class="small">${escapeHtml(account.department || "Not added")}</div></div></div>
-                <div class="profile-fact"><span class="profile-fact-icon">LOG</span><div><strong>Last Login</strong><div class="small">${escapeHtml(account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet")}</div></div></div>
+                <div class="profile-fact"><span class="profile-fact-icon">LOG</span><div><strong>Last Login</strong><div class="small">${escapeHtml(profileLogin ? formatDate(profileLogin) : "Not logged yet")}</div></div></div>
                 <div class="profile-fact"><span class="profile-fact-icon">ACT</span><div><strong>Portal Activity</strong><div class="small">${escapeHtml(profileActivity ? formatDate(profileActivity) : "None")}</div></div></div>
             </div>
         </div>
@@ -6826,7 +6846,7 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Toolbox Talks", toolboxCompleted + " / " + toolboxOutstanding, "Completed / outstanding", "reports")}
             ${renderEmployeeProfileTile("Announcements", announcementRows.length + " / " + unreadAnnouncements, "Read / unread", "noticePolicy")}
             ${renderEmployeeProfileTile("Equipment", equipmentRows.length, "Assigned equipment or vehicles", "equipment")}
-            ${renderEmployeeProfileTile("Last Login", account.last_login_at ? formatDate(account.last_login_at) : "Not logged yet", "Most recent successful login")}
+            ${renderEmployeeProfileTile("Last Login", profileLogin ? formatDate(profileLogin) : "Not logged yet", "Most recent successful login")}
             ${renderEmployeeProfileTile("Last Activity", profileActivity ? formatDate(profileActivity) : "None", "Latest saved portal activity")}
         </div>
 
