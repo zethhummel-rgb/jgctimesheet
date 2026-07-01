@@ -2651,17 +2651,13 @@ button.admin-schedule-event-button.admin-event-vacation {
 <div class="tabs">
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
     <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
-    <button id="employeeProfileTab" class="tab-button" onclick="showTab('employeeProfile')">Employee Profiles</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
-    <button class="tab-button" onclick="window.location.href='certificates-admin.html'">Certificates</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
     <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">Work Orders</button>
     <button id="adminToolsTab" class="tab-button" onclick="showTab('adminTools')">Admin Tools</button>
-    <button class="tab-button" onclick="window.location.href='field-calculator.html'">Calculator</button>
-    <button class="tab-button" onclick="window.location.href='accounts.html'">Accounts</button>
 </div>
 
 <div class="logo-wrap">
@@ -2718,6 +2714,22 @@ button.admin-schedule-event-button.admin-event-vacation {
     <h2>Admin Tools</h2>
     <div class="small" style="margin-bottom:12px;">Setup and maintenance tools. These sections still load only when you open them.</div>
     <div class="admin-tools-grid">
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('employeeProfile')">
+            <strong>Employee Profiles</strong>
+            <span>Review employee history, hours, certificates, reports, and saved activity.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="openAdminTool('certificates')">
+            <strong>Certificates</strong>
+            <span>Upload certificates, review expiry alerts, and check the training matrix.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="window.location.href='accounts.html'">
+            <strong>Accounts</strong>
+            <span>Approve accounts, update access, and manage admin or employee roles.</span>
+        </button>
+        <button type="button" class="admin-tool-card" onclick="window.location.href='field-calculator.html'">
+            <strong>Calculator</strong>
+            <span>Open the field calculator for quick site measurements and conversions.</span>
+        </button>
         <button type="button" class="admin-tool-card" onclick="openAdminTool('jobs')">
             <strong>Job List</strong>
             <span>Import jobs, update job types, project managers, and drawing links.</span>
@@ -3717,8 +3729,8 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
-const ADMIN_TOOL_TABS = ["noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_TOOL_TABS = ["employeeProfile", "certificates", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
 let currentAdminTab = "";
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -4070,6 +4082,20 @@ async function loadAdminTabData(tab) {
         return;
     }
 
+    if (tab === "certificates") {
+        const [accountResult, certificateResult, notificationResult] = await runAdminQueries([
+            { label: "certificate profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at").order("display_name", { ascending: true }) },
+            { label: "certificates", query: () => supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }) },
+            { label: "certificate notifications", query: () => supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }) }
+        ]);
+        accounts = accountResult.data || accounts;
+        certificates = certificateResult.data || [];
+        certificateNotifications = notificationResult.data || [];
+        await prepareCertificateUrls();
+        await processCertificateExpiryNotifications();
+        return;
+    }
+
     if (tab === "reports") {
         const [inspectionResult, safetyAcknowledgementResult, dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
             { label: "report inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
@@ -4223,6 +4249,11 @@ function renderActiveAdminTab(tab) {
         renderInspections();
     }
 
+    if (requestedTab === "certificates") {
+        renderAdminCertificateWorkerOptions();
+        renderCertificates();
+    }
+
     if (requestedTab === "adminTools") {
         renderAdminTools();
     }
@@ -4362,12 +4393,6 @@ function getRequestedAdminTab() {
         suppliers: "subcontractorsSuppliers",
         vendors: "subcontractorsSuppliers"
     };
-
-    if (requested === "certificates" || stored === "certificates") {
-        localStorage.removeItem(ADMIN_TAB_STORAGE_KEY);
-        window.location.href = "certificates-admin.html";
-        return "summary";
-    }
 
     const requestedAlias = tabAliases[requested] || requested;
     const storedAlias = tabAliases[stored] || stored;
@@ -6318,7 +6343,7 @@ function renderPortalSummary() {
             value: expiringCertificates,
             badgeCount: countNewForAdminTab(certificates, "certificates", ["created_at", "updated_at"]),
             detail: "Certificates expiring within 30 days",
-            action: "window.location.href='certificates-admin.html'"
+            action: "openAdminSummaryTile('certificates')"
         },
         {
             title: "Vacation",
@@ -7063,8 +7088,8 @@ async function renderEmployeeProfile() {
             ${renderEmployeeProfileTile("Sick Days", sickMonth + " / " + sickYear, "This month / this year")}
             ${renderEmployeeProfileTile("Vacation Days", vacationMonth + " / " + vacationYear, "This month / this year", "vacation")}
             ${renderEmployeeProfileTile("Pending Vacation", pendingVacations.length, "Requests waiting for review", "vacation")}
-            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates-admin.html")}
-            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates-admin.html")}
+            ${renderEmployeeProfileTile("Certificates", activeCertificates.length, "Active certificates", "certificates")}
+            ${renderEmployeeProfileTile("Expiring / Expired", expiringCertificates.length + " / " + expiredCertificates.length, "Certificates needing attention", "certificates")}
             ${renderEmployeeProfileTile("Inspections", inspectionsThisMonth, "Completed this month", "inspections")}
             ${renderEmployeeProfileTile("Daily Reports", dailyReportsThisMonth, "Submitted this month", "reports")}
             ${renderEmployeeProfileTile("Work Orders", workOrdersCompletedThisWeek, "Completed this week", "workOrders")}
@@ -7084,7 +7109,7 @@ async function renderEmployeeProfile() {
                 ], vacationRows.slice(0, 8), "No vacation requests found.")}
             </div>
             <div class="profile-panel">
-                <div class="profile-panel-header"><h3>Certificates</h3><button type="button" onclick="window.location.href='certificates-admin.html'">View All</button></div>
+                <div class="profile-panel-header"><h3>Certificates</h3><button type="button" onclick="openAdminSummaryTile('certificates')">View All</button></div>
                 ${renderEmployeeProfileTable([
                     { label: "Certificate", value: (row) => row.certificate_name || "" },
                     { label: "Expiry", value: (row) => row.expiry_date || "No expiry" },
