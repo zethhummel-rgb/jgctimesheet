@@ -538,20 +538,75 @@ async function recordJgcPortalActivity() {
       return;
     }
 
-    const activityTime = new Date().toISOString();
-    const { error } = await client
-      .from("profiles")
-      .update({
-        last_login_at: activityTime,
-        last_portal_activity: activityTime
-      })
-      .eq("id", user.id);
+    const result = await recordJgcProfileActivity(client, {
+      user,
+      isLogin: false
+    });
 
-    if (!error) {
+    if (result && !result.error) {
       sessionStorage.setItem("jgcPortalActivityRecordedAt", String(nowMs));
     }
   } catch (error) {
     console.warn("JGC Portal activity could not be recorded.", error);
+  }
+}
+
+async function recordJgcProfileActivity(client, options) {
+  const settings = options || {};
+  const activityClient = client || createJgcSupabaseClient();
+
+  if (!activityClient) {
+    return { error: new Error("Supabase is not available.") };
+  }
+
+  let user = settings.user || null;
+
+  if (!user) {
+    const { data } = await activityClient.auth.getSession();
+    user = data && data.session && data.session.user;
+  }
+
+  if (!user) {
+    return { error: new Error("Not authenticated.") };
+  }
+
+  try {
+    const isLogin = Boolean(settings.isLogin);
+    const { data: rpcData, error: rpcError } = await activityClient.rpc("record_my_portal_activity", {
+      p_is_login: isLogin
+    });
+
+    if (!rpcError) {
+      const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      return { data: row || null, error: null };
+    }
+
+    const activityTime = new Date().toISOString();
+    const updatePayload = {
+      last_portal_activity: activityTime
+    };
+
+    if (isLogin) {
+      updatePayload.last_login_at = activityTime;
+    }
+
+    const profileId = settings.profileId || user.id;
+    const { data: fallbackData, error: fallbackError } = await activityClient
+      .from("profiles")
+      .update(updatePayload)
+      .eq("id", profileId)
+      .select("id,last_login_at,last_portal_activity")
+      .maybeSingle();
+
+    if (fallbackError) {
+      console.warn("JGC profile activity RPC failed and fallback update failed.", rpcError, fallbackError);
+      return { data: null, error: fallbackError };
+    }
+
+    return { data: fallbackData || null, error: null };
+  } catch (error) {
+    console.warn("JGC profile activity could not be recorded.", error);
+    return { data: null, error };
   }
 }
 
@@ -758,6 +813,10 @@ function activateGlobalTopNavigation() {
   }
 
   const workerRecord = getCurrentWorkerRecord();
+  if (!workerRecord.key) {
+    return;
+  }
+
   const links = isJgcSubcontractorSession(workerRecord) ? JGC_SUBCONTRACTOR_NAV_LINKS : [
     { label: "Timesheets", href: "timesheet.html" },
     { label: "Inspections", href: "inspections.html" },
@@ -1060,6 +1119,11 @@ function activateMobileBottomNavigation() {
   const excludedPages = ["index.html", "reset-password.html", "field-calculator.html", "equipment-inspection.html"];
 
   if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcMobileBottomNav")) {
+    return;
+  }
+
+  const workerRecord = getCurrentWorkerRecord();
+  if (!workerRecord.key) {
     return;
   }
 
