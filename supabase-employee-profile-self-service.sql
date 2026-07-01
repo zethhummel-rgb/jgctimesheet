@@ -92,3 +92,59 @@ end;
 $$;
 
 grant execute on function public.save_my_employee_profile(text, text, text, text, text) to authenticated;
+
+alter table public.profiles
+  add column if not exists last_login_at timestamptz;
+
+alter table public.profiles
+  add column if not exists last_portal_activity timestamptz;
+
+create or replace function public.record_my_portal_activity(
+  p_is_login boolean default false
+)
+returns table (
+  id uuid,
+  last_login_at timestamptz,
+  last_portal_activity timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_auth_email text := lower(coalesce(auth.email(), ''));
+  v_auth_id uuid := auth.uid();
+  v_profile_id uuid;
+begin
+  if v_auth_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select p.id
+    into v_profile_id
+  from public.profiles p
+  where p.id = v_auth_id
+     or lower(p.email) = v_auth_email
+  order by case when p.id = v_auth_id then 0 else 1 end
+  limit 1;
+
+  if v_profile_id is null then
+    raise exception 'Profile not found for signed-in account';
+  end if;
+
+  update public.profiles p
+  set last_portal_activity = now(),
+      last_login_at = case
+        when coalesce(p_is_login, false) or p.last_login_at is null then now()
+        else p.last_login_at
+      end
+  where p.id = v_profile_id
+  returning p.id, p.last_login_at, p.last_portal_activity
+  into id, last_login_at, last_portal_activity;
+
+  return next;
+end;
+$$;
+
+revoke all on function public.record_my_portal_activity(boolean) from public, anon, authenticated;
+grant execute on function public.record_my_portal_activity(boolean) to authenticated;
