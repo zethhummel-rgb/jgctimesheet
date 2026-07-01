@@ -263,6 +263,134 @@ th {
     background: #e6ece6;
 }
 
+.inspection-sheet {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 26px;
+    background: #ffffff;
+    color: #1b241e;
+    border: 1px solid #cfd8d0;
+    border-radius: 8px;
+    box-shadow: 0 16px 34px rgba(0,0,0,0.24);
+}
+
+.inspection-sheet,
+.inspection-sheet * {
+    box-sizing: border-box;
+}
+
+.inspection-sheet-logo {
+    width: 220px;
+    max-width: 70%;
+    height: auto;
+    display: block;
+    margin: 0 auto 18px;
+}
+
+.inspection-sheet-title {
+    margin: 0 0 20px;
+    color: #161d19 !important;
+    text-align: center;
+    font-size: 28px;
+    line-height: 1.2;
+    text-shadow: none;
+}
+
+.inspection-sheet-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.inspection-sheet-meta div,
+.inspection-sheet-note {
+    border: 1px solid #bfc9c1;
+    background: #fbfcfb;
+    padding: 8px;
+    color: #1b241e;
+}
+
+.inspection-sheet-meta strong,
+.inspection-sheet-note strong {
+    display: block;
+    color: #1b241e;
+    font-size: 14px;
+}
+
+.inspection-sheet-meta span,
+.inspection-sheet-note span {
+    color: #1b241e;
+    font-size: 15px;
+}
+
+.inspection-sheet-section-title {
+    margin: 22px 0 10px;
+    color: #161d19 !important;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.inspection-sheet-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.inspection-sheet table {
+    width: 100%;
+    min-width: 0;
+    border-collapse: collapse;
+    background: #ffffff;
+    color: #1b241e;
+    margin: 0 0 18px;
+}
+
+.inspection-sheet th,
+.inspection-sheet td {
+    border: 1px solid #aeb8b1;
+    padding: 7px;
+    color: #1b241e;
+    background: #ffffff;
+    font-size: 14px;
+    vertical-align: top;
+}
+
+.inspection-sheet th {
+    background: #e9f4eb;
+    font-weight: bold;
+}
+
+.inspection-result-pill {
+    display: inline-flex;
+    min-width: 52px;
+    justify-content: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef3ef;
+    color: #1b241e;
+    font-weight: bold;
+}
+
+.inspection-result-pill.pass {
+    background: #dff4e5;
+    color: #11602d;
+}
+
+.inspection-result-pill.defect {
+    background: #ffe1e1;
+    color: #9b1111;
+}
+
+.inspection-result-pill.na {
+    background: #eceff1;
+    color: #374047;
+}
+
+.inspection-view-actions {
+    max-width: 980px;
+    margin: 0 auto 12px;
+}
+
 .small {
     font-size: 13px;
     color: #58635c;
@@ -2224,6 +2352,18 @@ button.admin-schedule-event-button.admin-event-vacation {
     #portalSummaryGrid .summary-tile {
         width: auto;
         text-align: left;
+    }
+
+    .inspection-sheet {
+        padding: 16px;
+    }
+
+    .inspection-sheet-title {
+        font-size: 22px;
+    }
+
+    .inspection-sheet-meta {
+        grid-template-columns: 1fr;
     }
 
     .calendar-controls {
@@ -10411,6 +10551,193 @@ function renderAdminInspectionRowsTable(rows, emptyText) {
     `;
 }
 
+function getAdminVehicleInspectionSections(record) {
+    return record && record.form_data && Array.isArray(record.form_data.sections)
+        ? record.form_data.sections
+        : [];
+}
+
+function getAdminVehicleInspectionStatus(record) {
+    if (!record) {
+        return "";
+    }
+
+    if (record.defects_found) {
+        return record.major_defects_found ? "Major defects found" : "Minor defects found";
+    }
+
+    return "No defects reported";
+}
+
+function getAdminVehicleRepairNotes(record) {
+    const formData = record && record.form_data && typeof record.form_data === "object" ? record.form_data : {};
+    return record && record.repair_notes ? record.repair_notes : (formData.repair_notes || "");
+}
+
+function getAdminInspectionResultClass(value) {
+    const result = String(value || "").trim().toLowerCase();
+
+    if (result === "pass" || result === "p") {
+        return "pass";
+    }
+
+    if (result === "defect" || result === "fail" || result === "failed" || result === "f") {
+        return "defect";
+    }
+
+    if (result === "na" || result === "n/a") {
+        return "na";
+    }
+
+    return "";
+}
+
+function renderAdminVehicleInspectionMeta(record) {
+    const trailer1 = record.trailer_1_license_plate || record.trailer_1_name || "";
+    const trailer2 = record.trailer_2_license_plate || record.trailer_2_name || "";
+    const meta = [
+        ["Date", formatDate(record.inspection_date)],
+        ["Driver / Inspector", record.driver_name || ""],
+        ["Vehicle Plate", record.vehicle_license_plate || record.vehicle_name || ""],
+        ["Location", record.location || ""]
+    ];
+
+    if (record.odometer) {
+        meta.push(["Current KM", record.odometer]);
+    }
+
+    if (trailer1) {
+        meta.push(["Trailer 1", trailer1]);
+    }
+
+    if (trailer2) {
+        meta.push(["Trailer 2", trailer2]);
+    }
+
+    meta.push(["Status", getAdminVehicleInspectionStatus(record)]);
+
+    return `
+        <div class="inspection-sheet-meta">
+            ${meta.map(([label, value]) => `
+                <div>
+                    <strong>${escapeHtml(label)}</strong>
+                    <span>${escapeHtml(value || "-")}</span>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderAdminVehicleInspectionSections(record) {
+    const sections = getAdminVehicleInspectionSections(record);
+
+    if (!sections.length) {
+        return '<div class="inspection-sheet-note"><span>No checklist answers were saved for this vehicle inspection.</span></div>';
+    }
+
+    return sections.map((section) => {
+        const items = Array.isArray(section.items) ? section.items : [];
+
+        return `
+            <h3 class="inspection-sheet-section-title">${escapeHtml(section.section || "Inspection Items")}</h3>
+            <div class="inspection-sheet-table-wrap">
+                <table>
+                    <thead>
+                        <tr><th style="width:44px;">#</th><th>Item</th><th style="width:110px;">Result</th><th style="width:120px;">Severity</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        ${items.length ? items.map((item) => {
+                            const result = normalizeAdminInspectionResultLabel(item.result || "");
+                            const resultClass = getAdminInspectionResultClass(result);
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(item.code || "")}</td>
+                                    <td>${escapeHtml(item.label || "")}</td>
+                                    <td>${result ? `<span class="inspection-result-pill ${escapeHtml(resultClass)}">${escapeHtml(result)}</span>` : ""}</td>
+                                    <td>${escapeHtml(item.severity || "")}</td>
+                                    <td>${escapeHtml(item.description || "")}</td>
+                                </tr>
+                            `;
+                        }).join("") : '<tr><td colspan="5">No items saved in this section.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderAdminVehicleInspectionSheet(record) {
+    const notes = getAdminVehicleRepairNotes(record);
+
+    return `
+        <div class="inspection-sheet">
+            <img class="inspection-sheet-logo" src="logo.webp" alt="John Gordon Construction logo">
+            <h2 class="inspection-sheet-title">${escapeHtml(record.inspection_type || "Vehicle Inspection")}</h2>
+            ${renderAdminVehicleInspectionMeta(record)}
+            ${renderAdminVehicleInspectionSections(record)}
+            ${notes ? `
+                <div class="inspection-sheet-note">
+                    <strong>Repair / Notes</strong>
+                    <span>${escapeHtml(notes)}</span>
+                </div>
+            ` : ""}
+        </div>
+    `;
+}
+
+function renderAdminVehicleInspectionPrintDocument(record) {
+    return `
+        <!doctype html>
+        <html>
+        <head>
+            <title>${escapeHtml(record.inspection_type || "Vehicle Inspection")}</title>
+            <style>
+                @page { size: letter; margin: 16mm; }
+                body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #1b241e; background: #ffffff; }
+                .inspection-sheet { padding: 0; background: #ffffff; color: #1b241e; }
+                .inspection-sheet, .inspection-sheet * { box-sizing: border-box; }
+                .inspection-sheet-logo { width: 220px; max-width: 70%; height: auto; display: block; margin: 0 auto 18px; }
+                .inspection-sheet-title { margin: 0 0 20px; color: #161d19; text-align: center; font-size: 26px; line-height: 1.2; }
+                .inspection-sheet-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 18px; }
+                .inspection-sheet-meta div, .inspection-sheet-note { border: 1px solid #bfc9c1; background: #ffffff; padding: 8px; color: #1b241e; }
+                .inspection-sheet-meta strong, .inspection-sheet-note strong { display: block; color: #1b241e; font-size: 14px; }
+                .inspection-sheet-meta span, .inspection-sheet-note span { color: #1b241e; font-size: 15px; }
+                .inspection-sheet-section-title { margin: 22px 0 10px; color: #161d19; font-size: 22px; line-height: 1.2; page-break-after: avoid; }
+                table { width: 100%; border-collapse: collapse; margin: 0 0 18px; page-break-inside: auto; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
+                th, td { border: 1px solid #aeb8b1; padding: 7px; color: #1b241e; background: #ffffff; font-size: 13px; text-align: left; vertical-align: top; }
+                th { background: #e9f4eb; font-weight: bold; }
+                .inspection-result-pill { display: inline; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            ${renderAdminVehicleInspectionSheet(record)}
+        </body>
+        </html>
+    `;
+}
+
+function printAdminVehicleInspection(id) {
+    const record = getAdminInspectionRecord("vehicle", id);
+
+    if (!record) {
+        alert("This inspection could not be found.");
+        return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=840,height=980");
+
+    if (!printWindow) {
+        alert("Popup blocked. Allow popups for this portal, then try Save PDF again.");
+        return;
+    }
+
+    printWindow.document.write(renderAdminVehicleInspectionPrintDocument(record));
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+}
+
 function viewAdminInspection(kind, id) {
     const record = getAdminInspectionRecord(kind, id);
     const panel = document.getElementById("adminInspectionViewPanel");
@@ -10423,27 +10750,13 @@ function viewAdminInspection(kind, id) {
     panel.hidden = false;
 
     if (kind === "vehicle") {
-        const rows = getAdminVehicleInspectionRows(record);
         panel.innerHTML = `
-            <h3>${escapeHtml(record.inspection_type || "Vehicle Inspection")}</h3>
-            <div class="announcement-grid" style="margin-top:10px;">
-                <div><label>Inspection Date</label><input type="text" value="${escapeHtml(formatDate(record.inspection_date))}" readonly></div>
-                <div><label>Saved</label><input type="text" value="${escapeHtml(formatDate(record.created_at))}" readonly></div>
-                <div><label>Driver / Inspector</label><input type="text" value="${escapeHtml(record.driver_name || "")}" readonly></div>
-                <div><label>Vehicle Plate</label><input type="text" value="${escapeHtml(record.vehicle_license_plate || record.vehicle_name || "")}" readonly></div>
-                <div><label>Odometer</label><input type="text" value="${escapeHtml(record.odometer || "")}" readonly></div>
-                <div><label>Location</label><input type="text" value="${escapeHtml(record.location || "")}" readonly></div>
-                <div><label>Trailer 1</label><input type="text" value="${escapeHtml(record.trailer_1_license_plate || record.trailer_1_name || "-")}" readonly></div>
-                <div><label>Trailer 2</label><input type="text" value="${escapeHtml(record.trailer_2_license_plate || record.trailer_2_name || "-")}" readonly></div>
-                <div><label>Status</label><input type="text" value="${escapeHtml(record.defects_found ? (record.major_defects_found ? "Major defects found" : "Minor defects found") : "No defects reported")}" readonly></div>
-            </div>
-            <h3 style="margin-top:14px;">Inspection Answers</h3>
-            ${renderAdminInspectionRowsTable(rows, "No checklist answers were saved for this vehicle inspection.")}
-            ${record.repair_notes ? `<h3>Repair / Notes</h3><div class="small">${escapeHtml(record.repair_notes)}</div>` : ""}
-            <div class="actions" style="margin-top:12px;">
+            <div class="actions inspection-view-actions">
+                <button type="button" class="download-button" onclick="printAdminVehicleInspection('${escapeHtml(record.id)}')">Save PDF</button>
                 <button type="button" class="secondary" onclick="closeAdminInspectionView()">Close</button>
                 <button type="button" class="delete-button" onclick="deleteAdminInspection('vehicle', '${escapeHtml(record.id)}')">Delete</button>
             </div>
+            ${renderAdminVehicleInspectionSheet(record)}
         `;
         panel.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
