@@ -76,11 +76,11 @@
       width: min(100%, 1200px);
       margin: 0 auto 16px;
       padding: 16px;
-      border: 2px solid rgba(74, 222, 128, 0.78);
+      border: 2px solid rgba(74, 222, 128, 0.82);
       border-radius: 12px;
       background:
-        linear-gradient(135deg, rgba(57, 200, 72, 0.28), rgba(11, 94, 59, 0.22)),
-        rgba(5, 18, 15, 0.98);
+        linear-gradient(135deg, rgba(12, 96, 45, 0.58), rgba(2, 18, 14, 0.96)),
+        #06140f;
       box-shadow: 0 18px 42px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255,255,255,0.05) inset;
     }
 
@@ -95,13 +95,15 @@
       line-height: 1;
       letter-spacing: 0;
       text-transform: uppercase;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
     }
 
     .wo-timesheet-card .small {
-      color: #d8ffe0;
+      color: #f0fff2;
       font-size: 15px;
       font-weight: 800;
       margin-bottom: 12px !important;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
     }
 
     .week-submit-banner {
@@ -163,16 +165,16 @@
       gap: 10px;
       align-items: center;
       text-align: left;
-      background: rgba(33, 186, 70, 0.18);
-      border: 1px solid rgba(74, 222, 128, 0.42);
+      background: rgba(3, 30, 22, 0.86);
+      border: 1px solid rgba(186, 255, 199, 0.35);
       border-radius: 10px;
       padding: 14px;
       color: #ffffff;
-      box-shadow: none;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(255,255,255,0.04) inset;
     }
 
     .wo-request-button:hover {
-      background: rgba(33, 186, 70, 0.28);
+      background: rgba(7, 50, 32, 0.95);
     }
 
     .wo-request-title {
@@ -186,17 +188,23 @@
 
     .wo-request-meta,
     .wo-request-detail {
-      color: rgba(255, 255, 255, 0.88);
+      color: rgba(255, 255, 255, 0.95);
       font-size: 14px;
       line-height: 1.35;
       display: block;
     }
 
     .wo-request-action {
-      color: #37e857;
+      align-self: center;
+      justify-self: end;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: #37d650;
+      color: #061411;
       font-weight: 900;
       white-space: nowrap;
-      font-size: 18px;
+      font-size: 15px;
+      line-height: 1;
     }
 
     .user-bar {
@@ -1017,6 +1025,7 @@
 
       .wo-request-action {
         justify-self: start;
+        margin-top: 2px;
       }
 
       .logo-wrap {
