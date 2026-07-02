@@ -2513,6 +2513,12 @@ async function syncPendingTimesheetEntries(options) {
     const queuedEntry = rowToEntry(item.row || {});
     queuedEntry.id = item.localId || queuedEntry.id;
     queuedEntry.user = currentUser;
+
+    if (isWeekAlreadySubmitted(queuedEntry.weekStartValue || queuedEntry.week_start)) {
+      syncedLocalIds.push(item.localId);
+      continue;
+    }
+
     const duplicateEntry = await findDuplicateOnlineTimesheetEntry(queuedEntry);
 
     if (duplicateEntry) {
@@ -2737,6 +2743,63 @@ function filterPreviousWeeksForRetention(weeks) {
   return weeks.filter(function(week) {
     return getPreviousWeekSavedTime(week) >= cutoffTime;
   });
+}
+
+function getPreviousWeekStartValue(week) {
+  const firstEntry = week && week.entries && week.entries[0];
+  const dateText = firstEntry && (firstEntry.weekStartValue || firstEntry.week_start)
+    ? (firstEntry.weekStartValue || firstEntry.week_start)
+    : String(week && week.weekLabel || "").split(" to ")[0];
+
+  if (!dateText) {
+    return "";
+  }
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(dateText))
+    ? makeLocalDate(String(dateText))
+    : new Date(dateText);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return formatDateValue(getWeekStartDate(date));
+}
+
+function isWeekAlreadySubmitted(weekStartValue) {
+  if (!weekStartValue) {
+    return false;
+  }
+
+  const normalizedWeekStart = formatDateValue(getWeekStartDate(makeLocalDate(weekStartValue)));
+
+  return previousWeeks.some(function(week) {
+    return getPreviousWeekStartValue(week) === normalizedWeekStart;
+  });
+}
+
+function getSubmittedWeekBlockMessage(weekStartValue) {
+  const weekStart = makeLocalDate(weekStartValue);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  return "This week has already been submitted and emailed (" + formatDate(weekStart) + " to " + formatDate(weekEnd) + "). New time cannot be added here. Ask an admin to make a correction if hours were missed.";
+}
+
+function blockSubmittedWeekEntry(weekStartValue) {
+  if (!isWeekAlreadySubmitted(weekStartValue)) {
+    return false;
+  }
+
+  const message = getSubmittedWeekBlockMessage(weekStartValue);
+  const status = document.getElementById("submitStatus");
+
+  if (status) {
+    status.innerText = message;
+  }
+
+  alert(message);
+  return true;
 }
 
 function showEntriesTab(tabName) {
@@ -3722,6 +3785,10 @@ async function submitSpecialTimeEntry(entryType, leaveType, leaveNote, weekStart
   const status = document.getElementById("submitStatus");
   status.innerText = "Saving special day...";
 
+  if (blockSubmittedWeekEntry(weekStart)) {
+    return false;
+  }
+
   const vacationTimeIn = document.getElementById("vacationTimeIn").value;
   const rawVacationTimeOut = document.getElementById("vacationTimeOut").value;
   const vacationTimeOut = normalizeTimeForStorage(rawVacationTimeOut);
@@ -4029,6 +4096,15 @@ async function syncApprovedVacationRequestsToTimesheet() {
 
 async function saveNewTimesheetEntries(entries, successLabel) {
   const status = document.getElementById("submitStatus");
+  const blockedWeek = entries.find(function(entry) {
+    return isWeekAlreadySubmitted(entry.weekStartValue || entry.week_start);
+  });
+
+  if (blockedWeek) {
+    showSubmitError(getSubmittedWeekBlockMessage(blockedWeek.weekStartValue || blockedWeek.week_start));
+    return;
+  }
+
   const stored = loadTimesheets().concat(entries);
   setTimesheets(stored);
 
@@ -4106,6 +4182,10 @@ async function submitTime() {
 
   if (!weekStart || !day) {
     alert("Fill in all fields");
+    return;
+  }
+
+  if (!editingEntryId && blockSubmittedWeekEntry(weekStart)) {
     return;
   }
 
