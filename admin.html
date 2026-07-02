@@ -2219,6 +2219,20 @@ button.admin-schedule-event-button.admin-event-vacation {
     border-color: #909b94;
 }
 
+.job-status-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+}
+
+.job-status-toggle input {
+    width: auto;
+    min-width: 18px;
+    height: 18px;
+    accent-color: #32dc55;
+}
+
 .job-info-grid,
 .job-dashboard-metrics {
     display: grid;
@@ -13363,7 +13377,12 @@ function renderJobsManagement() {
             <td>${escapeHtml(job.job_type || "")}</td>
             <td>${escapeHtml(job.project_manager || "")}</td>
             <td>${getJobDocumentHref(job) ? '<a href="' + escapeHtml(getJobDocumentHref(job)) + '" target="_blank" rel="noopener noreferrer">Open</a>' : ""}</td>
-            <td>${job.active ? "Active" : "Inactive"}</td>
+            <td>
+                <label class="job-status-toggle">
+                    <input type="checkbox" ${job.active ? "checked" : ""} onchange="toggleJobActive('${escapeHtml(job.id)}', this.checked)">
+                    <span>${job.active ? "Active" : "Inactive"}</span>
+                </label>
+            </td>
             <td>${escapeHtml(formatDate(job.updated_at))}</td>
         </tr>
     `).join("");
@@ -13378,6 +13397,57 @@ function renderJobsManagement() {
             </table>
         </div>
     `;
+}
+
+async function toggleJobActive(jobId, isActive) {
+    const job = jobs.find((item) => String(item.id) === String(jobId));
+    const status = document.getElementById("jobsImportStatus");
+
+    if (!job) {
+        alert("Job could not be found.");
+        renderJobsManagement();
+        return;
+    }
+
+    if (!isActive && !confirm("Mark " + (job.job_number || job.job_name || "this job") + " inactive? It will be hidden from the employee job list.")) {
+        renderJobsManagement();
+        return;
+    }
+
+    if (status) {
+        status.textContent = isActive ? "Reactivating job..." : "Marking job inactive...";
+    }
+
+    const payload = {
+        active: isActive,
+        removed_from_import_at: isActive ? null : new Date().toISOString(),
+        archive_until: isActive ? null : getArchiveCutoffDate(),
+        updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabaseClient
+        .from("jobs")
+        .update(payload)
+        .eq("id", jobId)
+        .select()
+        .single();
+
+    if (error) {
+        if (status) {
+            status.textContent = "Job status could not be updated: " + error.message;
+        }
+        renderJobsManagement();
+        return;
+    }
+
+    jobs = jobs.map((item) => String(item.id) === String(jobId) ? { ...item, ...(data || payload) } : item);
+    renderJobDashboardOptions();
+    renderJobDashboard();
+    renderJobsManagement();
+
+    if (status) {
+        status.textContent = "Job status updated.";
+    }
 }
 
 async function loadJobsManagement() {
