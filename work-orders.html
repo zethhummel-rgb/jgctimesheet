@@ -494,6 +494,28 @@ th {
   gap: 10px;
 }
 
+.manual-labour-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.manual-labour-row {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.manual-labour-row .danger {
+  width: auto;
+  min-width: 44px;
+  padding: 10px 12px;
+}
+
+.manual-labour-actions {
+  margin-top: 10px;
+}
+
 .labour-metric {
   padding: 10px;
   border: 1px solid rgba(99, 205, 107, 0.22);
@@ -551,6 +573,10 @@ th {
   }
 
   .manual-labour-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-labour-row {
     grid-template-columns: 1fr;
   }
 
@@ -726,14 +752,10 @@ th {
             <input id="manualLabourEnabled" type="checkbox" onchange="toggleManualLabourEntry()">
             <span>Manual Labour entry</span>
           </label>
-          <div id="manualLabourFields" class="manual-labour-grid" hidden>
-            <div>
-              <label>Name</label>
-              <input id="manualLabourName" placeholder="Worker name" oninput="renderLabourPreview()">
-            </div>
-            <div>
-              <label>Hours worked</label>
-              <input id="manualLabourHours" type="number" min="0" step="0.25" placeholder="0.00" oninput="renderLabourPreview()">
+          <div id="manualLabourFields" hidden>
+            <div id="manualLabourRows" class="manual-labour-rows"></div>
+            <div class="manual-labour-actions">
+              <button type="button" class="secondary" onclick="addManualLabourRow()">Add Entry</button>
             </div>
           </div>
         </div>
@@ -1177,22 +1199,66 @@ function isManualLabourRow(row) {
     String(row && row.notes || "").toLowerCase() === "manual labour entry";
 }
 
-function makeManualLabourKey(name) {
-  return "manual-" + normalizeEmployeeMatchKey(name || "labour");
+function makeManualLabourKey(name, index) {
+  const suffix = Number.isFinite(index) ? "-" + String(index + 1) : "";
+  return "manual-" + normalizeEmployeeMatchKey(name || "labour") + suffix;
 }
 
 function toggleManualLabourEntry() {
   const enabled = document.getElementById("manualLabourEnabled").checked;
   document.getElementById("manualLabourFields").hidden = !enabled;
+
+  if (enabled && !document.querySelector(".manual-labour-row")) {
+    addManualLabourRow();
+    return;
+  }
+
   renderLabourPreview();
 }
 
-function setManualLabourFields(row) {
-  const enabled = Boolean(row);
+function createManualLabourRow(row) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "manual-labour-row";
+  wrapper.innerHTML = `
+    <div>
+      <label>Name</label>
+      <input class="manualLabourName" placeholder="Worker name" value="${escapeHtml(row ? row.employee_name || "" : "")}" oninput="renderLabourPreview()">
+    </div>
+    <div>
+      <label>Hours worked</label>
+      <input class="manualLabourHours" type="number" min="0" step="0.25" placeholder="0.00" value="${row && Number(row.hours || 0) ? Number(row.hours || 0) : ""}" oninput="renderLabourPreview()">
+    </div>
+    <button type="button" class="danger" onclick="removeManualLabourRow(this)">X</button>
+  `;
+  return wrapper;
+}
+
+function addManualLabourRow(row) {
+  const rows = document.getElementById("manualLabourRows");
+  document.getElementById("manualLabourEnabled").checked = true;
+  document.getElementById("manualLabourFields").hidden = false;
+  rows.appendChild(createManualLabourRow(row || null));
+  renderLabourPreview();
+}
+
+function removeManualLabourRow(button) {
+  const row = button.closest(".manual-labour-row");
+
+  if (row) {
+    row.remove();
+  }
+
+  renderLabourPreview();
+}
+
+function setManualLabourFields(rows) {
+  const manualRows = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+  const enabled = manualRows.length > 0;
+  const rowsContainer = document.getElementById("manualLabourRows");
   document.getElementById("manualLabourEnabled").checked = enabled;
   document.getElementById("manualLabourFields").hidden = !enabled;
-  document.getElementById("manualLabourName").value = row ? row.employee_name || "" : "";
-  document.getElementById("manualLabourHours").value = row ? Number(row.hours || 0) || "" : "";
+  rowsContainer.innerHTML = "";
+  manualRows.forEach((row) => rowsContainer.appendChild(createManualLabourRow(row)));
 }
 
 function collectManualLabourRows() {
@@ -1202,23 +1268,25 @@ function collectManualLabourRows() {
     return [];
   }
 
-  const employeeName = document.getElementById("manualLabourName").value.trim();
-  const hours = Number(document.getElementById("manualLabourHours").value || 0);
+  return Array.from(document.querySelectorAll(".manual-labour-row")).map((row, index) => {
+    const employeeName = row.querySelector(".manualLabourName").value.trim();
+    const hours = Number(row.querySelector(".manualLabourHours").value || 0);
 
-  if (!employeeName && !hours) {
-    return [];
-  }
+    if (!employeeName && !hours) {
+      return null;
+    }
 
-  return [{
-    employee_id: null,
-    worker_key: makeManualLabourKey(employeeName),
-    employee_name: employeeName || "Manual Labour",
-    matched_timesheet_entry_id: null,
-    hours: Number.isFinite(hours) ? hours : 0,
-    complete: Number.isFinite(hours) && hours > 0,
-    manual: true,
-    notes: "Manual labour entry"
-  }];
+    return {
+      employee_id: null,
+      worker_key: makeManualLabourKey(employeeName, index),
+      employee_name: employeeName || "Manual Labour",
+      matched_timesheet_entry_id: null,
+      hours: Number.isFinite(hours) ? hours : 0,
+      complete: Number.isFinite(hours) && hours > 0,
+      manual: true,
+      notes: "Manual labour entry"
+    };
+  }).filter(Boolean);
 }
 
 function getLabourMatchesForEmployee(employee, jobNumber, workDate) {
@@ -2080,8 +2148,8 @@ function editWorkOrder(id) {
   }
 
   const selectedLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
-  const manualLabourRow = selectedLabourRows.find((row) => isManualLabourRow(row));
-  setManualLabourFields(manualLabourRow || null);
+  const manualLabourRows = selectedLabourRows.filter((row) => isManualLabourRow(row));
+  setManualLabourFields(manualLabourRows);
   renderEmployeePicker(selectedLabourRows.filter((row) => !isManualLabourRow(row)).map((row) => row.worker_key || normalizeWorkerName(row.employee_name)));
   renderLabourPreview();
   setPdfEmailControlsDisabled(false);
