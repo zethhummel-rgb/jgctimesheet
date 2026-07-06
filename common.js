@@ -2126,14 +2126,16 @@ function activateTimesheetTableContrastFeature() {
 let jgcNotificationRecords = [];
 
 function getJgcNotificationPages() {
-  return [
-    "home.html",
-    "admin.html",
-    "accounts.html",
-    "certificates-admin.html",
-    "notification-settings.html",
-    "policies-admin.html"
-  ];
+  const page = getCurrentJgcPageName();
+  const blockedPages = new Set([
+    "",
+    "index.html",
+    "reset-password.html",
+    "subcontractor.html",
+    "acknowledge.html"
+  ]);
+
+  return blockedPages.has(page) ? [] : [page];
 }
 
 function shouldActivateJgcNotificationBell() {
@@ -2196,8 +2198,11 @@ function getJgcNotificationRecipientRole(recipient) {
 }
 
 function getJgcNotificationRecipientKey(recipient) {
+  const role = getJgcNotificationRecipientRole(recipient);
+
   return normalizeWorkerName(
     recipient && (
+      recipient.recipient_key ||
       recipient.profile_id ||
       recipient.id ||
       recipient.matched_employee_id ||
@@ -2207,7 +2212,9 @@ function getJgcNotificationRecipientKey(recipient) {
       recipient.attendee_key ||
       recipient.display_name ||
       recipient.attendee_name ||
-      recipient.name
+      recipient.name ||
+      recipient.target_role ||
+      (role ? "role:" + role : "")
     )
   );
 }
