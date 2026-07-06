@@ -1813,8 +1813,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="common.js?v=9"></script>
-<script src="safety-acknowledgements.js?v=2"></script>
+<script src="common.js?v=10"></script>
+<script src="safety-acknowledgements.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -2926,6 +2926,7 @@ function buildHomeScheduleAccountsFromWorkOrderWorkers(workerRows, profileRows) 
         display_name: workerRow.display_name || profile.display_name || profile.worker_key || profile.email || "Employee",
         worker_key: workerRow.worker_key || profile.worker_key || normalizeWorkerName(workerRow.display_name),
         email: profile.email || "",
+        role: profile.role || "worker",
         account_status: "approved"
       };
     });
@@ -3127,7 +3128,7 @@ function resetHomeScheduleForm() {
 async function loadHomeScheduleFormData() {
   const [workerResult, profileResult, jobsResult, equipmentResult] = await Promise.all([
     supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
-    supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
+    supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
     supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
     supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
   ]);
@@ -3261,6 +3262,25 @@ async function createHomeScheduleAnnouncements(event, selectedAccounts) {
   }
 
   await supabaseClient.from("announcements").insert(records);
+
+  if (typeof createJgcPortalNotifications === "function") {
+    await createJgcPortalNotifications(supabaseClient, "schedule_update", selectedAccounts, {
+      title: "Scheduled: " + formatVacationReminderDate(event.event_date),
+      message: [formatHomeScheduleTime(event.start_time), getHomeScheduleTitle(event)].filter(Boolean).join(" - "),
+      link_url: "schedule.html",
+      source_table: "schedule_events",
+      source_id: event.id,
+      created_by: currentUserId || null,
+      created_by_name: currentWorkerDisplay,
+      metadata: {
+        event_date: event.event_date || "",
+        event_type: getHomeScheduleType(event),
+        job_number: event.job_number || "",
+        job_name: event.job_name || "",
+        location: event.location || ""
+      }
+    });
+  }
 }
 
 async function emailHomeScheduleEvent(event, selectedAccounts) {
