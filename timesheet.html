@@ -1436,7 +1436,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=11"></script>
+<script src="common.js?v=12"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const TIMESHEET_ADMIN_EMAIL = "zeth@johngordonconstruction.com";
@@ -1456,6 +1456,7 @@ let calendarMonth = new Date();
 let selectedCalendarDate = new Date();
 let activeJobs = [];
 let woTimesheetRequests = [];
+let woTimesheetNotificationKeys = new Set();
 const PREVIOUS_TIMESHEET_RETENTION_MONTHS = 2;
 const OFFLINE_TIMESHEET_QUEUE_KEY = "pendingTimesheetSyncQueue";
 
@@ -3235,6 +3236,58 @@ function prefillTimesheetFromWoRequest(request) {
   });
 }
 
+async function ensureWoTimesheetRequestNotifications() {
+  if (!woTimesheetRequests.length || typeof createJgcPortalNotifications !== "function" || !supabaseClient) {
+    return;
+  }
+
+  const recipient = {
+    recipient_key: currentUser,
+    worker_key: currentUser,
+    display_name: currentUserDisplay || currentUser,
+    email: String(localStorage.getItem("currentUserEmail") || "").trim(),
+    role: "worker"
+  };
+
+  for (const request of woTimesheetRequests) {
+    const notificationKey = [request.workOrderId, request.labourId, currentUser].filter(Boolean).join(":");
+
+    if (!notificationKey || woTimesheetNotificationKeys.has(notificationKey)) {
+      continue;
+    }
+
+    woTimesheetNotificationKeys.add(notificationKey);
+
+    const jobLabel = [request.jobNumber, request.jobName].filter(Boolean).join(" - ") || "Job not listed";
+    const woLabel = request.woNumber ? "WO " + request.woNumber : "Work Order";
+
+    const result = await createJgcPortalNotifications(supabaseClient, "wo_hours_requested", [recipient], {
+      title: "WO hours requested",
+      message: [request.dayName, request.dateValue, jobLabel, woLabel].filter(Boolean).join(" - "),
+      link_url: "timesheet.html",
+      source_table: "work_orders",
+      source_id: request.workOrderId || "",
+      dedupe_key_prefix: "wo_hours_requested:timesheet:" + (request.labourId || request.workOrderId || ""),
+      created_by_name: currentUserDisplay || currentUser,
+      metadata: {
+        wo_number: request.woNumber || "",
+        job_number: request.jobNumber || "",
+        job_name: request.jobName || "",
+        work_order_date: request.dateValue || "",
+        labour_id: request.labourId || ""
+      }
+    });
+
+    if (!result || result.ok === false) {
+      woTimesheetNotificationKeys.delete(notificationKey);
+    }
+  }
+
+  if (typeof loadJgcNotifications === "function") {
+    await loadJgcNotifications();
+  }
+}
+
 async function loadWoTimesheetRequests() {
   if (!supabaseClient || !currentUser) {
     woTimesheetRequests = [];
@@ -3334,6 +3387,7 @@ async function loadWoTimesheetRequests() {
         return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
       });
 
+    await ensureWoTimesheetRequestNotifications();
     renderWoTimesheetRequests();
   } catch (error) {
     console.warn("WO timesheet requests could not be prepared.", error);
