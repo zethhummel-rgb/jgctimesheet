@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v422";
+const JGC_CACHE_NAME = "jgc-portal-v423";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -35,6 +35,7 @@ const JGC_APP_SHELL = [
   "./incident-report.html",
   "./admin.html",
   "./accounts.html",
+  "./notification-settings.html",
   "./reset-password.html",
   "./aerial-lifts.html",
   "./forklift.html",
@@ -44,7 +45,7 @@ const JGC_APP_SHELL = [
   "./jsa.html?v=361",
   "./tele-handler.html",
   "./styles.css?v=3",
-  "./common.js?v=8",
+  "./common.js?v=9",
   "./safety-acknowledgements.js?v=2",
   "./field-calculator.css?v=14",
   "./calculator-engine.js?v=25",
