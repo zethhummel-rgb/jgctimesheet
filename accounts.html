@@ -505,23 +505,29 @@ async function updateAccount(id, values) {
     if (error) {
         if (String(error.message || "").includes("profiles_role_check")) {
             alert("Supabase needs the updated account type rule before Supervisor can be saved. Run supabase-fix-profiles-role-check.sql in the SQL Editor, then try again.");
-            return;
+            return false;
         }
 
         alert(error.message || "Account could not be updated.");
-        return;
+        return false;
     }
 
     await loadAccounts();
+    return true;
 }
 
 async function approveAccount(id) {
-    await updateAccount(id, {
+    const updated = await updateAccount(id, {
         account_status: "approved",
         approved_at: new Date().toISOString(),
         approved_by: currentUserId,
         deactivated_at: null
     });
+
+    if (updated && typeof clearJgcPendingAccountNotifications === "function") {
+        await clearJgcPendingAccountNotifications(supabaseClient, id);
+        await loadJgcNotifications();
+    }
 }
 
 async function reactivateAccount(id) {
@@ -536,10 +542,15 @@ async function deactivateAccount(id) {
         return;
     }
 
-    await updateAccount(id, {
+    const updated = await updateAccount(id, {
         account_status: "inactive",
         deactivated_at: new Date().toISOString()
     });
+
+    if (updated && typeof clearJgcPendingAccountNotifications === "function") {
+        await clearJgcPendingAccountNotifications(supabaseClient, id);
+        await loadJgcNotifications();
+    }
 }
 
 async function setRole(id, role) {
