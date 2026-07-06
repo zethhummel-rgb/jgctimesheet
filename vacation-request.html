@@ -457,7 +457,7 @@ th {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=11"></script>
+<script src="common.js?v=12"></script>
 <script>
 const VACATION_EMAIL_RECIPIENTS = [
     "zeth@johngordonconstruction.com",
@@ -965,14 +965,36 @@ async function submitVacationRequest() {
 
     setStatus("Saving vacation request...");
 
-    const { error } = await supabaseClient
+    const { data: savedRequest, error } = await supabaseClient
         .from("vacation_requests")
-        .insert(record);
+        .insert(record)
+        .select("id")
+        .single();
 
     if (error) {
         setStatus("");
         alert("This vacation request could not be saved. " + (error.message || ""));
         return;
+    }
+
+    if (typeof createJgcPortalNotifications === "function") {
+        await createJgcPortalNotifications(supabaseClient, "vacation_request", [{ role: "supervisor" }, { role: "admin" }], {
+            title: "Vacation request submitted",
+            message: employeeName + " requested " + totalDays.toFixed(1) + " day" + (totalDays === 1 ? "" : "s") + " off from " + startDate + " to " + endDate + ".",
+            link_url: "admin.html?tab=vacation",
+            source_table: "vacation_requests",
+            source_id: savedRequest && savedRequest.id ? savedRequest.id : "",
+            dedupe_key_prefix: "vacation_request:" + (savedRequest && savedRequest.id ? savedRequest.id : [worker.key, startDate, endDate].join(":")),
+            created_by_name: employeeName,
+            metadata: {
+                worker_name: record.worker_name,
+                worker_display_name: employeeName,
+                start_date: startDate,
+                end_date: endDate,
+                total_days: totalDays,
+                request_type: record.request_type
+            }
+        });
     }
 
     setStatus("Sending vacation request email...");
