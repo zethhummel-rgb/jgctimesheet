@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JGC Notification Settings</title>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #062817 0, #020b08 58%);
+      margin: 0;
+      padding: 0 20px 24px;
+      color: #f4fff6;
+    }
+
+    .tabs {
+      position: sticky;
+      top: 66px;
+      z-index: 120;
+      width: min(1500px, calc(100vw - 40px));
+      max-width: 1500px;
+      margin: 0 auto 12px;
+      padding: 7px 10px;
+      display: flex;
+      flex-wrap: nowrap;
+      justify-content: center;
+      gap: 5px;
+      overflow-x: auto;
+      background: rgba(6, 20, 17, 0.98);
+      border-top: 1px solid rgba(57, 200, 72, 0.25);
+      border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-button {
+      flex: 0 0 auto !important;
+      width: auto !important;
+      min-width: 86px !important;
+      min-height: 0 !important;
+      padding: 8px 13px !important;
+      border: 1px solid rgba(63, 125, 77, 0.6) !important;
+      border-radius: 999px !important;
+      background: #20382a !important;
+      color: #ffffff !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      line-height: 1.1 !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      cursor: pointer;
+    }
+
+    .tab-button.active {
+      background: #37d650 !important;
+      color: #061411 !important;
+    }
+
+    .logo-wrap {
+      max-width: 347px;
+      margin: 44px auto 8px;
+      text-align: center;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      max-width: 347px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #ffffff;
+      margin: 0 0 8px;
+    }
+
+    .user-bar {
+      max-width: 1180px;
+      margin: 0 auto 12px;
+      color: #ffffff;
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .panel {
+      width: min(1180px, calc(100vw - 40px));
+      margin: 0 auto;
+      background: rgba(12, 30, 27, 0.96);
+      border: 1px solid rgba(64, 220, 78, 0.35);
+      border-top: 4px solid #28d84a;
+      border-radius: 8px;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.28);
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    .panel h2,
+    .panel h3 {
+      color: #2ee64f;
+      margin-top: 0;
+    }
+
+    .small {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+    }
+
+    .settings-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.4fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin: 14px 0 18px;
+      padding: 12px;
+      border: 1px solid rgba(64, 220, 78, 0.25);
+      border-radius: 8px;
+      background: rgba(4, 20, 16, 0.65);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px;
+      border: 1px solid #bcc7bc;
+      border-radius: 5px;
+      background: #f7faf4;
+      color: #071511;
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 40px;
+      resize: vertical;
+    }
+
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: #159447;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #1d332d;
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 840px;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: rgba(16, 70, 34, 0.88);
+      color: #ffffff;
+    }
+
+    td {
+      background: rgba(255, 255, 255, 0.025);
+      color: #ffffff;
+    }
+
+    .switch-cell {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .switch-cell input {
+      width: 22px;
+      height: 22px;
+      accent-color: #2ed94f;
+      cursor: pointer;
+    }
+
+    .status-line {
+      min-height: 20px;
+      margin-top: 10px;
+      color: #d7f7df;
+      font-weight: 700;
+    }
+
+    @media (max-width: 780px) {
+      body {
+        padding: 0 12px 96px;
+      }
+
+      .tabs {
+        top: 58px;
+        width: calc(100vw - 24px);
+        justify-content: flex-start;
+      }
+
+      .logo-wrap {
+        margin-top: 28px;
+      }
+
+      .panel {
+        width: 100%;
+        padding: 14px;
+      }
+
+      .settings-form {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="jgc-theme">
+  <div class="tabs">
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Employee Profiles</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=certificates'">Certificates</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
+    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
+    <button type="button" class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
+  </div>
+
+  <div class="logo-wrap">
+    <img src="logo.png" alt="John Gordon Construction logo">
+  </div>
+
+  <h1>Notification Settings</h1>
+  <div id="currentUser" class="user-bar"></div>
+
+  <main class="panel">
+    <h2>Notification Settings</h2>
+    <div class="small">Choose which account types receive each notification type. Notification records disappear from a user's bell only after they open them or press Clear All.</div>
+
+    <div class="toolbar">
+      <button type="button" onclick="loadNotificationSettings()">Refresh Settings</button>
+      <button type="button" class="secondary" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
+    </div>
+
+    <section class="settings-form" aria-label="Add notification type">
+      <div>
+        <label for="newNotificationType">Type Key</label>
+        <input id="newNotificationType" placeholder="example_key">
+      </div>
+      <div>
+        <label for="newNotificationLabel">Label</label>
+        <input id="newNotificationLabel" placeholder="Example notification">
+      </div>
+      <div>
+        <label for="newNotificationDescription">Description</label>
+        <textarea id="newNotificationDescription" placeholder="What creates this notification?"></textarea>
+      </div>
+      <button type="button" onclick="addNotificationType()">Add Type</button>
+    </section>
+
+    <div id="settingsList" class="small">Loading notification settings...</div>
+    <div id="settingsStatus" class="status-line"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="common.js?v=9"></script>
+  <script>
+    const supabaseClient = createJgcSupabaseClient();
+    const worker = requireJgcWorker();
+    const currentWorker = normalizeWorkerName(worker.key);
+    const currentUserRole = worker.role;
+    const currentWorkerDisplay = worker.display || worker.key;
+    let notificationSettings = [];
+
+    if (!isAdminWorker(currentWorker, currentUserRole, worker.email)) {
+      alert("Notification settings are only available to authorized users.");
+      window.location.href = "home.html";
+    }
+
+    document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
+
+    function setSettingsStatus(message) {
+      document.getElementById("settingsStatus").textContent = message || "";
+    }
+
+    function normalizeNotificationType(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    }
+
+    function renderNotificationSettings() {
+      const list = document.getElementById("settingsList");
+
+      if (!notificationSettings.length) {
+        list.textContent = "No notification settings found. Run supabase-notifications-setup.sql in Supabase first.";
+        return;
+      }
+
+      list.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Notification</th>
+                <th>Description</th>
+                <th>Employees</th>
+                <th>Supervisors</th>
+                <th>Admins</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${notificationSettings.map((setting) => `
+                <tr>
+                  <td>
+                    <strong>${escapeHtml(setting.label || setting.notification_type)}</strong><br>
+                    <span class="small">${escapeHtml(setting.notification_type)}</span>
+                  </td>
+                  <td>${escapeHtml(setting.description || "")}</td>
+                  <td class="switch-cell"><input type="checkbox" ${setting.employee_enabled ? "checked" : ""} onchange="updateNotificationSetting('${setting.id}', 'employee_enabled', this.checked)" aria-label="Employees receive ${escapeHtml(setting.label || setting.notification_type)}"></td>
+                  <td class="switch-cell"><input type="checkbox" ${setting.supervisor_enabled ? "checked" : ""} onchange="updateNotificationSetting('${setting.id}', 'supervisor_enabled', this.checked)" aria-label="Supervisors receive ${escapeHtml(setting.label || setting.notification_type)}"></td>
+                  <td class="switch-cell"><input type="checkbox" ${setting.admin_enabled ? "checked" : ""} onchange="updateNotificationSetting('${setting.id}', 'admin_enabled', this.checked)" aria-label="Admins receive ${escapeHtml(setting.label || setting.notification_type)}"></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function loadNotificationSettings() {
+      const list = document.getElementById("settingsList");
+      list.textContent = "Loading notification settings...";
+      setSettingsStatus("");
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("notification_settings")
+          .select("*")
+          .order("label", { ascending: true });
+
+        if (error) {
+          list.textContent = "Notification settings could not be loaded: " + (error.message || "Run supabase-notifications-setup.sql first.");
+          return;
+        }
+
+        notificationSettings = data || [];
+        renderNotificationSettings();
+      } catch (error) {
+        list.textContent = "Notification settings could not be loaded. Run supabase-notifications-setup.sql first.";
+      }
+    }
+
+    async function updateNotificationSetting(id, field, value) {
+      const setting = notificationSettings.find((item) => item.id === id);
+      if (setting) {
+        setting[field] = value;
+        renderNotificationSettings();
+      }
+
+      setSettingsStatus("Saving setting...");
+      const { error } = await supabaseClient
+        .from("notification_settings")
+        .update({
+          [field]: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id);
+
+      if (error) {
+        setSettingsStatus("Setting could not be saved: " + (error.message || "Unknown error"));
+        await loadNotificationSettings();
+        return;
+      }
+
+      setSettingsStatus("Setting saved.");
+    }
+
+    async function addNotificationType() {
+      const type = normalizeNotificationType(document.getElementById("newNotificationType").value);
+      const label = document.getElementById("newNotificationLabel").value.trim();
+      const description = document.getElementById("newNotificationDescription").value.trim();
+
+      if (!type || !label) {
+        alert("Add a type key and label.");
+        return;
+      }
+
+      setSettingsStatus("Adding notification type...");
+      const { error } = await supabaseClient
+        .from("notification_settings")
+        .insert({
+          notification_type: type,
+          label,
+          description,
+          employee_enabled: true,
+          supervisor_enabled: true,
+          admin_enabled: true
+        });
+
+      if (error) {
+        setSettingsStatus("Notification type could not be added: " + (error.message || "Unknown error"));
+        return;
+      }
+
+      document.getElementById("newNotificationType").value = "";
+      document.getElementById("newNotificationLabel").value = "";
+      document.getElementById("newNotificationDescription").value = "";
+      setSettingsStatus("Notification type added.");
+      await loadNotificationSettings();
+    }
+
+    loadNotificationSettings();
+  </script>
+</body>
+</html>
