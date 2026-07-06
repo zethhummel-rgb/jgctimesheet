@@ -3690,6 +3690,14 @@ async function acknowledgeSafetyRecord(id) {
     return;
   }
 
+  if (typeof safetyAckClearPortalNotifications === "function") {
+    await safetyAckClearPortalNotifications(supabaseClient, ack);
+  }
+
+  if (typeof loadJgcNotifications === "function") {
+    await loadJgcNotifications();
+  }
+
   await loadAnnouncements();
 }
 
