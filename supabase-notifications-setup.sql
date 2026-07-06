@@ -139,6 +139,12 @@ using (
     where p.id = (select auth.uid())
       and (
         p.role = 'admin'
+        or (
+          public.notifications.target_profile_id is null
+          and coalesce(public.notifications.target_worker_email, '') = ''
+          and coalesce(public.notifications.target_worker_key, '') = ''
+          and lower(coalesce(public.notifications.target_role, '')) = lower(coalesce(p.role, ''))
+        )
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.worker_key, ''))
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.display_name, ''))
       )
@@ -159,6 +165,12 @@ using (
     where p.id = (select auth.uid())
       and (
         p.role = 'admin'
+        or (
+          public.notifications.target_profile_id is null
+          and coalesce(public.notifications.target_worker_email, '') = ''
+          and coalesce(public.notifications.target_worker_key, '') = ''
+          and lower(coalesce(public.notifications.target_role, '')) = lower(coalesce(p.role, ''))
+        )
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.worker_key, ''))
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.display_name, ''))
       )
@@ -173,6 +185,12 @@ with check (
     where p.id = (select auth.uid())
       and (
         p.role = 'admin'
+        or (
+          public.notifications.target_profile_id is null
+          and coalesce(public.notifications.target_worker_email, '') = ''
+          and coalesce(public.notifications.target_worker_key, '') = ''
+          and lower(coalesce(public.notifications.target_role, '')) = lower(coalesce(p.role, ''))
+        )
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.worker_key, ''))
         or lower(coalesce(public.notifications.target_worker_key, '')) = lower(coalesce(p.display_name, ''))
       )
