@@ -860,7 +860,7 @@ th {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=11"></script>
+<script src="common.js?v=12"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -1400,6 +1400,7 @@ function upsertEmployeeDirectoryItem(map, item) {
   const existing = map.get(workerKey) || {};
   map.set(workerKey, {
     id: existing.id || item.id || item.employee_id || "",
+    profile_id: existing.profile_id || item.profile_id || item.matched_employee_id || "",
     worker_key: workerKey,
     display_name: existing.display_name || displayName || formatWorkerDisplayName(workerKey),
     email: existing.email || item.email || ""
@@ -1415,6 +1416,7 @@ function rebuildEmployeeDirectory(includeSelectedKeys) {
   labourRows.filter((row) => !isManualLabourRow(row) && selected.has(row.worker_key || normalizeWorkerName(row.employee_name))).forEach((row) => {
     upsertEmployeeDirectoryItem(map, {
       id: row.employee_id || "",
+      profile_id: row.profile_id || "",
       worker_key: row.worker_key || row.employee_name,
       display_name: row.employee_name || row.worker_key || ""
     });
@@ -2192,7 +2194,7 @@ async function notifyWorkOrderRequestedHours(wo, previewRows, settings) {
 
   const saveSettings = settings || {};
   const savedStatus = String(saveSettings.forceStatus || wo.status || "").toLowerCase();
-  const shouldNotify = saveSettings.silent || (savedStatus && savedStatus !== "draft");
+  const shouldNotify = saveSettings.silent || savedStatus !== "submitted";
 
   if (!shouldNotify) {
     return;
@@ -2204,6 +2206,7 @@ async function notifyWorkOrderRequestedHours(wo, previewRows, settings) {
       profile_id: row.profile_id || null,
       worker_key: row.worker_key || normalizeWorkerName(row.employee_name),
       display_name: row.employee_name || "",
+      email: row.email || row.matched_employee_email || "",
       role: "worker"
     }));
 
