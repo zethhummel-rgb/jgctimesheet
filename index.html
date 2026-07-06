@@ -758,7 +758,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=11"></script>
+<script src="common.js?v=12"></script>
 <script src="auth.js?v=6"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -1051,6 +1051,24 @@ async function signUp() {
     setStatus("Check your email to finish account setup.");
     alert("Account info sent. Please check your email to finish account setup.");
     return;
+  }
+
+  if (typeof createJgcPortalNotifications === "function") {
+    await createJgcPortalNotifications(supabaseClient, "admin_account_pending", [{ role: "admin" }], {
+      title: "Account approval needed",
+      message: displayName + " requested portal access.",
+      link_url: "accounts.html",
+      source_table: "profiles",
+      source_id: data.user.id,
+      dedupe_key_prefix: "admin_account_pending:" + data.user.id,
+      created_by: data.user.id,
+      created_by_name: displayName,
+      metadata: {
+        display_name: displayName,
+        email,
+        worker_key: workerKey
+      }
+    });
   }
 
   await clearSession();
