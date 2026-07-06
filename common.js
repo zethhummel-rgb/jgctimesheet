@@ -644,6 +644,22 @@ function isAdminWorker(workerKey, role, email) {
   return role === "admin" || JGC_ADMIN_EMAILS.includes(storedEmail);
 }
 
+function isSupervisorWorker(worker) {
+  const record = worker || getCurrentWorkerRecord();
+  return record && String(record.role || "").toLowerCase() === "supervisor";
+}
+
+function getJgcAccountTypeLabel(role) {
+  const normalizedRole = String(role || "worker").toLowerCase();
+  const labels = {
+    admin: "Admin",
+    supervisor: "Supervisor",
+    worker: "Employee",
+    subcontractor: "Subcontractor"
+  };
+  return labels[normalizedRole] || "Employee";
+}
+
 function isJgcSubcontractorSession(worker) {
   const record = worker || getCurrentWorkerRecord();
   return record && record.role === JGC_SUBCONTRACTOR_ROLE;
@@ -2107,9 +2123,453 @@ function activateTimesheetTableContrastFeature() {
   document.head.appendChild(style);
 }
 
+let jgcNotificationRecords = [];
+
+function getJgcNotificationPages() {
+  return ["home.html", "admin.html"];
+}
+
+function shouldActivateJgcNotificationBell() {
+  const page = getCurrentJgcPageName();
+  const worker = getCurrentWorkerRecord();
+  return getJgcNotificationPages().includes(page) && worker && worker.key && !isJgcSubcontractorSession(worker);
+}
+
+function formatJgcNotificationTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function getJgcNotificationHref(value) {
+  const href = String(value || "").trim();
+
+  if (!href) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(href)) {
+    return href;
+  }
+
+  return href.replace(/^\/+/, "");
+}
+
+function injectJgcNotificationBellStyles() {
+  if (document.getElementById("jgcNotificationBellStyles")) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = "jgcNotificationBellStyles";
+  style.textContent = `
+    .jgc-notification-bell {
+      position: fixed;
+      top: 12px;
+      right: 104px;
+      z-index: 10040;
+      font-family: Arial, sans-serif;
+    }
+
+    .jgc-notification-button {
+      position: relative;
+      width: 42px !important;
+      min-width: 42px !important;
+      height: 42px !important;
+      min-height: 42px !important;
+      padding: 0 !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+      cursor: pointer;
+    }
+
+    .jgc-notification-button svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .jgc-notification-button.has-unread::after {
+      content: "";
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      background: #d71920;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .jgc-notification-panel {
+      position: fixed;
+      top: 62px;
+      right: 16px;
+      width: min(390px, calc(100vw - 32px));
+      max-height: min(540px, calc(100vh - 110px));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(64, 220, 78, 0.45);
+      border-radius: 10px;
+      background: rgba(7, 26, 22, 0.98);
+      color: #ffffff;
+      box-shadow: 0 24px 58px rgba(0, 0, 0, 0.55);
+    }
+
+    .jgc-notification-panel[hidden] {
+      display: none;
+    }
+
+    .jgc-notification-panel-header,
+    .jgc-notification-panel-footer {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .jgc-notification-panel-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 0;
+    }
+
+    .jgc-notification-panel-header strong {
+      color: #2ee64f;
+      font-size: 18px;
+    }
+
+    .jgc-notification-panel-header button,
+    .jgc-notification-panel-footer button {
+      width: auto !important;
+      min-width: 0 !important;
+      padding: 8px 10px !important;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .jgc-notification-panel-footer button {
+      background: #159447;
+    }
+
+    .jgc-notification-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .jgc-notification-item {
+      width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 0 8px !important;
+      padding: 11px !important;
+      display: block;
+      border: 1px solid rgba(64, 220, 78, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .jgc-notification-item:hover {
+      background: rgba(46, 230, 79, 0.12);
+    }
+
+    .jgc-notification-item-title {
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .jgc-notification-item-message,
+    .jgc-notification-empty,
+    .jgc-notification-time {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .jgc-notification-item-message {
+      margin-top: 4px;
+    }
+
+    .jgc-notification-time {
+      margin-top: 7px;
+      color: rgba(255, 255, 255, 0.58);
+      font-weight: 700;
+    }
+
+    .jgc-notification-empty {
+      padding: 18px 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 780px) {
+      .jgc-notification-bell {
+        top: 9px;
+        right: 88px;
+      }
+
+      .jgc-notification-button {
+        width: 38px !important;
+        min-width: 38px !important;
+        height: 38px !important;
+        min-height: 38px !important;
+      }
+
+      .jgc-notification-panel {
+        top: 56px;
+        right: 10px;
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 142px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function renderJgcNotificationPanel() {
+  const list = document.getElementById("jgcNotificationList");
+  const button = document.getElementById("jgcNotificationButton");
+
+  if (!list || !button) {
+    return;
+  }
+
+  button.classList.toggle("has-unread", jgcNotificationRecords.length > 0);
+  button.setAttribute("aria-label", jgcNotificationRecords.length ? "Open notifications" : "No notifications");
+
+  if (!jgcNotificationRecords.length) {
+    list.innerHTML = '<div class="jgc-notification-empty">No notifications right now.</div>';
+    return;
+  }
+
+  list.innerHTML = jgcNotificationRecords.map((notification) => `
+    <button type="button" class="jgc-notification-item" data-notification-id="${escapeHtml(notification.id)}">
+      <div class="jgc-notification-item-title">${escapeHtml(notification.title || "Portal notification")}</div>
+      ${notification.message ? `<div class="jgc-notification-item-message">${escapeHtml(notification.message)}</div>` : ""}
+      <div class="jgc-notification-time">${escapeHtml(formatJgcNotificationTime(notification.created_at))}</div>
+    </button>
+  `).join("");
+}
+
+async function loadJgcNotifications() {
+  if (!shouldActivateJgcNotificationBell()) {
+    return;
+  }
+
+  const client = createJgcSupabaseClient();
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const { data, error } = await client
+      .from("notifications")
+      .select("id,notification_type,title,message,link_url,created_at,expires_at")
+      .is("cleared_at", null)
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error) {
+      console.warn("JGC notifications could not be loaded.", error);
+      return;
+    }
+
+    const now = Date.now();
+    jgcNotificationRecords = (data || []).filter((notification) => {
+      if (!notification.expires_at) {
+        return true;
+      }
+
+      const expiresAt = new Date(notification.expires_at).getTime();
+      return Number.isNaN(expiresAt) || expiresAt > now;
+    });
+
+    renderJgcNotificationPanel();
+  } catch (error) {
+    console.warn("JGC notifications could not be loaded.", error);
+  }
+}
+
+async function clearJgcNotifications(ids, clickedId) {
+  const cleanIds = (ids || []).filter(Boolean);
+
+  if (!cleanIds.length) {
+    return true;
+  }
+
+  const client = createJgcSupabaseClient();
+
+  if (!client) {
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const values = {
+    cleared_at: now,
+    updated_at: now
+  };
+
+  if (clickedId) {
+    values.clicked_at = now;
+  }
+
+  const { error } = await client
+    .from("notifications")
+    .update(values)
+    .in("id", cleanIds);
+
+  if (error) {
+    console.warn("JGC notifications could not be cleared.", error);
+    return false;
+  }
+
+  jgcNotificationRecords = jgcNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
+  renderJgcNotificationPanel();
+  return true;
+}
+
+async function handleJgcNotificationClick(id) {
+  const notification = jgcNotificationRecords.find((item) => item.id === id);
+
+  if (!notification) {
+    return;
+  }
+
+  const href = getJgcNotificationHref(notification.link_url);
+  await clearJgcNotifications([id], id);
+
+  if (href) {
+    window.location.href = href;
+  }
+}
+
+async function clearAllJgcNotifications() {
+  const ids = jgcNotificationRecords.map((notification) => notification.id);
+  await clearJgcNotifications(ids);
+}
+
+function toggleJgcNotificationPanel(forceOpen) {
+  const panel = document.getElementById("jgcNotificationPanel");
+
+  if (!panel) {
+    return;
+  }
+
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : panel.hidden;
+  panel.hidden = !shouldOpen;
+
+  if (shouldOpen) {
+    loadJgcNotifications();
+  }
+}
+
+function activateJgcNotificationBell() {
+  if (!shouldActivateJgcNotificationBell() || document.getElementById("jgcNotificationBell")) {
+    return;
+  }
+
+  injectJgcNotificationBellStyles();
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "jgcNotificationBell";
+  wrapper.className = "jgc-notification-bell";
+  wrapper.innerHTML = `
+    <button id="jgcNotificationButton" class="jgc-notification-button" type="button" aria-label="Open notifications">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+        <path d="M10 21h4"></path>
+      </svg>
+    </button>
+    <section id="jgcNotificationPanel" class="jgc-notification-panel" hidden>
+      <div class="jgc-notification-panel-header">
+        <strong>Notifications</strong>
+        <button type="button" data-notification-close>Close</button>
+      </div>
+      <div id="jgcNotificationList" class="jgc-notification-list">
+        <div class="jgc-notification-empty">Loading notifications...</div>
+      </div>
+      <div class="jgc-notification-panel-footer">
+        <span class="jgc-notification-empty">Opened items clear automatically.</span>
+        <button type="button" data-notification-clear-all>Clear All</button>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(wrapper);
+
+  document.getElementById("jgcNotificationButton").addEventListener("click", function(event) {
+    event.stopPropagation();
+    toggleJgcNotificationPanel();
+  });
+
+  wrapper.querySelector("[data-notification-close]").addEventListener("click", function() {
+    toggleJgcNotificationPanel(false);
+  });
+
+  wrapper.querySelector("[data-notification-clear-all]").addEventListener("click", clearAllJgcNotifications);
+
+  wrapper.addEventListener("click", function(event) {
+    const item = event.target.closest("[data-notification-id]");
+
+    if (item) {
+      event.preventDefault();
+      handleJgcNotificationClick(item.getAttribute("data-notification-id"));
+    }
+  });
+
+  document.addEventListener("click", function(event) {
+    const panel = document.getElementById("jgcNotificationPanel");
+
+    if (panel && !panel.hidden && !wrapper.contains(event.target)) {
+      toggleJgcNotificationPanel(false);
+    }
+  });
+
+  loadJgcNotifications();
+  window.setInterval(loadJgcNotifications, 120000);
+}
+
 function activateJgcEnhancements() {
   activateGlobalTopNavigation();
   activateMobileBottomNavigation();
+  activateJgcNotificationBell();
   activateJgcContactsFeature();
   activateJgcPoliciesFeature();
   activatePoliciesAnnouncementsTile();
