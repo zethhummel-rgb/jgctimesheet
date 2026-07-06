@@ -230,10 +230,73 @@ async function safetyAckSaveRows(client, rows) {
         return { data: [], error: null };
     }
 
-    return client
+    const result = await client
         .from(SAFETY_ACK_TABLE)
         .upsert(rows, { onConflict: "record_type,record_id,attendee_key" })
         .select("*");
+
+    if (!result.error) {
+        await safetyAckNotifyPendingRows(client, result.data || rows);
+    }
+
+    return result;
+}
+
+async function safetyAckNotifyPendingRows(client, rows) {
+    if (typeof createJgcPortalNotifications !== "function" || !client || !rows || !rows.length) {
+        return;
+    }
+
+    const pendingRows = rows.filter((row) =>
+        row &&
+        String(row.acknowledgement_status || "pending").toLowerCase() === "pending" &&
+        !row.acknowledged_at &&
+        (row.matched_employee_id || row.matched_employee_email)
+    );
+
+    if (!pendingRows.length) {
+        return;
+    }
+
+    const groups = pendingRows.reduce((map, row) => {
+        const key = [row.record_type || "record", row.record_id || ""].join(":");
+        if (!map[key]) {
+            map[key] = [];
+        }
+        map[key].push(row);
+        return map;
+    }, {});
+
+    for (const groupRows of Object.values(groups)) {
+        const first = groupRows[0] || {};
+        const recordType = String(first.record_type || "").toLowerCase();
+        const label = recordType === "toolbox" || recordType === "toolbox_talk" ? "Toolbox Talk" : "JSA";
+        const projectText = first.project || first.job_name || first.record_title || "";
+        await createJgcPortalNotifications(client, "jsa_acknowledgement", groupRows.map((row) => ({
+            id: row.matched_employee_id || null,
+            profile_id: row.matched_employee_id || null,
+            email: row.matched_employee_email || "",
+            worker_key: row.attendee_key || "",
+            display_name: row.attendee_name || "",
+            role: "worker"
+        })), {
+            title: label + " acknowledgement required",
+            message: [projectText, first.record_date ? String(first.record_date).slice(0, 10) : ""].filter(Boolean).join(" - "),
+            link_url: "home.html",
+            source_table: SAFETY_ACK_TABLE,
+            source_id: [first.record_type || "record", first.record_id || ""].join(":"),
+            created_by: first.created_by || null,
+            created_by_name: first.created_by_name || "",
+            metadata: {
+                record_type: first.record_type || "",
+                record_id: first.record_id || "",
+                record_title: first.record_title || "",
+                record_date: first.record_date || "",
+                project: first.project || "",
+                location: first.location || ""
+            }
+        });
+    }
 }
 
 async function safetyAckLoadForRecords(client, recordType, recordIds) {
