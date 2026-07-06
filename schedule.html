@@ -608,7 +608,7 @@ textarea {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=8"></script>
+<script src="common.js?v=10"></script>
 <script>
 const SCHEDULE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -742,6 +742,7 @@ function buildScheduleAccountsFromWorkOrderWorkers(workerRows, profileRows) {
         display_name: workerRow.display_name || profile.display_name || profile.worker_key || profile.email || "Employee",
         worker_key: workerRow.worker_key || profile.worker_key || normalizeWorkerName(workerRow.display_name),
         email: profile.email || "",
+        role: profile.role || "worker",
         account_status: "approved"
       };
     });
@@ -1309,6 +1310,24 @@ async function createScheduleAnnouncements(event, selectedAccounts) {
   if (error) {
     console.warn("Schedule announcements could not be created.", error);
   }
+
+  if (typeof createJgcPortalNotifications === "function") {
+    await createJgcPortalNotifications(supabaseClient, "schedule_update", selectedAccounts, {
+      title: "Scheduled: " + formatDisplayDate(event.event_date),
+      message: [formatTime(event.start_time), getEventDisplayTitle(event)].filter(Boolean).join(" - "),
+      link_url: "schedule.html",
+      source_table: "schedule_events",
+      source_id: event.id,
+      created_by_name: currentWorkerDisplay,
+      metadata: {
+        event_date: event.event_date || "",
+        event_type: getEventType(event),
+        job_number: event.job_number || "",
+        job_name: event.job_name || "",
+        location: event.location || ""
+      }
+    });
+  }
 }
 
 function getScheduleNotificationEmails(selectedAccounts) {
@@ -1523,7 +1542,7 @@ async function loadScheduleData() {
     supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }),
     supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status,google_event_id,google_sync_status,google_synced_at,google_sync_error").eq("status", "approved").order("start_date", { ascending: true }),
     supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
-    supabaseClient.from("profiles").select("id,email,display_name,worker_key,account_status").order("display_name", { ascending: true }),
+    supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
     supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
     supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
   ]);
