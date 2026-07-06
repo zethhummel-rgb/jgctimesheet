@@ -1813,7 +1813,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<script src="common.js?v=8"></script>
+<script src="common.js?v=9"></script>
 <script src="safety-acknowledgements.js?v=2"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -1843,7 +1843,7 @@ if (window.matchMedia("(max-width: 980px)").matches) {
 }
 
 document.getElementById("currentUserName").innerText = currentWorkerDisplay;
-document.getElementById("roleText").innerText = isAdmin ? "Admin" : "Employee";
+document.getElementById("roleText").innerText = isAdmin ? "Admin" : (currentUserRole === "supervisor" ? "Supervisor" : "Employee");
 const greeting = getGreeting();
 document.getElementById("greetingText").innerText = "Signed in as";
 document.getElementById("dashboardGreetingText").innerText = greeting;
