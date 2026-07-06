@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v431";
+const JGC_CACHE_NAME = "jgc-portal-v433";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -154,5 +154,55 @@ self.addEventListener("fetch", (event) => {
       caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
       return response;
     }))
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (error) {
+    payload = {
+      title: "JGC Portal",
+      body: event.data ? event.data.text() : "New portal notification"
+    };
+  }
+
+  const title = payload.title || "JGC Portal";
+  const options = {
+    body: payload.body || payload.message || "New portal notification",
+    icon: payload.icon || "./icon-192.png?v=4",
+    badge: payload.badge || "./icon-180.png?v=4",
+    tag: payload.tag || payload.notification_id || "jgc-portal-notification",
+    data: {
+      url: payload.url || payload.link_url || "./home.html",
+      notification_id: payload.notification_id || ""
+    },
+    renotify: true
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = new URL(event.notification.data && event.notification.data.url || "./home.html", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client && client.url === targetUrl) {
+          return client.focus();
+        }
+      }
+
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+
+      return null;
+    })
   );
 });
