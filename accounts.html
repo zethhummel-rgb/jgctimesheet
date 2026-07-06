@@ -340,7 +340,7 @@ button:hover {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="common.js?v=8"></script>
+  <script src="common.js?v=9"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -385,7 +385,7 @@ function renderAccounts() {
                         <th>Name</th>
                         <th>Email</th>
                         <th>Status</th>
-                        <th>Role</th>
+                        <th>Account Type</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
@@ -399,15 +399,14 @@ function renderAccounts() {
                                 <td>${escapeHtml(account.display_name)}</td>
                                 <td>${escapeHtml(account.email)}</td>
                                 <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusClass)}</span></td>
-                                <td>${escapeHtml(account.role || "worker")}</td>
+                                <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
                                 <td>${escapeHtml(formatDate(account.created_at))}</td>
                                 <td>
                                     <div class="row-actions">
                                         ${account.account_status !== "approved" ? `<button type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
                                         ${account.account_status === "inactive" ? `<button type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
                                         ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
-                                        ${account.role !== "admin" ? `<button type="button" class="secondary" onclick="setRole('${account.id}', 'admin')">Make Admin</button>` : ""}
-                                        ${account.role === "admin" && !isSelf ? `<button type="button" class="secondary" onclick="setRole('${account.id}', 'worker')">Make Worker</button>` : ""}
+                                        ${renderAccountTypeActions(account, isSelf)}
                                     </div>
                                 </td>
                             </tr>
@@ -417,6 +416,40 @@ function renderAccounts() {
             </table>
         </div>
     `;
+}
+
+function getAccountTypeLabel(role) {
+    const normalizedRole = String(role || "worker").toLowerCase();
+    const labels = {
+        admin: "Admin",
+        supervisor: "Supervisor",
+        worker: "Employee"
+    };
+    return labels[normalizedRole] || "Employee";
+}
+
+function renderAccountTypeActions(account, isSelf) {
+    const role = String(account.role || "worker").toLowerCase();
+
+    if (isSelf && role === "admin") {
+        return '<span class="small">Your admin account</span>';
+    }
+
+    const actions = [];
+
+    if (role !== "worker") {
+        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'worker')">Make Employee</button>`);
+    }
+
+    if (role !== "supervisor") {
+        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'supervisor')">Make Supervisor</button>`);
+    }
+
+    if (role !== "admin") {
+        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'admin')">Make Admin</button>`);
+    }
+
+    return actions.join("");
 }
 
 async function loadAccounts() {
@@ -507,12 +540,19 @@ async function deactivateAccount(id) {
 async function setRole(id, role) {
     const account = accounts.find((item) => item.id === id);
     const name = account ? account.display_name || account.email : "this account";
+    const currentRole = account ? String(account.role || "worker").toLowerCase() : "";
+    const nextRole = String(role || "worker").toLowerCase();
 
-    if (!confirm("Change " + name + " to " + role + "?")) {
+    if (id === currentUserId && currentRole === "admin" && nextRole !== "admin") {
+        alert("You cannot change your own admin account type from this page.");
         return;
     }
 
-    await updateAccount(id, { role });
+    if (!confirm("Change " + name + " to " + getAccountTypeLabel(nextRole) + "?")) {
+        return;
+    }
+
+    await updateAccount(id, { role: nextRole });
 }
 
 async function signOut() {
