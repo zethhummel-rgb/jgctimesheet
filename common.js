@@ -2,6 +2,8 @@ const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
 const JGC_ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
 const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0Z_lMrs25SO3G4L8cK46vs7ZVcrVH9nxsLsZxyIhpwjsuveu4L3DGlso0xPORmaXf/exec";
+const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9CrhenrD9vXhI8ivuZZlCU_EcA8aQH89H1hhNNaDso43XvY";
+const JGC_PUSH_FUNCTION_NAME = "send-push-notification";
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
@@ -2283,12 +2285,337 @@ async function getJgcNotificationCurrentUserId(client) {
   }
 }
 
+function isJgcPushConfigured() {
+  return Boolean(
+    JGC_PUSH_VAPID_PUBLIC_KEY &&
+    !JGC_PUSH_VAPID_PUBLIC_KEY.includes("REPLACE_WITH")
+  );
+}
+
+function isJgcPushSupported() {
+  return Boolean(
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window &&
+    isJgcPushConfigured()
+  );
+}
+
+function jgcPushUrlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+}
+
+async function getJgcPushRegistration() {
+  if (!("serviceWorker" in navigator)) {
+    return null;
+  }
+
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch (error) {
+    console.warn("JGC push service worker was not ready.", error);
+    return null;
+  }
+}
+
+async function saveJgcPushSubscription(client, subscription) {
+  const pushClient = client || createJgcSupabaseClient();
+  const worker = getCurrentWorkerRecord();
+  const authUserId = await getJgcNotificationCurrentUserId(pushClient);
+
+  if (!pushClient || !subscription || !worker.key) {
+    return { ok: false };
+  }
+
+  const json = subscription.toJSON();
+  const keys = json.keys || {};
+  const now = new Date().toISOString();
+  const row = {
+    profile_id: getJgcNotificationUuid(authUserId),
+    worker_key: worker.key || "",
+    worker_display_name: worker.display || worker.key || "",
+    worker_email: worker.email || "",
+    role: worker.role || "worker",
+    endpoint: json.endpoint || subscription.endpoint,
+    p256dh: keys.p256dh || "",
+    auth: keys.auth || "",
+    user_agent: navigator.userAgent || "",
+    enabled: true,
+    last_seen_at: now,
+    updated_at: now
+  };
+
+  const { error } = await pushClient
+    .from("push_subscriptions")
+    .upsert(row, { onConflict: "endpoint" });
+
+  if (error) {
+    console.warn("JGC push subscription could not be saved.", error);
+    return { ok: false, error };
+  }
+
+  return { ok: true };
+}
+
+async function disableJgcPushSubscription(client, subscription) {
+  const pushClient = client || createJgcSupabaseClient();
+
+  if (!pushClient || !subscription) {
+    return;
+  }
+
+  const endpoint = subscription.endpoint || "";
+
+  if (!endpoint) {
+    return;
+  }
+
+  try {
+    await pushClient
+      .from("push_subscriptions")
+      .update({
+        enabled: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq("endpoint", endpoint);
+  } catch (error) {
+    console.warn("JGC push subscription could not be disabled.", error);
+  }
+}
+
+async function getJgcCurrentPushSubscription() {
+  const registration = await getJgcPushRegistration();
+
+  if (!registration || !registration.pushManager) {
+    return null;
+  }
+
+  return registration.pushManager.getSubscription();
+}
+
+async function subscribeJgcPushNotifications() {
+  const button = document.getElementById("jgcPushToggleButton");
+  const status = document.getElementById("jgcPushStatus");
+
+  if (!isJgcPushSupported()) {
+    if (status) {
+      status.textContent = isJgcPushConfigured()
+        ? "Push notifications are not supported on this browser."
+        : "Push needs VAPID keys added before it can be enabled.";
+    }
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+
+    if (permission !== "granted") {
+      if (status) {
+        status.textContent = "Push permission was not granted.";
+      }
+      return;
+    }
+
+    const registration = await getJgcPushRegistration();
+
+    if (!registration) {
+      if (status) {
+        status.textContent = "Service worker is not ready yet.";
+      }
+      return;
+    }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: jgcPushUrlBase64ToUint8Array(JGC_PUSH_VAPID_PUBLIC_KEY)
+    });
+    const result = await saveJgcPushSubscription(createJgcSupabaseClient(), subscription);
+
+    if (status) {
+      status.textContent = result.ok ? "Push notifications enabled on this device." : "Push subscription could not be saved.";
+    }
+  } catch (error) {
+    console.warn("JGC push subscription failed.", error);
+    if (status) {
+      status.textContent = "Push notifications could not be enabled.";
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+    await refreshJgcPushUi();
+  }
+}
+
+async function unsubscribeJgcPushNotifications() {
+  const button = document.getElementById("jgcPushToggleButton");
+  const status = document.getElementById("jgcPushStatus");
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  try {
+    const subscription = await getJgcCurrentPushSubscription();
+
+    if (subscription) {
+      await disableJgcPushSubscription(createJgcSupabaseClient(), subscription);
+      await subscription.unsubscribe();
+    }
+
+    if (status) {
+      status.textContent = "Push notifications disabled on this device.";
+    }
+  } catch (error) {
+    console.warn("JGC push unsubscribe failed.", error);
+    if (status) {
+      status.textContent = "Push notifications could not be disabled.";
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+    await refreshJgcPushUi();
+  }
+}
+
+async function refreshJgcPushUi() {
+  const button = document.getElementById("jgcPushToggleButton");
+  const status = document.getElementById("jgcPushStatus");
+
+  if (!button || !status) {
+    return;
+  }
+
+  if (!isJgcPushConfigured()) {
+    button.textContent = "Push Setup Needed";
+    button.disabled = true;
+    status.textContent = "Add VAPID keys to finish phone notifications.";
+    return;
+  }
+
+  if (!isJgcPushSupported()) {
+    button.textContent = "Push Unavailable";
+    button.disabled = true;
+    status.textContent = "This browser does not support PWA push here.";
+    return;
+  }
+
+  const subscription = await getJgcCurrentPushSubscription();
+  button.disabled = false;
+
+  if (subscription && Notification.permission === "granted") {
+    button.textContent = "Disable Push";
+    button.dataset.pushEnabled = "true";
+    status.textContent = "Push is enabled on this device.";
+    await saveJgcPushSubscription(createJgcSupabaseClient(), subscription);
+    return;
+  }
+
+  button.textContent = "Enable Push";
+  button.dataset.pushEnabled = "false";
+  status.textContent = Notification.permission === "denied"
+    ? "Push is blocked in this browser."
+    : "Enable phone notifications for portal alerts.";
+}
+
+async function toggleJgcPushNotifications() {
+  const button = document.getElementById("jgcPushToggleButton");
+
+  if (button && button.dataset.pushEnabled === "true") {
+    await unsubscribeJgcPushNotifications();
+    return;
+  }
+
+  await subscribeJgcPushNotifications();
+}
+
+async function sendJgcPushForNotifications(client, notificationIds) {
+  const pushClient = client || createJgcSupabaseClient();
+  const ids = Array.from(new Set((notificationIds || []).filter(Boolean)));
+
+  if (!pushClient || !ids.length || !isJgcPushConfigured()) {
+    return;
+  }
+
+  try {
+    const { error } = await pushClient.functions.invoke(JGC_PUSH_FUNCTION_NAME, {
+      body: { notification_ids: ids }
+    });
+
+    if (error) {
+      console.warn("JGC push notifications could not be sent.", error);
+    }
+  } catch (error) {
+    console.warn("JGC push notifications could not be sent.", error);
+  }
+}
+
+async function clearJgcPendingAccountNotifications(client, accountId) {
+  const cleanAccountId = String(accountId || "").trim();
+
+  if (!cleanAccountId) {
+    return;
+  }
+
+  if (typeof clearJgcNotifications === "function") {
+    await clearJgcNotifications(["account-pending:" + cleanAccountId]);
+  }
+
+  const notificationClient = client || createJgcSupabaseClient();
+
+  if (!notificationClient) {
+    return;
+  }
+
+  try {
+    const now = new Date().toISOString();
+    await notificationClient
+      .from("notifications")
+      .update({
+        cleared_at: now,
+        updated_at: now
+      })
+      .eq("notification_type", "admin_account_pending")
+      .eq("source_table", "profiles")
+      .eq("source_id", cleanAccountId)
+      .is("cleared_at", null);
+  } catch (error) {
+    console.warn("Pending account notification could not be cleared.", error);
+  }
+}
+
 function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) {
   const settings = payload || {};
   const sourceTable = normalizeWorkerName(settings.source_table || "portal");
   const sourceId = normalizeWorkerName(settings.source_id || settings.id || settings.dedupe_id || "");
   const prefix = normalizeWorkerName(settings.dedupe_key_prefix || [notificationType, sourceTable, sourceId].filter(Boolean).join(":"));
   return [prefix || normalizeWorkerName(notificationType), recipientKey].filter(Boolean).join(":").slice(0, 420);
+}
+
+function getJgcNotificationListDedupeKey(notification) {
+  const type = normalizeWorkerName(notification && notification.notification_type);
+  const sourceTable = normalizeWorkerName(notification && notification.source_table);
+  const sourceId = normalizeWorkerName(notification && notification.source_id);
+
+  if (type && sourceTable && sourceId) {
+    return [type, sourceTable, sourceId].join(":");
+  }
+
+  return "id:" + String(notification && notification.id || "");
 }
 
 function getJgcLocalClearedNotificationIds() {
@@ -2307,7 +2634,7 @@ function saveJgcLocalClearedNotificationIds(ids) {
 
 function isJgcLocalNotificationId(id) {
   const text = String(id || "");
-  return text.startsWith("wo-request:") || text.startsWith("safety-ack:");
+  return text.startsWith("wo-request:") || text.startsWith("safety-ack:") || text.startsWith("account-pending:");
 }
 
 function getJgcWorkerAliases(worker) {
@@ -2557,6 +2884,62 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
   }
 }
 
+async function loadJgcPendingAccountNotifications(client) {
+  const worker = getCurrentWorkerRecord();
+
+  if (!client || !isAdminWorker(worker.key, worker.role, worker.email)) {
+    return [];
+  }
+
+  const setting = await getJgcNotificationSetting(client, "admin_account_pending");
+
+  if (!getJgcNotificationSettingEnabled(setting, "admin")) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await client
+      .from("profiles")
+      .select("id,email,display_name,worker_key,account_status,created_at")
+      .eq("account_status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.warn("Pending account notifications could not be loaded.", error);
+      return [];
+    }
+
+    const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+
+    return (data || []).map((account) => {
+      const id = "account-pending:" + account.id;
+
+      if (clearedIds.has(id)) {
+        return null;
+      }
+
+      const displayName = account.display_name || account.worker_key || account.email || "New account";
+
+      return {
+        id,
+        local_only: true,
+        notification_type: "admin_account_pending",
+        title: "Account approval needed",
+        message: displayName + " requested portal access.",
+        link_url: "accounts.html",
+        source_table: "profiles",
+        source_id: account.id,
+        created_at: account.created_at || new Date().toISOString(),
+        expires_at: null
+      };
+    }).filter(Boolean);
+  } catch (error) {
+    console.warn("Pending account notifications could not be prepared.", error);
+    return [];
+  }
+}
+
 async function createJgcPortalNotifications(client, notificationType, recipients, payload) {
   const notificationClient = client || createJgcSupabaseClient();
   const cleanType = String(notificationType || "").trim();
@@ -2629,16 +3012,20 @@ async function createJgcPortalNotifications(client, notificationType, recipients
   }));
 
   try {
-    const { error } = await notificationClient
+    const { data, error } = await notificationClient
       .from("notifications")
-      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true });
+      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
+      .select("id");
 
     if (error) {
       console.warn("JGC notifications could not be created.", error);
       return { ok: false, error, inserted: 0 };
     }
 
-    return { ok: true, inserted: rows.length };
+    const notificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    await sendJgcPushForNotifications(notificationClient, notificationIds);
+
+    return { ok: true, inserted: notificationIds.length || rows.length };
   } catch (error) {
     console.warn("JGC notifications could not be created.", error);
     return { ok: false, error, inserted: 0 };
@@ -2736,6 +3123,8 @@ function injectJgcNotificationBellStyles() {
     .jgc-notification-panel-footer {
       border-top: 1px solid rgba(255, 255, 255, 0.12);
       border-bottom: 0;
+      align-items: flex-start;
+      flex-wrap: wrap;
     }
 
     .jgc-notification-panel-header strong {
@@ -2759,6 +3148,27 @@ function injectJgcNotificationBellStyles() {
 
     .jgc-notification-panel-footer button {
       background: #159447;
+    }
+
+    .jgc-notification-push-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+
+    .jgc-notification-push-status {
+      flex: 1 1 auto;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .jgc-notification-panel-footer button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
     }
 
     .jgc-notification-list {
@@ -2878,7 +3288,7 @@ async function loadJgcNotifications() {
   try {
     const { data, error } = await client
       .from("notifications")
-      .select("id,notification_type,title,message,link_url,created_at,expires_at")
+      .select("id,notification_type,title,message,link_url,source_table,source_id,created_at,expires_at")
       .is("cleared_at", null)
       .order("created_at", { ascending: false })
       .limit(40);
@@ -2898,20 +3308,23 @@ async function loadJgcNotifications() {
       return Number.isNaN(expiresAt) || expiresAt > now;
     });
 
-    const [woRequestNotifications, safetyAcknowledgementNotifications] = await Promise.all([
+    const [woRequestNotifications, safetyAcknowledgementNotifications, pendingAccountNotifications] = await Promise.all([
       loadJgcWoRequestedHourNotifications(client),
-      loadJgcSafetyAcknowledgementNotifications(client)
+      loadJgcSafetyAcknowledgementNotifications(client),
+      loadJgcPendingAccountNotifications(client)
     ]);
-    const seenIds = new Set();
+    const seenKeys = new Set();
     jgcNotificationRecords = tableNotifications
       .concat(woRequestNotifications)
       .concat(safetyAcknowledgementNotifications)
+      .concat(pendingAccountNotifications)
       .filter((notification) => {
-        if (!notification || !notification.id || seenIds.has(notification.id)) {
+        const dedupeKey = getJgcNotificationListDedupeKey(notification);
+        if (!notification || !notification.id || seenKeys.has(dedupeKey)) {
           return false;
         }
 
-        seenIds.add(notification.id);
+        seenKeys.add(dedupeKey);
         return true;
       })
       .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
@@ -3035,6 +3448,10 @@ function activateJgcNotificationBell() {
         <div class="jgc-notification-empty">Loading notifications...</div>
       </div>
       <div class="jgc-notification-panel-footer">
+        <div class="jgc-notification-push-row">
+          <span id="jgcPushStatus" class="jgc-notification-push-status">Checking push notifications...</span>
+          <button id="jgcPushToggleButton" type="button" data-push-enabled="false">Enable Push</button>
+        </div>
         <span class="jgc-notification-empty">Opened items clear automatically.</span>
         <button type="button" data-notification-clear-all>Clear All</button>
       </div>
@@ -3053,6 +3470,7 @@ function activateJgcNotificationBell() {
   });
 
   wrapper.querySelector("[data-notification-clear-all]").addEventListener("click", clearAllJgcNotifications);
+  wrapper.querySelector("#jgcPushToggleButton").addEventListener("click", toggleJgcPushNotifications);
 
   wrapper.addEventListener("click", function(event) {
     const item = event.target.closest("[data-notification-id]");
@@ -3072,6 +3490,7 @@ function activateJgcNotificationBell() {
   });
 
   loadJgcNotifications();
+  refreshJgcPushUi();
   window.setInterval(loadJgcNotifications, 120000);
 }
 
