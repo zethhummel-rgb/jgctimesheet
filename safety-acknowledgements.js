@@ -299,6 +299,40 @@ async function safetyAckNotifyPendingRows(client, rows) {
     }
 }
 
+async function safetyAckClearPortalNotifications(client, row, fallback) {
+    const source = row || {};
+    const settings = fallback || {};
+    const recordType = source.record_type || settings.recordType || settings.record_type || "";
+    const recordId = source.record_id || settings.recordId || settings.record_id || "";
+    const localId = source.id || settings.id || "";
+    const sourceId = [recordType || "record", recordId || ""].join(":");
+
+    if (typeof clearJgcNotifications === "function" && localId) {
+        await clearJgcNotifications(["safety-ack:" + localId]);
+    }
+
+    if (!client || !recordId) {
+        return;
+    }
+
+    try {
+        const now = new Date().toISOString();
+        await client
+            .from("notifications")
+            .update({
+                cleared_at: now,
+                clicked_at: now,
+                updated_at: now
+            })
+            .eq("notification_type", "jsa_acknowledgement")
+            .eq("source_table", SAFETY_ACK_TABLE)
+            .eq("source_id", sourceId)
+            .is("cleared_at", null);
+    } catch (error) {
+        console.warn("Safety acknowledgement notification could not be cleared.", error);
+    }
+}
+
 async function safetyAckLoadForRecords(client, recordType, recordIds) {
     const ids = Array.isArray(recordIds) ? recordIds.filter(Boolean) : [recordIds].filter(Boolean);
 
@@ -411,6 +445,8 @@ async function safetyAckSubmitCurrentWorker(client, config) {
             return { ok: false, message: "Acknowledgement could not be saved.", error };
         }
 
+        await safetyAckClearPortalNotifications(client, data, settings);
+
         return { ok: true, message: "Acknowledgement saved.", row: data };
     }
 
@@ -448,6 +484,8 @@ async function safetyAckSubmitCurrentWorker(client, config) {
     if (error) {
         return { ok: false, message: "Acknowledgement could not be saved.", error };
     }
+
+    await safetyAckClearPortalNotifications(client, data && data[0], settings);
 
     return { ok: true, message: "Acknowledgement saved.", row: data && data[0] };
 }
