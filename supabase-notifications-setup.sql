@@ -33,6 +33,7 @@ create table if not exists public.notifications (
   target_role text default '',
   source_table text default '',
   source_id text default '',
+  dedupe_key text default '',
   metadata jsonb not null default '{}'::jsonb,
   clicked_at timestamptz,
   cleared_at timestamptz,
@@ -42,6 +43,9 @@ create table if not exists public.notifications (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.notifications
+  add column if not exists dedupe_key text default '';
 
 create index if not exists idx_notifications_target_profile
   on public.notifications (target_profile_id, cleared_at, created_at desc);
@@ -57,6 +61,10 @@ create index if not exists idx_notifications_target_role
 
 create index if not exists idx_notifications_type
   on public.notifications (notification_type, created_at desc);
+
+create unique index if not exists idx_notifications_dedupe_key
+  on public.notifications (dedupe_key)
+  where dedupe_key is not null and dedupe_key <> '';
 
 create index if not exists idx_notification_settings_type
   on public.notification_settings (notification_type);
@@ -154,12 +162,14 @@ with check (
 );
 
 drop policy if exists "notifications_admin_insert" on public.notifications;
-create policy "notifications_admin_insert"
+drop policy if exists "notifications_insert_admin_or_creator" on public.notifications;
+create policy "notifications_insert_admin_or_creator"
 on public.notifications
 for insert
 to authenticated
 with check (
-  exists (
+  created_by = (select auth.uid())
+  or exists (
     select 1
     from public.profiles p
     where p.id = (select auth.uid())
