@@ -2125,6 +2125,8 @@ function activateTimesheetTableContrastFeature() {
 
 let jgcNotificationRecords = [];
 
+const JGC_LOCAL_CLEARED_NOTIFICATIONS_KEY = "jgcLocalClearedNotifications";
+
 function getJgcNotificationPages() {
   const page = getCurrentJgcPageName();
   const blockedPages = new Set([
@@ -2287,6 +2289,272 @@ function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) 
   const sourceId = normalizeWorkerName(settings.source_id || settings.id || settings.dedupe_id || "");
   const prefix = normalizeWorkerName(settings.dedupe_key_prefix || [notificationType, sourceTable, sourceId].filter(Boolean).join(":"));
   return [prefix || normalizeWorkerName(notificationType), recipientKey].filter(Boolean).join(":").slice(0, 420);
+}
+
+function getJgcLocalClearedNotificationIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(JGC_LOCAL_CLEARED_NOTIFICATIONS_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveJgcLocalClearedNotificationIds(ids) {
+  const uniqueIds = Array.from(new Set((ids || []).filter(Boolean))).slice(-250);
+  localStorage.setItem(JGC_LOCAL_CLEARED_NOTIFICATIONS_KEY, JSON.stringify(uniqueIds));
+}
+
+function isJgcLocalNotificationId(id) {
+  const text = String(id || "");
+  return text.startsWith("wo-request:") || text.startsWith("safety-ack:");
+}
+
+function getJgcWorkerAliases(worker) {
+  const record = worker || getCurrentWorkerRecord();
+  const email = normalizeWorkerName(record.email);
+  const aliases = [
+    record.key,
+    record.display,
+    email
+  ];
+
+  if (
+    email === "zethhummel@gmail.com" ||
+    email.includes("zeth") ||
+    normalizeWorkerName(record.key).includes("zeth") ||
+    normalizeWorkerName(record.display).includes("zeth") ||
+    normalizeWorkerName(record.key) === "test account" ||
+    normalizeWorkerName(record.display) === "test account"
+  ) {
+    aliases.push("zeth hummel");
+  }
+
+  return Array.from(new Set(aliases.map(normalizeWorkerName).filter(Boolean)));
+}
+
+function getJgcNotificationEntryDate(entry) {
+  const weekStartText = String(entry && entry.week_start || "");
+  const dayText = String(entry && entry.day_of_week || "");
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const dayIndex = dayNames.indexOf(dayText);
+  const parts = weekStartText.split("-").map(Number);
+
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part)) || dayIndex < 0) {
+    return "";
+  }
+
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  date.setDate(date.getDate() + dayIndex);
+  return date.getFullYear() + "-" +
+    String(date.getMonth() + 1).padStart(2, "0") + "-" +
+    String(date.getDate()).padStart(2, "0");
+}
+
+function jgcTimesheetEntryMatchesWoRequest(entry, request) {
+  const entryDate = getJgcNotificationEntryDate(entry);
+  const entryJobNumber = normalizeWorkerName(entry && entry.job_number);
+  const entryJobName = normalizeWorkerName(entry && entry.job_name);
+  const requestJobNumber = normalizeWorkerName(request && request.jobNumber);
+  const requestJobName = normalizeWorkerName(request && request.jobName);
+  const jobMatches = Boolean(requestJobNumber && entryJobNumber === requestJobNumber) ||
+    Boolean(requestJobName && entryJobName === requestJobName);
+
+  return jobMatches && entryDate === String(request && request.dateValue || "");
+}
+
+async function loadJgcWoRequestedHourNotifications(client) {
+  const worker = getCurrentWorkerRecord();
+
+  if (!client || !worker || !worker.key) {
+    return [];
+  }
+
+  const setting = await getJgcNotificationSetting(client, "wo_hours_requested");
+
+  if (!getJgcNotificationSettingEnabled(setting, "worker")) {
+    return [];
+  }
+
+  const aliases = getJgcWorkerAliases(worker);
+
+  if (!aliases.length) {
+    return [];
+  }
+
+  try {
+    const { data: labourRows, error: labourError } = await client
+      .from("work_order_labour")
+      .select("id, work_order_id, employee_name, worker_key, hours, complete, expected, created_at")
+      .eq("expected", true)
+      .or("complete.eq.false,complete.is.null")
+      .order("created_at", { ascending: true })
+      .limit(300);
+
+    if (labourError) {
+      console.warn("WO requested-hour notifications could not load labour rows.", labourError);
+      return [];
+    }
+
+    const myLabourRows = (labourRows || []).filter((row) =>
+      aliases.includes(normalizeWorkerName(row.worker_key)) ||
+      aliases.includes(normalizeWorkerName(row.employee_name))
+    );
+
+    const workOrderIds = Array.from(new Set(myLabourRows.map((row) => row.work_order_id).filter(Boolean)));
+
+    if (!workOrderIds.length) {
+      return [];
+    }
+
+    const [workOrderResult, timesheetResult] = await Promise.all([
+      client
+        .from("work_orders")
+        .select("id, wo_number, work_order_date, job_number, job_name, status, created_at")
+        .in("id", workOrderIds),
+      client
+        .from("timesheet_entries")
+        .select("id, worker_name, week_start, day_of_week, job_name, job_number, hours")
+        .in("worker_name", aliases)
+        .limit(1000)
+    ]);
+
+    if (workOrderResult.error) {
+      console.warn("WO requested-hour notifications could not load work orders.", workOrderResult.error);
+      return [];
+    }
+
+    const existingTimesheets = timesheetResult.error ? [] : (timesheetResult.data || []);
+    const workOrdersById = {};
+    (workOrderResult.data || []).forEach((wo) => {
+      workOrdersById[wo.id] = wo;
+    });
+
+    const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+
+    return myLabourRows.map((row) => {
+      const wo = workOrdersById[row.work_order_id];
+
+      if (!wo || String(wo.status || "").toLowerCase() === "submitted") {
+        return null;
+      }
+
+      const dateValue = wo.work_order_date || "";
+      const request = {
+        jobNumber: wo.job_number || "",
+        jobName: wo.job_name || "",
+        dateValue
+      };
+
+      const alreadySubmitted = existingTimesheets.some((entry) => jgcTimesheetEntryMatchesWoRequest(entry, request));
+
+      if (alreadySubmitted) {
+        return null;
+      }
+
+      const id = "wo-request:" + row.id;
+
+      if (clearedIds.has(id)) {
+        return null;
+      }
+
+      const jobLabel = [wo.job_number, wo.job_name].filter(Boolean).join(" - ") || "Job not listed";
+      const woLabel = wo.wo_number ? "WO " + wo.wo_number : "Work Order";
+
+      return {
+        id,
+        local_only: true,
+        notification_type: "wo_hours_requested",
+        title: "WO hours requested",
+        message: [dateValue, jobLabel, woLabel].filter(Boolean).join(" - "),
+        link_url: "timesheet.html",
+        created_at: row.created_at || wo.created_at || new Date().toISOString(),
+        expires_at: null
+      };
+    }).filter(Boolean);
+  } catch (error) {
+    console.warn("WO requested-hour notifications could not be prepared.", error);
+    return [];
+  }
+}
+
+async function loadJgcSafetyAcknowledgementNotifications(client) {
+  const worker = getCurrentWorkerRecord();
+
+  if (!client || !worker || !worker.key) {
+    return [];
+  }
+
+  const setting = await getJgcNotificationSetting(client, "jsa_acknowledgement");
+
+  if (!getJgcNotificationSettingEnabled(setting, worker.role || "worker")) {
+    return [];
+  }
+
+  const aliases = getJgcWorkerAliases(worker);
+
+  if (!aliases.length) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await client
+      .from("safety_acknowledgements")
+      .select("id,record_type,record_title,record_date,project,location,attendee_key,attendee_name,matched_employee_email,acknowledgement_status,acknowledged_at,created_at")
+      .in("acknowledgement_status", ["pending"])
+      .is("acknowledged_at", null)
+      .is("removed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.warn("Safety acknowledgement notifications could not be loaded.", error);
+      return [];
+    }
+
+    const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+
+    return (data || []).map((row) => {
+      const rowAliases = [
+        row.attendee_key,
+        row.attendee_name,
+        row.matched_employee_email
+      ].map(normalizeWorkerName).filter(Boolean);
+      const belongsToWorker = rowAliases.some((alias) => aliases.includes(alias));
+
+      if (!belongsToWorker) {
+        return null;
+      }
+
+      const id = "safety-ack:" + row.id;
+
+      if (clearedIds.has(id)) {
+        return null;
+      }
+
+      const recordType = normalizeWorkerName(row.record_type);
+      const label = recordType === "toolbox" || recordType === "toolbox_talk" ? "Toolbox Talk" : "JSA";
+      const detail = [
+        row.record_title || label,
+        row.project || "",
+        row.record_date ? String(row.record_date).slice(0, 10) : ""
+      ].filter(Boolean).join(" - ");
+
+      return {
+        id,
+        local_only: true,
+        notification_type: "jsa_acknowledgement",
+        title: label + " acknowledgement required",
+        message: detail,
+        link_url: "home.html",
+        created_at: row.created_at || new Date().toISOString(),
+        expires_at: null
+      };
+    }).filter(Boolean);
+  } catch (error) {
+    console.warn("Safety acknowledgement notifications could not be prepared.", error);
+    return [];
+  }
 }
 
 async function createJgcPortalNotifications(client, notificationType, recipients, payload) {
@@ -2621,7 +2889,7 @@ async function loadJgcNotifications() {
     }
 
     const now = Date.now();
-    jgcNotificationRecords = (data || []).filter((notification) => {
+    const tableNotifications = (data || []).filter((notification) => {
       if (!notification.expires_at) {
         return true;
       }
@@ -2629,6 +2897,25 @@ async function loadJgcNotifications() {
       const expiresAt = new Date(notification.expires_at).getTime();
       return Number.isNaN(expiresAt) || expiresAt > now;
     });
+
+    const [woRequestNotifications, safetyAcknowledgementNotifications] = await Promise.all([
+      loadJgcWoRequestedHourNotifications(client),
+      loadJgcSafetyAcknowledgementNotifications(client)
+    ]);
+    const seenIds = new Set();
+    jgcNotificationRecords = tableNotifications
+      .concat(woRequestNotifications)
+      .concat(safetyAcknowledgementNotifications)
+      .filter((notification) => {
+        if (!notification || !notification.id || seenIds.has(notification.id)) {
+          return false;
+        }
+
+        seenIds.add(notification.id);
+        return true;
+      })
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+      .slice(0, 40);
 
     renderJgcNotificationPanel();
   } catch (error) {
@@ -2640,6 +2927,19 @@ async function clearJgcNotifications(ids, clickedId) {
   const cleanIds = (ids || []).filter(Boolean);
 
   if (!cleanIds.length) {
+    return true;
+  }
+
+  const localIds = cleanIds.filter(isJgcLocalNotificationId);
+  const tableIds = cleanIds.filter((id) => !isJgcLocalNotificationId(id));
+
+  if (localIds.length) {
+    saveJgcLocalClearedNotificationIds(getJgcLocalClearedNotificationIds().concat(localIds));
+  }
+
+  if (!tableIds.length) {
+    jgcNotificationRecords = jgcNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
+    renderJgcNotificationPanel();
     return true;
   }
 
@@ -2662,7 +2962,7 @@ async function clearJgcNotifications(ids, clickedId) {
   const { error } = await client
     .from("notifications")
     .update(values)
-    .in("id", cleanIds);
+    .in("id", tableIds);
 
   if (error) {
     console.warn("JGC notifications could not be cleared.", error);
