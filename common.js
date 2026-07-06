@@ -2168,6 +2168,201 @@ function getJgcNotificationHref(value) {
   return href.replace(/^\/+/, "");
 }
 
+function getJgcNotificationUuid(value) {
+  const text = String(value || "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text) ? text : null;
+}
+
+function getJgcNotificationRecipientRole(recipient) {
+  const role = String(recipient && recipient.role || "").trim().toLowerCase();
+  const email = normalizeWorkerName(recipient && (recipient.email || recipient.matched_employee_email));
+
+  if (role === "admin" || role === "supervisor" || role === "worker") {
+    return role;
+  }
+
+  if (email && JGC_ADMIN_EMAILS.includes(email)) {
+    return "admin";
+  }
+
+  return "worker";
+}
+
+function getJgcNotificationRecipientKey(recipient) {
+  return normalizeWorkerName(
+    recipient && (
+      recipient.profile_id ||
+      recipient.id ||
+      recipient.matched_employee_id ||
+      recipient.email ||
+      recipient.matched_employee_email ||
+      recipient.worker_key ||
+      recipient.attendee_key ||
+      recipient.display_name ||
+      recipient.attendee_name ||
+      recipient.name
+    )
+  );
+}
+
+function getJgcNotificationTargetProfileId(recipient) {
+  return getJgcNotificationUuid(
+    recipient && (
+      recipient.profile_id ||
+      recipient.matched_employee_id
+    )
+  );
+}
+
+function getJgcNotificationSettingEnabled(setting, role) {
+  if (!setting) {
+    return true;
+  }
+
+  if (role === "admin") {
+    return setting.admin_enabled !== false;
+  }
+
+  if (role === "supervisor") {
+    return setting.supervisor_enabled !== false;
+  }
+
+  return setting.employee_enabled !== false;
+}
+
+async function getJgcNotificationSetting(client, notificationType) {
+  if (!client || !notificationType) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await client
+      .from("notification_settings")
+      .select("notification_type,employee_enabled,supervisor_enabled,admin_enabled")
+      .eq("notification_type", notificationType)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("JGC notification setting could not be loaded.", error);
+      return null;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.warn("JGC notification setting could not be loaded.", error);
+    return null;
+  }
+}
+
+async function getJgcNotificationCurrentUserId(client) {
+  if (!client || !client.auth) {
+    return "";
+  }
+
+  try {
+    const { data } = await client.auth.getSession();
+    return data && data.session && data.session.user ? data.session.user.id : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) {
+  const settings = payload || {};
+  const sourceTable = normalizeWorkerName(settings.source_table || "portal");
+  const sourceId = normalizeWorkerName(settings.source_id || settings.id || settings.dedupe_id || "");
+  const prefix = normalizeWorkerName(settings.dedupe_key_prefix || [notificationType, sourceTable, sourceId].filter(Boolean).join(":"));
+  return [prefix || normalizeWorkerName(notificationType), recipientKey].filter(Boolean).join(":").slice(0, 420);
+}
+
+async function createJgcPortalNotifications(client, notificationType, recipients, payload) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const cleanType = String(notificationType || "").trim();
+  const settings = payload || {};
+
+  if (!notificationClient || !cleanType) {
+    return { ok: false, skipped: true, inserted: 0 };
+  }
+
+  const recipientRows = (Array.isArray(recipients) ? recipients : [recipients])
+    .filter(Boolean)
+    .map((recipient) => ({
+      ...recipient,
+      recipient_key: getJgcNotificationRecipientKey(recipient),
+      notification_role: getJgcNotificationRecipientRole(recipient)
+    }))
+    .filter((recipient) => recipient.recipient_key);
+
+  if (!recipientRows.length) {
+    return { ok: true, skipped: true, inserted: 0 };
+  }
+
+  const setting = await getJgcNotificationSetting(notificationClient, cleanType);
+  const seen = new Set();
+  const filteredRecipients = recipientRows.filter((recipient) => {
+    if (!getJgcNotificationSettingEnabled(setting, recipient.notification_role)) {
+      return false;
+    }
+
+    if (seen.has(recipient.recipient_key)) {
+      return false;
+    }
+
+    seen.add(recipient.recipient_key);
+    return true;
+  });
+
+  if (!filteredRecipients.length) {
+    return { ok: true, skipped: true, inserted: 0 };
+  }
+
+  const currentWorker = getCurrentWorkerRecord();
+  const authUserId = await getJgcNotificationCurrentUserId(notificationClient);
+  const createdBy = authUserId || getJgcNotificationUuid(settings.created_by);
+  const createdByName = settings.created_by_name || currentWorker.display || currentWorker.key || "";
+  const title = String(settings.title || "Portal notification").trim();
+  const message = String(settings.message || "").trim();
+  const linkUrl = getJgcNotificationHref(settings.link_url || "");
+  const sourceTable = String(settings.source_table || "").trim();
+  const sourceId = String(settings.source_id || "").trim();
+  const metadata = settings.metadata && typeof settings.metadata === "object" ? settings.metadata : {};
+
+  const rows = filteredRecipients.map((recipient) => ({
+    notification_type: cleanType,
+    title,
+    message,
+    link_url: linkUrl,
+    target_profile_id: getJgcNotificationTargetProfileId(recipient),
+    target_worker_key: recipient.worker_key || recipient.attendee_key || recipient.display_name || recipient.attendee_name || recipient.name || "",
+    target_worker_email: recipient.email || recipient.matched_employee_email || "",
+    target_role: recipient.notification_role,
+    source_table: sourceTable,
+    source_id: sourceId,
+    dedupe_key: buildJgcNotificationDedupeKey(cleanType, settings, recipient.recipient_key),
+    metadata,
+    created_by: createdBy || null,
+    created_by_name: createdByName,
+    expires_at: settings.expires_at || null,
+    updated_at: new Date().toISOString()
+  }));
+
+  try {
+    const { error } = await notificationClient
+      .from("notifications")
+      .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true });
+
+    if (error) {
+      console.warn("JGC notifications could not be created.", error);
+      return { ok: false, error, inserted: 0 };
+    }
+
+    return { ok: true, inserted: rows.length };
+  } catch (error) {
+    console.warn("JGC notifications could not be created.", error);
+    return { ok: false, error, inserted: 0 };
+  }
+}
+
 function injectJgcNotificationBellStyles() {
   if (document.getElementById("jgcNotificationBellStyles")) {
     return;
