@@ -222,9 +222,21 @@ input[readonly] {
     color: var(--input-text);
 }
 
+.inspection-card.pass {
+    background: #e9ffe9;
+    border-color: rgba(14, 147, 72, 0.62);
+    box-shadow: inset 0 0 0 2px rgba(14, 147, 72, 0.14);
+}
+
 .inspection-card.defect {
     background: #fff1f1;
     border-color: rgba(197, 31, 40, 0.45);
+}
+
+.inspection-card.na {
+    background: #eef1f3;
+    border-color: rgba(113, 126, 136, 0.56);
+    box-shadow: inset 0 0 0 2px rgba(113, 126, 136, 0.11);
 }
 
 .inspection-card h4 {
@@ -840,7 +852,7 @@ function renderInspectionItems() {
             const key = responseKey(section.key, item.code);
             const response = state.responses[key] || {};
             return `
-                <article class="inspection-card${response.result === "defect" ? " defect" : ""}" data-response-key="${pageEscape(key)}">
+                <article class="inspection-card${response.result ? " " + pageEscape(response.result) : ""}" data-response-key="${pageEscape(key)}">
                     <h4><span class="item-number">${pageEscape(item.code)}</span><span>${pageEscape(item.label)}</span></h4>
                     ${item.help ? `<div class="item-help">${pageEscape(item.help)}</div>` : ""}
                     <div class="choice-row">
