@@ -503,6 +503,11 @@ async function updateAccount(id, values) {
         .eq("id", id);
 
     if (error) {
+        if (String(error.message || "").includes("profiles_role_check")) {
+            alert("Supabase needs the updated account type rule before Supervisor can be saved. Run supabase-fix-profiles-role-check.sql in the SQL Editor, then try again.");
+            return;
+        }
+
         alert(error.message || "Account could not be updated.");
         return;
     }
