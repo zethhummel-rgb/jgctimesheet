@@ -437,7 +437,7 @@ td {
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="common.js?v=11"></script>
+  <script src="common.js?v=12"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -649,6 +649,40 @@ async function sendCertificateExpiryEmail(certificate) {
 
         if (!error && data) {
             certificateNotifications.unshift(data);
+        }
+
+        if (typeof createJgcPortalNotifications === "function") {
+            const workerAccount = accounts.find((account) => [
+                account.worker_key,
+                account.display_name,
+                account.email
+            ].map(normalizeWorkerName).includes(normalizeWorkerName(certificate.worker_name)));
+            const recipients = [{ role: "supervisor" }, { role: "admin" }];
+
+            if (workerAccount) {
+                recipients.unshift({
+                    profile_id: workerAccount.id,
+                    worker_key: workerAccount.worker_key || workerAccount.display_name || "",
+                    display_name: workerAccount.display_name || workerAccount.worker_key || "",
+                    email: workerAccount.email || "",
+                    role: workerAccount.role || "worker"
+                });
+            }
+
+            await createJgcPortalNotifications(supabaseClient, "certificate_expiring", recipients, {
+                title: "Certificate expiring",
+                message: certificate.worker_name + " - " + certificate.certificate_name + " expires " + certificate.expiry_date + ".",
+                link_url: "certificates-admin.html",
+                source_table: "certificates",
+                source_id: certificate.id,
+                dedupe_key_prefix: "certificate_expiring:" + certificate.id + ":" + certificate.expiry_date,
+                metadata: {
+                    worker_name: certificate.worker_name,
+                    certificate_name: certificate.certificate_name,
+                    expiry_date: certificate.expiry_date,
+                    days_until_expiry: certificate.daysUntilExpiry
+                }
+            });
         }
     } catch (error) {
         console.warn("Certificate expiry email could not be sent.", error);
