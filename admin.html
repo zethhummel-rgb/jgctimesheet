@@ -3674,7 +3674,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="common.js?v=11"></script>
+<script src="common.js?v=12"></script>
 <script src="safety-acknowledgements.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -3741,6 +3741,7 @@ let pendingAdminTabRender = "";
 let adminTabDataLoaded = new Set();
 let adminTabDataLoading = {};
 let timesheetsTabRefreshInFlight = false;
+let timesheetMissingNotificationKeys = new Set();
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -6455,11 +6456,41 @@ function renderPortalSummary() {
         }
     ];
 
+    notifyPendingAccountsForReview(accounts.filter((account) => String(account.account_status || "").toLowerCase() === "pending"));
+
     const notificationTiles = tiles.filter((tile) => Number(tile.badgeCount || 0) > 0);
 
     grid.innerHTML = notificationTiles.length
         ? notificationTiles.map(renderSummaryTile).join("")
         : '<div class="small">No current admin notifications.</div>';
+}
+
+function notifyPendingAccountsForReview(pendingRows) {
+    if (!pendingRows.length || typeof createJgcPortalNotifications !== "function") {
+        return;
+    }
+
+    pendingRows.forEach((account) => {
+        if (!account.id) {
+            return;
+        }
+
+        createJgcPortalNotifications(supabaseClient, "admin_account_pending", [{ role: "admin" }], {
+            title: "Account approval needed",
+            message: (account.display_name || account.email || "A new account") + " is waiting for approval.",
+            link_url: "accounts.html",
+            source_table: "profiles",
+            source_id: account.id,
+            dedupe_key_prefix: "admin_account_pending:" + account.id,
+            metadata: {
+                display_name: account.display_name || "",
+                email: account.email || "",
+                worker_key: account.worker_key || ""
+            }
+        }).catch((error) => {
+            console.warn("Pending account notification could not be created.", error);
+        });
+    });
 }
 
 function getEmployeeProfileAccounts() {
@@ -7509,6 +7540,40 @@ async function sendCertificateExpiryEmail(certificate) {
         if (!error && data) {
             certificateNotifications.unshift(data);
         }
+
+        if (typeof createJgcPortalNotifications === "function") {
+            const workerAccount = accounts.find((account) => [
+                account.worker_key,
+                account.display_name,
+                account.email
+            ].map(normalizeWorkerName).includes(normalizeWorkerName(certificate.worker_name)));
+            const recipients = [{ role: "supervisor" }, { role: "admin" }];
+
+            if (workerAccount) {
+                recipients.unshift({
+                    profile_id: workerAccount.id,
+                    worker_key: workerAccount.worker_key || workerAccount.display_name || "",
+                    display_name: workerAccount.display_name || workerAccount.worker_key || "",
+                    email: workerAccount.email || "",
+                    role: workerAccount.role || "worker"
+                });
+            }
+
+            await createJgcPortalNotifications(supabaseClient, "certificate_expiring", recipients, {
+                title: "Certificate expiring",
+                message: certificate.worker_name + " - " + certificate.certificate_name + " expires " + certificate.expiry_date + ".",
+                link_url: "admin.html?tab=certificates",
+                source_table: "certificates",
+                source_id: certificate.id,
+                dedupe_key_prefix: "certificate_expiring:" + certificate.id + ":" + certificate.expiry_date,
+                metadata: {
+                    worker_name: certificate.worker_name,
+                    certificate_name: certificate.certificate_name,
+                    expiry_date: certificate.expiry_date,
+                    days_until_expiry: certificate.daysUntilExpiry
+                }
+            });
+        }
     } catch (error) {
         console.warn("Certificate expiry email could not be sent.", error);
     }
@@ -7664,6 +7729,24 @@ async function sendEquipmentExpiryEmail(item) {
 
         if (!error && data) {
             equipmentNotifications.unshift(data);
+        }
+
+        if (typeof createJgcPortalNotifications === "function") {
+            await createJgcPortalNotifications(supabaseClient, "inspection_issue", [{ role: "supervisor" }, { role: "admin" }], {
+                title: "Equipment inspection expiring",
+                message: item.name + " " + (item.identification_number || "") + " expires " + item.yearly_inspection_expiry + ".",
+                link_url: "admin.html?tab=equipment",
+                source_table: "equipment_vehicles",
+                source_id: item.id,
+                dedupe_key_prefix: "equipment_expiring:" + item.id + ":" + item.yearly_inspection_expiry,
+                metadata: {
+                    equipment_name: item.name,
+                    identification_number: item.identification_number || "",
+                    operator_name: item.operator_name || "",
+                    expiry_date: item.yearly_inspection_expiry,
+                    days_until_expiry: item.daysUntilExpiry
+                }
+            });
         }
     } catch (error) {
         console.warn("Equipment expiry email could not be sent.", error);
@@ -9748,6 +9831,7 @@ function renderLiveTimesheetEntries(filter) {
         ? renderWorkerGroups(currentRows)
         : '<div class="small" style="margin-bottom:14px;">No current-week live entries found.</div>';
     const olderWorkerCount = new Set(olderRows.map((row) => row.worker || "Unknown Worker")).size;
+    notifyOlderTimesheetEntries(olderRows, olderWorkerCount);
     const olderHtml = olderRows.length
         ? `
             <details class="timesheet-worker-group" ${filter ? "open" : ""}>
@@ -9771,6 +9855,37 @@ function renderLiveTimesheetEntries(filter) {
         ${currentHtml}
         ${olderHtml}
     `;
+}
+
+function notifyOlderTimesheetEntries(olderRows, olderWorkerCount) {
+    if (!olderRows.length || !olderWorkerCount || typeof createJgcPortalNotifications !== "function") {
+        return;
+    }
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const workerNames = Array.from(new Set(olderRows.map((row) => row.worker || "Unknown Worker"))).sort();
+    const notificationKey = "older-live:" + todayKey + ":" + workerNames.join("|");
+
+    if (timesheetMissingNotificationKeys.has(notificationKey)) {
+        return;
+    }
+
+    timesheetMissingNotificationKeys.add(notificationKey);
+    createJgcPortalNotifications(supabaseClient, "timesheet_missing", [{ role: "supervisor" }, { role: "admin" }], {
+        title: "Older timesheet cleanup needed",
+        message: olderWorkerCount + " worker" + (olderWorkerCount === 1 ? "" : "s") + " have prior-week work entries still sitting live.",
+        link_url: "admin.html?tab=timesheets",
+        source_table: "timesheet_entries",
+        source_id: notificationKey,
+        dedupe_key_prefix: "timesheet_missing:" + notificationKey,
+        metadata: {
+            worker_count: olderWorkerCount,
+            workers: workerNames,
+            row_count: olderRows.length
+        }
+    }).catch((error) => {
+        console.warn("Timesheet cleanup notification could not be created.", error);
+    });
 }
 
 function editLiveTimesheetEntry(id) {
