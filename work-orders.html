@@ -860,7 +860,7 @@ th {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=8"></script>
+<script src="common.js?v=10"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -1179,7 +1179,7 @@ function renderEmployeePicker(selectedKeys) {
     const key = employee.worker_key || normalizeWorkerName(employee.display_name || employee.email || employee.id);
     return `
       <label class="employee-check">
-        <input type="checkbox" data-employee-id="${escapeHtml(employee.id || "")}" data-worker-key="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee.display_name || employee.email || key || "")}" ${selected.has(key) ? "checked" : ""} onchange="renderLabourPreview()">
+        <input type="checkbox" data-employee-id="${escapeHtml(employee.id || "")}" data-profile-id="${escapeHtml(employee.profile_id || "")}" data-worker-key="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee.display_name || employee.email || key || "")}" ${selected.has(key) ? "checked" : ""} onchange="renderLabourPreview()">
         <span>${escapeHtml(employee.display_name || employee.email || "")}</span>
       </label>
     `;
@@ -1189,6 +1189,7 @@ function renderEmployeePicker(selectedKeys) {
 function collectSelectedEmployees() {
   return Array.from(document.querySelectorAll("#employeePicker input[type='checkbox']:checked")).map((input) => ({
     employee_id: input.dataset.employeeId || null,
+    profile_id: input.dataset.profileId || null,
     worker_key: input.dataset.workerKey || "",
     employee_name: input.dataset.employeeName || ""
   }));
@@ -2184,6 +2185,49 @@ function notifyParentWorkOrderChanged(id) {
   }, window.location.origin);
 }
 
+async function notifyWorkOrderRequestedHours(wo, previewRows, settings) {
+  if (typeof createJgcPortalNotifications !== "function" || !wo || !wo.id) {
+    return;
+  }
+
+  const saveSettings = settings || {};
+  const savedStatus = String(saveSettings.forceStatus || wo.status || "").toLowerCase();
+  const shouldNotify = saveSettings.silent || (savedStatus && savedStatus !== "draft");
+
+  if (!shouldNotify) {
+    return;
+  }
+
+  const recipients = (previewRows || [])
+    .filter((row) => row && !row.manual && !row.complete)
+    .map((row) => ({
+      profile_id: row.profile_id || null,
+      worker_key: row.worker_key || normalizeWorkerName(row.employee_name),
+      display_name: row.employee_name || "",
+      role: "worker"
+    }));
+
+  if (!recipients.length) {
+    return;
+  }
+
+  await createJgcPortalNotifications(supabaseClient, "wo_hours_requested", recipients, {
+    title: "WO hours requested",
+    message: [wo.wo_number || "", wo.job_number || "", wo.job_name || "", wo.work_order_date || ""].filter(Boolean).join(" - "),
+    link_url: "timesheet.html",
+    source_table: "work_orders",
+    source_id: wo.id,
+    created_by_name: wo.created_by_name || worker.display || worker.key || "",
+    metadata: {
+      wo_number: wo.wo_number || "",
+      job_number: wo.job_number || "",
+      job_name: wo.job_name || "",
+      work_order_date: wo.work_order_date || "",
+      original_created_by: wo.created_by || ""
+    }
+  });
+}
+
 async function saveWorkOrder(options) {
   const settings = options || {};
   const existingWorkOrder = editingWorkOrderId ? workOrders.find((item) => item.id === editingWorkOrderId) : null;
@@ -2416,6 +2460,8 @@ async function saveWorkOrder(options) {
       }
     }
   }
+
+  await notifyWorkOrderRequestedHours(result.data, previewRows, settings);
 
   if (settings.silent) {
     await loadWorkOrders(false);
@@ -3002,7 +3048,8 @@ async function loadEmployees() {
   profileEmployees = (data || [])
     .filter((employee) => employee.display_name || employee.worker_key)
     .map((employee) => ({
-      id: employee.profile_id || employee.id || "",
+      id: employee.id || "",
+      profile_id: employee.profile_id || "",
       display_name: employee.display_name || formatWorkerDisplayName(employee.worker_key),
       worker_key: employee.worker_key || normalizeWorkerName(employee.display_name)
     }));
