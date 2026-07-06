@@ -2126,7 +2126,14 @@ function activateTimesheetTableContrastFeature() {
 let jgcNotificationRecords = [];
 
 function getJgcNotificationPages() {
-  return ["home.html", "admin.html"];
+  return [
+    "home.html",
+    "admin.html",
+    "accounts.html",
+    "certificates-admin.html",
+    "notification-settings.html",
+    "policies-admin.html"
+  ];
 }
 
 function shouldActivateJgcNotificationBell() {
