@@ -49,18 +49,6 @@ function buildPayload(row: NotificationRow) {
   });
 }
 
-async function authenticateRequest(request: Request, supabase: ReturnType<typeof createClient>) {
-  const authHeader = request.headers.get("Authorization") || "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-
-  if (!token) {
-    return false;
-  }
-
-  const { data, error } = await supabase.auth.getUser(token);
-  return !error && Boolean(data && data.user);
-}
-
 async function loadSubscriptionsForNotification(
   supabase: ReturnType<typeof createClient>,
   row: NotificationRow,
@@ -190,10 +178,6 @@ Deno.serve(async (request) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-  if (!await authenticateRequest(request, supabase)) {
-    return jsonResponse({ success: false, error: "Unauthorized." }, 401);
-  }
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
