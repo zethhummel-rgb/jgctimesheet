@@ -2664,6 +2664,35 @@ function getJgcNotificationListDedupeKey(notification) {
   return "id:" + String(notification && notification.id || "");
 }
 
+function jgcNotificationTargetsCurrentWorker(notification, worker, profileId) {
+  const record = worker || getCurrentWorkerRecord();
+  const role = normalizeWorkerName(record.role || "worker");
+  const email = normalizeWorkerName(record.email);
+  const aliases = new Set(getJgcWorkerAliases(record));
+  const targetProfileId = String(notification && notification.target_profile_id || "").trim();
+  const targetEmail = normalizeWorkerName(notification && notification.target_worker_email);
+  const targetKey = normalizeWorkerName(notification && notification.target_worker_key);
+  const targetRole = normalizeWorkerName(notification && notification.target_role);
+
+  if (targetProfileId) {
+    return Boolean(profileId && targetProfileId === String(profileId));
+  }
+
+  if (targetEmail) {
+    return Boolean(email && targetEmail === email);
+  }
+
+  if (targetKey) {
+    return aliases.has(targetKey);
+  }
+
+  if (targetRole) {
+    return targetRole === role;
+  }
+
+  return false;
+}
+
 function getJgcLocalClearedNotificationIds() {
   try {
     const saved = JSON.parse(localStorage.getItem(JGC_LOCAL_CLEARED_NOTIFICATIONS_KEY) || "[]");
@@ -3402,9 +3431,11 @@ async function loadJgcNotifications() {
   }
 
   try {
+    const worker = getCurrentWorkerRecord();
+    const currentUserId = await getJgcNotificationCurrentUserId(client);
     const { data, error } = await client
       .from("notifications")
-      .select("id,notification_type,title,message,link_url,source_table,source_id,metadata,created_at,expires_at")
+      .select("id,notification_type,title,message,link_url,source_table,source_id,target_profile_id,target_worker_key,target_worker_email,target_role,metadata,created_at,expires_at")
       .is("cleared_at", null)
       .order("created_at", { ascending: false })
       .limit(40);
@@ -3416,6 +3447,10 @@ async function loadJgcNotifications() {
 
     const now = Date.now();
     const tableNotifications = (data || []).filter((notification) => {
+      if (!jgcNotificationTargetsCurrentWorker(notification, worker, currentUserId)) {
+        return false;
+      }
+
       if (!notification.expires_at) {
         return true;
       }
