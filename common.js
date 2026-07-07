@@ -3639,7 +3639,34 @@ async function handleJgcNotificationClick(id) {
   }
 
   const href = getJgcNotificationHref(notification.link_url);
-  await clearJgcNotifications([id], id);
+  const clickedDedupeKey = getJgcNotificationListDedupeKey(notification);
+  const clickedSourceTable = String(notification.source_table || "").trim();
+  const clickedSourceId = String(notification.source_id || "").trim();
+  const relatedRecords = (jgcLoadedNotificationRecords.length ? jgcLoadedNotificationRecords : jgcNotificationRecords)
+    .filter((item) => {
+      if (!item || !item.id) {
+        return false;
+      }
+
+      if (item.id === id) {
+        return true;
+      }
+
+      if (clickedDedupeKey && getJgcNotificationListDedupeKey(item) === clickedDedupeKey) {
+        return true;
+      }
+
+      return Boolean(
+        clickedSourceTable &&
+        clickedSourceId &&
+        String(item.source_table || "").trim() === clickedSourceTable &&
+        String(item.source_id || "").trim() === clickedSourceId &&
+        String(item.notification_type || "") === String(notification.notification_type || "")
+      );
+    });
+  const idsToClear = relatedRecords.map((item) => item.id);
+
+  await clearJgcNotifications(idsToClear.length ? idsToClear : [id], id);
 
   if (href) {
     window.location.href = href;
