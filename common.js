@@ -4,6 +4,7 @@ const JGC_ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordoncon
 const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0Z_lMrs25SO3G4L8cK46vs7ZVcrVH9nxsLsZxyIhpwjsuveu4L3DGlso0xPORmaXf/exec";
 const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9CrhenrD9vXhI8ivuZZlCU_EcA8aQH89H1hhNNaDso43XvY";
 const JGC_PUSH_FUNCTION_NAME = "send-push-notification";
+const JGC_PUSH_SENT_SESSION_IDS = new Set();
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
@@ -2549,7 +2550,8 @@ async function toggleJgcPushNotifications() {
 
 async function sendJgcPushForNotifications(client, notificationIds) {
   const pushClient = client || createJgcSupabaseClient();
-  const ids = Array.from(new Set((notificationIds || []).filter(Boolean)));
+  const ids = Array.from(new Set((notificationIds || []).filter(Boolean)))
+    .filter((id) => !JGC_PUSH_SENT_SESSION_IDS.has(String(id)));
   const status = document.getElementById("jgcPushLastResult") || document.getElementById("jgcPushStatus");
 
   if (!pushClient || !ids.length || !isJgcPushConfigured()) {
@@ -2586,6 +2588,7 @@ async function sendJgcPushForNotifications(client, notificationIds) {
     if (status) {
       status.textContent = "Push checked " + (body.checked || 0) + ", sent " + (body.sent || 0) + ".";
     }
+    ids.forEach((id) => JGC_PUSH_SENT_SESSION_IDS.add(String(id)));
   } catch (error) {
     console.warn("JGC push notifications could not be sent.", error);
     if (status) {
@@ -2637,6 +2640,19 @@ function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) 
 }
 
 function getJgcNotificationListDedupeKey(notification) {
+  const metadata = notification && notification.metadata && typeof notification.metadata === "object"
+    ? notification.metadata
+    : {};
+  const localNotificationId = String(metadata.local_notification_id || "").trim();
+
+  if (localNotificationId) {
+    return "local:" + localNotificationId;
+  }
+
+  if (notification && notification.local_only && notification.id) {
+    return "local:" + String(notification.id);
+  }
+
   const type = normalizeWorkerName(notification && notification.notification_type);
   const sourceTable = normalizeWorkerName(notification && notification.source_table);
   const sourceId = normalizeWorkerName(notification && notification.source_id);
@@ -3388,7 +3404,7 @@ async function loadJgcNotifications() {
   try {
     const { data, error } = await client
       .from("notifications")
-      .select("id,notification_type,title,message,link_url,source_table,source_id,created_at,expires_at")
+      .select("id,notification_type,title,message,link_url,source_table,source_id,metadata,created_at,expires_at")
       .is("cleared_at", null)
       .order("created_at", { ascending: false })
       .limit(40);
@@ -3432,10 +3448,6 @@ async function loadJgcNotifications() {
       })
       .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
       .slice(0, 40);
-
-    await sendJgcPushForNotifications(client, jgcNotificationRecords
-      .filter((notification) => notification && !notification.local_only && notification.id)
-      .map((notification) => notification.id));
 
     renderJgcNotificationPanel();
   } catch (error) {
