@@ -2507,6 +2507,10 @@ async function deleteWorkOrder(id) {
     return;
   }
 
+  if (typeof clearJgcNotificationsForSource === "function") {
+    await clearJgcNotificationsForSource("work_orders", id, supabaseClient);
+  }
+
   if (editingWorkOrderId === id) {
     resetWorkOrderForm();
   }
