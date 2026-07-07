@@ -2203,6 +2203,7 @@ async function notifyWorkOrderRequestedHours(wo, previewRows, settings) {
   const recipients = (previewRows || [])
     .filter((row) => row && !row.manual && !row.complete)
     .map((row) => ({
+      recipient_key: row.worker_key || normalizeWorkerName(row.employee_name) || row.email || row.matched_employee_email || "",
       profile_id: row.profile_id || null,
       worker_key: row.worker_key || normalizeWorkerName(row.employee_name),
       display_name: row.employee_name || "",
