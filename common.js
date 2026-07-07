@@ -2989,7 +2989,7 @@ async function createJgcPortalNotifications(client, notificationType, recipients
     .filter((recipient) => recipient.recipient_key);
 
   if (!recipientRows.length) {
-    return { ok: true, skipped: true, inserted: 0 };
+    return { ok: true, skipped: true, reason: "no recipients", inserted: 0, notificationIds: [] };
   }
 
   const setting = await getJgcNotificationSetting(notificationClient, cleanType);
@@ -3008,7 +3008,7 @@ async function createJgcPortalNotifications(client, notificationType, recipients
   });
 
   if (!filteredRecipients.length) {
-    return { ok: true, skipped: true, inserted: 0 };
+    return { ok: true, skipped: true, reason: "notification setting disabled", inserted: 0, notificationIds: [] };
   }
 
   const currentWorker = getCurrentWorkerRecord();
@@ -3049,7 +3049,7 @@ async function createJgcPortalNotifications(client, notificationType, recipients
 
     if (error) {
       console.warn("JGC notifications could not be created.", error);
-      return { ok: false, error, inserted: 0 };
+      return { ok: false, error, inserted: 0, notificationIds: [] };
     }
 
     let notificationIds = (data || []).map((row) => row.id).filter(Boolean);
@@ -3069,16 +3069,17 @@ async function createJgcPortalNotifications(client, notificationType, recipients
 
     await sendJgcPushForNotifications(notificationClient, notificationIds);
 
-    return { ok: true, inserted: notificationIds.length || rows.length };
+    return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
   } catch (error) {
     console.warn("JGC notifications could not be created.", error);
-    return { ok: false, error, inserted: 0 };
+    return { ok: false, error, inserted: 0, notificationIds: [] };
   }
 }
 
 async function syncJgcLocalNotificationsToDatabase(client, notifications) {
   const notificationClient = client || createJgcSupabaseClient();
   const worker = getCurrentWorkerRecord();
+  const status = document.getElementById("jgcPushLastResult");
   const localNotifications = (notifications || []).filter((notification) =>
     notification &&
     notification.local_only &&
@@ -3087,6 +3088,9 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
   );
 
   if (!notificationClient || !worker || !worker.key || !localNotifications.length) {
+    if (status && localNotifications.length) {
+      status.textContent = "Push sync skipped. Refresh the portal and try again.";
+    }
     return;
   }
 
@@ -3098,7 +3102,11 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
   };
 
   for (const notification of localNotifications) {
-    await createJgcPortalNotifications(notificationClient, notification.notification_type, [recipient], {
+    if (status) {
+      status.textContent = "Preparing push for " + (notification.title || "notification") + "...";
+    }
+
+    const result = await createJgcPortalNotifications(notificationClient, notification.notification_type, [recipient], {
       title: notification.title || "Portal notification",
       message: notification.message || "",
       link_url: notification.link_url || "home.html",
@@ -3110,6 +3118,14 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
         local_notification_id: notification.id
       }
     });
+
+    if (status && result && result.skipped) {
+      status.textContent = "Push sync skipped: " + (result.reason || "not eligible") + ".";
+    } else if (status && result && !result.ok) {
+      status.textContent = "Push sync failed before sending.";
+    } else if (status && result && result.ok && !(result.notificationIds || []).length) {
+      status.textContent = "Push sync found no database notification ID.";
+    }
   }
 }
 
