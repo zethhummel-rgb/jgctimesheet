@@ -2447,6 +2447,10 @@ async function subscribeJgcPushNotifications() {
     if (status) {
       status.textContent = result.ok ? "Push notifications enabled on this device." : "Push subscription could not be saved.";
     }
+
+    if (result.ok && typeof loadJgcNotifications === "function") {
+      await loadJgcNotifications();
+    }
   } catch (error) {
     console.warn("JGC push subscription failed.", error);
     if (status) {
@@ -3383,6 +3387,10 @@ async function loadJgcNotifications() {
       })
       .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
       .slice(0, 40);
+
+    await sendJgcPushForNotifications(client, jgcNotificationRecords
+      .filter((notification) => notification && !notification.local_only && notification.id)
+      .map((notification) => notification.id));
 
     renderJgcNotificationPanel();
   } catch (error) {
