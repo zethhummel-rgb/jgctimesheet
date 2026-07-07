@@ -2728,6 +2728,11 @@ function getJgcNotificationListDedupeKey(notification) {
   }
 
   const ackRecordType = normalizeWorkerName(metadata.record_type);
+  const rawAckSourceTable = String(notification && notification.source_table || "").trim();
+  const rawAckSourceId = String(notification && notification.source_id || "").trim();
+  const ackSourceTable = normalizeWorkerName(rawAckSourceTable);
+  const ackSourceParts = rawAckSourceId.includes(":") ? rawAckSourceId.split(":") : [];
+  const ackRecordId = normalizeWorkerName(metadata.record_id) || normalizeWorkerName(ackSourceParts.length > 1 ? ackSourceParts.slice(1).join(":") : "");
   const ackTitle = normalizeWorkerName(metadata.record_title) || normalizeWorkerName(notification && notification.title);
   const ackDate = normalizeWorkerName(metadata.record_date) || dateFromMessage;
   const ackProject = normalizeWorkerName(metadata.project);
@@ -2735,7 +2740,11 @@ function getJgcNotificationListDedupeKey(notification) {
   const ackMessage = normalizeWorkerName(message);
 
   if (type === "jsa_acknowledgement" && (ackTitle || ackDate || ackProject || ackAttendee || ackMessage)) {
-    return ["jsa_acknowledgement", ackRecordType, ackTitle, ackDate, ackProject, ackMessage].filter(Boolean).join(":");
+    return ["jsa_acknowledgement", ackRecordType, ackTitle, ackDate, ackProject, ackAttendee || ackMessage].filter(Boolean).join(":");
+  }
+
+  if (type === "jsa_acknowledgement" && ackSourceTable === "safety_acknowledgements" && (ackRecordId || rawAckSourceId) && ackAttendee) {
+    return ["jsa_acknowledgement", ackRecordType, ackRecordId || normalizeWorkerName(rawAckSourceId), ackAttendee].filter(Boolean).join(":");
   }
 
   const sourceTable = normalizeWorkerName(notification && notification.source_table);
@@ -3029,7 +3038,7 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
   try {
     const { data, error } = await client
       .from("safety_acknowledgements")
-      .select("id,record_type,record_title,record_date,project,location,attendee_key,attendee_name,matched_employee_email,acknowledgement_status,acknowledged_at,created_at")
+      .select("id,record_type,record_id,record_title,record_date,project,location,attendee_key,attendee_name,matched_employee_email,acknowledgement_status,acknowledged_at,created_at")
       .in("acknowledgement_status", ["pending"])
       .is("acknowledged_at", null)
       .is("removed_at", null)
@@ -3042,13 +3051,22 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
     }
 
     const clearedIds = new Set(getJgcLocalClearedNotificationIds());
-    const acknowledgementIds = (data || []).map((row) => row.id).filter(Boolean);
+    const acknowledgementSourceIds = [];
+    (data || []).forEach((row) => {
+      if (row && row.id) {
+        acknowledgementSourceIds.push(row.id);
+      }
+
+      if (row && row.record_id) {
+        acknowledgementSourceIds.push([row.record_type || "record", row.record_id].join(":"));
+      }
+    });
     const currentUserId = await getJgcNotificationCurrentUserId(client);
     const clearedSourceIds = await getJgcClearedNotificationSourceIds(
       client,
       "jsa_acknowledgement",
       "safety_acknowledgements",
-      acknowledgementIds,
+      acknowledgementSourceIds,
       worker,
       currentUserId
     );
@@ -3066,8 +3084,15 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
       }
 
       const id = "safety-ack:" + row.id;
+      const sourceId = row.record_id
+        ? [row.record_type || "record", row.record_id].join(":")
+        : row.id;
 
-      if (clearedIds.has(id) || clearedSourceIds.has(String(row.id || "").trim())) {
+      if (
+        clearedIds.has(id) ||
+        clearedSourceIds.has(String(row.id || "").trim()) ||
+        clearedSourceIds.has(String(sourceId || "").trim())
+      ) {
         return null;
       }
 
@@ -3087,10 +3112,11 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
         message: detail,
         link_url: "home.html",
         source_table: "safety_acknowledgements",
-        source_id: row.id,
+        source_id: sourceId,
         metadata: {
           acknowledgement_id: row.id || "",
           record_type: row.record_type || "",
+          record_id: row.record_id || "",
           record_title: row.record_title || "",
           record_date: row.record_date || "",
           project: row.project || "",
@@ -3639,9 +3665,13 @@ async function loadJgcNotifications() {
       loadJgcSafetyAcknowledgementNotifications(client),
       loadJgcPendingAccountNotifications(client)
     ]);
+    const tableNotificationDedupeKeys = new Set(
+      tableNotifications.map(getJgcNotificationListDedupeKey).filter(Boolean)
+    );
     const localNotifications = dedupeJgcNotificationList(woRequestNotifications
       .concat(safetyAcknowledgementNotifications)
-      .concat(pendingAccountNotifications));
+      .concat(pendingAccountNotifications))
+      .filter((notification) => !tableNotificationDedupeKeys.has(getJgcNotificationListDedupeKey(notification)));
     await syncJgcLocalNotificationsToDatabase(client, localNotifications);
 
     jgcLoadedNotificationRecords = tableNotifications.concat(localNotifications);
