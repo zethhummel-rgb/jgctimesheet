@@ -2644,6 +2644,13 @@ function getJgcNotificationListDedupeKey(notification) {
     ? notification.metadata
     : {};
   const localNotificationId = String(metadata.local_notification_id || "").trim();
+  const type = normalizeWorkerName(notification && notification.notification_type);
+  const sourceTable = normalizeWorkerName(notification && notification.source_table);
+  const sourceId = normalizeWorkerName(notification && notification.source_id);
+
+  if (type && sourceTable && sourceId) {
+    return [type, sourceTable, sourceId].join(":");
+  }
 
   if (localNotificationId) {
     return "local:" + localNotificationId;
@@ -2651,14 +2658,6 @@ function getJgcNotificationListDedupeKey(notification) {
 
   if (notification && notification.local_only && notification.id) {
     return "local:" + String(notification.id);
-  }
-
-  const type = normalizeWorkerName(notification && notification.notification_type);
-  const sourceTable = normalizeWorkerName(notification && notification.source_table);
-  const sourceId = normalizeWorkerName(notification && notification.source_id);
-
-  if (type && sourceTable && sourceId) {
-    return [type, sourceTable, sourceId].join(":");
   }
 
   return "id:" + String(notification && notification.id || "");
@@ -3151,13 +3150,19 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       status.textContent = "Preparing push for " + (notification.title || "notification") + "...";
     }
 
+    const sourceTable = notification.source_table || "local_notifications";
+    const sourceId = notification.source_id || notification.id;
+    const dedupePrefix = notification.source_table && notification.source_id
+      ? [notification.notification_type, sourceTable, sourceId].filter(Boolean).join(":")
+      : [notification.notification_type, notification.id].filter(Boolean).join(":");
+
     const result = await createJgcPortalNotifications(notificationClient, notification.notification_type, [recipient], {
       title: notification.title || "Portal notification",
       message: notification.message || "",
       link_url: notification.link_url || "home.html",
-      source_table: notification.source_table || "local_notifications",
-      source_id: notification.source_id || notification.id,
-      dedupe_key_prefix: [notification.notification_type, notification.id].filter(Boolean).join(":"),
+      source_table: sourceTable,
+      source_id: sourceId,
+      dedupe_key_prefix: dedupePrefix,
       expires_at: notification.expires_at || null,
       metadata: {
         local_notification_id: notification.id
