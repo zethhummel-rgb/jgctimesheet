@@ -3267,7 +3267,6 @@ async function ensureWoTimesheetRequestNotifications() {
       link_url: "timesheet.html",
       source_table: "work_orders",
       source_id: request.workOrderId || "",
-      dedupe_key_prefix: "wo_hours_requested:timesheet:" + (request.labourId || request.workOrderId || ""),
       created_by_name: currentUserDisplay || currentUser,
       metadata: {
         wo_number: request.woNumber || "",
