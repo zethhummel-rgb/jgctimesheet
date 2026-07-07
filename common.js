@@ -3178,14 +3178,16 @@ async function createJgcPortalNotifications(client, notificationType, recipients
     const { data, error } = await notificationClient
       .from("notifications")
       .upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
-      .select("id");
+      .select("id,notification_type,title,message,link_url,source_table,source_id,target_profile_id,target_worker_key,target_worker_email,target_role,metadata,created_at,expires_at");
 
     if (error) {
       console.warn("JGC notifications could not be created.", error);
       return { ok: false, error, inserted: 0, notificationIds: [] };
     }
 
-    const insertedNotificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    const insertedRows = Array.isArray(data) ? data : [];
+    const insertedNotificationIds = insertedRows.map((row) => row.id).filter(Boolean);
+    const pushNotificationIds = dedupeJgcNotificationList(insertedRows).map((row) => row.id).filter(Boolean);
     let notificationIds = insertedNotificationIds.slice();
     const dedupeKeys = rows.map((row) => row.dedupe_key).filter(Boolean);
 
@@ -3201,7 +3203,7 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       }
     }
 
-    await sendJgcPushForNotifications(notificationClient, insertedNotificationIds);
+    await sendJgcPushForNotifications(notificationClient, pushNotificationIds);
 
     return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
   } catch (error) {
