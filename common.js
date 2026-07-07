@@ -2550,21 +2550,43 @@ async function toggleJgcPushNotifications() {
 async function sendJgcPushForNotifications(client, notificationIds) {
   const pushClient = client || createJgcSupabaseClient();
   const ids = Array.from(new Set((notificationIds || []).filter(Boolean)));
+  const status = document.getElementById("jgcPushStatus");
 
   if (!pushClient || !ids.length || !isJgcPushConfigured()) {
+    if (status && ids.length) {
+      status.textContent = "Push could not start. Refresh the portal and try again.";
+    }
     return;
   }
 
   try {
-    const { error } = await pushClient.functions.invoke(JGC_PUSH_FUNCTION_NAME, {
-      body: { notification_ids: ids }
+    const response = await fetch(JGC_SUPABASE_URL + "/functions/v1/" + JGC_PUSH_FUNCTION_NAME, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": JGC_SUPABASE_KEY,
+        "Authorization": "Bearer " + JGC_SUPABASE_KEY
+      },
+      body: JSON.stringify({ notification_ids: ids })
     });
+    const body = await response.json().catch(() => ({}));
 
-    if (error) {
-      console.warn("JGC push notifications could not be sent.", error);
+    if (!response.ok || body.success === false) {
+      console.warn("JGC push notifications could not be sent.", body);
+      if (status) {
+        status.textContent = "Push send failed: " + (body.error || response.status);
+      }
+      return;
+    }
+
+    if (status) {
+      status.textContent = "Push checked " + (body.checked || 0) + ", sent " + (body.sent || 0) + ".";
     }
   } catch (error) {
     console.warn("JGC push notifications could not be sent.", error);
+    if (status) {
+      status.textContent = "Push send failed before reaching Supabase.";
+    }
   }
 }
 
