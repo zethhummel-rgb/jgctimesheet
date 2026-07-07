@@ -3032,6 +3032,43 @@ async function createJgcPortalNotifications(client, notificationType, recipients
   }
 }
 
+async function syncJgcLocalNotificationsToDatabase(client, notifications) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const worker = getCurrentWorkerRecord();
+  const localNotifications = (notifications || []).filter((notification) =>
+    notification &&
+    notification.local_only &&
+    notification.notification_type &&
+    notification.id
+  );
+
+  if (!notificationClient || !worker || !worker.key || !localNotifications.length) {
+    return;
+  }
+
+  const recipient = {
+    worker_key: worker.key,
+    display_name: worker.display || worker.key,
+    email: worker.email || "",
+    role: worker.role || "worker"
+  };
+
+  for (const notification of localNotifications) {
+    await createJgcPortalNotifications(notificationClient, notification.notification_type, [recipient], {
+      title: notification.title || "Portal notification",
+      message: notification.message || "",
+      link_url: notification.link_url || "home.html",
+      source_table: notification.source_table || "local_notifications",
+      source_id: notification.source_id || notification.id,
+      dedupe_key_prefix: [notification.notification_type, notification.id].filter(Boolean).join(":"),
+      expires_at: notification.expires_at || null,
+      metadata: {
+        local_notification_id: notification.id
+      }
+    });
+  }
+}
+
 function injectJgcNotificationBellStyles() {
   if (document.getElementById("jgcNotificationBellStyles")) {
     return;
@@ -3313,11 +3350,14 @@ async function loadJgcNotifications() {
       loadJgcSafetyAcknowledgementNotifications(client),
       loadJgcPendingAccountNotifications(client)
     ]);
+    const localNotifications = woRequestNotifications
+      .concat(safetyAcknowledgementNotifications)
+      .concat(pendingAccountNotifications);
+    await syncJgcLocalNotificationsToDatabase(client, localNotifications);
+
     const seenKeys = new Set();
     jgcNotificationRecords = tableNotifications
-      .concat(woRequestNotifications)
-      .concat(safetyAcknowledgementNotifications)
-      .concat(pendingAccountNotifications)
+      .concat(localNotifications)
       .filter((notification) => {
         const dedupeKey = getJgcNotificationListDedupeKey(notification);
         if (!notification || !notification.id || seenKeys.has(dedupeKey)) {
