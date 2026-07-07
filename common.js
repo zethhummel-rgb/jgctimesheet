@@ -3022,7 +3022,21 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       return { ok: false, error, inserted: 0 };
     }
 
-    const notificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    let notificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    const dedupeKeys = rows.map((row) => row.dedupe_key).filter(Boolean);
+
+    if (!notificationIds.length && dedupeKeys.length) {
+      const { data: existingRows, error: existingError } = await notificationClient
+        .from("notifications")
+        .select("id")
+        .in("dedupe_key", dedupeKeys)
+        .is("cleared_at", null);
+
+      if (!existingError) {
+        notificationIds = (existingRows || []).map((row) => row.id).filter(Boolean);
+      }
+    }
+
     await sendJgcPushForNotifications(notificationClient, notificationIds);
 
     return { ok: true, inserted: notificationIds.length || rows.length };
