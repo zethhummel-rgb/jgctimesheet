@@ -11234,6 +11234,22 @@ async function deleteAdminInspection(kind, id) {
     }
 
     const table = kind === "vehicle" ? "vehicle_inspection_records" : "inspection_records";
+    let acknowledgementIds = [];
+
+    if (kind !== "vehicle") {
+        const { data: ackRows, error: ackLoadError } = await supabaseClient
+            .from("safety_acknowledgements")
+            .select("id")
+            .eq("record_id", id)
+            .in("record_type", ["jsa", "toolbox_talk"]);
+
+        if (ackLoadError) {
+            console.warn("Related acknowledgement notifications could not be looked up.", ackLoadError);
+        } else {
+            acknowledgementIds = (ackRows || []).map((row) => row.id).filter(Boolean);
+        }
+    }
+
     const { error } = await supabaseClient
         .from(table)
         .delete()
@@ -11242,6 +11258,13 @@ async function deleteAdminInspection(kind, id) {
     if (error) {
         alert("Inspection could not be deleted: " + (error.message || "Unknown error"));
         return;
+    }
+
+    if (typeof clearJgcNotificationsForSource === "function") {
+        await clearJgcNotificationsForSource(table, id, supabaseClient);
+        if (acknowledgementIds.length) {
+            await clearJgcNotificationsForSource("safety_acknowledgements", acknowledgementIds, supabaseClient);
+        }
     }
 
     if (kind === "vehicle") {
@@ -14329,6 +14352,10 @@ async function deleteAdminWorkOrder(id) {
     if (error) {
         alert("Work Order could not be deleted: " + error.message);
         return;
+    }
+
+    if (typeof clearJgcNotificationsForSource === "function") {
+        await clearJgcNotificationsForSource("work_orders", id, supabaseClient);
     }
 
     workOrders = workOrders.filter((item) => item.id !== id);
