@@ -3203,7 +3203,9 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       }
     }
 
-    await sendJgcPushForNotifications(notificationClient, pushNotificationIds);
+    if (!settings.suppress_push) {
+      await sendJgcPushForNotifications(notificationClient, pushNotificationIds);
+    }
 
     return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
   } catch (error) {
@@ -3239,7 +3241,7 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
 
   for (const notification of localNotifications) {
     if (status) {
-      status.textContent = "Preparing push for " + (notification.title || "notification") + "...";
+      status.textContent = "Syncing notification for " + (notification.title || "notification") + "...";
     }
 
     const sourceTable = notification.source_table || "local_notifications";
@@ -3248,7 +3250,7 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       ? notification.metadata
       : {};
     const dedupePrefix = notification.source_table && notification.source_id
-      ? [notification.notification_type, sourceTable, sourceId].filter(Boolean).join(":")
+      ? ""
       : [notification.notification_type, notification.id].filter(Boolean).join(":");
 
     const result = await createJgcPortalNotifications(notificationClient, notification.notification_type, [recipient], {
@@ -3258,6 +3260,7 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       source_table: sourceTable,
       source_id: sourceId,
       dedupe_key_prefix: dedupePrefix,
+      suppress_push: true,
       expires_at: notification.expires_at || null,
       metadata: Object.assign({}, notificationMetadata, {
         local_notification_id: notification.id
