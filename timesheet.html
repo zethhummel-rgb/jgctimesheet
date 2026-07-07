@@ -3248,11 +3248,29 @@ async function ensureWoTimesheetRequestNotifications() {
     email: String(localStorage.getItem("currentUserEmail") || "").trim(),
     role: "worker"
   };
+  const requestWorkOrderIds = woTimesheetRequests.map((request) => request.workOrderId).filter(Boolean);
+  const currentNotificationProfileId = typeof getJgcNotificationCurrentUserId === "function"
+    ? await getJgcNotificationCurrentUserId(supabaseClient)
+    : "";
+  const clearedSourceIds = typeof getJgcClearedNotificationSourceIds === "function"
+    ? await getJgcClearedNotificationSourceIds(
+        supabaseClient,
+        "wo_hours_requested",
+        "work_orders",
+        requestWorkOrderIds,
+        typeof getCurrentWorkerRecord === "function" ? getCurrentWorkerRecord() : recipient,
+        currentNotificationProfileId
+      )
+    : new Set();
 
   for (const request of woTimesheetRequests) {
     const notificationKey = [request.workOrderId, request.labourId, currentUser].filter(Boolean).join(":");
 
     if (!notificationKey || woTimesheetNotificationKeys.has(notificationKey)) {
+      continue;
+    }
+
+    if (clearedSourceIds.has(String(request.workOrderId || "").trim())) {
       continue;
     }
 
@@ -3267,6 +3285,7 @@ async function ensureWoTimesheetRequestNotifications() {
       link_url: "timesheet.html",
       source_table: "work_orders",
       source_id: request.workOrderId || "",
+      suppress_push: true,
       created_by_name: currentUserDisplay || currentUser,
       metadata: {
         wo_number: request.woNumber || "",
