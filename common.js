@@ -2550,7 +2550,7 @@ async function toggleJgcPushNotifications() {
 async function sendJgcPushForNotifications(client, notificationIds) {
   const pushClient = client || createJgcSupabaseClient();
   const ids = Array.from(new Set((notificationIds || []).filter(Boolean)));
-  const status = document.getElementById("jgcPushStatus");
+  const status = document.getElementById("jgcPushLastResult") || document.getElementById("jgcPushStatus");
 
   if (!pushClient || !ids.length || !isJgcPushConfigured()) {
     if (status && ids.length) {
@@ -2560,6 +2560,10 @@ async function sendJgcPushForNotifications(client, notificationIds) {
   }
 
   try {
+    if (status) {
+      status.textContent = "Push sending " + ids.length + " notification check" + (ids.length === 1 ? "" : "s") + "...";
+    }
+
     const response = await fetch(JGC_SUPABASE_URL + "/functions/v1/" + JGC_PUSH_FUNCTION_NAME, {
       method: "POST",
       headers: {
@@ -3536,6 +3540,7 @@ function activateJgcNotificationBell() {
           <span id="jgcPushStatus" class="jgc-notification-push-status">Checking push notifications...</span>
           <button id="jgcPushToggleButton" type="button" data-push-enabled="false">Enable Push</button>
         </div>
+        <span id="jgcPushLastResult" class="jgc-notification-empty">No push check yet.</span>
         <span class="jgc-notification-empty">Opened items clear automatically.</span>
         <button type="button" data-notification-clear-all>Clear All</button>
       </div>
