@@ -5,6 +5,7 @@ const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "https://script.google.com/macros/s/AKfyc
 const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9CrhenrD9vXhI8ivuZZlCU_EcA8aQH89H1hhNNaDso43XvY";
 const JGC_PUSH_FUNCTION_NAME = "send-push-notification";
 const JGC_PUSH_SENT_SESSION_IDS = new Set();
+const JGC_PUSH_IN_FLIGHT_IDS = new Set();
 let jgcLoadedNotificationRecords = [];
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
@@ -2552,7 +2553,7 @@ async function toggleJgcPushNotifications() {
 async function sendJgcPushForNotifications(client, notificationIds) {
   const pushClient = client || createJgcSupabaseClient();
   const ids = Array.from(new Set((notificationIds || []).filter(Boolean)))
-    .filter((id) => !JGC_PUSH_SENT_SESSION_IDS.has(String(id)));
+    .filter((id) => !JGC_PUSH_SENT_SESSION_IDS.has(String(id)) && !JGC_PUSH_IN_FLIGHT_IDS.has(String(id)));
   const status = document.getElementById("jgcPushLastResult") || document.getElementById("jgcPushStatus");
 
   if (!pushClient || !ids.length || !isJgcPushConfigured()) {
@@ -2563,6 +2564,8 @@ async function sendJgcPushForNotifications(client, notificationIds) {
   }
 
   try {
+    ids.forEach((id) => JGC_PUSH_IN_FLIGHT_IDS.add(String(id)));
+
     if (status) {
       status.textContent = "Push sending " + ids.length + " notification check" + (ids.length === 1 ? "" : "s") + "...";
     }
@@ -2595,6 +2598,8 @@ async function sendJgcPushForNotifications(client, notificationIds) {
     if (status) {
       status.textContent = "Push send failed before reaching Supabase.";
     }
+  } finally {
+    ids.forEach((id) => JGC_PUSH_IN_FLIGHT_IDS.delete(String(id)));
   }
 }
 
@@ -3180,7 +3185,8 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       return { ok: false, error, inserted: 0, notificationIds: [] };
     }
 
-    let notificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    const insertedNotificationIds = (data || []).map((row) => row.id).filter(Boolean);
+    let notificationIds = insertedNotificationIds.slice();
     const dedupeKeys = rows.map((row) => row.dedupe_key).filter(Boolean);
 
     if (!notificationIds.length && dedupeKeys.length) {
@@ -3195,7 +3201,7 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       }
     }
 
-    await sendJgcPushForNotifications(notificationClient, notificationIds);
+    await sendJgcPushForNotifications(notificationClient, insertedNotificationIds);
 
     return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
   } catch (error) {
