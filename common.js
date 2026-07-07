@@ -3122,7 +3122,10 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
     if (status && result && result.skipped) {
       status.textContent = "Push sync skipped: " + (result.reason || "not eligible") + ".";
     } else if (status && result && !result.ok) {
-      status.textContent = "Push sync failed before sending.";
+      const message = result.error && (result.error.message || result.error.details || result.error.code)
+        ? (result.error.message || result.error.details || result.error.code)
+        : "unknown error";
+      status.textContent = "Push sync failed: " + String(message).slice(0, 120);
     } else if (status && result && result.ok && !(result.notificationIds || []).length) {
       status.textContent = "Push sync found no database notification ID.";
     }
