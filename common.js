@@ -2669,6 +2669,45 @@ function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) 
   return [prefix || normalizeWorkerName(notificationType), recipientKey].filter(Boolean).join(":").slice(0, 420);
 }
 
+async function getJgcClearedNotificationSourceIds(client, notificationType, sourceTable, sourceIds, worker, profileId) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const cleanType = String(notificationType || "").trim();
+  const cleanTable = String(sourceTable || "").trim();
+  const cleanIds = Array.from(new Set((Array.isArray(sourceIds) ? sourceIds : [sourceIds])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)));
+
+  if (!notificationClient || !cleanType || !cleanTable || !cleanIds.length) {
+    return new Set();
+  }
+
+  try {
+    const { data, error } = await notificationClient
+      .from("notifications")
+      .select("source_id,target_profile_id,target_worker_key,target_worker_email,target_role,cleared_at")
+      .eq("notification_type", cleanType)
+      .eq("source_table", cleanTable)
+      .in("source_id", cleanIds);
+
+    if (error) {
+      console.warn("Cleared notification records could not be checked.", error);
+      return new Set();
+    }
+
+    return new Set((data || [])
+      .filter((notification) =>
+        notification &&
+        notification.cleared_at &&
+        jgcNotificationTargetsCurrentWorker(notification, worker, profileId)
+      )
+      .map((notification) => String(notification.source_id || "").trim())
+      .filter(Boolean));
+  } catch (error) {
+    console.warn("Cleared notification records could not be checked.", error);
+    return new Set();
+  }
+}
+
 function getJgcNotificationListDedupeKey(notification) {
   const metadata = notification && notification.metadata && typeof notification.metadata === "object"
     ? notification.metadata
@@ -2899,11 +2938,24 @@ async function loadJgcWoRequestedHourNotifications(client) {
     });
 
     const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+    const currentUserId = await getJgcNotificationCurrentUserId(client);
+    const clearedSourceIds = await getJgcClearedNotificationSourceIds(
+      client,
+      "wo_hours_requested",
+      "work_orders",
+      workOrderIds,
+      worker,
+      currentUserId
+    );
 
     return myLabourRows.map((row) => {
       const wo = workOrdersById[row.work_order_id];
 
       if (!wo || String(wo.status || "").toLowerCase() === "submitted") {
+        return null;
+      }
+
+      if (clearedSourceIds.has(String(wo.id || "").trim())) {
         return null;
       }
 
@@ -2990,6 +3042,16 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
     }
 
     const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+    const acknowledgementIds = (data || []).map((row) => row.id).filter(Boolean);
+    const currentUserId = await getJgcNotificationCurrentUserId(client);
+    const clearedSourceIds = await getJgcClearedNotificationSourceIds(
+      client,
+      "jsa_acknowledgement",
+      "safety_acknowledgements",
+      acknowledgementIds,
+      worker,
+      currentUserId
+    );
 
     return (data || []).map((row) => {
       const rowAliases = [
@@ -3005,7 +3067,7 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
 
       const id = "safety-ack:" + row.id;
 
-      if (clearedIds.has(id)) {
+      if (clearedIds.has(id) || clearedSourceIds.has(String(row.id || "").trim())) {
         return null;
       }
 
@@ -3074,11 +3136,21 @@ async function loadJgcPendingAccountNotifications(client) {
     }
 
     const clearedIds = new Set(getJgcLocalClearedNotificationIds());
+    const accountIds = (data || []).map((account) => account.id).filter(Boolean);
+    const currentUserId = await getJgcNotificationCurrentUserId(client);
+    const clearedSourceIds = await getJgcClearedNotificationSourceIds(
+      client,
+      "admin_account_pending",
+      "profiles",
+      accountIds,
+      worker,
+      currentUserId
+    );
 
     return (data || []).map((account) => {
       const id = "account-pending:" + account.id;
 
-      if (clearedIds.has(id)) {
+      if (clearedIds.has(id) || clearedSourceIds.has(String(account.id || "").trim())) {
         return null;
       }
 
