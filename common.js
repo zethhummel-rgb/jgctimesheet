@@ -5,6 +5,7 @@ const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "https://script.google.com/macros/s/AKfyc
 const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9CrhenrD9vXhI8ivuZZlCU_EcA8aQH89H1hhNNaDso43XvY";
 const JGC_PUSH_FUNCTION_NAME = "send-push-notification";
 const JGC_PUSH_SENT_SESSION_IDS = new Set();
+let jgcLoadedNotificationRecords = [];
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
@@ -2631,6 +2632,30 @@ async function clearJgcPendingAccountNotifications(client, accountId) {
   }
 }
 
+async function clearJgcNotificationsForSource(sourceTable, sourceIds, client) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const ids = Array.isArray(sourceIds) ? sourceIds : [sourceIds];
+  const cleanIds = ids.map((id) => String(id || "").trim()).filter(Boolean);
+
+  if (!notificationClient || !sourceTable || !cleanIds.length) {
+    return;
+  }
+
+  try {
+    const { error } = await notificationClient
+      .from("notifications")
+      .delete()
+      .eq("source_table", sourceTable)
+      .in("source_id", cleanIds);
+
+    if (error) {
+      console.warn("Related notifications could not be removed.", error);
+    }
+  } catch (error) {
+    console.warn("Related notifications could not be removed.", error);
+  }
+}
+
 function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) {
   const settings = payload || {};
   const sourceTable = normalizeWorkerName(settings.source_table || "portal");
@@ -2645,6 +2670,30 @@ function getJgcNotificationListDedupeKey(notification) {
     : {};
   const localNotificationId = String(metadata.local_notification_id || "").trim();
   const type = normalizeWorkerName(notification && notification.notification_type);
+  const message = String(notification && notification.message || "");
+  const woNumberFromMessage = normalizeWorkerName(((message.match(/\bWO\s*([A-Z0-9-]+)/i) || message.match(/\b(WO[0-9-]+)/i) || [])[1]));
+  const dateFromMessage = normalizeWorkerName(((message.match(/\b\d{4}-\d{2}-\d{2}\b/) || [])[0]));
+  const jobNumberFromMessage = normalizeWorkerName(((message.match(/\b\d{5}\b/) || [])[0]));
+  const woNumber = normalizeWorkerName(metadata.wo_number) || woNumberFromMessage;
+  const jobNumber = normalizeWorkerName(metadata.job_number) || jobNumberFromMessage;
+  const jobName = normalizeWorkerName(metadata.job_name);
+  const workOrderDate = normalizeWorkerName(metadata.work_order_date) || dateFromMessage;
+
+  if (type === "wo_hours_requested" && (woNumber || jobNumber || jobName || workOrderDate || message)) {
+    return ["wo_hours_requested", woNumber, jobNumber, jobName, workOrderDate].filter(Boolean).join(":");
+  }
+
+  const ackRecordType = normalizeWorkerName(metadata.record_type);
+  const ackTitle = normalizeWorkerName(metadata.record_title) || normalizeWorkerName(notification && notification.title);
+  const ackDate = normalizeWorkerName(metadata.record_date) || dateFromMessage;
+  const ackProject = normalizeWorkerName(metadata.project);
+  const ackAttendee = normalizeWorkerName(metadata.attendee_key || metadata.attendee_name || metadata.matched_employee_email || notification && (notification.target_worker_key || notification.target_worker_email));
+  const ackMessage = normalizeWorkerName(message);
+
+  if (type === "jsa_acknowledgement" && (ackTitle || ackDate || ackProject || ackAttendee || ackMessage)) {
+    return ["jsa_acknowledgement", ackRecordType, ackTitle, ackDate, ackProject, ackMessage].filter(Boolean).join(":");
+  }
+
   const sourceTable = normalizeWorkerName(notification && notification.source_table);
   const sourceId = normalizeWorkerName(notification && notification.source_id);
 
@@ -2661,6 +2710,19 @@ function getJgcNotificationListDedupeKey(notification) {
   }
 
   return "id:" + String(notification && notification.id || "");
+}
+
+function dedupeJgcNotificationList(notifications) {
+  const seenKeys = new Set();
+  return (notifications || []).filter((notification) => {
+    const dedupeKey = getJgcNotificationListDedupeKey(notification);
+    if (!notification || !notification.id || seenKeys.has(dedupeKey)) {
+      return false;
+    }
+
+    seenKeys.add(dedupeKey);
+    return true;
+  });
 }
 
 function jgcNotificationTargetsCurrentWorker(notification, worker, profileId) {
@@ -2869,6 +2931,15 @@ async function loadJgcWoRequestedHourNotifications(client) {
         title: "WO hours requested",
         message: [dateValue, jobLabel, woLabel].filter(Boolean).join(" - "),
         link_url: "timesheet.html",
+        source_table: "work_orders",
+        source_id: wo.id,
+        metadata: {
+          labour_id: row.id || "",
+          wo_number: wo.wo_number || "",
+          job_number: wo.job_number || "",
+          job_name: wo.job_name || "",
+          work_order_date: wo.work_order_date || ""
+        },
         created_at: row.created_at || wo.created_at || new Date().toISOString(),
         expires_at: null
       };
@@ -2948,6 +3019,19 @@ async function loadJgcSafetyAcknowledgementNotifications(client) {
         title: label + " acknowledgement required",
         message: detail,
         link_url: "home.html",
+        source_table: "safety_acknowledgements",
+        source_id: row.id,
+        metadata: {
+          acknowledgement_id: row.id || "",
+          record_type: row.record_type || "",
+          record_title: row.record_title || "",
+          record_date: row.record_date || "",
+          project: row.project || "",
+          location: row.location || "",
+          attendee_key: row.attendee_key || "",
+          attendee_name: row.attendee_name || "",
+          matched_employee_email: row.matched_employee_email || ""
+        },
         created_at: row.created_at || new Date().toISOString(),
         expires_at: null
       };
@@ -3152,6 +3236,9 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
 
     const sourceTable = notification.source_table || "local_notifications";
     const sourceId = notification.source_id || notification.id;
+    const notificationMetadata = notification.metadata && typeof notification.metadata === "object"
+      ? notification.metadata
+      : {};
     const dedupePrefix = notification.source_table && notification.source_id
       ? [notification.notification_type, sourceTable, sourceId].filter(Boolean).join(":")
       : [notification.notification_type, notification.id].filter(Boolean).join(":");
@@ -3164,9 +3251,9 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       source_id: sourceId,
       dedupe_key_prefix: dedupePrefix,
       expires_at: notification.expires_at || null,
-      metadata: {
+      metadata: Object.assign({}, notificationMetadata, {
         local_notification_id: notification.id
-      }
+      })
     });
 
     if (status && result && result.skipped) {
@@ -3469,23 +3556,13 @@ async function loadJgcNotifications() {
       loadJgcSafetyAcknowledgementNotifications(client),
       loadJgcPendingAccountNotifications(client)
     ]);
-    const localNotifications = woRequestNotifications
+    const localNotifications = dedupeJgcNotificationList(woRequestNotifications
       .concat(safetyAcknowledgementNotifications)
-      .concat(pendingAccountNotifications);
+      .concat(pendingAccountNotifications));
     await syncJgcLocalNotificationsToDatabase(client, localNotifications);
 
-    const seenKeys = new Set();
-    jgcNotificationRecords = tableNotifications
-      .concat(localNotifications)
-      .filter((notification) => {
-        const dedupeKey = getJgcNotificationListDedupeKey(notification);
-        if (!notification || !notification.id || seenKeys.has(dedupeKey)) {
-          return false;
-        }
-
-        seenKeys.add(dedupeKey);
-        return true;
-      })
+    jgcLoadedNotificationRecords = tableNotifications.concat(localNotifications);
+    jgcNotificationRecords = dedupeJgcNotificationList(jgcLoadedNotificationRecords)
       .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
       .slice(0, 40);
 
@@ -3511,6 +3588,7 @@ async function clearJgcNotifications(ids, clickedId) {
 
   if (!tableIds.length) {
     jgcNotificationRecords = jgcNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
+    jgcLoadedNotificationRecords = jgcLoadedNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
     renderJgcNotificationPanel();
     return true;
   }
@@ -3542,6 +3620,7 @@ async function clearJgcNotifications(ids, clickedId) {
   }
 
   jgcNotificationRecords = jgcNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
+  jgcLoadedNotificationRecords = jgcLoadedNotificationRecords.filter((notification) => !cleanIds.includes(notification.id));
   renderJgcNotificationPanel();
   return true;
 }
@@ -3562,8 +3641,10 @@ async function handleJgcNotificationClick(id) {
 }
 
 async function clearAllJgcNotifications() {
-  const ids = jgcNotificationRecords.map((notification) => notification.id);
+  const records = jgcLoadedNotificationRecords.length ? jgcLoadedNotificationRecords : jgcNotificationRecords;
+  const ids = records.map((notification) => notification.id);
   await clearJgcNotifications(ids);
+  jgcLoadedNotificationRecords = [];
 }
 
 function toggleJgcNotificationPanel(forceOpen) {
