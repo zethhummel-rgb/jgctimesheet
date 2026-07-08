@@ -2704,6 +2704,65 @@ async function clearJgcNotificationsForSource(sourceTable, sourceIds, client) {
   }
 }
 
+async function clearJgcNotificationsForSourceAndCurrentUser(notificationType, sourceTable, sourceIds, client) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const cleanType = String(notificationType || "").trim();
+  const cleanTable = String(sourceTable || "").trim();
+  const cleanIds = Array.from(new Set((Array.isArray(sourceIds) ? sourceIds : [sourceIds])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)));
+
+  if (!notificationClient || !cleanType || !cleanTable || !cleanIds.length) {
+    return;
+  }
+
+  try {
+    const worker = getCurrentWorkerRecord();
+    const currentUserId = await getJgcNotificationCurrentUserId(notificationClient);
+    const { data, error } = await notificationClient
+      .from("notifications")
+      .select("id,source_id,target_profile_id,target_worker_key,target_worker_email,target_role,cleared_at")
+      .eq("notification_type", cleanType)
+      .eq("source_table", cleanTable)
+      .in("source_id", cleanIds)
+      .is("cleared_at", null);
+
+    if (error) {
+      console.warn("Current user notification records could not be checked.", error);
+      return;
+    }
+
+    const matchingIds = (data || [])
+      .filter((notification) => jgcNotificationTargetsCurrentWorker(notification, worker, currentUserId))
+      .map((notification) => notification.id)
+      .filter(Boolean);
+
+    if (!matchingIds.length) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const { error: clearError } = await notificationClient
+      .from("notifications")
+      .update({
+        cleared_at: now,
+        updated_at: now
+      })
+      .in("id", matchingIds);
+
+    if (clearError) {
+      console.warn("Current user notification records could not be cleared.", clearError);
+      return;
+    }
+
+    jgcNotificationRecords = jgcNotificationRecords.filter((notification) => !matchingIds.includes(notification.id));
+    jgcLoadedNotificationRecords = jgcLoadedNotificationRecords.filter((notification) => !matchingIds.includes(notification.id));
+    renderJgcNotificationPanel();
+  } catch (error) {
+    console.warn("Current user notification records could not be cleared.", error);
+  }
+}
+
 function buildJgcNotificationDedupeKey(notificationType, payload, recipientKey) {
   const settings = payload || {};
   const sourceTable = normalizeWorkerName(settings.source_table || "portal");
@@ -2747,6 +2806,42 @@ async function getJgcClearedNotificationSourceIds(client, notificationType, sour
       .filter(Boolean));
   } catch (error) {
     console.warn("Cleared notification records could not be checked.", error);
+    return new Set();
+  }
+}
+
+async function getJgcActiveNotificationSourceIds(client, notificationType, sourceTable, sourceIds, worker, profileId) {
+  const notificationClient = client || createJgcSupabaseClient();
+  const cleanType = String(notificationType || "").trim();
+  const cleanTable = String(sourceTable || "").trim();
+  const cleanIds = Array.from(new Set((Array.isArray(sourceIds) ? sourceIds : [sourceIds])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)));
+
+  if (!notificationClient || !cleanType || !cleanTable || !cleanIds.length) {
+    return new Set();
+  }
+
+  try {
+    const { data, error } = await notificationClient
+      .from("notifications")
+      .select("source_id,target_profile_id,target_worker_key,target_worker_email,target_role,cleared_at")
+      .eq("notification_type", cleanType)
+      .eq("source_table", cleanTable)
+      .in("source_id", cleanIds)
+      .is("cleared_at", null);
+
+    if (error) {
+      console.warn("Active notification records could not be checked.", error);
+      return new Set();
+    }
+
+    return new Set((data || [])
+      .filter((notification) => jgcNotificationTargetsCurrentWorker(notification, worker, profileId))
+      .map((notification) => String(notification.source_id || "").trim())
+      .filter(Boolean));
+  } catch (error) {
+    console.warn("Active notification records could not be checked.", error);
     return new Set();
   }
 }
