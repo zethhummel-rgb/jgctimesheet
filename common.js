@@ -3372,7 +3372,8 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       }
     }
 
-    if (!settings.suppress_push) {
+    const shouldSendBrowserPush = !settings.suppress_push && cleanType !== "admin_account_pending";
+    if (shouldSendBrowserPush) {
       await sendJgcPushForNotifications(notificationClient, pushNotificationIds, {
         notification_type: cleanType,
         source_table: sourceTable,
@@ -3433,7 +3434,7 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       source_table: sourceTable,
       source_id: sourceId,
       dedupe_key_prefix: dedupePrefix,
-      suppress_push: notification.notification_type !== "admin_account_pending",
+      suppress_push: true,
       expires_at: notification.expires_at || null,
       metadata: Object.assign({}, notificationMetadata, {
         local_notification_id: notification.id
