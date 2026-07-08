@@ -2587,14 +2587,16 @@ async function toggleJgcPushNotifications() {
   await subscribeJgcPushNotifications();
 }
 
-async function sendJgcPushForNotifications(client, notificationIds) {
+async function sendJgcPushForNotifications(client, notificationIds, lookup) {
   const pushClient = client || createJgcSupabaseClient();
   const ids = Array.from(new Set((notificationIds || []).filter(Boolean)))
     .filter((id) => !JGC_PUSH_SENT_SESSION_IDS.has(String(id)) && !JGC_PUSH_IN_FLIGHT_IDS.has(String(id)));
+  const lookupPayload = lookup && typeof lookup === "object" ? lookup : {};
+  const hasLookup = Boolean(lookupPayload.notification_type && lookupPayload.source_table && lookupPayload.source_id);
   const status = document.getElementById("jgcPushLastResult") || document.getElementById("jgcPushStatus");
 
-  if (!pushClient || !ids.length || !isJgcPushConfigured()) {
-    if (status && ids.length) {
+  if (!pushClient || (!ids.length && !hasLookup) || !isJgcPushConfigured()) {
+    if (status && (ids.length || hasLookup)) {
       status.textContent = "Push could not start. Refresh the portal and try again.";
     }
     return;
@@ -2614,7 +2616,11 @@ async function sendJgcPushForNotifications(client, notificationIds) {
         "apikey": JGC_SUPABASE_KEY,
         "Authorization": "Bearer " + JGC_SUPABASE_KEY
       },
-      body: JSON.stringify({ notification_ids: ids })
+      body: JSON.stringify(Object.assign({ notification_ids: ids }, hasLookup ? {
+        notification_type: lookupPayload.notification_type,
+        source_table: lookupPayload.source_table,
+        source_id: lookupPayload.source_id
+      } : {}))
     });
     const body = await response.json().catch(() => ({}));
 
@@ -3367,7 +3373,11 @@ async function createJgcPortalNotifications(client, notificationType, recipients
     }
 
     if (!settings.suppress_push) {
-      await sendJgcPushForNotifications(notificationClient, pushNotificationIds);
+      await sendJgcPushForNotifications(notificationClient, pushNotificationIds, {
+        notification_type: cleanType,
+        source_table: sourceTable,
+        source_id: sourceId
+      });
     }
 
     return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
