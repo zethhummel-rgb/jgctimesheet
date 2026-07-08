@@ -3451,7 +3451,6 @@ async function createJgcPortalNotifications(client, notificationType, recipients
 
     const insertedRows = Array.isArray(data) ? data : [];
     const insertedNotificationIds = insertedRows.map((row) => row.id).filter(Boolean);
-    const pushNotificationIds = dedupeJgcNotificationList(insertedRows).map((row) => row.id).filter(Boolean);
     let notificationIds = insertedNotificationIds.slice();
     const dedupeKeys = rows.map((row) => row.dedupe_key).filter(Boolean);
 
@@ -3467,13 +3466,9 @@ async function createJgcPortalNotifications(client, notificationType, recipients
       }
     }
 
-    const shouldSendBrowserPush = !settings.suppress_push && cleanType !== "admin_account_pending";
-    if (shouldSendBrowserPush) {
-      await sendJgcPushForNotifications(notificationClient, pushNotificationIds, {
-        notification_type: cleanType,
-        source_table: sourceTable,
-        source_id: sourceId
-      });
+    if (!settings.suppress_push && insertedNotificationIds.length) {
+      const pushStatus = document.getElementById("jgcPushLastResult");
+      if (pushStatus) pushStatus.textContent = "Push queued by Supabase.";
     }
 
     return { ok: true, inserted: notificationIds.length || rows.length, notificationIds };
