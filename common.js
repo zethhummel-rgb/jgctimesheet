@@ -3209,11 +3209,39 @@ async function loadJgcPendingAccountNotifications(client) {
       worker,
       currentUserId
     );
+    const activeSourceIds = new Set();
+
+    if (accountIds.length) {
+      try {
+        const { data: activeNotifications, error: activeError } = await client
+          .from("notifications")
+          .select("source_id")
+          .eq("notification_type", "admin_account_pending")
+          .eq("source_table", "profiles")
+          .in("source_id", accountIds)
+          .is("cleared_at", null);
+
+        if (activeError) {
+          console.warn("Existing pending account notifications could not be checked.", activeError);
+        } else {
+          (activeNotifications || []).forEach((notification) => {
+            const sourceId = String(notification.source_id || "").trim();
+            if (sourceId) {
+              activeSourceIds.add(sourceId);
+            }
+          });
+        }
+      } catch (activeError) {
+        console.warn("Existing pending account notifications could not be checked.", activeError);
+      }
+    }
 
     return (data || []).map((account) => {
       const id = "account-pending:" + account.id;
 
-      if (clearedIds.has(id) || clearedSourceIds.has(String(account.id || "").trim())) {
+      const accountId = String(account.id || "").trim();
+
+      if (clearedIds.has(id) || clearedSourceIds.has(accountId) || activeSourceIds.has(accountId)) {
         return null;
       }
 
