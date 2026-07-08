@@ -758,7 +758,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=15"></script>
+<script src="common.js?v=16"></script>
 <script src="auth.js?v=6"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -1054,7 +1054,11 @@ async function signUp() {
   }
 
   if (typeof createJgcPortalNotifications === "function") {
-    await createJgcPortalNotifications(supabaseClient, "admin_account_pending", [{ role: "admin" }], {
+    const adminRecipients = typeof getJgcAdminNotificationRecipients === "function"
+      ? await getJgcAdminNotificationRecipients(supabaseClient)
+      : [{ role: "admin" }];
+
+    await createJgcPortalNotifications(supabaseClient, "admin_account_pending", adminRecipients, {
       title: "Account approval needed",
       message: displayName + " requested portal access.",
       link_url: "accounts.html",
