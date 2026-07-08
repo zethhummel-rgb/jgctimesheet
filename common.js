@@ -646,7 +646,7 @@ function getCurrentWorkerRecord() {
 
 function isAdminWorker(workerKey, role, email) {
   const storedEmail = normalizeWorkerName(email || localStorage.getItem("currentUserEmail"));
-  return role === "admin" || JGC_ADMIN_EMAILS.includes(storedEmail);
+  return normalizeWorkerName(role || localStorage.getItem("currentUserRole")) === "admin" || JGC_ADMIN_EMAILS.includes(storedEmail);
 }
 
 function isSupervisorWorker(worker) {
@@ -2235,16 +2235,53 @@ function getJgcNotificationTargetProfileId(recipient) {
   );
 }
 
+async function getJgcAdminNotificationRecipients(client) {
+  const notificationClient = client || createJgcSupabaseClient();
+
+  if (!notificationClient) {
+    return [{ role: "admin" }];
+  }
+
+  try {
+    const { data, error } = await notificationClient
+      .from("profiles")
+      .select("id,email,display_name,worker_key,role,account_status")
+      .eq("role", "admin")
+      .eq("account_status", "approved");
+
+    if (error) {
+      console.warn("Admin notification recipients could not be loaded.", error);
+      return [{ role: "admin" }];
+    }
+
+    const recipients = (data || []).map((profile) => ({
+      profile_id: profile.id,
+      id: profile.id,
+      email: profile.email || "",
+      worker_key: profile.worker_key || "",
+      display_name: profile.display_name || "",
+      role: "admin"
+    })).filter((recipient) => recipient.profile_id || recipient.email || recipient.worker_key);
+
+    return recipients.length ? recipients : [{ role: "admin" }];
+  } catch (error) {
+    console.warn("Admin notification recipients could not be prepared.", error);
+    return [{ role: "admin" }];
+  }
+}
+
 function getJgcNotificationSettingEnabled(setting, role) {
+  const normalizedRole = normalizeWorkerName(role);
+
   if (!setting) {
     return true;
   }
 
-  if (role === "admin") {
+  if (normalizedRole === "admin") {
     return setting.admin_enabled !== false;
   }
 
-  if (role === "supervisor") {
+  if (normalizedRole === "supervisor") {
     return setting.supervisor_enabled !== false;
   }
 
@@ -3358,7 +3395,7 @@ async function syncJgcLocalNotificationsToDatabase(client, notifications) {
       source_table: sourceTable,
       source_id: sourceId,
       dedupe_key_prefix: dedupePrefix,
-      suppress_push: true,
+      suppress_push: notification.notification_type !== "admin_account_pending",
       expires_at: notification.expires_at || null,
       metadata: Object.assign({}, notificationMetadata, {
         local_notification_id: notification.id
