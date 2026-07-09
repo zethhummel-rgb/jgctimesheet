@@ -148,143 +148,6 @@ button:hover {
     background: #08452b;
 }
 
-.edit-panel {
-    margin-top: 18px;
-    padding: 14px;
-    background: #0d1d19;
-    color: #f4fff7;
-    border: 1px solid rgba(46, 230, 79, 0.55);
-    border-radius: 6px;
-    box-shadow: inset 0 1px 0 rgba(46, 230, 79, 0.18);
-}
-
-.edit-panel[hidden] {
-    display: none;
-}
-
-.inspection-sheet {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 26px;
-    background: #0f201c;
-    color: #f7fff7;
-    border: 1px solid rgba(46, 230, 79, 0.55);
-    border-radius: 8px;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(46, 230, 79, 0.14);
-}
-
-.inspection-sheet,
-.inspection-sheet * {
-    box-sizing: border-box;
-}
-
-.inspection-sheet-logo {
-    width: 220px;
-    max-width: 70%;
-    height: auto;
-    display: block;
-    margin: 0 auto 18px;
-}
-
-.inspection-sheet-title {
-    margin: 0 0 20px;
-    color: #32dc55 !important;
-    text-align: center;
-    font-size: 28px;
-    line-height: 1.2;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.55);
-}
-
-.inspection-sheet-meta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 18px;
-}
-
-.inspection-sheet-meta div,
-.inspection-sheet-note {
-    border: 1px solid rgba(195, 230, 202, 0.28);
-    background: rgba(9, 23, 20, 0.72);
-    padding: 8px;
-    color: #f7fff7;
-}
-
-.inspection-sheet-meta strong,
-.inspection-sheet-note strong {
-    display: block;
-    color: #c8d6cc;
-    font-size: 14px;
-}
-
-.inspection-sheet-meta span,
-.inspection-sheet-note span {
-    color: #ffffff;
-    font-size: 15px;
-}
-
-.inspection-sheet-section-title {
-    margin: 22px 0 10px;
-    color: #32dc55 !important;
-    font-size: 22px;
-    line-height: 1.2;
-}
-
-.inspection-sheet-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.inspection-sheet table {
-    width: 100%;
-    min-width: 0;
-    border-collapse: collapse;
-    background: #10231e;
-    color: #f7fff7;
-    margin: 0 0 18px;
-}
-
-.inspection-sheet th,
-.inspection-sheet td {
-    border: 1px solid rgba(195, 230, 202, 0.18);
-    padding: 7px;
-    color: #f7fff7;
-    background: #13241f;
-    font-size: 14px;
-    vertical-align: top;
-}
-
-.inspection-sheet th {
-    background: #12391e;
-    font-weight: bold;
-}
-
-.inspection-result-pill {
-    display: inline-flex;
-    min-width: 52px;
-    justify-content: center;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: #eef3ef;
-    color: #1b241e;
-    font-weight: bold;
-}
-
-.inspection-result-pill.pass {
-    background: #dff4e5;
-    color: #11602d;
-}
-
-.inspection-result-pill.defect {
-    background: #ffe1e1;
-    color: #9b1111;
-}
-
-.inspection-result-pill.na {
-    background: #eceff1;
-    color: #374047;
-}
-
 @media (max-width: 768px) {
     body {
         padding: 12px;
@@ -300,18 +163,6 @@ button:hover {
 
     .actions button {
         width: 100%;
-    }
-
-    .inspection-sheet {
-        padding: 16px;
-    }
-
-    .inspection-sheet-title {
-        font-size: 22px;
-    }
-
-    .inspection-sheet-meta {
-        grid-template-columns: 1fr;
     }
 }
 </style>
@@ -329,7 +180,6 @@ button:hover {
     <div class="subtitle">Completed inspections from the last 2 months</div>
 
     <div id="inspectionList" class="empty">Loading inspections...</div>
-    <div id="editPanel" class="edit-panel" hidden></div>
 
     <div class="actions">
         <button class="secondary" id="todaysInspectionsButton" onclick="window.location.href='todays-inspections.html'">Today's Inspections</button>
@@ -447,26 +297,7 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
-function isVehicleInspectionRecord(record) {
-    return Boolean(record && record.source_table === "vehicle_inspection_records");
-}
-
 function buildDetails(record) {
-    if (isVehicleInspectionRecord(record)) {
-        const parts = [
-            record.vehicle_license_plate ? "Vehicle: " + record.vehicle_license_plate : "",
-            record.trailer_1_license_plate ? "Trailer 1: " + record.trailer_1_license_plate : "",
-            record.trailer_2_license_plate ? "Trailer 2: " + record.trailer_2_license_plate : "",
-            record.location ? "Location: " + record.location : "",
-            getVehicleInspectionStatus(record)
-        ];
-
-        return parts
-            .filter(Boolean)
-            .map((line) => escapeHtml(line))
-            .join("<br>");
-    }
-
     if (record.report_source) {
         return [
             record.project ? "Project: " + record.project : "",
@@ -487,16 +318,6 @@ function buildDetails(record) {
         .slice(0, 5)
         .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
         .join("<br>");
-}
-
-function normalizeVehicleInspectionRecord(record) {
-    return {
-        ...record,
-        source_table: "vehicle_inspection_records",
-        inspection_type: record.inspection_type || "Vehicle / Trailer",
-        worker_display_name: record.driver_name || record.worker_display_name || record.worker_name || "",
-        worker_name: record.driver_key || record.worker_name || ""
-    };
 }
 
 function normalizeReportRecord(source, record) {
@@ -688,34 +509,19 @@ async function loadInspections() {
         return;
     }
 
-    const [inspectionResult, vehicleResult] = await Promise.all([
-        inspectionSupabaseClient
-            .from("inspection_records")
-            .select("*")
-            .gte("created_at", twoMonthsAgo.toISOString())
-            .order("created_at", { ascending: false }),
-        isPermitsView
-            ? Promise.resolve({ data: [], error: null })
-            : inspectionSupabaseClient
-                .from("vehicle_inspection_records")
-                .select("*")
-                .gte("created_at", twoMonthsAgo.toISOString())
-                .order("created_at", { ascending: false })
-    ]);
+    const { data, error } = await inspectionSupabaseClient
+        .from("inspection_records")
+        .select("*")
+        .gte("created_at", twoMonthsAgo.toISOString())
+        .order("created_at", { ascending: false });
 
-    if (inspectionResult.error) {
+    if (error) {
         list.className = "empty";
         list.textContent = "Could not load previous inspections.";
         return;
     }
 
-    if (vehicleResult.error) {
-        console.warn("Could not load previous vehicle inspections.", vehicleResult.error);
-    }
-
-    const filteredData = filterInspectionRows(inspectionResult.data || [])
-        .concat((vehicleResult.data || []).map((record) => normalizeVehicleInspectionRecord(record)))
-        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const filteredData = filterInspectionRows(data);
 
     if (!filteredData.length) {
         list.className = "empty";
@@ -745,7 +551,6 @@ function renderInspectionRows(filteredData) {
                     <th>${typeHeading}</th>
                     <th>Completed By</th>
                     <th>Details</th>
-                    <th>View</th>
                     <th>PDF</th>
                     <th>Email</th>
                     <th>Delete</th>
@@ -759,9 +564,8 @@ function renderInspectionRows(filteredData) {
                         <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
                         <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
-                        <td>${isVehicleInspectionRecord(record) ? `<button onclick="viewVehicleInspectionById('${escapeHtml(record.id)}')">View</button>` : "-"}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button>`}</td>
-                        <td>${record.report_source && !record.supports_inspection_actions || isVehicleInspectionRecord(record) ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
                         <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`}</td>
                     </tr>
                 `).join("")}
@@ -814,217 +618,6 @@ function findCheckedLabels(record, labels) {
             checked: field ? field.value === "Yes" : false
         };
     });
-}
-
-function getVehicleInspectionSections(record) {
-    return record && record.form_data && Array.isArray(record.form_data.sections)
-        ? record.form_data.sections
-        : [];
-}
-
-function normalizeVehicleInspectionResultLabel(value) {
-    const result = String(value || "").trim();
-    const lower = result.toLowerCase();
-
-    if (lower === "na" || lower === "n/a") {
-        return "N/A";
-    }
-
-    if (lower === "pass" || lower === "p") {
-        return "Pass";
-    }
-
-    if (lower === "defect" || lower === "fail" || lower === "failed" || lower === "f") {
-        return "Defect";
-    }
-
-    return result;
-}
-
-function getVehicleInspectionResultClass(value) {
-    const result = String(value || "").trim().toLowerCase();
-
-    if (result === "pass" || result === "p") {
-        return "pass";
-    }
-
-    if (result === "defect" || result === "fail" || result === "failed" || result === "f") {
-        return "defect";
-    }
-
-    if (result === "na" || result === "n/a") {
-        return "na";
-    }
-
-    return "";
-}
-
-function getVehicleInspectionStatus(record) {
-    if (!record) {
-        return "";
-    }
-
-    if (record.defects_found) {
-        return record.major_defects_found ? "Major defects found" : "Minor defects found";
-    }
-
-    return "No defects reported";
-}
-
-function getVehicleInspectionRepairNotes(record) {
-    const formData = record && record.form_data && typeof record.form_data === "object" ? record.form_data : {};
-    return record && record.repair_notes ? record.repair_notes : (formData.repair_notes || "");
-}
-
-function renderVehicleInspectionMeta(record) {
-    const trailer1 = record.trailer_1_license_plate || record.trailer_1_name || "";
-    const trailer2 = record.trailer_2_license_plate || record.trailer_2_name || "";
-    const meta = [
-        ["Date", formatDate(record.inspection_date)],
-        ["Driver / Inspector", record.driver_name || ""],
-        ["Vehicle Plate", record.vehicle_license_plate || record.vehicle_name || ""],
-        ["Location", record.location || ""]
-    ];
-
-    if (record.odometer) {
-        meta.push(["Current KM", record.odometer]);
-    }
-
-    if (trailer1) {
-        meta.push(["Trailer 1", trailer1]);
-    }
-
-    if (trailer2) {
-        meta.push(["Trailer 2", trailer2]);
-    }
-
-    meta.push(["Status", getVehicleInspectionStatus(record)]);
-
-    return `
-        <div class="inspection-sheet-meta">
-            ${meta.map(([label, value]) => `
-                <div>
-                    <strong>${escapeHtml(label)}</strong>
-                    <span>${escapeHtml(value || "-")}</span>
-                </div>
-            `).join("")}
-        </div>
-    `;
-}
-
-function renderVehicleInspectionSections(record) {
-    const sections = getVehicleInspectionSections(record);
-
-    if (!sections.length) {
-        return '<div class="inspection-sheet-note"><span>No checklist answers were saved for this vehicle inspection.</span></div>';
-    }
-
-    return sections.map((section) => {
-        const items = Array.isArray(section.items) ? section.items : [];
-
-        return `
-            <h3 class="inspection-sheet-section-title">${escapeHtml(section.section || "Inspection Items")}</h3>
-            <div class="inspection-sheet-table-wrap">
-                <table>
-                    <thead>
-                        <tr><th style="width:44px;">#</th><th>Item</th><th style="width:110px;">Result</th><th style="width:120px;">Severity</th><th>Description</th></tr>
-                    </thead>
-                    <tbody>
-                        ${items.length ? items.map((item) => {
-                            const result = normalizeVehicleInspectionResultLabel(item.result || "");
-                            const resultClass = getVehicleInspectionResultClass(result);
-                            return `
-                                <tr>
-                                    <td>${escapeHtml(item.code || "")}</td>
-                                    <td>${escapeHtml(item.label || "")}</td>
-                                    <td>${result ? `<span class="inspection-result-pill ${escapeHtml(resultClass)}">${escapeHtml(result)}</span>` : ""}</td>
-                                    <td>${escapeHtml(item.severity || "")}</td>
-                                    <td>${escapeHtml(item.description || "")}</td>
-                                </tr>
-                            `;
-                        }).join("") : '<tr><td colspan="5">No items saved in this section.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-        `;
-    }).join("");
-}
-
-function renderVehicleInspectionSheet(record) {
-    const notes = getVehicleInspectionRepairNotes(record);
-
-    return `
-        <div class="inspection-sheet">
-            <img class="inspection-sheet-logo" src="logo.webp" alt="John Gordon Construction logo">
-            <h2 class="inspection-sheet-title">${escapeHtml(record.inspection_type || "Vehicle Inspection")}</h2>
-            ${renderVehicleInspectionMeta(record)}
-            ${renderVehicleInspectionSections(record)}
-            ${notes ? `
-                <div class="inspection-sheet-note">
-                    <strong>Repair / Notes</strong>
-                    <span>${escapeHtml(notes)}</span>
-                </div>
-            ` : ""}
-        </div>
-    `;
-}
-
-function renderVehicleInspectionPrintDocument(record) {
-    return `
-        <!doctype html>
-        <html>
-        <head>
-            <title>${escapeHtml(record.inspection_type || "Vehicle Inspection")}</title>
-            <style>
-                @page { size: letter; margin: 16mm; }
-                body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #1b241e; background: #ffffff; }
-                .inspection-sheet { padding: 0; background: #ffffff; color: #1b241e; }
-                .inspection-sheet, .inspection-sheet * { box-sizing: border-box; }
-                .inspection-sheet-logo { width: 220px; max-width: 70%; height: auto; display: block; margin: 0 auto 18px; }
-                .inspection-sheet-title { margin: 0 0 20px; color: #161d19; text-align: center; font-size: 26px; line-height: 1.2; }
-                .inspection-sheet-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 18px; }
-                .inspection-sheet-meta div, .inspection-sheet-note { border: 1px solid #bfc9c1; background: #ffffff; padding: 8px; color: #1b241e; }
-                .inspection-sheet-meta strong, .inspection-sheet-note strong { display: block; color: #1b241e; font-size: 14px; }
-                .inspection-sheet-meta span, .inspection-sheet-note span { color: #1b241e; font-size: 15px; }
-                .inspection-sheet-section-title { margin: 22px 0 10px; color: #161d19; font-size: 22px; line-height: 1.2; page-break-after: avoid; }
-                table { width: 100%; border-collapse: collapse; margin: 0 0 18px; page-break-inside: auto; }
-                tr { page-break-inside: avoid; page-break-after: auto; }
-                th, td { border: 1px solid #aeb8b1; padding: 7px; color: #1b241e; background: #ffffff; font-size: 13px; text-align: left; vertical-align: top; }
-                th { background: #e9f4eb; font-weight: bold; }
-                .inspection-result-pill { display: inline; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            ${renderVehicleInspectionSheet(record)}
-        </body>
-        </html>
-    `;
-}
-
-function viewVehicleInspectionById(id) {
-    const record = inspectionRecords.find((item) => item.id === id);
-
-    if (!record || !isVehicleInspectionRecord(record)) {
-        alert("This vehicle inspection could not be found.");
-        return;
-    }
-
-    const panel = document.getElementById("editPanel");
-    panel.hidden = false;
-    panel.innerHTML = `
-        ${renderVehicleInspectionSheet(record)}
-        <div class="actions">
-            <button class="secondary" onclick="cancelInspectionView()">Close</button>
-            <button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>
-        </div>
-    `;
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function cancelInspectionView() {
-    const panel = document.getElementById("editPanel");
-    panel.hidden = true;
-    panel.innerHTML = "";
 }
 
 function drawBoxText(doc, text, x, y, width, height, options = {}) {
@@ -1815,11 +1408,6 @@ function downloadInspectionPdf(id) {
         return;
     }
 
-    if (isVehicleInspectionRecord(record)) {
-        downloadVehicleInspectionPdf(record);
-        return;
-    }
-
     if (!window.jspdf || !window.jspdf.jsPDF) {
         alert("PDF download is not available right now.");
         return;
@@ -1907,20 +1495,6 @@ function downloadInspectionPdf(id) {
     doc.save(filename);
 }
 
-function downloadVehicleInspectionPdf(record) {
-    const printWindow = window.open("", "_blank");
-
-    if (!printWindow) {
-        alert("Please allow pop-ups to save this PDF.");
-        return;
-    }
-
-    printWindow.document.write(renderVehicleInspectionPrintDocument(record));
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => printWindow.print(), 350);
-}
-
 function emailSavedInspection(id) {
     const record = inspectionRecords.find((item) => item.id === id);
     emailInspectionRecord(record);
@@ -1931,11 +1505,8 @@ async function deleteInspection(id) {
         return;
     }
 
-    const record = inspectionRecords.find((item) => item.id === id);
-    const tableName = isVehicleInspectionRecord(record) ? "vehicle_inspection_records" : "inspection_records";
-
     const { error } = await inspectionSupabaseClient
-        .from(tableName)
+        .from("inspection_records")
         .delete()
         .eq("id", id);
 
