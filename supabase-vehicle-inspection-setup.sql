@@ -362,6 +362,7 @@ declare
   v_major boolean := coalesce((p_record->>'major_defects_found')::boolean, false);
   v_vehicle_status text := coalesce(nullif(trim(p_record->>'vehicle_status_after_inspection'), ''), case when v_major then 'Out of Service / Needs Review' when v_defects then 'Needs Review' else 'Active' end);
   v_current_km numeric := nullif(coalesce(p_record->>'current_km', p_record->>'odometer', ''), '')::numeric;
+  v_toronto_today date := (now() at time zone 'America/Toronto')::date;
 begin
   if length(clean_token) < 24 then
     return query select false, 'This vehicle QR token is not valid.'::text, null::jsonb;
@@ -423,7 +424,7 @@ begin
   values (
     v_status,
     coalesce(nullif(trim(p_record->>'inspection_type'), ''), 'Daily Vehicle Inspection'),
-    coalesce((p_record->>'inspection_date')::date, current_date),
+    coalesce((p_record->>'inspection_date')::date, v_toronto_today),
     nullif(p_record->>'inspection_time', '')::time,
     v_driver_name,
     nullif(trim(coalesce(p_record->>'driver_employee_key', '')), ''),
