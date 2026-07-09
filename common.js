@@ -1386,6 +1386,11 @@ function formatDisplayDate(value) {
     return "";
   }
 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const parts = String(value).split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString();
+  }
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
