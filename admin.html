@@ -5214,7 +5214,7 @@ function buildAdminGlobalSearchIndex() {
     const index = [];
     const collections = [
         { category: "Submitted Timesheet", records: timesheets, tab: "timesheets", action: "submitted_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["week_label", "total_hours", "note"], dateKeys: ["submitted_at", "week_start", "created_at"], extraSearch: (week) => (week.entries || []).map((entry) => getAdminTimesheetEntryDate(week, entry)) },
-        { category: "Live Timesheet", records: liveTimesheetEntries, tab: "timesheets", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["day_of_week", "job_name", "job_number", "hours"], dateKeys: ["week_start", "created_at"], extraSearch: (entry) => getLiveTimesheetEntryDate(entry) },
+        { category: "Live Timesheet", records: liveTimesheetEntries, tab: "timesheets", action: "live_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["day_of_week", "job_name", "job_number", "hours"], dateKeys: ["week_start", "created_at"], extraSearch: (entry) => getLiveTimesheetEntryDate(entry) },
         { category: "Inspection", records: inspections, tab: "inspections", keywords: "inspection permit safety worker employee job site", titleKeys: ["worker_name", "completed_by", "inspection_type"], detailKeys: ["inspection_type", "job_number", "job_name", "location"], dateKeys: ["inspection_date", "created_at"] },
         { category: "Vehicle Inspection", records: vehicleInspections, tab: "inspections", keywords: "vehicle trailer inspection plate driver", titleKeys: ["driver_name", "worker_name", "vehicle_license_plate"], detailKeys: ["vehicle_license_plate", "trailer_1_license_plate", "inspection_type", "location"], dateKeys: ["inspection_date", "created_at"] },
         { category: "Certificate", records: certificates, tab: "certificates", keywords: "certificate training employee worker expiry", titleKeys: ["worker_name", "employee_name", "certificate_name"], detailKeys: ["certificate_type", "certificate_name", "expiry_date", "status"], dateKeys: ["expiry_date", "issued_date", "created_at"] },
@@ -5236,7 +5236,7 @@ function buildAdminGlobalSearchIndex() {
         { category: "Injury Acknowledgement", records: employeeInjuryAcknowledgements, tab: "reports", keywords: "employee injury acknowledgement worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["status", "note"], dateKeys: ["acknowledged_at", "created_at"] },
         { category: "Safety Acknowledgement", records: safetyAcknowledgements, tab: "reports", keywords: "safety acknowledgement employee worker", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateKeys: ["record_date", "acknowledged_at", "created_at"] },
         { category: "Job", records: jobs, tab: "jobDashboard", keywords: "job job number project site", title: (record) => [getAdminGlobalSearchValue(record, ["job_number"]), getAdminGlobalSearchValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
-        { category: "Work Order", records: workOrders, tab: "workOrders", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getAdminGlobalSearchValue(record, ["wo_number", "work_order_number", "number"]) || getAdminGlobalSearchValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
+        { category: "Work Order", records: workOrders, tab: "workOrders", action: "work_order", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getAdminGlobalSearchValue(record, ["wo_number", "work_order_number", "number"]) || getAdminGlobalSearchValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
         { category: "Work Order Labour", records: workOrderLabourRows, tab: "workOrders", keywords: "work order wo labour employee worker hours", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
         { category: "Work Order PO", records: workOrderPurchaseOrders, tab: "workOrders", keywords: "work order wo purchase order po supplier", titleKeys: ["po_number", "purchase_order_number", "supplier"], detailKeys: ["wo_number", "job_number", "description", "amount"], dateKeys: ["po_date", "created_at"] },
         { category: "Work Order Equipment", records: workOrderEquipmentRows, tab: "workOrders", keywords: "work order wo equipment vehicle", titleKeys: ["equipment_name", "name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
@@ -5456,7 +5456,7 @@ function buildAdminDateSearchResults(dateSearch) {
             timeIn,
             timeOut,
             entryType,
-            recordId,
+            recordId: recordId || entry.id || "",
             isSubmitted
         });
     }
@@ -5483,7 +5483,7 @@ function buildAdminDateSearchResults(dateSearch) {
             item.workerName,
             jobLabel + " | " + timeLabel + " | " + item.hours.toFixed(2) + " hours",
             "timesheets",
-            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : {}
+            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : { action: "live_timesheet", recordId: item.recordId }
         ));
     });
 
@@ -5494,7 +5494,7 @@ function buildAdminDateSearchResults(dateSearch) {
             item.workerName,
             (item.jobName || getAdminTimesheetEntryLabel(item.entry)) + (item.hours ? " | " + item.hours.toFixed(2) + " hours" : ""),
             "timesheets",
-            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : {}
+            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : { action: "live_timesheet", recordId: item.recordId }
         ));
     });
 
@@ -5529,13 +5529,8 @@ function buildAdminDateSearchResults(dateSearch) {
 
     const matchingWorkOrderIds = new Set();
     workOrders.forEach((workOrder) => {
-        if (adminRecordMatchesDate(workOrder, ["work_order_date", "submitted_at", "created_at"], dateKey)) {
+        if (adminRecordMatchesDate(workOrder, ["work_order_date"], dateKey)) {
             matchingWorkOrderIds.add(String(workOrder.id || ""));
-        }
-    });
-    workOrderLabourRows.forEach((row) => {
-        if (adminRecordMatchesDate(row, ["work_date", "entry_date", "date"], dateKey) && row.work_order_id) {
-            matchingWorkOrderIds.add(String(row.work_order_id));
         }
     });
 
@@ -5546,7 +5541,8 @@ function buildAdminDateSearchResults(dateSearch) {
             "Work Order",
             "WO " + (woNumber || "record"),
             joinAdminGlobalSearchDetails(workOrder, ["job_number", "job_name", "customer_name", "status"]),
-            "workOrders"
+            "workOrders",
+            { action: "work_order", recordId: workOrder.id || "" }
         ));
     });
 
@@ -5782,6 +5778,23 @@ function openAdminGlobalSearchResult(index) {
 
     if (result.action === "submitted_timesheet" && result.recordId) {
         setTimeout(() => viewSubmittedTimesheetHours(result.recordId), 0);
+    }
+
+    if (result.action === "live_timesheet" && result.recordId) {
+        setTimeout(() => editLiveTimesheetEntry(result.recordId), 0);
+    }
+
+    if (result.action === "work_order" && result.recordId) {
+        const workOrder = workOrders.find((item) => String(item.id) === String(result.recordId));
+
+        if (workOrder) {
+            adminWorkOrderManagementView = isAdminWorkOrderSubmittedForManagement(workOrder) ? "submitted" : "active";
+        }
+
+        setTimeout(() => {
+            renderAdminWorkOrders();
+            openAdminWorkOrderEditor(result.recordId);
+        }, 0);
     }
 }
 
