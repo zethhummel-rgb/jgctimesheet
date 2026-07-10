@@ -3023,6 +3023,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         <button type="button" class="secondary" onclick="loadLiveTimesheetEntries()">Refresh Live Entries</button>
     </div>
     <div id="timesheetsList" class="small">Loading timesheets...</div>
+    <div id="timesheetViewPanel" class="timesheet-edit-panel" hidden></div>
     <div id="timesheetEditPanel" class="timesheet-edit-panel" hidden></div>
 </div>
 
@@ -8686,6 +8687,7 @@ function renderTimesheets() {
                                 <td>${escapeHtml(week.note || "")}</td>
                                 <td>
                                     <div class="actions">
+                                        <button type="button" class="secondary" onclick="viewSubmittedTimesheetHours('${escapeHtml(week.id)}')">View Hours</button>
                                         <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
                                         <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
                                         <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
@@ -10343,6 +10345,80 @@ function editSubmittedTimesheet(id) {
     editingTimesheetId = id;
     renderTimesheetEditPanel(week);
     document.getElementById("timesheetEditPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getAdminTimesheetEntryDate(week, entry) {
+    const weekStart = getAdminTimesheetWeekStart(week);
+    const day = getTimesheetEntryValue(entry, "day", "day_of_week", "");
+    const dayOffset = getTimesheetDayNames().indexOf(day);
+
+    if (!weekStart || dayOffset < 0) {
+        return "";
+    }
+
+    const date = makeLocalDate(weekStart);
+    date.setDate(date.getDate() + dayOffset);
+    return formatTimesheetPdfDate(date);
+}
+
+function viewSubmittedTimesheetHours(id) {
+    const week = timesheets.find((item) => item.id === id);
+
+    if (!week) {
+        alert("Submitted timesheet could not be found.");
+        return;
+    }
+
+    const panel = document.getElementById("timesheetViewPanel");
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    const totalHours = getAdminTimesheetTotalHours(week);
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <h3>Submitted Timesheet Hours</h3>
+        <div class="small"><strong>${escapeHtml(week.worker_name || "")}</strong> - ${escapeHtml(week.week_label || "")}</div>
+        <div class="table-wrap" style="margin-top:10px;">
+            <table>
+                <thead>
+                    <tr><th>Date</th><th>Day</th><th>Job / Site</th><th>Job #</th><th>Type</th><th>Time</th><th>Lunch</th><th>Night</th><th>Hours</th></tr>
+                </thead>
+                <tbody>
+                    ${entries.length ? entries.map((entry) => {
+                        const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
+                        const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+                        const entryType = getAdminTimesheetEntryType(entry);
+                        const isTimedEntry = entryType === "work" || getAdminTimesheetLeaveType(entry) === "half_day";
+                        return `
+                            <tr>
+                                <td>${escapeHtml(getAdminTimesheetEntryDate(week, entry))}</td>
+                                <td>${escapeHtml(getTimesheetEntryValue(entry, "day", "day_of_week", ""))}</td>
+                                <td>${escapeHtml(getTimesheetEntryValue(entry, "jobName", "job_name", ""))}</td>
+                                <td>${escapeHtml(getTimesheetEntryValue(entry, "jobNumber", "job_number", ""))}</td>
+                                <td>${escapeHtml(getAdminTimesheetEntryLabel(entry))}</td>
+                                <td>${isTimedEntry ? escapeHtml(timeIn + (timeOut ? " - " + timeOut : "")) : ""}</td>
+                                <td>${getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No"}</td>
+                                <td>${getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No"}</td>
+                                <td>${Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)}</td>
+                            </tr>
+                        `;
+                    }).join("") : '<tr><td colspan="9">No saved entries were found for this submission.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+        <div class="small" style="margin-top:10px;"><strong>Total Hours:</strong> ${totalHours.toFixed(2)}</div>
+        ${week.note ? '<div class="small" style="margin-top:6px;"><strong>Note:</strong> ' + escapeHtml(week.note) + '</div>' : ""}
+        <div class="actions" style="margin-top:10px;">
+            <button type="button" class="secondary" onclick="closeSubmittedTimesheetHours()">Close</button>
+        </div>
+    `;
+
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeSubmittedTimesheetHours() {
+    const panel = document.getElementById("timesheetViewPanel");
+    panel.hidden = true;
+    panel.innerHTML = "";
 }
 
 function renderTimesheetEditPanel(week) {
