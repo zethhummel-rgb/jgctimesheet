@@ -953,6 +953,50 @@ button:hover,
     margin: 0;
 }
 
+.admin-global-search-group {
+    overflow: hidden;
+    border: 1px solid rgba(47, 111, 60, 0.4);
+    border-radius: 6px;
+    background: rgba(244, 248, 243, 0.06);
+}
+
+.admin-global-search-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    background: #123d24;
+    color: #ffffff;
+}
+
+.admin-global-search-group-header h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.admin-global-search-group-count {
+    min-width: 28px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: #27d94d;
+    color: #07130a;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+}
+
+.admin-global-search-group-results {
+    display: grid;
+    gap: 6px;
+    padding: 7px;
+}
+
+.admin-global-search-group .admin-global-search-result {
+    border-color: rgba(47, 111, 60, 0.24);
+}
+
 @media (max-width: 640px) {
     .admin-global-search-row,
     .admin-global-search-result {
@@ -5250,6 +5294,374 @@ async function ensureAdminGlobalSearchData() {
     return adminGlobalSearchLoadPromise;
 }
 
+function parseAdminGlobalSearchDate(query) {
+    const monthNumbers = {
+        january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3,
+        april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7,
+        august: 8, aug: 8, september: 9, sep: 9, sept: 9,
+        october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12
+    };
+    const clean = String(query || "")
+        .toLowerCase()
+        .replace(/(\d+)(st|nd|rd|th)\b/g, "$1")
+        .replace(/[,']/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    let year = new Date().getFullYear();
+    let month = 0;
+    let day = 0;
+    let match = clean.match(/^(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec)\s+(\d{1,2})(?:\s+(\d{4}))?$/);
+
+    if (match) {
+        month = monthNumbers[match[1]];
+        day = Number(match[2]);
+        year = match[3] ? Number(match[3]) : year;
+    } else {
+        match = clean.match(/^(\d{1,2})\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sept|sep|october|oct|november|nov|december|dec)(?:\s+(\d{4}))?$/);
+
+        if (match) {
+            day = Number(match[1]);
+            month = monthNumbers[match[2]];
+            year = match[3] ? Number(match[3]) : year;
+        } else {
+            match = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+
+            if (match) {
+                year = Number(match[1]);
+                month = Number(match[2]);
+                day = Number(match[3]);
+            } else {
+                match = clean.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
+
+                if (match) {
+                    month = Number(match[1]);
+                    day = Number(match[2]);
+                    year = match[3] ? Number(match[3]) : year;
+                    year = year < 100 ? 2000 + year : year;
+                }
+            }
+        }
+    }
+
+    if (!year || !month || !day) {
+        return null;
+    }
+
+    const date = new Date(year, month - 1, day);
+
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return null;
+    }
+
+    return {
+        date,
+        dateKey: year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0"),
+        label: date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    };
+}
+
+function getAdminGlobalSearchDateKey(value) {
+    if (!value) {
+        return "";
+    }
+
+    if (value instanceof Date) {
+        return formatAdminScheduleDateValue(value);
+    }
+
+    const text = String(value).trim();
+    const dateOnlyMatch = text.match(/^(\d{4}-\d{2}-\d{2})(?:$|T|\s)/);
+
+    if (dateOnlyMatch && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(text)) {
+        return dateOnlyMatch[1];
+    }
+
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? "" : formatAdminScheduleDateValue(parsed);
+}
+
+function adminRecordMatchesDate(record, fields, dateKey) {
+    return (fields || []).some((field) => getAdminGlobalSearchDateKey(record && record[field]) === dateKey);
+}
+
+function getAdminTimesheetEntryDateKey(week, entry) {
+    const weekStart = getTimesheetEntryValue(entry, "weekStartValue", "week_start", "") || getAdminTimesheetWeekStart(week || {});
+    const dayName = getTimesheetEntryValue(entry, "day", "day_of_week", "");
+    const dayIndex = getTimesheetDayNames().indexOf(dayName);
+
+    if (!weekStart || dayIndex < 0) {
+        return "";
+    }
+
+    const date = makeLocalDate(weekStart);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    date.setDate(date.getDate() + dayIndex);
+    return formatAdminScheduleDateValue(date);
+}
+
+function makeAdminDateSearchResult(group, category, title, detail, tab, options) {
+    const settings = options || {};
+
+    return {
+        group,
+        category,
+        title: title || category,
+        detail: detail || "",
+        tab,
+        action: settings.action || "",
+        recordId: settings.recordId || "",
+        sortDate: settings.sortDate || ""
+    };
+}
+
+function buildAdminDateSearchResults(dateSearch) {
+    const dateKey = dateSearch.dateKey;
+    const results = [];
+    const timeEntries = [];
+    const seenTimeEntries = new Set();
+
+    function addTimeEntry(entry, week, workerName, recordId, isSubmitted) {
+        const entryDateKey = isSubmitted
+            ? getAdminTimesheetEntryDateKey(week, entry)
+            : getAdminGlobalSearchDateKey(getLiveTimesheetEntryDate(entry));
+
+        if (entryDateKey !== dateKey) {
+            return;
+        }
+
+        const entryId = getTimesheetEntryValue(entry, "id", "id", "");
+        const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
+        const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+        const jobName = getTimesheetEntryValue(entry, "jobName", "job_name", "") || getAdminTimesheetEntryLabel(entry);
+        const jobNumber = getTimesheetEntryValue(entry, "jobNumber", "job_number", "");
+        const hours = Number(getTimesheetEntryValue(entry, "hours", "hours", 0)) || 0;
+        const entryType = getAdminTimesheetEntryType(entry);
+        const dedupeKey = entryId || [workerName, jobName, jobNumber, timeIn, timeOut, hours, entryType].join("|").toLowerCase();
+
+        if (seenTimeEntries.has(dedupeKey)) {
+            return;
+        }
+
+        seenTimeEntries.add(dedupeKey);
+        timeEntries.push({
+            entry,
+            workerName: workerName || getTimesheetEntryValue(entry, "user", "worker_name", "Unknown worker"),
+            jobName,
+            jobNumber,
+            hours,
+            timeIn,
+            timeOut,
+            entryType,
+            recordId,
+            isSubmitted
+        });
+    }
+
+    timesheets.forEach((week) => {
+        (Array.isArray(week.entries) ? week.entries : []).forEach((entry) => {
+            addTimeEntry(entry, week, week.worker_name || "", week.id || "", true);
+        });
+    });
+
+    liveTimesheetEntries.forEach((entry) => {
+        addTimeEntry(entry, null, entry.worker_name || "", "", false);
+    });
+
+    const workEntries = timeEntries.filter((item) => item.entryType === "work");
+    const leaveEntries = timeEntries.filter((item) => item.entryType !== "work");
+
+    workEntries.forEach((item) => {
+        const jobLabel = [item.jobNumber, item.jobName].filter(Boolean).join(" - ") || "Job not listed";
+        const timeLabel = item.timeIn || item.timeOut ? [item.timeIn, item.timeOut].filter(Boolean).join(" - ") : "Time not listed";
+        results.push(makeAdminDateSearchResult(
+            "Hours Worked",
+            "Timesheet",
+            item.workerName,
+            jobLabel + " | " + timeLabel + " | " + item.hours.toFixed(2) + " hours",
+            "timesheets",
+            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : {}
+        ));
+    });
+
+    leaveEntries.forEach((item) => {
+        results.push(makeAdminDateSearchResult(
+            "Leave Entries",
+            getAdminTimesheetEntryLabel(item.entry),
+            item.workerName,
+            (item.jobName || getAdminTimesheetEntryLabel(item.entry)) + (item.hours ? " | " + item.hours.toFixed(2) + " hours" : ""),
+            "timesheets",
+            item.isSubmitted ? { action: "submitted_timesheet", recordId: item.recordId } : {}
+        ));
+    });
+
+    const jobsWorked = new Map();
+    workEntries.forEach((item) => {
+        const key = normalizeAdminGlobalSearchText(item.jobNumber + " " + item.jobName) || "unlisted-job";
+
+        if (!jobsWorked.has(key)) {
+            jobsWorked.set(key, {
+                jobNumber: item.jobNumber,
+                jobName: item.jobName || "Job not listed",
+                hours: 0,
+                workers: new Set()
+            });
+        }
+
+        const job = jobsWorked.get(key);
+        job.hours += item.hours;
+        job.workers.add(item.workerName);
+    });
+
+    jobsWorked.forEach((job) => {
+        const workerNames = Array.from(job.workers).sort();
+        results.push(makeAdminDateSearchResult(
+            "Jobs Worked",
+            "Job",
+            [job.jobNumber, job.jobName].filter(Boolean).join(" - "),
+            job.hours.toFixed(2) + " total hours | " + workerNames.length + " worker" + (workerNames.length === 1 ? "" : "s") + ": " + workerNames.join(", "),
+            "jobDashboard"
+        ));
+    });
+
+    const matchingWorkOrderIds = new Set();
+    workOrders.forEach((workOrder) => {
+        if (adminRecordMatchesDate(workOrder, ["work_order_date", "submitted_at", "created_at"], dateKey)) {
+            matchingWorkOrderIds.add(String(workOrder.id || ""));
+        }
+    });
+    workOrderLabourRows.forEach((row) => {
+        if (adminRecordMatchesDate(row, ["work_date", "entry_date", "date"], dateKey) && row.work_order_id) {
+            matchingWorkOrderIds.add(String(row.work_order_id));
+        }
+    });
+
+    workOrders.filter((workOrder) => matchingWorkOrderIds.has(String(workOrder.id || ""))).forEach((workOrder) => {
+        const woNumber = getAdminGlobalSearchValue(workOrder, ["wo_number", "work_order_number", "number"]);
+        results.push(makeAdminDateSearchResult(
+            "Work Orders",
+            "Work Order",
+            "WO " + (woNumber || "record"),
+            joinAdminGlobalSearchDetails(workOrder, ["job_number", "job_name", "customer_name", "status"]),
+            "workOrders"
+        ));
+    });
+
+    function addMatchingRecords(records, config) {
+        records.filter((record) => adminRecordMatchesDate(record, config.dateFields, dateKey)).forEach((record) => {
+            const title = typeof config.title === "function"
+                ? config.title(record)
+                : getAdminGlobalSearchValue(record, config.titleKeys);
+            results.push(makeAdminDateSearchResult(
+                config.group,
+                config.category,
+                title || config.category,
+                joinAdminGlobalSearchDetails(record, config.detailKeys),
+                config.tab,
+                config.action ? { action: config.action, recordId: record.id || "", sortDate: getAdminGlobalSearchValue(record, config.dateFields) } : { sortDate: getAdminGlobalSearchValue(record, config.dateFields) }
+            ));
+        });
+    }
+
+    addMatchingRecords(inspections, { group: "Inspections", category: "Inspection", tab: "inspections", titleKeys: ["worker_name", "completed_by", "inspection_type"], detailKeys: ["inspection_type", "job_number", "job_name", "location"], dateFields: ["inspection_date", "created_at"] });
+    addMatchingRecords(vehicleInspections, { group: "Inspections", category: "Vehicle Inspection", tab: "inspections", titleKeys: ["driver_name", "worker_name", "vehicle_license_plate"], detailKeys: ["vehicle_license_plate", "trailer_1_license_plate", "inspection_type", "location"], dateFields: ["inspection_date", "created_at"] });
+
+    addMatchingRecords(timesheets, { group: "Reports & Submissions", category: "Timesheet Submitted", tab: "timesheets", action: "submitted_timesheet", titleKeys: ["worker_name"], detailKeys: ["week_label", "total_hours", "note"], dateFields: ["submitted_at"] });
+    addMatchingRecords(dailySiteReports, { group: "Reports & Submissions", category: "Daily Site Report", tab: "reports", titleKeys: ["job_name", "project", "worker_name"], detailKeys: ["job_number", "report_date", "location", "completed_by"], dateFields: ["report_date", "created_at"] });
+    addMatchingRecords(incidentReports, { group: "Reports & Submissions", category: "Incident Report", tab: "reports", titleKeys: ["incident_type", "worker_name", "reported_by"], detailKeys: ["job_number", "job_name", "location", "description"], dateFields: ["incident_date", "report_date", "created_at"] });
+    addMatchingRecords(accidentReports, { group: "Reports & Submissions", category: "Accident Report", tab: "reports", titleKeys: ["injured_employee_name", "worker_name", "reported_by"], detailKeys: ["job_number", "job_name", "accident_location"], dateFields: ["accident_date", "created_at"] });
+    addMatchingRecords(employeeInjuryReports, { group: "Reports & Submissions", category: "Employee Injury", tab: "reports", titleKeys: ["employee_name", "employee_display", "worker_name"], detailKeys: ["job_number", "accident_location", "accident_description"], dateFields: ["accident_date", "created_at"] });
+    addMatchingRecords(toolboxReports, { group: "Reports & Submissions", category: "Toolbox Report", tab: "reports", titleKeys: ["title", "worker_name", "completed_by_name"], detailKeys: ["topic", "job_number", "location"], dateFields: ["report_date", "created_at"] });
+    addMatchingRecords(safetyAcknowledgements, { group: "Reports & Submissions", category: "Safety Acknowledgement", tab: "reports", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateFields: ["acknowledged_at"] });
+
+    addMatchingRecords(scheduleEvents, { group: "Schedule & Tasks", category: "Schedule", tab: "summary", titleKeys: ["title", "job_name", "event_type"], detailKeys: ["event_date", "job_number", "location", "notes"], dateFields: ["event_date"] });
+    addMatchingRecords(adminGlobalSearchTasks, { group: "Schedule & Tasks", category: "Task", tab: "tasks", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateFields: ["due_date", "completed_at"] });
+
+    vacationRequests.filter((request) => {
+        const start = getAdminGlobalSearchDateKey(request.start_date);
+        const end = getAdminGlobalSearchDateKey(request.end_date || request.start_date);
+        return start && start <= dateKey && end >= dateKey;
+    }).forEach((request) => {
+        results.push(makeAdminDateSearchResult(
+            "Schedule & Tasks",
+            "Vacation",
+            getAdminGlobalSearchValue(request, ["worker_display_name", "worker_name"]) || "Vacation",
+            joinAdminGlobalSearchDetails(request, ["start_date", "end_date", "request_type", "status"]),
+            "vacation"
+        ));
+    });
+
+    const totalHours = workEntries.reduce((sum, item) => sum + item.hours, 0);
+    return {
+        results,
+        summary: dateSearch.label + ": " + workEntries.length + " work entr" + (workEntries.length === 1 ? "y" : "ies") + ", " + totalHours.toFixed(2) + " hours, " + jobsWorked.size + " job" + (jobsWorked.size === 1 ? "" : "s") + ", " + matchingWorkOrderIds.size + " work order" + (matchingWorkOrderIds.size === 1 ? "" : "s") + "."
+    };
+}
+
+function getAdminGlobalSearchGroup(item) {
+    const category = String(item.category || "").toLowerCase();
+
+    if (category.includes("timesheet")) return "Time & Attendance";
+    if (category.includes("work order") || category === "job") return "Jobs & Work Orders";
+    if (category.includes("inspection")) return "Inspections";
+    if (/report|toolbox|accident|injury|acknowledgement/.test(category)) return "Reports & Submissions";
+    if (/employee|certificate|vacation/.test(category)) return "People & Leave";
+    if (/equipment|vehicle/.test(category)) return "Equipment & Vehicles";
+    if (/schedule|task/.test(category)) return "Schedule & Tasks";
+    if (/announcement|policy|contact|supplier|subcontractor/.test(category)) return "Notices & Contacts";
+    return "Other";
+}
+
+function renderAdminGlobalSearchGroupedResults(items, statusText, preferredOrder) {
+    const status = document.getElementById("adminGlobalSearchStatus");
+    const container = document.getElementById("adminGlobalSearchResults");
+    const groups = new Map();
+
+    items.forEach((item) => {
+        const groupName = item.group || getAdminGlobalSearchGroup(item);
+        if (!groups.has(groupName)) groups.set(groupName, []);
+        groups.get(groupName).push(item);
+    });
+
+    const orderedNames = (preferredOrder || []).filter((name) => groups.has(name));
+    Array.from(groups.keys()).forEach((name) => {
+        if (!orderedNames.includes(name)) orderedNames.push(name);
+    });
+
+    adminGlobalSearchResults = [];
+    status.textContent = statusText || (items.length ? items.length + " result" + (items.length === 1 ? "" : "s") : "No records found.");
+
+    container.innerHTML = orderedNames.map((groupName) => {
+        const groupItems = groups.get(groupName);
+        const rows = groupItems.map((item) => {
+            const resultIndex = adminGlobalSearchResults.push(item) - 1;
+            return `
+                <div class="admin-global-search-result">
+                    <div>
+                        <div class="admin-global-search-result-category">${escapeHtml(item.category)}</div>
+                        <div class="admin-global-search-result-title">${escapeHtml(item.title)}</div>
+                        ${item.detail ? '<div class="admin-global-search-result-detail">' + escapeHtml(item.detail) + '</div>' : ""}
+                    </div>
+                    <button type="button" onclick="openAdminGlobalSearchResult(${resultIndex})">Open</button>
+                </div>
+            `;
+        }).join("");
+
+        return `
+            <section class="admin-global-search-group">
+                <div class="admin-global-search-group-header">
+                    <h3>${escapeHtml(groupName)}</h3>
+                    <span class="admin-global-search-group-count">${groupItems.length}</span>
+                </div>
+                <div class="admin-global-search-group-results">${rows}</div>
+            </section>
+        `;
+    }).join("");
+}
+
 function renderAdminGlobalSearchResults(query) {
     const status = document.getElementById("adminGlobalSearchStatus");
     const container = document.getElementById("adminGlobalSearchResults");
@@ -5263,6 +5675,22 @@ function renderAdminGlobalSearchResults(query) {
         return;
     }
 
+    const dateSearch = parseAdminGlobalSearchDate(query);
+
+    if (dateSearch) {
+        const dateResults = buildAdminDateSearchResults(dateSearch);
+        renderAdminGlobalSearchGroupedResults(dateResults.results, dateResults.summary, [
+            "Hours Worked",
+            "Jobs Worked",
+            "Leave Entries",
+            "Work Orders",
+            "Inspections",
+            "Reports & Submissions",
+            "Schedule & Tasks"
+        ]);
+        return;
+    }
+
     const matches = adminGlobalSearchIndex
         .filter((item) => terms.every((term) => item.searchText.includes(term)))
         .map((item) => {
@@ -5272,22 +5700,22 @@ function renderAdminGlobalSearchResults(query) {
             return Object.assign({ score }, item);
         })
         .sort((a, b) => a.score - b.score || String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-
-    adminGlobalSearchResults = matches.slice(0, 200);
-    status.textContent = matches.length
-        ? matches.length + " result" + (matches.length === 1 ? "" : "s") + (matches.length > 200 ? " - showing the first 200" : "")
+    const visibleMatches = matches.slice(0, 100);
+    const statusText = matches.length
+        ? matches.length + " relevant result" + (matches.length === 1 ? "" : "s") + (matches.length > 100 ? " - showing the first 100" : "")
         : "No records found.";
 
-    container.innerHTML = adminGlobalSearchResults.map((item, index) => `
-        <div class="admin-global-search-result">
-            <div>
-                <div class="admin-global-search-result-category">${escapeHtml(item.category)}</div>
-                <div class="admin-global-search-result-title">${escapeHtml(item.title)}</div>
-                ${item.detail ? '<div class="admin-global-search-result-detail">' + escapeHtml(item.detail) + '</div>' : ""}
-            </div>
-            <button type="button" onclick="openAdminGlobalSearchResult(${index})">Open</button>
-        </div>
-    `).join("");
+    renderAdminGlobalSearchGroupedResults(visibleMatches, statusText, [
+        "Time & Attendance",
+        "Jobs & Work Orders",
+        "Inspections",
+        "Reports & Submissions",
+        "People & Leave",
+        "Equipment & Vehicles",
+        "Schedule & Tasks",
+        "Notices & Contacts",
+        "Other"
+    ]);
 }
 
 async function searchAdminEverything() {
