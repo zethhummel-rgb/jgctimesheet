@@ -880,6 +880,90 @@ button:hover,
     margin-bottom: 8px;
 }
 
+.admin-global-search {
+    margin: 0 0 16px;
+    padding: 0 0 16px;
+    border-bottom: 1px solid rgba(47, 111, 60, 0.28);
+}
+
+.admin-global-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.admin-global-search-row input {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    margin: 0;
+}
+
+.admin-global-search-row button {
+    min-height: 42px;
+    margin: 0;
+}
+
+.admin-global-search-status {
+    min-height: 18px;
+    margin-top: 7px;
+}
+
+.admin-global-search-results {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.admin-global-search-result {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 11px 12px;
+    border: 1px solid rgba(47, 111, 60, 0.34);
+    border-radius: 6px;
+    background: #f4f8f3;
+}
+
+.admin-global-search-result-category {
+    color: #2f6f3c;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.admin-global-search-result-title {
+    margin-top: 2px;
+    color: #16241b;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.admin-global-search-result-detail {
+    margin-top: 3px;
+    color: #526057;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.admin-global-search-result button {
+    min-width: 72px;
+    margin: 0;
+}
+
+@media (max-width: 640px) {
+    .admin-global-search-row,
+    .admin-global-search-result {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-global-search-result button {
+        width: 100%;
+    }
+}
+
 .portal-summary-grid {
     grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
     gap: 4px;
@@ -2685,6 +2769,14 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="summarySection" class="card">
     <h2 class="portal-summary-title">Portal Summary</h2>
+    <div class="admin-global-search">
+        <div class="admin-global-search-row">
+            <input id="adminGlobalSearchInput" type="search" placeholder="Search dates, names, jobs, WO numbers..." autocomplete="off" oninput="scheduleAdminGlobalSearch()" onkeydown="handleAdminGlobalSearchKeydown(event)">
+            <button id="adminGlobalSearchButton" type="button" onclick="searchAdminEverything()">Search</button>
+        </div>
+        <div id="adminGlobalSearchStatus" class="small admin-global-search-status"></div>
+        <div id="adminGlobalSearchResults" class="admin-global-search-results"></div>
+    </div>
     <div id="portalSummaryGrid" class="summary-grid portal-summary-grid">
         <div class="small">Loading portal summary...</div>
     </div>
@@ -3745,6 +3837,12 @@ let adminTabDataLoaded = new Set();
 let adminTabDataLoading = {};
 let timesheetsTabRefreshInFlight = false;
 let timesheetMissingNotificationKeys = new Set();
+let adminGlobalSearchTasks = [];
+let adminGlobalSearchIndex = [];
+let adminGlobalSearchResults = [];
+let adminGlobalSearchReady = false;
+let adminGlobalSearchLoadPromise = null;
+let adminGlobalSearchTimer = null;
 const ANNOUNCEMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const CERTIFICATE_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
@@ -4932,6 +5030,331 @@ function openAdminSummaryTile(tab) {
 function openAccountsFromSummary() {
     localStorage.setItem(getAdminViewedKey("accounts"), new Date().toISOString());
     window.location.href = "accounts.html";
+}
+
+function normalizeAdminGlobalSearchText(value) {
+    return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function getAdminGlobalSearchDateAliases(value) {
+    let date = null;
+
+    if (value instanceof Date) {
+        date = value;
+    } else {
+        const text = String(value || "").trim();
+        const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        const readableDate = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/i.test(text);
+
+        if (isoMatch) {
+            date = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+        } else if (readableDate) {
+            const parsed = new Date(text);
+            date = Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+    }
+
+    if (!date || Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const longMonth = date.toLocaleDateString("en-US", { month: "long" });
+    const shortMonth = date.toLocaleDateString("en-US", { month: "short" });
+    const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
+
+    return [
+        longMonth + " " + day,
+        longMonth + " " + day + " " + year,
+        shortMonth + " " + day,
+        shortMonth + " " + day + " " + year,
+        month + "/" + day,
+        month + "/" + day + "/" + year,
+        year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0"),
+        weekday
+    ].join(" ");
+}
+
+function collectAdminGlobalSearchValues(value, output, depth) {
+    if (value === null || value === undefined || depth > 6) {
+        return;
+    }
+
+    if (value instanceof Date) {
+        output.push(getAdminGlobalSearchDateAliases(value));
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item) => collectAdminGlobalSearchValues(item, output, depth + 1));
+        return;
+    }
+
+    if (typeof value === "object") {
+        Object.values(value).forEach((item) => collectAdminGlobalSearchValues(item, output, depth + 1));
+        return;
+    }
+
+    const text = String(value);
+    output.push(text);
+    const dateAliases = getAdminGlobalSearchDateAliases(value);
+
+    if (dateAliases) {
+        output.push(dateAliases);
+    }
+}
+
+function getAdminGlobalSearchValue(record, keys) {
+    for (const key of keys || []) {
+        const value = record && record[key];
+
+        if (value !== null && value !== undefined && String(value).trim()) {
+            return Array.isArray(value) ? value.join(", ") : String(value);
+        }
+    }
+
+    return "";
+}
+
+function joinAdminGlobalSearchDetails(record, keys) {
+    const values = [];
+
+    (keys || []).forEach((key) => {
+        const value = getAdminGlobalSearchValue(record, [key]);
+
+        if (value && !values.includes(value)) {
+            values.push(value);
+        }
+    });
+
+    return values.slice(0, 4).join(" | ");
+}
+
+function addAdminGlobalSearchCollection(index, config) {
+    (config.records || []).forEach((record, recordIndex) => {
+        const titleValue = typeof config.title === "function"
+            ? config.title(record)
+            : getAdminGlobalSearchValue(record, config.titleKeys);
+        const detailValue = typeof config.detail === "function"
+            ? config.detail(record)
+            : joinAdminGlobalSearchDetails(record, config.detailKeys);
+        const searchValues = [config.category, config.keywords || "", titleValue, detailValue];
+
+        collectAdminGlobalSearchValues(record, searchValues, 0);
+
+        if (typeof config.extraSearch === "function") {
+            collectAdminGlobalSearchValues(config.extraSearch(record), searchValues, 0);
+        }
+
+        index.push({
+            category: config.category,
+            title: titleValue || config.category + " record",
+            detail: detailValue,
+            tab: config.tab,
+            action: config.action || "",
+            recordId: record.id || "",
+            searchText: normalizeAdminGlobalSearchText(searchValues.join(" ")),
+            sortDate: getAdminGlobalSearchValue(record, config.dateKeys || ["updated_at", "created_at"]),
+            sourceIndex: recordIndex
+        });
+    });
+}
+
+function buildAdminGlobalSearchIndex() {
+    const index = [];
+    const collections = [
+        { category: "Submitted Timesheet", records: timesheets, tab: "timesheets", action: "submitted_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["week_label", "total_hours", "note"], dateKeys: ["submitted_at", "week_start", "created_at"], extraSearch: (week) => (week.entries || []).map((entry) => getAdminTimesheetEntryDate(week, entry)) },
+        { category: "Live Timesheet", records: liveTimesheetEntries, tab: "timesheets", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["day_of_week", "job_name", "job_number", "hours"], dateKeys: ["week_start", "created_at"], extraSearch: (entry) => getLiveTimesheetEntryDate(entry) },
+        { category: "Inspection", records: inspections, tab: "inspections", keywords: "inspection permit safety worker employee job site", titleKeys: ["worker_name", "completed_by", "inspection_type"], detailKeys: ["inspection_type", "job_number", "job_name", "location"], dateKeys: ["inspection_date", "created_at"] },
+        { category: "Vehicle Inspection", records: vehicleInspections, tab: "inspections", keywords: "vehicle trailer inspection plate driver", titleKeys: ["driver_name", "worker_name", "vehicle_license_plate"], detailKeys: ["vehicle_license_plate", "trailer_1_license_plate", "inspection_type", "location"], dateKeys: ["inspection_date", "created_at"] },
+        { category: "Certificate", records: certificates, tab: "certificates", keywords: "certificate training employee worker expiry", titleKeys: ["worker_name", "employee_name", "certificate_name"], detailKeys: ["certificate_type", "certificate_name", "expiry_date", "status"], dateKeys: ["expiry_date", "issued_date", "created_at"] },
+        { category: "Certificate Alert", records: certificateNotifications, tab: "certificates", keywords: "certificate training expiry notification", titleKeys: ["worker_name", "certificate_name"], detailKeys: ["certificate_type", "expiry_date", "message"], dateKeys: ["expiry_date", "created_at"] },
+        { category: "Vacation", records: vacationRequests, tab: "vacation", keywords: "vacation holiday leave employee worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["start_date", "end_date", "request_type", "status"], dateKeys: ["start_date", "end_date", "created_at"] },
+        { category: "Schedule", records: scheduleEvents, tab: "summary", keywords: "schedule calendar appointment training job equipment vehicle", titleKeys: ["title", "job_name", "event_type"], detailKeys: ["event_date", "job_number", "location", "notes"], dateKeys: ["event_date", "created_at"] },
+        { category: "Employee Profile", records: accounts, tab: "employeeProfile", keywords: "employee worker account profile phone email", titleKeys: ["display_name", "worker_key", "email"], detailKeys: ["email", "position", "department", "employee_id"], dateKeys: ["hire_date", "created_at"] },
+        { category: "Announcement", records: announcements, tab: "noticePolicy", keywords: "announcement notice message", titleKeys: ["title", "subject"], detailKeys: ["description", "message", "created_by_name"], dateKeys: ["published_at", "created_at"] },
+        { category: "Announcement Acknowledgement", records: announcementAcknowledgements, tab: "noticePolicy", keywords: "announcement notice acknowledgement employee worker", titleKeys: ["worker_name", "display_name", "employee_name"], detailKeys: ["announcement_title", "title", "status"], dateKeys: ["read_at", "acknowledged_at", "created_at"] },
+        { category: "Policy", records: policies, tab: "noticePolicy", keywords: "policy document safety", titleKeys: ["title", "name"], detailKeys: ["category", "description"], dateKeys: ["published_at", "created_at"] },
+        { category: "Toolbox Talk", records: toolboxTalks, tab: "reports", keywords: "toolbox talk safety meeting", titleKeys: ["title", "topic"], detailKeys: ["description", "job_number", "location"], dateKeys: ["talk_date", "created_at"] },
+        { category: "Toolbox Report", records: toolboxReports, tab: "reports", keywords: "toolbox talk report safety employee worker", titleKeys: ["title", "worker_name", "completed_by_name"], detailKeys: ["topic", "job_number", "location"], dateKeys: ["report_date", "created_at"] },
+        { category: "Toolbox Attendance", records: toolboxAttendance, tab: "reports", keywords: "toolbox talk attendance employee worker", titleKeys: ["attendee_name", "worker_name"], detailKeys: ["toolbox_talk_title", "company", "status"], dateKeys: ["acknowledged_at", "created_at"] },
+        { category: "Daily Site Report", records: dailySiteReports, tab: "reports", keywords: "daily site report job project worker", titleKeys: ["job_name", "project", "worker_name"], detailKeys: ["job_number", "report_date", "location", "completed_by"], dateKeys: ["report_date", "created_at"] },
+        { category: "Incident Report", records: incidentReports, tab: "reports", keywords: "incident near miss safety report employee worker job", titleKeys: ["incident_type", "worker_name", "reported_by"], detailKeys: ["job_number", "job_name", "location", "description"], dateKeys: ["report_date", "incident_date", "created_at"] },
+        { category: "Accident Report", records: accidentReports, tab: "reports", keywords: "accident safety injury report employee worker job", titleKeys: ["injured_employee_name", "worker_name", "reported_by"], detailKeys: ["job_number", "job_name", "accident_location", "description"], dateKeys: ["accident_date", "created_at"] },
+        { category: "Accident Acknowledgement", records: accidentAcknowledgements, tab: "reports", keywords: "accident acknowledgement employee worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["status", "note"], dateKeys: ["acknowledged_at", "created_at"] },
+        { category: "Employee Injury", records: employeeInjuryReports, tab: "reports", keywords: "employee injury accident report worker job", titleKeys: ["employee_name", "employee_display", "worker_name"], detailKeys: ["job_number", "accident_location", "accident_description"], dateKeys: ["accident_date", "created_at"] },
+        { category: "Injury Acknowledgement", records: employeeInjuryAcknowledgements, tab: "reports", keywords: "employee injury acknowledgement worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["status", "note"], dateKeys: ["acknowledged_at", "created_at"] },
+        { category: "Safety Acknowledgement", records: safetyAcknowledgements, tab: "reports", keywords: "safety acknowledgement employee worker", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateKeys: ["record_date", "acknowledged_at", "created_at"] },
+        { category: "Job", records: jobs, tab: "jobDashboard", keywords: "job job number project site", title: (record) => [getAdminGlobalSearchValue(record, ["job_number"]), getAdminGlobalSearchValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Work Order", records: workOrders, tab: "workOrders", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getAdminGlobalSearchValue(record, ["wo_number", "work_order_number", "number"]) || getAdminGlobalSearchValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
+        { category: "Work Order Labour", records: workOrderLabourRows, tab: "workOrders", keywords: "work order wo labour employee worker hours", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
+        { category: "Work Order PO", records: workOrderPurchaseOrders, tab: "workOrders", keywords: "work order wo purchase order po supplier", titleKeys: ["po_number", "purchase_order_number", "supplier"], detailKeys: ["wo_number", "job_number", "description", "amount"], dateKeys: ["po_date", "created_at"] },
+        { category: "Work Order Equipment", records: workOrderEquipmentRows, tab: "workOrders", keywords: "work order wo equipment vehicle", titleKeys: ["equipment_name", "name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
+        { category: "Work Order Travel", records: workOrderTravelRows, tab: "workOrders", keywords: "work order wo travel employee worker kilometres", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "kilometres", "hours"], dateKeys: ["travel_date", "created_at"] },
+        { category: "Work Order Worker", records: workOrderLabourWorkers, tab: "workOrders", keywords: "work order wo labour employee worker", titleKeys: ["display_name", "worker_key"], detailKeys: ["email", "approved"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Equipment / Vehicle", records: equipmentItems, tab: "equipment", keywords: "equipment vehicle trailer plate unit", titleKeys: ["name", "unit_number", "license_plate"], detailKeys: ["category", "license_plate", "unit_number", "serial_number"], dateKeys: ["yearly_inspection_expiry", "updated_at", "created_at"] },
+        { category: "Equipment Alert", records: equipmentNotifications, tab: "equipment", keywords: "equipment vehicle expiry notification alert", titleKeys: ["equipment_name", "name", "message"], detailKeys: ["notification_type", "expiry_date", "status"], dateKeys: ["expiry_date", "created_at"] },
+        { category: "Equipment Maintenance", records: equipmentMaintenanceLogs, tab: "equipment", keywords: "equipment vehicle maintenance service repair", titleKeys: ["equipment_name", "title", "service_type"], detailKeys: ["scheduled_date", "completed_date", "description", "status"], dateKeys: ["scheduled_date", "completed_date", "created_at"] },
+        { category: "Contact", records: contacts, tab: "contacts", keywords: "contact company phone email", titleKeys: ["name", "company_name"], detailKeys: ["company", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Subcontractor / Supplier", records: subcontractorSuppliers, tab: "subcontractorsSuppliers", keywords: "subcontractor supplier rental service company contact", titleKeys: ["company_name", "name"], detailKeys: ["category", "phone", "email", "address"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Supplier Contact", records: subcontractorSupplierContacts, tab: "subcontractorsSuppliers", keywords: "subcontractor supplier contact company phone email", titleKeys: ["contact_name", "name"], detailKeys: ["company_name", "role", "phone", "email"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Subcontractor Activity", records: subcontractorActivity, tab: "summary", keywords: "subcontractor activity portal company user", titleKeys: ["company_name", "subcontractor_name", "display_name"], detailKeys: ["activity_type", "page_name", "email"], dateKeys: ["created_at"] },
+        { category: "Task", records: adminGlobalSearchTasks, tab: "tasks", keywords: "task assignment employee worker job follow up", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateKeys: ["due_date", "completed_at", "created_at"] }
+    ];
+
+    collections.forEach((config) => addAdminGlobalSearchCollection(index, config));
+    return index;
+}
+
+async function ensureAdminGlobalSearchData() {
+    if (adminGlobalSearchReady) {
+        return;
+    }
+
+    if (adminGlobalSearchLoadPromise) {
+        return adminGlobalSearchLoadPromise;
+    }
+
+    adminGlobalSearchLoadPromise = (async function() {
+        while (adminDataLoading) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        const hasFullData = ADMIN_ALLOWED_TABS.every((tab) => adminTabDataLoaded.has(tab));
+
+        if (!hasFullData) {
+            await loadAllAdminData();
+        }
+
+        const taskResult = await supabaseClient
+            .from("tasks")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+        if (taskResult.error) {
+            logAdminLoadError("global search tasks", taskResult.error);
+        }
+
+        adminGlobalSearchTasks = taskResult.data || [];
+        adminGlobalSearchReady = true;
+    })().finally(() => {
+        adminGlobalSearchLoadPromise = null;
+    });
+
+    return adminGlobalSearchLoadPromise;
+}
+
+function renderAdminGlobalSearchResults(query) {
+    const status = document.getElementById("adminGlobalSearchStatus");
+    const container = document.getElementById("adminGlobalSearchResults");
+    const normalizedQuery = normalizeAdminGlobalSearchText(query);
+    const terms = normalizedQuery.split(" ").filter(Boolean);
+
+    if (!terms.length) {
+        status.textContent = "";
+        container.innerHTML = "";
+        adminGlobalSearchResults = [];
+        return;
+    }
+
+    const matches = adminGlobalSearchIndex
+        .filter((item) => terms.every((term) => item.searchText.includes(term)))
+        .map((item) => {
+            const normalizedTitle = normalizeAdminGlobalSearchText(item.title);
+            const normalizedCategory = normalizeAdminGlobalSearchText(item.category);
+            const score = normalizedTitle.includes(normalizedQuery) ? 0 : (normalizedCategory.includes(normalizedQuery) ? 1 : 2);
+            return Object.assign({ score }, item);
+        })
+        .sort((a, b) => a.score - b.score || String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
+
+    adminGlobalSearchResults = matches.slice(0, 200);
+    status.textContent = matches.length
+        ? matches.length + " result" + (matches.length === 1 ? "" : "s") + (matches.length > 200 ? " - showing the first 200" : "")
+        : "No records found.";
+
+    container.innerHTML = adminGlobalSearchResults.map((item, index) => `
+        <div class="admin-global-search-result">
+            <div>
+                <div class="admin-global-search-result-category">${escapeHtml(item.category)}</div>
+                <div class="admin-global-search-result-title">${escapeHtml(item.title)}</div>
+                ${item.detail ? '<div class="admin-global-search-result-detail">' + escapeHtml(item.detail) + '</div>' : ""}
+            </div>
+            <button type="button" onclick="openAdminGlobalSearchResult(${index})">Open</button>
+        </div>
+    `).join("");
+}
+
+async function searchAdminEverything() {
+    const input = document.getElementById("adminGlobalSearchInput");
+    const status = document.getElementById("adminGlobalSearchStatus");
+    const button = document.getElementById("adminGlobalSearchButton");
+    const query = input.value.trim();
+
+    if (normalizeAdminGlobalSearchText(query).length < 2) {
+        renderAdminGlobalSearchResults("");
+        status.textContent = query ? "Enter at least 2 characters." : "";
+        return;
+    }
+
+    status.textContent = adminGlobalSearchReady ? "Searching..." : "Loading portal records for search...";
+    button.disabled = true;
+
+    try {
+        await ensureAdminGlobalSearchData();
+        adminGlobalSearchIndex = buildAdminGlobalSearchIndex();
+        const currentQuery = input.value.trim();
+
+        if (normalizeAdminGlobalSearchText(currentQuery).length >= 2) {
+            renderAdminGlobalSearchResults(currentQuery);
+        }
+    } catch (error) {
+        console.error("Admin global search could not load.", error);
+        status.textContent = "Search could not load portal records. Please try again.";
+    } finally {
+        button.disabled = false;
+    }
+}
+
+function scheduleAdminGlobalSearch() {
+    clearTimeout(adminGlobalSearchTimer);
+    const query = document.getElementById("adminGlobalSearchInput").value.trim();
+
+    if (normalizeAdminGlobalSearchText(query).length < 2) {
+        renderAdminGlobalSearchResults("");
+        return;
+    }
+
+    adminGlobalSearchTimer = setTimeout(searchAdminEverything, 350);
+}
+
+function handleAdminGlobalSearchKeydown(event) {
+    if (event.key !== "Enter") {
+        return;
+    }
+
+    event.preventDefault();
+    clearTimeout(adminGlobalSearchTimer);
+    searchAdminEverything();
+}
+
+function openAdminGlobalSearchResult(index) {
+    const result = adminGlobalSearchResults[index];
+
+    if (!result) {
+        return;
+    }
+
+    showTab(result.tab);
+
+    if (result.action === "submitted_timesheet" && result.recordId) {
+        setTimeout(() => viewSubmittedTimesheetHours(result.recordId), 0);
+    }
 }
 
 function isNewForAdminTab(item, tab, fields) {
