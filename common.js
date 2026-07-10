@@ -1034,7 +1034,7 @@ function activateGlobalTopNavigation() {
     const worker = getCurrentWorkerRecord();
     window.location.href = isJgcSubcontractorSession(worker)
       ? JGC_SUBCONTRACTOR_HOME_PAGE
-      : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html" : "home.html");
+      : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
   });
 
   nav.querySelector(".jgc-nav-logout").addEventListener("click", async function() {
@@ -1350,7 +1350,7 @@ function activateMobileBottomNavigation() {
       const worker = getCurrentWorkerRecord();
       window.location.href = isJgcSubcontractorSession(worker)
         ? JGC_SUBCONTRACTOR_HOME_PAGE
-        : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html" : "home.html");
+        : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
     });
   }
 
