@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v477";
+const JGC_CACHE_NAME = "jgc-portal-v478";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -64,7 +64,7 @@ const JGC_APP_SHELL = [
   "./inspection-mobile.css?v=2",
   "./inspection-mobile.js?v=4",
   "./manifest.json?v=5",
-  "./vendor/supabase-js.min.js",
+  "./vendor/supabase-js.min.js?v=1",
   "./vendor/jspdf.umd.min.js",
   "./vendor/lucide.min.js",
   "./logo.webp",
