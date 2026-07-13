@@ -369,7 +369,7 @@ body.po-page {
 
 .po-material-tile {
   display: grid;
-  grid-template-columns: 90px 90px minmax(120px, 0.8fr) minmax(190px, 2fr) minmax(150px, 1.2fr) 44px;
+  grid-template-columns: 90px minmax(190px, 1fr) 44px;
   gap: 9px;
   align-items: end;
   border: 1px solid var(--po-border);
@@ -529,8 +529,7 @@ body.po-page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .po-material-tile .description,
-  .po-material-tile .notes {
+  .po-material-tile .description {
     grid-column: 1 / -1;
   }
 

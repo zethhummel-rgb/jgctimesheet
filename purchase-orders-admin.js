@@ -176,7 +176,7 @@
           <td><span class="po-badge ${remaining <= 25 ? "warning" : "green"}">${remaining}</span></td>
           <td>
             <div class="po-inline-actions">
-              ${canAssign ? `<button type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Block</button>` : ""}
+              ${canAssign ? `<button type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
               ${device.status === "active" ? `<button class="secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
               ${device.status !== "revoked" ? `<button class="danger" type="button" data-revoke-device="${escapeText(device.id)}"><i data-lucide="ban"></i> Revoke</button>` : ""}
             </div>
@@ -268,9 +268,9 @@
       <section class="po-section-band">
         <h3>Materials</h3>
         <div class="po-table-wrap">
-          <table class="po-table" style="min-width:620px;">
-            <thead><tr><th>Qty Ordered</th><th>Qty Rec'd</th><th>Stock #</th><th>Description</th><th>Notes</th></tr></thead>
-            <tbody>${items.map((item) => `<tr><td>${escapeText(item.quantity_ordered)}</td><td>${escapeText(item.quantity_received)}</td><td>${escapeText(item.stock_number)}</td><td>${escapeText(item.description)}</td><td>${escapeText(item.notes)}</td></tr>`).join("") || '<tr><td colspan="5">No material rows.</td></tr>'}</tbody>
+          <table class="po-table" style="min-width:420px;">
+            <thead><tr><th>Qty Ordered</th><th>Description</th></tr></thead>
+            <tbody>${items.map((item) => `<tr><td>${escapeText(item.quantity_ordered)}</td><td>${escapeText(item.description)}</td></tr>`).join("") || '<tr><td colspan="2">No material rows.</td></tr>'}</tbody>
           </table>
         </div>
       </section>

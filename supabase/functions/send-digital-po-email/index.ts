@@ -10,7 +10,7 @@ const corsHeaders = {
 const TEMP_BUCKET = "digital-po-temp";
 const MAX_PER_RUN = 5;
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
-const DEFAULT_RECIPIENTS = "zeth@johngordonconstruction.com,darlene@johngordonconstruction.com";
+const DEFAULT_RECIPIENTS = "zeth@johngordonconstruction.com";
 
 type JsonRecord = Record<string, any>;
 
@@ -65,14 +65,9 @@ function blobToBase64(blob: Blob) {
 }
 
 function buildEmailText(po: JsonRecord, items: JsonRecord[]) {
-  const lines = items.map((item, index) => {
-    const details = [
-      item.stock_number ? `Stock ${item.stock_number}` : "",
-      item.description,
-      item.notes ? `Note: ${item.notes}` : "",
-    ].filter(Boolean).join(" | ");
-    return `${index + 1}. Ordered: ${item.quantity_ordered ?? ""} | Received: ${item.quantity_received ?? ""} | ${details}`;
-  });
+  const lines = items.map((item, index) =>
+    `${index + 1}. Ordered: ${item.quantity_ordered ?? ""} | ${item.description ?? ""}`
+  );
 
   return [
     `JGC Digital Purchase Order ${formatPoNumber(po.po_number)}`,
@@ -94,20 +89,10 @@ function buildEmailText(po: JsonRecord, items: JsonRecord[]) {
 }
 
 function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: string) {
-  const rows = (items.length ? items : [{}]).map((item) => {
-    const details = [
-      item.stock_number ? `Stock: ${item.stock_number}` : "",
-      item.description || "",
-      item.notes ? `Note: ${item.notes}` : "",
-    ].filter(Boolean).map(escapeHtml).join("<br>");
-    return `<tr>
-      <td>${escapeHtml(item.quantity_ordered)}</td>
-      <td>${escapeHtml(item.quantity_received)}</td>
-      <td>${details}</td>
-      <td>${escapeHtml(item.unit_price)}</td>
-      <td>${escapeHtml(item.amount)}</td>
-    </tr>`;
-  }).join("");
+  const rows = (items.length ? items : [{}]).map((item) => `<tr>
+    <td>${escapeHtml(item.quantity_ordered)}</td>
+    <td>${escapeHtml(item.description)}</td>
+  </tr>`).join("");
 
   const receipt = receiptDataUrl
     ? `<section class="receipt"><h2>Receipt</h2><img src="${receiptDataUrl}" alt="Attached receipt"></section>`
@@ -127,8 +112,7 @@ function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: str
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   th { background: #186940; color: white; text-align: left; font-size: 9px; padding: 8px; }
   td { border: 1px solid #557061; padding: 8px; vertical-align: top; min-height: 24px; }
-  th:nth-child(1), td:nth-child(1) { width: 12%; } th:nth-child(2), td:nth-child(2) { width: 12%; }
-  th:nth-child(4), td:nth-child(4) { width: 14%; } th:nth-child(5), td:nth-child(5) { width: 14%; }
+  th:nth-child(1), td:nth-child(1) { width: 18%; }
   .notes, .receipt { margin-top: 18px; border: 1px solid #31543e; padding: 10px; }
   .notes h2, .receipt h2 { color: #186940; font-size: 13px; margin: 0 0 7px; }
   .receipt img { max-width: 100%; max-height: 560px; display: block; }
@@ -141,7 +125,7 @@ function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: str
     <div class="field"><span class="label">To</span>${escapeHtml(po.supplier_name)}</div>
     <div class="field"><span class="label">Job Name</span>${escapeHtml(po.job_name)}</div>
   </div>
-  <table><thead><tr><th>Qty. Ordered</th><th>Qty. Rec'd</th><th>Stock Number / Description</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+  <table><thead><tr><th>Qty. Ordered</th><th>Material Description</th></tr></thead><tbody>${rows}</tbody></table>
   ${po.notes ? `<section class="notes"><h2>Order Notes</h2>${escapeHtml(po.notes).replace(/\n/g, "<br>")}</section>` : ""}
   ${receipt}
   <div class="footer">Created by: ${escapeHtml(po.creator_name)}<br>Assigned to: ${escapeHtml(po.assigned_name || "Not assigned")}<br>Submitted by: ${escapeHtml(po.submitted_by_name || po.creator_name)}<br>Portal authorization record - no field signature required.</div>

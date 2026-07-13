@@ -261,7 +261,6 @@
 
   function renderIdentity() {
     elements.currentUser.textContent = "Signed in as: " + (state.profile && state.profile.display_name || state.worker.display || state.worker.key || "");
-    elements.adminLink.hidden = !(state.profile && state.profile.role === "admin");
   }
 
   async function loadReferencesOnline() {
@@ -561,24 +560,12 @@
         <label>Qty Ordered</label>
         <input data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
       </div>
-      <div>
-        <label>Qty Rec'd</label>
-        <input data-item-field="quantity_received" type="number" min="0" step="0.001" inputmode="decimal" value="${escapeText(item && item.quantity_received !== null && item.quantity_received !== undefined ? item.quantity_received : "")}">
-      </div>
-      <div>
-        <label>Stock #</label>
-        <input data-item-field="stock_number" maxlength="120" value="${escapeText(item && item.stock_number || "")}">
-      </div>
       <div class="description">
         <label>Material Description</label>
         <input data-item-field="description" maxlength="1000" value="${escapeText(item && item.description || "")}">
       </div>
-      <div class="notes">
-        <label>Notes</label>
-        <input data-item-field="notes" maxlength="2000" value="${escapeText(item && item.notes || "")}">
-      </div>
       <div class="remove-wrap">
-        <button class="icon-button danger" type="button" data-remove-item title="Remove material row"><i data-lucide="trash-2"></i></button>
+        <button class="icon-button danger" type="button" data-remove-item title="Remove material row" aria-label="Remove material row">X</button>
       </div>
     `;
     elements.materialList.appendChild(row);
@@ -594,12 +581,9 @@
       return {
         id: row.dataset.itemId || crypto.randomUUID(),
         quantity_ordered: value("quantity_ordered"),
-        quantity_received: value("quantity_received"),
-        stock_number: value("stock_number"),
-        description: value("description"),
-        notes: value("notes")
+        description: value("description")
       };
-    }).filter((item) => item.description || item.stock_number || item.quantity_ordered || item.quantity_received || item.notes);
+    }).filter((item) => item.description || item.quantity_ordered);
   }
 
   function getRecord(id) {
@@ -1325,7 +1309,6 @@
       refreshDeviceButton: byId("poRefreshDeviceButton"),
       newButton: byId("poNewButton"),
       syncButton: byId("poSyncButton"),
-      adminLink: byId("poAdminLink"),
       listView: byId("poListView"),
       formView: byId("poFormView"),
       search: byId("poSearch"),
