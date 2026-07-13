@@ -4,17 +4,13 @@ The Digital Purchase Order schema, RLS policies, database functions, audit trigg
 
 Digital PO numbers begin at `PO-30000`. Database constraints and the admin page reject any number block below 30000. A number is assigned on the first draft save and is never reused. Purchase Orders are cancelled, never deleted.
 
-## One-Time Email Setup
+## Email Delivery
 
-Add these Edge Function secrets in the Supabase dashboard before sending the first live PO:
+Digital POs use the same Google Apps Script email endpoint already used by Work Orders and inspections. No Resend account, API key, sender authorization, or email secret is required.
 
-- `RESEND_API_KEY`: the production Resend API key.
-- `RESEND_FROM_EMAIL`: a verified sender, for example `Purchase Orders <purchaseorders@johngordonconstruction.com>`.
-- `PO_TO_EMAIL`: optional. It defaults to `darlene@johngordonconstruction.com`.
+By default, the script sends PO emails to `zeth@johngordonconstruction.com` and `darlene@johngordonconstruction.com`, matching the Work Order email route. Set the optional `PO_TO_EMAIL` Edge Function secret only if that recipient list needs to change.
 
-Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; do not add those manually.
-
-The worker runs every five minutes. Submitted POs remain queued if delivery fails, are visible as failures in PO Admin, and can be retried. Receipt photos stay in the private `digital-po-temp` bucket only until confirmed email delivery and cleanup.
+The worker runs every five minutes. Submitted POs remain queued if delivery fails, are visible as failures in PO Admin, and can be retried. Receipt photos are included in the emailed PO PDF, then removed from the private `digital-po-temp` bucket after confirmed delivery and cleanup.
 
 ## First Employee Setup
 
