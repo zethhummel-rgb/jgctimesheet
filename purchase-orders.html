@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Purchase Orders</title>
+  <link rel="manifest" href="manifest.json?v=5">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="purchase-orders.css?v=3">
+</head>
+<body class="po-page">
+  <main class="po-shell">
+    <div class="po-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+    <h1>Purchase Orders</h1>
+    <p id="poCurrentUser" class="po-user-line"></p>
+
+    <div class="po-status-row" aria-live="polite">
+      <span id="poNetworkBadge" class="po-badge">Checking connection</span>
+      <span id="poSyncBadge" class="po-badge info">Loading</span>
+      <span id="poRangeBadge" class="po-badge" hidden></span>
+    </div>
+
+    <div id="poNotice" class="po-notice" hidden role="status"></div>
+
+    <section id="poDevicePanel" class="po-notice warning" hidden>
+      <strong id="poDeviceTitle">PO device approval required</strong>
+      <div id="poDeviceMessage" style="margin-top:5px;"></div>
+      <div class="po-inline-actions" style="margin-top:10px;">
+        <button id="poRegisterDeviceButton" type="button">
+          <i data-lucide="smartphone"></i> Register This Device
+        </button>
+        <button id="poRefreshDeviceButton" class="secondary" type="button">
+          <i data-lucide="refresh-cw"></i> Refresh Status
+        </button>
+      </div>
+    </section>
+
+    <div class="po-toolbar">
+      <div class="po-toolbar-group">
+        <button id="poNewButton" type="button">
+          <i data-lucide="plus"></i> New PO
+        </button>
+        <button id="poSyncButton" class="secondary" type="button" title="Sync purchase orders">
+          <i data-lucide="refresh-cw"></i> Sync
+        </button>
+      </div>
+      <div class="po-toolbar-group">
+        <a id="poAdminLink" class="po-button secondary" href="purchase-orders-admin.html" hidden>
+          <i data-lucide="settings"></i> PO Admin
+        </a>
+      </div>
+    </div>
+
+    <section id="poListView" class="po-view">
+      <div class="po-tabs" role="tablist" aria-label="Purchase order views">
+        <button id="poAllTab" class="active" type="button" data-po-list-tab="all">My POs</button>
+        <button id="poAssignedTab" class="secondary" type="button" data-po-list-tab="assigned">Assigned to Me</button>
+      </div>
+      <div class="po-filter-row">
+        <div>
+          <label for="poSearch">Search</label>
+          <input id="poSearch" type="search" placeholder="PO, supplier, job, or employee">
+        </div>
+        <div>
+          <label for="poStatusFilter">Status</label>
+          <select id="poStatusFilter">
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="assigned">Assigned</option>
+            <option value="opened">Opened</option>
+            <option value="submitted">Submitted</option>
+            <option value="emailed">Emailed</option>
+            <option value="failed">Email Failed</option>
+            <option value="partially_received">Partially Received</option>
+            <option value="fully_received">Fully Received</option>
+            <option value="closed">Closed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="pending_sync">Pending Sync</option>
+          </select>
+        </div>
+      </div>
+      <div id="poList" class="po-list" aria-live="polite"></div>
+    </section>
+
+    <section id="poFormView" class="po-view" hidden>
+      <div class="po-form-header">
+        <div class="po-form-title">
+          <h2 id="poFormHeading">Digital Purchase Order</h2>
+          <div id="poNumberDisplay" class="po-number-display">Number assigned on first save</div>
+        </div>
+        <div class="po-inline-actions">
+          <span id="poFormStatusBadge" class="po-badge">Draft</span>
+          <button id="poCloseFormButton" class="icon-button secondary" type="button" title="Close">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+      </div>
+
+      <form id="poForm" novalidate>
+        <input id="poId" type="hidden">
+        <input id="poRevision" type="hidden">
+        <div class="po-form-grid">
+          <div class="po-field">
+            <label for="poOrderDate">Date of Order</label>
+            <input id="poOrderDate" type="date" required>
+          </div>
+          <div class="po-field">
+            <label for="poJob">Job</label>
+            <select id="poJob" required></select>
+          </div>
+          <div class="po-field">
+            <label for="poSupplierSelect">Supplier</label>
+            <select id="poSupplierSelect"></select>
+          </div>
+          <div class="po-field">
+            <label for="poSupplierName">To</label>
+            <input id="poSupplierName" maxlength="240" placeholder="Supplier / company name" required>
+          </div>
+          <div class="po-field full">
+            <label for="poAssignedTo">Assign PO To</label>
+            <select id="poAssignedTo"></select>
+          </div>
+          <div class="po-field full">
+            <label for="poNotes">Order Notes</label>
+            <textarea id="poNotes" maxlength="5000" placeholder="Delivery, pickup, or order notes"></textarea>
+          </div>
+        </div>
+
+        <section class="po-section-band">
+          <div class="po-section-heading">
+            <h3>Materials</h3>
+            <button id="poAddItemButton" class="secondary" type="button">
+              <i data-lucide="plus"></i> Add Material Row
+            </button>
+          </div>
+          <div id="poMaterialList" class="po-material-list"></div>
+        </section>
+
+        <section class="po-section-band">
+          <div class="po-section-heading"><h3>Receipt</h3></div>
+          <label for="poReceiptInput">Receipt Photo</label>
+          <input id="poReceiptInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+          <div id="poReceiptPreview" class="po-receipt-preview">No receipt attached</div>
+        </section>
+
+        <section id="poHistorySection" class="po-section-band" hidden>
+          <div class="po-section-heading"><h3>History</h3></div>
+          <div id="poHistoryList" class="po-history-list"></div>
+        </section>
+
+        <div class="po-form-actions">
+          <button id="poSaveButton" type="submit">
+            <i data-lucide="save"></i> Save Draft
+          </button>
+          <button id="poSubmitButton" type="button">
+            <i data-lucide="send"></i> Submit PO
+          </button>
+          <button id="poPdfButton" class="secondary" type="button">
+            <i data-lucide="file-text"></i> View PDF
+          </button>
+          <button id="poCancelButton" class="danger" type="button" hidden>
+            <i data-lucide="ban"></i> Cancel PO
+          </button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="vendor/supabase-js.min.js"></script>
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="common.js?v=22"></script>
+  <script src="purchase-orders-pdf.js?v=1"></script>
+  <script src="purchase-orders.js?v=1"></script>
+</body>
+</html>

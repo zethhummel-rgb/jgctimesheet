@@ -1,7 +1,7 @@
 {
   "name": "JGC Portal",
   "short_name": "JGC Portal",
-  "description": "John Gordon Construction employee portal for timesheets, inspections, certificates, vacation requests, contacts, policies, and equipment.",
+  "description": "John Gordon Construction employee portal for timesheets, inspections, purchase orders, work orders, certificates, vacation requests, contacts, policies, and equipment.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

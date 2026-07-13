@@ -308,7 +308,7 @@ button:hover {
 </div>
 
 <div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
 <h1>Accounts</h1>
@@ -316,6 +316,7 @@ button:hover {
 
 <div class="actions">
     <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
+    <button class="secondary" type="button" onclick="window.location.href='purchase-orders-admin.html'">Purchase Order Admin</button>
     <button class="secondary" type="button" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
     <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
@@ -339,8 +340,8 @@ button:hover {
     <div id="accountsList" class="small">Loading accounts...</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="common.js?v=21"></script>
+<script src="vendor/supabase-js.min.js"></script>
+  <script src="common.js?v=22"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -386,6 +387,7 @@ function renderAccounts() {
                         <th>Email</th>
                         <th>Status</th>
                         <th>Account Type</th>
+                        <th>Digital PO</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
@@ -400,12 +402,14 @@ function renderAccounts() {
                                 <td>${escapeHtml(account.email)}</td>
                                 <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusClass)}</span></td>
                                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
+                                <td><span class="status ${account.can_create_digital_pos ? "approved" : "inactive"}">${account.can_create_digital_pos ? "Can Create" : "Not Approved"}</span></td>
                                 <td>${escapeHtml(formatDate(account.created_at))}</td>
                                 <td>
                                     <div class="row-actions">
                                         ${account.account_status !== "approved" ? `<button type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
                                         ${account.account_status === "inactive" ? `<button type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
                                         ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
+                                        ${account.account_status === "approved" ? `<button type="button" class="secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
                                         ${renderAccountTypeActions(account, isSelf)}
                                     </div>
                                 </td>
@@ -478,7 +482,7 @@ async function loadAccounts() {
 
     const { data, error } = await supabaseClient
         .from("profiles")
-        .select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at")
+        .select("id,email,display_name,worker_key,role,account_status,can_create_digital_pos,created_at,approved_at,deactivated_at")
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -544,7 +548,8 @@ async function deactivateAccount(id) {
 
     const updated = await updateAccount(id, {
         account_status: "inactive",
-        deactivated_at: new Date().toISOString()
+        deactivated_at: new Date().toISOString(),
+        can_create_digital_pos: false
     });
 
     if (updated && typeof clearJgcPendingAccountNotifications === "function") {
@@ -569,6 +574,26 @@ async function setRole(id, role) {
     }
 
     await updateAccount(id, { role: nextRole });
+}
+
+async function setDigitalPoPermission(id, allowed) {
+    const account = accounts.find((item) => item.id === id);
+    const name = account ? account.display_name || account.email : "this account";
+
+    if (account && account.account_status !== "approved") {
+        alert("Approve the account before allowing Digital PO creation.");
+        return;
+    }
+
+    const action = allowed ? "allow" : "remove";
+    if (!confirm((allowed ? "Allow " : "Remove ") + name + (allowed ? " to create Digital POs?" : " from Digital PO creation? Existing PO history will remain."))) {
+        return;
+    }
+
+    const updated = await updateAccount(id, { can_create_digital_pos: Boolean(allowed) });
+    if (updated) {
+        alert("Digital PO creation permission updated. " + (allowed ? "The employee can now register a PO device." : "New PO creation is disabled."));
+    }
 }
 
 async function signOut() {

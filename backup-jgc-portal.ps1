@@ -13,6 +13,7 @@ $ErrorActionPreference = "Stop"
 $script:BackupUserAgent = "JGC-Portal-Backup/2.0"
 $script:RedactionKey = ""
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$script:EphemeralStorageBuckets = @("digital-po-temp")
 
 function Write-Step($Message) {
   Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $Message)
@@ -745,10 +746,16 @@ try {
   }
   Write-JsonFile -Path (Join-Path $supabaseRoot "table-export-summary.json") -Value $tableSummary.ToArray()
 
-  Write-Step "Discovering and backing up every Supabase Storage bucket..."
+  Write-Step "Discovering and backing up permanent Supabase Storage buckets..."
   $bucketSummary = [System.Collections.Generic.List[object]]::new()
   $storageInventory = [System.Collections.Generic.List[object]]::new()
-  $liveBucketNames = @($preflight.buckets | ForEach-Object { if ($_.id) { [string]$_.id } else { [string]$_.name } } | Where-Object { $_ } | Sort-Object -Unique)
+  $allLiveBucketNames = @($preflight.buckets | ForEach-Object { if ($_.id) { [string]$_.id } else { [string]$_.name } } | Where-Object { $_ } | Sort-Object -Unique)
+  $excludedLiveBucketNames = @($allLiveBucketNames | Where-Object { $_ -in $script:EphemeralStorageBuckets })
+  $liveBucketNames = @($allLiveBucketNames | Where-Object { $_ -notin $script:EphemeralStorageBuckets })
+
+  foreach ($excludedBucket in $excludedLiveBucketNames) {
+    Write-Step "Storage ${excludedBucket}: EXCLUDED (temporary delivery files)"
+  }
 
   foreach ($bucket in $liveBucketNames) {
     try {
@@ -765,7 +772,7 @@ try {
     }
   }
 
-  foreach ($missingBucket in @($sourceInventory.codeReferencedBuckets | Where-Object { $_ -notin $liveBucketNames })) {
+  foreach ($missingBucket in @($sourceInventory.codeReferencedBuckets | Where-Object { $_ -notin $allLiveBucketNames })) {
     $bucketSummary.Add([pscustomobject]@{
       bucket = $missingBucket; filesDiscovered = 0; files = 0; bytes = 0; failedFiles = 0;
       status = "FAILED"; error = "Bucket is referenced by portal code but is missing from live Supabase Storage."; failures = @()
@@ -818,6 +825,7 @@ try {
     databaseFormat = "One verified JSON array per table/view"
     schemaInformationIncluded = @("supabase/schema/openapi.json", "website-files/*.sql", "website-files/supabase/**")
     storageBucketsIncluded = @($bucketSummary | Where-Object { $_.status -in @("COPIED", "EMPTY") } | ForEach-Object bucket)
+    storageBucketsExcluded = $excludedLiveBucketNames
     storageFilesIncluded = @($storageInventory | ForEach-Object { "$($_.bucket)/$($_.path)" })
     websiteFilesIncluded = $websiteResult.files
     credentialsIncluded = $false
@@ -854,6 +862,7 @@ try {
     totalDatabaseRowsExported = $totalRows
     databaseExportBytes = $databaseBytes
     storageBucketsChecked = $bucketSummary.Count
+    storageBucketsExcluded = $excludedLiveBucketNames
     storageFilesCopied = $storageFiles
     totalStorageBytes = $storageBytes
     websiteFilesCopied = $websiteResult.files
@@ -876,7 +885,8 @@ try {
     "",
     "Website: $($websiteResult.status) - $($websiteResult.files) files - $($websiteResult.bytes) bytes",
     "Database: $databaseStatus - $($databaseObjects.Count) attempted - $($tableSucceeded.Count) exported - $($tableFailures.Count) failed - $totalRows rows",
-    "Storage: $storageStatus - $($bucketSummary.Count) buckets - $storageFiles files - $storageBytes bytes",
+    "Storage: $storageStatus - $($bucketSummary.Count) permanent buckets - $storageFiles files - $storageBytes bytes",
+    "Temporary Storage excluded: $($excludedLiveBucketNames -join ', ')",
     "Restore readiness: $restoreStatus",
     "Retention: $RetentionDays days",
     "Credentials included: No",

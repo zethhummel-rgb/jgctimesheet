@@ -699,7 +699,7 @@ th {
         </div>
         <div>
           <label>Date</label>
-          <input id="woDate" type="date" onchange="renderLabourPreview()">
+          <input id="woDate" type="date" onchange="renderLabourPreview(); window.jgcDigitalPoWorkOrder && window.jgcDigitalPoWorkOrder.useWorkOrderDate();">
         </div>
         <div>
           <label>Status</label>
@@ -766,9 +766,31 @@ th {
       </div>
 
       <div class="form-section">
-        <h3>Purchase Orders</h3>
+        <h3>Paper / Manual Purchase Orders</h3>
         <div id="poRows"></div>
         <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
+      </div>
+
+      <div class="form-section" id="digitalPoWorkOrderSection">
+        <h3>Digital Purchase Orders</h3>
+        <div class="form-grid">
+          <div>
+            <label for="digitalPoWorkOrderDate">PO Date</label>
+            <input id="digitalPoWorkOrderDate" type="date">
+          </div>
+          <div style="display:flex;align-items:end;">
+            <button id="refreshDigitalPoOptionsButton" type="button" class="secondary">Refresh Digital POs</button>
+          </div>
+        </div>
+        <div id="digitalPoWorkOrderStatus" class="small" style="margin:10px 0;">Select a job and date.</div>
+        <div id="digitalPoAvailableList"></div>
+        <div class="actions" style="margin-top:10px;">
+          <button id="addSelectedDigitalPosButton" type="button" disabled>Add Selected POs</button>
+        </div>
+        <div id="digitalPoLinkedWrap" style="margin-top:14px;" hidden>
+          <label>Linked Digital Portal POs</label>
+          <div id="digitalPoLinkedList"></div>
+        </div>
       </div>
 
       <div class="form-section collapsible">
@@ -1078,6 +1100,9 @@ function fillSelectedJob() {
   updateWorkOrderNumberForSelectedJob();
 
   renderLabourPreview();
+  if (window.jgcDigitalPoWorkOrder) {
+    window.jgcDigitalPoWorkOrder.refresh();
+  }
 }
 
 function renderJobOptions() {
@@ -1812,6 +1837,9 @@ function resetWorkOrderForm() {
   document.getElementById("woNotes").value = "";
   document.getElementById("poRows").innerHTML = "";
   addPoRow();
+  if (window.jgcDigitalPoWorkOrder) {
+    window.jgcDigitalPoWorkOrder.reset();
+  }
   document.getElementById("equipmentRows").innerHTML = "";
   addEquipmentRow();
   document.getElementById("rentalRows").innerHTML = "";
@@ -2108,6 +2136,9 @@ function editWorkOrder(id) {
     rows.forEach((po) => addPoRow(po));
   } else {
     addPoRow();
+  }
+  if (window.jgcDigitalPoWorkOrder) {
+    window.jgcDigitalPoWorkOrder.useWorkOrderDate();
   }
 
   document.getElementById("equipmentRows").innerHTML = "";
@@ -3292,7 +3323,7 @@ function buildWorkOrderPdfHtml(id) {
     </tbody>
   </table>
 
-  ${buildOptionalPdfSection("Purchase Orders", pos, ["PO Number", "Company", "Notes"], (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}
+  ${buildOptionalPdfSection("Paper / Manual Purchase Orders", pos, ["PO Number", "Company", "Notes"], (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}
 
   ${buildOptionalPdfSection("Materials Used From Shop", materials, ["Shop", "Material Description", "Quantity"], (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}
 
@@ -3463,5 +3494,6 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   openRequestedEmbeddedWorkOrder();
 });
 </script>
+<script src="work-order-digital-pos.js?v=1"></script>
 </body>
 </html>

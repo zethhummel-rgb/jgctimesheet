@@ -266,6 +266,8 @@ function applyJgcPortalName() {
     "vacation-request.html": "Vacation Request",
     "work-orders.html": "Work Orders",
     "policies-announcements.html": "Policies/Announcements",
+    "purchase-orders.html": "Purchase Orders",
+    "purchase-orders-admin.html": "Purchase Order Admin",
     "reports.html": "Reports",
     "subcontractor.html": "Subcontractor Access"
   };
@@ -845,6 +847,7 @@ function activateGlobalTopNavigation() {
     { label: "Vacation", href: "vacation-request.html" },
     { label: "Equipment", href: "equipment-vehicles.html" },
     { label: "WO", href: "work-orders.html" },
+    { label: "PO", href: "purchase-orders.html" },
     { label: "Permits", href: "permits.html" },
     { label: "Reports", href: "reports.html" },
     { label: "Tasks", href: "tasks.html" },
@@ -1097,6 +1100,7 @@ function getJgcMobileNavItems() {
     ],
     more: [
       { label: "Certificates", href: "certificates.html", icon: "award" },
+      { label: "Purchase Orders", href: "purchase-orders.html", icon: "file" },
       { label: "Reports", href: "reports.html", icon: "report" },
       { label: "Permits", href: "permits.html", icon: "permit" },
       { label: "Vacation", href: "vacation-request.html", icon: "vacation" },

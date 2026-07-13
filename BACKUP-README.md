@@ -1,6 +1,8 @@
 # JGC Portal Backup
 
-The backup runs locally on Zeth's Windows account. It exports portal files, every database table/view discovered through the Supabase Data API, and every live Supabase Storage bucket.
+The backup runs locally on Zeth's Windows account. It exports portal files, every database table/view discovered through the Supabase Data API, and every permanent Supabase Storage bucket.
+
+The private `digital-po-temp` bucket is intentionally excluded. It contains short-lived PO PDFs and receipt images waiting for confirmed email delivery. The permanent PO record, material rows, receipt metadata, email status, and audit history are database records and are included in every backup.
 
 ## One-time credential setup
 
@@ -39,7 +41,7 @@ A backup is `PASSED` only when:
 - Supabase authentication and schema discovery pass before the ZIP is created.
 - Every required or discovered database table/view exports with verified pagination and row counts.
 - Empty database tables are identified as `EMPTY`, not confused with failed exports.
-- Every live Storage bucket is listed and every object downloads with its original bucket/path structure.
+- Every permanent Storage bucket is listed and every object downloads with its original bucket/path structure; documented temporary delivery buckets are listed as excluded.
 - Portal files are copied without credentials or local secret files.
 - The completed ZIP is reopened and its manifest, JSON files, inventories, counts, and file sizes validate.
 
