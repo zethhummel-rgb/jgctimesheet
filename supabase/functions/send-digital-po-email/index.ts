@@ -9,6 +9,8 @@ const corsHeaders = {
 
 const TEMP_BUCKET = "digital-po-temp";
 const MAX_PER_RUN = 5;
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
+const DEFAULT_RECIPIENTS = "zeth@johngordonconstruction.com,darlene@johngordonconstruction.com";
 
 type JsonRecord = Record<string, any>;
 
@@ -34,6 +36,20 @@ function safeFilename(value: unknown, fallback: string) {
 
 function formatPoNumber(value: unknown) {
   return `PO-${safeText(value).replace(/^PO-/i, "")}`;
+}
+
+function escapeHtml(value: unknown) {
+  return safeText(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatDate(value: unknown) {
+  const match = safeText(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : safeText(value);
 }
 
 function blobToBase64(blob: Blob) {
@@ -73,8 +89,63 @@ function buildEmailText(po: JsonRecord, items: JsonRecord[]) {
     ...lines,
     "",
     "The Digital PO PDF is attached.",
-    po.receipt_attached ? "The receipt image is also attached." : "No receipt image was attached.",
+    po.receipt_attached ? "The receipt image is included in the attached PO PDF." : "No receipt image was attached.",
   ].filter((line) => line !== "").join("\n");
+}
+
+function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: string) {
+  const rows = (items.length ? items : [{}]).map((item) => {
+    const details = [
+      item.stock_number ? `Stock: ${item.stock_number}` : "",
+      item.description || "",
+      item.notes ? `Note: ${item.notes}` : "",
+    ].filter(Boolean).map(escapeHtml).join("<br>");
+    return `<tr>
+      <td>${escapeHtml(item.quantity_ordered)}</td>
+      <td>${escapeHtml(item.quantity_received)}</td>
+      <td>${details}</td>
+      <td>${escapeHtml(item.unit_price)}</td>
+      <td>${escapeHtml(item.amount)}</td>
+    </tr>`;
+  }).join("");
+
+  const receipt = receiptDataUrl
+    ? `<section class="receipt"><h2>Receipt</h2><img src="${receiptDataUrl}" alt="Attached receipt"></section>`
+    : "";
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  body { font-family: Arial, sans-serif; color: #142017; margin: 34px; font-size: 12px; }
+  .header { border-bottom: 4px solid #186940; padding-bottom: 14px; display: flex; justify-content: space-between; }
+  h1 { color: #186940; margin: 0; font-size: 25px; }
+  .number { font-size: 22px; font-weight: bold; text-align: right; }
+  .address { color: #4f5e52; margin-top: 6px; line-height: 1.45; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #31543e; margin: 20px 0; }
+  .field { border-right: 1px solid #31543e; border-bottom: 1px solid #31543e; padding: 10px; min-height: 37px; }
+  .field:nth-child(even) { border-right: 0; }
+  .label { color: #31543e; font-size: 9px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { background: #186940; color: white; text-align: left; font-size: 9px; padding: 8px; }
+  td { border: 1px solid #557061; padding: 8px; vertical-align: top; min-height: 24px; }
+  th:nth-child(1), td:nth-child(1) { width: 12%; } th:nth-child(2), td:nth-child(2) { width: 12%; }
+  th:nth-child(4), td:nth-child(4) { width: 14%; } th:nth-child(5), td:nth-child(5) { width: 14%; }
+  .notes, .receipt { margin-top: 18px; border: 1px solid #31543e; padding: 10px; }
+  .notes h2, .receipt h2 { color: #186940; font-size: 13px; margin: 0 0 7px; }
+  .receipt img { max-width: 100%; max-height: 560px; display: block; }
+  .footer { border-top: 1px solid #31543e; margin-top: 25px; padding-top: 10px; color: #4f5e52; line-height: 1.5; }
+</style></head><body>
+  <div class="header"><div><h1>JOHN GORDON CONSTRUCTION INC.</h1><div class="address">830 Campbell Street, Unit #3, Cornwall, Ontario K6H 6L7<br>Tel: 613-932-1293</div></div><div><div class="number">${escapeHtml(formatPoNumber(po.po_number))}</div><div>Digital Purchase Order</div></div></div>
+  <div class="fields">
+    <div class="field"><span class="label">Date of Order</span>${escapeHtml(formatDate(po.order_date))}</div>
+    <div class="field"><span class="label">Job #</span>${escapeHtml(po.job_number)}</div>
+    <div class="field"><span class="label">To</span>${escapeHtml(po.supplier_name)}</div>
+    <div class="field"><span class="label">Job Name</span>${escapeHtml(po.job_name)}</div>
+  </div>
+  <table><thead><tr><th>Qty. Ordered</th><th>Qty. Rec'd</th><th>Stock Number / Description</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+  ${po.notes ? `<section class="notes"><h2>Order Notes</h2>${escapeHtml(po.notes).replace(/\n/g, "<br>")}</section>` : ""}
+  ${receipt}
+  <div class="footer">Created by: ${escapeHtml(po.creator_name)}<br>Assigned to: ${escapeHtml(po.assigned_name || "Not assigned")}<br>Submitted by: ${escapeHtml(po.submitted_by_name || po.creator_name)}<br>Portal authorization record - no field signature required.</div>
+</body></html>`;
 }
 
 async function getOutbox(db: any, outboxId: string) {
@@ -136,29 +207,13 @@ async function processCleanup(db: any, job: JsonRecord) {
   return cleanTemporaryFiles(db, po, job.outbox_id, job.lock_token);
 }
 
-async function processSend(db: any, job: JsonRecord, resendApiKey: string, fromEmail: string, toEmail: string) {
-  if (!resendApiKey) {
-    throw new Error("RESEND_API_KEY is not configured for the Digital PO email worker.");
-  }
+async function processSend(db: any, job: JsonRecord, toEmail: string) {
   const outbox = await getOutbox(db, job.outbox_id);
   const { po, items } = await getPo(db, job.po_id);
-
-  if (!po.pdf_storage_path) {
-    throw new Error("The temporary PO PDF path is missing.");
-  }
-
-  const pdfBlob = await downloadAttachment(db, po.pdf_storage_path);
-  const attachments: JsonRecord[] = [{
-    filename: `${formatPoNumber(po.po_number)}.pdf`,
-    content: await blobToBase64(pdfBlob),
-  }];
-
+  let receiptDataUrl = "";
   if (po.receipt_storage_path) {
     const receiptBlob = await downloadAttachment(db, po.receipt_storage_path);
-    attachments.push({
-      filename: safeFilename(po.receipt_original_filename, `${formatPoNumber(po.po_number)}-receipt.jpg`),
-      content: await blobToBase64(receiptBlob),
-    });
+    receiptDataUrl = `data:${receiptBlob.type || "image/jpeg"};base64,${await blobToBase64(receiptBlob)}`;
   }
 
   const subject = [
@@ -167,31 +222,29 @@ async function processSend(db: any, job: JsonRecord, resendApiKey: string, fromE
     po.supplier_name,
   ].filter(Boolean).join(" - ");
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${resendApiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": outbox.idempotency_key,
+      "Content-Type": "text/plain;charset=utf-8",
     },
     body: JSON.stringify({
-      from: fromEmail,
-      to: [toEmail],
+      to: toEmail,
       subject,
       text: buildEmailText(po, items),
-      attachments,
+      body: buildEmailText(po, items),
+      pdfHtml: buildPoPdfHtml(po, items, receiptDataUrl),
+      pdfFileName: safeFilename(`${formatPoNumber(po.po_number)}.pdf`, "digital-purchase-order.pdf"),
+      source: "digital_purchase_order",
+      poNumber: formatPoNumber(po.po_number),
+      idempotencyKey: outbox.idempotency_key,
     }),
   });
 
-  const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`Resend returned ${response.status}: ${safeText(result.message || result.name || "Email delivery failed.")}`);
+    throw new Error(`Google Apps Script returned ${response.status} while sending ${formatPoNumber(po.po_number)}.`);
   }
 
-  const providerId = safeText(result.id);
-  if (!providerId) {
-    throw new Error("Resend accepted the request without returning a delivery ID.");
-  }
+  const providerId = `google-apps-script:${outbox.idempotency_key}`;
 
   const completeResult = await db.rpc("digital_po_complete_email_delivery", {
     p_outbox_id: job.outbox_id,
@@ -216,9 +269,7 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
-  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Purchase Orders <onboarding@resend.dev>";
-  const toEmail = Deno.env.get("PO_TO_EMAIL") || "darlene@johngordonconstruction.com";
+  const toEmail = Deno.env.get("PO_TO_EMAIL") || DEFAULT_RECIPIENTS;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse({ success: false, error: "Supabase function environment variables are missing." }, 500);
@@ -239,7 +290,7 @@ Deno.serve(async (req: Request) => {
     try {
       const result = job.action === "cleanup"
         ? await processCleanup(db, job)
-        : await processSend(db, job, resendApiKey, fromEmail, toEmail);
+        : await processSend(db, job, toEmail);
       results.push({ outbox_id: job.outbox_id, po_id: job.po_id, action: job.action, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
