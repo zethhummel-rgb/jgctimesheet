@@ -205,6 +205,30 @@ th {
     color: #7b1f1f;
 }
 
+.status.po-create-allowed,
+.status.po-create-blocked {
+    min-width: 104px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #ffffff !important;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.status.po-create-allowed {
+    background: #177b3b !important;
+    border-color: #66d885;
+}
+
+.status.po-create-blocked {
+    background: #b42318 !important;
+    border-color: #ff9a91;
+}
+
 button {
     background: #0b5e3b;
     color: white;
@@ -403,7 +427,7 @@ function renderAccounts() {
                                 <td>${escapeHtml(account.email)}</td>
                                 <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusClass)}</span></td>
                                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
-                                <td><span class="status ${account.can_create_digital_pos ? "approved" : "inactive"}">${account.can_create_digital_pos ? "Can Create" : "Not Approved"}</span></td>
+                                <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
                                 <td>${escapeHtml(formatDate(account.created_at))}</td>
                                 <td>
                                     <div class="row-actions">
