@@ -18,7 +18,6 @@
     deviceToken: "",
     deviceContext: null,
     jobs: [],
-    suppliers: [],
     workers: [],
     serverRecords: [],
     drafts: [],
@@ -219,7 +218,6 @@
   async function loadOfflineState() {
     state.profile = await getMeta(cacheKeyForUser("profile"), null);
     state.jobs = await getMeta("cache:jobs", []);
-    state.suppliers = await getMeta("cache:suppliers", []);
     state.workers = await getMeta("cache:po-workers", []);
     state.deviceContext = await getMeta(cacheKeyForUser("device_context"), null);
     state.serverRecords = await getMeta(cacheKeyForUser("server_records"), []);
@@ -266,7 +264,6 @@
   async function loadReferencesOnline() {
     const results = await Promise.all([
       state.client.from("jobs").select("id,job_number,job_name,active").eq("active", true).order("job_number"),
-      state.client.from("subcontractors_suppliers").select("id,company_name,category,is_active").eq("is_active", true).order("company_name"),
       state.client.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name")
     ]);
 
@@ -275,11 +272,7 @@
       await setMeta("cache:jobs", state.jobs);
     }
     if (!results[1].error) {
-      state.suppliers = results[1].data || [];
-      await setMeta("cache:suppliers", state.suppliers);
-    }
-    if (!results[2].error) {
-      state.workers = (results[2].data || []).filter((worker) => worker.profile_id);
+      state.workers = (results[1].data || []).filter((worker) => worker.profile_id);
       await setMeta("cache:po-workers", state.workers);
     }
   }
@@ -538,12 +531,6 @@
     ).join("");
     elements.job.value = currentJob;
 
-    const currentSupplier = elements.supplierSelect.value;
-    elements.supplierSelect.innerHTML = '<option value="">Type supplier below</option>' + state.suppliers.map((supplier) =>
-      `<option value="${escapeText(supplier.id)}">${escapeText(supplier.company_name)}</option>`
-    ).join("");
-    elements.supplierSelect.value = currentSupplier;
-
     const currentAssigned = elements.assignedTo.value;
     elements.assignedTo.innerHTML = '<option value="">Not assigned</option>' + state.workers.map((worker) =>
       `<option value="${escapeText(worker.profile_id)}">${escapeText(worker.display_name || worker.worker_key)}</option>`
@@ -658,7 +645,6 @@
     elements.orderDate.value = po.order_date || localDateValue();
     renderReferenceOptions();
     elements.job.value = po.job_id || "";
-    elements.supplierSelect.value = po.supplier_id || "";
     elements.supplierName.value = po.supplier_name || "";
     elements.assignedTo.value = po.assigned_profile_id || "";
     elements.notes.value = po.notes || "";
@@ -771,7 +757,7 @@
       job_id: elements.job.value,
       job_number: job ? job.job_number : "",
       job_name: job ? job.job_name : "",
-      supplier_id: elements.supplierSelect.value || null,
+      supplier_id: null,
       supplier_name: elements.supplierName.value.trim(),
       assigned_profile_id: elements.assignedTo.value || null,
       notes: elements.notes.value.trim(),
@@ -1251,12 +1237,6 @@
         button.closest(".po-material-tile").remove();
       }
     });
-    elements.supplierSelect.addEventListener("change", () => {
-      const supplier = state.suppliers.find((item) => item.id === elements.supplierSelect.value);
-      if (supplier) {
-        elements.supplierName.value = supplier.company_name;
-      }
-    });
     elements.receiptInput.addEventListener("change", handleReceiptChange);
     elements.search.addEventListener("input", renderList);
     elements.statusFilter.addEventListener("change", renderList);
@@ -1322,7 +1302,6 @@
       closeFormButton: byId("poCloseFormButton"),
       orderDate: byId("poOrderDate"),
       job: byId("poJob"),
-      supplierSelect: byId("poSupplierSelect"),
       supplierName: byId("poSupplierName"),
       assignedTo: byId("poAssignedTo"),
       notes: byId("poNotes"),
