@@ -1,3 +1,7 @@
 backup-secrets.json
+backup-secrets*.json
+.env
+.env.*
+*.credential.json
 *.zip
 jgc-portal-backup-*/

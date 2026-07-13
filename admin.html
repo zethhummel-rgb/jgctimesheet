@@ -3767,7 +3767,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 <div id="backupsSection" class="card" hidden>
     <h2>Backups</h2>
-    <div class="small">Use this before making big website changes. The automatic backup still runs from your computer, so the admin page gives you the command to force it and an inspector to confirm a ZIP contains website files, Supabase tables, and storage exports.</div>
+    <div class="small">Use this before making big website changes. The backup runs from your computer and only passes after website files, every discovered Supabase table/view, and every live Storage bucket are exported and re-checked inside the finished ZIP.</div>
 
     <div class="backup-status-grid">
         <div class="backup-status-card">
@@ -3780,18 +3780,26 @@ button.admin-schedule-event-button.admin-event-vacation {
         </div>
         <div class="backup-status-card">
             <strong>Included Data</strong>
-            Portal files, Supabase tables, and Supabase storage buckets
+            Verified portal files, paginated database exports, Storage files, checksums, schema inventory, and restore-readiness reports
         </div>
     </div>
 
     <h3>Force Backup Now</h3>
-    <div class="small">Copy this command into PowerShell on your computer, or run <strong>run-jgc-backup-now.bat</strong> from the portal folder.</div>
+    <div class="small">Copy this command into PowerShell on your computer, or run <strong>run-jgc-backup-now.bat</strong> from the portal folder. The Supabase secret is stored outside the portal using Windows encryption and is never included in a backup.</div>
     <div id="backupCommandText" class="backup-command"></div>
     <div class="actions">
         <button type="button" onclick="copyBackupCommand()">Copy Manual Backup Command</button>
         <button type="button" class="secondary" onclick="window.location.href='backup-jgc-portal.ps1'">Open Backup Script</button>
     </div>
     <div id="backupCommandStatus" class="small" style="margin-top:10px;"></div>
+
+    <h3 style="margin-top:18px;">Configure Local Credential</h3>
+    <div class="small">Run this once on Zeth's Windows account to save the Supabase URL and secret key with Windows DPAPI encryption. The scheduled task must run under the same Windows account.</div>
+    <div id="backupCredentialCommandText" class="backup-command"></div>
+    <div class="actions">
+        <button type="button" class="secondary" onclick="copyBackupCredentialCommand()">Copy Credential Setup Command</button>
+    </div>
+    <div id="backupCredentialStatus" class="small" style="margin-top:10px;"></div>
 
     <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
 
@@ -3905,12 +3913,18 @@ if (!isAdminWorker(currentWorker, worker.role)) {
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 const BACKUP_COMMAND = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\Zeth\\OneDrive - JOHN GORDON CONSTRUCTION INC\\Documents\\index.html\\backup-jgc-portal.ps1"';
+const BACKUP_CREDENTIAL_COMMAND = BACKUP_COMMAND + ' -ConfigureCredential';
 
 function initializeBackupsPage() {
     const commandBlock = document.getElementById("backupCommandText");
 
     if (commandBlock) {
         commandBlock.textContent = BACKUP_COMMAND;
+    }
+
+    const credentialCommandBlock = document.getElementById("backupCredentialCommandText");
+    if (credentialCommandBlock) {
+        credentialCommandBlock.textContent = BACKUP_CREDENTIAL_COMMAND;
     }
 
     renderBackupHistory();
@@ -3933,6 +3947,15 @@ async function copyBackupCommand() {
         setBackupStatus("backupCommandStatus", "Manual backup command copied.");
     } catch (err) {
         setBackupStatus("backupCommandStatus", "Could not copy automatically. Highlight the command above and copy it manually.", true);
+    }
+}
+
+async function copyBackupCredentialCommand() {
+    try {
+        await navigator.clipboard.writeText(BACKUP_CREDENTIAL_COMMAND);
+        setBackupStatus("backupCredentialStatus", "Credential setup command copied.");
+    } catch (err) {
+        setBackupStatus("backupCredentialStatus", "Could not copy automatically. Highlight the command above and copy it manually.", true);
     }
 }
 
@@ -3986,13 +4009,14 @@ function renderBackupHistory() {
         return;
     }
 
-    target.innerHTML = renderBackupSummaryTable("Backup List", history, [
+    const historyRows = history.map((item) => ({ ...item, status: item.status || item.supabase || "Unknown" }));
+    target.innerHTML = renderBackupSummaryTable("Backup List", historyRows, [
         { key: "fileName", label: "File" },
         { key: "createdAt", label: "Created" },
         { key: "websiteFiles", label: "Website Files" },
         { key: "tableFiles", label: "Tables" },
         { key: "storageFiles", label: "Storage Files" },
-        { key: "supabase", label: "Supabase" }
+        { key: "status", label: "Status" }
     ]);
 }
 
@@ -4034,9 +4058,16 @@ function formatBackupDateTime(value) {
     return date.toLocaleString();
 }
 
-function renderBackupInspection(fileName, manifest, tableSummary, storageSummary, counts) {
+function renderBackupInspection(fileName, manifest, tableSummary, storageSummary, validation, restoreReadiness, counts) {
     const createdAt = manifest && manifest.createdAt ? formatBackupDateTime(manifest.createdAt) : "Not found";
-    const supabaseStatus = manifest && manifest.supabaseExportConfigured ? "Included" : "Not included or not found";
+    const overallStatus = manifest && manifest.overallStatus
+        ? manifest.overallStatus
+        : (manifest && manifest.supabaseExportConfigured ? "LEGACY / UNVERIFIED" : "FAILED");
+    const validationStatus = validation && validation.status ? validation.status : "NOT FOUND";
+    const failedItems = manifest && Array.isArray(manifest.failedItems) ? manifest.failedItems : [];
+    const restoreStatus = restoreReadiness && restoreReadiness.status
+        ? restoreReadiness.status
+        : (manifest && manifest.restoreReadiness ? manifest.restoreReadiness : "NOT FOUND");
 
     return `
         <div class="backup-status-grid">
@@ -4049,20 +4080,28 @@ function renderBackupInspection(fileName, manifest, tableSummary, storageSummary
                 ${escapeHtml(createdAt)}
             </div>
             <div class="backup-status-card">
-                <strong>Website Files</strong>
-                ${escapeHtml(String(counts.websiteFiles))}
+                <strong>Overall Status</strong>
+                ${escapeHtml(overallStatus)}
             </div>
             <div class="backup-status-card">
-                <strong>Supabase Export</strong>
-                ${escapeHtml(supabaseStatus)}
+                <strong>Website</strong>
+                ${escapeHtml(manifest && manifest.websiteStatus ? manifest.websiteStatus : "UNVERIFIED")} - ${escapeHtml(String(counts.websiteFiles))} files
             </div>
             <div class="backup-status-card">
-                <strong>Table Files</strong>
-                ${escapeHtml(String(counts.tableFiles))}
+                <strong>Database</strong>
+                ${escapeHtml(manifest && manifest.databaseStatus ? manifest.databaseStatus : "UNVERIFIED")} - ${escapeHtml(String(counts.tableFiles))} files - ${escapeHtml(String(manifest && manifest.totalDatabaseRowsExported !== undefined ? manifest.totalDatabaseRowsExported : "Unknown"))} rows
             </div>
             <div class="backup-status-card">
-                <strong>Storage Files</strong>
-                ${escapeHtml(String(counts.storageFiles))}
+                <strong>Storage</strong>
+                ${escapeHtml(manifest && manifest.storageStatus ? manifest.storageStatus : "UNVERIFIED")} - ${escapeHtml(String(counts.storageFiles))} files
+            </div>
+            <div class="backup-status-card">
+                <strong>ZIP Validation</strong>
+                ${escapeHtml(validationStatus)}
+            </div>
+            <div class="backup-status-card">
+                <strong>Restore Readiness</strong>
+                ${escapeHtml(restoreStatus)}
             </div>
         </div>
         ${renderBackupSummaryTable("Supabase Tables", tableSummary || [], [
@@ -4073,7 +4112,13 @@ function renderBackupInspection(fileName, manifest, tableSummary, storageSummary
         ${renderBackupSummaryTable("Storage Buckets", storageSummary || [], [
             { key: "bucket", label: "Bucket" },
             { key: "files", label: "Files" },
+            { key: "bytes", label: "Bytes" },
             { key: "status", label: "Status" }
+        ])}
+        ${renderBackupSummaryTable("Failed Items", failedItems, [
+            { key: "area", label: "Area" },
+            { key: "item", label: "Item" },
+            { key: "error", label: "Error" }
         ])}
         <div class="small" style="margin-top:12px;">Restore is intentionally review-only here. To restore live data, review this backup first and then run a controlled restore script so the website does not overwrite Supabase by accident.</div>
     `;
@@ -4095,14 +4140,25 @@ async function inspectBackupZip(file) {
     const manifest = await readZipJson(zip, "backup-manifest.json");
     const tableSummary = await readZipJson(zip, "supabase/table-export-summary.json");
     const storageSummary = await readZipJson(zip, "supabase/storage-export-summary.json");
+    const validation = await readZipJson(zip, "post-backup-validation.json");
+    const restoreReadiness = await readZipJson(zip, "restore-readiness.json");
 
     document.getElementById("backupInspectResult").innerHTML = renderBackupInspection(
         file.name,
         manifest,
         Array.isArray(tableSummary) ? tableSummary : [],
         Array.isArray(storageSummary) ? storageSummary : [],
+        validation,
+        restoreReadiness,
         counts
     );
+
+    const overallStatus = manifest && manifest.overallStatus
+        ? manifest.overallStatus
+        : (manifest && manifest.supabaseExportConfigured ? "LEGACY / UNVERIFIED" : "FAILED");
+    const inspectionStatus = validation && validation.status === "PASS" && overallStatus === "PASSED"
+        ? "PASSED"
+        : (overallStatus === "PASSED" ? "FAILED VALIDATION" : overallStatus);
 
     return {
         fileName: file.name,
@@ -4110,7 +4166,8 @@ async function inspectBackupZip(file) {
         websiteFiles: counts.websiteFiles,
         tableFiles: counts.tableFiles,
         storageFiles: counts.storageFiles,
-        supabase: manifest && manifest.supabaseExportConfigured ? "Included" : "Not found"
+        status: inspectionStatus,
+        supabase: inspectionStatus
     };
 }
 
@@ -4152,7 +4209,8 @@ async function inspectBackupFile() {
             : await inspectBackupZip(file);
 
         saveBackupHistory(record);
-        setBackupStatus("backupInspectStatus", "Backup inspected successfully.");
+        const failed = String(record.status || record.supabase || "").toUpperCase().includes("FAIL") || String(record.status || "").toUpperCase().includes("UNVERIFIED");
+        setBackupStatus("backupInspectStatus", "Backup inspection result: " + (record.status || record.supabase || "Unknown"), failed);
     } catch (err) {
         setBackupStatus("backupInspectStatus", "Could not inspect backup: " + err.message, true);
     }
