@@ -24,6 +24,49 @@ body.po-page {
   font-family: Arial, sans-serif;
 }
 
+.po-admin-tabs {
+  position: sticky;
+  top: 66px;
+  z-index: 120;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  width: min(1500px, calc(100vw - 40px));
+  margin: 0 auto 12px;
+  padding: 7px 10px;
+  overflow-x: auto;
+  background: rgba(6, 20, 17, 0.98);
+  border-top: 1px solid rgba(57, 200, 72, 0.25);
+  border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  scrollbar-width: none;
+}
+
+.po-admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.po-admin-tabs a {
+  flex: 0 0 auto;
+  min-width: 86px;
+  padding: 8px 13px;
+  border: 1px solid rgba(63, 125, 77, 0.6);
+  border-radius: 999px;
+  background: #20382a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.po-admin-tabs a.active {
+  background: #37d650;
+  color: #061411;
+}
+
 .po-shell {
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -525,6 +568,10 @@ body.po-page {
 }
 
 @media (max-width: 900px) {
+  .po-admin-tabs {
+    justify-content: flex-start;
+  }
+
   .po-material-tile {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
