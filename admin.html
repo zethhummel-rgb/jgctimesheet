@@ -3563,7 +3563,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Highlighted rows are skipped.</div>
+            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -14617,7 +14617,7 @@ async function importJobsFromExcel() {
         }
 
         const jobMap = new Map();
-        let skippedHighlighted = 0;
+        let highlightedInactive = 0;
         let skippedIncomplete = 0;
         const jobNameColumns = [0, 1, 2, 3, 4];
         const jobNumberColumn = 5;
@@ -14627,10 +14627,7 @@ async function importJobsFromExcel() {
 
         worksheets.forEach((worksheet) => {
             worksheet.eachRow({ includeEmpty: false }, (row) => {
-                if (isExcelJsHighlightedRow(row, columnsToCheckForHighlight)) {
-                    skippedHighlighted++;
-                    return;
-                }
+                const isHighlighted = isExcelJsHighlightedRow(row, columnsToCheckForHighlight);
 
                 const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
                 const jobName = getExcelJobName(row, jobNameColumns);
@@ -14650,12 +14647,16 @@ async function importJobsFromExcel() {
                     return;
                 }
 
+                if (isHighlighted) {
+                    highlightedInactive++;
+                }
+
                 jobMap.set(jobNumber, {
                     job_number: jobNumber,
                     job_name: jobName,
                     job_type: jobType,
                     project_manager: projectManager,
-                    active: true,
+                    active: !isHighlighted,
                     removed_from_import_at: null,
                     archive_until: null,
                     updated_at: new Date().toISOString()
@@ -14666,11 +14667,13 @@ async function importJobsFromExcel() {
         const records = Array.from(jobMap.values()).sort((a, b) => a.job_number.localeCompare(b.job_number, undefined, { numeric: true }));
 
         if (!records.length) {
-            status.textContent = "No valid active jobs found. Check that job names are in columns A-E and job numbers are in column F.";
+            status.textContent = "No valid jobs found. Check that job names are in columns A-E and job numbers are in column F.";
             return;
         }
 
-        status.textContent = "Importing " + records.length + " jobs from " + sheetNames.length + " tab" + (sheetNames.length === 1 ? "" : "s") + "...";
+        const activeJobCount = records.filter((record) => record.active).length;
+        const inactiveJobCount = records.length - activeJobCount;
+        status.textContent = "Importing " + records.length + " jobs (" + activeJobCount + " active, " + inactiveJobCount + " inactive) from " + sheetNames.length + " tab" + (sheetNames.length === 1 ? "" : "s") + "...";
 
         const { error } = await supabaseClient
             .from("jobs")
@@ -14716,7 +14719,7 @@ async function importJobsFromExcel() {
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " active jobs imported from " + sheetNames.join(", ") + ". " + skippedHighlighted + " highlighted rows skipped. " + removedJobNumbers.length + " removed jobs archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " jobs imported from " + sheetNames.join(", ") + " (" + activeJobCount + " active, " + inactiveJobCount + " inactive). " + highlightedInactive + " highlighted row" + (highlightedInactive === 1 ? " was" : "s were") + " imported as inactive. " + removedJobNumbers.length + " jobs missing from the workbook were archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";
