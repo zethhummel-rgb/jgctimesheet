@@ -3563,7 +3563,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div class="full">
             <label>Upload Excel Job List</label>
             <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
+            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
         </div>
     </div>
     <div class="actions" style="margin-top:10px;">
@@ -13903,12 +13903,50 @@ function isExcelJsHighlightedCell(cell) {
     return Boolean(type && type !== "none" && pattern && pattern !== "none" && !colors.length);
 }
 
+function isExcelJsRedFill(cell) {
+    const fill = cell && cell.fill ? cell.fill : null;
+
+    if (!fill) {
+        return false;
+    }
+
+    return [fill.fgColor, fill.bgColor].filter(Boolean).some((color) => {
+        const value = String(color.argb || color.rgb || "").replace(/^#/, "").toUpperCase();
+        const hex = value.length === 8 ? value.slice(2) : value;
+
+        if (!/^[0-9A-F]{6}$/.test(hex)) {
+            return false;
+        }
+
+        const red = parseInt(hex.slice(0, 2), 16);
+        const green = parseInt(hex.slice(2, 4), 16);
+        const blue = parseInt(hex.slice(4, 6), 16);
+        const maximum = Math.max(red, green, blue);
+        const minimum = Math.min(red, green, blue);
+
+        if (maximum === minimum || maximum !== red) {
+            return false;
+        }
+
+        const hue = (60 * ((green - blue) / (maximum - minimum)) + 360) % 360;
+        return hue <= 20 || hue >= 340;
+    });
+}
+
 function isExcelJsHighlightedRow(row, columnIndexes) {
     if (isExcelJsHighlightedCell({ fill: row.fill })) {
         return true;
     }
 
     return columnIndexes.some((columnIndex) => isExcelJsHighlightedCell(row.getCell(columnIndex + 1)));
+}
+
+function isExcelJsCancelledRow(row, columnIndexes) {
+    if (isExcelJsRedFill({ fill: row.fill })) {
+        return true;
+    }
+
+    return columnIndexes.some((columnIndex) => isExcelJsRedFill(row.getCell(columnIndex + 1)));
 }
 
 function isJobImportSheet(sheetName) {
@@ -14618,6 +14656,7 @@ async function importJobsFromExcel() {
 
         const jobMap = new Map();
         let highlightedInactive = 0;
+        let skippedCancelled = 0;
         let skippedIncomplete = 0;
         const jobNameColumns = [0, 1, 2, 3, 4];
         const jobNumberColumn = 5;
@@ -14627,6 +14666,11 @@ async function importJobsFromExcel() {
 
         worksheets.forEach((worksheet) => {
             worksheet.eachRow({ includeEmpty: false }, (row) => {
+                if (isExcelJsCancelledRow(row, columnsToCheckForHighlight)) {
+                    skippedCancelled++;
+                    return;
+                }
+
                 const isHighlighted = isExcelJsHighlightedRow(row, columnsToCheckForHighlight);
 
                 const jobNumber = normalizeExcelValue(row.getCell(jobNumberColumn + 1).value);
@@ -14719,7 +14763,7 @@ async function importJobsFromExcel() {
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " jobs imported from " + sheetNames.join(", ") + " (" + activeJobCount + " active, " + inactiveJobCount + " inactive). " + highlightedInactive + " highlighted row" + (highlightedInactive === 1 ? " was" : "s were") + " imported as inactive. " + removedJobNumbers.length + " jobs missing from the workbook were archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " jobs imported from " + sheetNames.join(", ") + " (" + activeJobCount + " active, " + inactiveJobCount + " inactive). " + skippedCancelled + " red row" + (skippedCancelled === 1 ? " was" : "s were") + " skipped as cancelled. " + highlightedInactive + " other highlighted row" + (highlightedInactive === 1 ? " was" : "s were") + " imported as inactive. " + removedJobNumbers.length + " jobs missing from the workbook were archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";
