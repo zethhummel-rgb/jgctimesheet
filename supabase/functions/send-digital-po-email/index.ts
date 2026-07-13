@@ -243,6 +243,53 @@ async function processSend(db: any, job: JsonRecord, toEmail: string) {
   return { status: cleanup.status, provider_id: providerId, cleanup_error: cleanup.error || null };
 }
 
+async function sendCancellationNotification(db: any, req: Request, poId: string, toEmail: string) {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const userResult = token ? await db.auth.getUser(token) : { data: { user: null }, error: new Error("Authentication is required.") };
+  const user = userResult.data.user;
+  if (userResult.error || !user) {
+    throw new Error("Authentication is required to send a cancellation notification.");
+  }
+
+  const poResult = await db.from("digital_purchase_orders")
+    .select("id,po_number,workflow_status,creator_profile_id,creator_name,cancelled_at")
+    .eq("id", poId)
+    .single();
+  if (poResult.error || !poResult.data) {
+    throw new Error(poResult.error?.message || "PO was not found.");
+  }
+
+  const profileResult = await db.from("profiles").select("role,display_name").eq("id", user.id).single();
+  const isAdmin = String(profileResult.data?.role || "").toLowerCase() === "admin";
+  if (poResult.data.creator_profile_id !== user.id && !isAdmin) {
+    throw new Error("Only the PO creator or an admin can send its cancellation notification.");
+  }
+  if (poResult.data.workflow_status !== "cancelled") {
+    throw new Error("Cancellation notification is only available after the PO is cancelled.");
+  }
+
+  const number = formatPoNumber(poResult.data.po_number);
+  const cancelledBy = safeText(profileResult.data?.display_name) || safeText(user.email) || "Portal user";
+  const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      to: toEmail,
+      subject: `JGC ${number} Cancelled`,
+      text: `${number} is cancelled.\nCancelled by: ${cancelledBy}`,
+      body: `${number} is cancelled.<br>Cancelled by: ${escapeHtml(cancelledBy)}`,
+      source: "digital_purchase_order_cancellation",
+      poNumber: number,
+      idempotencyKey: `jgc-digital-po-cancel-${poResult.data.id}`,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Google Apps Script returned ${response.status} while sending the cancellation notification.`);
+  }
+  return { po_id: poResult.data.id, po_number: number, status: "cancelled_notified" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -262,6 +309,16 @@ Deno.serve(async (req: Request) => {
   const db = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const requestBody = await req.json().catch(() => ({}));
+  if (requestBody?.action === "cancellation_notification") {
+    try {
+      const result = await sendCancellationNotification(db, req, safeText(requestBody.po_id), toEmail);
+      return jsonResponse({ success: true, result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonResponse({ success: false, error: message }, 400);
+    }
+  }
   const claimResult = await db.rpc("digital_po_claim_email_jobs", { p_limit: MAX_PER_RUN });
   if (claimResult.error) {
     return jsonResponse({ success: false, error: claimResult.error.message }, 500);

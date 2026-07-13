@@ -539,23 +539,27 @@
   }
 
   function addMaterialRow(item) {
+    const isBlankRow = !item || Object.keys(item).length === 0;
     const row = document.createElement("div");
     row.className = "po-material-tile";
     row.dataset.itemId = item && item.id ? item.id : crypto.randomUUID();
     row.innerHTML = `
       <div>
         <label>Qty Ordered</label>
-        <input data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
+        <input data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
       </div>
       <div class="description">
         <label>Material Description</label>
-        <input data-item-field="description" maxlength="1000" value="${escapeText(item && item.description || "")}">
+        <input data-item-field="description" maxlength="1000" autocomplete="off" value="${escapeText(item && item.description || "")}">
       </div>
       <div class="remove-wrap">
         <button class="icon-button danger" type="button" data-remove-item title="Remove material row" aria-label="Remove material row">X</button>
       </div>
     `;
     elements.materialList.appendChild(row);
+    if (isBlankRow) {
+      row.querySelectorAll("input").forEach((input) => { input.value = ""; });
+    }
     updateIcons();
   }
 
@@ -980,6 +984,9 @@
       draft.pending_cancel = false;
       await persistDraft(draft);
       await updateServerRecord(draft.po, draft.items);
+      state.client.functions.invoke("send-digital-po-email", {
+        body: { action: "cancellation_notification", po_id: draft.id }
+      }).catch(() => {});
     } else if (draft.pending_submit) {
       await submitSyncedDraft(draft);
     }
@@ -1224,7 +1231,7 @@
     elements.submitButton.addEventListener("click", handleSubmit);
     elements.cancelButton.addEventListener("click", handleCancel);
     elements.pdfButton.addEventListener("click", () => handleViewPdf(state.activeId));
-    elements.addItemButton.addEventListener("click", () => addMaterialRow({}));
+    elements.addItemButton.addEventListener("click", () => addMaterialRow());
     elements.materialList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove-item]");
       if (!button) {
