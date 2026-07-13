@@ -1093,10 +1093,9 @@ function getJgcMobileNavItems() {
     primary: [
       { label: "Home", href: "home.html", icon: "home", home: true },
       { label: "Timesheets", href: "timesheet.html", icon: "clock" },
-      { label: "Jobs", href: "jobs.html", icon: "briefcase" },
+      { label: "PO", href: "purchase-orders.html", icon: "file" },
       { label: "WO", href: "work-orders.html", icon: "file" },
-      { label: "Inspections", href: "inspections.html", icon: "shield" },
-      { label: "More", href: "#", icon: "more", more: true }
+      { label: "Inspections", href: "inspections.html", icon: "shield" }
     ],
     more: [
       { label: "Certificates", href: "certificates.html", icon: "award" },
@@ -1174,7 +1173,7 @@ function activateMobileBottomNavigation() {
         bottom: 0;
         z-index: 10020;
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 2px;
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
         background: rgba(3, 18, 16, 0.98);
