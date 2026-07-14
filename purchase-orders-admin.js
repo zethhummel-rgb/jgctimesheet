@@ -200,6 +200,7 @@
             <div class="po-inline-actions">
               ${canAssign ? `<button type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
               ${device.status === "active" ? `<button class="secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
+              ${device.status === "revoked" ? `<button type="button" data-unrevoke-device="${escapeText(device.id)}"><i data-lucide="rotate-ccw"></i> Unrevoke</button>` : ""}
               ${device.status !== "revoked" ? `<button class="danger" type="button" data-revoke-device="${escapeText(device.id)}"><i data-lucide="ban"></i> Revoke</button>` : ""}
             </div>
           </td>
@@ -458,6 +459,25 @@
     }
   }
 
+  async function unrevokeDevice(id) {
+    if (!confirm("Restore this device's PO access and its unused number block for 30 days?")) {
+      return;
+    }
+    try {
+      const result = await state.client.rpc("digital_po_admin_unrevoke_device", {
+        p_device_id: id,
+        p_lease_days: 30
+      });
+      if (result.error) {
+        throw result.error;
+      }
+      await loadData();
+      showNotice("PO device restored for 30 days.");
+    } catch (error) {
+      showNotice(error.message || "PO device could not be restored.", "error");
+    }
+  }
+
   function bindEvents() {
     elements.refreshButton.addEventListener("click", loadData);
     elements.search.addEventListener("input", renderOrders);
@@ -473,12 +493,15 @@
       const blockButton = event.target.closest("[data-assign-block]");
       const renewButton = event.target.closest("[data-renew-device]");
       const revokeButton = event.target.closest("[data-revoke-device]");
+      const unrevokeButton = event.target.closest("[data-unrevoke-device]");
       if (blockButton) {
         openBlockModal(blockButton.dataset.assignBlock);
       } else if (renewButton) {
         renewDevice(renewButton.dataset.renewDevice);
       } else if (revokeButton) {
         revokeDevice(revokeButton.dataset.revokeDevice);
+      } else if (unrevokeButton) {
+        unrevokeDevice(unrevokeButton.dataset.unrevokeDevice);
       }
     });
     elements.detailsContent.addEventListener("click", (event) => {
