@@ -1227,7 +1227,11 @@
       state.drafts = await idbGetAll(DRAFT_STORE);
       await loadServerRecords();
       showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
-      await openForm(draft.id);
+      state.listTab = "submitted";
+      document.querySelectorAll("[data-po-list-tab]").forEach((button) => {
+        button.className = button.dataset.poListTab === state.listTab ? "primary" : "secondary";
+      });
+      closeForm();
     } catch (error) {
       showNotice(error.message || "PO could not be submitted.", "error");
     } finally {
