@@ -341,16 +341,9 @@ async function deleteTestPurchaseOrder(db: any, req: Request, poId: string, conf
     }
   }
 
-  for (const table of ["digital_po_work_order_links", "digital_po_email_outbox", "digital_po_audit_log"]) {
-    const deleteResult = await db.from(table).delete().eq("po_id", poId);
-    if (deleteResult.error) {
-      throw new Error(`${table} cleanup failed: ${deleteResult.error.message}`);
-    }
-  }
-
-  const deletePoResult = await db.from("digital_purchase_orders").delete().eq("id", poId);
-  if (deletePoResult.error) {
-    throw new Error(`Purchase order deletion failed: ${deletePoResult.error.message}`);
+  const deleteResult = await db.rpc("digital_po_admin_delete_test", { p_po_id: poId });
+  if (deleteResult.error) {
+    throw new Error(`Purchase order deletion failed: ${deleteResult.error.message}`);
   }
 
   return { po_id: poId, po_number: expectedConfirmation, status: "deleted" };
