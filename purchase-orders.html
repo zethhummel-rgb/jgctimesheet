@@ -9,7 +9,7 @@
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=7">
+  <link rel="stylesheet" href="purchase-orders.css?v=8">
 </head>
 <body class="po-page">
   <main class="po-shell">
@@ -116,7 +116,20 @@
           </div>
           <div class="po-field">
             <label for="poJob">Job</label>
-            <select id="poJob" required></select>
+            <select id="poJob"></select>
+          </div>
+          <div class="po-field full po-manual-job-fields">
+            <span class="po-field-label">Job not on the list?</span>
+            <div class="po-form-grid">
+              <div class="po-field">
+                <label for="poManualJobNumber">Manual Job Number</label>
+                <input id="poManualJobNumber" maxlength="120" placeholder="Job number">
+              </div>
+              <div class="po-field">
+                <label for="poManualJobName">Manual Job Name</label>
+                <input id="poManualJobName" maxlength="240" placeholder="Job name">
+              </div>
+            </div>
           </div>
           <div class="po-field full">
             <label for="poSupplierName">To</label>
@@ -170,6 +183,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=22"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders.js?v=11"></script>
+  <script src="purchase-orders.js?v=12"></script>
 </body>
 </html>
