@@ -4,7 +4,8 @@
   const state = {
     rows: [],
     initialized: false,
-    loading: false
+    loading: false,
+    pendingPoIds: new Set()
   };
 
   function escapeText(value) {
@@ -55,6 +56,9 @@
     const workOrderId = currentWorkOrderId();
     const available = state.rows.filter((row) => !row.linked_work_order_id);
     const linked = state.rows.filter((row) => row.linked_work_order_id === workOrderId);
+    const availableIds = new Set(available.map((row) => row.id));
+    state.pendingPoIds = new Set(Array.from(state.pendingPoIds).filter((id) => availableIds.has(id)));
+    const selectedCount = state.pendingPoIds.size;
 
     availableList.innerHTML = available.length ? `
       <div class="table-wrap">
@@ -63,7 +67,7 @@
           <tbody>
             ${available.map((row) => `
               <tr>
-                <td><input type="checkbox" data-digital-po-id="${escapeText(row.id)}" aria-label="Select ${escapeText(formatPoNumber(row.po_number))}"></td>
+                <td><input type="checkbox" data-digital-po-id="${escapeText(row.id)}" aria-label="Select ${escapeText(formatPoNumber(row.po_number))}" ${state.pendingPoIds.has(row.id) ? "checked" : ""}></td>
                 <td><strong>${escapeText(formatPoNumber(row.po_number))}</strong></td>
                 <td>${escapeText(row.supplier_name || "-")}</td>
                 <td>${escapeText(formatDate(row.order_date))}</td>
@@ -78,7 +82,8 @@
       </div>
     ` : '<div class="small">No unlinked digital POs found for this job and date.</div>';
 
-    addButton.disabled = !available.length || !workOrderId;
+    addButton.disabled = !selectedCount;
+    addButton.textContent = workOrderId ? "Link Selected POs" : "Link Selected POs When WO Is Saved";
     linkedWrap.hidden = !linked.length;
     linkedList.innerHTML = linked.map((row) => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid rgba(99,205,107,.28);padding:10px;margin-top:7px;border-radius:6px;">
@@ -132,9 +137,7 @@
       }
       state.rows = result.data || [];
       render();
-      status.textContent = currentWorkOrderId()
-        ? state.rows.length + " digital PO" + (state.rows.length === 1 ? "" : "s") + " found."
-        : "Save the Work Order before linking selected digital POs.";
+      status.textContent = state.rows.length + " matching digital PO" + (state.rows.length === 1 ? "" : "s") + " found." + (!currentWorkOrderId() && state.pendingPoIds.size ? " Selected POs will link when the Work Order is saved." : "");
     } catch (error) {
       state.rows = [];
       render();
@@ -146,27 +149,43 @@
 
   async function linkSelected() {
     const status = document.getElementById("digitalPoWorkOrderStatus");
-    const ids = Array.from(document.querySelectorAll("[data-digital-po-id]:checked")).map((input) => input.dataset.digitalPoId);
     const workOrderId = currentWorkOrderId();
-    if (!workOrderId) {
-      status.textContent = "Save the Work Order before linking digital POs.";
-      return;
-    }
+    const ids = Array.from(state.pendingPoIds);
     if (!ids.length) {
       status.textContent = "Select at least one digital PO.";
       return;
     }
 
+    if (!workOrderId) {
+      status.textContent = ids.length + " digital PO" + (ids.length === 1 ? " is" : "s are") + " selected and will link when this Work Order is saved.";
+      return;
+    }
+
+    await linkIds(workOrderId, ids);
+  }
+
+  async function linkIds(workOrderId, ids) {
+    const status = document.getElementById("digitalPoWorkOrderStatus");
     const result = await supabaseClient.rpc("digital_po_link_work_orders", {
       p_work_order_id: workOrderId,
       p_po_ids: ids
     });
     if (result.error) {
       status.textContent = "Digital POs could not be linked: " + result.error.message;
-      return;
+      return { error: result.error };
     }
+    state.pendingPoIds.clear();
     status.textContent = String(result.data && result.data.linked || 0) + " digital PO(s) linked.";
     await refresh();
+    return result.data || {};
+  }
+
+  async function linkPendingTo(workOrderId) {
+    const ids = Array.from(state.pendingPoIds);
+    if (!ids.length) {
+      return { linked: 0, skipped: 0 };
+    }
+    return linkIds(workOrderId, ids);
   }
 
   async function unlink(poId) {
@@ -192,6 +211,7 @@
 
   function reset() {
     state.rows = [];
+    state.pendingPoIds.clear();
     useWorkOrderDate();
   }
 
@@ -210,6 +230,18 @@
     document.getElementById("digitalPoWorkOrderDate").addEventListener("change", refresh);
     document.getElementById("refreshDigitalPoOptionsButton").addEventListener("click", refresh);
     document.getElementById("addSelectedDigitalPosButton").addEventListener("click", linkSelected);
+    document.getElementById("digitalPoAvailableList").addEventListener("change", (event) => {
+      const input = event.target.closest("[data-digital-po-id]");
+      if (!input) {
+        return;
+      }
+      if (input.checked) {
+        state.pendingPoIds.add(input.dataset.digitalPoId);
+      } else {
+        state.pendingPoIds.delete(input.dataset.digitalPoId);
+      }
+      render();
+    });
     document.getElementById("digitalPoLinkedList").addEventListener("click", (event) => {
       const unlinkButton = event.target.closest("[data-unlink-digital-po]");
       const openButton = event.target.closest("[data-open-digital-po]");
@@ -227,7 +259,8 @@
     refresh,
     reset,
     useWorkOrderDate,
-    getLinked
+    getLinked,
+    linkPendingTo
   };
 
   if (document.readyState === "loading") {

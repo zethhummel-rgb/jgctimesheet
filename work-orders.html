@@ -913,6 +913,7 @@ let workOrderManagementView = "active";
 let currentWorkOrderSubmitInFlight = false;
 const workOrderFinalizeLocks = new Set();
 const workOrderSubmitLocks = new Set();
+let digitalPoCounts = {};
 
 if (isEmbeddedWorkOrderPage) {
   document.body.classList.add("embedded-work-order");
@@ -2042,7 +2043,7 @@ function renderWorkOrders() {
         </thead>
         <tbody>
           ${filtered.map((wo) => {
-            const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length;
+            const poCount = purchaseOrders.filter((po) => po.work_order_id === wo.id).length + Number(digitalPoCounts[wo.id] || 0);
             const woLabourRows = labourRows.filter((row) => row.work_order_id === wo.id);
             const completeCount = woLabourRows.filter((row) => row.complete).length;
             const isLocked = Boolean(wo.locked || wo.status === "submitted");
@@ -2504,6 +2505,14 @@ async function saveWorkOrder(options) {
         setFormStatus("Work order saved, but " + saveGroup.label + " rows could not be saved: " + insertError.message, true);
         return;
       }
+    }
+  }
+
+  if (window.jgcDigitalPoWorkOrder) {
+    const digitalPoResult = await window.jgcDigitalPoWorkOrder.linkPendingTo(workOrderId);
+    if (digitalPoResult && digitalPoResult.error) {
+      setFormStatus("Work order saved, but the selected digital POs could not be linked: " + digitalPoResult.error.message, true);
+      return workOrderId;
     }
   }
 
@@ -3194,6 +3203,7 @@ async function loadWorkOrders(showLoading = true) {
     materialRows = [];
     miscRows = [];
     travelRows = [];
+    digitalPoCounts = {};
     document.getElementById("woListStatus").textContent = "Work orders could not be loaded.";
     renderWorkOrders();
     return;
@@ -3207,6 +3217,18 @@ async function loadWorkOrders(showLoading = true) {
   materialRows = materialResult.data || [];
   miscRows = miscResult.data || [];
   travelRows = travelResult.data || [];
+  digitalPoCounts = {};
+  if (workOrders.length) {
+    const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
+      p_work_order_ids: workOrders.map((workOrder) => workOrder.id)
+    });
+    if (!digitalPoCountError) {
+      digitalPoCounts = (digitalPoCountRows || []).reduce((counts, row) => {
+        counts[row.work_order_id] = Number(row.po_count || 0);
+        return counts;
+      }, {});
+    }
+  }
   rebuildEmployeeDirectory();
   renderWorkOrders();
 }
@@ -3505,6 +3527,6 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   openRequestedEmbeddedWorkOrder();
 });
 </script>
-<script src="work-order-digital-pos.js?v=1"></script>
+<script src="work-order-digital-pos.js?v=2"></script>
 </body>
 </html>
