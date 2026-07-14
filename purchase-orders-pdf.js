@@ -121,7 +121,7 @@
     doc.setFontSize(7.5);
     doc.setTextColor(45, 57, 49);
     doc.text("Created by: " + text(data.creator_name), margin, y + 14);
-    doc.text("Assigned to: " + text(data.assigned_name || "Not assigned"), margin, y + 26);
+    doc.text("Last edited by: " + text(data.last_edited_by_name || "Not edited"), margin, y + 26);
     doc.text("Submitted by: " + text(data.submitted_by_name || data.creator_name || "Pending"), pageWidth - margin, y + 14, { align: "right" });
     doc.text("Portal authorization record - no field signature required", pageWidth - margin, y + 26, { align: "right" });
   }

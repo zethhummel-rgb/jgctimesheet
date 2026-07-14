@@ -9,7 +9,7 @@
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=3">
+  <link rel="stylesheet" href="purchase-orders.css?v=5">
 </head>
 <body class="po-page">
   <main class="po-shell">
@@ -52,7 +52,16 @@
     <section id="poListView" class="po-view">
       <div class="po-tabs" role="tablist" aria-label="Purchase order views">
         <button id="poAllTab" class="active" type="button" data-po-list-tab="all">My POs</button>
-        <button id="poAssignedTab" class="secondary" type="button" data-po-list-tab="assigned">Assigned to Me</button>
+        <button id="poLookupTab" class="secondary" type="button" data-po-list-tab="lookup">Open Pending PO</button>
+      </div>
+      <div id="poLookupPanel" class="po-filter-row" hidden>
+        <div>
+          <label for="poLookupNumber">PO Number</label>
+          <input id="poLookupNumber" inputmode="numeric" autocomplete="off" placeholder="PO-30000">
+        </div>
+        <div class="po-lookup-action">
+          <button id="poLookupButton" type="button"><i data-lucide="search"></i> Open PO</button>
+        </div>
       </div>
       <div class="po-filter-row">
         <div>
@@ -109,10 +118,6 @@
             <input id="poSupplierName" maxlength="240" placeholder="Supplier / company name" required>
           </div>
           <div class="po-field full">
-            <label for="poAssignedTo">Assign PO To</label>
-            <select id="poAssignedTo"></select>
-          </div>
-          <div class="po-field full">
             <label for="poNotes">Order Notes</label>
             <textarea id="poNotes" maxlength="5000" placeholder="Delivery, pickup, or order notes"></textarea>
           </div>
@@ -133,11 +138,6 @@
           <label for="poReceiptInput">Receipt Photo</label>
           <input id="poReceiptInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
           <div id="poReceiptPreview" class="po-receipt-preview">No receipt attached</div>
-        </section>
-
-        <section id="poHistorySection" class="po-section-band" hidden>
-          <div class="po-section-heading"><h3>History</h3></div>
-          <div id="poHistoryList" class="po-history-list"></div>
         </section>
 
         <div class="po-form-actions">
@@ -163,6 +163,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=22"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders.js?v=1"></script>
+  <script src="purchase-orders.js?v=5"></script>
 </body>
 </html>

@@ -76,7 +76,7 @@ function buildEmailText(po: JsonRecord, items: JsonRecord[]) {
     `Job: ${[po.job_number, po.job_name].filter(Boolean).join(" - ")}`,
     `Supplier: ${safeText(po.supplier_name)}`,
     `Created by: ${safeText(po.creator_name)}`,
-    `Assigned to: ${safeText(po.assigned_name) || "Not assigned"}`,
+    `Last edited by: ${safeText(po.last_edited_by_name) || "Not edited"}`,
     `Submitted by: ${safeText(po.submitted_by_name)}`,
     po.notes ? `Notes: ${safeText(po.notes)}` : "",
     "",
@@ -128,7 +128,7 @@ function buildPoPdfHtml(po: JsonRecord, items: JsonRecord[], receiptDataUrl: str
   <table><thead><tr><th>Qty. Ordered</th><th>Material Description</th></tr></thead><tbody>${rows}</tbody></table>
   ${po.notes ? `<section class="notes"><h2>Order Notes</h2>${escapeHtml(po.notes).replace(/\n/g, "<br>")}</section>` : ""}
   ${receipt}
-  <div class="footer">Created by: ${escapeHtml(po.creator_name)}<br>Assigned to: ${escapeHtml(po.assigned_name || "Not assigned")}<br>Submitted by: ${escapeHtml(po.submitted_by_name || po.creator_name)}<br>Portal authorization record - no field signature required.</div>
+  <div class="footer">Created by: ${escapeHtml(po.creator_name)}<br>Last edited by: ${escapeHtml(po.last_edited_by_name || "Not edited")}<br>Submitted by: ${escapeHtml(po.submitted_by_name || po.creator_name)}<br>Portal authorization record - no field signature required.</div>
 </body></html>`;
 }
 

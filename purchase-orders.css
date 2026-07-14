@@ -248,6 +248,15 @@ body.po-page {
   margin: 14px 0;
 }
 
+.po-lookup-action {
+  display: flex;
+  align-items: end;
+}
+
+.po-lookup-action button {
+  width: 100%;
+}
+
 .po-filter-row.po-admin-filters {
   grid-template-columns: minmax(0, 1fr) 190px 170px;
 }
@@ -591,27 +600,60 @@ body.po-page {
 
 @media (max-width: 640px) {
   body.po-page {
-    padding: 14px 10px 92px;
+    padding: 8px 12px 92px;
   }
 
   .po-brand {
-    margin-top: 4px;
+    margin: 2px 0 8px;
+  }
+
+  .po-brand img {
+    width: min(190px, 54vw);
   }
 
   .po-page h1 {
-    font-size: 30px;
+    font-size: 27px;
   }
 
-  .po-toolbar,
+  .po-user-line {
+    margin-top: 3px;
+  }
+
+  .po-status-row {
+    gap: 6px;
+    margin: 9px 0;
+  }
+
+  .po-badge {
+    min-height: 25px;
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .po-toolbar {
+    justify-content: flex-start;
+    padding: 9px 0;
+    margin: 10px 0;
+  }
+
+  .po-toolbar-group {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  .po-toolbar-group button,
+  .po-toolbar-group .po-button {
+    width: auto;
+  }
+
+  .po-toolbar-group button {
+    min-height: 40px;
+    padding: 8px 13px;
+  }
+
   .po-form-header {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .po-toolbar-group,
-  .po-toolbar-group button,
-  .po-toolbar-group .po-button {
-    width: 100%;
   }
 
   .po-filter-row,
@@ -646,5 +688,10 @@ body.po-page {
 
   .po-admin-summary {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Keep the shared five-item mobile nav stable on the PO page. */
+  .jgc-mobile-bottom-nav a {
+    min-height: 54px;
   }
 }

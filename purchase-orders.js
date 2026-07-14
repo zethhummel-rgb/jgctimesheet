@@ -23,6 +23,7 @@
     drafts: [],
     activeId: "",
     listTab: "all",
+    handoffRecordIds: new Set(),
     pendingReceipt: null,
     receiptPreviewUrl: "",
     syncing: false,
@@ -472,9 +473,7 @@
     const profileId = state.user && state.user.id;
     const records = getCombinedRecords().filter((record) => {
       const po = record.po;
-      const inTab = state.listTab === "assigned"
-        ? po.assigned_profile_id === profileId
-        : po.creator_profile_id === profileId;
+      const inTab = po.creator_profile_id === profileId;
       const currentStatus = compositeStatus(record);
       const haystack = [
         formatPoNumber(po.po_number),
@@ -482,7 +481,7 @@
         po.job_number,
         po.job_name,
         po.creator_name,
-        po.assigned_name,
+        po.last_edited_by_name,
         currentStatus
       ].join(" ").toLowerCase();
       return inTab && (!search || haystack.includes(search)) && (!status || currentStatus === status || po.workflow_status === status);
@@ -498,6 +497,9 @@
       const currentStatus = compositeStatus(record);
       const cssClass = po.workflow_status === "cancelled" ? "cancelled" : (record.dirty || record.pending_submit ? "pending" : "");
       const itemCount = (record.items || []).length;
+      const canCancelFromList = state.listTab === "all"
+        && po.creator_profile_id === profileId
+        && ["submitted", "emailed", "partially_received", "fully_received"].includes(po.workflow_status);
       return `
         <article class="po-record ${cssClass}">
           <div class="po-record-header">
@@ -511,12 +513,13 @@
             <span><strong>Job:</strong> ${escapeText([po.job_number, po.job_name].filter(Boolean).join(" - "))}</span>
             <span><strong>Date:</strong> ${escapeText(formatDate(po.order_date))}</span>
             <span><strong>Created by:</strong> ${escapeText(po.creator_name || "")}</span>
-            <span><strong>Assigned to:</strong> ${escapeText(po.assigned_name || "Not assigned")}</span>
+            ${po.last_edited_by_name ? `<span><strong>Last edited by:</strong> ${escapeText(po.last_edited_by_name)}</span>` : ""}
             <span><strong>Materials:</strong> ${itemCount} ${po.receipt_attached ? " | Receipt attached" : ""}</span>
           </div>
           <div class="po-record-actions">
             <button type="button" data-po-open="${escapeText(record.id)}"><i data-lucide="folder-open"></i> Open</button>
             <button type="button" class="secondary" data-po-pdf="${escapeText(record.id)}"><i data-lucide="file-text"></i> PDF</button>
+            ${canCancelFromList ? `<button type="button" class="danger" data-po-cancel="${escapeText(record.id)}">Cancel</button>` : ""}
           </div>
         </article>
       `;
@@ -531,11 +534,6 @@
     ).join("");
     elements.job.value = currentJob;
 
-    const currentAssigned = elements.assignedTo.value;
-    elements.assignedTo.innerHTML = '<option value="">Not assigned</option>' + state.workers.map((worker) =>
-      `<option value="${escapeText(worker.profile_id)}">${escapeText(worker.display_name || worker.worker_key)}</option>`
-    ).join("");
-    elements.assignedTo.value = currentAssigned;
   }
 
   function addMaterialRow(item) {
@@ -603,8 +601,12 @@
     return Boolean(state.profile && state.profile.role === "admin");
   }
 
-  function canManageAssignment(po) {
-    return Boolean(po && state.user && (po.creator_profile_id === state.user.id || isAdmin()));
+  function canSubmitPo(po) {
+    return Boolean(po && state.user && po.creator_profile_id === state.user.id);
+  }
+
+  function isPendingHandoff(po) {
+    return Boolean(po && state.handoffRecordIds.has(po.id) && po.creator_profile_id !== state.user.id);
   }
 
   function setFormLocked(locked, po) {
@@ -613,11 +615,16 @@
     elements.addItemButton.disabled = locked;
     elements.materialList.querySelectorAll("button").forEach((button) => { button.disabled = locked; });
     elements.saveButton.hidden = locked;
-    elements.submitButton.hidden = locked;
+    elements.submitButton.hidden = locked || Boolean(po && po.id && !canSubmitPo(po));
 
-    if (!locked && po && !canManageAssignment(po)) {
-      elements.assignedTo.disabled = true;
-      elements.job.disabled = true;
+    elements.saveButton.textContent = "Save Draft";
+    if (isPendingHandoff(po)) {
+      editableInputs.forEach((input) => { input.disabled = true; });
+      elements.addItemButton.disabled = false;
+      elements.materialList.querySelectorAll("input, button").forEach((input) => { input.disabled = false; });
+      elements.saveButton.hidden = false;
+      elements.saveButton.textContent = "Save Material Changes";
+      elements.submitButton.hidden = true;
     }
     elements.cancelButton.hidden = !(po && po.id && state.user && (po.creator_profile_id === state.user.id || isAdmin()) && po.workflow_status !== "cancelled" && po.workflow_status !== "closed");
   }
@@ -634,7 +641,6 @@
       job_id: "",
       supplier_id: "",
       supplier_name: "",
-      assigned_profile_id: "",
       notes: "",
       workflow_status: "draft",
       email_status: "not_ready",
@@ -650,7 +656,6 @@
     renderReferenceOptions();
     elements.job.value = po.job_id || "";
     elements.supplierName.value = po.supplier_name || "";
-    elements.assignedTo.value = po.assigned_profile_id || "";
     elements.notes.value = po.notes || "";
     elements.materialList.innerHTML = "";
     const items = record && record.items && record.items.length ? record.items : [{}];
@@ -661,7 +666,7 @@
     const currentStatus = record ? compositeStatus(record) : "draft";
     elements.formStatusBadge.textContent = statusLabel(currentStatus);
     elements.formStatusBadge.className = "po-badge " + (currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"));
-    const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status));
+    const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status) && !isPendingHandoff(po));
     setFormLocked(locked, po);
 
     elements.listView.hidden = true;
@@ -669,19 +674,6 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
     updateIcons();
 
-    if (po.id && navigator.onLine && po.assigned_profile_id === state.user.id && po.workflow_status === "assigned") {
-      const result = await state.client.rpc("digital_po_mark_opened", { p_po_id: po.id });
-      if (!result.error && result.data) {
-        await updateServerRecord(result.data, record.items || []);
-        elements.revision.value = result.data.revision;
-        elements.formStatusBadge.textContent = statusLabel(result.data.workflow_status);
-      }
-    }
-    if (po.id) {
-      loadHistory(po.id);
-    } else {
-      elements.historySection.hidden = true;
-    }
   }
 
   function closeForm() {
@@ -691,31 +683,6 @@
     elements.formView.hidden = true;
     elements.listView.hidden = false;
     renderList();
-  }
-
-  async function loadHistory(poId) {
-    elements.historySection.hidden = false;
-    elements.historyList.innerHTML = '<div class="po-list-empty">Loading history...</div>';
-    if (!navigator.onLine) {
-      elements.historyList.innerHTML = '<div class="po-list-empty">History is available when online.</div>';
-      return;
-    }
-    const result = await state.client
-      .from("digital_po_audit_log")
-      .select("id,event_type,actor_name,details,created_at")
-      .eq("po_id", poId)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (result.error) {
-      elements.historyList.innerHTML = '<div class="po-list-empty">History could not be loaded.</div>';
-      return;
-    }
-    elements.historyList.innerHTML = (result.data || []).map((event) => `
-      <div class="po-history-item">
-        <strong>${escapeText(statusLabel(event.event_type))}</strong>
-        <span>${escapeText(event.actor_name || "System")} | ${escapeText(formatDateTime(event.created_at))}</span>
-      </div>
-    `).join("") || '<div class="po-list-empty">No history entries.</div>';
   }
 
   async function allocateDraftNumber() {
@@ -763,7 +730,7 @@
       job_name: job ? job.job_name : "",
       supplier_id: null,
       supplier_name: elements.supplierName.value.trim(),
-      assigned_profile_id: elements.assignedTo.value || null,
+      assigned_profile_id: null,
       notes: elements.notes.value.trim(),
       items: collectMaterialRows()
     };
@@ -778,7 +745,6 @@
 
     let record = state.activeId ? getRecord(state.activeId) : null;
     let po = record ? clone(record.po) : null;
-    let assignedDirty = false;
 
     if (!po || !po.id) {
       if (!deviceCanCreate()) {
@@ -808,9 +774,6 @@
       state.activeId = po.id;
       elements.id.value = po.id;
       elements.numberDisplay.textContent = formatPoNumber(po.po_number);
-      assignedDirty = Boolean(formData.assigned_profile_id);
-    } else if (canManageAssignment(po)) {
-      assignedDirty = String(po.assigned_profile_id || "") !== String(formData.assigned_profile_id || "");
     }
 
     po.order_date = formData.order_date;
@@ -827,8 +790,8 @@
       po,
       items: formData.items,
       dirty: true,
-      assignment_dirty: assignedDirty || Boolean(record && record.assignment_dirty),
-      desired_assigned_profile_id: formData.assigned_profile_id,
+      assignment_dirty: false,
+      desired_assigned_profile_id: null,
       pending_submit: Boolean(settings.submit || (record && record.pending_submit)),
       pending_cancel: Boolean(record && record.pending_cancel),
       updated_local_at: new Date().toISOString()
@@ -858,6 +821,63 @@
       state.serverRecords.unshift(record);
     }
     await setMeta(cacheKeyForUser("server_records"), state.serverRecords);
+  }
+
+  async function openPendingPoByNumber() {
+    const poNumber = Number(String(elements.lookupNumber.value || "").replace(/\D/g, ""));
+    if (!Number.isInteger(poNumber) || poNumber < 30000) {
+      throw new Error("Enter the exact PO number, for example PO-30000.");
+    }
+    if (!navigator.onLine) {
+      throw new Error("Opening another employee's pending PO requires an internet connection.");
+    }
+    const result = await state.client.rpc("digital_po_lookup_pending", { p_po_number: poNumber });
+    if (result.error) {
+      throw result.error;
+    }
+    if (!result.data || !result.data.po) {
+      throw new Error("That PO is not available for changes. It may be invalid, cancelled, or already released for email.");
+    }
+    state.handoffRecordIds.add(result.data.po.id);
+    await updateServerRecord(result.data.po, result.data.items || []);
+    await openForm(result.data.po.id);
+  }
+
+  async function savePendingMaterialChanges(record) {
+    if (!navigator.onLine) {
+      throw new Error("Material changes to a pending PO require an internet connection.");
+    }
+    const items = collectMaterialRows();
+    if (!items.length || items.some((item) => !item.description)) {
+      throw new Error("Enter a description for every material row before saving changes.");
+    }
+    const pdfData = Object.assign({}, record.po, {
+      items,
+      last_edited_by_name: state.profile.display_name
+    });
+    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
+    const pdfPath = record.id + "/current/po.pdf";
+    const uploadResult = await state.client.storage.from(TEMP_BUCKET).upload(pdfPath, pdfBlob, {
+      upsert: true,
+      contentType: "application/pdf",
+      cacheControl: "0"
+    });
+    if (uploadResult.error) {
+      throw uploadResult.error;
+    }
+    const result = await state.client.rpc("digital_po_revise_pending", {
+      p_po_id: record.id,
+      p_expected_revision: record.po.revision,
+      p_items: items,
+      p_pdf_storage_path: pdfPath
+    });
+    if (result.error) {
+      throw result.error;
+    }
+    await updateServerRecord(result.data, items);
+    elements.revision.value = result.data.revision;
+    showNotice(formatPoNumber(result.data.po_number) + " material changes saved. The PO will email at 8:00 AM tomorrow.");
+    await openForm(record.id);
   }
 
   async function persistDraft(draft) {
@@ -930,9 +950,6 @@
     await persistDraft(draft);
     await updateServerRecord(result.data, draft.items);
 
-    state.client.functions.invoke("send-digital-po-email", {
-      body: { source: "portal", po_id: draft.id }
-    }).catch(() => {});
     return draft;
   }
 
@@ -953,21 +970,6 @@
       }
       draft.po = saveResult.data;
       draft.dirty = false;
-      await persistDraft(draft);
-      await updateServerRecord(draft.po, draft.items);
-    }
-
-    if (draft.assignment_dirty) {
-      const assignResult = await state.client.rpc("digital_po_assign", {
-        p_po_id: draft.id,
-        p_assigned_profile_id: draft.desired_assigned_profile_id || null,
-        p_expected_revision: draft.po.revision
-      });
-      if (assignResult.error) {
-        throw assignResult.error;
-      }
-      draft.po = assignResult.data;
-      draft.assignment_dirty = false;
       await persistDraft(draft);
       await updateServerRecord(draft.po, draft.items);
     }
@@ -1055,6 +1057,11 @@
     event.preventDefault();
     elements.saveButton.disabled = true;
     try {
+      const activeRecord = state.activeId ? getRecord(state.activeId) : null;
+      if (activeRecord && isPendingHandoff(activeRecord.po)) {
+        await savePendingMaterialChanges(activeRecord);
+        return;
+      }
       const draft = await saveDraftLocally();
       showNotice(navigator.onLine ? "Saving purchase order..." : formatPoNumber(draft.po.po_number) + " saved offline.");
       if (navigator.onLine) {
@@ -1078,11 +1085,15 @@
   async function handleSubmit() {
     elements.submitButton.disabled = true;
     try {
+      const record = state.activeId ? getRecord(state.activeId) : null;
+      if (record && !canSubmitPo(record.po)) {
+        throw new Error("Only the PO creator can submit it. Another approved employee can add materials using its exact PO number before 8:00 AM tomorrow.");
+      }
       const data = collectFormData();
       if (!data.supplier_name || !data.items.some((item) => item.description)) {
         throw new Error("Supplier and at least one material description are required before submission.");
       }
-      if (!confirm("Submit this purchase order? It will lock and email the PDF to the office.")) {
+      if (!confirm("Submit this purchase order? It will remain available for material changes by exact PO number and email at 8:00 AM tomorrow.")) {
         return;
       }
       const draft = await saveDraftLocally({ submit: true });
@@ -1096,7 +1107,7 @@
       await syncDraft(draft.id);
       state.drafts = await idbGetAll(DRAFT_STORE);
       await loadServerRecords();
-      showNotice(formatPoNumber(draft.po.po_number) + " submitted. Email delivery is queued.");
+      showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
       await openForm(draft.id);
     } catch (error) {
       showNotice(error.message || "PO could not be submitted.", "error");
@@ -1106,8 +1117,8 @@
     }
   }
 
-  async function handleCancel() {
-    const record = state.activeId ? getRecord(state.activeId) : null;
+  async function handleCancel(id) {
+    const record = getRecord(id || state.activeId);
     if (!record || !confirm("Cancel " + formatPoNumber(record.po.po_number) + "? Its number and history will be retained.")) {
       return;
     }
@@ -1129,7 +1140,11 @@
         await loadServerRecords();
         state.drafts = await idbGetAll(DRAFT_STORE);
         showNotice(formatPoNumber(record.po.po_number) + " cancelled.");
-        await openForm(record.id);
+        if (id) {
+          renderList();
+        } else {
+          await openForm(record.id);
+        }
       } else {
         showNotice("Cancellation is pending sync.", "warning");
         closeForm();
@@ -1247,6 +1262,15 @@
     elements.receiptInput.addEventListener("change", handleReceiptChange);
     elements.search.addEventListener("input", renderList);
     elements.statusFilter.addEventListener("change", renderList);
+    elements.lookupButton.addEventListener("click", () => {
+      openPendingPoByNumber().catch((error) => showNotice(error.message || "Pending PO could not be opened.", "error"));
+    });
+    elements.lookupNumber.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        elements.lookupButton.click();
+      }
+    });
     document.querySelectorAll("[data-po-list-tab]").forEach((button) => {
       button.addEventListener("click", () => {
         state.listTab = button.dataset.poListTab;
@@ -1254,16 +1278,20 @@
           tab.classList.toggle("active", tab === button);
           tab.classList.toggle("secondary", tab !== button);
         });
+        elements.lookupPanel.hidden = state.listTab !== "lookup";
         renderList();
       });
     });
     elements.list.addEventListener("click", (event) => {
       const openButton = event.target.closest("[data-po-open]");
       const pdfButton = event.target.closest("[data-po-pdf]");
+      const cancelButton = event.target.closest("[data-po-cancel]");
       if (openButton) {
         openForm(openButton.dataset.poOpen);
       } else if (pdfButton) {
         handleViewPdf(pdfButton.dataset.poPdf);
+      } else if (cancelButton) {
+        handleCancel(cancelButton.dataset.poCancel);
       }
     });
     window.addEventListener("online", () => {
@@ -1300,6 +1328,9 @@
       formView: byId("poFormView"),
       search: byId("poSearch"),
       statusFilter: byId("poStatusFilter"),
+      lookupPanel: byId("poLookupPanel"),
+      lookupNumber: byId("poLookupNumber"),
+      lookupButton: byId("poLookupButton"),
       list: byId("poList"),
       form: byId("poForm"),
       id: byId("poId"),
@@ -1310,14 +1341,11 @@
       orderDate: byId("poOrderDate"),
       job: byId("poJob"),
       supplierName: byId("poSupplierName"),
-      assignedTo: byId("poAssignedTo"),
       notes: byId("poNotes"),
       addItemButton: byId("poAddItemButton"),
       materialList: byId("poMaterialList"),
       receiptInput: byId("poReceiptInput"),
       receiptPreview: byId("poReceiptPreview"),
-      historySection: byId("poHistorySection"),
-      historyList: byId("poHistoryList"),
       saveButton: byId("poSaveButton"),
       submitButton: byId("poSubmitButton"),
       pdfButton: byId("poPdfButton"),

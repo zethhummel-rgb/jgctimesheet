@@ -128,7 +128,7 @@
         order.job_name,
         order.supplier_name,
         order.creator_name,
-        order.assigned_name,
+        order.last_edited_by_name,
         order.workflow_status,
         order.email_status
       ].join(" ").toLowerCase();
@@ -146,7 +146,7 @@
           <td>${escapeText(formatDate(order.order_date))}</td>
           <td>${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
           <td>${escapeText(order.supplier_name || "-")}</td>
-          <td>${escapeText(order.creator_name)}<br><span style="color:#b9c9bd;">${escapeText(order.assigned_name || "Not assigned")}</span></td>
+          <td>${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
           <td>${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
           <td>${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge danger">Cleanup Failed</span>' : ""}</td>
           <td>${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
@@ -243,6 +243,7 @@
         <div><strong>Job</strong><br>${escapeText(order.job_number + " - " + order.job_name)}</div>
         <div><strong>Supplier</strong><br>${escapeText(order.supplier_name || "-")}</div>
         <div><strong>Creator</strong><br>${escapeText(order.creator_name)}</div>
+        <div><strong>Last Edited By</strong><br>${escapeText(order.last_edited_by_name || "Not edited")}</div>
         <div><strong>Submitted by</strong><br>${escapeText(order.submitted_by_name || "Not submitted")}</div>
         <div><strong>Work Order</strong><br>${escapeText(link ? getWorkOrderName(link.work_order_id) : "Not linked")}</div>
         <div><strong>Workflow</strong><br><span class="po-badge green">${escapeText(label(order.workflow_status))}</span></div>
@@ -250,13 +251,7 @@
       </div>
       ${order.email_last_error ? `<div class="po-notice error">${escapeText(order.email_last_error)}</div>` : ""}
       <section class="po-section-band">
-        <label for="poAdminAssignee">Assigned Employee</label>
-        <select id="poAdminAssignee">
-          <option value="">Not assigned</option>
-          ${state.approvedWorkers.map((worker) => `<option value="${escapeText(worker.profile_id)}" ${worker.profile_id === order.assigned_profile_id ? "selected" : ""}>${escapeText(worker.display_name || worker.worker_key)}</option>`).join("")}
-        </select>
         <div class="po-inline-actions" style="margin-top:10px;">
-          ${["draft", "assigned", "opened", "ready_to_submit"].includes(order.workflow_status) ? '<button type="button" data-admin-action="assign"><i data-lucide="user-check"></i> Save Assignment</button>' : ""}
           <button class="secondary" type="button" data-admin-action="pdf"><i data-lucide="file-text"></i> View PDF</button>
           ${order.email_status === "failed" || order.receipt_status === "cleanup_failed" ? '<button type="button" data-admin-action="retry"><i data-lucide="send"></i> Retry Delivery</button>' : ""}
           ${["submitted", "partially_received", "fully_received", "closed", "cancelled"].includes(order.workflow_status) ? '<button class="secondary" type="button" data-admin-action="reopen"><i data-lucide="unlock"></i> Reopen</button>' : ""}
@@ -296,18 +291,7 @@
         await window.JgcPurchaseOrderPdf.view(Object.assign({}, order, { items: getOrderItems(order.id) }));
         return;
       }
-      if (action === "assign") {
-        const assignee = byId("poAdminAssignee").value || null;
-        if (String(assignee || "") === String(order.assigned_profile_id || "")) {
-          showNotice("Assignment is unchanged.");
-          return;
-        }
-        result = await state.client.rpc("digital_po_assign", {
-          p_po_id: order.id,
-          p_assigned_profile_id: assignee,
-          p_expected_revision: order.revision
-        });
-      } else if (action === "retry") {
+      if (action === "retry") {
         result = await state.client.rpc("digital_po_admin_retry_email", { p_po_id: order.id });
         state.client.functions.invoke("send-digital-po-email", { body: { source: "admin_retry", po_id: order.id } }).catch(() => {});
       } else if (action === "reopen") {
