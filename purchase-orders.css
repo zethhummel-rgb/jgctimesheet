@@ -396,6 +396,14 @@ body.po-page {
   grid-column: 1 / -1;
 }
 
+.po-field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #b9c9bd;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .po-section-band {
   border-top: 1px solid var(--po-border);
   padding: 18px 0;
