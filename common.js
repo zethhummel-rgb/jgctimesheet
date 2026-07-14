@@ -869,7 +869,9 @@ function activateGlobalTopNavigation() {
       left: 0;
       right: 0;
       z-index: 9999;
+      height: 56px;
       min-height: 56px;
+      box-sizing: border-box;
       padding: 8px 132px;
       display: flex;
       align-items: center;
@@ -971,7 +973,8 @@ function activateGlobalTopNavigation() {
       }
 
       .jgc-global-top-nav {
-        min-height: 46px;
+        height: 50px;
+        min-height: 50px;
         padding: 8px 92px;
         align-items: center;
       }
@@ -3562,8 +3565,11 @@ function injectJgcNotificationBellStyles() {
   style.textContent = `
     .jgc-notification-bell {
       position: fixed;
-      top: 12px;
+      top: 0;
       right: 104px;
+      height: 56px;
+      display: flex;
+      align-items: center;
       z-index: 10040;
       font-family: Arial, sans-serif;
     }
@@ -3747,8 +3753,9 @@ function injectJgcNotificationBellStyles() {
 
     @media (max-width: 780px) {
       .jgc-notification-bell {
-        top: 9px;
+        top: 0;
         right: 88px;
+        height: 50px;
       }
 
       .jgc-notification-button {
