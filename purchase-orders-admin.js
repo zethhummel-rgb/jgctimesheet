@@ -253,6 +253,7 @@
       <section class="po-section-band">
         <div class="po-inline-actions" style="margin-top:10px;">
           <button class="secondary" type="button" data-admin-action="pdf"><i data-lucide="file-text"></i> View PDF</button>
+          ${order.workflow_status === "submitted" && order.email_status === "pending" ? '<button type="button" data-admin-action="submit-early"><i data-lucide="send"></i> Submit Early</button>' : ""}
           ${order.email_status === "failed" || order.receipt_status === "cleanup_failed" ? '<button type="button" data-admin-action="retry"><i data-lucide="send"></i> Retry Delivery</button>' : ""}
           ${["submitted", "partially_received", "fully_received", "closed", "cancelled"].includes(order.workflow_status) ? '<button class="secondary" type="button" data-admin-action="reopen"><i data-lucide="unlock"></i> Reopen</button>' : ""}
           ${order.workflow_status === "submitted" ? '<button class="secondary" type="button" data-admin-action="partial">Partially Received</button><button class="secondary" type="button" data-admin-action="full">Fully Received</button>' : ""}
@@ -294,6 +295,17 @@
       if (action === "retry") {
         result = await state.client.rpc("digital_po_admin_retry_email", { p_po_id: order.id });
         state.client.functions.invoke("send-digital-po-email", { body: { source: "admin_retry", po_id: order.id } }).catch(() => {});
+      } else if (action === "submit-early") {
+        if (!confirm("Submit " + formatPoNumber(order.po_number) + " early? It will be emailed to the office now.")) {
+          return;
+        }
+        result = await state.client.rpc("digital_po_admin_submit_early", { p_po_id: order.id });
+        if (!result.error) {
+          const emailResult = await state.client.functions.invoke("send-digital-po-email", { body: { source: "admin_submit_early", po_id: order.id } });
+          if (emailResult.error) {
+            throw emailResult.error;
+          }
+        }
       } else if (action === "reopen") {
         if (!confirm("Reopen " + formatPoNumber(order.po_number) + " for editing?")) {
           return;
@@ -319,7 +331,7 @@
       }
       elements.detailsModal.hidden = true;
       await loadData();
-      showNotice("Purchase order updated.");
+      showNotice(action === "submit-early" ? "Purchase order submitted early and queued for immediate email delivery." : "Purchase order updated.");
     } catch (error) {
       showNotice(error.message || "Purchase order action failed.", "error");
     }
