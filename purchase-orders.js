@@ -966,6 +966,38 @@
     }
   }
 
+  function isMissingPurchaseOrderError(error) {
+    return /(?:purchase order|po) was not found|purchase order not found/i.test(String(error && error.message || error || ""));
+  }
+
+  async function discardDeletedLocalDraft(draft) {
+    if (!draft) return;
+    await idbDelete(DRAFT_STORE, draft.id);
+    await idbDelete(RECEIPT_STORE, draft.id).catch(() => {});
+    state.drafts = state.drafts.filter((item) => item.id !== draft.id);
+    state.serverRecords = state.serverRecords.filter((item) => item.id !== draft.id);
+    await setMeta(cacheKeyForUser("server_records"), state.serverRecords);
+    if (state.activeId === draft.id) closeForm();
+  }
+
+  async function refreshDraftDeviceAuthorization(draft) {
+    const context = state.deviceContext;
+    const po = draft && draft.po;
+    if (!context || !po || context.device_status !== "active" || !state.deviceToken) return;
+    const number = Number(po.po_number);
+    const block = (context.blocks || []).find((item) => item.status === "active"
+      && number >= Number(item.range_start)
+      && number <= Number(item.range_end));
+    if (!block) return;
+
+    if (po.device_id !== context.device_id || po.device_token !== state.deviceToken || po.number_block_id !== block.id) {
+      po.device_id = context.device_id;
+      po.device_token = state.deviceToken;
+      po.number_block_id = block.id;
+      await persistDraft(draft);
+    }
+  }
+
   async function uploadSubmissionFiles(draft) {
     const pdfData = Object.assign({}, draft.po, {
       items: draft.items,
@@ -1035,6 +1067,8 @@
       return draft;
     }
 
+    await refreshDraftDeviceAuthorization(draft);
+
     if (draft.dirty) {
       const saveResult = await state.client.rpc("digital_po_save", {
         p_order: draft.po,
@@ -1081,6 +1115,7 @@
     state.syncing = true;
     updateSyncBadge();
     const failures = [];
+    const discarded = [];
     try {
       await loadProfileOnline();
       await loadReferencesOnline();
@@ -1090,15 +1125,23 @@
         try {
           await syncDraft(draft.id);
         } catch (error) {
-          failures.push(formatPoNumber(draft.po.po_number) + ": " + (error.message || "Sync failed"));
+          if (isMissingPurchaseOrderError(error)) {
+            await discardDeletedLocalDraft(draft);
+            discarded.push(formatPoNumber(draft.po.po_number));
+          } else {
+            failures.push(formatPoNumber(draft.po.po_number) + ": " + (error.message || "Sync failed"));
+          }
         }
       }
       await loadServerRecords();
       state.drafts = await idbGetAll(DRAFT_STORE);
       renderReferenceOptions();
       renderList();
-      if (failures.length) {
-        showNotice(failures.join(" | "), "error");
+      if (failures.length || discarded.length) {
+        const messages = [];
+        if (discarded.length) messages.push(discarded.join(", ") + " removed because it was deleted by an admin.");
+        if (failures.length) messages.push(failures.join(" | "));
+        showNotice(messages.join(" | "), failures.length ? "error" : "");
       } else if (settings.showSuccess) {
         showNotice("Purchase orders are synced.");
       }
