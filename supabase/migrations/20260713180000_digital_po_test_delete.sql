@@ -8,6 +8,7 @@ as $$
 begin
   delete from public.digital_po_work_order_links where po_id = p_po_id;
   delete from public.digital_po_email_outbox where po_id = p_po_id;
+  delete from public.digital_po_items where po_id = p_po_id;
   delete from public.digital_po_audit_log where po_id = p_po_id;
   delete from public.digital_purchase_orders where id = p_po_id;
 
