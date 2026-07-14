@@ -918,8 +918,19 @@ if (isEmbeddedWorkOrderPage) {
   document.body.classList.add("embedded-work-order");
 }
 
+function getTorontoTodayValue() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return values.year + "-" + values.month + "-" + values.day;
+}
+
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key || "");
-document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
+document.getElementById("woDate").value = getTorontoTodayValue();
 document.getElementById("woNumber").value = "";
 
 function toggleManagementPanel() {
@@ -1822,7 +1833,7 @@ function resetWorkOrderForm() {
   document.getElementById("saveButton").disabled = false;
   document.getElementById("submitButton").disabled = false;
   document.getElementById("woNumber").value = "";
-  document.getElementById("woDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("woDate").value = getTorontoTodayValue();
   document.getElementById("woCustomer").value = "";
   document.getElementById("woStatus").value = "draft";
   document.getElementById("woCustomerPo").value = "";
