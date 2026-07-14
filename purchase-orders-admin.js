@@ -14,7 +14,7 @@
     profiles: [],
     approvedWorkers: [],
     activeOrderId: "",
-    tab: "orders"
+    tab: "devices"
   };
 
   const elements = {};
@@ -145,7 +145,16 @@
         order.workflow_status,
         order.email_status
       ].join(" ").toLowerCase();
-      return (!search || haystack.includes(search)) &&
+      const isDraft = ["draft", "assigned", "opened", "ready_to_submit"].includes(order.workflow_status);
+      const isPendingSubmission = order.workflow_status === "submitted" && ["not_ready", "pending", "sending"].includes(order.email_status);
+      const isCancelled = order.workflow_status === "cancelled";
+      const isSubmitted = !isCancelled && !isPendingSubmission && ["submitted", "partially_received", "fully_received", "closed"].includes(order.workflow_status);
+      const isInTab = state.tab === "drafts" ? isDraft
+        : state.tab === "pending" ? isPendingSubmission
+          : state.tab === "submitted" ? isSubmitted
+            : state.tab === "cancelled" ? isCancelled
+              : false;
+      return isInTab && (!search || haystack.includes(search)) &&
         (!date || order.order_date === date) &&
         (!status || order.workflow_status === status || order.email_status === status || order.receipt_status === status);
     });
@@ -484,12 +493,14 @@
     document.querySelectorAll("[data-admin-tab]").forEach((button) => {
       button.addEventListener("click", () => {
         state.tab = button.dataset.adminTab;
-        elements.ordersView.hidden = state.tab !== "orders";
+        elements.ordersView.hidden = state.tab === "devices";
         elements.devicesView.hidden = state.tab !== "devices";
+        elements.statusFilter.value = "";
         document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
           tab.classList.toggle("active", tab === button);
           tab.classList.toggle("secondary", tab !== button);
         });
+        renderOrders();
       });
     });
     elements.assignBlockButton.addEventListener("click", assignBlock);
