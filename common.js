@@ -3574,7 +3574,7 @@ function injectJgcNotificationBellStyles() {
       font-family: Arial, sans-serif;
     }
 
-    .jgc-notification-button {
+    .jgc-notification-bell .jgc-notification-button {
       position: relative;
       width: 42px !important;
       min-width: 42px !important;
@@ -3592,7 +3592,7 @@ function injectJgcNotificationBellStyles() {
       cursor: pointer;
     }
 
-    .jgc-notification-button svg {
+    .jgc-notification-bell .jgc-notification-button svg {
       width: 22px;
       height: 22px;
       fill: none;
@@ -3602,7 +3602,7 @@ function injectJgcNotificationBellStyles() {
       stroke-linejoin: round;
     }
 
-    .jgc-notification-button.has-unread::after {
+    .jgc-notification-bell .jgc-notification-button.has-unread::after {
       content: "";
       position: absolute;
       top: 5px;
@@ -3758,7 +3758,7 @@ function injectJgcNotificationBellStyles() {
         height: 50px;
       }
 
-      .jgc-notification-button {
+      .jgc-notification-bell .jgc-notification-button {
         width: 38px !important;
         min-width: 38px !important;
         height: 38px !important;
