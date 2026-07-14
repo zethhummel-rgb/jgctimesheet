@@ -22,7 +22,7 @@
     serverRecords: [],
     drafts: [],
     activeId: "",
-    listTab: "all",
+    listTab: "drafts",
     handoffRecordIds: new Set(),
     pendingReceipt: null,
     receiptPreviewUrl: "",
@@ -473,8 +473,16 @@
     const profileId = state.user && state.user.id;
     const records = getCombinedRecords().filter((record) => {
       const po = record.po;
-      const inTab = po.creator_profile_id === profileId;
       const currentStatus = compositeStatus(record);
+      const isDraft = ["draft", "assigned", "opened", "ready_to_submit"].includes(po.workflow_status) && !record.pending_submit;
+      const isPendingSubmission = record.pending_submit || (po.workflow_status === "submitted" && ["not_ready", "pending", "sending"].includes(po.email_status));
+      const isCancelled = po.workflow_status === "cancelled" || record.pending_cancel;
+      const isSubmitted = !isCancelled && !isPendingSubmission && ["submitted", "partially_received", "fully_received", "closed"].includes(po.workflow_status);
+      const inTab = po.creator_profile_id === profileId && (state.listTab === "drafts" ? isDraft
+        : state.listTab === "pending" ? isPendingSubmission
+          : state.listTab === "submitted" ? isSubmitted
+            : state.listTab === "cancelled" ? isCancelled
+              : false);
       const haystack = [
         formatPoNumber(po.po_number),
         po.supplier_name,
@@ -497,8 +505,7 @@
       const currentStatus = compositeStatus(record);
       const cssClass = po.workflow_status === "cancelled" ? "cancelled" : (record.dirty || record.pending_submit ? "pending" : "");
       const itemCount = (record.items || []).length;
-      const canCancelFromList = state.listTab === "all"
-        && po.creator_profile_id === profileId
+      const canCancelFromList = po.creator_profile_id === profileId
         && ["submitted", "emailed", "partially_received", "fully_received"].includes(po.workflow_status);
       return `
         <article class="po-record ${cssClass}">
@@ -1319,6 +1326,10 @@
       }
     });
     elements.syncButton.addEventListener("click", () => syncAll({ showSuccess: true }));
+    elements.openPendingButton.addEventListener("click", () => {
+      elements.lookupPanel.hidden = !elements.lookupPanel.hidden;
+      if (!elements.lookupPanel.hidden) elements.lookupNumber.focus();
+    });
     elements.closeFormButton.addEventListener("click", closeForm);
     elements.form.addEventListener("submit", handleSave);
     elements.submitButton.addEventListener("click", handleSubmit);
@@ -1356,7 +1367,6 @@
           tab.classList.toggle("active", tab === button);
           tab.classList.toggle("secondary", tab !== button);
         });
-        elements.lookupPanel.hidden = state.listTab !== "lookup";
         renderList();
       });
     });
@@ -1406,6 +1416,7 @@
       formView: byId("poFormView"),
       search: byId("poSearch"),
       statusFilter: byId("poStatusFilter"),
+      openPendingButton: byId("poOpenPendingButton"),
       lookupPanel: byId("poLookupPanel"),
       lookupNumber: byId("poLookupNumber"),
       lookupButton: byId("poLookupButton"),
