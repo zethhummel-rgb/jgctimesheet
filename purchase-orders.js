@@ -722,6 +722,30 @@
   }
 
   async function startNewPurchaseOrder() {
+    const reusableDraft = state.drafts
+      .filter((draft) => {
+        const po = draft.po || {};
+        const hasMaterial = (draft.items || []).some((item) => String(item.quantity_ordered || "").trim() || String(item.description || "").trim());
+        return po.creator_profile_id === state.user.id
+          && po.workflow_status === "draft"
+          && !po.job_id
+          && !po.supplier_name
+          && !po.notes
+          && !po.receipt_attached
+          && !hasMaterial
+          && !draft.dirty
+          && !draft.pending_submit
+          && !draft.pending_cancel;
+      })
+      .sort((a, b) => new Date(b.updated_local_at || 0).getTime() - new Date(a.updated_local_at || 0).getTime())[0];
+
+    if (reusableDraft) {
+      state.activeId = reusableDraft.id;
+      await openForm(reusableDraft.id);
+      showNotice(formatPoNumber(reusableDraft.po.po_number) + " reopened. No new PO number was used.");
+      return;
+    }
+
     if (!deviceCanCreate()) {
       throw new Error("This device is not ready to issue a digital PO number.");
     }
