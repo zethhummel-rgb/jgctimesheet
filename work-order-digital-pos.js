@@ -52,7 +52,6 @@
     const availableList = document.getElementById("digitalPoAvailableList");
     const linkedList = document.getElementById("digitalPoLinkedList");
     const linkedWrap = document.getElementById("digitalPoLinkedWrap");
-    const addButton = document.getElementById("addSelectedDigitalPosButton");
     const workOrderId = currentWorkOrderId();
     const available = state.rows.filter((row) => !row.linked_work_order_id);
     const linked = state.rows.filter((row) => row.linked_work_order_id === workOrderId);
@@ -82,8 +81,6 @@
       </div>
     ` : '<div class="small">No unlinked digital POs found for this job and date.</div>';
 
-    addButton.disabled = !selectedCount;
-    addButton.textContent = workOrderId ? "Link Selected POs" : "Link Selected POs When WO Is Saved";
     linkedWrap.hidden = !linked.length;
     linkedList.innerHTML = linked.map((row) => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid rgba(99,205,107,.28);padding:10px;margin-top:7px;border-radius:6px;">
@@ -145,23 +142,6 @@
     } finally {
       state.loading = false;
     }
-  }
-
-  async function linkSelected() {
-    const status = document.getElementById("digitalPoWorkOrderStatus");
-    const workOrderId = currentWorkOrderId();
-    const ids = Array.from(state.pendingPoIds);
-    if (!ids.length) {
-      status.textContent = "Select at least one digital PO.";
-      return;
-    }
-
-    if (!workOrderId) {
-      status.textContent = ids.length + " digital PO" + (ids.length === 1 ? " is" : "s are") + " selected and will link when this Work Order is saved.";
-      return;
-    }
-
-    await linkIds(workOrderId, ids);
   }
 
   async function linkIds(workOrderId, ids) {
@@ -229,7 +209,6 @@
     document.getElementById("digitalPoWorkOrderDate").value = document.getElementById("woDate").value || "";
     document.getElementById("digitalPoWorkOrderDate").addEventListener("change", refresh);
     document.getElementById("refreshDigitalPoOptionsButton").addEventListener("click", refresh);
-    document.getElementById("addSelectedDigitalPosButton").addEventListener("click", linkSelected);
     document.getElementById("digitalPoAvailableList").addEventListener("change", (event) => {
       const input = event.target.closest("[data-digital-po-id]");
       if (!input) {
@@ -241,6 +220,10 @@
         state.pendingPoIds.delete(input.dataset.digitalPoId);
       }
       render();
+      const count = state.pendingPoIds.size;
+      document.getElementById("digitalPoWorkOrderStatus").textContent = count
+        ? count + " digital PO" + (count === 1 ? " is" : "s are") + " selected and will link when this Work Order is saved."
+        : "No digital POs selected.";
     });
     document.getElementById("digitalPoLinkedList").addEventListener("click", (event) => {
       const unlinkButton = event.target.closest("[data-unlink-digital-po]");

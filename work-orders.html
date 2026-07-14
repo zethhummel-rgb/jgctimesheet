@@ -784,9 +784,6 @@ th {
         </div>
         <div id="digitalPoWorkOrderStatus" class="small" style="margin:10px 0;">Select a job and date.</div>
         <div id="digitalPoAvailableList"></div>
-        <div class="actions" style="margin-top:10px;">
-          <button id="addSelectedDigitalPosButton" type="button" disabled>Add Selected POs</button>
-        </div>
         <div id="digitalPoLinkedWrap" style="margin-top:14px;" hidden>
           <label>Linked Digital Portal POs</label>
           <div id="digitalPoLinkedList"></div>
@@ -3527,6 +3524,6 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   openRequestedEmbeddedWorkOrder();
 });
 </script>
-<script src="work-order-digital-pos.js?v=2"></script>
+<script src="work-order-digital-pos.js?v=3"></script>
 </body>
 </html>
