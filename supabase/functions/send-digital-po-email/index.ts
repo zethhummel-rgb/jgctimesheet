@@ -290,6 +290,71 @@ async function sendCancellationNotification(db: any, req: Request, poId: string,
   return { po_id: poResult.data.id, po_number: number, status: "cancelled_notified" };
 }
 
+async function deleteTestPurchaseOrder(db: any, req: Request, poId: string, confirmation: string) {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const userResult = token
+    ? await db.auth.getUser(token)
+    : { data: { user: null }, error: new Error("Authentication is required.") };
+  const user = userResult.data.user;
+
+  if (userResult.error || !user) {
+    throw new Error("Authentication is required to delete a purchase order.");
+  }
+
+  const profileResult = await db
+    .from("profiles")
+    .select("role,account_status")
+    .eq("id", user.id)
+    .single();
+  const isApprovedAdmin = String(profileResult.data?.role || "").toLowerCase() === "admin"
+    && String(profileResult.data?.account_status || "").toLowerCase() === "approved";
+
+  if (profileResult.error || !isApprovedAdmin) {
+    throw new Error("Only an approved admin can delete a purchase order.");
+  }
+
+  const poResult = await db
+    .from("digital_purchase_orders")
+    .select("id,po_number,email_status,pdf_storage_path,receipt_storage_path")
+    .eq("id", poId)
+    .single();
+
+  if (poResult.error || !poResult.data) {
+    throw new Error(poResult.error?.message || "Purchase order was not found.");
+  }
+
+  const expectedConfirmation = formatPoNumber(poResult.data.po_number);
+  if (safeText(confirmation).toUpperCase() !== expectedConfirmation.toUpperCase()) {
+    throw new Error(`Type ${expectedConfirmation} exactly to confirm deletion.`);
+  }
+  if (poResult.data.email_status === "sending") {
+    throw new Error("This purchase order is currently being emailed and cannot be deleted.");
+  }
+
+  const paths = [poResult.data.pdf_storage_path, poResult.data.receipt_storage_path].filter(Boolean);
+  if (paths.length) {
+    const storageResult = await db.storage.from(TEMP_BUCKET).remove(paths);
+    if (storageResult.error) {
+      throw new Error(`Temporary PO files could not be removed: ${storageResult.error.message}`);
+    }
+  }
+
+  for (const table of ["digital_po_work_order_links", "digital_po_email_outbox", "digital_po_audit_log"]) {
+    const deleteResult = await db.from(table).delete().eq("po_id", poId);
+    if (deleteResult.error) {
+      throw new Error(`${table} cleanup failed: ${deleteResult.error.message}`);
+    }
+  }
+
+  const deletePoResult = await db.from("digital_purchase_orders").delete().eq("id", poId);
+  if (deletePoResult.error) {
+    throw new Error(`Purchase order deletion failed: ${deletePoResult.error.message}`);
+  }
+
+  return { po_id: poId, po_number: expectedConfirmation, status: "deleted" };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -310,6 +375,20 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const requestBody = await req.json().catch(() => ({}));
+  if (requestBody?.action === "admin_delete_test_po") {
+    try {
+      const result = await deleteTestPurchaseOrder(
+        db,
+        req,
+        safeText(requestBody.po_id),
+        safeText(requestBody.confirmation),
+      );
+      return jsonResponse({ success: true, result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonResponse({ success: false, error: message }, 400);
+    }
+  }
   if (requestBody?.action === "cancellation_notification") {
     try {
       const result = await sendCancellationNotification(db, req, safeText(requestBody.po_id), toEmail);

@@ -259,6 +259,7 @@
           ${order.workflow_status === "submitted" ? '<button class="secondary" type="button" data-admin-action="partial">Partially Received</button><button class="secondary" type="button" data-admin-action="full">Fully Received</button>' : ""}
           ${["submitted", "partially_received", "fully_received"].includes(order.workflow_status) ? '<button class="secondary" type="button" data-admin-action="close">Close</button>' : ""}
           ${!["cancelled", "closed"].includes(order.workflow_status) ? '<button class="danger" type="button" data-admin-action="cancel"><i data-lucide="ban"></i> Cancel</button>' : ""}
+          <button class="danger" type="button" data-admin-action="delete-test"><i data-lucide="trash-2"></i> Delete PO</button>
         </div>
       </section>
       <section class="po-section-band">
@@ -306,6 +307,22 @@
             throw emailResult.error;
           }
         }
+      } else if (action === "delete-test") {
+        const poNumber = formatPoNumber(order.po_number);
+        const confirmation = prompt("Testing only: permanently delete " + poNumber + " and all of its records? Type " + poNumber + " to confirm.");
+        if (confirmation === null) {
+          return;
+        }
+        if (confirmation.trim().toUpperCase() !== poNumber.toUpperCase()) {
+          throw new Error("PO number did not match. Nothing was deleted.");
+        }
+        result = await state.client.functions.invoke("send-digital-po-email", {
+          body: {
+            action: "admin_delete_test_po",
+            po_id: order.id,
+            confirmation: confirmation.trim()
+          }
+        });
       } else if (action === "reopen") {
         if (!confirm("Reopen " + formatPoNumber(order.po_number) + " for editing?")) {
           return;
@@ -331,7 +348,11 @@
       }
       elements.detailsModal.hidden = true;
       await loadData();
-      showNotice(action === "submit-early" ? "Purchase order submitted early and queued for immediate email delivery." : "Purchase order updated.");
+      showNotice(
+        action === "submit-early"
+          ? "Purchase order submitted early and queued for immediate email delivery."
+          : (action === "delete-test" ? "Purchase order permanently deleted." : "Purchase order updated.")
+      );
     } catch (error) {
       showNotice(error.message || "Purchase order action failed.", "error");
     }
