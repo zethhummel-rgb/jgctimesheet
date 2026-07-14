@@ -92,6 +92,19 @@
     return state.items.filter((item) => item.po_id === id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
   }
 
+  async function getFunctionErrorMessage(error) {
+    const response = error && error.context;
+    if (response && typeof response.json === "function") {
+      try {
+        const payload = await response.json();
+        if (payload && payload.error) return payload.error;
+      } catch (_) {
+        // Use Supabase's message when the response has no JSON payload.
+      }
+    }
+    return (error && error.message) || "Purchase order action failed.";
+  }
+
   function getOrderLink(id) {
     return state.links.find((link) => link.po_id === id) || null;
   }
@@ -309,11 +322,12 @@
         }
       } else if (action === "delete-test") {
         const poNumber = formatPoNumber(order.po_number);
-        const confirmation = prompt("Testing only: permanently delete " + poNumber + " and all of its records? Type " + poNumber + " to confirm.");
+        const confirmation = prompt("Testing only: permanently delete " + poNumber + " and all of its records? Type " + poNumber + " or just " + order.po_number + " to confirm.");
         if (confirmation === null) {
           return;
         }
-        if (confirmation.trim().toUpperCase() !== poNumber.toUpperCase()) {
+        const normalizedConfirmation = confirmation.trim().replace(/^PO[-\s]?/i, "");
+        if (normalizedConfirmation !== String(order.po_number)) {
           throw new Error("PO number did not match. Nothing was deleted.");
         }
         result = await state.client.functions.invoke("send-digital-po-email", {
@@ -344,7 +358,7 @@
         });
       }
       if (result && result.error) {
-        throw result.error;
+        throw new Error(await getFunctionErrorMessage(result.error));
       }
       elements.detailsModal.hidden = true;
       await loadData();

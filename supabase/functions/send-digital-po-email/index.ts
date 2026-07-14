@@ -325,7 +325,8 @@ async function deleteTestPurchaseOrder(db: any, req: Request, poId: string, conf
   }
 
   const expectedConfirmation = formatPoNumber(poResult.data.po_number);
-  if (safeText(confirmation).toUpperCase() !== expectedConfirmation.toUpperCase()) {
+  const normalizedConfirmation = safeText(confirmation).replace(/^PO[-\s]?/i, "").trim();
+  if (normalizedConfirmation !== String(poResult.data.po_number)) {
     throw new Error(`Type ${expectedConfirmation} exactly to confirm deletion.`);
   }
   if (poResult.data.email_status === "sending") {
