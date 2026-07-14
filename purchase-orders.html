@@ -51,8 +51,13 @@
 
     <section id="poListView" class="po-view">
       <div class="po-tabs" role="tablist" aria-label="Purchase order views">
-        <button id="poAllTab" class="active" type="button" data-po-list-tab="all">My POs</button>
-        <button id="poLookupTab" class="secondary" type="button" data-po-list-tab="lookup">Open Pending PO</button>
+        <button class="active" type="button" data-po-list-tab="drafts">Drafts</button>
+        <button class="secondary" type="button" data-po-list-tab="pending">Pending Submission</button>
+        <button class="secondary" type="button" data-po-list-tab="submitted">Submitted</button>
+        <button class="secondary" type="button" data-po-list-tab="cancelled">Cancelled</button>
+      </div>
+      <div class="po-toolbar-group">
+        <button id="poOpenPendingButton" class="secondary" type="button"><i data-lucide="search"></i> Open Pending PO</button>
       </div>
       <div id="poLookupPanel" class="po-filter-row" hidden>
         <div>
@@ -163,6 +168,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=22"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders.js?v=7"></script>
+  <script src="purchase-orders.js?v=9"></script>
 </body>
 </html>
