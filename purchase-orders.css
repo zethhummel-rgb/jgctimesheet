@@ -691,7 +691,29 @@ body.po-page {
   }
 
   /* Keep the shared five-item mobile nav stable on the PO page. */
-  .jgc-mobile-bottom-nav a {
-    min-height: 54px;
+  body.po-page .jgc-mobile-bottom-nav {
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+
+  body.po-page .jgc-mobile-bottom-nav a,
+  body.po-page .jgc-mobile-bottom-nav button {
+    min-height: 54px !important;
+    max-height: 54px;
+  }
+}
+
+/* Standalone mobile installs can draw the page beneath the device status bar. */
+@media (max-width: 780px) and (display-mode: standalone) {
+  body.po-page.jgc-has-global-nav {
+    padding-top: 90px !important;
+  }
+
+  body.po-page .jgc-global-top-nav {
+    top: 28px;
+  }
+
+  body.po-page .jgc-nav-home,
+  body.po-page .jgc-nav-logout {
+    top: 8px;
   }
 }
