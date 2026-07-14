@@ -612,6 +612,11 @@
     return Boolean(po && state.user && po.creator_profile_id === state.user.id);
   }
 
+  function canEditPendingSubmission(po) {
+    return Boolean(po && state.user && po.creator_profile_id === state.user.id
+      && po.workflow_status === "submitted" && po.email_status === "pending");
+  }
+
   function isPendingHandoff(po) {
     return Boolean(po && state.handoffRecordIds.has(po.id) && po.creator_profile_id !== state.user.id);
   }
@@ -624,7 +629,11 @@
     elements.saveButton.hidden = locked;
     elements.submitButton.hidden = locked || Boolean(po && po.id && !canSubmitPo(po));
 
-    elements.saveButton.textContent = "Save Draft";
+    elements.saveButton.textContent = canEditPendingSubmission(po) ? "Save Pending Changes" : "Save Draft";
+    if (canEditPendingSubmission(po)) {
+      elements.saveButton.hidden = false;
+      elements.submitButton.hidden = true;
+    }
     if (isPendingHandoff(po)) {
       editableInputs.forEach((input) => { input.disabled = true; });
       elements.addItemButton.disabled = false;
@@ -673,7 +682,7 @@
     const currentStatus = record ? compositeStatus(record) : "draft";
     elements.formStatusBadge.textContent = statusLabel(currentStatus);
     elements.formStatusBadge.className = "po-badge " + (currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"));
-    const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status) && !isPendingHandoff(po));
+    const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status) && !isPendingHandoff(po) && !canEditPendingSubmission(po));
     setFormLocked(locked, po);
 
     elements.listView.hidden = true;
@@ -956,6 +965,64 @@
     await openForm(record.id);
   }
 
+  async function savePendingSubmissionChanges(record) {
+    if (!navigator.onLine) {
+      throw new Error("Pending submission changes require an internet connection.");
+    }
+    const formData = collectFormData();
+    if (!formData.order_date || !formData.job_id || !formData.supplier_name || !formData.items.some((item) => item.description)) {
+      throw new Error("Date, job, supplier, and at least one material description are required.");
+    }
+
+    const pdfData = Object.assign({}, record.po, formData, {
+      items: formData.items,
+      last_edited_by_name: state.profile.display_name
+    });
+    const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
+    const pdfPath = record.id + "/current/po.pdf";
+    const pdfUpload = await state.client.storage.from(TEMP_BUCKET).upload(pdfPath, pdfBlob, {
+      upsert: true,
+      contentType: "application/pdf",
+      cacheControl: "0"
+    });
+    if (pdfUpload.error) {
+      throw pdfUpload.error;
+    }
+
+    let receiptPath = null;
+    let receiptName = null;
+    if (state.pendingReceipt && state.pendingReceipt.blob) {
+      receiptPath = record.id + "/current/receipt.jpg";
+      receiptName = state.pendingReceipt.name || "receipt.jpg";
+      const receiptUpload = await state.client.storage.from(TEMP_BUCKET).upload(receiptPath, state.pendingReceipt.blob, {
+        upsert: true,
+        contentType: "image/jpeg",
+        cacheControl: "0"
+      });
+      if (receiptUpload.error) {
+        throw receiptUpload.error;
+      }
+    }
+
+    const result = await state.client.rpc("digital_po_update_pending", {
+      p_order: Object.assign({}, record.po, formData),
+      p_items: formData.items,
+      p_expected_revision: record.po.revision,
+      p_pdf_storage_path: pdfPath,
+      p_receipt_storage_path: receiptPath,
+      p_receipt_original_filename: receiptName
+    });
+    if (result.error) {
+      throw result.error;
+    }
+
+    state.pendingReceipt = null;
+    await updateServerRecord(result.data, formData.items);
+    elements.revision.value = result.data.revision;
+    showNotice(formatPoNumber(result.data.po_number) + " updated. It will email at 8:00 AM tomorrow.");
+    await openForm(record.id);
+  }
+
   async function persistDraft(draft) {
     await idbPut(DRAFT_STORE, draft);
     const index = state.drafts.findIndex((item) => item.id === draft.id);
@@ -1179,6 +1246,10 @@
       const activeRecord = state.activeId ? getRecord(state.activeId) : null;
       if (activeRecord && isPendingHandoff(activeRecord.po)) {
         await savePendingMaterialChanges(activeRecord);
+        return;
+      }
+      if (activeRecord && canEditPendingSubmission(activeRecord.po)) {
+        await savePendingSubmissionChanges(activeRecord);
         return;
       }
       const draft = await saveDraftLocally();
