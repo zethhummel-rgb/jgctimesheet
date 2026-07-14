@@ -543,6 +543,17 @@
 
   }
 
+  function hasManualJobEntry() {
+    return Boolean(elements.manualJobNumber.value.trim() || elements.manualJobName.value.trim());
+  }
+
+  function validateJobEntry() {
+    if (elements.job.value) {
+      return true;
+    }
+    return Boolean(elements.manualJobNumber.value.trim() && elements.manualJobName.value.trim());
+  }
+
   function addMaterialRow(item) {
     const isBlankRow = !item || Object.keys(item).length === 0;
     const row = document.createElement("div");
@@ -671,6 +682,8 @@
     elements.orderDate.value = po.order_date || localDateValue();
     renderReferenceOptions();
     elements.job.value = po.job_id || "";
+    elements.manualJobNumber.value = po.job_id ? "" : (po.job_number || "");
+    elements.manualJobName.value = po.job_id ? "" : (po.job_name || "");
     elements.supplierName.value = po.supplier_name || "";
     elements.notes.value = po.notes || "";
     elements.materialList.innerHTML = "";
@@ -745,6 +758,8 @@
         return po.creator_profile_id === state.user.id
           && po.workflow_status === "draft"
           && !po.job_id
+          && !po.job_number
+          && !po.job_name
           && !po.supplier_name
           && !po.notes
           && !po.receipt_attached
@@ -808,11 +823,12 @@
 
   function collectFormData() {
     const job = state.jobs.find((item) => item.id === elements.job.value);
+    const manualJob = !job && hasManualJobEntry();
     return {
       order_date: elements.orderDate.value,
-      job_id: elements.job.value,
-      job_number: job ? job.job_number : "",
-      job_name: job ? job.job_name : "",
+      job_id: job ? job.id : "",
+      job_number: job ? job.job_number : (manualJob ? elements.manualJobNumber.value.trim() : ""),
+      job_name: job ? job.job_name : (manualJob ? elements.manualJobName.value.trim() : ""),
       supplier_id: null,
       supplier_name: elements.supplierName.value.trim(),
       assigned_profile_id: null,
@@ -824,8 +840,8 @@
   async function saveDraftLocally(options) {
     const settings = options || {};
     const formData = collectFormData();
-    if (!formData.order_date || !formData.job_id) {
-      throw new Error("Date and job are required before the first draft can be saved.");
+    if (!formData.order_date || !validateJobEntry()) {
+      throw new Error("Date and either a listed job or both manual job fields are required before the first draft can be saved.");
     }
 
     let record = state.activeId ? getRecord(state.activeId) : null;
@@ -970,8 +986,8 @@
       throw new Error("Pending submission changes require an internet connection.");
     }
     const formData = collectFormData();
-    if (!formData.order_date || !formData.job_id || !formData.supplier_name || !formData.items.some((item) => item.description)) {
-      throw new Error("Date, job, supplier, and at least one material description are required.");
+    if (!formData.order_date || !validateJobEntry() || !formData.supplier_name || !formData.items.some((item) => item.description)) {
+      throw new Error("Date, a listed job or both manual job fields, supplier, and at least one material description are required.");
     }
 
     const pdfData = Object.assign({}, record.po, formData, {
@@ -1004,7 +1020,7 @@
       }
     }
 
-    const result = await state.client.rpc("digital_po_update_pending", {
+    const result = await state.client.rpc(formData.job_id ? "digital_po_update_pending" : "digital_po_update_pending_manual", {
       p_order: Object.assign({}, record.po, formData),
       p_items: formData.items,
       p_expected_revision: record.po.revision,
@@ -1137,7 +1153,7 @@
     await refreshDraftDeviceAuthorization(draft);
 
     if (draft.dirty) {
-      const saveResult = await state.client.rpc("digital_po_save", {
+      const saveResult = await state.client.rpc(draft.po.job_id ? "digital_po_save" : "digital_po_save_manual", {
         p_order: draft.po,
         p_items: draft.items || [],
         p_expected_revision: draft.po.revision || null
@@ -1453,6 +1469,19 @@
     elements.submitButton.addEventListener("click", handleSubmit);
     elements.cancelButton.addEventListener("click", handleCancel);
     elements.pdfButton.addEventListener("click", () => handleViewPdf(state.activeId));
+    elements.job.addEventListener("change", () => {
+      if (elements.job.value) {
+        elements.manualJobNumber.value = "";
+        elements.manualJobName.value = "";
+      }
+    });
+    [elements.manualJobNumber, elements.manualJobName].forEach((input) => {
+      input.addEventListener("input", () => {
+        if (hasManualJobEntry()) {
+          elements.job.value = "";
+        }
+      });
+    });
     elements.addItemButton.addEventListener("click", () => addMaterialRow());
     elements.materialList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove-item]");
@@ -1547,6 +1576,8 @@
       closeFormButton: byId("poCloseFormButton"),
       orderDate: byId("poOrderDate"),
       job: byId("poJob"),
+      manualJobNumber: byId("poManualJobNumber"),
+      manualJobName: byId("poManualJobName"),
       supplierName: byId("poSupplierName"),
       notes: byId("poNotes"),
       addItemButton: byId("poAddItemButton"),
