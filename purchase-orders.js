@@ -721,6 +721,51 @@
     };
   }
 
+  async function startNewPurchaseOrder() {
+    if (!deviceCanCreate()) {
+      throw new Error("This device is not ready to issue a digital PO number.");
+    }
+
+    const issued = await allocateDraftNumber();
+    const now = new Date().toISOString();
+    const po = {
+      id: crypto.randomUUID(),
+      po_number: issued.po_number,
+      number_block_id: issued.number_block_id,
+      device_id: issued.device_id,
+      device_token: issued.device_token,
+      creator_profile_id: state.user.id,
+      creator_name: state.profile.display_name,
+      assigned_profile_id: null,
+      assigned_name: null,
+      workflow_status: "draft",
+      email_status: "not_ready",
+      receipt_status: "none",
+      receipt_attached: false,
+      origin: navigator.onLine ? "online" : "offline",
+      client_created_at: now,
+      created_at: now,
+      updated_at: now,
+      revision: null
+    };
+    const draft = {
+      id: po.id,
+      po,
+      items: [],
+      dirty: false,
+      assignment_dirty: false,
+      desired_assigned_profile_id: null,
+      pending_submit: false,
+      pending_cancel: false,
+      updated_local_at: now
+    };
+
+    await persistDraft(draft);
+    state.activeId = po.id;
+    await openForm(po.id);
+    showNotice(formatPoNumber(po.po_number) + " reserved for this purchase order.");
+  }
+
   function collectFormData() {
     const job = state.jobs.find((item) => item.id === elements.job.value);
     return {
@@ -1239,7 +1284,16 @@
   function bindEvents() {
     elements.registerDeviceButton.addEventListener("click", registerDevice);
     elements.refreshDeviceButton.addEventListener("click", () => syncAll({ showSuccess: true }));
-    elements.newButton.addEventListener("click", () => openForm(""));
+    elements.newButton.addEventListener("click", async () => {
+      elements.newButton.disabled = true;
+      try {
+        await startNewPurchaseOrder();
+      } catch (error) {
+        showNotice(error.message || "A PO number could not be reserved.", "error");
+      } finally {
+        renderDeviceState();
+      }
+    });
     elements.syncButton.addEventListener("click", () => syncAll({ showSuccess: true }));
     elements.closeFormButton.addEventListener("click", closeForm);
     elements.form.addEventListener("submit", handleSave);
