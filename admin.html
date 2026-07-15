@@ -3849,6 +3849,7 @@ let jobs = [];
 let workOrders = [];
 let workOrderLabourRows = [];
 let workOrderPurchaseOrders = [];
+let adminWorkOrderDigitalPoCounts = {};
 let workOrderEquipmentRows = [];
 let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
@@ -14975,7 +14976,7 @@ function getAdminWorkOrderLabourRows(id) {
 }
 
 function getAdminWorkOrderPoCount(id) {
-    return workOrderPurchaseOrders.filter((row) => row.work_order_id === id).length;
+    return workOrderPurchaseOrders.filter((row) => row.work_order_id === id).length + Number(adminWorkOrderDigitalPoCounts[id] || 0);
 }
 
 function openAdminWorkOrderEditor(id) {
@@ -15411,13 +15412,14 @@ async function deleteAdminWorkOrder(id) {
 }
 
 async function loadAdminWorkOrders() {
-    const [workOrderResult, labourResult, poResult, equipmentResult, travelResult, workerResult] = await Promise.all([
+    const [workOrderResult, labourResult, poResult, equipmentResult, travelResult, workerResult, digitalPoLinkResult] = await Promise.all([
         supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
         supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("work_order_equipment").select("*"),
         supabaseClient.from("work_order_travel").select("*"),
-        supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true })
+        supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }),
+        supabaseClient.from("digital_po_work_order_links").select("work_order_id,po_id")
     ]);
 
     workOrders = workOrderResult.data || [];
@@ -15426,6 +15428,27 @@ async function loadAdminWorkOrders() {
     workOrderEquipmentRows = equipmentResult.data || [];
     workOrderTravelRows = travelResult.data || [];
     workOrderLabourWorkers = workerResult.data || [];
+    adminWorkOrderDigitalPoCounts = {};
+
+    if (!digitalPoLinkResult.error) {
+        adminWorkOrderDigitalPoCounts = (digitalPoLinkResult.data || []).reduce((counts, link) => {
+            counts[link.work_order_id] = Number(counts[link.work_order_id] || 0) + 1;
+            return counts;
+        }, {});
+    } else if (workOrders.length) {
+        const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
+            p_work_order_ids: workOrders.map((workOrder) => workOrder.id)
+        });
+
+        if (!digitalPoCountError) {
+            adminWorkOrderDigitalPoCounts = (digitalPoCountRows || []).reduce((counts, row) => {
+                counts[row.work_order_id] = Number(row.po_count || 0);
+                return counts;
+            }, {});
+        } else {
+            console.warn("Admin digital PO counts could not be loaded.", digitalPoLinkResult.error, digitalPoCountError);
+        }
+    }
     renderAdminWorkOrders();
     renderWorkOrderLabourWorkers();
     renderJobDashboard();
