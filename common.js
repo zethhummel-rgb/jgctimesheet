@@ -4056,9 +4056,277 @@ function activateJgcNotificationBell() {
   window.setInterval(loadJgcNotifications, 120000);
 }
 
+function isInstalledJgcPwa() {
+  const standaloneDisplay = window.matchMedia
+    && window.matchMedia("(display-mode: standalone)").matches;
+
+  return Boolean(standaloneDisplay || window.navigator.standalone === true);
+}
+
+function activateJgcPwaRefresh() {
+  if (!isInstalledJgcPwa() || document.getElementById("jgcPwaRefreshButton")) {
+    return;
+  }
+
+  document.body.classList.add("jgc-standalone-pwa");
+
+  const style = document.createElement("style");
+  style.id = "jgcPwaRefreshStyles";
+  style.textContent = `
+    .jgc-pwa-pull-indicator {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 54px);
+      left: 50%;
+      z-index: 10030;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      max-width: calc(100vw - 32px);
+      padding: 8px 14px;
+      color: #ffffff;
+      background: rgba(5, 54, 34, 0.96);
+      border: 1px solid rgba(82, 211, 94, 0.7);
+      border-radius: 19px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -16px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+
+    .jgc-pwa-pull-indicator.is-visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .jgc-pwa-pull-indicator svg,
+    .jgc-pwa-refresh-button svg {
+      width: 21px;
+      height: 21px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .jgc-pwa-pull-indicator.is-ready svg {
+      transform: rotate(180deg);
+    }
+
+    .jgc-pwa-pull-indicator.is-refreshing svg,
+    body.jgc-pwa-refreshing .jgc-pwa-refresh-button svg {
+      animation: jgc-pwa-refresh-spin 700ms linear infinite;
+    }
+
+    .jgc-pwa-pull-indicator span {
+      overflow: hidden;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .jgc-pwa-refresh-button {
+      display: none;
+    }
+
+    @keyframes jgc-pwa-refresh-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 780px) {
+      body.jgc-standalone-pwa .jgc-pwa-refresh-button {
+        position: fixed;
+        right: 12px;
+        bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+        z-index: 10017;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 46px !important;
+        min-width: 46px !important;
+        height: 46px !important;
+        min-height: 46px !important;
+        padding: 0 !important;
+        color: #ffffff;
+        background: #118d42;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 50% !important;
+        box-shadow: 0 7px 20px rgba(0, 0, 0, 0.38);
+      }
+
+      body.jgc-standalone-pwa.jgc-has-mobile-bottom-nav .jgc-pwa-refresh-button {
+        bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+      }
+
+      body.jgc-pwa-refreshing .jgc-pwa-refresh-button {
+        opacity: 0.8;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const refreshIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 12a9 9 0 0 0-15.55-6.18L3 8"></path>
+      <path d="M3 3v5h5"></path>
+      <path d="M3 12a9 9 0 0 0 15.55 6.18L21 16"></path>
+      <path d="M16 16h5v5"></path>
+    </svg>
+  `;
+
+  const indicator = document.createElement("div");
+  indicator.id = "jgcPwaPullIndicator";
+  indicator.className = "jgc-pwa-pull-indicator";
+  indicator.setAttribute("role", "status");
+  indicator.setAttribute("aria-live", "polite");
+  indicator.innerHTML = `${refreshIcon}<span>Pull to refresh</span>`;
+
+  const button = document.createElement("button");
+  button.id = "jgcPwaRefreshButton";
+  button.className = "jgc-pwa-refresh-button";
+  button.type = "button";
+  button.title = "Refresh portal";
+  button.setAttribute("aria-label", "Refresh portal");
+  button.innerHTML = refreshIcon;
+
+  document.body.appendChild(indicator);
+  document.body.appendChild(button);
+
+  const statusText = indicator.querySelector("span");
+  const refreshThreshold = 78;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  let ready = false;
+  let refreshing = false;
+  let temporaryMessageTimer = 0;
+
+  function isPageAtTop() {
+    return window.scrollY <= 1 && document.documentElement.scrollTop <= 1;
+  }
+
+  function resetPullIndicator() {
+    tracking = false;
+    ready = false;
+    indicator.classList.remove("is-visible", "is-ready");
+    statusText.textContent = "Pull to refresh";
+  }
+
+  function showTemporaryMessage(message) {
+    window.clearTimeout(temporaryMessageTimer);
+    indicator.classList.remove("is-ready", "is-refreshing");
+    indicator.classList.add("is-visible");
+    statusText.textContent = message;
+    temporaryMessageTimer = window.setTimeout(resetPullIndicator, 1800);
+  }
+
+  async function refreshPortal() {
+    if (refreshing) {
+      return;
+    }
+
+    if (window.navigator.onLine === false) {
+      showTemporaryMessage("Offline - reconnect to refresh");
+      return;
+    }
+
+    refreshing = true;
+    tracking = false;
+    button.disabled = true;
+    document.body.classList.add("jgc-pwa-refreshing");
+    indicator.classList.remove("is-ready");
+    indicator.classList.add("is-visible", "is-refreshing");
+    statusText.textContent = "Refreshing...";
+
+    try {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+
+        if (registration) {
+          await Promise.race([
+            registration.update().catch(function() {}),
+            new Promise(function(resolve) {
+              window.setTimeout(resolve, 800);
+            })
+          ]);
+        }
+      }
+    } catch (error) {
+      console.warn("JGC PWA update check failed before refresh.", error);
+    }
+
+    window.location.reload();
+  }
+
+  button.addEventListener("click", refreshPortal);
+
+  document.addEventListener("touchstart", function(event) {
+    if (refreshing || !isPageAtTop() || !event.touches || event.touches.length !== 1) {
+      return;
+    }
+
+    const target = event.target;
+    const blockedTarget = target && target.closest(
+      "a, button, input, textarea, select, [contenteditable='true'], [role='dialog'], .jgc-mobile-more-sheet, .jgc-notification-panel"
+    );
+
+    if (blockedTarget) {
+      return;
+    }
+
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+    tracking = true;
+  }, { passive: true });
+
+  document.addEventListener("touchmove", function(event) {
+    if (!tracking || refreshing || !event.touches || event.touches.length !== 1) {
+      return;
+    }
+
+    const horizontalDistance = Math.abs(event.touches[0].clientX - startX);
+    const pullDistance = event.touches[0].clientY - startY;
+
+    if (!isPageAtTop() || pullDistance <= 0 || horizontalDistance > pullDistance) {
+      resetPullIndicator();
+      return;
+    }
+
+    if (pullDistance > 8) {
+      event.preventDefault();
+      indicator.classList.add("is-visible");
+    }
+
+    ready = pullDistance >= refreshThreshold;
+    indicator.classList.toggle("is-ready", ready);
+    statusText.textContent = ready ? "Release to refresh" : "Pull to refresh";
+  }, { passive: false });
+
+  document.addEventListener("touchend", function() {
+    if (!tracking || refreshing) {
+      return;
+    }
+
+    if (ready) {
+      refreshPortal();
+      return;
+    }
+
+    resetPullIndicator();
+  }, { passive: true });
+
+  document.addEventListener("touchcancel", resetPullIndicator, { passive: true });
+}
+
 function activateJgcEnhancements() {
   activateGlobalTopNavigation();
   activateMobileBottomNavigation();
+  activateJgcPwaRefresh();
   activateJgcNotificationBell();
   activateJgcContactsFeature();
   activateJgcPoliciesFeature();
