@@ -164,18 +164,18 @@
       const statusClass = order.workflow_status === "cancelled" || order.email_status === "failed" ? "danger" : "green";
       return `
         <tr>
-          <td><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="po-badge ${statusClass}">${escapeText(label(order.workflow_status))}</span></td>
-          <td>${escapeText(formatDate(order.order_date))}</td>
-          <td>${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
-          <td>${escapeText(order.supplier_name || "-")}</td>
-          <td>${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
-          <td>${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
-          <td>${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge danger">Cleanup Failed</span>' : ""}</td>
-          <td>${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
-          <td><button type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
+          <td data-label="PO"><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="po-badge ${statusClass}">${escapeText(label(order.workflow_status))}</span></td>
+          <td data-label="Date">${escapeText(formatDate(order.order_date))}</td>
+          <td data-label="Job">${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
+          <td data-label="Supplier">${escapeText(order.supplier_name || "-")}</td>
+          <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
+          <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
+          <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge danger">Cleanup Failed</span>' : ""}</td>
+          <td data-label="Work Order">${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
+          <td data-label="Actions"><button type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
         </tr>
       `;
-    }).join("") || '<tr><td colspan="9">No purchase orders found.</td></tr>';
+    }).join("") || '<tr class="po-empty-row"><td colspan="9">No purchase orders found.</td></tr>';
     updateIcons();
   }
 
@@ -190,13 +190,13 @@
       const canAssign = device.status !== "revoked" && profile && profile.can_create_digital_pos && profile.account_status === "approved";
       return `
         <tr>
-          <td>${escapeText(profile ? profile.display_name : device.profile_id)}<br><span style="color:#b9c9bd;">${escapeText(profile && profile.email || "")}</span></td>
-          <td>${escapeText(device.device_label)}<br><span style="color:#b9c9bd;">Requested ${escapeText(formatDateTime(device.requested_at))}</span></td>
-          <td><span class="po-badge ${device.status === "active" ? "green" : (device.status === "revoked" ? "danger" : "warning")}">${escapeText(label(device.status))}</span></td>
-          <td>${escapeText(formatDateTime(device.lease_expires_at))}</td>
-          <td>${blockText}</td>
-          <td><span class="po-badge ${remaining <= 25 ? "warning" : "green"}">${remaining}</span></td>
-          <td>
+          <td data-label="Employee">${escapeText(profile ? profile.display_name : device.profile_id)}<br><span style="color:#b9c9bd;">${escapeText(profile && profile.email || "")}</span></td>
+          <td data-label="Device">${escapeText(device.device_label)}<br><span style="color:#b9c9bd;">Requested ${escapeText(formatDateTime(device.requested_at))}</span></td>
+          <td data-label="Status"><span class="po-badge ${device.status === "active" ? "green" : (device.status === "revoked" ? "danger" : "warning")}">${escapeText(label(device.status))}</span></td>
+          <td data-label="Lease">${escapeText(formatDateTime(device.lease_expires_at))}</td>
+          <td data-label="Number Blocks">${blockText}</td>
+          <td data-label="Remaining"><span class="po-badge ${remaining <= 25 ? "warning" : "green"}">${remaining}</span></td>
+          <td data-label="Actions">
             <div class="po-inline-actions">
               ${canAssign ? `<button type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
               ${device.status === "active" ? `<button class="secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
@@ -206,7 +206,7 @@
           </td>
         </tr>
       `;
-    }).join("") || '<tr><td colspan="7">No PO devices registered.</td></tr>';
+    }).join("") || '<tr class="po-empty-row"><td colspan="7">No PO devices registered.</td></tr>';
     updateIcons();
   }
 
@@ -523,6 +523,9 @@
           tab.classList.toggle("active", tab === button);
           tab.classList.toggle("secondary", tab !== button);
         });
+        if (window.matchMedia("(max-width: 780px)").matches) {
+          button.scrollIntoView({ block: "nearest", inline: "center" });
+        }
         renderOrders();
       });
     });
@@ -565,6 +568,12 @@
     captureElements();
     bindEvents();
     updateIcons();
+    const activeAdminTab = document.querySelector(".po-admin-tabs .tab-button.active");
+    if (activeAdminTab && window.matchMedia("(max-width: 900px)").matches) {
+      requestAnimationFrame(() => {
+        activeAdminTab.scrollIntoView({ block: "nearest", inline: "center" });
+      });
+    }
     state.client = createJgcSupabaseClient();
     const worker = requireJgcWorker();
     if (!state.client) {
