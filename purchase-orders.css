@@ -46,7 +46,7 @@ body.po-page {
   display: none;
 }
 
-.po-admin-tabs a {
+.po-admin-tabs .tab-button {
   flex: 0 0 auto;
   min-width: 86px;
   padding: 8px 13px;
@@ -62,7 +62,7 @@ body.po-page {
   white-space: nowrap;
 }
 
-.po-admin-tabs a.active {
+.po-admin-tabs .tab-button.active {
   background: #37d650;
   color: #061411;
 }
@@ -528,6 +528,13 @@ body.po-page {
   border-bottom: 1px solid var(--po-border);
   margin: 18px 0;
   padding-bottom: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.po-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .po-tabs button.active {
@@ -589,47 +596,70 @@ body.po-page {
     justify-content: flex-start;
   }
 
-  .po-material-tile {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .po-material-tile .description {
-    grid-column: 1 / -1;
-  }
-
-  .po-material-tile .remove-wrap {
-    grid-column: 2;
-  }
-
   .po-admin-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 640px) {
-  body.po-page {
-    padding: 8px 12px 92px;
+@media (max-width: 780px) {
+  body.po-page.jgc-theme {
+    padding: 58px 10px calc(82px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden;
+  }
+
+  .po-shell {
+    width: 100%;
+  }
+
+  .po-admin-tabs {
+    top: 50px;
+    z-index: 120;
+    width: calc(100% + 20px);
+    max-width: none;
+    margin: 0 -10px 12px;
+    padding: 8px 10px;
+    justify-content: flex-start;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .jgc-theme .po-admin-tabs .tab-button {
+    min-width: max-content;
+    min-height: 38px;
+    padding: 9px 12px;
+    background: #12833d !important;
+    border-color: rgba(91, 203, 112, 0.48);
+    border-radius: 999px;
+    font-size: 13px;
+    scroll-snap-align: center;
+  }
+
+  .jgc-theme .po-admin-tabs .tab-button.active {
+    background: #39c848 !important;
+    color: #07100f !important;
   }
 
   .po-brand {
-    margin: 2px 0 8px;
+    margin: 12px 0 10px;
   }
 
   .po-brand img {
-    width: min(190px, 54vw);
+    width: min(210px, 58vw);
   }
 
   .po-page h1 {
-    font-size: 27px;
+    font-size: 28px;
+    line-height: 1.15;
   }
 
   .po-user-line {
-    margin-top: 3px;
+    margin-top: 5px;
+    font-size: 14px;
   }
 
   .po-status-row {
     gap: 6px;
-    margin: 9px 0;
+    margin: 10px 0 12px;
   }
 
   .po-badge {
@@ -638,64 +668,377 @@ body.po-page {
     font-size: 11px;
   }
 
-  .po-toolbar {
-    justify-content: flex-start;
-    padding: 9px 0;
+  .po-notice {
     margin: 10px 0;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .po-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 0;
+    margin: 12px 0;
   }
 
   .po-toolbar-group {
-    width: auto;
-    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    width: 100%;
   }
 
   .po-toolbar-group button,
   .po-toolbar-group .po-button {
-    width: auto;
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 12px;
   }
 
-  .po-toolbar-group button {
-    min-height: 40px;
-    padding: 8px 13px;
+  .po-employee-page .po-toolbar,
+  .po-employee-page .po-toolbar-group {
+    grid-template-columns: minmax(0, 1fr) minmax(92px, auto);
+  }
+
+  .po-admin-page .po-toolbar-group {
+    display: block;
+  }
+
+  .po-admin-page .po-toolbar-group:first-child {
+    min-width: 0;
+  }
+
+  .po-tabs {
+    gap: 7px;
+    margin: 12px 0;
+    padding: 0 0 10px;
+    scroll-snap-type: x proximity;
+  }
+
+  .po-tabs button {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 42px;
+    padding: 8px 12px;
+    scroll-snap-align: center;
+  }
+
+  .po-list-view > .po-toolbar-group,
+  #poListView > .po-toolbar-group {
+    display: block;
+  }
+
+  #poOpenPendingButton {
+    width: 100%;
   }
 
   .po-form-header {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+  }
+
+  .po-form-header .po-inline-actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .po-form-title h2 {
+    font-size: 20px;
+  }
+
+  .po-number-display {
+    font-size: 20px;
   }
 
   .po-filter-row,
   .po-form-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .po-filter-row {
+    margin: 12px 0;
   }
 
   .po-filter-row.po-admin-filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-filter-row.po-admin-filters > div:first-child {
+    grid-column: 1 / -1;
   }
 
   .po-field.full {
     grid-column: auto;
   }
 
+  .po-page label {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  .po-page input,
+  .po-page select,
+  .po-page textarea {
+    min-height: 44px;
+    padding: 9px 10px;
+    font-size: 16px;
+  }
+
+  .po-page textarea {
+    min-height: 88px;
+  }
+
   .po-list {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .po-record {
+    padding: 12px;
+  }
+
+  .po-record-number {
+    font-size: 20px;
+  }
+
+  .po-record-header {
+    margin-bottom: 8px;
+  }
+
+  .po-record-meta {
+    gap: 4px;
+    margin: 8px 0 11px;
+    font-size: 13px;
+  }
+
+  .po-record-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .po-record-actions button {
+    width: 100%;
+  }
+
+  .po-record-actions .danger:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .po-section-band {
+    padding: 14px 0;
+    margin-top: 14px;
   }
 
   .po-material-tile {
-    grid-template-columns: 1fr 1fr;
-    padding: 11px;
+    grid-template-columns: 74px minmax(0, 1fr) 40px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .po-material-tile .description,
+  .po-material-tile .remove-wrap {
+    grid-column: auto;
+  }
+
+  .po-material-tile .icon-button {
+    width: 40px;
+    min-width: 40px;
+    min-height: 44px;
   }
 
   .po-form-actions {
-    justify-content: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px 0 2px;
+    margin-top: 14px;
   }
 
   .po-form-actions button {
-    flex: 1 1 calc(50% - 6px);
+    width: 100%;
   }
 
   .po-admin-summary {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 12px 0;
   }
 
+  .po-metric {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .po-metric strong {
+    font-size: 21px;
+  }
+
+  .po-metric span {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table-wrap,
+  .po-admin-page #poAdminDevicesView .po-table-wrap {
+    overflow: visible;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table,
+  .po-admin-page #poAdminDevicesView .po-table,
+  .po-admin-page #poAdminOrdersView .po-table tbody,
+  .po-admin-page #poAdminDevicesView .po-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table thead,
+  .po-admin-page #poAdminDevicesView .po-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table tbody,
+  .po-admin-page #poAdminDevicesView .po-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table tr,
+  .po-admin-page #poAdminDevicesView .po-table tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--po-border);
+    border-left: 4px solid var(--po-green);
+    border-radius: 7px;
+    background: var(--po-surface);
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table td,
+  .po-admin-page #poAdminDevicesView .po-table td {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 10px;
+    background: transparent;
+    overflow-wrap: anywhere;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table td::before,
+  .po-admin-page #poAdminDevicesView .po-table td::before {
+    content: attr(data-label);
+    color: var(--po-muted);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table td:last-child,
+  .po-admin-page #poAdminDevicesView .po-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table td[data-label="Actions"] button {
+    width: 100%;
+  }
+
+  .po-admin-page #poAdminDevicesView .po-table td[data-label="Actions"] .po-inline-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .po-admin-page #poAdminDevicesView .po-table td[data-label="Actions"] button {
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .po-admin-page .po-table tr.po-empty-row td {
+    display: block !important;
+    padding: 18px 12px !important;
+    color: var(--po-muted);
+    text-align: center;
+  }
+
+  .po-admin-page .po-table tr.po-empty-row td::before {
+    display: none;
+  }
+
+  .po-modal {
+    z-index: 12050;
+    display: block;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .po-modal-dialog {
+    width: 100%;
+    height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    max-height: none;
+    border-radius: 7px;
+    padding: 14px;
+  }
+
+  .po-modal-header {
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    margin: -14px -14px 12px;
+    border-bottom: 1px solid var(--po-border);
+    padding: 12px 14px;
+    background: #0d1e17;
+  }
+
+  .po-modal-header h2 {
+    margin: 0;
+    font-size: 22px;
+  }
+
+  .po-modal-dialog .po-inline-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .po-modal-dialog .po-inline-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #poBlockModal .po-form-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .po-brand img {
+    width: min(190px, 56vw);
+  }
+
+  .po-page h1 {
+    font-size: 25px;
+  }
+
+  .po-admin-page #poAdminOrdersView .po-table td,
+  .po-admin-page #poAdminDevicesView .po-table td {
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+
+  .po-material-tile {
+    grid-template-columns: 68px minmax(0, 1fr) 40px;
+  }
 }
