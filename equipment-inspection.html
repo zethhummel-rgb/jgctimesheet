@@ -125,6 +125,80 @@ label,
     font-size: 17px;
 }
 
+.equipment-document-tabs {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.equipment-document-tab {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.equipment-document-tab summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 11px 13px;
+    color: #ffffff;
+    font-weight: 900;
+    cursor: pointer;
+    list-style: none;
+}
+
+.equipment-document-tab summary::-webkit-details-marker {
+    display: none;
+}
+
+.equipment-document-tab summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    color: var(--green);
+    font-size: 22px;
+}
+
+.equipment-document-tab[open] summary::after {
+    content: "-";
+}
+
+.equipment-document-count {
+    margin-left: auto;
+    border-radius: 999px;
+    background: rgba(39, 214, 75, 0.18);
+    color: #ffffff;
+    padding: 3px 9px;
+    font-size: 12px;
+}
+
+.equipment-document-list {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.equipment-document-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.equipment-document-row strong {
+    overflow-wrap: anywhere;
+    color: #ffffff;
+}
+
+.equipment-document-row button {
+    min-width: 104px;
+}
+
 label {
     display: block;
     margin-bottom: 5px;
@@ -368,6 +442,14 @@ th {
         width: 100%;
     }
 
+    .equipment-document-row {
+        grid-template-columns: 1fr;
+    }
+
+    .equipment-document-row button {
+        width: 100%;
+    }
+
     h1 {
         font-size: 30px;
     }
@@ -393,6 +475,26 @@ th {
             <button type="button" onclick="showTodayView()">Today's Inspection</button>
             <button type="button" onclick="showFormView()">Start Inspection</button>
             <button type="button" class="secondary" onclick="loadEquipmentInspection()">Refresh</button>
+        </div>
+    </section>
+
+    <section id="equipmentDocumentsCard" class="card" hidden>
+        <h2>Lift Documents</h2>
+        <div class="equipment-document-tabs">
+            <details class="equipment-document-tab">
+                <summary>
+                    <span>Lift Manuals</span>
+                    <span id="liftManualCount" class="equipment-document-count">0</span>
+                </summary>
+                <div id="liftManualList" class="equipment-document-list"></div>
+            </details>
+            <details class="equipment-document-tab">
+                <summary>
+                    <span>Yearly Inspection Report</span>
+                    <span id="yearlyInspectionDocumentCount" class="equipment-document-count">0</span>
+                </summary>
+                <div id="yearlyInspectionDocumentList" class="equipment-document-list"></div>
+            </details>
         </div>
     </section>
 
@@ -455,7 +557,9 @@ const state = {
     employees: [],
     todayInspection: null,
     inspectionType: "",
-    checklist: []
+    checklist: [],
+    documents: [],
+    documentsError: ""
 };
 
 const AERIAL_ITEMS = [
@@ -708,6 +812,74 @@ function renderEquipmentCard() {
         </div>
     `).join("");
     document.getElementById("equipmentCard").hidden = false;
+}
+
+function getQrEquipmentDocuments(documentType) {
+    return (state.documents || []).filter((documentRecord) => documentRecord.document_type === documentType);
+}
+
+function renderQrEquipmentDocumentRows(documents, emptyMessage) {
+    if (state.documentsError) {
+        return '<div class="small">Documents could not be loaded. Refresh this QR page while online.</div>';
+    }
+
+    if (!documents.length) {
+        return '<div class="small">' + pageEscape(emptyMessage) + '</div>';
+    }
+
+    return documents.map((documentRecord) => `
+        <div class="equipment-document-row">
+            <div>
+                <strong>${pageEscape(documentRecord.file_name || "Document.pdf")}</strong>
+                <div class="small">Uploaded ${pageEscape(formatTimestamp(documentRecord.uploaded_at) || "")}</div>
+            </div>
+            <button type="button" onclick="openQrEquipmentDocument('${pageEscape(documentRecord.document_id)}')">View PDF</button>
+        </div>
+    `).join("");
+}
+
+function renderQrEquipmentDocuments() {
+    const manuals = getQrEquipmentDocuments("manual");
+    const yearlyReports = getQrEquipmentDocuments("yearly_inspection");
+
+    document.getElementById("liftManualCount").textContent = manuals.length;
+    document.getElementById("yearlyInspectionDocumentCount").textContent = yearlyReports.length;
+    document.getElementById("liftManualList").innerHTML = renderQrEquipmentDocumentRows(manuals, "No lift manuals have been uploaded.");
+    document.getElementById("yearlyInspectionDocumentList").innerHTML = renderQrEquipmentDocumentRows(yearlyReports, "No yearly inspection report has been uploaded.");
+    document.getElementById("equipmentDocumentsCard").hidden = false;
+}
+
+async function openQrEquipmentDocument(id) {
+    const documentRecord = (state.documents || []).find((item) => String(item.document_id) === String(id));
+
+    if (!documentRecord) {
+        setStatus("The selected PDF could not be found.", true);
+        return;
+    }
+
+    const viewer = window.open("", "_blank");
+
+    try {
+        const { data, error } = await client.storage
+            .from("equipment-documents")
+            .createSignedUrl(documentRecord.storage_path, 600);
+
+        if (error || !data || !data.signedUrl) {
+            throw new Error((error && error.message) || "A secure PDF link could not be created.");
+        }
+
+        if (viewer) {
+            viewer.opener = null;
+            viewer.location.href = data.signedUrl;
+        } else {
+            window.location.href = data.signedUrl;
+        }
+    } catch (error) {
+        if (viewer) {
+            viewer.close();
+        }
+        setStatus("PDF could not be opened. " + (error && error.message ? error.message : ""), true);
+    }
 }
 
 function renderInspectorSelect() {
@@ -1055,7 +1227,11 @@ async function loadEquipmentInspection(options) {
     }
 
     try {
-        const { data, error } = await client.rpc("get_public_equipment_inspection", { p_token: QR_TOKEN });
+        const [inspectionResult, documentResult] = await Promise.all([
+            client.rpc("get_public_equipment_inspection", { p_token: QR_TOKEN }),
+            client.rpc("get_public_equipment_documents", { p_token: QR_TOKEN })
+        ]);
+        const { data, error } = inspectionResult;
         const row = Array.isArray(data) ? data[0] : data;
 
         if (error) {
@@ -1071,8 +1247,11 @@ async function loadEquipmentInspection(options) {
         state.employees = Array.isArray(row.employees) ? row.employees : [];
         state.todayInspection = row.today_inspection || null;
         state.inspectionType = row.inspection_type || "Equipment Inspection";
+        state.documents = documentResult.error ? [] : (documentResult.data || []);
+        state.documentsError = documentResult.error ? (documentResult.error.message || "Lift documents could not be loaded.") : "";
 
         renderEquipmentCard();
+        renderQrEquipmentDocuments();
         setStatus("");
 
         if (state.todayInspection) {
