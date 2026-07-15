@@ -52,8 +52,8 @@ body.po-page {
   padding: 8px 13px;
   border: 1px solid rgba(63, 125, 77, 0.6);
   border-radius: 999px;
-  background: #20382a;
-  color: #fff;
+  background: #13843f !important;
+  color: #fff !important;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.1;
@@ -63,8 +63,8 @@ body.po-page {
 }
 
 .po-admin-tabs .tab-button.active {
-  background: #37d650;
-  color: #061411;
+  background: #39c848 !important;
+  color: #061411 !important;
 }
 
 .po-shell {
@@ -627,7 +627,7 @@ body.po-page {
     min-width: max-content;
     min-height: 38px;
     padding: 9px 12px;
-    background: #12833d !important;
+    background: #13843f !important;
     border-color: rgba(91, 203, 112, 0.48);
     border-radius: 999px;
     font-size: 13px;
