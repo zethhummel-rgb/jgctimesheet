@@ -3216,14 +3216,34 @@ async function loadWorkOrders(showLoading = true) {
   travelRows = travelResult.data || [];
   digitalPoCounts = {};
   if (workOrders.length) {
-    const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
-      p_work_order_ids: workOrders.map((workOrder) => workOrder.id)
-    });
-    if (!digitalPoCountError) {
-      digitalPoCounts = (digitalPoCountRows || []).reduce((counts, row) => {
-        counts[row.work_order_id] = Number(row.po_count || 0);
+    const workOrderIds = workOrders.map((workOrder) => workOrder.id);
+    const linkResults = [];
+    for (let index = 0; index < workOrderIds.length; index += 100) {
+      linkResults.push(await supabaseClient
+        .from("digital_po_work_order_links")
+        .select("work_order_id,po_id")
+        .in("work_order_id", workOrderIds.slice(index, index + 100)));
+    }
+    const digitalPoLinkError = linkResults.find((result) => result.error);
+    if (!digitalPoLinkError) {
+      digitalPoCounts = linkResults.reduce((counts, result) => {
+        (result.data || []).forEach((link) => {
+          counts[link.work_order_id] = Number(counts[link.work_order_id] || 0) + 1;
+        });
         return counts;
       }, {});
+    } else {
+      const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
+        p_work_order_ids: workOrderIds
+      });
+      if (!digitalPoCountError) {
+        digitalPoCounts = (digitalPoCountRows || []).reduce((counts, row) => {
+          counts[row.work_order_id] = Number(row.po_count || 0);
+          return counts;
+        }, {});
+      } else {
+        console.warn("Digital PO counts could not be loaded.", digitalPoLinkError.error, digitalPoCountError);
+      }
     }
   }
   rebuildEmployeeDirectory();
