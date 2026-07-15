@@ -1316,7 +1316,8 @@
       showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
       state.listTab = "submitted";
       document.querySelectorAll("[data-po-list-tab]").forEach((button) => {
-        button.className = button.dataset.poListTab === state.listTab ? "primary" : "secondary";
+        button.classList.toggle("active", button.dataset.poListTab === state.listTab);
+        button.classList.toggle("secondary", button.dataset.poListTab !== state.listTab);
       });
       closeForm();
     } catch (error) {
@@ -1514,6 +1515,9 @@
           tab.classList.toggle("active", tab === button);
           tab.classList.toggle("secondary", tab !== button);
         });
+        if (window.matchMedia("(max-width: 780px)").matches) {
+          button.scrollIntoView({ block: "nearest", inline: "center" });
+        }
         renderList();
       });
     });
