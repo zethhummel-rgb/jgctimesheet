@@ -1996,6 +1996,73 @@ button.admin-schedule-event-button.admin-event-vacation {
     width: min(560px, 100%);
 }
 
+.equipment-documents-modal {
+    width: min(760px, 100%);
+}
+
+.equipment-documents-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.equipment-documents-header .modal-close-button {
+    flex: 0 0 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 8px;
+    font-size: 18px;
+}
+
+.equipment-document-panel {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid rgba(55, 240, 90, 0.28);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.equipment-document-panel h3 {
+    margin: 0 0 6px;
+    color: #37f05a;
+}
+
+.equipment-document-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.equipment-document-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.equipment-document-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #ffffff;
+    font-weight: 800;
+}
+
+@media (max-width: 620px) {
+    .equipment-document-row {
+        grid-template-columns: 1fr;
+    }
+
+    .equipment-document-row .actions {
+        margin-top: 0;
+    }
+}
+
 .equipment-qr-print-area {
     margin: 12px 0;
     padding: 18px;
@@ -3554,6 +3621,39 @@ button.admin-schedule-event-button.admin-event-vacation {
     </section>
 </div>
 
+<div id="equipmentDocumentsModal" class="admin-schedule-modal-backdrop" onclick="closeEquipmentDocumentsModal(event)">
+    <section class="admin-schedule-modal equipment-documents-modal" onclick="event.stopPropagation()">
+        <div class="equipment-documents-header">
+            <div>
+                <h2 id="equipmentDocumentsTitle">Lift Documents</h2>
+                <div id="equipmentDocumentsUnit" class="small"></div>
+            </div>
+            <button type="button" class="secondary modal-close-button" aria-label="Close lift documents" title="Close" onclick="closeEquipmentDocumentsModal()">X</button>
+        </div>
+        <div id="equipmentDocumentsStatus" class="small"></div>
+
+        <section class="equipment-document-panel">
+            <h3>Lift Manuals</h3>
+            <div class="small">Upload one or more PDF manuals for this lift.</div>
+            <input id="equipmentManualFiles" type="file" accept=".pdf,application/pdf" multiple style="margin-top:10px;">
+            <div class="actions">
+                <button type="button" onclick="uploadEquipmentDocuments('manual')">Upload Manuals</button>
+            </div>
+            <div id="equipmentManualList" class="equipment-document-list"></div>
+        </section>
+
+        <section class="equipment-document-panel">
+            <h3>Yearly Inspection Report</h3>
+            <div class="small">Upload the current PDF report. A new upload replaces the existing report.</div>
+            <input id="equipmentYearlyInspectionFile" type="file" accept=".pdf,application/pdf" style="margin-top:10px;">
+            <div class="actions">
+                <button type="button" onclick="uploadEquipmentDocuments('yearly_inspection')">Upload / Replace Report</button>
+            </div>
+            <div id="equipmentYearlyInspectionList" class="equipment-document-list"></div>
+        </section>
+    </section>
+</div>
+
 <div id="jobsSection" class="card" hidden>
     <h2>Jobs Management</h2>
     <div class="announcement-grid">
@@ -3857,7 +3957,9 @@ let adminWorkOrderManagementView = "active";
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
+let equipmentDocuments = [];
 let activeEquipmentQr = null;
+let activeEquipmentDocumentsId = "";
 let contacts = [];
 let subcontractorSuppliers = [];
 let subcontractorSupplierContacts = [];
@@ -8886,6 +8988,318 @@ function renderEquipmentQrCell(item) {
     `;
 }
 
+function getEquipmentDocumentsByType(equipmentId, documentType) {
+    return (equipmentDocuments || [])
+        .filter((document) => document.equipment_id === equipmentId && document.document_type === documentType && document.is_active !== false)
+        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+}
+
+function renderEquipmentDocumentsCell(item) {
+    if (!getEquipmentQrInspectionType(item) && !item.inspection_qr_type) {
+        return '<span class="small">Not a lift</span>';
+    }
+
+    const manualCount = getEquipmentDocumentsByType(item.id, "manual").length;
+    const yearlyCount = getEquipmentDocumentsByType(item.id, "yearly_inspection").length;
+
+    return `
+        <button type="button" class="secondary" onclick="openEquipmentDocuments('${escapeHtml(item.id)}')">Documents</button>
+        <div class="small">${manualCount} manual${manualCount === 1 ? "" : "s"} / ${yearlyCount ? "Yearly report added" : "No yearly report"}</div>
+    `;
+}
+
+function setEquipmentDocumentsStatus(message, isError) {
+    const status = document.getElementById("equipmentDocumentsStatus");
+
+    if (!status) {
+        return;
+    }
+
+    status.textContent = message || "";
+    status.style.color = isError ? "#ffb4b4" : "";
+}
+
+function renderEquipmentDocumentRows(documents, emptyMessage) {
+    if (!documents.length) {
+        return '<div class="small">' + escapeHtml(emptyMessage) + '</div>';
+    }
+
+    return documents.map((document) => `
+        <div class="equipment-document-row">
+            <div>
+                <div class="equipment-document-name">${escapeHtml(document.file_name || "Document.pdf")}</div>
+                <div class="small">Uploaded ${escapeHtml(formatDate(document.created_at) || "")}${document.uploaded_by_name ? " by " + escapeHtml(document.uploaded_by_name) : ""}</div>
+            </div>
+            <div class="actions">
+                <button type="button" class="secondary" onclick="viewEquipmentDocument('${escapeHtml(document.id)}')">View PDF</button>
+                <button type="button" class="delete-button" onclick="removeEquipmentDocument('${escapeHtml(document.id)}')">Remove</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderEquipmentDocumentsModal() {
+    const manualList = document.getElementById("equipmentManualList");
+    const yearlyList = document.getElementById("equipmentYearlyInspectionList");
+
+    if (!manualList || !yearlyList || !activeEquipmentDocumentsId) {
+        return;
+    }
+
+    manualList.innerHTML = renderEquipmentDocumentRows(
+        getEquipmentDocumentsByType(activeEquipmentDocumentsId, "manual"),
+        "No lift manuals uploaded."
+    );
+    yearlyList.innerHTML = renderEquipmentDocumentRows(
+        getEquipmentDocumentsByType(activeEquipmentDocumentsId, "yearly_inspection"),
+        "No yearly inspection report uploaded."
+    );
+}
+
+async function refreshEquipmentDocuments(equipmentId) {
+    const { data, error } = await supabaseClient
+        .from("equipment_documents")
+        .select("*")
+        .eq("equipment_id", equipmentId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        throw new Error(error.message || "Lift documents could not be loaded.");
+    }
+
+    equipmentDocuments = equipmentDocuments
+        .filter((document) => document.equipment_id !== equipmentId)
+        .concat(data || []);
+    renderEquipmentDocumentsModal();
+    renderEquipment();
+}
+
+async function openEquipmentDocuments(id) {
+    const item = equipmentItems.find((entry) => entry.id === id);
+
+    if (!item) {
+        setEquipmentStatus("Equipment could not be found.", true);
+        return;
+    }
+
+    if (!getEquipmentQrInspectionType(item) && !item.inspection_qr_type) {
+        setEquipmentStatus("Lift documents are available for forklifts, aerial lifts, and telehandlers.", true);
+        return;
+    }
+
+    activeEquipmentDocumentsId = id;
+    document.getElementById("equipmentDocumentsTitle").textContent = "Lift Documents";
+    document.getElementById("equipmentDocumentsUnit").textContent = getEquipmentNameById(id) || item.name || "Lift";
+    document.getElementById("equipmentManualFiles").value = "";
+    document.getElementById("equipmentYearlyInspectionFile").value = "";
+    setEquipmentDocumentsStatus("Loading lift documents...");
+
+    const modal = document.getElementById("equipmentDocumentsModal");
+    modal.classList.add("open");
+    modal.style.display = "flex";
+
+    try {
+        await ensureEquipmentQrToken(id);
+        await refreshEquipmentDocuments(id);
+        setEquipmentDocumentsStatus("");
+    } catch (error) {
+        setEquipmentDocumentsStatus(error && error.message ? error.message : "Lift documents could not be loaded.", true);
+    }
+}
+
+function closeEquipmentDocumentsModal(event) {
+    if (event && event.target !== event.currentTarget) {
+        return;
+    }
+
+    const modal = document.getElementById("equipmentDocumentsModal");
+    modal.classList.remove("open");
+    modal.style.display = "none";
+    activeEquipmentDocumentsId = "";
+}
+
+function isPdfDocument(file) {
+    return Boolean(file) && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""));
+}
+
+function createEquipmentDocumentStorageId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return Date.now() + "-" + Math.random().toString(16).slice(2);
+}
+
+async function saveEquipmentDocumentFile(item, documentType, file) {
+    if (!isPdfDocument(file)) {
+        throw new Error((file && file.name ? file.name + ": " : "") + "Only PDF files can be uploaded.");
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+        throw new Error(file.name + " is larger than the 25 MB limit.");
+    }
+
+    const token = item.inspection_qr_token;
+    if (!token) {
+        throw new Error("This lift needs an inspection QR token before documents can be uploaded.");
+    }
+
+    const storagePath = token + "/" + documentType + "/" + createEquipmentDocumentStorageId() + ".pdf";
+    const { error: uploadError } = await supabaseClient.storage
+        .from("equipment-documents")
+        .upload(storagePath, file, {
+            cacheControl: "3600",
+            contentType: "application/pdf",
+            upsert: false
+        });
+
+    if (uploadError) {
+        throw new Error(file.name + " could not be uploaded: " + uploadError.message);
+    }
+
+    const existingYearly = documentType === "yearly_inspection"
+        ? getEquipmentDocumentsByType(item.id, "yearly_inspection")[0]
+        : null;
+    const payload = {
+        equipment_id: item.id,
+        document_type: documentType,
+        file_name: file.name,
+        storage_path: storagePath,
+        uploaded_by: currentUserId || null,
+        uploaded_by_name: currentWorkerDisplay || "",
+        is_active: true,
+        updated_at: new Date().toISOString()
+    };
+    let result;
+
+    if (existingYearly) {
+        result = await supabaseClient
+            .from("equipment_documents")
+            .update(payload)
+            .eq("id", existingYearly.id)
+            .select()
+            .single();
+    } else {
+        result = await supabaseClient
+            .from("equipment_documents")
+            .insert(payload)
+            .select()
+            .single();
+    }
+
+    if (result.error) {
+        await supabaseClient.storage.from("equipment-documents").remove([storagePath]);
+        throw new Error(file.name + " could not be saved: " + result.error.message);
+    }
+
+    if (existingYearly && existingYearly.storage_path && existingYearly.storage_path !== storagePath) {
+        await supabaseClient.storage.from("equipment-documents").remove([existingYearly.storage_path]);
+    }
+
+    return result.data;
+}
+
+async function uploadEquipmentDocuments(documentType) {
+    const item = equipmentItems.find((entry) => entry.id === activeEquipmentDocumentsId);
+    const input = documentType === "manual"
+        ? document.getElementById("equipmentManualFiles")
+        : document.getElementById("equipmentYearlyInspectionFile");
+    const files = Array.from(input && input.files ? input.files : []);
+
+    if (!item) {
+        setEquipmentDocumentsStatus("Lift could not be found.", true);
+        return;
+    }
+
+    if (!files.length) {
+        setEquipmentDocumentsStatus("Choose a PDF to upload.", true);
+        return;
+    }
+
+    if (documentType === "yearly_inspection" && files.length > 1) {
+        setEquipmentDocumentsStatus("Choose one yearly inspection report.", true);
+        return;
+    }
+
+    setEquipmentDocumentsStatus("Uploading " + files.length + " PDF" + (files.length === 1 ? "" : "s") + "...");
+
+    try {
+        await ensureEquipmentQrToken(item.id);
+
+        for (const file of files) {
+            await saveEquipmentDocumentFile(item, documentType, file);
+        }
+
+        input.value = "";
+        await refreshEquipmentDocuments(item.id);
+        setEquipmentDocumentsStatus(documentType === "manual" ? "Lift manual uploaded." : "Yearly inspection report uploaded.");
+    } catch (error) {
+        setEquipmentDocumentsStatus(error && error.message ? error.message : "PDF upload failed.", true);
+    }
+}
+
+async function viewEquipmentDocument(id) {
+    const documentRecord = equipmentDocuments.find((document) => document.id === id && document.is_active !== false);
+
+    if (!documentRecord) {
+        setEquipmentDocumentsStatus("Document could not be found.", true);
+        return;
+    }
+
+    const viewer = window.open("", "_blank");
+
+    try {
+        const { data, error } = await supabaseClient.storage
+            .from("equipment-documents")
+            .createSignedUrl(documentRecord.storage_path, 600);
+
+        if (error || !data || !data.signedUrl) {
+            throw new Error((error && error.message) || "A secure document link could not be created.");
+        }
+
+        if (viewer) {
+            viewer.opener = null;
+            viewer.location.href = data.signedUrl;
+        } else {
+            window.location.href = data.signedUrl;
+        }
+    } catch (error) {
+        if (viewer) {
+            viewer.close();
+        }
+        setEquipmentDocumentsStatus(error && error.message ? error.message : "Document could not be opened.", true);
+    }
+}
+
+async function removeEquipmentDocument(id) {
+    const documentRecord = equipmentDocuments.find((document) => document.id === id && document.is_active !== false);
+
+    if (!documentRecord || !confirm("Remove " + (documentRecord.file_name || "this PDF") + " from this lift?")) {
+        return;
+    }
+
+    setEquipmentDocumentsStatus("Removing PDF...");
+    const { error } = await supabaseClient
+        .from("equipment_documents")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+    if (error) {
+        setEquipmentDocumentsStatus("PDF could not be removed: " + error.message, true);
+        return;
+    }
+
+    const { error: storageError } = await supabaseClient.storage
+        .from("equipment-documents")
+        .remove([documentRecord.storage_path]);
+
+    equipmentDocuments = equipmentDocuments.filter((document) => document.id !== id);
+    renderEquipmentDocumentsModal();
+    renderEquipment();
+    setEquipmentDocumentsStatus(storageError ? "PDF was removed from the lift, but storage cleanup will need attention." : "PDF removed.", Boolean(storageError));
+}
+
 async function ensureEquipmentQrToken(id) {
     const item = equipmentItems.find((entry) => entry.id === id);
 
@@ -9183,7 +9597,7 @@ function renderEquipment() {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Make</th><th>Model</th><th>Year</th><th>KM</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>QR</th><th>Actions</th></tr>
+                    <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Make</th><th>Model</th><th>Year</th><th>KM</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Lift Documents</th><th>QR</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${group.items.length ? group.items.map((item) => {
@@ -9212,6 +9626,7 @@ function renderEquipment() {
                                 <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
                                 <td>${escapeHtml(status)}</td>
                                 <td>${escapeHtml(item.notes || "")}</td>
+                                <td>${renderEquipmentDocumentsCell(item)}</td>
                                 <td>${renderEquipmentQrCell(item)}</td>
                                 <td>
                                     <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
@@ -9219,7 +9634,7 @@ function renderEquipment() {
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="17">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="18">No items in this group.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -9557,6 +9972,7 @@ async function deleteEquipment(id) {
     }
 
     equipmentItems = equipmentItems.filter((entry) => entry.id !== id);
+    equipmentDocuments = equipmentDocuments.filter((document) => document.equipment_id !== id);
     clearEquipmentForm();
     renderEquipment();
 }
@@ -9564,10 +9980,11 @@ async function deleteEquipment(id) {
 async function loadEquipment() {
     setEquipmentStatus("Refreshing equipment...");
 
-    const [equipmentResult, notificationResult, maintenanceResult] = await Promise.all([
+    const [equipmentResult, notificationResult, maintenanceResult, documentResult] = await Promise.all([
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
-        supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false })
+        supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("equipment_documents").select("*").eq("is_active", true).order("created_at", { ascending: false })
     ]);
 
     if (equipmentResult.error) {
@@ -9578,9 +9995,16 @@ async function loadEquipment() {
     equipmentItems = equipmentResult.data || [];
     equipmentNotifications = notificationResult.data || [];
     equipmentMaintenanceLogs = maintenanceResult.data || [];
+    equipmentDocuments = documentResult.data || [];
+
+    if (documentResult.error) {
+        setEquipmentStatus("Equipment loaded, but lift documents could not be loaded: " + documentResult.error.message, true);
+    }
     await processEquipmentExpiryNotifications();
     renderEquipment();
-    setEquipmentStatus("Equipment refreshed.");
+    if (!documentResult.error) {
+        setEquipmentStatus("Equipment refreshed.");
+    }
 }
 
 function renderTimesheets() {
