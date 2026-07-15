@@ -10,7 +10,7 @@ const corsHeaders = {
 const TEMP_BUCKET = "digital-po-temp";
 const MAX_PER_RUN = 5;
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
-const DEFAULT_RECIPIENTS = "zeth@johngordonconstruction.com";
+const DEFAULT_RECIPIENTS = "zeth@johngordonconstruction.com,darlene@johngordonconstruction.com";
 
 type JsonRecord = Record<string, any>;
 
@@ -23,6 +23,17 @@ function jsonResponse(body: JsonRecord, status = 200) {
 
 function safeText(value: unknown) {
   return String(value ?? "").trim();
+}
+
+function getPoRecipients(configuredRecipients: string | undefined) {
+  return Array.from(new Set(
+    [configuredRecipients, DEFAULT_RECIPIENTS]
+      .filter(Boolean)
+      .join(",")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  )).join(",");
 }
 
 function safeFilename(value: unknown, fallback: string) {
@@ -359,7 +370,7 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const toEmail = Deno.env.get("PO_TO_EMAIL") || DEFAULT_RECIPIENTS;
+  const toEmail = getPoRecipients(Deno.env.get("PO_TO_EMAIL"));
 
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse({ success: false, error: "Supabase function environment variables are missing." }, 500);
