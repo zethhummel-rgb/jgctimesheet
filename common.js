@@ -4282,9 +4282,30 @@ function activateJgcPwaRefresh() {
   }
 
   document.body.classList.add("jgc-standalone-pwa");
+  document.documentElement.classList.add("jgc-pwa-pull-enabled");
+
   const style = document.createElement("style");
   style.id = "jgcPwaRefreshStyles";
   style.textContent = `
+    html.jgc-pwa-pull-enabled {
+      background: #ffffff;
+      overscroll-behavior-y: contain;
+    }
+
+    body.jgc-pwa-pulling,
+    body.jgc-pwa-pull-settling {
+      transform: translate3d(0, var(--jgc-pwa-pull-offset, 0px), 0);
+    }
+
+    body.jgc-pwa-pulling {
+      transition: none !important;
+      will-change: transform;
+    }
+
+    body.jgc-pwa-pull-settling {
+      transition: transform 220ms cubic-bezier(0.2, 0.75, 0.25, 1) !important;
+    }
+
     .jgc-pwa-pull-indicator {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 10px);
@@ -4370,14 +4391,38 @@ function activateJgcPwaRefresh() {
   let ready = false;
   let refreshing = false;
   let temporaryMessageTimer = 0;
+  let settleTimer = 0;
 
   function isPageAtTop() {
     return window.scrollY <= 1 && document.documentElement.scrollTop <= 1;
   }
 
+  function releasePagePull() {
+    window.clearTimeout(settleTimer);
+    document.body.classList.remove("jgc-pwa-pulling");
+    document.body.classList.add("jgc-pwa-pull-settling");
+    document.body.style.setProperty("--jgc-pwa-pull-offset", "0px");
+    indicator.style.transform = "translate(-50%, -16px)";
+    settleTimer = window.setTimeout(function() {
+      document.body.classList.remove("jgc-pwa-pull-settling");
+      document.body.style.removeProperty("--jgc-pwa-pull-offset");
+    }, 240);
+  }
+
+  function applyPagePull(pullDistance) {
+    const pullOffset = Math.min(112, Math.round(pullDistance * 0.6));
+
+    window.clearTimeout(settleTimer);
+    document.body.classList.remove("jgc-pwa-pull-settling");
+    document.body.classList.add("jgc-pwa-pulling");
+    document.body.style.setProperty("--jgc-pwa-pull-offset", pullOffset + "px");
+    indicator.style.transform = "translate(-50%, " + Math.round(-pullOffset * 0.46) + "px)";
+  }
+
   function resetPullIndicator() {
     tracking = false;
     ready = false;
+    releasePagePull();
     indicator.classList.remove("is-visible", "is-ready");
     statusText.textContent = "Pull down further to refresh";
   }
@@ -4402,6 +4447,7 @@ function activateJgcPwaRefresh() {
 
     refreshing = true;
     tracking = false;
+    releasePagePull();
     document.body.classList.add("jgc-pwa-refreshing");
     indicator.classList.remove("is-ready");
     indicator.classList.add("is-visible", "is-refreshing");
@@ -4462,6 +4508,7 @@ function activateJgcPwaRefresh() {
     if (pullDistance > 8) {
       event.preventDefault();
       indicator.classList.add("is-visible");
+      applyPagePull(pullDistance);
     }
 
     ready = pullDistance >= refreshThreshold;
