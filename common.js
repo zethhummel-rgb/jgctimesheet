@@ -41,43 +41,6 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "2";
-const JGC_ADMIN_NAV_ITEMS = [
-  { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
-  { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
-  { key: "timesheets", label: "Timesheets", href: "admin.html?tab=timesheets" },
-  { key: "inspections", label: "Inspections", href: "admin.html?tab=inspections" },
-  { key: "vacation", label: "Vacation Requests", href: "admin.html?tab=vacation" },
-  { key: "tasks", label: "Tasks", href: "admin.html?tab=tasks" },
-  { key: "reports", label: "Reports", href: "admin.html?tab=reports" },
-  { key: "workOrders", label: "Work Orders", href: "admin.html?tab=workOrders" },
-  { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html" },
-  { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }
-];
-const JGC_ADMIN_TOOL_SECTIONS = new Set([
-  "employeeProfile",
-  "certificates",
-  "noticePolicy",
-  "jobs",
-  "equipment",
-  "contacts",
-  "subcontractorsSuppliers",
-  "backups"
-]);
-
-function loadJgcDesignSystem() {
-  if (document.querySelector("link[data-jgc-design-system]")) {
-    return;
-  }
-
-  const stylesheet = document.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = "jgc-design-system.css?v=" + JGC_DESIGN_SYSTEM_VERSION;
-  stylesheet.setAttribute("data-jgc-design-system", JGC_DESIGN_SYSTEM_VERSION);
-  document.head.appendChild(stylesheet);
-}
-
-loadJgcDesignSystem();
 
 function jgcScheduleArray(value) {
   if (Array.isArray(value)) {
@@ -863,184 +826,6 @@ async function recordJgcSubcontractorActivity(action) {
   }
 }
 
-function isJgcAdminPageName(page) {
-  return page === "admin.html"
-    || page === "accounts.html"
-    || page === "notification-settings.html"
-    || /-admin\.html$/i.test(page);
-}
-
-function getJgcAdminNavigationSection(page, adminNav) {
-  if (page === "purchase-orders-admin.html") {
-    return "purchaseOrders";
-  }
-
-  if (page !== "admin.html") {
-    return "adminTools";
-  }
-
-  const activeItem = adminNav && adminNav.querySelector(".active[id]");
-  const activeKey = activeItem
-    ? String(activeItem.id || "").replace(/Tab$/i, "")
-    : "";
-
-  if (JGC_ADMIN_NAV_ITEMS.some(function(item) { return item.key === activeKey; })) {
-    return activeKey;
-  }
-
-  const requested = new URLSearchParams(window.location.search).get("tab") || "summary";
-
-  if (JGC_ADMIN_TOOL_SECTIONS.has(requested)) {
-    return "adminTools";
-  }
-
-  return JGC_ADMIN_NAV_ITEMS.some(function(item) { return item.key === requested; })
-    ? requested
-    : "summary";
-}
-
-function renderJgcAdminNavigation(adminNav, page) {
-  const activeSection = getJgcAdminNavigationSection(page, adminNav);
-  adminNav.replaceChildren();
-
-  JGC_ADMIN_NAV_ITEMS.forEach(function(item) {
-    const link = document.createElement("a");
-    link.id = item.key + "Tab";
-    link.className = "tab-button jgc-admin-nav__item";
-    link.href = item.href;
-    link.textContent = item.label;
-    link.setAttribute("data-jgc-admin-section", item.key);
-
-    if (item.key === activeSection) {
-      link.classList.add("active");
-      link.setAttribute("aria-current", "page");
-    }
-
-    if (page === "admin.html" && item.key !== "purchaseOrders") {
-      link.addEventListener("click", function(event) {
-        if (typeof window.showTab !== "function") {
-          return;
-        }
-
-        event.preventDefault();
-        window.showTab(item.key);
-      });
-    }
-
-    adminNav.appendChild(link);
-  });
-}
-
-function markJgcAdminHeaderElements(page) {
-  const title = page === "purchase-orders-admin.html"
-    ? document.querySelector(".po-shell > h1")
-    : document.querySelector("body > h1, .hero h1, .top-actions h1");
-  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #workerName");
-  const brandRegion = document.querySelector(".logo-wrap, .po-brand, .hero, .top-actions .brand");
-  const existingHeader = title && title.closest(".hero, .top-actions");
-
-  if (title) {
-    title.classList.add("jgc-admin-page-title");
-  }
-
-  if (userLine) {
-    userLine.classList.add("jgc-admin-user-line");
-  }
-
-  if (brandRegion) {
-    brandRegion.classList.add("jgc-admin-brand-region");
-  }
-
-  if (existingHeader) {
-    existingHeader.classList.add("jgc-admin-header");
-
-    if (existingHeader.classList.contains("top-actions")) {
-      existingHeader.classList.add("jgc-admin-header--split");
-    }
-  }
-}
-
-function activateJgcDesignSystemHooks() {
-  if (!document.body) {
-    return;
-  }
-
-  const page = getCurrentJgcPageName();
-
-  document.documentElement.setAttribute("data-jgc-design-system", JGC_DESIGN_SYSTEM_VERSION);
-  document.body.classList.add("jgc-app");
-  document.body.setAttribute("data-jgc-page", page.replace(/\.html$/i, ""));
-
-  if (!isJgcAdminPageName(page)) {
-    return;
-  }
-
-  document.body.classList.add("jgc-admin-page");
-
-  let adminNav = Array.from(document.body.children).find(function(element) {
-    return element.matches && element.matches("[data-jgc-admin-nav], .po-admin-tabs, .tabs");
-  });
-
-  if (!adminNav) {
-    adminNav = document.createElement("nav");
-    document.body.insertBefore(adminNav, document.body.firstChild);
-  }
-
-  adminNav.classList.add("jgc-admin-nav");
-  adminNav.setAttribute("data-jgc-admin-nav", "true");
-  adminNav.setAttribute("aria-label", "Admin navigation");
-  renderJgcAdminNavigation(adminNav, page);
-  markJgcAdminHeaderElements(page);
-
-  let lastVisibleAdminSection = "";
-
-  function syncAdminNavigationState() {
-    Array.from(adminNav.children).forEach(function(item) {
-      if (!item.matches || !item.matches("a, button")) {
-        return;
-      }
-
-      item.classList.add("jgc-admin-nav__item");
-
-      if (item.classList.contains("active")) {
-        item.setAttribute("aria-current", "page");
-      } else if (item.getAttribute("aria-current") === "page") {
-        item.removeAttribute("aria-current");
-      }
-    });
-
-    const activeItem = adminNav.querySelector(".active, [aria-current='page']");
-    const activeSection = activeItem
-      ? activeItem.getAttribute("data-jgc-admin-section") || ""
-      : "";
-
-    if (activeItem && activeSection !== lastVisibleAdminSection) {
-      lastVisibleAdminSection = activeSection;
-
-      const revealActiveItem = function() {
-        if (adminNav.scrollWidth > adminNav.clientWidth) {
-          const targetLeft = activeItem.offsetLeft
-            - ((adminNav.clientWidth - activeItem.offsetWidth) / 2);
-          adminNav.scrollLeft = Math.max(0, targetLeft);
-        }
-      };
-
-      window.requestAnimationFrame(revealActiveItem);
-      window.setTimeout(revealActiveItem, 120);
-    }
-  }
-
-  syncAdminNavigationState();
-
-  const observer = new MutationObserver(syncAdminNavigationState);
-  observer.observe(adminNav, {
-    attributes: true,
-    childList: true,
-    subtree: true,
-    attributeFilter: ["class"]
-  });
-}
-
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
@@ -1091,10 +876,10 @@ function activateGlobalTopNavigation() {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--jgc-nav-background, linear-gradient(90deg, rgba(7, 55, 28, 0.98), rgba(11, 94, 59, 0.98)));
-      border-bottom: 1px solid var(--jgc-nav-border, rgba(255, 255, 255, 0.16));
-      box-shadow: var(--jgc-nav-shadow, 0 10px 26px rgba(0, 0, 0, 0.26));
-      font-family: var(--jgc-font-family, Arial, sans-serif);
+      background: linear-gradient(90deg, rgba(7, 55, 28, 0.98), rgba(11, 94, 59, 0.98));
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26);
+      font-family: Arial, sans-serif;
       overflow: hidden;
     }
 
@@ -1107,7 +892,7 @@ function activateGlobalTopNavigation() {
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 7px;
       padding: 9px 12px;
-      background: var(--jgc-nav-item-background, rgba(255, 255, 255, 0.08));
+      background: rgba(255, 255, 255, 0.08);
       color: #ffffff;
       font-size: 13px;
       line-height: 1;
@@ -1120,7 +905,7 @@ function activateGlobalTopNavigation() {
     .jgc-global-top-nav button:hover,
     .jgc-global-top-nav a:hover,
     .jgc-global-top-nav a.active {
-      background: var(--jgc-nav-item-active-background, rgba(57, 200, 72, 0.28));
+      background: rgba(57, 200, 72, 0.28);
     }
 
     .jgc-nav-home,
@@ -1394,10 +1179,10 @@ function activateMobileBottomNavigation() {
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 2px;
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-        background: var(--jgc-nav-mobile-background, rgba(3, 18, 16, 0.98));
-        border-top: 1px solid var(--jgc-nav-accent-border-soft, rgba(64, 220, 78, 0.34));
-        box-shadow: var(--jgc-bottom-nav-shadow, 0 -14px 34px rgba(0, 0, 0, 0.42));
-        font-family: var(--jgc-font-family, Arial, sans-serif);
+        background: rgba(3, 18, 16, 0.98);
+        border-top: 1px solid rgba(64, 220, 78, 0.34);
+        box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.42);
+        font-family: Arial, sans-serif;
       }
 
       .jgc-mobile-bottom-nav a,
@@ -1440,8 +1225,8 @@ function activateMobileBottomNavigation() {
       .jgc-mobile-bottom-nav a.active,
       .jgc-mobile-bottom-nav button.active {
         color: #ffffff;
-        background: var(--jgc-nav-item-active-background, rgba(33, 186, 70, 0.28));
-        border-color: var(--jgc-nav-accent-border, rgba(64, 220, 78, 0.5));
+        background: rgba(33, 186, 70, 0.28);
+        border-color: rgba(64, 220, 78, 0.5);
       }
 
       .jgc-mobile-more-backdrop.open {
@@ -1460,10 +1245,10 @@ function activateMobileBottomNavigation() {
         z-index: 10019;
         display: block;
         padding: 12px;
-        border: 1px solid var(--jgc-nav-sheet-border, rgba(64, 220, 78, 0.4));
+        border: 1px solid rgba(64, 220, 78, 0.4);
         border-radius: 16px;
-        background: var(--jgc-color-surface, rgba(7, 26, 22, 0.98));
-        box-shadow: var(--jgc-nav-sheet-shadow, 0 18px 44px rgba(0, 0, 0, 0.5));
+        background: rgba(7, 26, 22, 0.98);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
         transform: translateY(18px);
         opacity: 0;
         pointer-events: none;
@@ -1478,7 +1263,7 @@ function activateMobileBottomNavigation() {
 
       .jgc-mobile-more-title {
         margin: 0 0 10px;
-        color: var(--jgc-color-brand-400, #37e857);
+        color: #37e857;
         font-size: 14px;
         font-weight: 900;
       }
@@ -1505,8 +1290,8 @@ function activateMobileBottomNavigation() {
       }
 
       .jgc-mobile-more-grid a.active {
-        background: var(--jgc-nav-item-active-soft-background, rgba(33, 186, 70, 0.24));
-        border-color: var(--jgc-nav-accent-border, rgba(64, 220, 78, 0.52));
+        background: rgba(33, 186, 70, 0.24);
+        border-color: rgba(64, 220, 78, 0.52);
       }
     }
   `;
@@ -4279,32 +4064,35 @@ function isInstalledJgcPwa() {
 }
 
 function activateJgcPwaRefresh() {
-  if (!isInstalledJgcPwa() || document.getElementById("jgcPwaPullIndicator")) {
+  if (!isInstalledJgcPwa() || document.getElementById("jgcPwaRefreshButton")) {
     return;
   }
 
   document.body.classList.add("jgc-standalone-pwa");
+
   const style = document.createElement("style");
   style.id = "jgcPwaRefreshStyles";
   style.textContent = `
     .jgc-pwa-pull-indicator {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      top: calc(env(safe-area-inset-top, 0px) + 54px);
       left: 50%;
       z-index: 10030;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      min-height: 32px;
+      min-height: 38px;
       max-width: calc(100vw - 32px);
-      padding: 6px 10px;
-      color: #075c31;
-      background: transparent;
-      border: 0;
+      padding: 8px 14px;
+      color: #ffffff;
+      background: rgba(5, 54, 34, 0.96);
+      border: 1px solid rgba(82, 211, 94, 0.7);
+      border-radius: 19px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       opacity: 0;
       pointer-events: none;
       transform: translate(-50%, -16px);
-      transition: opacity 140ms ease, transform 120ms ease;
+      transition: opacity 140ms ease, transform 140ms ease;
     }
 
     .jgc-pwa-pull-indicator.is-visible {
@@ -4312,7 +4100,8 @@ function activateJgcPwaRefresh() {
       transform: translate(-50%, 0);
     }
 
-    .jgc-pwa-pull-indicator svg {
+    .jgc-pwa-pull-indicator svg,
+    .jgc-pwa-refresh-button svg {
       width: 21px;
       height: 21px;
       flex: 0 0 auto;
@@ -4327,21 +4116,56 @@ function activateJgcPwaRefresh() {
       transform: rotate(180deg);
     }
 
-    .jgc-pwa-pull-indicator.is-refreshing svg {
+    .jgc-pwa-pull-indicator.is-refreshing svg,
+    body.jgc-pwa-refreshing .jgc-pwa-refresh-button svg {
       animation: jgc-pwa-refresh-spin 700ms linear infinite;
     }
 
     .jgc-pwa-pull-indicator span {
       overflow: hidden;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: 0;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
+    .jgc-pwa-refresh-button {
+      display: none;
+    }
+
     @keyframes jgc-pwa-refresh-spin {
       to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 780px) {
+      body.jgc-standalone-pwa .jgc-pwa-refresh-button {
+        position: fixed;
+        right: 12px;
+        bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+        z-index: 10017;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 46px !important;
+        min-width: 46px !important;
+        height: 46px !important;
+        min-height: 46px !important;
+        padding: 0 !important;
+        color: #ffffff;
+        background: #118d42;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 50% !important;
+        box-shadow: 0 7px 20px rgba(0, 0, 0, 0.38);
+      }
+
+      body.jgc-standalone-pwa.jgc-has-mobile-bottom-nav .jgc-pwa-refresh-button {
+        bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+      }
+
+      body.jgc-pwa-refreshing .jgc-pwa-refresh-button {
+        opacity: 0.8;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -4360,12 +4184,21 @@ function activateJgcPwaRefresh() {
   indicator.className = "jgc-pwa-pull-indicator";
   indicator.setAttribute("role", "status");
   indicator.setAttribute("aria-live", "polite");
-  indicator.innerHTML = `${refreshIcon}<span>Pull down further to refresh</span>`;
+  indicator.innerHTML = `${refreshIcon}<span>Pull to refresh</span>`;
+
+  const button = document.createElement("button");
+  button.id = "jgcPwaRefreshButton";
+  button.className = "jgc-pwa-refresh-button";
+  button.type = "button";
+  button.title = "Refresh portal";
+  button.setAttribute("aria-label", "Refresh portal");
+  button.innerHTML = refreshIcon;
 
   document.body.appendChild(indicator);
+  document.body.appendChild(button);
 
   const statusText = indicator.querySelector("span");
-  const refreshThreshold = 117;
+  const refreshThreshold = 78;
   let startX = 0;
   let startY = 0;
   let tracking = false;
@@ -4381,7 +4214,7 @@ function activateJgcPwaRefresh() {
     tracking = false;
     ready = false;
     indicator.classList.remove("is-visible", "is-ready");
-    statusText.textContent = "Pull down further to refresh";
+    statusText.textContent = "Pull to refresh";
   }
 
   function showTemporaryMessage(message) {
@@ -4404,6 +4237,7 @@ function activateJgcPwaRefresh() {
 
     refreshing = true;
     tracking = false;
+    button.disabled = true;
     document.body.classList.add("jgc-pwa-refreshing");
     indicator.classList.remove("is-ready");
     indicator.classList.add("is-visible", "is-refreshing");
@@ -4428,6 +4262,8 @@ function activateJgcPwaRefresh() {
 
     window.location.reload();
   }
+
+  button.addEventListener("click", refreshPortal);
 
   document.addEventListener("touchstart", function(event) {
     if (refreshing || !isPageAtTop() || !event.touches || event.touches.length !== 1) {
@@ -4468,7 +4304,7 @@ function activateJgcPwaRefresh() {
 
     ready = pullDistance >= refreshThreshold;
     indicator.classList.toggle("is-ready", ready);
-    statusText.textContent = ready ? "Release to refresh" : "Pull down further to refresh";
+    statusText.textContent = ready ? "Release to refresh" : "Pull to refresh";
   }, { passive: false });
 
   document.addEventListener("touchend", function() {
@@ -4488,7 +4324,6 @@ function activateJgcPwaRefresh() {
 }
 
 function activateJgcEnhancements() {
-  activateJgcDesignSystemHooks();
   activateGlobalTopNavigation();
   activateMobileBottomNavigation();
   activateJgcPwaRefresh();
