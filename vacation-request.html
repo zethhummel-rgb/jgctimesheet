@@ -324,6 +324,164 @@ th {
     color: #8f1d14;
 }
 
+/* Phase 8 design-system compatibility: preserve the established vacation layout. */
+body.vacation-page.jgc-page {
+    background: #8f9691;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.vacation-page .vacation-page-shell.jgc-page-shell {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 0 80px;
+}
+
+.vacation-page .vacation-page-header.jgc-page-header {
+    display: block;
+    margin-bottom: 0;
+}
+
+.vacation-page .logo-wrap.jgc-brand {
+    display: block;
+}
+
+.vacation-page .container.jgc-panel {
+    max-width: 760px;
+    padding: 20px;
+    color: #1f2a24;
+    background: #fbfcf9;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+.vacation-page .grid.jgc-form-grid,
+.vacation-page .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.vacation-page .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.vacation-page .field.jgc-field {
+    display: flex;
+}
+
+.vacation-page .field.full.jgc-field--full {
+    grid-column: 1 / -1;
+}
+
+.vacation-page .jgc-label {
+    margin-bottom: 0;
+    color: #1f2a24;
+    font-size: 13px;
+}
+
+.vacation-page .jgc-input,
+.vacation-page .jgc-select,
+.vacation-page .jgc-textarea {
+    min-height: 0;
+    padding: 9px;
+    color: #1f2a24;
+    background: #ffffff;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+.vacation-page .jgc-textarea {
+    min-height: 100px;
+}
+
+.vacation-page .actions.jgc-actions,
+.vacation-page .calendar-controls.jgc-toolbar {
+    align-items: center;
+}
+
+.vacation-page .calendar-controls.jgc-toolbar {
+    padding: 0;
+    border: 0;
+}
+
+.vacation-page button.jgc-button {
+    min-height: 0;
+    padding: 11px 16px;
+    background: #0b5e3b;
+    border: 0;
+    border-radius: 4px;
+}
+
+.vacation-page button.jgc-button--secondary {
+    background: #47534b;
+}
+
+.vacation-page button.jgc-button--danger {
+    background: #b42318;
+}
+
+.vacation-page .status.jgc-notice {
+    padding: 0;
+    color: #2f6f3c;
+    background: transparent;
+    border-left: 0;
+}
+
+.vacation-page .history.jgc-section {
+    padding: 18px 0 0;
+}
+
+.vacation-page .history .jgc-section-title {
+    color: #1f2a24;
+}
+
+.vacation-page .summary-box.jgc-card {
+    padding: 10px;
+    color: #1f2a24;
+    background: #ffffff;
+    border: 1px solid #c6cec5;
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+.vacation-page .table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
+.vacation-page table.jgc-table {
+    color: #1f2a24;
+    background: #ffffff;
+}
+
+.vacation-page table.jgc-table th,
+.vacation-page table.jgc-table td {
+    padding: 7px;
+    color: #1f2a24;
+    white-space: normal;
+}
+
+.vacation-page table.jgc-table th {
+    background: #e6ece6;
+}
+
+.vacation-page .status-pill.jgc-badge {
+    display: inline-block;
+    border-radius: 999px;
+}
+
+.vacation-page .empty-history-message.jgc-empty-state {
+    padding: 0;
+    color: #f4fff6;
+    text-align: left;
+    border: 0;
+}
+
 @media (max-width: 720px) {
     body {
         padding: 10px;
@@ -354,67 +512,93 @@ th {
     button {
         width: 100%;
     }
+
+    body.vacation-page.jgc-page {
+        padding: 10px;
+    }
+
+    .vacation-page .container.jgc-panel {
+        padding: 14px;
+    }
+
+    .vacation-page .grid.jgc-form-grid,
+    .vacation-page .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vacation-page .field.full.jgc-field--full {
+        grid-column: auto;
+    }
+
+    .vacation-page .jgc-input,
+    .vacation-page .jgc-select,
+    .vacation-page .jgc-textarea {
+        font-size: 16px;
+    }
 }
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+<body class="vacation-page jgc-page">
+<main class="vacation-page-shell jgc-page-shell">
+<header class="vacation-page-header jgc-page-header">
+<div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
 <div id="currentUser" class="user-bar"></div>
+</header>
 
-<div class="container">
+<section class="container jgc-panel">
     <h1>Vacation Request</h1>
     <div class="subtitle">Submit a request for review</div>
 
-    <div class="grid">
-        <div class="field">
-            <label for="employeeName">Employee Name</label>
-            <input id="employeeName" type="text">
+    <div class="grid jgc-form-grid">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="employeeName">Employee Name</label>
+            <input class="jgc-input" id="employeeName" type="text">
         </div>
 
-        <div class="field">
-            <label for="requestDate">Request Date</label>
-            <input id="requestDate" type="date">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="requestDate">Request Date</label>
+            <input class="jgc-input" id="requestDate" type="date">
         </div>
 
-        <div class="field">
-            <label for="startDate">First Day Off</label>
-            <input id="startDate" type="date" onchange="updateTotalDays()">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="startDate">First Day Off</label>
+            <input class="jgc-input" id="startDate" type="date" onchange="updateTotalDays()">
         </div>
 
-        <div class="field">
-            <label for="endDate">Last Day Off</label>
-            <input id="endDate" type="date" onchange="updateTotalDays()">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="endDate">Last Day Off</label>
+            <input class="jgc-input" id="endDate" type="date" onchange="updateTotalDays()">
         </div>
 
-        <div class="field">
-            <label for="returnDate">Return To Work Date</label>
-            <input id="returnDate" type="date">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="returnDate">Return To Work Date</label>
+            <input class="jgc-input" id="returnDate" type="date">
         </div>
 
-        <div class="field">
-            <label for="totalDays">Requested Work Days</label>
-            <input id="totalDays" type="number" min="0" step="0.5">
+        <div class="field jgc-field">
+            <label class="jgc-label" for="totalDays">Requested Work Days</label>
+            <input class="jgc-input" id="totalDays" type="number" min="0" step="0.5">
         </div>
 
-        <label class="field check-row full">
+        <label class="field check-row full jgc-field jgc-field--full jgc-label">
             <input id="halfDayRequest" type="checkbox" onchange="toggleHalfDayRequest()">
             Half day request
         </label>
 
-        <div id="halfDayFinishWrap" class="field field-hidden">
-            <label for="halfDayFinishTime">Finish Time</label>
-            <select id="halfDayFinishTime">
+        <div id="halfDayFinishWrap" class="field field-hidden jgc-field">
+            <label class="jgc-label" for="halfDayFinishTime">Finish Time</label>
+            <select class="jgc-select" id="halfDayFinishTime">
                 <option value="">Select Finish Time</option>
             </select>
         </div>
 
-        <div class="field full">
-            <label for="requestType">Request Type</label>
-            <select id="requestType">
+        <div class="field full jgc-field jgc-field--full">
+            <label class="jgc-label" for="requestType">Request Type</label>
+            <select class="jgc-select" id="requestType">
                 <option>Vacation</option>
                 <option>Unpaid Time Off</option>
                 <option>Personal Day</option>
@@ -422,39 +606,40 @@ th {
             </select>
         </div>
 
-        <div class="field full">
-            <label for="reason">Notes</label>
-            <textarea id="reason" placeholder="Optional notes for this request"></textarea>
+        <div class="field full jgc-field jgc-field--full">
+            <label class="jgc-label" for="reason">Notes</label>
+            <textarea class="jgc-textarea" id="reason" placeholder="Optional notes for this request"></textarea>
         </div>
 
-        <div class="field full">
-            <label for="employeeSignature">Employee Signature</label>
-            <input id="employeeSignature" type="text" placeholder="Type your name">
+        <div class="field full jgc-field jgc-field--full">
+            <label class="jgc-label" for="employeeSignature">Employee Signature</label>
+            <input class="jgc-input" id="employeeSignature" type="text" placeholder="Type your name">
         </div>
     </div>
 
-    <div class="actions">
-        <button type="button" onclick="submitVacationRequest()">Submit Vacation Request</button>
-        <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
-        <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+    <div class="actions jgc-actions">
+        <button type="button" class="jgc-button" onclick="submitVacationRequest()">Submit Vacation Request</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
 
-    <div id="saveStatus" class="status"></div>
+    <div id="saveStatus" class="status jgc-notice" aria-live="polite"></div>
 
-    <div class="history">
-        <h2>My Vacation Requests</h2>
+    <div class="history jgc-section">
+        <h2 class="jgc-section-title">My Vacation Requests</h2>
         <div id="vacationSummary" class="summary-grid"></div>
 
-        <div class="calendar-controls">
-            <button type="button" class="secondary" onclick="changeVacationMonth(-1)">Previous</button>
+        <div class="calendar-controls jgc-toolbar">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeVacationMonth(-1)">Previous</button>
             <div id="vacationCalendarTitle" class="calendar-title"></div>
-            <button type="button" class="secondary" onclick="changeVacationMonth(1)">Next</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeVacationMonth(1)">Next</button>
         </div>
         <div id="vacationCalendar" class="calendar-grid"></div>
 
-        <div id="requestHistory" class="table-wrap" style="margin-top:14px;">Loading vacation requests...</div>
+        <div id="requestHistory" class="table-wrap jgc-table-wrap" style="margin-top:14px;">Loading vacation requests...</div>
     </div>
-</div>
+</section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
@@ -709,9 +894,9 @@ function renderVacationSummary() {
     const past = myVacationRequests.filter((request) => makeDate(request.end_date) < today).length;
 
     document.getElementById("vacationSummary").innerHTML = `
-        <div class="summary-box"><strong>${approvedFuture}</strong>Approved Upcoming</div>
-        <div class="summary-box"><strong>${pending}</strong>Pending</div>
-        <div class="summary-box"><strong>${past}</strong>Past Requests</div>
+        <div class="summary-box jgc-card"><strong>${approvedFuture}</strong>Approved Upcoming</div>
+        <div class="summary-box jgc-card"><strong>${pending}</strong>Pending</div>
+        <div class="summary-box jgc-card"><strong>${past}</strong>Past Requests</div>
     `;
 }
 
@@ -770,13 +955,13 @@ function renderVacationHistory() {
     renderVacationCalendar();
 
     if (!myVacationRequests.length) {
-        history.innerHTML = '<div class="empty-history-message">No vacation requests submitted yet.</div>';
+        history.innerHTML = '<div class="empty-history-message jgc-empty-state">No vacation requests submitted yet.</div>';
         return;
     }
 
     const sorted = myVacationRequests.slice().sort((a, b) => getRequestSortTime(b) - getRequestSortTime(a));
     history.innerHTML = `
-        <table>
+        <table class="jgc-table">
             <thead>
                 <tr>
                     <th>Dates</th>
@@ -795,9 +980,9 @@ function renderVacationHistory() {
                         </td>
                         <td>${Number(request.total_days || 0).toFixed(1)}</td>
                         <td>${escapeHtml(request.request_type)}</td>
-                        <td><span class="status-pill ${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span></td>
+                        <td><span class="status-pill ${escapeHtml(request.status)} jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(statusLabel(request.status))}</span></td>
                         <td>${escapeHtml(request.admin_note || "")}</td>
-                        <td><button type="button" class="delete-button" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
+                        <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
                     </tr>
                 `).join("")}
             </tbody>

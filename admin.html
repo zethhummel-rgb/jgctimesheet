@@ -2651,6 +2651,110 @@ button.admin-schedule-event-button.admin-event-vacation {
     color: #8f1d14;
 }
 
+/* Phase 8 design-system compatibility for the embedded Vacation Requests section. */
+#vacationSection.jgc-panel {
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    padding: 16px;
+    color: #1f2a24;
+    background: #fbfcf9;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+
+#vacationSection .calendar-controls.jgc-toolbar {
+    padding: 0;
+    border: 0;
+}
+
+#vacationSection .filters.jgc-filter-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+#vacationSection .jgc-label {
+    margin-bottom: 4px;
+    color: #1f2a24;
+    font-size: 13px;
+}
+
+#vacationSection .jgc-input,
+#vacationSection .jgc-select,
+#vacationSection .jgc-textarea {
+    min-height: 0;
+    padding: 8px;
+    color: #1f2a24;
+    background: #ffffff;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#vacationSection .jgc-textarea {
+    min-height: 110px;
+    margin-top: 10px;
+}
+
+#vacationSection button.jgc-button {
+    min-height: 0;
+    padding: 10px 14px;
+    background: #0b5e3b;
+    border: 0;
+    border-radius: 4px;
+}
+
+#vacationSection button.jgc-button--secondary {
+    background: #47534b;
+}
+
+#vacationSection button.jgc-button--danger {
+    background: #b42318;
+}
+
+#vacationSection .table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
+#vacationSection table.jgc-table {
+    min-width: 820px;
+    color: #1f2a24;
+    background: #ffffff;
+}
+
+#vacationSection table.jgc-table th,
+#vacationSection table.jgc-table td {
+    padding: 7px;
+    color: #1f2a24;
+    white-space: normal;
+}
+
+#vacationSection table.jgc-table th {
+    background: #e6ece6;
+}
+
+#vacationSection .jgc-empty-state {
+    color: #1f2a24;
+}
+
+@media (max-width: 780px) {
+    #vacationSection.jgc-panel {
+        padding: 12px;
+    }
+
+    #vacationSection .filters.jgc-filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #vacationSection .jgc-input,
+    #vacationSection .jgc-select,
+    #vacationSection .jgc-textarea {
+        font-size: 16px;
+    }
+}
+
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2873,7 +2977,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 </div>
 
 <div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
 <h1>Admin</h1>
@@ -3329,29 +3433,29 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="certificatesList" class="small">Loading certificates...</div>
 </div>
 
-<div id="vacationSection" class="card" hidden>
-    <h2>Vacation Requests</h2>
+<div id="vacationSection" class="card jgc-panel" hidden>
+    <h2 class="jgc-section-title">Vacation Requests</h2>
     <div class="calendar-panel">
-        <div class="calendar-controls">
-            <button type="button" class="secondary" onclick="changeVacationCalendarMonth(-1)">Previous</button>
+        <div class="calendar-controls jgc-toolbar">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeVacationCalendarMonth(-1)">Previous</button>
             <div id="adminVacationCalendarTitle" class="calendar-title"></div>
-            <button type="button" class="secondary" onclick="changeVacationCalendarMonth(1)">Next</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeVacationCalendarMonth(1)">Next</button>
         </div>
         <div class="calendar-legend">
-            <span class="legend-item approved">Approved</span>
-            <span class="legend-item pending">Pending</span>
-            <span class="legend-item denied">Denied</span>
+            <span class="legend-item approved jgc-badge jgc-badge--success">Approved</span>
+            <span class="legend-item pending jgc-badge jgc-badge--warning">Pending</span>
+            <span class="legend-item denied jgc-badge jgc-badge--danger">Denied</span>
         </div>
         <div id="adminVacationCalendar" class="calendar-grid"></div>
     </div>
-    <div class="filters">
-        <div>
-            <label>Worker</label>
-            <input id="vacationWorkerFilter" oninput="renderVacationRequests()" placeholder="Filter worker">
+    <div class="filters jgc-filter-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="vacationWorkerFilter">Worker</label>
+            <input class="jgc-input" id="vacationWorkerFilter" oninput="renderVacationRequests()" placeholder="Filter worker">
         </div>
-        <div>
-            <label>Status</label>
-            <select id="vacationStatusFilter" onchange="renderVacationRequests()">
+        <div class="jgc-field">
+            <label class="jgc-label" for="vacationStatusFilter">Status</label>
+            <select class="jgc-select" id="vacationStatusFilter" onchange="renderVacationRequests()">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -13484,15 +13588,15 @@ function renderVacationRequests() {
 
     if (!filtered.length) {
         renderVacationCalendar();
-        list.textContent = "No vacation requests found.";
+        list.innerHTML = '<div class="jgc-empty-state">No vacation requests found.</div>';
         return;
     }
 
     renderVacationCalendar();
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr>
                         <th>Worker</th>
@@ -13516,19 +13620,19 @@ function renderVacationRequests() {
                             </td>
                             <td>${Number(request.total_days || 0).toFixed(1)}</td>
                             <td>${escapeHtml(request.request_type)}</td>
-                            <td><b>${escapeHtml(formatVacationStatus(request.status))}</b></td>
+                            <td><span class="jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(formatVacationStatus(request.status))}</span></td>
                             <td>${escapeHtml(request.reason || "")}</td>
                             <td>
-                                <textarea id="vacationNote-${request.id}" rows="3" placeholder="Optional note">${escapeHtml(request.admin_note || "")}</textarea>
+                                <textarea class="jgc-textarea" id="vacationNote-${request.id}" rows="3" placeholder="Optional note">${escapeHtml(request.admin_note || "")}</textarea>
                                 ${request.reviewed_by ? '<div class="small">Reviewed by ' + escapeHtml(request.reviewed_by) + ' on ' + escapeHtml(formatDate(request.reviewed_at)) + '</div>' : ""}
                             </td>
                             <td>
-                                <div class="actions">
-                                    <button type="button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
-                                    <button type="button" class="secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
+                                <div class="actions jgc-table-actions">
+                                    <button type="button" class="jgc-button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
+                                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
                                 </div>
                             </td>
-                            <td><button type="button" class="delete-button" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
+                            <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
