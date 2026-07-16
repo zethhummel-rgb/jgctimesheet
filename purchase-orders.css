@@ -280,6 +280,10 @@ body.po-page {
   grid-template-columns: minmax(0, 1fr) 190px 170px;
 }
 
+.po-filter-row.po-admin-filters.jgc-filter-grid {
+  grid-template-columns: minmax(0, 1fr) 190px 170px;
+}
+
 .po-page label {
   display: block;
   margin-bottom: 5px;
@@ -522,6 +526,15 @@ body.po-page {
   background: var(--po-surface);
 }
 
+.po-metric.jgc-card {
+  border: 0;
+  border-left: 4px solid var(--po-green);
+  border-radius: 0;
+  padding: 11px 13px;
+  background: var(--po-surface);
+  box-shadow: none;
+}
+
 .po-metric strong {
   display: block;
   color: #fff;
@@ -559,6 +572,26 @@ body.po-page {
 }
 
 .po-table td {
+  background: #0d1d17;
+}
+
+.po-table-wrap.jgc-table-wrap {
+  border: 0;
+  border-radius: 0;
+}
+
+.po-table.jgc-table th,
+.po-table.jgc-table td {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 9px;
+}
+
+.po-table.jgc-table th {
+  background: #113b22;
+}
+
+.po-table.jgc-table td,
+.po-table.jgc-table tbody tr:nth-child(even) td {
   background: #0d1d17;
 }
 
@@ -629,6 +662,25 @@ body.po-page {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.po-modal.jgc-modal {
+  z-index: 5000;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.po-modal-dialog.jgc-modal__dialog {
+  width: min(720px, 100%);
+  max-height: 88vh;
+  border-radius: 8px;
+  padding: 18px;
+  background: #0d1e17;
+  box-shadow: none;
+}
+
+.po-modal-header.jgc-modal__header {
+  margin-bottom: 0;
 }
 
 @media (max-width: 900px) {
@@ -818,7 +870,8 @@ body.po-page {
     margin: 12px 0;
   }
 
-  .po-filter-row.po-admin-filters {
+  .po-filter-row.po-admin-filters,
+  .po-filter-row.po-admin-filters.jgc-filter-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -931,7 +984,8 @@ body.po-page {
     margin: 12px 0;
   }
 
-  .po-metric {
+  .po-metric,
+  .po-metric.jgc-card {
     min-width: 0;
     padding: 10px;
   }
@@ -1063,6 +1117,24 @@ body.po-page {
     border-bottom: 1px solid var(--po-border);
     padding: 12px 14px;
     background: #0d1e17;
+  }
+
+  .po-modal.jgc-modal {
+    z-index: 12050;
+    display: block;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .po-modal-dialog.jgc-modal__dialog {
+    width: 100%;
+    height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    max-height: none;
+    border-radius: 7px;
+    padding: 14px;
+  }
+
+  .po-modal-header.jgc-modal__header {
+    margin: -14px -14px 12px;
   }
 
   .po-modal-header h2 {

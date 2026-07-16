@@ -76,6 +76,16 @@
     return labels[value] || String(value || "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function badgeClass(tone) {
+    const sharedTone = {
+      green: "jgc-badge--success",
+      warning: "jgc-badge--warning",
+      danger: "jgc-badge--danger",
+      info: "jgc-badge--info"
+    }[tone] || "";
+    return ["po-badge", "jgc-badge", tone || "", sharedTone].filter(Boolean).join(" ");
+  }
+
   function updateIcons() {
     if (window.lucide && typeof window.lucide.createIcons === "function") {
       window.lucide.createIcons();
@@ -84,7 +94,13 @@
 
   function showNotice(message, kind) {
     elements.notice.textContent = message || "";
-    elements.notice.className = "po-notice" + (kind ? " " + kind : "");
+    elements.notice.className = [
+      "po-notice",
+      "jgc-notice",
+      kind || "",
+      kind === "warning" ? "jgc-notice--warning" : "",
+      kind === "error" ? "jgc-notice--danger" : ""
+    ].filter(Boolean).join(" ");
     elements.notice.hidden = !message;
   }
 
@@ -123,10 +139,10 @@
     const pendingDevices = state.devices.filter((device) => device.status === "pending").length;
     const lowBlocks = state.blocks.filter((block) => block.status === "active" && Number(block.range_end) - Number(block.next_number) + 1 <= 25).length;
     elements.summary.innerHTML = `
-      <div class="po-metric"><strong>${state.orders.length}</strong><span>Digital POs</span></div>
-      <div class="po-metric"><strong>${failed}</strong><span>Email / cleanup failures</span></div>
-      <div class="po-metric"><strong>${pendingDevices}</strong><span>Pending devices</span></div>
-      <div class="po-metric"><strong>${lowBlocks}</strong><span>Low number blocks</span></div>
+      <div class="po-metric jgc-card"><strong>${state.orders.length}</strong><span>Digital POs</span></div>
+      <div class="po-metric jgc-card"><strong>${failed}</strong><span>Email / cleanup failures</span></div>
+      <div class="po-metric jgc-card"><strong>${pendingDevices}</strong><span>Pending devices</span></div>
+      <div class="po-metric jgc-card"><strong>${lowBlocks}</strong><span>Low number blocks</span></div>
     `;
   }
 
@@ -164,15 +180,15 @@
       const statusClass = order.workflow_status === "cancelled" || order.email_status === "failed" ? "danger" : "green";
       return `
         <tr>
-          <td data-label="PO"><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="po-badge ${statusClass}">${escapeText(label(order.workflow_status))}</span></td>
+          <td data-label="PO"><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="${badgeClass(statusClass)}">${escapeText(label(order.workflow_status))}</span></td>
           <td data-label="Date">${escapeText(formatDate(order.order_date))}</td>
           <td data-label="Job">${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
           <td data-label="Supplier">${escapeText(order.supplier_name || "-")}</td>
           <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
           <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
-          <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge danger">Cleanup Failed</span>' : ""}</td>
+          <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge jgc-badge danger jgc-badge--danger">Cleanup Failed</span>' : ""}</td>
           <td data-label="Work Order">${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
-          <td data-label="Actions"><button type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
+          <td data-label="Actions"><button class="jgc-button" type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
         </tr>
       `;
     }).join("") || '<tr class="po-empty-row"><td colspan="9">No purchase orders found.</td></tr>';
@@ -192,16 +208,16 @@
         <tr>
           <td data-label="Employee">${escapeText(profile ? profile.display_name : device.profile_id)}<br><span style="color:#b9c9bd;">${escapeText(profile && profile.email || "")}</span></td>
           <td data-label="Device">${escapeText(device.device_label)}<br><span style="color:#b9c9bd;">Requested ${escapeText(formatDateTime(device.requested_at))}</span></td>
-          <td data-label="Status"><span class="po-badge ${device.status === "active" ? "green" : (device.status === "revoked" ? "danger" : "warning")}">${escapeText(label(device.status))}</span></td>
+          <td data-label="Status"><span class="${badgeClass(device.status === "active" ? "green" : (device.status === "revoked" ? "danger" : "warning"))}">${escapeText(label(device.status))}</span></td>
           <td data-label="Lease">${escapeText(formatDateTime(device.lease_expires_at))}</td>
           <td data-label="Number Blocks">${blockText}</td>
-          <td data-label="Remaining"><span class="po-badge ${remaining <= 25 ? "warning" : "green"}">${remaining}</span></td>
+          <td data-label="Remaining"><span class="${badgeClass(remaining <= 25 ? "warning" : "green")}">${remaining}</span></td>
           <td data-label="Actions">
-            <div class="po-inline-actions">
-              ${canAssign ? `<button type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
-              ${device.status === "active" ? `<button class="secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
-              ${device.status === "revoked" ? `<button type="button" data-unrevoke-device="${escapeText(device.id)}"><i data-lucide="rotate-ccw"></i> Unrevoke</button>` : ""}
-              ${device.status !== "revoked" ? `<button class="danger" type="button" data-revoke-device="${escapeText(device.id)}"><i data-lucide="ban"></i> Revoke</button>` : ""}
+            <div class="po-inline-actions jgc-inline-actions">
+              ${canAssign ? `<button class="jgc-button" type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
+              ${device.status === "active" ? `<button class="secondary jgc-button jgc-button--secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
+              ${device.status === "revoked" ? `<button class="jgc-button" type="button" data-unrevoke-device="${escapeText(device.id)}"><i data-lucide="rotate-ccw"></i> Unrevoke</button>` : ""}
+              ${device.status !== "revoked" ? `<button class="danger jgc-button jgc-button--danger" type="button" data-revoke-device="${escapeText(device.id)}"><i data-lucide="ban"></i> Revoke</button>` : ""}
             </div>
           </td>
         </tr>
@@ -261,7 +277,7 @@
     const link = getOrderLink(id);
     elements.detailsTitle.textContent = formatPoNumber(order.po_number);
     elements.detailsContent.innerHTML = `
-      <div class="po-form-grid">
+      <div class="po-form-grid jgc-form-grid">
         <div><strong>Date</strong><br>${escapeText(formatDate(order.order_date))}</div>
         <div><strong>Job</strong><br>${escapeText(order.job_number + " - " + order.job_name)}</div>
         <div><strong>Supplier</strong><br>${escapeText(order.supplier_name || "-")}</div>
@@ -269,35 +285,35 @@
         <div><strong>Last Edited By</strong><br>${escapeText(order.last_edited_by_name || "Not edited")}</div>
         <div><strong>Submitted by</strong><br>${escapeText(order.submitted_by_name || "Not submitted")}</div>
         <div><strong>Work Order</strong><br>${escapeText(link ? getWorkOrderName(link.work_order_id) : "Not linked")}</div>
-        <div><strong>Workflow</strong><br><span class="po-badge green">${escapeText(label(order.workflow_status))}</span></div>
+        <div><strong>Workflow</strong><br><span class="${badgeClass("green")}">${escapeText(label(order.workflow_status))}</span></div>
         <div><strong>Email / Receipt</strong><br>${escapeText(label(order.email_status))} / ${escapeText(label(order.receipt_status))}</div>
       </div>
-      ${order.email_last_error ? `<div class="po-notice error">${escapeText(order.email_last_error)}</div>` : ""}
-      <section class="po-section-band">
-        <div class="po-inline-actions" style="margin-top:10px;">
-          <button class="secondary" type="button" data-admin-action="pdf"><i data-lucide="file-text"></i> View PDF</button>
-          ${order.workflow_status === "submitted" && order.email_status === "pending" ? '<button type="button" data-admin-action="submit-early"><i data-lucide="send"></i> Submit Early</button>' : ""}
-          ${order.email_status === "failed" || order.receipt_status === "cleanup_failed" ? '<button type="button" data-admin-action="retry"><i data-lucide="send"></i> Retry Delivery</button>' : ""}
-          ${["submitted", "partially_received", "fully_received", "closed", "cancelled"].includes(order.workflow_status) ? '<button class="secondary" type="button" data-admin-action="reopen"><i data-lucide="unlock"></i> Reopen</button>' : ""}
-          ${order.workflow_status === "submitted" ? '<button class="secondary" type="button" data-admin-action="partial">Partially Received</button><button class="secondary" type="button" data-admin-action="full">Fully Received</button>' : ""}
-          ${["submitted", "partially_received", "fully_received"].includes(order.workflow_status) ? '<button class="secondary" type="button" data-admin-action="close">Close</button>' : ""}
-          ${!["cancelled", "closed"].includes(order.workflow_status) ? '<button class="danger" type="button" data-admin-action="cancel"><i data-lucide="ban"></i> Cancel</button>' : ""}
-          <button class="danger" type="button" data-admin-action="delete-test"><i data-lucide="trash-2"></i> Delete PO</button>
+      ${order.email_last_error ? `<div class="po-notice error jgc-notice jgc-notice--danger">${escapeText(order.email_last_error)}</div>` : ""}
+      <section class="po-section-band jgc-section">
+        <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+          <button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="pdf"><i data-lucide="file-text"></i> View PDF</button>
+          ${order.workflow_status === "submitted" && order.email_status === "pending" ? '<button class="jgc-button jgc-button--primary" type="button" data-admin-action="submit-early"><i data-lucide="send"></i> Submit Early</button>' : ""}
+          ${order.email_status === "failed" || order.receipt_status === "cleanup_failed" ? '<button class="jgc-button jgc-button--primary" type="button" data-admin-action="retry"><i data-lucide="send"></i> Retry Delivery</button>' : ""}
+          ${["submitted", "partially_received", "fully_received", "closed", "cancelled"].includes(order.workflow_status) ? '<button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="reopen"><i data-lucide="unlock"></i> Reopen</button>' : ""}
+          ${order.workflow_status === "submitted" ? '<button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="partial">Partially Received</button><button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="full">Fully Received</button>' : ""}
+          ${["submitted", "partially_received", "fully_received"].includes(order.workflow_status) ? '<button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="close">Close</button>' : ""}
+          ${!["cancelled", "closed"].includes(order.workflow_status) ? '<button class="danger jgc-button jgc-button--danger" type="button" data-admin-action="cancel"><i data-lucide="ban"></i> Cancel</button>' : ""}
+          <button class="danger jgc-button jgc-button--danger" type="button" data-admin-action="delete-test"><i data-lucide="trash-2"></i> Delete PO</button>
         </div>
       </section>
-      <section class="po-section-band">
-        <h3>Materials</h3>
-        <div class="po-table-wrap">
-          <table class="po-table" style="min-width:420px;">
+      <section class="po-section-band jgc-section">
+        <h3 class="jgc-section-title">Materials</h3>
+        <div class="po-table-wrap jgc-table-wrap">
+          <table class="po-table jgc-table" style="min-width:420px;">
             <thead><tr><th>Qty Ordered</th><th>Description</th></tr></thead>
             <tbody>${items.map((item) => `<tr><td>${escapeText(item.quantity_ordered)}</td><td>${escapeText(item.description)}</td></tr>`).join("") || '<tr><td colspan="2">No material rows.</td></tr>'}</tbody>
           </table>
         </div>
       </section>
-      <section class="po-section-band">
-        <h3>Audit History</h3>
+      <section class="po-section-band jgc-section">
+        <h3 class="jgc-section-title">Audit History</h3>
         <div class="po-history-list">
-          ${history.map((event) => `<div class="po-history-item"><strong>${escapeText(label(event.event_type))}</strong><span>${escapeText(event.actor_name)} | ${escapeText(formatDateTime(event.created_at))}</span></div>`).join("") || '<div class="po-list-empty">No history found.</div>'}
+          ${history.map((event) => `<div class="po-history-item"><strong>${escapeText(label(event.event_type))}</strong><span>${escapeText(event.actor_name)} | ${escapeText(formatDateTime(event.created_at))}</span></div>`).join("") || '<div class="po-list-empty jgc-empty-state">No history found.</div>'}
         </div>
       </section>
     `;

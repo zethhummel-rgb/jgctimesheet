@@ -9,9 +9,9 @@
   <title>JGC Portal - Purchase Order Admin</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=11">
+  <link rel="stylesheet" href="purchase-orders.css?v=13">
 </head>
-<body class="po-page po-admin-page">
+<body class="po-page po-admin-page jgc-page">
   <nav class="po-admin-tabs" aria-label="Admin navigation">
     <a class="tab-button" href="admin.html?tab=summary">Summary</a>
     <a class="tab-button" href="admin.html?tab=jobDashboard">Job Dashboard</a>
@@ -24,41 +24,43 @@
     <a class="tab-button active" aria-current="page" href="purchase-orders-admin.html">Purchase Orders</a>
     <a class="tab-button" href="admin.html?tab=adminTools">Admin Tools</a>
   </nav>
-  <main class="po-shell">
-    <div class="po-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-    <h1>Purchase Order Admin</h1>
-    <p id="poAdminCurrentUser" class="po-user-line"></p>
+  <main class="po-shell jgc-page-shell">
+    <header class="jgc-page-header">
+      <div class="po-brand jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Purchase Order Admin</h1>
+      <p id="poAdminCurrentUser" class="po-user-line"></p>
+    </header>
 
-    <div id="poAdminNotice" class="po-notice" hidden role="status"></div>
+    <div id="poAdminNotice" class="po-notice jgc-notice" hidden role="status"></div>
 
-    <div class="po-toolbar">
-      <div class="po-toolbar-group">
-        <a class="po-button secondary" href="accounts.html"><i data-lucide="users"></i> Account Permissions</a>
+    <div class="po-toolbar jgc-toolbar">
+      <div class="po-toolbar-group jgc-actions">
+        <a class="po-button secondary jgc-button jgc-button--secondary" href="accounts.html"><i data-lucide="users"></i> Account Permissions</a>
       </div>
-      <div class="po-toolbar-group">
-        <button id="poAdminRefreshButton" type="button"><i data-lucide="refresh-cw"></i> Refresh</button>
+      <div class="po-toolbar-group jgc-actions">
+        <button id="poAdminRefreshButton" class="jgc-button" type="button"><i data-lucide="refresh-cw"></i> Refresh</button>
       </div>
     </div>
 
     <div id="poAdminSummary" class="po-admin-summary"></div>
 
-    <div class="po-tabs" role="tablist" aria-label="Purchase order administration views">
-      <button class="active" type="button" data-admin-tab="devices">Devices and Number Blocks</button>
-      <button class="secondary" type="button" data-admin-tab="drafts">Drafts</button>
-      <button class="secondary" type="button" data-admin-tab="pending">Pending Submission</button>
-      <button class="secondary" type="button" data-admin-tab="submitted">Submitted</button>
-      <button class="secondary" type="button" data-admin-tab="cancelled">Cancelled</button>
+    <div class="po-tabs jgc-tabs" role="tablist" aria-label="Purchase order administration views">
+      <button class="active jgc-tab" type="button" data-admin-tab="devices">Devices and Number Blocks</button>
+      <button class="secondary jgc-tab" type="button" data-admin-tab="drafts">Drafts</button>
+      <button class="secondary jgc-tab" type="button" data-admin-tab="pending">Pending Submission</button>
+      <button class="secondary jgc-tab" type="button" data-admin-tab="submitted">Submitted</button>
+      <button class="secondary jgc-tab" type="button" data-admin-tab="cancelled">Cancelled</button>
     </div>
 
     <section id="poAdminOrdersView" class="po-view">
-      <div class="po-filter-row po-admin-filters">
-        <div>
-          <label for="poAdminSearch">Search</label>
-          <input id="poAdminSearch" type="search" placeholder="PO, job, supplier, creator, or assignee">
+      <div class="po-filter-row po-admin-filters jgc-filter-grid">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poAdminSearch">Search</label>
+          <input id="poAdminSearch" class="jgc-input" type="search" placeholder="PO, job, supplier, creator, or assignee">
         </div>
-        <div>
-          <label for="poAdminStatusFilter">Status</label>
-          <select id="poAdminStatusFilter">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poAdminStatusFilter">Status</label>
+          <select id="poAdminStatusFilter" class="jgc-select">
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
             <option value="assigned">Assigned</option>
@@ -71,13 +73,13 @@
             <option value="failed">Email Failed</option>
           </select>
         </div>
-        <div>
-          <label for="poAdminDateFilter">Date</label>
-          <input id="poAdminDateFilter" type="date">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poAdminDateFilter">Date</label>
+          <input id="poAdminDateFilter" class="jgc-input" type="date">
         </div>
       </div>
-      <div class="po-table-wrap">
-        <table class="po-table">
+      <div class="po-table-wrap jgc-table-wrap">
+        <table class="po-table jgc-table">
           <thead>
             <tr>
               <th>PO</th>
@@ -97,8 +99,8 @@
     </section>
 
     <section id="poAdminDevicesView" class="po-view" hidden>
-      <div class="po-table-wrap">
-        <table class="po-table">
+      <div class="po-table-wrap jgc-table-wrap">
+        <table class="po-table jgc-table">
           <thead>
             <tr>
               <th>Employee</th>
@@ -116,39 +118,39 @@
     </section>
   </main>
 
-  <div id="poAdminDetailsModal" class="po-modal" hidden>
-    <div class="po-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="poAdminDetailsTitle">
-      <div class="po-modal-header">
+  <div id="poAdminDetailsModal" class="po-modal jgc-modal" hidden>
+    <div class="po-modal-dialog jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="poAdminDetailsTitle">
+      <div class="po-modal-header jgc-modal__header">
         <h2 id="poAdminDetailsTitle">Purchase Order</h2>
-        <button class="icon-button secondary" type="button" data-close-modal="poAdminDetailsModal" title="Close" aria-label="Close">X</button>
+        <button class="icon-button secondary jgc-button jgc-button--secondary jgc-button--icon" type="button" data-close-modal="poAdminDetailsModal" title="Close" aria-label="Close">X</button>
       </div>
       <div id="poAdminDetailsContent"></div>
     </div>
   </div>
 
-  <div id="poBlockModal" class="po-modal" hidden>
-    <div class="po-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="poBlockModalTitle">
-      <div class="po-modal-header">
+  <div id="poBlockModal" class="po-modal jgc-modal" hidden>
+    <div class="po-modal-dialog jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="poBlockModalTitle">
+      <div class="po-modal-header jgc-modal__header">
         <h2 id="poBlockModalTitle">Assign Number Block</h2>
-        <button class="icon-button secondary" type="button" data-close-modal="poBlockModal" title="Close" aria-label="Close">X</button>
+        <button class="icon-button secondary jgc-button jgc-button--secondary jgc-button--icon" type="button" data-close-modal="poBlockModal" title="Close" aria-label="Close">X</button>
       </div>
       <input id="poBlockDeviceId" type="hidden">
-      <div class="po-form-grid">
-        <div>
-          <label for="poBlockStart">First PO Number</label>
-          <input id="poBlockStart" type="number" min="30000" step="1">
+      <div class="po-form-grid jgc-form-grid">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poBlockStart">First PO Number</label>
+          <input id="poBlockStart" class="jgc-input" type="number" min="30000" step="1">
         </div>
-        <div>
-          <label for="poBlockEnd">Last PO Number</label>
-          <input id="poBlockEnd" type="number" min="30000" step="1">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poBlockEnd">Last PO Number</label>
+          <input id="poBlockEnd" class="jgc-input" type="number" min="30000" step="1">
         </div>
-        <div>
-          <label for="poBlockLeaseDays">Offline Lease Days</label>
-          <input id="poBlockLeaseDays" type="number" min="1" max="90" value="30">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poBlockLeaseDays">Offline Lease Days</label>
+          <input id="poBlockLeaseDays" class="jgc-input" type="number" min="1" max="90" value="30">
         </div>
       </div>
-      <div class="po-form-actions" style="position:static;">
-        <button id="poAssignBlockButton" type="button"><i data-lucide="check"></i> Assign Block</button>
+      <div class="po-form-actions jgc-actions" style="position:static;">
+        <button id="poAssignBlockButton" class="jgc-button" type="button"><i data-lucide="check"></i> Assign Block</button>
       </div>
     </div>
   </div>
@@ -158,6 +160,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=24"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders-admin.js?v=8"></script>
+  <script src="purchase-orders-admin.js?v=9"></script>
 </body>
 </html>
