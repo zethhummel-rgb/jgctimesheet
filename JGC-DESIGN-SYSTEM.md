@@ -102,6 +102,7 @@ The shared hook adds `jgc-admin-page-title`, `jgc-admin-user-line`, and `jgc-adm
 - **Step 1:** shared tokens and opt-in components, loaded on every portal page.
 - **Step 2:** centralized admin navigation and semantic admin header hooks.
 - **Step 3:** controlled page migration covers the employee and admin Purchase Orders pages. Existing `po-*` hooks remain in place while shared page, button, tab, form, badge, notice, section, action, card, table, and modal classes are added alongside them.
+- **Step 4:** the Accounts page now uses shared page, admin navigation, header, panel, filter, input, button, badge, table, and action semantics. Its existing light permissions panel, status colors, dimensions, and workflows remain protected by page-specific compatibility rules.
 - Existing data tables, feature tabs, forms, cards, and workflows remain unchanged until deliberately migrated and tested.
 
 ## Change Checklist

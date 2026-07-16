@@ -17,6 +17,31 @@ body {
     color: #f4fff6;
 }
 
+/* Phase 4 compatibility: shared semantics without changing Accounts geometry. */
+.accounts-shell.jgc-page-shell {
+    width: 100%;
+    padding-block: 0;
+}
+
+.accounts-page.jgc-page {
+    margin: 0;
+    padding: 0 20px 20px;
+    color: #f4fff6;
+    background: radial-gradient(circle at top, #062817 0, #020b08 58%);
+    font-family: Arial, sans-serif;
+    line-height: normal;
+}
+
+.accounts-page-header.jgc-page-header {
+    gap: 0;
+    margin-bottom: 0;
+}
+
+.accounts-page-header.jgc-page-header h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+}
+
 .logo-wrap {
     max-width: 347px;
     margin: 0 auto 8px;
@@ -54,6 +79,11 @@ h1 {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.actions.jgc-actions {
+    align-items: center;
+    gap: 8px;
 }
 
 .tabs {
@@ -134,11 +164,33 @@ h1 {
     padding: 16px;
 }
 
+.panel.jgc-panel {
+    max-width: 1100px;
+    padding: 16px;
+    color: #18211b;
+    background: #fbfcf9;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+
 .filters {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 10px;
     margin-bottom: 12px;
+}
+
+.filters.jgc-filter-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.accounts-page .panel .jgc-label {
+    margin-bottom: 4px;
+    color: #18211b;
+    font-size: 13px;
 }
 
 label {
@@ -158,14 +210,36 @@ textarea {
     border-radius: 4px;
 }
 
+.accounts-page .jgc-input,
+.accounts-page .jgc-select,
+.accounts-page .jgc-textarea {
+    min-height: 0;
+    padding: 8px;
+    color: #18211b;
+    background: #ffffff;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+}
+
 .table-wrap {
     overflow-x: auto;
+}
+
+.table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
 }
 
 table {
     width: 100%;
     min-width: 840px;
     border-collapse: collapse;
+    background: #ffffff;
+}
+
+.accounts-table.jgc-table {
+    min-width: 840px;
+    color: #18211b;
     background: #ffffff;
 }
 
@@ -182,12 +256,51 @@ th {
     background: #e6ece6;
 }
 
+.accounts-table.jgc-table th,
+.accounts-table.jgc-table td {
+    border: 1px solid #c6cec5;
+    padding: 7px;
+    color: #18211b;
+    background: #ffffff;
+    font-size: 13px;
+}
+
+.accounts-table.jgc-table th {
+    background: #e6ece6;
+}
+
+.accounts-table.jgc-table tbody tr:nth-child(even) td {
+    background: #ffffff;
+}
+
 .status {
     display: inline-block;
     border-radius: 999px;
     padding: 3px 8px;
     font-weight: bold;
     font-size: 12px;
+}
+
+.status.jgc-badge {
+    display: inline-block;
+    min-height: 0;
+    padding: 3px 8px;
+    border: 0;
+}
+
+.status.pending.jgc-badge {
+    color: #684d00;
+    background: #fff2c2;
+}
+
+.status.approved.jgc-badge {
+    color: #1d5b28;
+    background: #dcefdc;
+}
+
+.status.inactive.jgc-badge {
+    color: #7b1f1f;
+    background: #f4d3d3;
 }
 
 .pending {
@@ -239,6 +352,34 @@ button {
     font-weight: bold;
 }
 
+.accounts-page .jgc-button {
+    min-height: 0;
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 4px;
+    line-height: normal;
+}
+
+.accounts-page .jgc-button:hover {
+    filter: none;
+}
+
+.accounts-page .secondary.jgc-button {
+    background: #47534b;
+}
+
+.accounts-page .secondary.jgc-button:hover {
+    background: #354039;
+}
+
+.accounts-page .danger.jgc-button {
+    background: #8b2e2e;
+}
+
+.accounts-page .danger.jgc-button:hover {
+    background: #692222;
+}
+
 button:hover {
     background: #08452b;
 }
@@ -265,6 +406,10 @@ button:hover {
     flex-wrap: wrap;
 }
 
+.row-actions.jgc-table-actions {
+    gap: 6px;
+}
+
 .small {
     font-size: 13px;
     color: #58635c;
@@ -272,6 +417,10 @@ button:hover {
 
 @media (max-width: 720px) {
     body {
+        padding: 10px;
+    }
+
+    .accounts-page.jgc-page {
         padding: 10px;
     }
 
@@ -318,8 +467,8 @@ button:hover {
 </style>
 </head>
 
-<body>
-<div class="tabs">
+<body class="accounts-page jgc-page">
+<div class="tabs jgc-admin-nav">
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
@@ -332,29 +481,32 @@ button:hover {
     <button type="button" class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
 </div>
 
-<div class="logo-wrap">
-    <img src="logo.webp" alt="John Gordon Construction logo">
+<main class="accounts-shell jgc-page-shell">
+<header class="accounts-page-header jgc-page-header">
+    <div class="logo-wrap jgc-brand">
+        <img src="logo.webp" alt="John Gordon Construction logo">
+    </div>
+
+    <h1>Accounts</h1>
+    <div id="currentUser" class="user-bar"></div>
+</header>
+
+<div class="actions jgc-actions">
+    <button class="jgc-button" type="button" onclick="loadAccounts()">Refresh Accounts</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='purchase-orders-admin.html'">Purchase Order Admin</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
-<h1>Accounts</h1>
-<div id="currentUser" class="user-bar"></div>
-
-<div class="actions">
-    <button type="button" onclick="loadAccounts()">Refresh Accounts</button>
-    <button class="secondary" type="button" onclick="window.location.href='purchase-orders-admin.html'">Purchase Order Admin</button>
-    <button class="secondary" type="button" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
-    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
-</div>
-
-<div class="panel">
-    <div class="filters">
-        <div>
-            <label>Search</label>
-            <input id="searchInput" oninput="renderAccounts()" placeholder="Name or email">
+<div class="panel jgc-panel">
+    <div class="filters jgc-filter-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="searchInput">Search</label>
+            <input id="searchInput" class="jgc-input" oninput="renderAccounts()" placeholder="Name or email">
         </div>
-        <div>
-            <label>Status</label>
-            <select id="statusFilter" onchange="renderAccounts()">
+        <div class="jgc-field">
+            <label class="jgc-label" for="statusFilter">Status</label>
+            <select id="statusFilter" class="jgc-select" onchange="renderAccounts()">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
@@ -362,8 +514,9 @@ button:hover {
             </select>
         </div>
     </div>
-    <div id="accountsList" class="small">Loading accounts...</div>
+    <div id="accountsList" class="small accounts-list">Loading accounts...</div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='vendor/supabase-js.min.js?v=1';"></script>
   <script src="common.js?v=24"></script>
@@ -404,8 +557,8 @@ function renderAccounts() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="accounts-table jgc-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -421,20 +574,25 @@ function renderAccounts() {
                     ${filtered.map((account) => {
                         const isSelf = account.id === currentUserId;
                         const statusClass = account.account_status || "pending";
+                        const statusToneClass = statusClass === "approved"
+                            ? "jgc-badge--success"
+                            : statusClass === "inactive"
+                                ? "jgc-badge--danger"
+                                : "jgc-badge--warning";
                         return `
                             <tr>
                                 <td>${escapeHtml(account.display_name)}</td>
                                 <td>${escapeHtml(account.email)}</td>
-                                <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusClass)}</span></td>
+                                <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusClass)}</span></td>
                                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
-                                <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
+                                <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
                                 <td>${escapeHtml(formatDate(account.created_at))}</td>
                                 <td>
-                                    <div class="row-actions">
-                                        ${account.account_status !== "approved" ? `<button type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
-                                        ${account.account_status === "inactive" ? `<button type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
-                                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
-                                        ${account.account_status === "approved" ? `<button type="button" class="secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
+                                    <div class="row-actions jgc-table-actions">
+                                        ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
+                                        ${account.account_status === "inactive" ? `<button class="jgc-button" type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
+                                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger jgc-button jgc-button--danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
+                                        ${account.account_status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
                                         ${renderAccountTypeActions(account, isSelf)}
                                     </div>
                                 </td>
@@ -467,15 +625,15 @@ function renderAccountTypeActions(account, isSelf) {
     const actions = [];
 
     if (role !== "worker") {
-        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'worker')">Make Employee</button>`);
+        actions.push(`<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setRole('${account.id}', 'worker')">Make Employee</button>`);
     }
 
     if (role !== "supervisor") {
-        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'supervisor')">Make Supervisor</button>`);
+        actions.push(`<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setRole('${account.id}', 'supervisor')">Make Supervisor</button>`);
     }
 
     if (role !== "admin") {
-        actions.push(`<button type="button" class="secondary" onclick="setRole('${account.id}', 'admin')">Make Admin</button>`);
+        actions.push(`<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setRole('${account.id}', 'admin')">Make Admin</button>`);
     }
 
     return actions.join("");
