@@ -3153,7 +3153,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     <h2 class="portal-summary-title">Portal Summary</h2>
     <div class="admin-global-search">
         <div class="admin-global-search-row">
-            <input id="adminGlobalSearchInput" type="search" placeholder="Search dates, names, jobs, WO numbers..." autocomplete="off" oninput="scheduleAdminGlobalSearch()" onkeydown="handleAdminGlobalSearchKeydown(event)">
+            <input id="adminGlobalSearchInput" type="search" placeholder="Search dates, names, jobs, WO or PO numbers..." autocomplete="off" oninput="scheduleAdminGlobalSearch()" onkeydown="handleAdminGlobalSearchKeydown(event)">
             <button id="adminGlobalSearchButton" type="button" onclick="searchAdminEverything()">Search</button>
         </div>
         <div id="adminGlobalSearchStatus" class="small admin-global-search-status"></div>
@@ -4217,6 +4217,7 @@ let employeeInjuryAcknowledgements = [];
 let policies = [];
 let jobs = [];
 let workOrders = [];
+let digitalPurchaseOrders = [];
 let workOrderLabourRows = [];
 let workOrderPurchaseOrders = [];
 let adminWorkOrderDigitalPoCounts = {};
@@ -5350,6 +5351,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("policies").select("*").eq("is_active", true).order("sort_order", { ascending: true }).order("title", { ascending: true }),
         supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }),
         supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabaseClient.from("digital_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false }).limit(2000),
         supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
         supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("work_order_equipment").select("*"),
@@ -5374,7 +5376,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, digitalPurchaseOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -5411,6 +5413,7 @@ async function loadAdminData(options = {}) {
     policies = policyResult.data || [];
     jobs = jobsResult.data || [];
     workOrders = workOrderResult.data || [];
+    digitalPurchaseOrders = digitalPurchaseOrderResult.data || [];
     workOrderLabourRows = workOrderLabourResult.data || [];
     workOrderPurchaseOrders = workOrderPoResult.data || [];
     workOrderEquipmentRows = workOrderEquipmentResult.data || [];
@@ -5608,6 +5611,11 @@ function joinAdminGlobalSearchDetails(record, keys) {
     return values.slice(0, 4).join(" | ");
 }
 
+function formatAdminGlobalSearchPoNumber(value) {
+    const normalized = String(value || "").trim().replace(/^po[-\s]*/i, "");
+    return normalized ? "PO-" + normalized : "PO record";
+}
+
 function addAdminGlobalSearchCollection(index, config) {
     (config.records || []).forEach((record, recordIndex) => {
         const titleValue = typeof config.title === "function"
@@ -5625,6 +5633,7 @@ function addAdminGlobalSearchCollection(index, config) {
         }
 
         index.push({
+            group: config.group || "",
             category: config.category,
             title: titleValue || config.category + " record",
             detail: detailValue,
@@ -5665,6 +5674,7 @@ function buildAdminGlobalSearchIndex() {
         { category: "Safety Acknowledgement", records: safetyAcknowledgements, tab: "reports", keywords: "safety acknowledgement employee worker", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateKeys: ["record_date", "acknowledged_at", "created_at"] },
         { category: "Job", records: jobs, tab: "jobDashboard", keywords: "job job number project site", title: (record) => [getAdminGlobalSearchValue(record, ["job_number"]), getAdminGlobalSearchValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
         { category: "Work Order", records: workOrders, tab: "workOrders", action: "work_order", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getAdminGlobalSearchValue(record, ["wo_number", "work_order_number", "number"]) || getAdminGlobalSearchValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
+        { group: "Purchase Orders", category: "Purchase Order", records: digitalPurchaseOrders, tab: "summary", action: "digital_purchase_order", keywords: "purchase order po po number supplier creator submitter job materials", title: (record) => formatAdminGlobalSearchPoNumber(getAdminGlobalSearchValue(record, ["po_number"])), detailKeys: ["supplier_name", "job_number", "job_name", "workflow_status"], dateKeys: ["order_date", "created_at"] },
         { category: "Work Order Labour", records: workOrderLabourRows, tab: "workOrders", keywords: "work order wo labour employee worker hours", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
         { category: "Work Order PO", records: workOrderPurchaseOrders, tab: "workOrders", keywords: "work order wo purchase order po supplier", titleKeys: ["po_number", "purchase_order_number", "supplier"], detailKeys: ["wo_number", "job_number", "description", "amount"], dateKeys: ["po_date", "created_at"] },
         { category: "Work Order Equipment", records: workOrderEquipmentRows, tab: "workOrders", keywords: "work order wo equipment vehicle", titleKeys: ["equipment_name", "name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
@@ -5974,6 +5984,21 @@ function buildAdminDateSearchResults(dateSearch) {
         ));
     });
 
+    const matchingPurchaseOrders = digitalPurchaseOrders.filter((purchaseOrder) => {
+        return adminRecordMatchesDate(purchaseOrder, ["order_date"], dateKey);
+    });
+
+    matchingPurchaseOrders.forEach((purchaseOrder) => {
+        results.push(makeAdminDateSearchResult(
+            "Purchase Orders",
+            "Purchase Order",
+            formatAdminGlobalSearchPoNumber(getAdminGlobalSearchValue(purchaseOrder, ["po_number"])),
+            joinAdminGlobalSearchDetails(purchaseOrder, ["supplier_name", "job_number", "job_name", "workflow_status"]),
+            "summary",
+            { action: "digital_purchase_order", recordId: purchaseOrder.id || "", sortDate: purchaseOrder.order_date || "" }
+        ));
+    });
+
     function addMatchingRecords(records, config) {
         records.filter((record) => adminRecordMatchesDate(record, config.dateFields, dateKey)).forEach((record) => {
             const title = typeof config.title === "function"
@@ -6021,7 +6046,7 @@ function buildAdminDateSearchResults(dateSearch) {
     const totalHours = workEntries.reduce((sum, item) => sum + item.hours, 0);
     return {
         results,
-        summary: dateSearch.label + ": " + workEntries.length + " work entr" + (workEntries.length === 1 ? "y" : "ies") + ", " + totalHours.toFixed(2) + " hours, " + jobsWorked.size + " job" + (jobsWorked.size === 1 ? "" : "s") + ", " + matchingWorkOrderIds.size + " work order" + (matchingWorkOrderIds.size === 1 ? "" : "s") + "."
+        summary: dateSearch.label + ": " + workEntries.length + " work entr" + (workEntries.length === 1 ? "y" : "ies") + ", " + totalHours.toFixed(2) + " hours, " + jobsWorked.size + " job" + (jobsWorked.size === 1 ? "" : "s") + ", " + matchingWorkOrderIds.size + " work order" + (matchingWorkOrderIds.size === 1 ? "" : "s") + ", " + matchingPurchaseOrders.length + " purchase order" + (matchingPurchaseOrders.length === 1 ? "" : "s") + "."
     };
 }
 
@@ -6029,6 +6054,7 @@ function getAdminGlobalSearchGroup(item) {
     const category = String(item.category || "").toLowerCase();
 
     if (category.includes("timesheet")) return "Time & Attendance";
+    if (category.includes("purchase order")) return "Purchase Orders";
     if (category.includes("work order") || category === "job") return "Jobs & Work Orders";
     if (category.includes("inspection")) return "Inspections";
     if (/report|toolbox|accident|injury|acknowledgement/.test(category)) return "Reports & Submissions";
@@ -6108,6 +6134,7 @@ function renderAdminGlobalSearchResults(query) {
             "Jobs Worked",
             "Leave Entries",
             "Work Orders",
+            "Purchase Orders",
             "Inspections",
             "Reports & Submissions",
             "Schedule & Tasks"
@@ -6132,6 +6159,7 @@ function renderAdminGlobalSearchResults(query) {
     renderAdminGlobalSearchGroupedResults(visibleMatches, statusText, [
         "Time & Attendance",
         "Jobs & Work Orders",
+        "Purchase Orders",
         "Inspections",
         "Reports & Submissions",
         "People & Leave",
@@ -6199,6 +6227,11 @@ function openAdminGlobalSearchResult(index) {
     const result = adminGlobalSearchResults[index];
 
     if (!result) {
+        return;
+    }
+
+    if (result.action === "digital_purchase_order" && result.recordId) {
+        window.location.href = "purchase-orders-admin.html?po=" + encodeURIComponent(result.recordId);
         return;
     }
 
