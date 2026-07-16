@@ -4384,7 +4384,7 @@ function activateJgcPwaRefresh() {
   document.body.appendChild(indicator);
 
   const statusText = indicator.querySelector("span");
-  const refreshThreshold = 117;
+  const refreshThreshold = 176;
   let startX = 0;
   let startY = 0;
   let tracking = false;
