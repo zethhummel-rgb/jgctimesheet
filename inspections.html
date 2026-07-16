@@ -17,6 +17,76 @@ body {
     color: #1f2a24;
 }
 
+/* Phase 6 compatibility: shared inspection semantics without changing geometry. */
+body.inspections-hub-page.jgc-page {
+    background: #8f9691;
+    padding: 20px;
+    color: #1f2a24;
+    line-height: normal;
+}
+
+.inspections-hub-page .inspection-page-shell.jgc-page-shell {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+}
+
+.inspections-hub-page .inspection-page-header.jgc-page-header {
+    display: block;
+    margin-bottom: 0;
+}
+
+.inspections-hub-page .logo-wrap.jgc-brand {
+    display: block;
+}
+
+.inspections-hub-page .logo-wrap.jgc-brand img {
+    width: 100%;
+    max-width: 347px;
+}
+
+.inspections-hub-page .container.jgc-panel {
+    max-width: 1050px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 24px;
+    border-radius: 8px;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+.inspections-hub-page .container h1.jgc-section-title {
+    margin: 0 0 6px;
+    color: #2f6f3c;
+    font-size: 2em;
+}
+
+.inspections-hub-page .inspection-card.jgc-card {
+    min-height: 96px;
+    border: 1px solid #cad6c9;
+    background: #ffffff;
+    color: #1f2a24;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.inspections-hub-page .actions.jgc-actions {
+    margin-top: 24px;
+    justify-content: center;
+}
+
+.inspections-hub-page .small-button.jgc-button {
+    min-height: 0;
+    border: none;
+    background: #47534b;
+    border-radius: 4px;
+    padding: 10px 15px;
+    font-family: Arial, sans-serif;
+    font-size: 15px;
+}
+
 .logo-wrap {
     max-width: 347px;
     margin: 0 auto 8px;
@@ -124,11 +194,13 @@ h1 {
 }
 
 @media (max-width: 640px) {
-    body {
+    body,
+    body.inspections-hub-page.jgc-page {
         padding: 12px;
     }
 
-    .container {
+    .container,
+    .inspections-hub-page .container.jgc-panel {
         padding: 18px 14px;
     }
 
@@ -136,7 +208,8 @@ h1 {
         grid-template-columns: 1fr;
     }
 
-    .inspection-card {
+    .inspection-card,
+    .inspections-hub-page .inspection-card.jgc-card {
         min-height: 78px;
         padding: 15px;
     }
@@ -144,59 +217,63 @@ h1 {
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
+<body class="inspections-hub-page jgc-page">
+<main class="inspection-page-shell jgc-page-shell">
+<header class="inspection-page-header jgc-page-header">
+<div class="logo-wrap jgc-brand">
     <img src="logo.png" alt="John Gordon Construction logo">
 </div>
 
 <div class="user-bar" id="userBar"></div>
+</header>
 
-<div class="container">
-    <h1>Inspections</h1>
+<div class="container jgc-panel">
+    <h1 class="jgc-section-title">Inspections</h1>
     <div class="subtitle">Choose an inspection form</div>
 
     <div class="inspection-grid">
-        <button class="inspection-card" type="button" onclick="window.location.href='todays-inspections.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='todays-inspections.html'">
             <strong>Today's Inspections</strong>
             <span>Saved inspections from the last 24 hours</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='aerial-lifts.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='aerial-lifts.html'">
             <strong>Aerial Lifts</strong>
             <span>Pre-use inspection form</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='forklift.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='forklift.html'">
             <strong>Fork Lift</strong>
             <span>Daily inspection form</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='tele-handler.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='tele-handler.html'">
             <strong>Tele Handler</strong>
             <span>Daily checklist</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='vehicle-inspection.html?mode=manual'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='vehicle-inspection.html?mode=manual'">
             <strong>Vehicle Inspections</strong>
             <span>Daily vehicle or trailer inspection</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='harness.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='harness.html'">
             <strong>Harness</strong>
             <span>Inspection checklist</span>
         </button>
 
-        <button class="inspection-card" type="button" onclick="window.location.href='previous-inspections.html'">
+        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='previous-inspections.html'">
             <strong>Previous Inspections</strong>
             <span>Saved inspections from the last 2 months</span>
         </button>
     </div>
 
-    <div class="actions">
-        <button class="small-button" type="button" onclick="window.location.href='home.html'">Home</button>
-        <button class="small-button" type="button" onclick="signOut()">Sign Out</button>
+    <div class="actions jgc-actions">
+        <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+        <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
     </div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

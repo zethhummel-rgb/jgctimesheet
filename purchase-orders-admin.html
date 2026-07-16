@@ -9,7 +9,7 @@
   <title>JGC Portal - Purchase Order Admin</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=14">
+  <link rel="stylesheet" href="purchase-orders.css?v=15">
 </head>
 <body class="po-page po-admin-page jgc-page">
   <nav class="po-admin-tabs" aria-label="Admin navigation">
@@ -78,7 +78,8 @@
           <input id="poAdminDateFilter" class="jgc-input" type="date">
         </div>
       </div>
-      <div class="po-table-wrap jgc-table-wrap">
+      <div id="poAdminSubmittedGroups" class="po-submitted-groups" hidden></div>
+      <div id="poAdminOrdersTableWrap" class="po-table-wrap jgc-table-wrap">
         <table class="po-table jgc-table">
           <thead>
             <tr>
@@ -160,6 +161,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=24"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders-admin.js?v=9"></script>
+  <script src="purchase-orders-admin.js?v=10"></script>
 </body>
 </html>

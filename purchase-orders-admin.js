@@ -146,6 +146,79 @@
     `;
   }
 
+  function renderOrderRow(order) {
+    const link = getOrderLink(order.id);
+    const statusClass = order.workflow_status === "cancelled" || order.email_status === "failed" ? "danger" : "green";
+    return `
+      <tr>
+        <td data-label="PO"><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="${badgeClass(statusClass)}">${escapeText(label(order.workflow_status))}</span></td>
+        <td data-label="Date">${escapeText(formatDate(order.order_date))}</td>
+        <td data-label="Job">${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
+        <td data-label="Supplier">${escapeText(order.supplier_name || "-")}</td>
+        <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
+        <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
+        <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge jgc-badge danger jgc-badge--danger">Cleanup Failed</span>' : ""}</td>
+        <td data-label="Work Order">${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
+        <td data-label="Actions"><button class="jgc-button" type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
+      </tr>
+    `;
+  }
+
+  function renderSubmittedOrderTable(orders) {
+    if (!orders.length) {
+      return '<p class="po-employee-group-empty">No submitted purchase orders.</p>';
+    }
+    return `
+      <div class="po-table-wrap jgc-table-wrap">
+        <table class="po-table jgc-table">
+          <thead>
+            <tr>
+              <th>PO</th><th>Date</th><th>Job</th><th>Supplier</th><th>Created / Assigned</th>
+              <th>Status</th><th>Email</th><th>Work Order</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${orders.map(renderOrderRow).join("")}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderSubmittedGroups(orders) {
+    const openGroups = new Set(Array.from(elements.submittedGroups.querySelectorAll("details[open]"), (group) => group.dataset.creatorGroup));
+    const hasActiveFilter = Boolean(elements.search.value.trim() || elements.statusFilter.value || elements.dateFilter.value);
+    const approvedCreators = state.profiles
+      .filter((profile) => profile.account_status === "approved" && profile.can_create_digital_pos)
+      .sort((a, b) => String(a.display_name || a.email || "").localeCompare(String(b.display_name || b.email || "")));
+    const approvedIds = new Set(approvedCreators.map((profile) => profile.id));
+    const groups = approvedCreators.map((profile) => ({
+      key: profile.id,
+      name: profile.display_name || profile.email || "Approved Employee",
+      email: profile.email || "",
+      orders: orders.filter((order) => order.creator_profile_id === profile.id)
+    }));
+    const otherOrders = orders.filter((order) => !approvedIds.has(order.creator_profile_id));
+    if (otherOrders.length) {
+      groups.push({ key: "other", name: "Other / Former Accounts", email: "Historical submitted POs", orders: otherOrders });
+    }
+    const visibleGroups = hasActiveFilter ? groups.filter((group) => group.orders.length) : groups;
+
+    elements.submittedGroups.innerHTML = visibleGroups.map((group) => {
+      const isOpen = hasActiveFilter || openGroups.has(group.key);
+      return `
+        <details class="po-employee-order-group jgc-section" data-creator-group="${escapeText(group.key)}"${isOpen ? " open" : ""}>
+          <summary>
+            <span class="po-employee-group-person">
+              <strong>${escapeText(group.name)}</strong>
+              ${group.email ? `<small>${escapeText(group.email)}</small>` : ""}
+            </span>
+            <span class="${badgeClass(group.orders.length ? "green" : "info")}">${group.orders.length} PO${group.orders.length === 1 ? "" : "s"}</span>
+          </summary>
+          <div class="po-employee-group-content">${renderSubmittedOrderTable(group.orders)}</div>
+        </details>
+      `;
+    }).join("") || '<div class="po-submitted-empty jgc-notice">No submitted purchase orders match the current filters.</div>';
+  }
+
   function renderOrders() {
     const search = elements.search.value.trim().toLowerCase();
     const status = elements.statusFilter.value;
@@ -175,23 +248,14 @@
         (!status || order.workflow_status === status || order.email_status === status || order.receipt_status === status);
     });
 
-    elements.ordersBody.innerHTML = orders.map((order) => {
-      const link = getOrderLink(order.id);
-      const statusClass = order.workflow_status === "cancelled" || order.email_status === "failed" ? "danger" : "green";
-      return `
-        <tr>
-          <td data-label="PO"><strong>${escapeText(formatPoNumber(order.po_number))}</strong><br><span class="${badgeClass(statusClass)}">${escapeText(label(order.workflow_status))}</span></td>
-          <td data-label="Date">${escapeText(formatDate(order.order_date))}</td>
-          <td data-label="Job">${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
-          <td data-label="Supplier">${escapeText(order.supplier_name || "-")}</td>
-          <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
-          <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
-          <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge jgc-badge danger jgc-badge--danger">Cleanup Failed</span>' : ""}</td>
-          <td data-label="Work Order">${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
-          <td data-label="Actions"><button class="jgc-button" type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
-        </tr>
-      `;
-    }).join("") || '<tr class="po-empty-row"><td colspan="9">No purchase orders found.</td></tr>';
+    const showSubmittedGroups = state.tab === "submitted";
+    elements.ordersTableWrap.hidden = showSubmittedGroups;
+    elements.submittedGroups.hidden = !showSubmittedGroups;
+    if (showSubmittedGroups) {
+      renderSubmittedGroups(orders);
+    } else {
+      elements.ordersBody.innerHTML = orders.map(renderOrderRow).join("") || '<tr class="po-empty-row"><td colspan="9">No purchase orders found.</td></tr>';
+    }
     updateIcons();
   }
 
@@ -499,7 +563,7 @@
     elements.search.addEventListener("input", renderOrders);
     elements.statusFilter.addEventListener("change", renderOrders);
     elements.dateFilter.addEventListener("change", renderOrders);
-    elements.ordersBody.addEventListener("click", (event) => {
+    elements.ordersView.addEventListener("click", (event) => {
       const button = event.target.closest("[data-view-order]");
       if (button) {
         openOrderDetails(button.dataset.viewOrder);
@@ -566,6 +630,8 @@
       search: byId("poAdminSearch"),
       statusFilter: byId("poAdminStatusFilter"),
       dateFilter: byId("poAdminDateFilter"),
+      submittedGroups: byId("poAdminSubmittedGroups"),
+      ordersTableWrap: byId("poAdminOrdersTableWrap"),
       ordersBody: byId("poAdminOrdersBody"),
       devicesBody: byId("poAdminDevicesBody"),
       detailsModal: byId("poAdminDetailsModal"),

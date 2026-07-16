@@ -104,6 +104,7 @@ The shared hook adds `jgc-admin-page-title`, `jgc-admin-user-line`, and `jgc-adm
 - **Step 3:** controlled page migration covers the employee and admin Purchase Orders pages. Existing `po-*` hooks remain in place while shared page, button, tab, form, badge, notice, section, action, card, table, and modal classes are added alongside them.
 - **Step 4:** the Accounts page now uses shared page, admin navigation, header, panel, filter, input, button, badge, table, and action semantics. Its existing light permissions panel, status colors, dimensions, and workflows remain protected by page-specific compatibility rules.
 - **Step 5:** the standalone Work Orders page and the Admin Work Orders section now use shared page, header, panel, section, filter, form, input, button, tab, badge, table, and action semantics. Existing WO layouts, mobile table scrolling, embedded editor behavior, status colors, and submission workflows remain protected by feature-specific compatibility rules.
+- **Step 6:** the Inspections landing page, Today's Inspections, Previous Inspections, and the Admin Inspections section now use shared page, header, panel, card, section, filter, input, button, empty-state, table, and action semantics. Existing inspection cards, history-table geometry, mobile scrolling, detailed inspection sheets, PDF output, and inspection workflows remain protected by feature-specific compatibility rules.
 - Existing data tables, feature tabs, forms, cards, and workflows remain unchanged until deliberately migrated and tested.
 
 ## Change Checklist

@@ -3260,16 +3260,16 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="sickDaysList" class="small">Loading sick days...</div>
 </div>
 
-<div id="inspectionsSection" class="card" hidden>
-    <h2>Inspection Reports</h2>
-    <div class="filters">
-        <div>
-            <label>Worker</label>
-            <input id="inspectionWorkerFilter" oninput="renderInspections()" placeholder="Filter worker">
+<div id="inspectionsSection" class="card jgc-panel" hidden>
+    <h2 class="jgc-section-title">Inspection Reports</h2>
+    <div class="filters jgc-filter-grid">
+        <div class="jgc-field">
+            <label class="jgc-label">Worker</label>
+            <input id="inspectionWorkerFilter" class="jgc-input" oninput="renderInspections()" placeholder="Filter worker">
         </div>
-        <div>
-            <label>Type</label>
-            <input id="inspectionTypeFilter" oninput="renderInspections()" placeholder="Filter type">
+        <div class="jgc-field">
+            <label class="jgc-label">Type</label>
+            <input id="inspectionTypeFilter" class="jgc-input" oninput="renderInspections()" placeholder="Filter type">
         </div>
     </div>
     <div id="inspectionsList" class="small">Loading inspections...</div>
@@ -4127,8 +4127,8 @@ function renderBackupSummaryTable(title, rows, columns) {
 
     return `
         <h4>${escapeHtml(title)}</h4>
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr>
                 </thead>
@@ -12222,9 +12222,9 @@ function renderInspections() {
                             <td>${escapeHtml(inspection.details || "")}</td>
                             <td>${escapeHtml(formatDate(inspection.saved))}</td>
                             <td>
-                                <div class="actions">
-                                    <button type="button" onclick="viewAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">View</button>
-                                    <button type="button" class="delete-button" onclick="deleteAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">Delete</button>
+                                <div class="actions jgc-table-actions">
+                                    <button type="button" class="jgc-button" onclick="viewAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">View</button>
+                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -12595,10 +12595,10 @@ function viewAdminInspection(kind, id) {
 
     if (kind === "vehicle") {
         panel.innerHTML = `
-            <div class="actions inspection-view-actions">
-                <button type="button" class="download-button" onclick="printAdminVehicleInspection('${escapeHtml(record.id)}')">Save PDF</button>
-                <button type="button" class="secondary" onclick="closeAdminInspectionView()">Close</button>
-                <button type="button" class="delete-button" onclick="deleteAdminInspection('vehicle', '${escapeHtml(record.id)}')">Delete</button>
+            <div class="actions inspection-view-actions jgc-actions">
+                <button type="button" class="download-button jgc-button" onclick="printAdminVehicleInspection('${escapeHtml(record.id)}')">Save PDF</button>
+                <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeAdminInspectionView()">Close</button>
+                <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminInspection('vehicle', '${escapeHtml(record.id)}')">Delete</button>
             </div>
             ${renderAdminVehicleInspectionSheet(record)}
         `;
@@ -12629,9 +12629,9 @@ function viewAdminInspection(kind, id) {
         ${renderAdminInspectionFieldGrid(fields)}
         <h3 style="margin-top:14px;">Checklist Answers</h3>
         ${renderAdminInspectionRowsTable(rows, "No checklist answers were saved for this inspection.")}
-        <div class="actions" style="margin-top:12px;">
-            <button type="button" class="secondary" onclick="closeAdminInspectionView()">Close</button>
-            <button type="button" class="delete-button" onclick="deleteAdminInspection('standard', '${escapeHtml(record.id)}')">Delete</button>
+        <div class="actions jgc-actions" style="margin-top:12px;">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeAdminInspectionView()">Close</button>
+            <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminInspection('standard', '${escapeHtml(record.id)}')">Delete</button>
         </div>
     `;
     panel.scrollIntoView({ behavior: "smooth", block: "start" });

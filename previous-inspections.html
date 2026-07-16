@@ -18,6 +18,111 @@ body {
     color: #1f2a24;
 }
 
+/* Phase 6 compatibility: shared inspection semantics without changing history geometry. */
+body.inspection-history-page.jgc-page {
+    background: #8f9691;
+    padding: 20px;
+    color: #1f2a24;
+    line-height: normal;
+}
+
+.inspection-history-page .inspection-page-shell.jgc-page-shell {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+}
+
+.inspection-history-page .inspection-page-header.jgc-page-header {
+    display: block;
+    margin-bottom: 0;
+}
+
+.inspection-history-page .logo-wrap.jgc-brand {
+    display: block;
+}
+
+.inspection-history-page .logo-wrap.jgc-brand img {
+    width: 100%;
+    max-width: 347px;
+}
+
+.inspection-history-page .container.jgc-panel {
+    max-width: 1200px;
+    margin: auto;
+    background: #fbfcf9;
+    padding: 20px;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+
+.inspection-history-page .container h1.jgc-section-title {
+    margin: 0 0 6px;
+    color: #2f6f3c;
+    font-size: 2em;
+}
+
+.inspection-history-page .table-wrap.jgc-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.inspection-history-page table.jgc-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    background: white;
+}
+
+.inspection-history-page table.jgc-table th,
+.inspection-history-page table.jgc-table td {
+    border: 1px solid #c6cec5;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.inspection-history-page table.jgc-table th {
+    background: #e6ece6;
+}
+
+.inspection-history-page table.jgc-table td,
+.inspection-history-page table.jgc-table tbody tr:nth-child(even) td {
+    background: white;
+}
+
+.inspection-history-page .empty.jgc-empty-state {
+    padding: 18px;
+    background: white;
+    border: 1px solid #c6cec5;
+    text-align: center;
+}
+
+.inspection-history-page .actions.jgc-actions {
+    margin-top: 20px;
+    justify-content: center;
+}
+
+.inspection-history-page .jgc-button {
+    min-height: 0;
+    padding: 10px 15px;
+    border: 0;
+    border-radius: 4px;
+    font-family: Arial, sans-serif;
+    font-size: 15px;
+}
+
+.inspection-history-page .secondary.jgc-button,
+.inspection-history-page .jgc-button--secondary {
+    background: #47534b;
+}
+
+.inspection-history-page .delete-button.jgc-button,
+.inspection-history-page .jgc-button--danger {
+    background: #b42318;
+}
+
 .logo-wrap {
     max-width: 347px;
     margin: 0 auto 8px;
@@ -287,11 +392,13 @@ button:hover {
 }
 
 @media (max-width: 768px) {
-    body {
+    body,
+    body.inspection-history-page.jgc-page {
         padding: 12px;
     }
 
-    .container {
+    .container,
+    .inspection-history-page .container.jgc-panel {
         padding: 14px;
     }
 
@@ -318,27 +425,31 @@ button:hover {
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
+<body class="inspection-history-page jgc-page">
+<main class="inspection-page-shell jgc-page-shell jgc-page-shell--wide">
+<header class="inspection-page-header jgc-page-header">
+<div class="logo-wrap jgc-brand">
     <img src="logo.png" alt="John Gordon Construction logo">
 </div>
 
 <div class="user-bar" id="userBar"></div>
+</header>
 
-<div class="container">
-    <h1>Previous Inspections</h1>
+<div class="container jgc-panel">
+    <h1 class="jgc-section-title">Previous Inspections</h1>
     <div class="subtitle">Completed inspections from the last 2 months</div>
 
-    <div id="inspectionList" class="empty">Loading inspections...</div>
+    <div id="inspectionList" class="empty jgc-empty-state">Loading inspections...</div>
     <div id="editPanel" class="edit-panel" hidden></div>
 
-    <div class="actions">
-        <button class="secondary" id="todaysInspectionsButton" onclick="window.location.href='todays-inspections.html'">Today's Inspections</button>
-        <button class="secondary" id="recordHomeButton" onclick="window.location.href='inspections.html'">Inspections</button>
-        <button class="secondary" onclick="window.location.href='home.html'">Home</button>
-        <button class="secondary" onclick="signOut()">Sign Out</button>
+    <div class="actions jgc-actions">
+        <button class="secondary jgc-button jgc-button--secondary" id="todaysInspectionsButton" onclick="window.location.href='todays-inspections.html'">Today's Inspections</button>
+        <button class="secondary jgc-button jgc-button--secondary" id="recordHomeButton" onclick="window.location.href='inspections.html'">Inspections</button>
+        <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
+        <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
@@ -700,7 +811,7 @@ async function loadInspections() {
     twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
     if (!inspectionSupabaseClient) {
-        list.className = "empty";
+        list.className = "empty jgc-empty-state";
         list.textContent = "Supabase is not available right now.";
         return;
     }
@@ -767,11 +878,11 @@ async function loadInspections() {
 function renderInspectionRows(filteredData) {
     const list = document.getElementById("inspectionList");
     inspectionRecords = filteredData;
-    list.className = "table-wrap";
+    list.className = "table-wrap jgc-table-wrap";
     const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
     const typeHeading = isReportsView ? "Report" : "Inspection";
     list.innerHTML = `
-        <table>
+        <table class="jgc-table">
             <thead>
                 <tr>
                     <th>Saved</th>
@@ -793,10 +904,10 @@ function renderInspectionRows(filteredData) {
                         <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
                         <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
-                        <td>${isVehicleInspectionRecord(record) ? `<button onclick="viewVehicleInspectionById('${escapeHtml(record.id)}')">View</button>` : "-"}</td>
-                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button>`}</td>
-                        <td>${record.report_source && !record.supports_inspection_actions || isVehicleInspectionRecord(record) ? "-" : `<button class="email-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
-                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="delete-button" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`}</td>
+                        <td>${isVehicleInspectionRecord(record) ? `<button class="jgc-button" onclick="viewVehicleInspectionById('${escapeHtml(record.id)}')">View</button>` : "-"}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button jgc-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Download PDF</button>`}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions || isVehicleInspectionRecord(record) ? "-" : `<button class="email-button jgc-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
+                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="delete-button jgc-button jgc-button--danger" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`}</td>
                     </tr>
                 `).join("")}
             </tbody>

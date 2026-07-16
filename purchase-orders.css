@@ -615,6 +615,93 @@ body.po-page {
   color: #04200c;
 }
 
+.po-submitted-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.po-submitted-groups[hidden] {
+  display: none;
+}
+
+.po-employee-order-group {
+  overflow: hidden;
+  border: 1px solid var(--po-border);
+  border-radius: 7px;
+  background: var(--po-surface);
+}
+
+.po-employee-order-group.jgc-section {
+  margin: 0;
+  padding: 0;
+}
+
+.po-employee-order-group > summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.po-employee-order-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.po-employee-order-group > summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--po-green);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.po-employee-order-group[open] > summary::after {
+  content: "-";
+}
+
+.po-employee-order-group[open] > summary {
+  border-bottom: 1px solid var(--po-border);
+  background: rgba(52, 211, 73, 0.07);
+}
+
+.po-employee-group-person {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.po-employee-group-person strong,
+.po-employee-group-person small {
+  overflow-wrap: anywhere;
+}
+
+.po-employee-group-person strong {
+  color: #fff;
+  font-size: 16px;
+}
+
+.po-employee-group-person small {
+  color: var(--po-muted);
+  font-size: 12px;
+}
+
+.po-employee-group-content {
+  padding: 12px;
+}
+
+.po-employee-group-empty,
+.po-submitted-empty {
+  margin: 0;
+  padding: 16px;
+  color: var(--po-muted);
+}
+
 .po-history-list {
   display: grid;
   gap: 8px;
@@ -1093,6 +1180,20 @@ body.po-page {
 
   .po-admin-page #poAdminOrdersView .po-table td[data-label="Actions"] button {
     width: 100%;
+  }
+
+  .po-employee-order-group > summary {
+    min-height: 64px;
+    padding: 11px 12px;
+  }
+
+  .po-employee-order-group > summary .po-badge {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .po-employee-group-content {
+    padding: 10px;
   }
 
   .po-admin-page #poAdminDevicesView .po-table td[data-label="Actions"] .po-inline-actions {
