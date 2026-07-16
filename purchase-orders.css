@@ -694,9 +694,18 @@ body.po-page {
 }
 
 @media (max-width: 780px) {
+  html:has(body.po-page) {
+    background: var(--po-bg);
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
   body.po-page.jgc-theme {
     padding: 58px 10px calc(82px + env(safe-area-inset-bottom)) !important;
-    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
   }
 
   .po-shell {
@@ -718,6 +727,20 @@ body.po-page {
     justify-content: flex-start;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+  }
+
+  body.po-page.jgc-theme .po-admin-tabs.jgc-admin-nav {
+    width: calc(100% + 20px) !important;
+    max-width: none !important;
+    margin-left: -10px !important;
+    margin-right: -10px !important;
+  }
+
+  body.po-page.jgc-theme .po-shell,
+  body.po-page.jgc-theme .po-tabs,
+  body.po-page.jgc-theme .po-view {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .jgc-theme .po-admin-tabs .tab-button {
