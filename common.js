@@ -1311,7 +1311,8 @@ function getJgcMobileNavItems() {
       { label: "Timesheets", href: "timesheet.html", icon: "clock" },
       { label: "PO", href: "purchase-orders.html", icon: "file" },
       { label: "WO", href: "work-orders.html", icon: "file" },
-      { label: "Inspections", href: "inspections.html", icon: "shield" }
+      { label: "Inspections", href: "inspections.html", icon: "shield" },
+      { label: "More", icon: "more", more: true }
     ],
     more: [
       { label: "Certificates", href: "certificates.html", icon: "award" },
@@ -1389,7 +1390,7 @@ function activateMobileBottomNavigation() {
         bottom: 0;
         z-index: 10020;
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 2px;
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
         background: var(--jgc-nav-mobile-background, rgba(3, 18, 16, 0.98));
@@ -1414,7 +1415,7 @@ function activateMobileBottomNavigation() {
         border-radius: 12px;
         background: transparent;
         color: rgba(255, 255, 255, 0.78);
-        font-size: 10px;
+        font-size: 9px;
         line-height: 1.05;
         font-weight: 800;
         text-align: center;
@@ -1513,7 +1514,7 @@ function activateMobileBottomNavigation() {
   const primaryHtml = navItems.primary.map(function(item) {
     const active = page === item.href || (item.more && navItems.more.some(function(moreItem) { return moreItem.href === page; }));
     if (item.more) {
-      return '<button type="button" class="' + (active ? "active" : "") + '" id="jgcMobileMoreButton">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></button>';
+      return '<button type="button" class="' + (active ? "active" : "") + '" id="jgcMobileMoreButton" aria-expanded="false" aria-controls="jgcMobileMoreSheet">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></button>';
     }
 
     if (item.home) {
@@ -1553,11 +1554,17 @@ function activateMobileBottomNavigation() {
   function closeMoreSheet() {
     sheet.classList.remove("open");
     backdrop.classList.remove("open");
+    if (moreButton) {
+      moreButton.setAttribute("aria-expanded", "false");
+    }
   }
 
   function toggleMoreSheet() {
     const isOpen = sheet.classList.toggle("open");
     backdrop.classList.toggle("open", isOpen);
+    if (moreButton) {
+      moreButton.setAttribute("aria-expanded", String(isOpen));
+    }
   }
 
   if (moreButton) {
