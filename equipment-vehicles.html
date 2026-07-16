@@ -140,6 +140,104 @@ button:hover {
     background: #354039;
 }
 
+/* Phase 9 design-system compatibility: preserve the established equipment directory. */
+body.equipment-directory-page.jgc-page {
+    background: #8f9691;
+    padding: 20px;
+    color: #1f2a24;
+}
+
+.equipment-directory-page .equipment-page-shell.jgc-page-shell {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 0 80px;
+}
+
+.equipment-directory-page .equipment-page-header.jgc-page-header {
+    display: block;
+    margin-bottom: 0;
+}
+
+.equipment-directory-page .logo-wrap.jgc-brand {
+    display: block;
+}
+
+.equipment-directory-page .equipment-page-header.jgc-page-header h1 {
+    color: #ffffff;
+    font-size: 2em;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.equipment-directory-page .actions.jgc-actions {
+    align-items: center;
+}
+
+.equipment-directory-page button.jgc-button {
+    min-height: 0;
+    padding: 9px 12px;
+    background: #0b5e3b;
+    border: 0;
+    border-radius: 4px;
+}
+
+.equipment-directory-page button.jgc-button--secondary {
+    background: #47534b;
+}
+
+.equipment-directory-page .panel.jgc-panel {
+    max-width: 1100px;
+    padding: 16px;
+    color: #1f2a24;
+    background: #fbfcf9;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+
+.equipment-directory-page #equipmentStatus.jgc-notice {
+    padding: 0;
+    color: #58635c;
+    background: transparent;
+    border-left: 0;
+}
+
+.equipment-directory-page .table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
+.equipment-directory-page table.jgc-table {
+    min-width: 760px;
+    color: #1f2a24;
+    background: #ffffff;
+}
+
+.equipment-directory-page table.jgc-table th,
+.equipment-directory-page table.jgc-table td {
+    padding: 8px;
+    color: #1f2a24;
+    white-space: normal;
+}
+
+.equipment-directory-page table.jgc-table th {
+    background: #e6ece6;
+}
+
+.equipment-directory-page .status-pill.jgc-badge {
+    display: inline-block;
+    border-radius: 999px;
+}
+
+.equipment-directory-page .jgc-section-title {
+    color: #2f6f3c;
+}
+
+.equipment-directory-page .jgc-empty-state {
+    color: #58635c;
+}
+
 @media (max-width: 720px) {
     body {
         padding: 10px;
@@ -148,28 +246,40 @@ button:hover {
     button {
         width: 100%;
     }
+
+    body.equipment-directory-page.jgc-page {
+        padding: 10px;
+    }
+
+    .equipment-directory-page .panel.jgc-panel {
+        padding: 12px;
+    }
 }
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+<body class="equipment-directory-page jgc-page">
+<main class="equipment-page-shell jgc-page-shell jgc-page-shell--wide">
+<header class="equipment-page-header jgc-page-header">
+<div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
 <h1>Equipment / Vehicles</h1>
 <div id="currentUser" class="user-bar"></div>
+</header>
 
-<div class="actions">
-    <button type="button" onclick="loadEquipment()">Refresh</button>
-    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
-    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+<div class="actions jgc-actions">
+    <button class="jgc-button" type="button" onclick="loadEquipment()">Refresh</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
-<div class="panel">
-    <div id="equipmentStatus" class="small" style="margin: 0 0 10px;"></div>
+<section class="panel jgc-panel">
+    <div id="equipmentStatus" class="small jgc-notice" style="margin: 0 0 10px;" aria-live="polite"></div>
     <div id="equipmentList" class="small">Loading equipment and vehicles...</div>
-</div>
+</section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
@@ -261,15 +371,15 @@ function getEquipmentCategory(item) {
 
 function renderEquipmentTable(items, category) {
     if (!items.length) {
-        return '<div class="small">No items in this group.</div>';
+        return '<div class="small jgc-empty-state">No items in this group.</div>';
     }
 
     const showMeterColumn = category !== "Trailers";
     const meterHeader = category === "Vehicles" ? "Current KM" : "Current Hours";
 
     return `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr>
                         <th>Name of Equipment / Vehicle</th>
@@ -301,7 +411,7 @@ function renderEquipmentTable(items, category) {
                                 <td>${item.billable_equipment === false ? "No" : "Yes"}</td>
                                 <td>${item.transportation_required ? "Yes" : "No"}</td>
                                 <td>${item.yearly_inspection_expiry ? escapeHtml(item.yearly_inspection_expiry) : "-"}</td>
-                                <td><span class="status-pill ${status.className}">${status.text}</span></td>
+                                <td><span class="status-pill ${status.className} jgc-badge ${status.className === "expired" ? "jgc-badge--danger" : status.className === "expiring" ? "jgc-badge--warning" : "jgc-badge--success"}">${status.text}</span></td>
                             </tr>
                         `;
                     }).join("")}
@@ -318,7 +428,7 @@ async function loadEquipment() {
 
     if (!supabaseClient) {
         status.textContent = "";
-        list.textContent = "Supabase is not available.";
+        list.innerHTML = '<div class="jgc-empty-state">Supabase is not available.</div>';
         return;
     }
 
@@ -347,7 +457,7 @@ async function loadEquipment() {
     status.textContent = `Showing ${items.length} active item${items.length === 1 ? "" : "s"}.`;
 
     if (!items.length) {
-        list.textContent = "No equipment or vehicles have been added yet.";
+        list.innerHTML = '<div class="jgc-empty-state">No equipment or vehicles have been added yet.</div>';
         return;
     }
 
@@ -360,7 +470,7 @@ async function loadEquipment() {
 
     try {
         list.innerHTML = groups.map((group) => `
-            <h2 style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h2>
+            <h2 class="jgc-section-title" style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h2>
             ${renderEquipmentTable(group.items, group.category)}
         `).join("");
     } catch (renderError) {

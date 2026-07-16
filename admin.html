@@ -2063,6 +2063,172 @@ button.admin-schedule-event-button.admin-event-vacation {
     }
 }
 
+/* Phase 9 design-system compatibility for Equipment / Vehicles administration. */
+#equipmentSection.jgc-panel {
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    padding: 16px;
+    color: #1f2a24;
+    background: #fbfcf9;
+    border: 0;
+    border-top: 4px solid #3f7d4d;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+
+#equipmentSection .admin-collapsible-panel.jgc-card {
+    padding: 0;
+    color: #f7fff7;
+    background: linear-gradient(180deg, rgba(20, 56, 28, 0.95), rgba(12, 34, 15, 0.95));
+    border: 1px solid rgba(50, 220, 85, 0.45);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+#equipmentSection details.sub-card.jgc-card:not(.admin-collapsible-panel) {
+    padding: 14px;
+    color: #1f2a24;
+    background: #f2f6f1;
+    border: 1px solid #cbd8ca;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+#equipmentSection .announcement-grid.jgc-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+#equipmentSection .jgc-field.full,
+#equipmentSection .jgc-field--full {
+    grid-column: 1 / -1;
+}
+
+#equipmentSection .jgc-label {
+    margin-bottom: 4px;
+    color: #d8f1e1;
+    font-size: 13px;
+}
+
+#equipmentSection .jgc-input,
+#equipmentSection .jgc-select,
+#equipmentSection .jgc-textarea,
+.equipment-documents-modal .jgc-input {
+    min-height: 0;
+    padding: 8px;
+    color: #102018;
+    background: #f8fff8;
+    border: 1px solid #bcc7bc;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#equipmentSection .jgc-textarea {
+    min-height: 110px;
+    margin-top: 10px;
+}
+
+#equipmentSection button.jgc-button,
+.equipment-qr-modal button.jgc-button,
+.equipment-documents-modal button.jgc-button {
+    min-height: 0;
+    padding: 10px 14px;
+    background: #0b5e3b;
+    border: 0;
+    border-radius: 4px;
+}
+
+#equipmentSection button.jgc-button--secondary,
+.equipment-qr-modal button.jgc-button--secondary,
+.equipment-documents-modal button.jgc-button--secondary {
+    background: #47534b;
+}
+
+#equipmentSection button.jgc-button--danger,
+.equipment-documents-modal button.jgc-button--danger {
+    background: #b42318;
+}
+
+#equipmentExpiryAlerts.jgc-notice,
+#equipmentStatus.jgc-notice,
+#equipmentDocumentsStatus.jgc-notice {
+    padding: 0;
+    background: transparent;
+    border-left: 0;
+}
+
+#equipmentSection .table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
+#equipmentSection table.jgc-table {
+    min-width: 820px;
+    color: #1f2a24;
+    background: #ffffff;
+}
+
+#equipmentSection table.jgc-table th,
+#equipmentSection table.jgc-table td {
+    padding: 7px;
+    color: #1f2a24;
+    white-space: normal;
+}
+
+#equipmentSection table.jgc-table th {
+    background: #e6ece6;
+}
+
+#equipmentSection .jgc-empty-state {
+    color: #58635c;
+}
+
+.equipment-qr-modal.jgc-modal__dialog,
+.equipment-documents-modal.jgc-modal__dialog {
+    width: min(560px, 100%);
+    padding: 16px;
+    color: #ffffff;
+    background: #071411;
+    border: 1px solid rgba(55, 240, 90, 0.34);
+    border-radius: 10px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+}
+
+.equipment-documents-modal.jgc-modal__dialog {
+    width: min(760px, 100%);
+}
+
+.equipment-document-panel.jgc-card {
+    padding: 14px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(55, 240, 90, 0.28);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+@media (max-width: 780px) {
+    #equipmentSection.jgc-panel {
+        padding: 12px;
+    }
+
+    #equipmentSection .announcement-grid.jgc-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #equipmentSection .jgc-field.full,
+    #equipmentSection .jgc-field--full {
+        grid-column: auto;
+    }
+
+    #equipmentSection .jgc-input,
+    #equipmentSection .jgc-select,
+    #equipmentSection .jgc-textarea,
+    .equipment-documents-modal .jgc-input {
+        font-size: 16px;
+    }
+}
+
 .equipment-qr-print-area {
     margin: 12px 0;
     padding: 18px;
@@ -3599,114 +3765,114 @@ button.admin-schedule-event-button.admin-event-vacation {
     </div>
 </div>
 
-<div id="equipmentSection" class="card" hidden>
-    <h2>Equipment / Vehicles</h2>
-    <div id="equipmentExpiryAlerts" class="small" style="margin-bottom:12px;">Checking inspection expiry notifications...</div>
-    <details id="equipmentEntryPanel" class="sub-card admin-collapsible-panel" style="margin-bottom:14px;">
+<div id="equipmentSection" class="card jgc-panel" hidden>
+    <h2 class="jgc-section-title">Equipment / Vehicles</h2>
+    <div id="equipmentExpiryAlerts" class="small jgc-notice" style="margin-bottom:12px;" aria-live="polite">Checking inspection expiry notifications...</div>
+    <details id="equipmentEntryPanel" class="sub-card admin-collapsible-panel jgc-card" style="margin-bottom:14px;">
         <summary>Add / Edit Equipment Entry</summary>
-        <div class="announcement-grid" style="margin-top:12px;">
-            <div>
-                <label>Name of Equipment / Vehicle</label>
-                <input id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
+        <div class="announcement-grid jgc-form-grid" style="margin-top:12px;">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentName">Name of Equipment / Vehicle</label>
+                <input class="jgc-input" id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
             </div>
-            <div>
-                <label>Identification Number</label>
-                <input id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentIdentification">Identification Number</label>
+                <input class="jgc-input" id="equipmentIdentification" placeholder="Unit #, plate, VIN, serial #">
             </div>
-            <div>
-                <label>License Plate</label>
-                <input id="equipmentLicensePlate" placeholder="Vehicle plate / unit ID">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentLicensePlate">License Plate</label>
+                <input class="jgc-input" id="equipmentLicensePlate" placeholder="Vehicle plate / unit ID">
             </div>
-            <div>
-                <label>Type of Equip/Vehicle</label>
-                <input id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentType">Type of Equip/Vehicle</label>
+                <input class="jgc-input" id="equipmentType" placeholder="Example: Vehicle, Trailer, Forklift, Aerial Lift">
             </div>
-            <div>
-                <label>Operator Name</label>
-                <input id="equipmentOperator" placeholder="Operator name">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentOperator">Operator Name</label>
+                <input class="jgc-input" id="equipmentOperator" placeholder="Operator name">
             </div>
-            <div>
-                <label>Current Hours</label>
-                <input id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentHours">Current Hours</label>
+                <input class="jgc-input" id="equipmentHours" type="number" min="0" step="0.1" placeholder="Current unit hours">
             </div>
-            <div>
-                <label>Current KM</label>
-                <input id="equipmentCurrentKm" type="number" min="0" step="1" placeholder="Current vehicle KM">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentCurrentKm">Current KM</label>
+                <input class="jgc-input" id="equipmentCurrentKm" type="number" min="0" step="1" placeholder="Current vehicle KM">
             </div>
-            <div>
-                <label>Owned / Rental</label>
-                <select id="equipmentOwnership">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentOwnership">Owned / Rental</label>
+                <select class="jgc-select" id="equipmentOwnership">
                     <option value="owned">Owned</option>
                     <option value="rental">Rental</option>
                 </select>
             </div>
-            <div>
-                <label>Rental Supplier</label>
-                <input id="equipmentRentalSupplier" placeholder="Rental supplier if applicable">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentRentalSupplier">Rental Supplier</label>
+                <input class="jgc-input" id="equipmentRentalSupplier" placeholder="Rental supplier if applicable">
             </div>
-            <div>
-                <label>Billable Equipment</label>
-                <select id="equipmentBillable">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentBillable">Billable Equipment</label>
+                <select class="jgc-select" id="equipmentBillable">
                     <option value="true">Yes</option>
                     <option value="false">No</option>
                 </select>
             </div>
-            <div>
-                <label>Transportation Required</label>
-                <select id="equipmentTransportationRequired">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentTransportationRequired">Transportation Required</label>
+                <select class="jgc-select" id="equipmentTransportationRequired">
                     <option value="false">No</option>
                     <option value="true">Yes</option>
                 </select>
             </div>
-            <div>
-                <label>Yearly Inspection Expiry</label>
-                <input id="equipmentExpiry" type="date">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentExpiry">Yearly Inspection Expiry</label>
+                <input class="jgc-input" id="equipmentExpiry" type="date">
             </div>
-            <div>
-                <label>Jurisdiction</label>
-                <input id="equipmentJurisdiction" placeholder="Example: Ontario">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentJurisdiction">Jurisdiction</label>
+                <input class="jgc-input" id="equipmentJurisdiction" placeholder="Example: Ontario">
             </div>
-            <div>
-                <label>VIN</label>
-                <input id="equipmentVin" placeholder="Vehicle VIN if needed">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentVin">VIN</label>
+                <input class="jgc-input" id="equipmentVin" placeholder="Vehicle VIN if needed">
             </div>
-            <div>
-                <label>Make</label>
-                <input id="equipmentMake" placeholder="Example: Chevrolet">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentMake">Make</label>
+                <input class="jgc-input" id="equipmentMake" placeholder="Example: Chevrolet">
             </div>
-            <div>
-                <label>Model</label>
-                <input id="equipmentModel" placeholder="Example: Silverado">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentModel">Model</label>
+                <input class="jgc-input" id="equipmentModel" placeholder="Example: Silverado">
             </div>
-            <div>
-                <label>Year</label>
-                <input id="equipmentModelYear" placeholder="Example: 2023">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentModelYear">Year</label>
+                <input class="jgc-input" id="equipmentModelYear" placeholder="Example: 2023">
             </div>
-            <div>
-                <label>Odometer Required</label>
-                <select id="equipmentOdometerRequired">
+            <div class="jgc-field">
+                <label class="jgc-label" for="equipmentOdometerRequired">Odometer Required</label>
+                <select class="jgc-select" id="equipmentOdometerRequired">
                     <option value="true">Yes</option>
                     <option value="false">No</option>
                 </select>
             </div>
-            <div class="full">
-                <label>Notes</label>
-                <textarea id="equipmentNotes" placeholder="Optional notes"></textarea>
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label" for="equipmentNotes">Notes</label>
+                <textarea class="jgc-textarea" id="equipmentNotes" placeholder="Optional notes"></textarea>
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button id="equipmentSaveButton" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
-            <button class="secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
-            <button class="secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
+        <div class="actions jgc-actions" style="margin-top:10px;">
+            <button id="equipmentSaveButton" class="jgc-button" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
+            <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
+            <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
         </div>
     </details>
-    <div id="equipmentStatus" class="small" style="margin-top:10px;"></div>
+    <div id="equipmentStatus" class="small jgc-notice" style="margin-top:10px;" aria-live="polite"></div>
     <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
 </div>
 
 <div id="equipmentQrModal" class="admin-schedule-modal-backdrop" onclick="closeEquipmentQrModal(event)">
-    <section class="admin-schedule-modal equipment-qr-modal" onclick="event.stopPropagation()">
-        <h2 id="equipmentQrTitle">Equipment QR Code</h2>
+    <section class="admin-schedule-modal equipment-qr-modal jgc-modal__dialog" onclick="event.stopPropagation()">
+        <h2 id="equipmentQrTitle" class="jgc-section-title">Equipment QR Code</h2>
         <div id="equipmentQrPrintArea" class="equipment-qr-print-area">
             <img src="logo.webp" alt="John Gordon Construction logo">
             <h3 id="equipmentQrUnit">Equipment</h3>
@@ -3717,41 +3883,41 @@ button.admin-schedule-event-button.admin-event-vacation {
             <a id="equipmentQrLink" class="equipment-qr-link" href="#" target="_blank" rel="noopener"></a>
             <p>Scan to submit or view today's inspection for this unit.</p>
         </div>
-        <div class="actions">
-            <button type="button" onclick="printEquipmentQr()">Print QR</button>
-            <button type="button" class="secondary" onclick="copyEquipmentQrLink()">Copy Link</button>
-            <button type="button" class="secondary" onclick="closeEquipmentQrModal()">Close</button>
+        <div class="actions jgc-actions">
+            <button type="button" class="jgc-button" onclick="printEquipmentQr()">Print QR</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="copyEquipmentQrLink()">Copy Link</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeEquipmentQrModal()">Close</button>
         </div>
     </section>
 </div>
 
 <div id="equipmentDocumentsModal" class="admin-schedule-modal-backdrop" onclick="closeEquipmentDocumentsModal(event)">
-    <section class="admin-schedule-modal equipment-documents-modal" onclick="event.stopPropagation()">
+    <section class="admin-schedule-modal equipment-documents-modal jgc-modal__dialog" onclick="event.stopPropagation()">
         <div class="equipment-documents-header">
             <div>
-                <h2 id="equipmentDocumentsTitle">Lift Documents</h2>
+                <h2 id="equipmentDocumentsTitle" class="jgc-section-title">Lift Documents</h2>
                 <div id="equipmentDocumentsUnit" class="small"></div>
             </div>
-            <button type="button" class="secondary modal-close-button" aria-label="Close lift documents" title="Close" onclick="closeEquipmentDocumentsModal()">X</button>
+            <button type="button" class="secondary modal-close-button jgc-button jgc-button--secondary jgc-button--icon" aria-label="Close lift documents" title="Close" onclick="closeEquipmentDocumentsModal()">X</button>
         </div>
-        <div id="equipmentDocumentsStatus" class="small"></div>
+        <div id="equipmentDocumentsStatus" class="small jgc-notice" aria-live="polite"></div>
 
-        <section class="equipment-document-panel">
-            <h3>Lift Manuals</h3>
+        <section class="equipment-document-panel jgc-card">
+            <h3 class="jgc-section-title">Lift Manuals</h3>
             <div class="small">Upload one or more PDF manuals for this lift.</div>
-            <input id="equipmentManualFiles" type="file" accept=".pdf,application/pdf" multiple style="margin-top:10px;">
-            <div class="actions">
-                <button type="button" onclick="uploadEquipmentDocuments('manual')">Upload Manuals</button>
+            <input class="jgc-input" id="equipmentManualFiles" type="file" accept=".pdf,application/pdf" multiple style="margin-top:10px;">
+            <div class="actions jgc-actions">
+                <button type="button" class="jgc-button" onclick="uploadEquipmentDocuments('manual')">Upload Manuals</button>
             </div>
             <div id="equipmentManualList" class="equipment-document-list"></div>
         </section>
 
-        <section class="equipment-document-panel">
-            <h3>Yearly Inspection Report</h3>
+        <section class="equipment-document-panel jgc-card">
+            <h3 class="jgc-section-title">Yearly Inspection Report</h3>
             <div class="small">Upload the current PDF report. A new upload replaces the existing report.</div>
-            <input id="equipmentYearlyInspectionFile" type="file" accept=".pdf,application/pdf" style="margin-top:10px;">
-            <div class="actions">
-                <button type="button" onclick="uploadEquipmentDocuments('yearly_inspection')">Upload / Replace Report</button>
+            <input class="jgc-input" id="equipmentYearlyInspectionFile" type="file" accept=".pdf,application/pdf" style="margin-top:10px;">
+            <div class="actions jgc-actions">
+                <button type="button" class="jgc-button" onclick="uploadEquipmentDocuments('yearly_inspection')">Upload / Replace Report</button>
             </div>
             <div id="equipmentYearlyInspectionList" class="equipment-document-list"></div>
         </section>
@@ -8585,8 +8751,8 @@ function renderCertificateExpiryAlerts() {
 
     panel.innerHTML = `
         <strong>Expiry Notifications:</strong> ${alerts.length} certificate${alerts.length === 1 ? "" : "s"} expiring within 30 days.
-        <div class="table-wrap" style="margin-top:8px;">
-            <table>
+        <div class="table-wrap jgc-table-wrap" style="margin-top:8px;">
+            <table class="jgc-table">
                 <thead>
                     <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
                 </thead>
@@ -9068,12 +9234,12 @@ function renderEquipmentQrCell(item) {
     const inspectionType = item.inspection_qr_type || getEquipmentQrInspectionType(item);
     const vehicleQrButton = isVehicleInspectionAsset(item)
         ? `
-            <button type="button" class="secondary" onclick="openVehicleInspectionQr('${item.id}')">${item.vehicle_qr_token ? "Vehicle QR" : "Create Vehicle QR"}</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openVehicleInspectionQr('${item.id}')">${item.vehicle_qr_token ? "Vehicle QR" : "Create Vehicle QR"}</button>
             <div class="small">Vehicle / Trailer Daily</div>
         `
         : "";
     const historyButton = `
-        <button type="button" class="secondary" onclick="openEquipmentInspectionHistory('${item.id}')">History</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openEquipmentInspectionHistory('${item.id}')">History</button>
     `;
 
     if (!inspectionType && !vehicleQrButton) {
@@ -9084,7 +9250,7 @@ function renderEquipmentQrCell(item) {
 
     return `
         ${inspectionType ? `
-            <button type="button" class="secondary" onclick="openEquipmentQr('${item.id}')">${buttonLabel}</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openEquipmentQr('${item.id}')">${buttonLabel}</button>
             <div class="small">${escapeHtml(inspectionType)}</div>
         ` : ""}
         ${vehicleQrButton}
@@ -9107,7 +9273,7 @@ function renderEquipmentDocumentsCell(item) {
     const yearlyCount = getEquipmentDocumentsByType(item.id, "yearly_inspection").length;
 
     return `
-        <button type="button" class="secondary" onclick="openEquipmentDocuments('${escapeHtml(item.id)}')">Documents</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openEquipmentDocuments('${escapeHtml(item.id)}')">Documents</button>
         <div class="small">${manualCount} manual${manualCount === 1 ? "" : "s"} / ${yearlyCount ? "Yearly report added" : "No yearly report"}</div>
     `;
 }
@@ -9125,7 +9291,7 @@ function setEquipmentDocumentsStatus(message, isError) {
 
 function renderEquipmentDocumentRows(documents, emptyMessage) {
     if (!documents.length) {
-        return '<div class="small">' + escapeHtml(emptyMessage) + '</div>';
+        return '<div class="small jgc-empty-state">' + escapeHtml(emptyMessage) + '</div>';
     }
 
     return documents.map((document) => `
@@ -9134,9 +9300,9 @@ function renderEquipmentDocumentRows(documents, emptyMessage) {
                 <div class="equipment-document-name">${escapeHtml(document.file_name || "Document.pdf")}</div>
                 <div class="small">Uploaded ${escapeHtml(formatDate(document.created_at) || "")}${document.uploaded_by_name ? " by " + escapeHtml(document.uploaded_by_name) : ""}</div>
             </div>
-            <div class="actions">
-                <button type="button" class="secondary" onclick="viewEquipmentDocument('${escapeHtml(document.id)}')">View PDF</button>
-                <button type="button" class="delete-button" onclick="removeEquipmentDocument('${escapeHtml(document.id)}')">Remove</button>
+            <div class="actions jgc-table-actions">
+                <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="viewEquipmentDocument('${escapeHtml(document.id)}')">View PDF</button>
+                <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="removeEquipmentDocument('${escapeHtml(document.id)}')">Remove</button>
             </div>
         </div>
     `).join("");
@@ -9683,7 +9849,7 @@ function renderEquipment() {
     }
 
     if (!equipmentItems.length) {
-        list.textContent = "No equipment or vehicles have been added yet.";
+        list.innerHTML = '<div class="jgc-empty-state">No equipment or vehicles have been added yet.</div>';
         return;
     }
 
@@ -9697,9 +9863,9 @@ function renderEquipment() {
     const maintenanceHtml = renderEquipmentMaintenanceLogTable();
 
     list.innerHTML = groups.map((group) => `
-        <h3 style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h3>
-        <div class="table-wrap">
-            <table>
+        <h3 class="jgc-section-title" style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h3>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr><th>Name</th><th>Type of Equip/Vehicle</th><th>Plate / ID #</th><th>Make</th><th>Model</th><th>Year</th><th>KM</th><th>Operator</th><th>Current Hours</th><th>Owned / Rental</th><th>Billable</th><th>Transport Required</th><th>Inspection Expiry</th><th>Status</th><th>Notes</th><th>Lift Documents</th><th>QR</th><th>Actions</th></tr>
                 </thead>
@@ -9728,17 +9894,18 @@ function renderEquipment() {
                                 <td>${item.billable_equipment === false ? "No" : "Yes"}</td>
                                 <td>${item.transportation_required ? "Yes" : "No"}</td>
                                 <td>${escapeHtml(item.yearly_inspection_expiry || "")}</td>
-                                <td>${escapeHtml(status)}</td>
+                                <td><span class="jgc-badge ${status === "Valid" || status === "No Expiry" ? "jgc-badge--success" : status === "Expiring Soon" ? "jgc-badge--warning" : "jgc-badge--danger"}">${escapeHtml(status)}</span></td>
                                 <td>${escapeHtml(item.notes || "")}</td>
                                 <td>${renderEquipmentDocumentsCell(item)}</td>
                                 <td>${renderEquipmentQrCell(item)}</td>
-                                <td>
-                                    <button type="button" onclick="editEquipment('${item.id}')">Edit</button>
-                                    <button type="button" class="delete-button" onclick="deleteEquipment('${item.id}')">Delete</button>
+                                <td><div class="actions jgc-table-actions">
+                                    <button type="button" class="jgc-button" onclick="editEquipment('${item.id}')">Edit</button>
+                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteEquipment('${item.id}')">Delete</button>
+                                </div>
                                 </td>
                             </tr>
                         `;
-                    }).join("") : '<tr><td colspan="18">No items in this group.</td></tr>'}
+                    }).join("") : '<tr><td colspan="18"><div class="jgc-empty-state">No items in this group.</div></td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -9752,9 +9919,9 @@ function renderEquipmentMaintenanceLogTable() {
     const grouped = groupMaintenanceLogsByCategoryAndUnit(rows);
 
     return `
-        <h3 style="margin:22px 0 8px;color:#2f6f3c;">Maintenance Work Log</h3>
+        <h3 class="jgc-section-title" style="margin:22px 0 8px;color:#2f6f3c;">Maintenance Work Log</h3>
         <div class="small" style="margin-bottom:8px;">Equipment, trailer, and vehicle appointments from the schedule are logged here for maintenance tracking.</div>
-        ${rows.length ? ["Vehicles", "Trailers", "Equipment"].map((category) => renderMaintenanceCategoryGroup(category, grouped[category] || new Map())).join("") : '<div class="small">No maintenance work has been scheduled yet.</div>'}
+        ${rows.length ? ["Vehicles", "Trailers", "Equipment"].map((category) => renderMaintenanceCategoryGroup(category, grouped[category] || new Map())).join("") : '<div class="small jgc-empty-state">No maintenance work has been scheduled yet.</div>'}
     `;
 }
 
@@ -9805,16 +9972,16 @@ function renderMaintenanceCategoryGroup(category, unitMap) {
 
     return `
         <h4 style="margin:16px 0 8px;color:#2f6f3c;">${escapeHtml(category)}</h4>
-        ${units.length ? units.map((unit) => renderMaintenanceUnitGroup(unit)).join("") : '<div class="small" style="margin-bottom:10px;">No maintenance logged for this group.</div>'}
+        ${units.length ? units.map((unit) => renderMaintenanceUnitGroup(unit)).join("") : '<div class="small jgc-empty-state" style="margin-bottom:10px;">No maintenance logged for this group.</div>'}
     `;
 }
 
 function renderMaintenanceUnitGroup(unit) {
     return `
-        <details class="sub-card" style="margin:8px 0 12px;" open>
+        <details class="sub-card jgc-card" style="margin:8px 0 12px;" open>
             <summary style="cursor:pointer;font-weight:900;color:#2f6f3c;">${escapeHtml(unit.unitName)} (${unit.rows.length})</summary>
-            <div class="table-wrap" style="margin-top:8px;">
-                <table>
+            <div class="table-wrap jgc-table-wrap" style="margin-top:8px;">
+                <table class="jgc-table">
                     <thead>
                         <tr><th>Date</th><th>Time</th><th>Reason</th><th>Status</th><th>Completed</th><th>Notes</th><th>Actions</th></tr>
                     </thead>
@@ -9830,7 +9997,7 @@ function renderMaintenanceUnitGroup(unit) {
                                 <td>
                                     ${row.status === "completed"
                                         ? '<span class="small">Complete</span>'
-                                        : '<button type="button" onclick="completeMaintenanceLog(\'' + escapeHtml(row.id) + '\')">Mark Complete</button>'}
+                                        : '<button type="button" class="jgc-button" onclick="completeMaintenanceLog(\'' + escapeHtml(row.id) + '\')">Mark Complete</button>'}
                                 </td>
                             </tr>
                         `).join("")}
