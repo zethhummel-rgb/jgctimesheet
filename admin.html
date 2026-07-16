@@ -3673,69 +3673,69 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="jobsList" class="small" style="margin-top:12px;">Loading jobs...</div>
 </div>
 
-<div id="workOrdersSection" class="card" hidden>
+<div id="workOrdersSection" class="card jgc-panel" hidden>
     <h2>Work Orders</h2>
     <div class="small" style="margin-bottom:12px;">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
-    <div class="actions" style="margin-top:10px;">
-        <button class="secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
-        <button type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
+    <div class="actions jgc-actions" style="margin-top:10px;">
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
+        <button class="jgc-button" type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
     </div>
-    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;">
+    <details class="sub-card admin-collapsible-panel jgc-card" style="margin-top:14px;">
         <summary>
             <span>Approved WO Labour Workers</span>
             <span id="woLabourWorkerCountBadge" class="timesheet-worker-count">0</span>
         </summary>
         <div>
             <div class="small" style="margin-bottom:10px;">Checked workers appear in the Work Order labour picker. You can add manual names here without creating portal accounts.</div>
-            <div class="filters">
-                <div>
+            <div class="filters jgc-filter-grid">
+                <div class="jgc-field">
                     <label>Add Worker Name</label>
-                    <input id="woLabourWorkerName" placeholder="Worker name">
+                    <input id="woLabourWorkerName" class="jgc-input" placeholder="Worker name">
                 </div>
             </div>
-            <div class="actions" style="margin-top:10px;">
-                <button type="button" onclick="addWorkOrderLabourWorker()">Add Worker</button>
-                <button class="secondary" type="button" onclick="loadWorkOrderLabourWorkers()">Refresh Workers</button>
+            <div class="actions jgc-actions" style="margin-top:10px;">
+                <button class="jgc-button" type="button" onclick="addWorkOrderLabourWorker()">Add Worker</button>
+                <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadWorkOrderLabourWorkers()">Refresh Workers</button>
             </div>
             <div id="workOrderLabourWorkerStatus" class="small" style="margin-top:10px;"></div>
             <div id="workOrderLabourWorkerList" class="small" style="margin-top:12px;">Loading WO labour workers...</div>
         </div>
     </details>
     <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
-    <div class="admin-wo-management">
-        <div class="wo-management-tabs" aria-label="Admin Work Order Management Views">
-            <button id="adminWoActiveTabButton" type="button" class="active" onclick="setAdminWorkOrderManagementView('active')">Active WOs</button>
-            <button id="adminWoSubmittedTabButton" type="button" onclick="setAdminWorkOrderManagementView('submitted')">Submitted WOs</button>
+    <div class="admin-wo-management jgc-section">
+        <div class="wo-management-tabs jgc-tabs" role="tablist" aria-label="Admin Work Order Management Views">
+            <button id="adminWoActiveTabButton" type="button" role="tab" aria-selected="true" class="active jgc-tab" onclick="setAdminWorkOrderManagementView('active')">Active WOs</button>
+            <button id="adminWoSubmittedTabButton" type="button" role="tab" aria-selected="false" class="jgc-tab" onclick="setAdminWorkOrderManagementView('submitted')">Submitted WOs</button>
         </div>
-        <div class="filters">
-            <div>
+        <div class="filters jgc-filter-grid">
+            <div class="jgc-field">
                 <label>Search</label>
-                <input id="adminWorkOrderSearch" type="search" placeholder="WO #, job, attention, worker" oninput="renderAdminWorkOrders()">
+                <input id="adminWorkOrderSearch" class="jgc-input" type="search" placeholder="WO #, job, attention, worker" oninput="renderAdminWorkOrders()">
             </div>
-            <div>
+            <div class="jgc-field">
                 <label>Status</label>
-                <select id="adminWorkOrderStatus" onchange="renderAdminWorkOrders()">
+                <select id="adminWorkOrderStatus" class="jgc-select" onchange="renderAdminWorkOrders()">
                     <option value="">All Statuses</option>
                     <option value="draft">Draft</option>
                     <option value="ready_for_submission">Ready For Submission</option>
                     <option value="submitted">Submitted</option>
                 </select>
             </div>
-            <div>
+            <div class="jgc-field">
                 <label>Date</label>
-                <input id="adminWorkOrderDate" type="date" onchange="renderAdminWorkOrders()">
+                <input id="adminWorkOrderDate" class="jgc-input" type="date" onchange="renderAdminWorkOrders()">
             </div>
         </div>
         <div id="adminWorkOrderListStatus" class="small">Loading Work Orders...</div>
-        <div id="adminWorkOrderEditorPanel" class="admin-wo-editor-panel" hidden>
+        <div id="adminWorkOrderEditorPanel" class="admin-wo-editor-panel jgc-panel" hidden>
             <div class="admin-wo-editor-header">
                 <div>
                     <h3 id="adminWorkOrderEditorTitle">Work Order Editor</h3>
                     <div id="adminWorkOrderEditorStatus" class="small">Loading selected Work Order...</div>
                 </div>
-                <div class="actions">
-                    <button type="button" class="secondary" onclick="refreshAdminWorkOrderEditor()">Refresh Editor</button>
-                    <button type="button" class="secondary" onclick="closeAdminWorkOrderEditor()">Close Editor</button>
+                <div class="actions jgc-actions">
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshAdminWorkOrderEditor()">Refresh Editor</button>
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeAdminWorkOrderEditor()">Close Editor</button>
                 </div>
             </div>
             <iframe id="adminWorkOrderEditorFrame" class="admin-wo-editor-frame" title="Admin Work Order Editor"></iframe>
@@ -15388,10 +15388,12 @@ function updateAdminWorkOrderManagementTabs() {
 
     if (activeButton) {
         activeButton.classList.toggle("active", adminWorkOrderManagementView === "active");
+        activeButton.setAttribute("aria-selected", String(adminWorkOrderManagementView === "active"));
     }
 
     if (submittedButton) {
         submittedButton.classList.toggle("active", adminWorkOrderManagementView === "submitted");
+        submittedButton.setAttribute("aria-selected", String(adminWorkOrderManagementView === "submitted"));
     }
 }
 
@@ -15517,8 +15519,8 @@ function renderAdminWorkOrders() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap admin-wo-management-table">
-            <table>
+        <div class="table-wrap admin-wo-management-table jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr>
                         <th>WO #</th>
@@ -15546,14 +15548,14 @@ function renderAdminWorkOrders() {
                                 <td>${escapeHtml(wo.customer || "")}</td>
                                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
                                 <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
-                                <td><span class="pill ${statusClass} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getAdminWorkOrderStatusText(wo))}</span></td>
+                                <td><span class="pill jgc-badge ${wo.status === "submitted" ? "jgc-badge--info" : wo.status === "ready_for_submission" ? "jgc-badge--warning" : "jgc-badge--success"} ${statusClass} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getAdminWorkOrderStatusText(wo))}</span></td>
                                 <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
                                 <td>${getAdminWorkOrderPoCount(wo.id)}</td>
                                 <td>
-                                    <div class="actions">
-                                        <button type="button" class="secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
-                                        ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
-                                        <button type="button" class="delete-button" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
+                                    <div class="actions jgc-table-actions">
+                                        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                                        ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
+                                        <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
                                     </div>
                                 </td>
                             </tr>

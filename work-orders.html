@@ -16,12 +16,120 @@ body {
   padding: 20px;
 }
 
+body.work-orders-page.jgc-page {
+  background: #061411;
+  color: #ffffff;
+  padding: 20px;
+}
+
+.work-orders-page .page.jgc-page-shell {
+  width: 100%;
+  max-width: 1220px;
+  padding: 0;
+}
+
+.work-orders-page .work-order-page-header.jgc-page-header {
+  display: block;
+  margin-bottom: 0;
+}
+
+.work-orders-page .work-order-page-header.jgc-page-header h1 {
+  color: #37d650;
+  font-size: 2em;
+}
+
+.work-orders-page .card.jgc-panel {
+  background: #102018;
+  border: 1px solid rgba(99, 205, 107, 0.28);
+  border-top: 4px solid #37d650;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+
+.work-orders-page .jgc-button {
+  min-height: 0;
+  padding: 10px 14px;
+  background: #14883f;
+  border: 0;
+  border-radius: 5px;
+  font-family: Arial, sans-serif;
+}
+
+.work-orders-page .jgc-button.secondary,
+.work-orders-page .jgc-button--secondary {
+  background: #26352d;
+}
+
+.work-orders-page .jgc-button.delete-button,
+.work-orders-page .jgc-button--danger {
+  background: #b42323;
+}
+
+.work-orders-page .jgc-input,
+.work-orders-page .jgc-select,
+.work-orders-page .jgc-textarea {
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid #6d7d70;
+  border-radius: 6px;
+  background: #f7faf6;
+  color: #102018;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+
+.work-orders-page .wo-management-tabs.jgc-tabs {
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding-bottom: 0;
+  overflow: visible;
+}
+
+.work-orders-page .wo-management-tabs .jgc-tab {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 5px;
+  font-size: inherit;
+}
+
+.work-orders-page .pill.jgc-badge {
+  min-height: 0;
+  padding: 3px 8px;
+  border: 0;
+  color: #102018;
+}
+
+.work-orders-page .pill.jgc-badge.ready_for_submission {
+  color: #634900;
+}
+
+.work-orders-page .pill.jgc-badge.submitted {
+  color: #0d3c72;
+}
+
+.work-orders-page .form-grid.jgc-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.work-orders-page .filters.jgc-filter-grid {
+  grid-template-columns: 1fr 160px 150px;
+}
+
+.work-orders-page .form-section.jgc-section {
+  padding-block: 0;
+  border-top: 0;
+}
+
 body.embedded-work-order {
   padding: 0;
   background: #061411;
 }
 
 body.embedded-work-order .logo-wrap,
+body.embedded-work-order .work-order-page-header,
 body.embedded-work-order h1,
 body.embedded-work-order #currentUser,
 body.embedded-work-order .top-actions,
@@ -30,8 +138,10 @@ body.embedded-work-order #workOrderManagementCard {
 }
 
 body.embedded-work-order .page {
+  width: 100%;
   max-width: none;
   margin: 0;
+  padding: 0;
 }
 
 body.embedded-work-order .card {
@@ -554,9 +664,18 @@ th {
     padding: 12px;
   }
 
+  body.work-orders-page.jgc-page {
+    padding: 12px;
+  }
+
   .grid,
   .form-grid,
   .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .form-grid.jgc-form-grid,
+  .work-orders-page .filters.jgc-filter-grid {
     grid-template-columns: 1fr;
   }
 
@@ -645,105 +764,107 @@ th {
 }
 </style>
 </head>
-<body>
-<div class="page">
-  <div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
-  </div>
+<body class="work-orders-page jgc-page">
+<main class="page jgc-page-shell jgc-page-shell--wide">
+  <header class="work-order-page-header jgc-page-header">
+    <div class="logo-wrap jgc-brand">
+      <img src="logo.png" alt="John Gordon Construction logo">
+    </div>
 
-  <h1>Work Orders</h1>
-  <div id="currentUser" class="small" style="text-align:center;"></div>
+    <h1>Work Orders</h1>
+    <div id="currentUser" class="small" style="text-align:center;"></div>
+  </header>
 
-  <div class="top-actions">
-    <button type="button" onclick="window.location.href='home.html'">Home</button>
-    <button type="button" class="secondary" onclick="resetWorkOrderForm()">New Work Order</button>
-    <button type="button" class="secondary" onclick="refreshWorkOrders()">Refresh</button>
-    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  <div class="top-actions jgc-actions">
+    <button type="button" class="jgc-button" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetWorkOrderForm()">New Work Order</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshWorkOrders()">Refresh</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
   <div class="grid">
-    <section id="workOrderManagementCard" class="card">
+    <section id="workOrderManagementCard" class="card jgc-panel">
       <button type="button" class="collapse-header" onclick="toggleManagementPanel()">
         <h2>Work Order Management</h2>
         <span id="managementToggleText">Show</span>
       </button>
       <div id="managementBody" class="collapse-body" hidden>
-        <div class="wo-management-tabs" aria-label="Work Order Management Views">
-          <button id="woActiveTabButton" type="button" class="active" onclick="setWorkOrderManagementView('active')">Active WOs</button>
-          <button id="woSubmittedTabButton" type="button" onclick="setWorkOrderManagementView('submitted')">Submitted WOs</button>
+        <div class="wo-management-tabs jgc-tabs" role="tablist" aria-label="Work Order Management Views">
+          <button id="woActiveTabButton" type="button" role="tab" aria-selected="true" class="active jgc-tab" onclick="setWorkOrderManagementView('active')">Active WOs</button>
+          <button id="woSubmittedTabButton" type="button" role="tab" aria-selected="false" class="jgc-tab" onclick="setWorkOrderManagementView('submitted')">Submitted WOs</button>
         </div>
-        <div class="filters">
-          <input id="woSearch" type="search" placeholder="Search WO, job, attention" oninput="renderWorkOrders()">
-          <select id="woStatusFilter" onchange="renderWorkOrders()">
+        <div class="filters jgc-filter-grid">
+          <input id="woSearch" class="jgc-input" type="search" placeholder="Search WO, job, attention" oninput="renderWorkOrders()">
+          <select id="woStatusFilter" class="jgc-select" onchange="renderWorkOrders()">
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
             <option value="ready_for_submission">Ready For Submission</option>
             <option value="submitted">Submitted</option>
           </select>
-          <input id="woDateFilter" type="date" onchange="renderWorkOrders()">
+          <input id="woDateFilter" class="jgc-input" type="date" onchange="renderWorkOrders()">
         </div>
         <div id="woListStatus" class="small">Loading work orders...</div>
         <div id="woList"></div>
       </div>
     </section>
 
-    <section id="workOrderFormCard" class="card">
+    <section id="workOrderFormCard" class="card jgc-panel">
       <h2 id="formTitle">New Work Order</h2>
       <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
       <div id="lockedNotice" class="locked-note" style="display:none;">This Work Order has been submitted and is locked.</div>
 
-      <div class="form-grid">
-        <div>
+      <div class="form-grid jgc-form-grid">
+        <div class="jgc-field">
           <label>WO Number</label>
-          <input id="woNumber" placeholder="Select a job to generate" readonly>
+          <input id="woNumber" class="jgc-input" placeholder="Select a job to generate" readonly>
         </div>
-        <div>
+        <div class="jgc-field">
           <label>Date</label>
-          <input id="woDate" type="date" onchange="renderLabourPreview(); window.jgcDigitalPoWorkOrder && window.jgcDigitalPoWorkOrder.useWorkOrderDate();">
+          <input id="woDate" class="jgc-input" type="date" onchange="renderLabourPreview(); window.jgcDigitalPoWorkOrder && window.jgcDigitalPoWorkOrder.useWorkOrderDate();">
         </div>
-        <div>
+        <div class="jgc-field">
           <label>Status</label>
-          <select id="woStatus">
+          <select id="woStatus" class="jgc-select">
             <option value="draft">Draft</option>
             <option value="ready_for_submission">Ready For Submission</option>
             <option value="submitted" disabled>Submitted - locked</option>
           </select>
           <div id="woSubmittedInfo" class="small" style="margin-top:6px;"></div>
         </div>
-        <div>
+        <div class="jgc-field">
           <label>Customer PO#</label>
-          <input id="woCustomerPo" placeholder="Customer PO number if provided">
+          <input id="woCustomerPo" class="jgc-input" placeholder="Customer PO number if provided">
         </div>
-        <div class="full">
+        <div class="full jgc-field jgc-field--full">
           <label>Job</label>
           <div class="job-search-wrap">
-            <input id="woJobSearch" list="woJobOptions" placeholder="Start typing job number or job name" autocomplete="off" onfocus="renderJobSearchSuggestions()" oninput="handleJobSearchInput()" onchange="handleJobSearchInput()">
+            <input id="woJobSearch" class="jgc-input" list="woJobOptions" placeholder="Start typing job number or job name" autocomplete="off" onfocus="renderJobSearchSuggestions()" oninput="handleJobSearchInput()" onchange="handleJobSearchInput()">
             <datalist id="woJobOptions"></datalist>
             <div id="woJobSuggestions" class="job-suggestions"></div>
             <input id="woJob" type="hidden">
           </div>
         </div>
-        <div>
+        <div class="jgc-field">
           <label>Job Number</label>
-          <input id="woJobNumber" readonly>
+          <input id="woJobNumber" class="jgc-input" readonly>
         </div>
-        <div>
+        <div class="jgc-field">
           <label>Attention</label>
-          <input id="woCustomer" placeholder="Homeowner, site contact, or attention line">
+          <input id="woCustomer" class="jgc-input" placeholder="Homeowner, site contact, or attention line">
         </div>
         <input id="woJobName" type="hidden">
         <input id="woJobType" type="hidden" value="T&M">
-        <div class="full">
+        <div class="full jgc-field jgc-field--full">
           <label>Job Address</label>
-          <input id="woJobAddress" placeholder="Job address">
+          <input id="woJobAddress" class="jgc-input" placeholder="Job address">
         </div>
-        <div class="full">
+        <div class="full jgc-field jgc-field--full">
           <label>Description of Work Completed Today</label>
-          <textarea id="woDescription" placeholder="Example: Replaced damaged ceiling tiles, installed FRP panels, completed drywall repairs..."></textarea>
+          <textarea id="woDescription" class="jgc-textarea" placeholder="Example: Replaced damaged ceiling tiles, installed FRP panels, completed drywall repairs..."></textarea>
         </div>
       </div>
 
-      <div class="form-section">
+      <div class="form-section jgc-section">
         <h3>Labour</h3>
         <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
         <div id="employeePicker" class="employee-picker small">Loading employees...</div>
@@ -754,32 +875,32 @@ th {
           </label>
           <div id="manualLabourFields" hidden>
             <div id="manualLabourRows" class="manual-labour-rows"></div>
-            <div class="manual-labour-actions">
-              <button type="button" class="secondary" onclick="addManualLabourRow()">Add Entry</button>
+            <div class="manual-labour-actions jgc-actions">
+              <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addManualLabourRow()">Add Entry</button>
             </div>
           </div>
         </div>
-        <div class="actions" style="margin-bottom:10px;">
-          <button type="button" class="secondary" onclick="refreshLabourPreview()">Refresh Labour Match</button>
+        <div class="actions jgc-actions" style="margin-bottom:10px;">
+          <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshLabourPreview()">Refresh Labour Match</button>
         </div>
         <div id="labourPreview" class="small">Select employees to preview labour.</div>
       </div>
 
-      <div class="form-section">
+      <div class="form-section jgc-section">
         <h3>Paper / Manual Purchase Orders</h3>
         <div id="poRows"></div>
-        <button type="button" class="secondary" onclick="addPoRow()">Add PO</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addPoRow()">Add PO</button>
       </div>
 
-      <div class="form-section" id="digitalPoWorkOrderSection">
+      <div class="form-section jgc-section" id="digitalPoWorkOrderSection">
         <h3>Digital Purchase Orders</h3>
-        <div class="form-grid">
-          <div>
+        <div class="form-grid jgc-form-grid">
+          <div class="jgc-field">
             <label for="digitalPoWorkOrderDate">PO Date</label>
-            <input id="digitalPoWorkOrderDate" type="date">
+            <input id="digitalPoWorkOrderDate" class="jgc-input" type="date">
           </div>
           <div style="display:flex;align-items:end;">
-            <button id="refreshDigitalPoOptionsButton" type="button" class="secondary">Refresh Digital POs</button>
+            <button id="refreshDigitalPoOptionsButton" type="button" class="secondary jgc-button jgc-button--secondary">Refresh Digital POs</button>
           </div>
         </div>
         <div id="digitalPoWorkOrderStatus" class="small" style="margin:10px 0;">Select a job and date.</div>
@@ -790,46 +911,46 @@ th {
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('materialSectionBody', 'materialToggleText')">
           <h3>Materials Used From Shop</h3>
           <span id="materialToggleText">Show</span>
         </button>
         <div id="materialSectionBody" class="form-section-body" hidden>
           <div id="materialRows"></div>
-          <div class="section-actions">
-            <button type="button" class="secondary" onclick="addMaterialRow()">Add Material</button>
+          <div class="section-actions jgc-actions">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addMaterialRow()">Add Material</button>
           </div>
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('miscSectionBody', 'miscToggleText')">
           <h3>Misc. Invoices and Sub Contractors</h3>
           <span id="miscToggleText">Show</span>
         </button>
         <div id="miscSectionBody" class="form-section-body" hidden>
           <div id="miscRows"></div>
-          <div class="section-actions">
-            <button type="button" class="secondary" onclick="addMiscRow()">Add Misc. Invoice / Sub Contractor</button>
+          <div class="section-actions jgc-actions">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addMiscRow()">Add Misc. Invoice / Sub Contractor</button>
           </div>
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('travelSectionBody', 'travelToggleText')">
           <h3>Travelling</h3>
           <span id="travelToggleText">Show</span>
         </button>
         <div id="travelSectionBody" class="form-section-body" hidden>
           <div id="travelRows"></div>
-          <div class="section-actions">
-            <button type="button" class="secondary" onclick="addTravelRow()">Add Vehicle</button>
+          <div class="section-actions jgc-actions">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addTravelRow()">Add Vehicle</button>
           </div>
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('equipmentSectionBody', 'equipmentToggleText')">
           <h3>Equipment Used</h3>
           <span id="equipmentToggleText">Show</span>
@@ -837,46 +958,46 @@ th {
         <div id="equipmentSectionBody" class="form-section-body" hidden>
           <div class="small" style="margin-bottom:8px;">Select lifts only. Trailers are tracked under Travelling.</div>
           <div id="equipmentRows"></div>
-          <div class="section-actions">
-            <button type="button" class="secondary" onclick="addEquipmentRow()">Add Equipment</button>
+          <div class="section-actions jgc-actions">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addEquipmentRow()">Add Equipment</button>
           </div>
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('rentalSectionBody', 'rentalToggleText')">
           <h3>Rental Equipment</h3>
           <span id="rentalToggleText">Show</span>
         </button>
         <div id="rentalSectionBody" class="form-section-body" hidden>
           <div id="rentalRows"></div>
-          <div class="section-actions">
-            <button type="button" class="secondary" onclick="addRentalRow()">Add Rental</button>
+          <div class="section-actions jgc-actions">
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addRentalRow()">Add Rental</button>
           </div>
         </div>
       </div>
 
-      <div class="form-section collapsible">
+      <div class="form-section collapsible jgc-section">
         <button type="button" class="form-section-header" onclick="toggleFormSection('notesSectionBody', 'notesToggleText')">
           <h3>Notes</h3>
           <span id="notesToggleText">Show</span>
         </button>
         <div id="notesSectionBody" class="form-section-body" hidden>
           <label>Extra Notes</label>
-          <textarea id="woNotes" placeholder="Add any extra information that does not fit in the sections above."></textarea>
+          <textarea id="woNotes" class="jgc-textarea" placeholder="Add any extra information that does not fit in the sections above."></textarea>
         </div>
       </div>
 
-<div class="actions" style="margin-top:14px;">
-  <button id="saveButton" type="button" onclick="saveWorkOrder()">Save Draft</button>
-  <button id="submitButton" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
-  <button id="earlySubmitButton" type="button" class="secondary" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
-  <button type="button" class="secondary" onclick="resetWorkOrderForm()">Clear</button>
+<div class="actions jgc-actions" style="margin-top:14px;">
+  <button id="saveButton" class="jgc-button" type="button" onclick="saveWorkOrder()">Save Draft</button>
+  <button id="submitButton" class="jgc-button" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
+  <button id="earlySubmitButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
+  <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetWorkOrderForm()">Clear</button>
 </div>
       <div id="formStatus" class="small" style="margin-top:10px;"></div>
     </section>
   </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
@@ -1983,10 +2104,12 @@ function updateWorkOrderManagementTabs() {
 
   if (activeButton) {
     activeButton.classList.toggle("active", workOrderManagementView === "active");
+    activeButton.setAttribute("aria-selected", String(workOrderManagementView === "active"));
   }
 
   if (submittedButton) {
     submittedButton.classList.toggle("active", workOrderManagementView === "submitted");
+    submittedButton.setAttribute("aria-selected", String(workOrderManagementView === "submitted"));
   }
 }
 
@@ -2023,8 +2146,8 @@ function renderWorkOrders() {
   }
 
   list.innerHTML = `
-    <div class="table-wrap wo-management-table">
-      <table>
+    <div class="table-wrap wo-management-table jgc-table-wrap">
+      <table class="jgc-table">
         <thead>
           <tr>
             <th>WO #</th>
@@ -2052,18 +2175,18 @@ function renderWorkOrders() {
                 <td>${escapeHtml(wo.customer || "")}</td>
                 <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
                 <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
-                <td><span class="pill ${escapeHtml(wo.status || "draft")} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
+                <td><span class="pill jgc-badge ${wo.status === "submitted" ? "jgc-badge--info" : wo.status === "ready_for_submission" ? "jgc-badge--warning" : "jgc-badge--success"} ${escapeHtml(wo.status || "draft")} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getWorkOrderStatusText(wo))}</span></td>
                 <td>${woLabourRows.length ? completeCount + " / " + woLabourRows.length : "-"}</td>
                 <td>${poCount}</td>
                 <td>
-                  <div class="actions">
-                    <button type="button" class="secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
-                    ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
-          ${isLocked || isPendingSubmission ? "" : `<button type="button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
-          ${isLocked ? "" : `<button type="button" class="secondary" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
-                    <button type="button" class="secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
-                    <button type="button" class="secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
-                    ${isAdmin && !isLocked ? `<button type="button" class="delete-button" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
+                  <div class="actions jgc-table-actions">
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editWorkOrder('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                    ${!isLocked && wo.status === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
+          ${isLocked || isPendingSubmission ? "" : `<button type="button" class="jgc-button" onclick="submitSavedWorkOrder('${escapeHtml(wo.id)}')">Submit</button>`}
+          ${isLocked ? "" : `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="submitSavedWorkOrderEarly('${escapeHtml(wo.id)}')">Early Submission</button>`}
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="downloadWorkOrderPdf('${escapeHtml(wo.id)}')">Save PDF</button>
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="emailWorkOrderPdf('${escapeHtml(wo.id)}')">Email PDF</button>
+                    ${isAdmin && !isLocked ? `<button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteWorkOrder('${escapeHtml(wo.id)}')">Delete</button>` : ""}
                   </div>
                 </td>
               </tr>
