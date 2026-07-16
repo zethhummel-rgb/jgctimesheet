@@ -245,52 +245,278 @@
         text-align: center;
       }
     }
+
+    /* Phase 7 compatibility: shared certificate semantics without changing geometry. */
+    body.certificates-page.jgc-page {
+      font-family: Arial;
+      background: #8f9691;
+      padding: 20px;
+      margin: 0;
+      color: #1f2a24;
+    }
+
+    .certificates-page .certificates-page-shell.jgc-page-shell {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .certificates-page .certificates-page-header.jgc-page-header {
+      display: block;
+      margin: 0;
+      text-align: center;
+    }
+
+    .certificates-page .logo-wrap.jgc-brand {
+      max-width: 347px;
+      margin: 0 auto 8px;
+    }
+
+    .certificates-page .certificates-page-header.jgc-page-header h1 {
+      max-width: 900px;
+      margin: 0 auto 8px;
+      color: #ffffff;
+      font-size: 24px;
+      line-height: normal;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .certificates-page .card.jgc-panel {
+      max-width: 900px;
+      background: #fbfcf9;
+      padding: 15px;
+      margin: 0 auto 12px;
+      border: 0;
+      border-top: 4px solid #3f7d4d;
+      border-radius: 8px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      color: #1f2a24;
+    }
+
+    .certificates-page .jgc-section-title {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #2f6f3c;
+      font-size: 19px;
+    }
+
+    .certificates-page .jgc-field {
+      display: block;
+    }
+
+    .certificates-page .jgc-label {
+      margin: 0;
+      color: #1f2a24;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .certificates-page .jgc-input,
+    .certificates-page .jgc-textarea {
+      width: 100%;
+      min-height: 0;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      background: #f7f9f4;
+      border: 1px solid #b8c2b2;
+      border-radius: 5px;
+      color: #1f2a24;
+      box-shadow: none;
+    }
+
+    .certificates-page button.jgc-button,
+    .certificates-page a.jgc-button {
+      width: 100%;
+      min-height: 0;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      border: 0;
+      border-radius: 5px;
+      background: #3f7d4d;
+      color: #ffffff;
+      font-weight: bold;
+      box-shadow: none;
+    }
+
+    .certificates-page button.jgc-button--secondary {
+      background: #5f6a62;
+    }
+
+    .certificates-page .section-toggle.jgc-button {
+      display: flex;
+      width: 100%;
+      min-height: 0;
+      padding: 0 0 10px;
+      margin: 0 0 10px;
+      border: 0;
+      border-bottom: 1px solid #d6dfd2;
+      border-radius: 0;
+      background: transparent;
+      color: #2f6f3c;
+      font-size: 20px;
+      text-align: left;
+      box-shadow: none;
+    }
+
+    .certificates-page .actions.jgc-table-actions,
+    .certificates-page .certificate-page-actions.jgc-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .certificates-page .actions.jgc-table-actions button,
+    .certificates-page .actions.jgc-table-actions a,
+    .certificates-page .certificate-page-actions.jgc-actions button {
+      width: auto;
+      margin: 0;
+    }
+
+    .certificates-page .table-wrap.jgc-table-wrap {
+      margin-top: 10px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      overflow-x: auto;
+    }
+
+    .certificates-page table.jgc-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: #ffffff;
+    }
+
+    .certificates-page table.jgc-table th,
+    .certificates-page table.jgc-table td {
+      border: 1px solid #c5cec1;
+      padding: 10px;
+      color: #1f2a24;
+      background: #ffffff;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .certificates-page table.jgc-table th {
+      background: #dfe9da;
+      color: #1f3d28;
+    }
+
+    .certificates-page table.jgc-table td:first-child,
+    .certificates-page table.jgc-table th:first-child {
+      text-align: left;
+    }
+
+    .certificates-page .jgc-empty-state {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #666;
+      text-align: left;
+    }
+
+    @media (max-width: 720px) {
+      body.certificates-page.jgc-page {
+        padding: 10px;
+      }
+
+      .certificates-page .logo-wrap.jgc-brand {
+        max-width: 260px;
+      }
+
+      .certificates-page .jgc-input,
+      .certificates-page .jgc-textarea,
+      .certificates-page button.jgc-button,
+      .certificates-page a.jgc-button {
+        min-height: 42px;
+        font-size: 16px;
+      }
+
+      .certificates-page table.jgc-table {
+        min-width: 620px;
+      }
+
+      .certificates-page table.jgc-table th,
+      .certificates-page table.jgc-table td {
+        padding: 6px;
+        font-size: 12px;
+      }
+
+      .certificates-page .actions.jgc-table-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .certificates-page .actions.jgc-table-actions button,
+      .certificates-page .actions.jgc-table-actions a,
+      .certificates-page .certificate-page-actions.jgc-actions button {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 
-<body>
+<body class="certificates-page jgc-page">
+<main class="certificates-page-shell jgc-page-shell">
+<header class="certificates-page-header jgc-page-header">
 
-<div class="logo-wrap">
-  <img src="logo.png" alt="John Gordon Construction" />
+<div class="logo-wrap jgc-brand">
+  <img src="logo.webp" alt="John Gordon Construction" />
 </div>
 
-<h2>Certificates</h2>
+<h1>Certificates</h1>
 <div id="currentUser" class="user-bar"></div>
+</header>
 
-<div class="card">
-  <h3>My Certificates</h3>
-  <button type="button" onclick="loadCertificates()">Refresh Certificates</button>
+<section class="card jgc-panel">
+  <h3 class="jgc-section-title">My Certificates</h3>
+  <button type="button" class="jgc-button" onclick="loadCertificates()">Refresh Certificates</button>
   <div id="certificatesList"></div>
-</div>
+</section>
 
-<div class="card">
-  <button id="toggleUpload" type="button" class="section-toggle" onclick="toggleCertificateUpload()">
+<section class="card jgc-panel">
+  <button id="toggleUpload" type="button" class="section-toggle jgc-button" onclick="toggleCertificateUpload()">
     Add Certificate
     <span id="uploadToggleIcon">▸</span>
   </button>
 
   <div id="uploadCardBody" class="upload-body">
-    <label>Certificate Name</label>
-    <input id="certificateName" placeholder="Example: Working at Heights" />
+    <div class="jgc-field">
+    <label class="jgc-label" for="certificateName">Certificate Name</label>
+    <input class="jgc-input" id="certificateName" placeholder="Example: Working at Heights" />
+    </div>
 
-    <label>Expiry Date</label>
-    <input id="expiryDate" type="date" />
+    <div class="jgc-field">
+    <label class="jgc-label" for="expiryDate">Expiry Date</label>
+    <input class="jgc-input" id="expiryDate" type="date" />
+    </div>
 
-    <label>Notes</label>
-    <textarea id="certificateNotes" rows="3" placeholder="Optional notes"></textarea>
+    <div class="jgc-field">
+    <label class="jgc-label" for="certificateNotes">Notes</label>
+    <textarea class="jgc-textarea" id="certificateNotes" rows="3" placeholder="Optional notes"></textarea>
+    </div>
 
-    <label>Certificate File</label>
-    <input id="certificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" />
+    <div class="jgc-field">
+    <label class="jgc-label" for="certificateFile">Certificate File</label>
+    <input class="jgc-input" id="certificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" />
+    </div>
 
-    <button type="button" onclick="uploadCertificate()">Upload Certificate</button>
+    <button type="button" class="jgc-button" onclick="uploadCertificate()">Upload Certificate</button>
     <div id="certificateStatus" class="status"></div>
   </div>
-</div>
+</section>
 
-<div class="card">
-  <button type="button" onclick="window.location.href='home.html'">Home</button>
-  <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
-</div>
+<section class="card jgc-panel certificate-page-actions jgc-actions">
+  <button type="button" class="jgc-button" onclick="window.location.href='home.html'">Home</button>
+  <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
+</section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
@@ -417,11 +643,11 @@ async function loadCertificates() {
   const list = document.getElementById("certificatesList");
 
   if (!supabaseClient) {
-    list.innerHTML = '<div class="small">Supabase is not available right now.</div>';
+    list.innerHTML = '<div class="small jgc-empty-state">Supabase is not available right now.</div>';
     return;
   }
 
-  list.innerHTML = '<div class="small">Loading certificates...</div>';
+  list.innerHTML = '<div class="small jgc-empty-state">Loading certificates...</div>';
 
   const { data, error } = await supabaseClient
     .from("certificates")
@@ -430,7 +656,7 @@ async function loadCertificates() {
     .order("expiry_date", { ascending: true, nullsFirst: false });
 
   if (error) {
-    list.innerHTML = '<div class="small">Could not load certificates.</div>';
+    list.innerHTML = '<div class="small jgc-empty-state">Could not load certificates.</div>';
     return;
   }
 
@@ -458,7 +684,7 @@ function renderCertificates() {
   const list = document.getElementById("certificatesList");
 
   if (certificates.length === 0) {
-    list.innerHTML = '<div class="small">No certificates uploaded yet.</div>';
+    list.innerHTML = '<div class="small jgc-empty-state">No certificates uploaded yet.</div>';
     return;
   }
 
@@ -466,8 +692,8 @@ function renderCertificates() {
     const status = getCertificateStatus(certificate.expiry_date);
     const fileUrl = certificateUrls[certificate.id] || "#";
     const fileButton = certificateUrls[certificate.id]
-      ? '<a class="file-link" href="' + fileUrl + '" target="_blank" rel="noopener">Open</a>'
-      : '<button type="button" class="secondary" onclick="loadCertificates()">Refresh Link</button>';
+      ? '<a class="file-link jgc-button" href="' + fileUrl + '" target="_blank" rel="noopener">Open</a>'
+      : '<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadCertificates()">Refresh Link</button>';
 
     return `
       <tr>
@@ -476,7 +702,7 @@ function renderCertificates() {
         <td class="${status.className}">${status.text}</td>
         <td>${escapeHtml(certificate.notes || "")}</td>
         <td>
-          <div class="actions">
+          <div class="actions jgc-table-actions">
             ${fileButton}
           </div>
         </td>
@@ -485,8 +711,8 @@ function renderCertificates() {
   }).join("");
 
   list.innerHTML = `
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap jgc-table-wrap">
+      <table class="jgc-table">
         <thead>
           <tr>
             <th>Certificate</th>

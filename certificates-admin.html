@@ -350,81 +350,341 @@ td {
         padding: 14px;
     }
 }
+
+/* Phase 7 compatibility: shared admin certificate semantics without changing geometry. */
+body.certificates-admin-page.jgc-page {
+    font-family: Arial, sans-serif;
+    background: #8f9691;
+    margin: 0;
+    min-height: 100vh;
+    padding: 0;
+    color: #f4fff6;
+}
+
+.certificates-admin-page .tabs.jgc-tabs {
+    position: sticky;
+    top: 66px;
+    z-index: 120;
+    width: min(1500px, calc(100vw - 40px));
+    max-width: 1500px;
+    margin: 0 auto 12px;
+    padding: 7px 10px;
+    display: flex;
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: center;
+    background: rgba(6, 20, 17, 0.98);
+    border-top: 1px solid rgba(57, 200, 72, 0.25);
+    border-bottom: 1px solid rgba(57, 200, 72, 0.25);
+    border-radius: 0;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.certificates-admin-page .tabs.jgc-tabs .tab-button.jgc-tab {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 86px;
+    min-height: 0;
+    padding: 8px 13px;
+    border: 1px solid rgba(63, 125, 77, 0.6);
+    border-radius: 999px;
+    background: #20382a;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: none;
+}
+
+.certificates-admin-page .tabs.jgc-tabs .tab-button.jgc-tab.active {
+    background: #37d650;
+    color: #061411;
+}
+
+.certificates-admin-page .page.jgc-page-shell {
+    width: min(1180px, calc(100% - 28px));
+    max-width: none;
+    margin: 0 auto;
+    padding: 28px 0 70px;
+}
+
+.certificates-admin-page .hero.jgc-page-header {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    margin: 0 0 18px;
+    text-align: center;
+}
+
+.certificates-admin-page .hero.jgc-page-header h1 {
+    margin: 0 0 10px;
+    color: #32dc55;
+    font-size: 32px;
+    line-height: 1.2;
+}
+
+.certificates-admin-page .card.jgc-panel,
+.certificates-admin-page .sub-card.jgc-panel {
+    background: rgba(5, 24, 18, 0.92);
+    border: 1px solid rgba(50, 220, 85, 0.4);
+    border-top: 5px solid #32dc55;
+    border-radius: 8px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+    padding: 18px;
+    margin-bottom: 18px;
+    color: #f4fff6;
+}
+
+.certificates-admin-page .sub-card.jgc-panel {
+    border-top-width: 1px;
+    background: rgba(7, 36, 26, 0.9);
+}
+
+.certificates-admin-page .jgc-section-title {
+    margin: 0 0 10px;
+    color: #32dc55;
+    font-size: 24px;
+}
+
+.certificates-admin-page .form-grid.jgc-form-grid,
+.certificates-admin-page .filters.jgc-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.certificates-admin-page .jgc-field.full,
+.certificates-admin-page .jgc-field--full {
+    grid-column: 1 / -1;
+}
+
+.certificates-admin-page .jgc-label {
+    display: block;
+    margin: 0 0 5px;
+    color: #f4fff6;
+    font-weight: bold;
+}
+
+.certificates-admin-page .jgc-input,
+.certificates-admin-page .jgc-select,
+.certificates-admin-page .jgc-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 9px;
+    border: 1px solid #b7c6b8;
+    border-radius: 5px;
+    background: #f7faf6;
+    color: #18241c;
+    box-shadow: none;
+}
+
+.certificates-admin-page .jgc-textarea {
+    min-height: 88px;
+}
+
+.certificates-admin-page button.jgc-button,
+.certificates-admin-page a.jgc-button {
+    display: inline-flex;
+    width: auto;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 5px;
+    background: #128a45;
+    color: #ffffff;
+    font-weight: bold;
+    box-shadow: none;
+}
+
+.certificates-admin-page button.jgc-button--danger {
+    background: #c91f17;
+}
+
+.certificates-admin-page .actions.jgc-actions,
+.certificates-admin-page .actions.jgc-table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.certificates-admin-page .table-wrap.jgc-table-wrap {
+    margin-top: 10px;
+    border: 1px solid rgba(50, 220, 85, 0.25);
+    border-radius: 6px;
+    background: transparent;
+    overflow-x: auto;
+}
+
+.certificates-admin-page table.jgc-table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+    background: transparent;
+}
+
+.certificates-admin-page table.jgc-table th,
+.certificates-admin-page table.jgc-table td {
+    padding: 9px;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent;
+    color: #f4fff6;
+    text-align: left;
+    vertical-align: top;
+}
+
+.certificates-admin-page table.jgc-table th {
+    background: #103b20;
+    color: #ffffff;
+}
+
+.certificates-admin-page table.training-matrix-table.jgc-table {
+    min-width: 980px;
+}
+
+.certificates-admin-page table.training-matrix-table.jgc-table th:first-child,
+.certificates-admin-page table.training-matrix-table.jgc-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #0d2e1e;
+    font-weight: bold;
+}
+
+.certificates-admin-page .status-pill.jgc-badge,
+.certificates-admin-page .matrix-status.jgc-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.certificates-admin-page .jgc-empty-state {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #c8d7ca;
+    text-align: left;
+}
+
+@media (max-width: 720px) {
+    body.certificates-admin-page.jgc-app .jgc-admin-nav {
+        top: 58px;
+        z-index: 25;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 0 12px !important;
+        padding: 8px 10px !important;
+        box-sizing: border-box;
+        justify-content: flex-start;
+    }
+
+    .certificates-admin-page .tabs.jgc-tabs .tab-button.jgc-tab {
+        min-width: max-content;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+
+    .certificates-admin-page .page.jgc-page-shell {
+        width: min(100% - 18px, 1180px);
+        padding: 28px 0 88px;
+    }
+
+    .certificates-admin-page .form-grid.jgc-form-grid,
+    .certificates-admin-page .filters.jgc-filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .certificates-admin-page .card.jgc-panel,
+    .certificates-admin-page .sub-card.jgc-panel {
+        padding: 14px;
+    }
+}
 </style>
 </head>
-<body>
-<div class="tabs">
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
-    <button class="tab-button" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
-    <button class="tab-button" onclick="window.location.href='purchase-orders-admin.html'">Purchase Orders</button>
-    <button class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
+<body class="certificates-admin-page jgc-page">
+<div class="tabs jgc-tabs">
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=inspections'">Inspections</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=vacation'">Vacation Requests</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=tasks'">Tasks</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=reports'">Reports</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='admin.html?tab=workOrders'">Work Orders</button>
+    <button class="tab-button jgc-tab" onclick="window.location.href='purchase-orders-admin.html'">Purchase Orders</button>
+    <button class="tab-button active jgc-tab" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
 </div>
 
-<main class="page">
-    <section class="hero">
-        <img src="logo.webp" alt="John Gordon Construction">
+<main class="page jgc-page-shell jgc-page-shell--wide">
+    <header class="hero jgc-page-header">
+        <img class="jgc-brand" src="logo.webp" alt="John Gordon Construction">
         <div>
             <h1>Admin Certificates</h1>
             <div id="currentUser" class="small"></div>
         </div>
-    </section>
+    </header>
 
-    <section class="card">
-        <h2>Certificate Expiry Alerts</h2>
+    <section class="card jgc-panel">
+        <h2 class="jgc-section-title">Certificate Expiry Alerts</h2>
         <div id="certificateExpiryAlerts" class="small">Checking expiry notifications...</div>
     </section>
 
-    <details class="sub-card">
+    <details class="sub-card jgc-panel">
         <summary>Upload Certificate</summary>
-        <div class="form-grid" style="margin-top:12px;">
-            <div>
-                <label for="adminCertificateWorker">Employee</label>
-                <select id="adminCertificateWorker"></select>
+        <div class="form-grid jgc-form-grid" style="margin-top:12px;">
+            <div class="jgc-field">
+                <label class="jgc-label" for="adminCertificateWorker">Employee</label>
+                <select class="jgc-select" id="adminCertificateWorker"></select>
             </div>
-            <div>
-                <label for="adminCertificateName">Certificate Name</label>
-                <input id="adminCertificateName" placeholder="Example: Working at Heights">
+            <div class="jgc-field">
+                <label class="jgc-label" for="adminCertificateName">Certificate Name</label>
+                <input class="jgc-input" id="adminCertificateName" placeholder="Example: Working at Heights">
             </div>
-            <div>
-                <label for="adminCertificateExpiry">Expiry Date</label>
-                <input id="adminCertificateExpiry" type="date">
+            <div class="jgc-field">
+                <label class="jgc-label" for="adminCertificateExpiry">Expiry Date</label>
+                <input class="jgc-input" id="adminCertificateExpiry" type="date">
             </div>
-            <div>
-                <label for="adminCertificateFile">Certificate File</label>
-                <input id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            <div class="jgc-field">
+                <label class="jgc-label" for="adminCertificateFile">Certificate File</label>
+                <input class="jgc-input" id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
             </div>
-            <div class="full">
-                <label for="adminCertificateNotes">Notes</label>
-                <textarea id="adminCertificateNotes" placeholder="Optional notes"></textarea>
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label" for="adminCertificateNotes">Notes</label>
+                <textarea class="jgc-textarea" id="adminCertificateNotes" placeholder="Optional notes"></textarea>
             </div>
         </div>
-        <div class="actions">
-            <button type="button" onclick="uploadAdminCertificate()">Upload Certificate</button>
+        <div class="actions jgc-actions">
+            <button type="button" class="jgc-button" onclick="uploadAdminCertificate()">Upload Certificate</button>
         </div>
         <div id="adminCertificateStatus" class="small" style="margin-top:10px;"></div>
     </details>
 
-    <section class="card">
-        <h2>Training Matrix</h2>
+    <section class="card jgc-panel">
+        <h2 class="jgc-section-title">Training Matrix</h2>
         <div id="certificateTrainingMatrix" class="small">Loading training matrix...</div>
     </section>
 
-    <section class="card">
-        <h2>Certificate Records</h2>
-        <div class="filters">
-            <div>
-                <label for="certificateWorkerFilter">Worker</label>
-                <input id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
+    <section class="card jgc-panel">
+        <h2 class="jgc-section-title">Certificate Records</h2>
+        <div class="filters jgc-filter-grid">
+            <div class="jgc-field">
+                <label class="jgc-label" for="certificateWorkerFilter">Worker</label>
+                <input class="jgc-input" id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
             </div>
-            <div>
-                <label for="certificateStatusFilter">Status</label>
-                <select id="certificateStatusFilter" onchange="renderCertificates()">
+            <div class="jgc-field">
+                <label class="jgc-label" for="certificateStatusFilter">Status</label>
+                <select class="jgc-select" id="certificateStatusFilter" onchange="renderCertificates()">
                     <option value="">All</option>
                     <option value="Expired">Expired</option>
                     <option value="Expiring Soon">Expiring Soon</option>
@@ -568,8 +828,8 @@ function renderCertificateExpiryAlerts() {
 
     panel.innerHTML = `
         <strong>Expiry Notifications:</strong> ${alerts.length} certificate${alerts.length === 1 ? "" : "s"} expiring within 30 days.
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
                 </thead>
@@ -839,8 +1099,8 @@ function renderCertificateTrainingMatrix() {
     });
 
     matrix.innerHTML = `
-        <div class="table-wrap">
-            <table class="training-matrix-table">
+        <div class="table-wrap jgc-table-wrap">
+            <table class="training-matrix-table jgc-table">
                 <thead>
                     <tr>
                         <th>Employee</th>
@@ -855,7 +1115,7 @@ function renderCertificateTrainingMatrix() {
                                 const certificate = certificatesByWorkerAndName[workerKey + "::" + column.key];
 
                                 if (!certificate) {
-                                    return '<td class="matrix-cell"><span class="matrix-status missing">Missing</span></td>';
+                                    return '<td class="matrix-cell"><span class="matrix-status missing jgc-badge jgc-badge--danger">Missing</span></td>';
                                 }
 
                                 const status = getCertificateStatus(certificate.expiry_date);
@@ -864,7 +1124,7 @@ function renderCertificateTrainingMatrix() {
                                 return `
                                     <td class="matrix-cell">
                                         <div>${escapeHtml(expiryText)}</div>
-                                        <span class="matrix-status ${escapeHtml(getMatrixStatusClass(status))}">${escapeHtml(status)}</span>
+                                        <span class="matrix-status ${escapeHtml(getMatrixStatusClass(status))} jgc-badge ${status === "Valid" ? "jgc-badge--success" : status === "Expiring Soon" ? "jgc-badge--warning" : status === "No Expiry" ? "jgc-badge--info" : "jgc-badge--danger"}">${escapeHtml(status)}</span>
                                     </td>
                                 `;
                             }).join("")}
@@ -935,13 +1195,13 @@ function renderCertificates() {
     });
 
     if (!filtered.length) {
-        list.textContent = "No certificates found.";
+        list.innerHTML = '<div class="jgc-empty-state">No certificates found.</div>';
         return;
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
                 <thead>
                     <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
                 </thead>
@@ -953,9 +1213,9 @@ function renderCertificates() {
                                 <td>${escapeHtml(certificate.worker_name)}</td>
                                 <td>${escapeHtml(certificate.certificate_name)}</td>
                                 <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
-                                <td><span class="status-pill ${escapeHtml(getStatusClass(status))}">${escapeHtml(status)}</span></td>
-                                <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
-                                <td><button type="button" class="delete-button" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
+                                <td><span class="status-pill ${escapeHtml(getStatusClass(status))} jgc-badge ${status === "Valid" ? "jgc-badge--success" : status === "Expiring Soon" ? "jgc-badge--warning" : status === "No Expiry" ? "jgc-badge--info" : "jgc-badge--danger"}">${escapeHtml(status)}</span></td>
+                                <td>${certificateUrls[certificate.id] ? '<a class="file-link jgc-button" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                                <td><div class="actions jgc-table-actions"><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></div></td>
                             </tr>
                         `;
                     }).join("")}
