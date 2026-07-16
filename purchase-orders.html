@@ -9,73 +9,75 @@
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=11">
+  <link rel="stylesheet" href="purchase-orders.css?v=12">
 </head>
-<body class="po-page po-employee-page">
-  <main class="po-shell">
-    <div class="po-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-    <h1>Purchase Orders</h1>
-    <p id="poCurrentUser" class="po-user-line"></p>
+<body class="po-page po-employee-page jgc-page">
+  <main class="po-shell jgc-page-shell">
+    <header class="jgc-page-header">
+      <div class="po-brand jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Purchase Orders</h1>
+      <p id="poCurrentUser" class="po-user-line"></p>
+    </header>
 
     <div class="po-status-row" aria-live="polite">
-      <span id="poNetworkBadge" class="po-badge">Checking connection</span>
-      <span id="poSyncBadge" class="po-badge info">Loading</span>
-      <span id="poRangeBadge" class="po-badge" hidden></span>
+      <span id="poNetworkBadge" class="po-badge jgc-badge">Checking connection</span>
+      <span id="poSyncBadge" class="po-badge info jgc-badge jgc-badge--info">Loading</span>
+      <span id="poRangeBadge" class="po-badge jgc-badge" hidden></span>
     </div>
 
-    <div id="poNotice" class="po-notice" hidden role="status"></div>
+    <div id="poNotice" class="po-notice jgc-notice" hidden role="status"></div>
 
-    <section id="poDevicePanel" class="po-notice warning" hidden>
+    <section id="poDevicePanel" class="po-notice warning jgc-notice jgc-notice--warning" hidden>
       <strong id="poDeviceTitle">PO device approval required</strong>
       <div id="poDeviceMessage" style="margin-top:5px;"></div>
-      <div class="po-inline-actions" style="margin-top:10px;">
-        <button id="poRegisterDeviceButton" type="button">
+      <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+        <button id="poRegisterDeviceButton" class="jgc-button" type="button">
           <i data-lucide="smartphone"></i> Register This Device
         </button>
-        <button id="poRefreshDeviceButton" class="secondary" type="button">
+        <button id="poRefreshDeviceButton" class="secondary jgc-button jgc-button--secondary" type="button">
           <i data-lucide="refresh-cw"></i> Refresh Status
         </button>
       </div>
     </section>
 
-    <div class="po-toolbar">
-      <div class="po-toolbar-group">
-        <button id="poNewButton" type="button">
+    <div class="po-toolbar jgc-toolbar">
+      <div class="po-toolbar-group jgc-actions">
+        <button id="poNewButton" class="jgc-button" type="button">
           <i data-lucide="plus"></i> New PO
         </button>
-        <button id="poSyncButton" class="secondary" type="button" title="Sync purchase orders">
+        <button id="poSyncButton" class="secondary jgc-button jgc-button--secondary" type="button" title="Sync purchase orders">
           <i data-lucide="refresh-cw"></i> Sync
         </button>
       </div>
     </div>
 
     <section id="poListView" class="po-view">
-      <div class="po-tabs" role="tablist" aria-label="Purchase order views">
-        <button class="active" type="button" data-po-list-tab="drafts">Drafts</button>
-        <button class="secondary" type="button" data-po-list-tab="pending">Pending Submission</button>
-        <button class="secondary" type="button" data-po-list-tab="submitted">Submitted</button>
-        <button class="secondary" type="button" data-po-list-tab="cancelled">Cancelled</button>
+      <div class="po-tabs jgc-tabs" role="tablist" aria-label="Purchase order views">
+        <button class="active jgc-tab" type="button" data-po-list-tab="drafts">Drafts</button>
+        <button class="secondary jgc-tab" type="button" data-po-list-tab="pending">Pending Submission</button>
+        <button class="secondary jgc-tab" type="button" data-po-list-tab="submitted">Submitted</button>
+        <button class="secondary jgc-tab" type="button" data-po-list-tab="cancelled">Cancelled</button>
       </div>
-      <div class="po-toolbar-group">
-        <button id="poOpenPendingButton" class="secondary" type="button"><i data-lucide="search"></i> Open Pending PO</button>
+      <div class="po-toolbar-group jgc-actions">
+        <button id="poOpenPendingButton" class="secondary jgc-button jgc-button--secondary" type="button"><i data-lucide="search"></i> Open Pending PO</button>
       </div>
-      <div id="poLookupPanel" class="po-filter-row" hidden>
-        <div>
-          <label for="poLookupNumber">PO Number</label>
-          <input id="poLookupNumber" inputmode="numeric" autocomplete="off" placeholder="PO-30000">
+      <div id="poLookupPanel" class="po-filter-row jgc-filter-grid" hidden>
+        <div class="jgc-field">
+          <label class="jgc-label" for="poLookupNumber">PO Number</label>
+          <input id="poLookupNumber" class="jgc-input" inputmode="numeric" autocomplete="off" placeholder="PO-30000">
         </div>
         <div class="po-lookup-action">
-          <button id="poLookupButton" type="button"><i data-lucide="search"></i> Open PO</button>
+          <button id="poLookupButton" class="jgc-button" type="button"><i data-lucide="search"></i> Open PO</button>
         </div>
       </div>
-      <div class="po-filter-row">
-        <div>
-          <label for="poSearch">Search</label>
-          <input id="poSearch" type="search" placeholder="PO, supplier, job, or employee">
+      <div class="po-filter-row jgc-filter-grid">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poSearch">Search</label>
+          <input id="poSearch" class="jgc-input" type="search" placeholder="PO, supplier, job, or employee">
         </div>
-        <div>
-          <label for="poStatusFilter">Status</label>
-          <select id="poStatusFilter">
+        <div class="jgc-field">
+          <label class="jgc-label" for="poStatusFilter">Status</label>
+          <select id="poStatusFilter" class="jgc-select">
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
             <option value="assigned">Assigned</option>
@@ -95,82 +97,82 @@
     </section>
 
     <section id="poFormView" class="po-view" hidden>
-      <div class="po-form-header">
+      <div class="po-form-header jgc-toolbar">
         <div class="po-form-title">
           <h2 id="poFormHeading">Digital Purchase Order</h2>
           <div id="poNumberDisplay" class="po-number-display">Number assigned on first save</div>
         </div>
-        <div class="po-inline-actions">
-          <span id="poFormStatusBadge" class="po-badge">Draft</span>
-          <button id="poCloseFormButton" class="icon-button secondary" type="button" title="Close" aria-label="Close">X</button>
+        <div class="po-inline-actions jgc-inline-actions">
+          <span id="poFormStatusBadge" class="po-badge jgc-badge">Draft</span>
+          <button id="poCloseFormButton" class="icon-button secondary jgc-button jgc-button--secondary jgc-button--icon" type="button" title="Close" aria-label="Close">X</button>
         </div>
       </div>
 
       <form id="poForm" novalidate>
         <input id="poId" type="hidden">
         <input id="poRevision" type="hidden">
-        <div class="po-form-grid">
-          <div class="po-field">
-            <label for="poOrderDate">Date of Order</label>
-            <input id="poOrderDate" type="date" required>
+        <div class="po-form-grid jgc-form-grid">
+          <div class="po-field jgc-field">
+            <label class="jgc-label" for="poOrderDate">Date of Order</label>
+            <input id="poOrderDate" class="jgc-input" type="date" required>
           </div>
-          <div class="po-field">
-            <label for="poJob">Job</label>
-            <select id="poJob"></select>
+          <div class="po-field jgc-field">
+            <label class="jgc-label" for="poJob">Job</label>
+            <select id="poJob" class="jgc-select"></select>
           </div>
-          <div class="po-field full po-manual-job-fields">
+          <div class="po-field full po-manual-job-fields jgc-field jgc-field--full">
             <span class="po-field-label">Job not on the list?</span>
-            <div class="po-form-grid">
-              <div class="po-field">
-                <label for="poManualJobNumber">Manual Job Number</label>
-                <input id="poManualJobNumber" maxlength="120" placeholder="Job number">
+            <div class="po-form-grid jgc-form-grid">
+              <div class="po-field jgc-field">
+                <label class="jgc-label" for="poManualJobNumber">Manual Job Number</label>
+                <input id="poManualJobNumber" class="jgc-input" maxlength="120" placeholder="Job number">
               </div>
-              <div class="po-field">
-                <label for="poManualJobName">Manual Job Name</label>
-                <input id="poManualJobName" maxlength="240" placeholder="Job name">
+              <div class="po-field jgc-field">
+                <label class="jgc-label" for="poManualJobName">Manual Job Name</label>
+                <input id="poManualJobName" class="jgc-input" maxlength="240" placeholder="Job name">
               </div>
             </div>
           </div>
-          <div class="po-field full">
-            <label for="poSupplierName">To</label>
-            <input id="poSupplierName" maxlength="240" placeholder="Supplier / company name" required>
+          <div class="po-field full jgc-field jgc-field--full">
+            <label class="jgc-label" for="poSupplierName">To</label>
+            <input id="poSupplierName" class="jgc-input" maxlength="240" placeholder="Supplier / company name" required>
           </div>
-          <div class="po-field full">
-            <label for="poNotes">Order Notes</label>
-            <textarea id="poNotes" maxlength="5000" placeholder="Delivery, pickup, or order notes"></textarea>
+          <div class="po-field full jgc-field jgc-field--full">
+            <label class="jgc-label" for="poNotes">Order Notes</label>
+            <textarea id="poNotes" class="jgc-textarea" maxlength="5000" placeholder="Delivery, pickup, or order notes"></textarea>
           </div>
         </div>
 
-        <section class="po-section-band">
+        <section class="po-section-band jgc-section">
           <div class="po-section-heading">
-            <h3>Materials</h3>
+            <h3 class="jgc-section-title">Materials</h3>
           </div>
           <div id="poMaterialList" class="po-material-list"></div>
-          <div class="po-inline-actions" style="margin-top:10px;">
-            <button id="poAddItemButton" class="secondary" type="button">
+          <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+            <button id="poAddItemButton" class="secondary jgc-button jgc-button--secondary" type="button">
               <i data-lucide="plus"></i> Add Material Row
             </button>
           </div>
         </section>
 
-        <section class="po-section-band">
-          <div class="po-section-heading"><h3>Receipt</h3></div>
-          <label for="poReceiptInput">Receipt Photo</label>
-          <input id="poReceiptInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+        <section class="po-section-band jgc-section">
+          <div class="po-section-heading"><h3 class="jgc-section-title">Receipt</h3></div>
+          <label class="jgc-label" for="poReceiptInput">Receipt Photo</label>
+          <input id="poReceiptInput" class="jgc-input" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
           <div id="poReceiptPreview" class="po-receipt-preview">No receipt attached</div>
         </section>
 
-        <div class="po-form-actions">
-          <button id="poSaveButton" type="submit">
+        <div class="po-form-actions jgc-actions">
+          <button id="poSaveButton" class="jgc-button" type="submit">
             <i data-lucide="save"></i> Save Draft
           </button>
-          <button id="poSubmitButton" type="button">
+          <button id="poSubmitButton" class="jgc-button" type="button">
             <i data-lucide="send"></i> Submit PO
           </button>
-          <button id="poPdfButton" class="secondary" type="button">
+          <button id="poPdfButton" class="secondary jgc-button jgc-button--secondary" type="button">
             <i data-lucide="file-text"></i> View PDF
           </button>
-          <button id="poCancelButton" class="danger" type="button" hidden>
+          <button id="poCancelButton" class="danger jgc-button jgc-button--danger" type="button" hidden>
             <i data-lucide="ban"></i> Cancel PO
           </button>
         </div>
@@ -183,6 +185,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=24"></script>
   <script src="purchase-orders-pdf.js?v=1"></script>
-  <script src="purchase-orders.js?v=13"></script>
+  <script src="purchase-orders.js?v=14"></script>
 </body>
 </html>

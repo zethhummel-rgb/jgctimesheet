@@ -121,9 +121,25 @@
     return labels[value] || String(value || "Draft").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function badgeClass(tone) {
+    const sharedTone = {
+      green: "jgc-badge--success",
+      warning: "jgc-badge--warning",
+      danger: "jgc-badge--danger",
+      info: "jgc-badge--info"
+    }[tone] || "";
+    return ["po-badge", "jgc-badge", tone || "", sharedTone].filter(Boolean).join(" ");
+  }
+
   function showNotice(message, kind) {
     elements.notice.textContent = message || "";
-    elements.notice.className = "po-notice" + (kind ? " " + kind : "");
+    elements.notice.className = [
+      "po-notice",
+      "jgc-notice",
+      kind || "",
+      kind === "warning" ? "jgc-notice--warning" : "",
+      kind === "error" ? "jgc-notice--danger" : ""
+    ].filter(Boolean).join(" ");
     elements.notice.hidden = !message;
   }
 
@@ -370,7 +386,7 @@
     const remaining = (context.blocks || []).reduce((total, block) => total + Math.max(Number(block.range_end) - Number(block.next_number) + 1, 0), 0);
     elements.rangeBadge.hidden = false;
     elements.rangeBadge.textContent = remaining + " PO number" + (remaining === 1 ? "" : "s") + " available";
-    elements.rangeBadge.className = "po-badge " + (remaining <= 25 ? "warning" : "green");
+    elements.rangeBadge.className = badgeClass(remaining <= 25 ? "warning" : "green");
 
     if (leaseExpired || remaining === 0) {
       elements.devicePanel.hidden = false;
@@ -508,13 +524,13 @@
       const canCancelFromList = po.creator_profile_id === profileId
         && ["submitted", "emailed", "partially_received", "fully_received"].includes(po.workflow_status);
       return `
-        <article class="po-record ${cssClass}">
+        <article class="po-record jgc-card ${cssClass}">
           <div class="po-record-header">
             <div>
               <div class="po-record-number">${escapeText(formatPoNumber(po.po_number))}</div>
               <div class="po-record-title">${escapeText(po.supplier_name || "Supplier not entered")}</div>
             </div>
-            <span class="po-badge ${currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green")}">${escapeText(statusLabel(currentStatus))}</span>
+            <span class="${badgeClass(currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"))}">${escapeText(statusLabel(currentStatus))}</span>
           </div>
           <div class="po-record-meta">
             <span><strong>Job:</strong> ${escapeText([po.job_number, po.job_name].filter(Boolean).join(" - "))}</span>
@@ -523,10 +539,10 @@
             ${po.last_edited_by_name ? `<span><strong>Last edited by:</strong> ${escapeText(po.last_edited_by_name)}</span>` : ""}
             <span><strong>Materials:</strong> ${itemCount} ${po.receipt_attached ? " | Receipt attached" : ""}</span>
           </div>
-          <div class="po-record-actions">
-            <button type="button" data-po-open="${escapeText(record.id)}"><i data-lucide="folder-open"></i> Open</button>
-            <button type="button" class="secondary" data-po-pdf="${escapeText(record.id)}"><i data-lucide="file-text"></i> PDF</button>
-            ${canCancelFromList ? `<button type="button" class="danger" data-po-cancel="${escapeText(record.id)}">Cancel</button>` : ""}
+          <div class="po-record-actions jgc-actions">
+            <button class="jgc-button" type="button" data-po-open="${escapeText(record.id)}"><i data-lucide="folder-open"></i> Open</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" data-po-pdf="${escapeText(record.id)}"><i data-lucide="file-text"></i> PDF</button>
+            ${canCancelFromList ? `<button type="button" class="danger jgc-button jgc-button--danger" data-po-cancel="${escapeText(record.id)}">Cancel</button>` : ""}
           </div>
         </article>
       `;
@@ -557,19 +573,19 @@
   function addMaterialRow(item) {
     const isBlankRow = !item || Object.keys(item).length === 0;
     const row = document.createElement("div");
-    row.className = "po-material-tile";
+    row.className = "po-material-tile jgc-card";
     row.dataset.itemId = item && item.id ? item.id : crypto.randomUUID();
     row.innerHTML = `
       <div>
-        <label>Qty Ordered</label>
-        <input data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
+        <label class="jgc-label">Qty Ordered</label>
+        <input class="jgc-input" data-item-field="quantity_ordered" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off" value="${escapeText(item && item.quantity_ordered !== null && item.quantity_ordered !== undefined ? item.quantity_ordered : "")}">
       </div>
       <div class="description">
-        <label>Material Description</label>
-        <input data-item-field="description" maxlength="1000" autocomplete="off" value="${escapeText(item && item.description || "")}">
+        <label class="jgc-label">Material Description</label>
+        <input class="jgc-input" data-item-field="description" maxlength="1000" autocomplete="off" value="${escapeText(item && item.description || "")}">
       </div>
       <div class="remove-wrap">
-        <button class="icon-button danger" type="button" data-remove-item title="Remove material row" aria-label="Remove material row">X</button>
+        <button class="icon-button danger jgc-button jgc-button--danger jgc-button--icon" type="button" data-remove-item title="Remove material row" aria-label="Remove material row">X</button>
       </div>
     `;
     elements.materialList.appendChild(row);
@@ -694,7 +710,7 @@
 
     const currentStatus = record ? compositeStatus(record) : "draft";
     elements.formStatusBadge.textContent = statusLabel(currentStatus);
-    elements.formStatusBadge.className = "po-badge " + (currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"));
+    elements.formStatusBadge.className = badgeClass(currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"));
     const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status) && !isPendingHandoff(po) && !canEditPendingSubmission(po));
     setFormLocked(locked, po);
 
@@ -1238,20 +1254,20 @@
 
   function updateNetworkBadge() {
     elements.networkBadge.textContent = navigator.onLine ? "Online" : "Offline";
-    elements.networkBadge.className = "po-badge " + (navigator.onLine ? "green" : "warning");
+    elements.networkBadge.className = badgeClass(navigator.onLine ? "green" : "warning");
   }
 
   function updateSyncBadge() {
     const pending = state.drafts.filter((draft) => draft.dirty || draft.assignment_dirty || draft.pending_submit || draft.pending_cancel).length;
     if (state.syncing) {
       elements.syncBadge.textContent = "Syncing";
-      elements.syncBadge.className = "po-badge info";
+      elements.syncBadge.className = badgeClass("info");
     } else if (pending) {
       elements.syncBadge.textContent = pending + " pending";
-      elements.syncBadge.className = "po-badge warning";
+      elements.syncBadge.className = badgeClass("warning");
     } else {
       elements.syncBadge.textContent = "Synced";
-      elements.syncBadge.className = "po-badge green";
+      elements.syncBadge.className = badgeClass("green");
     }
   }
 
@@ -1278,7 +1294,7 @@
         await openForm(draft.id);
       } else {
         elements.formStatusBadge.textContent = "Offline Draft";
-        elements.formStatusBadge.className = "po-badge warning";
+        elements.formStatusBadge.className = badgeClass("warning");
       }
     } catch (error) {
       showNotice(error.message || "PO could not be saved.", "error");
@@ -1306,7 +1322,7 @@
       if (!navigator.onLine) {
         showNotice(formatPoNumber(draft.po.po_number) + " is pending sync and will submit when online.", "warning");
         elements.formStatusBadge.textContent = "Pending Sync";
-        elements.formStatusBadge.className = "po-badge warning";
+        elements.formStatusBadge.className = badgeClass("warning");
         return;
       }
       showNotice("Submitting " + formatPoNumber(draft.po.po_number) + "...");
