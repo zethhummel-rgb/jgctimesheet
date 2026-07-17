@@ -2766,6 +2766,108 @@ button.admin-schedule-event-button.admin-event-vacation {
     color: #ffffff;
 }
 
+.job-dashboard-panel .job-dashboard-actions-cell {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.job-dashboard-inline-view.jgc-button {
+    width: auto;
+    min-height: 30px;
+    margin: 0;
+    padding: 5px 9px;
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.job-dashboard-record-modal.jgc-modal {
+    z-index: 10070;
+}
+
+.job-dashboard-record-dialog.jgc-modal__dialog {
+    width: min(620px, 100%);
+    max-height: min(82vh, 720px);
+    padding: 18px;
+    color: #ffffff;
+    background: linear-gradient(145deg, #10281c, #071912);
+    border: 1px solid rgba(55, 240, 90, 0.38);
+    border-top: 4px solid #37f05a;
+    border-radius: 8px;
+}
+
+.job-dashboard-record-header.jgc-modal__header {
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(55, 240, 90, 0.24);
+}
+
+.job-dashboard-record-header h2 {
+    margin: 3px 0 0;
+    color: #ffffff;
+    font-size: 24px;
+}
+
+.job-dashboard-record-type {
+    display: block;
+    color: #37f05a;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.job-dashboard-record-close.jgc-button {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    margin: 0;
+    padding: 0;
+}
+
+.job-dashboard-record-close svg {
+    width: 19px;
+    height: 19px;
+}
+
+.job-dashboard-record-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.job-dashboard-record-field,
+.job-dashboard-record-description {
+    min-width: 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+}
+
+.job-dashboard-record-field span,
+.job-dashboard-record-description span {
+    display: block;
+    margin-bottom: 4px;
+    color: #aebdb4;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.job-dashboard-record-field strong,
+.job-dashboard-record-description p {
+    margin: 0;
+    color: #ffffff;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.job-dashboard-record-description {
+    margin-top: 10px;
+}
+
 .job-dashboard-edit {
     margin-top: 12px;
     border: 1px solid rgba(55, 240, 90, 0.28);
@@ -2814,6 +2916,10 @@ button.admin-schedule-event-button.admin-event-vacation {
     }
 
     .job-bar-row {
+        grid-template-columns: 1fr;
+    }
+
+    .job-dashboard-record-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -3399,6 +3505,21 @@ button.admin-schedule-event-button.admin-event-vacation {
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobDashboardContent" class="small">Loading job dashboard...</div>
+</div>
+
+<div id="jobDashboardRecordModal" class="job-dashboard-record-modal jgc-modal" hidden onclick="closeJobDashboardRecordModal()">
+    <section class="job-dashboard-record-dialog jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="jobDashboardRecordTitle" onclick="event.stopPropagation()">
+        <header class="job-dashboard-record-header jgc-modal__header">
+            <div>
+                <span id="jobDashboardRecordType" class="job-dashboard-record-type">Record</span>
+                <h2 id="jobDashboardRecordTitle">Record Details</h2>
+            </div>
+            <button type="button" class="job-dashboard-record-close jgc-button jgc-button--secondary jgc-button--icon" aria-label="Close details" title="Close details" onclick="closeJobDashboardRecordModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </header>
+        <div id="jobDashboardRecordContent"></div>
+    </section>
 </div>
 
 <div id="employeeProfileSection" class="card employee-profile-card" hidden>
@@ -4297,6 +4418,7 @@ let workOrderEquipmentRows = [];
 let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
 let adminWorkOrderManagementView = "active";
+let jobDashboardRecordReturnFocus = null;
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
@@ -15038,8 +15160,29 @@ function getDashboardWorkOrders(job) {
     return workOrders.filter((wo) => itemMatchesJob(wo, job, ["job_number", "job_name"]));
 }
 
+function getDashboardRecordSortTime(value) {
+    const date = parseDashboardDate(value);
+    return date ? date.getTime() : 0;
+}
+
+function getJobDashboardDigitalPoStatus(purchaseOrder) {
+    const workflowStatus = String(purchaseOrder && purchaseOrder.workflow_status || "").toLowerCase();
+    const emailStatus = String(purchaseOrder && purchaseOrder.email_status || "").toLowerCase();
+
+    if (workflowStatus === "submitted" && ["not_ready", "pending", "sending"].includes(emailStatus)) {
+        return "Pending Submission";
+    }
+
+    if (workflowStatus === "submitted" && emailStatus === "emailed") {
+        return "Submitted";
+    }
+
+    return capitalizeWords(workflowStatus || emailStatus || "draft");
+}
+
 function getDashboardPurchaseOrders(job, workOrderRows) {
     const workOrderIds = new Set((workOrderRows || []).map((workOrder) => workOrder.id));
+    const workOrdersById = new Map((workOrderRows || []).map((workOrder) => [workOrder.id, workOrder]));
     const jobTokens = getJobMatchTokens(job);
     const digitalRows = digitalPurchaseOrders
         .filter((purchaseOrder) => {
@@ -15054,17 +15197,32 @@ function getDashboardPurchaseOrders(job, workOrderRows) {
         .map((purchaseOrder) => ({
             id: purchaseOrder.id,
             poNumber: purchaseOrder.po_number,
-            source: "digital"
+            date: purchaseOrder.order_date || purchaseOrder.created_at || "",
+            status: getJobDashboardDigitalPoStatus(purchaseOrder),
+            supplier: purchaseOrder.supplier_name || "",
+            source: "digital",
+            record: purchaseOrder
         }));
     const manualRows = workOrderPurchaseOrders
         .filter((purchaseOrder) => workOrderIds.has(purchaseOrder.work_order_id))
-        .map((purchaseOrder) => ({
-            id: purchaseOrder.id,
-            poNumber: purchaseOrder.po_number || purchaseOrder.purchase_order_number,
-            source: "work-order"
-        }));
+        .map((purchaseOrder) => {
+            const linkedWorkOrder = workOrdersById.get(purchaseOrder.work_order_id) || null;
+            return {
+                id: purchaseOrder.id,
+                poNumber: purchaseOrder.po_number || purchaseOrder.purchase_order_number,
+                date: purchaseOrder.po_date || (linkedWorkOrder && linkedWorkOrder.work_order_date) || purchaseOrder.created_at || "",
+                status: linkedWorkOrder ? "Manual / " + getAdminWorkOrderStatusLabel(linkedWorkOrder.status) : "Manual PO",
+                supplier: purchaseOrder.company_name || purchaseOrder.supplier || "",
+                source: "work-order",
+                record: purchaseOrder,
+                linkedWorkOrder
+            };
+        });
 
-    return digitalRows.concat(manualRows);
+    return digitalRows.concat(manualRows).sort((a, b) =>
+        getDashboardRecordSortTime(b.date) - getDashboardRecordSortTime(a.date) ||
+        String(b.poNumber || "").localeCompare(String(a.poNumber || ""), undefined, { numeric: true })
+    );
 }
 
 function getDashboardDailyReports(job) {
@@ -15101,7 +15259,7 @@ function getDashboardEquipmentRows(workOrderRows) {
     return rows;
 }
 
-function renderDashboardTable(headers, rows, rowBuilder, emptyText) {
+function renderDashboardTable(headers, rows, rowBuilder, emptyText, actionBuilder) {
     if (!rows.length) {
         return `<div class="small">${escapeHtml(emptyText)}</div>`;
     }
@@ -15109,12 +15267,139 @@ function renderDashboardTable(headers, rows, rowBuilder, emptyText) {
     return `
         <div class="table-wrap">
             <table>
-                <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
-                <tbody>${rows.map((row) => `<tr>${rowBuilder(row).map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+                <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}${actionBuilder ? '<th class="job-dashboard-actions-cell">View</th>' : ""}</tr></thead>
+                <tbody>${rows.map((row) => `<tr>${rowBuilder(row).map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}${actionBuilder ? '<td class="job-dashboard-actions-cell">' + actionBuilder(row) + '</td>' : ""}</tr>`).join("")}</tbody>
             </table>
         </div>
     `;
 }
+
+function renderJobDashboardRecordFields(fields) {
+    return `
+        <div class="job-dashboard-record-grid">
+            ${fields.map(([label, value]) => `
+                <div class="job-dashboard-record-field">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(value || "Not provided")}</strong>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function openJobDashboardRecordModal(recordType, title, fields, descriptionLabel, description) {
+    const modal = document.getElementById("jobDashboardRecordModal");
+    const typeElement = document.getElementById("jobDashboardRecordType");
+    const titleElement = document.getElementById("jobDashboardRecordTitle");
+    const content = document.getElementById("jobDashboardRecordContent");
+
+    if (!modal || !typeElement || !titleElement || !content) {
+        return;
+    }
+
+    jobDashboardRecordReturnFocus = document.activeElement;
+    typeElement.textContent = recordType || "Record";
+    titleElement.textContent = title || "Record Details";
+    content.innerHTML = renderJobDashboardRecordFields(fields || []) + (description ? `
+        <div class="job-dashboard-record-description">
+            <span>${escapeHtml(descriptionLabel || "Details")}</span>
+            <p>${escapeHtml(description)}</p>
+        </div>
+    ` : "");
+    modal.hidden = false;
+
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+    }
+
+    const closeButton = modal.querySelector(".job-dashboard-record-close");
+    if (closeButton) {
+        closeButton.focus();
+    }
+}
+
+function closeJobDashboardRecordModal() {
+    const modal = document.getElementById("jobDashboardRecordModal");
+
+    if (modal) {
+        modal.hidden = true;
+    }
+
+    if (jobDashboardRecordReturnFocus && typeof jobDashboardRecordReturnFocus.focus === "function") {
+        jobDashboardRecordReturnFocus.focus();
+    }
+    jobDashboardRecordReturnFocus = null;
+}
+
+function openJobDashboardWorkOrder(id) {
+    const workOrder = workOrders.find((item) => String(item.id) === String(id));
+
+    if (!workOrder) {
+        alert("Work Order could not be found.");
+        return;
+    }
+
+    const labourRows = getAdminWorkOrderLabourRows(workOrder.id);
+    const labourHours = labourRows.reduce((total, row) => total + Number(row.hours || 0), 0);
+    openJobDashboardRecordModal("Work Order", workOrder.wo_number || "Work Order", [
+        ["Date Used", workOrder.work_order_date ? formatDate(workOrder.work_order_date) : ""],
+        ["Status", getAdminWorkOrderStatusText(workOrder)],
+        ["Job", [workOrder.job_number, workOrder.job_name].filter(Boolean).join(" - ")],
+        ["Attention", workOrder.customer || ""],
+        ["Created By", workOrder.created_by_name || workOrder.supervisor_name || ""],
+        ["Labour", labourRows.length ? labourHours.toFixed(2) + " hours" : "No labour rows"],
+        ["Purchase Orders", String(getAdminWorkOrderPoCount(workOrder.id))],
+        ["Customer PO", workOrder.customer_po_number || ""]
+    ], "Work Completed", workOrder.description_of_work || workOrder.notes || "");
+}
+
+function openJobDashboardPurchaseOrder(source, id) {
+    if (source === "digital") {
+        const purchaseOrder = digitalPurchaseOrders.find((item) => String(item.id) === String(id));
+
+        if (!purchaseOrder) {
+            alert("Purchase Order could not be found.");
+            return;
+        }
+
+        openJobDashboardRecordModal("Digital Purchase Order", formatAdminGlobalSearchPoNumber(purchaseOrder.po_number), [
+            ["Date Used", purchaseOrder.order_date ? formatDate(purchaseOrder.order_date) : ""],
+            ["Status", getJobDashboardDigitalPoStatus(purchaseOrder)],
+            ["Job", [purchaseOrder.job_number, purchaseOrder.job_name].filter(Boolean).join(" - ")],
+            ["Supplier", purchaseOrder.supplier_name || ""],
+            ["Created By", purchaseOrder.creator_name || ""],
+            ["Last Edited By", purchaseOrder.last_edited_by_name || "Not edited"],
+            ["Submitted By", purchaseOrder.submitted_by_name || "Not submitted"],
+            ["Email Status", capitalizeWords(purchaseOrder.email_status || "Not ready")]
+        ], "Order Notes", purchaseOrder.order_notes || purchaseOrder.notes || "");
+        return;
+    }
+
+    const purchaseOrder = workOrderPurchaseOrders.find((item) => String(item.id) === String(id));
+    const linkedWorkOrder = purchaseOrder
+        ? workOrders.find((item) => String(item.id) === String(purchaseOrder.work_order_id))
+        : null;
+
+    if (!purchaseOrder) {
+        alert("Purchase Order could not be found.");
+        return;
+    }
+
+    openJobDashboardRecordModal("Manual Work Order PO", formatAdminGlobalSearchPoNumber(purchaseOrder.po_number || purchaseOrder.purchase_order_number), [
+        ["Date Used", linkedWorkOrder && linkedWorkOrder.work_order_date ? formatDate(linkedWorkOrder.work_order_date) : ""],
+        ["Status", linkedWorkOrder ? "Manual / " + getAdminWorkOrderStatusLabel(linkedWorkOrder.status) : "Manual PO"],
+        ["Job", linkedWorkOrder ? [linkedWorkOrder.job_number, linkedWorkOrder.job_name].filter(Boolean).join(" - ") : ""],
+        ["Supplier", purchaseOrder.company_name || purchaseOrder.supplier || ""],
+        ["Linked Work Order", linkedWorkOrder ? linkedWorkOrder.wo_number || "" : "Not linked"]
+    ], "Notes", purchaseOrder.notes || purchaseOrder.description || "");
+}
+
+document.addEventListener("keydown", (event) => {
+    const modal = document.getElementById("jobDashboardRecordModal");
+    if (event.key === "Escape" && modal && !modal.hidden) {
+        closeJobDashboardRecordModal();
+    }
+});
 
 function renderJobDashboardMetric(title, value, detail) {
     return `
@@ -15199,6 +15484,10 @@ function renderJobDashboard() {
 
     const workOrderRows = getDashboardWorkOrders(job);
     const purchaseOrderRows = getDashboardPurchaseOrders(job, workOrderRows);
+    const recentWorkOrderRows = workOrderRows.slice().sort((a, b) =>
+        getDashboardRecordSortTime(b.work_order_date || b.created_at) - getDashboardRecordSortTime(a.work_order_date || a.created_at)
+    ).slice(0, 10);
+    const recentPurchaseOrderRows = purchaseOrderRows.slice(0, 10);
     const timesheetRows = getDashboardTimesheetRows(job);
     const manualWorkOrderLabourRows = getDashboardManualWorkOrderLabourRows(job, workOrderRows);
     const labourHourRows = timesheetRows.concat(manualWorkOrderLabourRows);
@@ -15321,7 +15610,23 @@ function renderJobDashboard() {
             <section class="job-dashboard-grid">
                 <div class="job-dashboard-panel">
                     <h3>Recent Work Orders</h3>
-                    ${renderDashboardTable(["WO Number", "Status", "Date"], workOrderRows.slice(0, 8), (row) => [row.wo_number || "", getAdminWorkOrderStatusLabel(row.status), row.work_order_date ? formatDate(row.work_order_date) : ""], "No Work Orders found for this job.")}
+                    ${renderDashboardTable(["WO Number", "Date Used", "Status"], recentWorkOrderRows, (row) => [
+                        row.wo_number || "",
+                        row.work_order_date ? formatDate(row.work_order_date) : "",
+                        getAdminWorkOrderStatusText(row)
+                    ], "No Work Orders found for this job.", (row) => `
+                        <button type="button" class="job-dashboard-inline-view secondary jgc-button jgc-button--secondary" onclick="openJobDashboardWorkOrder('${escapeHtml(row.id)}')">View</button>
+                    `)}
+                </div>
+                <div class="job-dashboard-panel">
+                    <h3>Recent Purchase Orders</h3>
+                    ${renderDashboardTable(["PO Number", "Date Used", "Status"], recentPurchaseOrderRows, (row) => [
+                        formatAdminGlobalSearchPoNumber(row.poNumber),
+                        row.date ? formatDate(row.date) : "",
+                        row.status || ""
+                    ], "No Purchase Orders found for this job.", (row) => `
+                        <button type="button" class="job-dashboard-inline-view secondary jgc-button jgc-button--secondary" onclick="openJobDashboardPurchaseOrder('${escapeHtml(row.source)}', '${escapeHtml(row.id)}')">View</button>
+                    `)}
                 </div>
                 <div class="job-dashboard-panel">
                     <h3>Recent Daily Reports</h3>
