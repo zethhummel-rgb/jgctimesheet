@@ -1,4 +1,6 @@
-const JGC_CACHE_NAME = "jgc-portal-v567";
+const JGC_RELEASE_ID = "568";
+const JGC_CACHE_PREFIX = "jgc-portal-v";
+const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -44,8 +46,8 @@ const JGC_APP_SHELL = [
   "./harness.html",
   "./hot-work-permit.html",
   "./jsa.html",
-  "./jsa.html?v=361",
   "./tele-handler.html",
+  "./policies-admin.html",
   "./styles.css?v=3",
   "./jgc-design-system.css?v=4",
   "./permit-design-system.css?v=1",
@@ -93,23 +95,40 @@ const JGC_APP_SHELL = [
   "./icon-512.png?v=4"
 ];
 
+function isJgcCacheableResponse(response) {
+  return Boolean(response && (response.ok || response.type === "opaque"));
+}
+
+function storeJgcResponse(request, response) {
+  if (!isJgcCacheableResponse(response)) {
+    return Promise.resolve();
+  }
+
+  const copy = response.clone();
+  return caches
+    .open(JGC_CACHE_NAME)
+    .then((cache) => cache.put(request, copy))
+    .catch(() => {});
+}
+
+function cacheJgcAppShellAsset(cache, url) {
+  const request = new Request(url, { cache: "reload" });
+
+  return fetch(request).then((response) => {
+    if (!response || !response.ok) {
+      const status = response ? response.status : "no response";
+      throw new Error(`JGC app shell could not cache ${url} (${status}).`);
+    }
+
+    return cache.put(url, response);
+  });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(JGC_CACHE_NAME)
-      .then((cache) => Promise.all(
-        JGC_APP_SHELL.map((url) => {
-          const request = new Request(url, { cache: "reload" });
-          return fetch(request)
-            .then((response) => {
-              if (response && response.ok) {
-                return cache.put(url, response);
-              }
-              return Promise.resolve();
-            })
-            .catch(() => Promise.resolve());
-        })
-      ))
+      .then((cache) => Promise.all(JGC_APP_SHELL.map((url) => cacheJgcAppShellAsset(cache, url))))
       .then(() => self.skipWaiting())
   );
 });
@@ -124,7 +143,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== JGC_CACHE_NAME).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(
+        keys
+          .filter((key) => key.startsWith(JGC_CACHE_PREFIX) && key !== JGC_CACHE_NAME)
+          .map((key) => caches.delete(key))
+      ))
       .then(() => self.clients.claim())
   );
 });
@@ -146,8 +169,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+          storeJgcResponse(request, response);
           return response;
         })
         .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
@@ -160,15 +182,13 @@ self.addEventListener("fetch", (event) => {
       caches.match(request).then((cached) => {
         if (cached) {
           fetch(request, { cache: "reload" }).then((response) => {
-            const copy = response.clone();
-            caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+            storeJgcResponse(request, response);
           }).catch(() => {});
           return cached;
         }
 
         return fetch(request, { cache: "reload" }).then((response) => {
-          const copy = response.clone();
-          caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+          storeJgcResponse(request, response);
           return response;
         });
       })
@@ -178,8 +198,7 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      const copy = response.clone();
-      caches.open(JGC_CACHE_NAME).then((cache) => cache.put(request, copy));
+      storeJgcResponse(request, response);
       return response;
     }))
   );
