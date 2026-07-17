@@ -177,14 +177,15 @@ button:disabled {
     }
 }
 </style>
+<link rel="stylesheet" href="acknowledgement-design-system.css?v=1">
 </head>
-<body>
-<div class="logo-wrap">
+<body class="acknowledgement-page jgc-page">
+<div class="logo-wrap jgc-brand">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
-<main class="container">
-    <h1>Safety Acknowledgement</h1>
+<main class="container acknowledgement-shell jgc-page-shell jgc-panel">
+    <h1 class="jgc-page-title">Safety Acknowledgement</h1>
     <div class="subtitle">Review the record, select your name, and acknowledge you were part of the safety review.</div>
 
     <section id="recordPanel">
@@ -194,36 +195,36 @@ button:disabled {
     <section id="ackForm" class="hidden">
         <div id="recordMeta" class="record-meta"></div>
 
-        <label for="attendeeSelect">Select your name</label>
-        <select id="attendeeSelect" onchange="handleAttendeeChange()"></select>
+        <label class="jgc-label" for="attendeeSelect">Select your name</label>
+        <select id="attendeeSelect" class="jgc-select" onchange="handleAttendeeChange()"></select>
 
         <div id="notListedFields" class="hidden">
-            <label for="fullName">Full name</label>
-            <input id="fullName" autocomplete="name">
+            <label class="jgc-label" for="fullName">Full name</label>
+            <input id="fullName" class="jgc-input" autocomplete="name">
         </div>
 
-        <label for="companyName">Company</label>
-        <input id="companyName" autocomplete="organization">
+        <label class="jgc-label" for="companyName">Company</label>
+        <input id="companyName" class="jgc-input" autocomplete="organization">
 
-        <label for="emailAddress">Email (optional)</label>
-        <input id="emailAddress" type="email" autocomplete="email">
+        <label class="jgc-label" for="emailAddress">Email (optional)</label>
+        <input id="emailAddress" class="jgc-input" type="email" autocomplete="email">
 
-        <label for="ackNote">Comment (optional)</label>
-        <textarea id="ackNote" placeholder="Example: I was not listed, added after arriving onsite."></textarea>
+        <label class="jgc-label" for="ackNote">Comment (optional)</label>
+        <textarea id="ackNote" class="jgc-textarea" placeholder="Example: I was not listed, added after arriving onsite."></textarea>
 
-        <label class="ack-check">
+        <label class="ack-check jgc-card">
             <input id="ackConfirm" type="checkbox">
             <span>I confirm I reviewed and understood this JSA/Toolbox Talk and had the opportunity to ask questions.</span>
         </label>
 
-        <button id="submitButton" type="button" onclick="submitAcknowledgement()">Submit Acknowledgement</button>
+        <button id="submitButton" class="jgc-button" type="button" onclick="submitAcknowledgement()">Submit Acknowledgement</button>
         <div id="submitStatus" class="status"></div>
     </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
-<script src="safety-acknowledgements.js?v=2"></script>
+<script src="safety-acknowledgements.js?v=3"></script>
 <script>
 const client = createJgcSupabaseClient();
 const params = new URLSearchParams(window.location.search);
@@ -241,12 +242,12 @@ function setStatus(message, isError) {
 function renderRecordMeta(record) {
     const typeLabel = record.record_type === "toolbox_talk" ? "Toolbox Talk" : "JSA";
     document.getElementById("recordMeta").innerHTML = `
-        <div class="meta-item"><span class="meta-label">Record</span><span class="meta-value">${safetyAckEscapeHtml(typeLabel)}</span></div>
-        <div class="meta-item"><span class="meta-label">Title</span><span class="meta-value">${safetyAckEscapeHtml(record.record_title || typeLabel)}</span></div>
-        <div class="meta-item"><span class="meta-label">Date</span><span class="meta-value">${safetyAckEscapeHtml(safetyAckFormatDate(record.record_date))}</span></div>
-        <div class="meta-item"><span class="meta-label">Project</span><span class="meta-value">${safetyAckEscapeHtml(record.project || "-")}</span></div>
-        <div class="meta-item"><span class="meta-label">Location</span><span class="meta-value">${safetyAckEscapeHtml(record.location || "-")}</span></div>
-        <div class="meta-item"><span class="meta-label">Created By</span><span class="meta-value">${safetyAckEscapeHtml(record.created_by_name || "-")}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Record</span><span class="meta-value">${safetyAckEscapeHtml(typeLabel)}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Title</span><span class="meta-value">${safetyAckEscapeHtml(record.record_title || typeLabel)}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Date</span><span class="meta-value">${safetyAckEscapeHtml(safetyAckFormatDate(record.record_date))}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Project</span><span class="meta-value">${safetyAckEscapeHtml(record.project || "-")}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Location</span><span class="meta-value">${safetyAckEscapeHtml(record.location || "-")}</span></div>
+        <div class="meta-item jgc-card"><span class="meta-label">Created By</span><span class="meta-value">${safetyAckEscapeHtml(record.created_by_name || "-")}</span></div>
     `;
 }
 

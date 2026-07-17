@@ -1,0 +1,164 @@
+/* Safety acknowledgement compatibility layer for the shared JGC design system. */
+
+html,
+body.acknowledgement-page {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body.acknowledgement-page {
+  min-width: 0;
+  min-height: 100vh;
+  margin: 0;
+  padding: 16px;
+  color: #1f2a24;
+  background: #0b1f18;
+  font-family: Arial, sans-serif;
+}
+
+.acknowledgement-page .logo-wrap.jgc-brand {
+  max-width: 260px;
+  margin: 0 auto 14px;
+  text-align: center;
+}
+
+.acknowledgement-page .logo-wrap.jgc-brand img {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+}
+
+.acknowledgement-page .acknowledgement-shell.jgc-page-shell.jgc-panel {
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 18px;
+  color: #1f2a24;
+  background: #fbfcf9;
+  border: 0;
+  border-top: 5px solid #32c848;
+  border-radius: 8px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+}
+
+.acknowledgement-page .acknowledgement-shell .jgc-page-title {
+  margin: 0 0 6px;
+  color: #0b5e3b;
+  font-size: 26px;
+  letter-spacing: 0;
+}
+
+.acknowledgement-page .record-meta,
+.acknowledgement-page .record-meta > *,
+.acknowledgement-page #ackForm {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.acknowledgement-page .meta-item.jgc-card {
+  padding: 10px;
+  color: #1f2a24;
+  background: #f3f7f2;
+  border: 1px solid #cbd6cb;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.acknowledgement-page .meta-value {
+  overflow-wrap: anywhere;
+}
+
+.acknowledgement-page label.jgc-label {
+  display: block;
+  margin: 12px 0 5px;
+  color: #1f2a24;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.acknowledgement-page .jgc-input,
+.acknowledgement-page .jgc-select,
+.acknowledgement-page .jgc-textarea {
+  width: 100%;
+  min-height: 0;
+  padding: 11px;
+  color: #1f2a24;
+  background: #ffffff;
+  border: 1px solid #b9c7b9;
+  border-radius: 6px;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  line-height: normal;
+  box-sizing: border-box;
+}
+
+.acknowledgement-page .jgc-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.acknowledgement-page .ack-check.jgc-card {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 14px 0;
+  padding: 12px;
+  color: #14251a !important;
+  background: #eef6ee;
+  border: 1px solid #cbd6cb;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.acknowledgement-page button.jgc-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 0;
+  padding: 13px 15px;
+  color: #ffffff;
+  background: #0b5e3b;
+  border: 0;
+  border-radius: 7px;
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: normal;
+  box-shadow: none;
+}
+
+.acknowledgement-page button.jgc-button:hover {
+  background: #08452b;
+  filter: none;
+}
+
+.acknowledgement-page button.jgc-button:disabled {
+  color: #ffffff;
+  background: #7b8580;
+  opacity: 1;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  body.acknowledgement-page {
+    padding: 10px;
+  }
+
+  .acknowledgement-page .acknowledgement-shell.jgc-page-shell.jgc-panel {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .acknowledgement-page .record-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media print {
+  html,
+  body.acknowledgement-page {
+    overflow: visible;
+  }
+}
