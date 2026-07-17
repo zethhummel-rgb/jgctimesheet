@@ -28,6 +28,12 @@ All shared design-system classes begin with `jgc-`. Generic names such as `.card
 
 Use `jgc-page-shell--wide` for admin pages or dense reporting views.
 
+## Page Logo
+
+The primary logo at the top of a portal page uses `--jgc-page-brand-width` and is standardized at 347px, with responsive side gutters on narrow screens. Use the `jgc-brand` wrapper shown above, or the shared admin header hook, so new pages inherit this size automatically.
+
+Compact app-bar branding on Home and the bespoke Login branding are intentional exceptions. Logos inside PDFs, QR print layouts, inspection sheets, and modal content are not governed by the primary page-logo rule.
+
 ## Buttons
 
 ```html

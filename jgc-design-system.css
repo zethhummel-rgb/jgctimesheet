@@ -62,6 +62,8 @@
     --jgc-control-height: 44px;
     --jgc-page-width: 1180px;
     --jgc-admin-width: 1500px;
+    --jgc-page-brand-width: 347px;
+    --jgc-page-brand-gutter: 40px;
     --jgc-top-nav-height: 56px;
     --jgc-top-nav-height-mobile: 50px;
     --jgc-bottom-nav-height: 82px;
@@ -157,7 +159,18 @@
 
 .jgc-brand img {
   display: block;
-  width: min(270px, 70vw);
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  max-width: var(--jgc-page-brand-width);
+  height: auto;
+}
+
+/* Keep the primary page logo consistent without changing document or modal logos. */
+:is(.jgc-page-header, .jgc-page-shell, body.jgc-page) > .jgc-brand > img,
+:is(.jgc-page-header, .jgc-page-shell, body.jgc-page) > .jgc-brand-region > img,
+.jgc-page-header > img.jgc-brand,
+.jgc-admin-brand-region > img {
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter))) !important;
+  max-width: var(--jgc-page-brand-width) !important;
   height: auto;
 }
 
