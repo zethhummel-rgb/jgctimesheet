@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Incident / Near Miss Report</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="report-design-system.css?v=1">
 
 <style>
 body {
@@ -185,18 +186,19 @@ button:hover {
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+<body class="report-family-page report-form-page jgc-page">
+<main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
+<div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
-<div id="currentUser" class="user-bar"></div>
+<div id="currentUser" class="user-bar jgc-page-user"></div>
 
-<div class="container">
-    <h1>Incident / Near Miss Report</h1>
+<div class="container jgc-panel">
+    <h1 class="jgc-page-title">Incident / Near Miss Report</h1>
     <div class="subtitle">Report near misses, injuries, property damage, and environmental incidents</div>
 
-    <div class="grid">
+    <div class="grid jgc-form-grid">
         <div class="field">
             <label for="incidentType">Report Type</label>
             <select id="incidentType">
@@ -289,15 +291,16 @@ button:hover {
         </div>
     </div>
 
-    <div class="actions">
-        <button type="button" onclick="submitIncidentReport()">Save & Email Report</button>
-        <button type="button" class="secondary" onclick="window.location.href='reports.html'">Reports</button>
-        <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
-        <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+    <div class="actions jgc-actions">
+        <button type="button" class="jgc-button" onclick="submitIncidentReport()">Save & Email Report</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
 
-    <div id="saveStatus" class="status"></div>
+    <div id="saveStatus" class="status jgc-notice" aria-live="polite"></div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

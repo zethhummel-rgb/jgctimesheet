@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Job Safety Analysis</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="report-design-system.css?v=1">
 
 <style>
 body {
@@ -354,20 +355,21 @@ button:hover {
 </style>
 </head>
 
-<body>
+<body class="report-family-page report-form-page jgc-page">
+<main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
 
-<div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction">
+<div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction">
 </div>
 
-<div id="currentUser" class="user-bar"></div>
+<div id="currentUser" class="user-bar jgc-page-user"></div>
 
-<div class="container">
+<div class="container jgc-panel">
 
-<h1>John Gordon Construction</h1>
+<h1 class="jgc-page-title">John Gordon Construction</h1>
 <div class="subtitle">Job Safety Analysis Form - Must be Filled Out Daily</div>
 
-<div class="grid">
+<div class="grid jgc-form-grid">
     <div class="field">
         <label>Contractor</label>
         <input type="text" value="John Gordon Construction">
@@ -420,7 +422,7 @@ button:hover {
     <label><input type="checkbox"> Other</label>
 </div>
 
-<div class="signoff">
+<div class="signoff jgc-section">
     <label>Crew Sign Off</label>
     <div class="crew-picker-grid">
         <div>
@@ -444,8 +446,8 @@ button:hover {
     <textarea id="crewSignOffCombined" readonly placeholder="Approved employees and manual entries will appear here."></textarea>
 </div>
 
-<div class="table-wrap">
-    <table id="jsaTable">
+<div class="table-wrap jgc-table-wrap">
+    <table id="jsaTable" class="jgc-table">
         <thead>
             <tr>
                 <th>Sequence of Basic Job Steps</th>
@@ -465,17 +467,18 @@ button:hover {
     </table>
 </div>
 
-<div class="actions">
-    <button onclick="addRow()">Add Row</button>
-    <button onclick="handleInspectionSave('JSA')">Save</button>
-    <button class="secondary" onclick="window.location.href='reports.html'">Reports</button>
-    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
-    <button class="secondary" onclick="signOut()">Sign Out</button>
+<div class="actions jgc-actions">
+    <button class="jgc-button" onclick="addRow()">Add Row</button>
+    <button class="jgc-button" onclick="handleInspectionSave('JSA')">Save</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
 </div>
-<div id="inspectionSaveStatus" class="subtitle"></div>
-<div id="jsaPostSaveQrPanel" class="post-save-qr" hidden></div>
+<div id="inspectionSaveStatus" class="subtitle jgc-notice" aria-live="polite"></div>
+<div id="jsaPostSaveQrPanel" class="post-save-qr jgc-notice" hidden></div>
 
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

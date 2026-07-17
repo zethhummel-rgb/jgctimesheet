@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v541";
+const JGC_CACHE_NAME = "jgc-portal-v553";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -48,6 +48,18 @@ const JGC_APP_SHELL = [
   "./tele-handler.html",
   "./styles.css?v=3",
   "./jgc-design-system.css?v=2",
+  "./permit-design-system.css?v=1",
+  "./report-design-system.css?v=1",
+  "./timesheet-design-system.css?v=1",
+  "./tasks-design-system.css?v=1",
+  "./policy-design-system.css?v=1",
+  "./directory-design-system.css?v=1",
+  "./jobs-design-system.css?v=1",
+  "./schedule-design-system.css?v=1",
+  "./specialty-inspection-design-system.css?v=1",
+  "./qr-inspection-design-system.css?v=1",
+  "./home-design-system.css?v=1",
+  "./field-calculator-design-system.css?v=1",
   "./common.js?v=24",
   "./purchase-orders.css?v=15",
   "./purchase-orders-pdf.js?v=1",
@@ -58,7 +70,7 @@ const JGC_APP_SHELL = [
   "./field-calculator.css?v=14",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",
-  "./field-calculator.js?v=29",
+  "./field-calculator.js?v=30",
   "./auth.js?v=6",
   "./inspection-records.js?v=7",
   "./inspection-mobile.css?v=2",

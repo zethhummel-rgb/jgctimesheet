@@ -7,6 +7,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Admin</title>
   <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="report-design-system.css?v=1">
+  <link rel="stylesheet" href="timesheet-design-system.css?v=1">
+  <link rel="stylesheet" href="tasks-design-system.css?v=1">
+  <link rel="stylesheet" href="jobs-design-system.css?v=1">
+  <link rel="stylesheet" href="schedule-design-system.css?v=1">
 
 <style>
 body {
@@ -3170,7 +3175,7 @@ button.admin-schedule-event-button.admin-event-vacation {
         <div id="subcontractorActivityList" class="small">Loading subcontractor activity...</div>
     </details>
 
-    <div class="admin-schedule-summary">
+    <div class="admin-schedule-summary jgc-schedule-admin jgc-section">
         <div class="admin-schedule-header">
             <div>
                 <h2>Schedule Calendar</h2>
@@ -3247,8 +3252,8 @@ button.admin-schedule-event-button.admin-event-vacation {
     </div>
 </div>
 
-<div id="adminScheduleModal" class="admin-schedule-modal-backdrop" onclick="closeAdminScheduleModal(event)">
-    <section class="admin-schedule-modal" onclick="event.stopPropagation()">
+<div id="adminScheduleModal" class="admin-schedule-modal-backdrop jgc-modal" onclick="closeAdminScheduleModal(event)">
+    <section class="admin-schedule-modal jgc-schedule-modal jgc-modal__dialog" onclick="event.stopPropagation()">
         <h2 id="adminScheduleModalTitle">Add Schedule</h2>
         <div id="adminScheduleDayEvents" class="detail-list small" style="margin-bottom:12px;"></div>
         <div class="admin-schedule-form-grid">
@@ -3317,14 +3322,14 @@ button.admin-schedule-event-button.admin-event-vacation {
     </section>
 </div>
 
-<div id="jobDashboardSection" class="card job-dashboard-card" hidden>
-    <h2>Job Dashboard / Job Costing</h2>
+<div id="jobDashboardSection" class="card job-dashboard-card jgc-panel jgc-job-admin" hidden>
+    <h2 class="jgc-section-title">Job Dashboard / Job Costing</h2>
     <div class="job-dashboard-controls">
         <div>
             <label>Select Job</label>
-            <select id="jobDashboardSelect" onchange="renderJobDashboard()"></select>
+            <select id="jobDashboardSelect" class="jgc-select" onchange="renderJobDashboard()"></select>
         </div>
-        <button type="button" class="secondary" onclick="loadJobsManagement()">Refresh Jobs</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobDashboardContent" class="small">Loading job dashboard...</div>
 </div>
@@ -3413,56 +3418,56 @@ button.admin-schedule-event-button.admin-event-vacation {
     </details>
 </div>
 
-<div id="timesheetsSection" class="card" hidden>
-    <h2>Timesheets</h2>
-    <details class="sub-card admin-time-entry-card">
+<div id="timesheetsSection" class="card jgc-panel jgc-timesheet-admin" hidden>
+    <h2 class="jgc-section-title">Timesheets</h2>
+    <details class="sub-card admin-time-entry-card jgc-section">
         <summary>Add Employee Time</summary>
         <div class="small" style="margin-bottom:10px;">Admin-entered hours save directly to the selected employee's live timesheet entries.</div>
-        <div class="announcement-grid">
-            <div>
-                <label>Employee</label>
-                <select id="adminTimeEntryWorker"></select>
+        <div class="announcement-grid jgc-form-grid">
+            <div class="jgc-field">
+                <label class="jgc-label">Employee</label>
+                <select id="adminTimeEntryWorker" class="jgc-select"></select>
             </div>
-            <div>
-                <label>Date</label>
-                <input id="adminTimeEntryDate" type="date" onchange="handleAdminTimeEntryDateChange()">
+            <div class="jgc-field">
+                <label class="jgc-label">Date</label>
+                <input id="adminTimeEntryDate" class="jgc-input" type="date" onchange="handleAdminTimeEntryDateChange()">
             </div>
-            <div>
-                <label>Entry Type</label>
-                <select id="adminTimeEntryType" onchange="handleAdminTimeEntryTypeChange()">
+            <div class="jgc-field">
+                <label class="jgc-label">Entry Type</label>
+                <select id="adminTimeEntryType" class="jgc-select" onchange="handleAdminTimeEntryTypeChange()">
                     <option value="work">Work</option>
                     <option value="sick">Sick Day</option>
                     <option value="vacation">Vacation Day</option>
                     <option value="civic_holiday">Civic Holiday</option>
                 </select>
             </div>
-            <div data-admin-time-vacation hidden>
-                <label>Vacation Type</label>
-                <select id="adminTimeEntryLeaveType" onchange="handleAdminTimeEntryTypeChange()">
+            <div class="jgc-field" data-admin-time-vacation hidden>
+                <label class="jgc-label">Vacation Type</label>
+                <select id="adminTimeEntryLeaveType" class="jgc-select" onchange="handleAdminTimeEntryTypeChange()">
                     <option value="paid">Paid</option>
                     <option value="unpaid">Unpaid</option>
                     <option value="half_day">Half Day</option>
                 </select>
             </div>
-            <div data-admin-time-work>
-                <label>Job</label>
-                <select id="adminTimeEntryJob" onchange="fillAdminTimeEntryJob()"></select>
+            <div class="jgc-field" data-admin-time-work>
+                <label class="jgc-label">Job</label>
+                <select id="adminTimeEntryJob" class="jgc-select" onchange="fillAdminTimeEntryJob()"></select>
             </div>
-            <div data-admin-time-work>
-                <label>Job Name</label>
-                <input id="adminTimeEntryJobName" placeholder="Job name">
+            <div class="jgc-field" data-admin-time-work>
+                <label class="jgc-label">Job Name</label>
+                <input id="adminTimeEntryJobName" class="jgc-input" placeholder="Job name">
             </div>
-            <div data-admin-time-work>
-                <label>Job Number</label>
-                <input id="adminTimeEntryJobNumber" placeholder="Job number">
+            <div class="jgc-field" data-admin-time-work>
+                <label class="jgc-label">Job Number</label>
+                <input id="adminTimeEntryJobNumber" class="jgc-input" placeholder="Job number">
             </div>
-            <div data-admin-time-clock>
-                <label>Time In</label>
-                <input id="adminTimeEntryTimeIn" type="time" step="1800" value="07:00">
+            <div class="jgc-field" data-admin-time-clock>
+                <label class="jgc-label">Time In</label>
+                <input id="adminTimeEntryTimeIn" class="jgc-input" type="time" step="1800" value="07:00">
             </div>
-            <div data-admin-time-clock>
-                <label>Time Out</label>
-                <input id="adminTimeEntryTimeOut" type="time" step="1800" value="15:30">
+            <div class="jgc-field" data-admin-time-clock>
+                <label class="jgc-label">Time Out</label>
+                <input id="adminTimeEntryTimeOut" class="jgc-input" type="time" step="1800" value="15:30">
             </div>
             <label class="checkbox-line" data-admin-time-work>
                 <input id="adminTimeEntryLunch" type="checkbox" checked>
@@ -3472,29 +3477,29 @@ button.admin-schedule-event-button.admin-event-vacation {
                 <input id="adminTimeEntryNight" type="checkbox">
                 Night Work
             </label>
-            <div class="full">
-                <label>Reason / Note</label>
-                <textarea id="adminTimeEntryNote" rows="3" placeholder="Example: Employee forgot to submit, phone issue, foreman correction"></textarea>
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label">Reason / Note</label>
+                <textarea id="adminTimeEntryNote" class="jgc-textarea" rows="3" placeholder="Example: Employee forgot to submit, phone issue, foreman correction"></textarea>
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button type="button" onclick="addAdminTimeEntryToTimesheet()">Add Employee Time</button>
-            <button type="button" class="secondary" onclick="resetAdminTimeEntryForm()">Clear</button>
+        <div class="actions jgc-actions" style="margin-top:10px;">
+            <button class="jgc-button" type="button" onclick="addAdminTimeEntryToTimesheet()">Add Employee Time</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetAdminTimeEntryForm()">Clear</button>
         </div>
-        <div id="adminTimeEntryStatus" class="small" style="margin-top:8px;"></div>
+        <div id="adminTimeEntryStatus" class="small jgc-notice" style="margin-top:8px;" aria-live="polite"></div>
     </details>
-    <div class="filters">
-        <div>
-            <label>Worker</label>
-            <input id="timesheetWorkerFilter" oninput="renderTimesheets()" placeholder="Filter worker">
+    <div class="filters jgc-filter-grid">
+        <div class="jgc-field">
+            <label class="jgc-label">Worker</label>
+            <input id="timesheetWorkerFilter" class="jgc-input" oninput="renderTimesheets()" placeholder="Filter worker">
         </div>
     </div>
-    <div class="actions" style="margin-bottom:10px;">
-        <button type="button" class="secondary" onclick="loadLiveTimesheetEntries()">Refresh Live Entries</button>
+    <div class="actions jgc-actions" style="margin-bottom:10px;">
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadLiveTimesheetEntries()">Refresh Live Entries</button>
     </div>
-    <div id="timesheetsList" class="small">Loading timesheets...</div>
-    <div id="timesheetViewPanel" class="timesheet-edit-panel" hidden></div>
-    <div id="timesheetEditPanel" class="timesheet-edit-panel" hidden></div>
+    <div id="timesheetsList" class="small jgc-section">Loading timesheets...</div>
+    <div id="timesheetViewPanel" class="timesheet-edit-panel jgc-section" hidden></div>
+    <div id="timesheetEditPanel" class="timesheet-edit-panel jgc-section" hidden></div>
 </div>
 
 <div id="sickDaysSection" class="card" hidden>
@@ -3632,8 +3637,8 @@ button.admin-schedule-event-button.admin-event-vacation {
     <div id="vacationList" class="small">Loading vacation requests...</div>
 </div>
 
-<div id="tasksSection" class="card admin-task-card" hidden>
-    <h2>Tasks</h2>
+<div id="tasksSection" class="card jgc-panel admin-task-card jgc-task-admin" hidden>
+    <h2 class="jgc-section-title">Tasks</h2>
     <div class="small" style="margin-bottom:12px;">Same task list as the employee Tasks page, with admin delete permissions available when needed.</div>
     <iframe class="admin-task-frame" src="tasks.html?embedded=1&admin=1" title="Admin Tasks" scrolling="no"></iframe>
 </div>
@@ -3701,44 +3706,44 @@ button.admin-schedule-event-button.admin-event-vacation {
     </details>
 </div>
 
-<div id="reportsSection" class="card" hidden>
-    <h2>Reports</h2>
-    <div class="admin-report-tabs" role="tablist" aria-label="Report categories">
-        <button id="adminReportTabDaily" type="button" class="active" data-report-tab="daily" onclick="switchAdminReportSubtab('daily')">Daily Reports <span id="adminReportCountDaily" class="admin-report-count">0</span></button>
-        <button id="adminReportTabJsa" type="button" data-report-tab="jsa" onclick="switchAdminReportSubtab('jsa')">JSA <span id="adminReportCountJsa" class="admin-report-count">0</span></button>
-        <button id="adminReportTabNearMiss" type="button" data-report-tab="nearMiss" onclick="switchAdminReportSubtab('nearMiss')">Near Miss <span id="adminReportCountNearMiss" class="admin-report-count">0</span></button>
-        <button id="adminReportTabAccident" type="button" data-report-tab="accident" onclick="switchAdminReportSubtab('accident')">Accidents <span id="adminReportCountAccident" class="admin-report-count">0</span></button>
-        <button id="adminReportTabInjury" type="button" data-report-tab="injury" onclick="switchAdminReportSubtab('injury')">Employee Injury <span id="adminReportCountInjury" class="admin-report-count">0</span></button>
-        <button id="adminReportTabAcknowledgements" type="button" data-report-tab="acknowledgements" onclick="switchAdminReportSubtab('acknowledgements')">Acknowledgements <span id="adminReportCountAcknowledgements" class="admin-report-count">0</span></button>
-        <button id="adminReportTabToolbox" type="button" data-report-tab="toolbox" onclick="switchAdminReportSubtab('toolbox')">Toolbox Talks <span id="adminReportCountToolbox" class="admin-report-count">0</span></button>
+<div id="reportsSection" class="card jgc-panel jgc-report-admin" hidden>
+    <h2 class="jgc-section-title">Reports</h2>
+    <div class="admin-report-tabs jgc-tabs" role="tablist" aria-label="Report categories">
+        <button id="adminReportTabDaily" type="button" class="active jgc-tab" data-report-tab="daily" onclick="switchAdminReportSubtab('daily')">Daily Reports <span id="adminReportCountDaily" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabJsa" type="button" class="jgc-tab" data-report-tab="jsa" onclick="switchAdminReportSubtab('jsa')">JSA <span id="adminReportCountJsa" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabNearMiss" type="button" class="jgc-tab" data-report-tab="nearMiss" onclick="switchAdminReportSubtab('nearMiss')">Near Miss <span id="adminReportCountNearMiss" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabAccident" type="button" class="jgc-tab" data-report-tab="accident" onclick="switchAdminReportSubtab('accident')">Accidents <span id="adminReportCountAccident" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabInjury" type="button" class="jgc-tab" data-report-tab="injury" onclick="switchAdminReportSubtab('injury')">Employee Injury <span id="adminReportCountInjury" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabAcknowledgements" type="button" class="jgc-tab" data-report-tab="acknowledgements" onclick="switchAdminReportSubtab('acknowledgements')">Acknowledgements <span id="adminReportCountAcknowledgements" class="admin-report-count jgc-badge">0</span></button>
+        <button id="adminReportTabToolbox" type="button" class="jgc-tab" data-report-tab="toolbox" onclick="switchAdminReportSubtab('toolbox')">Toolbox Talks <span id="adminReportCountToolbox" class="admin-report-count jgc-badge">0</span></button>
     </div>
 
     <div class="admin-report-panels">
-        <section id="adminReportPanelDaily" class="admin-report-panel" data-report-panel="daily">
+        <section id="adminReportPanelDaily" class="admin-report-panel jgc-section" data-report-panel="daily">
             <h3>Daily Site Reports</h3>
             <div id="dailySiteReportsList" class="small">Loading daily site reports...</div>
         </section>
-        <section id="adminReportPanelJsa" class="admin-report-panel" data-report-panel="jsa" hidden>
+        <section id="adminReportPanelJsa" class="admin-report-panel jgc-section" data-report-panel="jsa" hidden>
             <h3>JSA Reports</h3>
             <div id="jsaReportsList" class="small">Loading JSA reports...</div>
         </section>
-        <section id="adminReportPanelNearMiss" class="admin-report-panel" data-report-panel="nearMiss" hidden>
+        <section id="adminReportPanelNearMiss" class="admin-report-panel jgc-section" data-report-panel="nearMiss" hidden>
             <h3>Near Miss Reports</h3>
             <div id="nearMissReportsList" class="small">Loading incident reports...</div>
         </section>
-        <section id="adminReportPanelAccident" class="admin-report-panel" data-report-panel="accident" hidden>
+        <section id="adminReportPanelAccident" class="admin-report-panel jgc-section" data-report-panel="accident" hidden>
             <h3>Accident Reports</h3>
             <div id="accidentReportsList" class="small">Loading accident reports...</div>
         </section>
-        <section id="adminReportPanelInjury" class="admin-report-panel" data-report-panel="injury" hidden>
+        <section id="adminReportPanelInjury" class="admin-report-panel jgc-section" data-report-panel="injury" hidden>
             <h3>Employee Injury Reports</h3>
             <div id="employeeInjuryReportsList" class="small">Loading employee injury reports...</div>
         </section>
-        <section id="adminReportPanelAcknowledgements" class="admin-report-panel" data-report-panel="acknowledgements" hidden>
+        <section id="adminReportPanelAcknowledgements" class="admin-report-panel jgc-section" data-report-panel="acknowledgements" hidden>
             <h3>JSA / Toolbox Talk Acknowledgements</h3>
             <div id="safetyAcknowledgementList" class="small">Loading safety acknowledgements...</div>
         </section>
-        <section id="adminReportPanelToolbox" class="admin-report-panel" data-report-panel="toolbox" hidden>
+        <section id="adminReportPanelToolbox" class="admin-report-panel jgc-section" data-report-panel="toolbox" hidden>
             <h3>Tool Box Talks</h3>
             <div class="announcement-grid">
                 <div>
@@ -3924,19 +3929,19 @@ button.admin-schedule-event-button.admin-event-vacation {
     </section>
 </div>
 
-<div id="jobsSection" class="card" hidden>
-    <h2>Jobs Management</h2>
+<div id="jobsSection" class="card jgc-panel jgc-job-admin" hidden>
+    <h2 class="jgc-section-title">Jobs Management</h2>
     <div class="announcement-grid">
         <div class="full">
             <label>Upload Excel Job List</label>
-            <input id="jobsExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <input id="jobsExcelFile" class="jgc-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
             <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
         </div>
     </div>
-    <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="importJobsFromExcel()">Upload & Import</button>
-        <button class="delete-button" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
-        <button class="secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
+    <div class="actions jgc-actions" style="margin-top:10px;">
+        <button class="jgc-button" type="button" onclick="importJobsFromExcel()">Upload & Import</button>
+        <button class="delete-button jgc-button jgc-button--danger" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobsImportStatus" class="small" style="margin-top:10px;"></div>
     <div id="jobsSummary" class="small" style="margin-top:12px;">Loading job summary...</div>
