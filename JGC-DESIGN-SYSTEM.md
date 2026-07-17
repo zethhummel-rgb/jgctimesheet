@@ -34,6 +34,10 @@ The primary logo at the top of a portal page uses `--jgc-page-brand-width` and i
 
 Compact app-bar branding on Home and the bespoke Login branding are intentional exceptions. Logos inside PDFs, QR print layouts, inspection sheets, and modal content are not governed by the primary page-logo rule.
 
+## Interaction Standards
+
+Every focusable control inside a `jgc-page` receives the shared high-visibility focus ring when it is reached with a keyboard. Pages must not remove this focus state. The design system also respects a device's reduced-motion preference by suppressing nonessential transitions and animations.
+
 ## Buttons
 
 ```html
@@ -133,6 +137,7 @@ The shared hook adds `jgc-admin-page-title`, `jgc-admin-user-line`, and `jgc-adm
 - **Step 24:** the Reset Password page now uses a scoped reset-password compatibility stylesheet plus shared page, shell, brand, panel, field, label, input, button, and notice semantics. Existing Supabase recovery-session password updates, success feedback, delayed return to login, compact card geometry, and navigation exclusions remain protected; its stale deleted logo reference now uses the current cached WebP asset.
 - **Step 25:** the Login page now uses a scoped login compatibility stylesheet plus shared page, shell, header, brand, panel, card, section, label, input, textarea, button, notice, action, and modal-dialog semantics. Existing employee authentication, account creation, password reset, stay-signed-in behavior, Field Calculator and Notes access, subcontractor entry, local scratch-pad storage, QR sharing, responsive hero layout, and navigation exclusions remain protected; both stale deleted logo references now use the current cached WebP asset.
 - **Step 26:** the standalone Subcontractor Portal now uses a scoped subcontractor compatibility stylesheet plus shared page, shell, header, brand, panel, card, button, and action semantics. Existing subcontractor session checks, Reports, Inspections, Permits, Policies, and Contacts destinations, sign-out behavior, responsive card grid, and mobile layout remain protected; its stale deleted logo reference now uses the current cached WebP asset.
+- **Step 27:** shared interaction standards now provide a consistent high-visibility keyboard focus ring and reduced-motion support across all `jgc-page` portal screens. Existing controls, layouts, colours, table behavior, and workflows remain protected.
 - Existing data tables, feature tabs, forms, cards, and workflows remain unchanged until deliberately migrated and tested.
 
 ## Change Checklist

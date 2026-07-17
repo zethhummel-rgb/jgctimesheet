@@ -41,7 +41,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "3";
+const JGC_DESIGN_SYSTEM_VERSION = "4";
 const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
   { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
