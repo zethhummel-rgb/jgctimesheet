@@ -1,0 +1,36 @@
+# JGC Admin Architecture
+
+The Admin portal is being split gradually so each release remains testable and the existing interface keeps the same behavior and appearance.
+
+## Current Structure
+
+- `admin.html` owns the Admin page markup and existing JavaScript behavior.
+- `admin.css` owns the Admin page-level styles that previously lived in the document head.
+- Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
+- Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
+
+## Extraction Rules
+
+1. Move one stable boundary at a time.
+2. Preserve stylesheet and script load order.
+3. Keep existing global functions available while inline handlers still call them.
+4. Do not move generated report, print, or PDF template styles into page CSS.
+5. Add every new release asset to the service-worker app shell.
+6. Advance `JGC_RELEASE_ID` for every deployable change.
+7. Run `run-jgc-release-check.bat` before handoff or deployment.
+
+## Planned JavaScript Modules
+
+Future extractions should use the existing Admin tab boundaries:
+
+- `admin-core.js`: authentication, tab routing, shared state, and common Admin helpers.
+- `admin-summary.js`: summary search, schedule, announcements, and dashboard data.
+- `admin-jobs.js`: job dashboard and job import/management behavior.
+- `admin-timesheets.js`: timesheet lists, editors, and PDF actions.
+- `admin-inspections.js`: inspection lists and report viewing.
+- `admin-equipment.js`: equipment, vehicles, lift documents, and QR management.
+- `admin-work-orders.js`: work-order lists and the embedded editor.
+- `admin-contacts.js`: subcontractor, supplier, and contact administration.
+- `admin-backups.js`: backup creation, validation, and restore tools.
+
+The next extraction should start with a lower-risk, self-contained tab module. High-traffic modules such as Summary, Timesheets, Equipment, and Work Orders should remain in `admin.html` until the shared module loader and smoke checks have proven stable.
