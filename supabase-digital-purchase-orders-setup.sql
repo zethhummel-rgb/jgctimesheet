@@ -1809,7 +1809,15 @@ begin
     for update;
 
     if not found
-       or v_po.job_id is distinct from v_work_order.job_id
+       or not (
+         v_po.job_id = v_work_order.job_id
+         or (
+           v_po.job_id is null
+           and upper(regexp_replace(coalesce(v_po.job_number, ''), '[^A-Za-z0-9]', '', 'g'))
+             = upper(regexp_replace(coalesce(v_work_order.job_number, ''), '[^A-Za-z0-9]', '', 'g'))
+         )
+       )
+       or v_po.order_date is distinct from v_work_order.work_order_date
        or v_po.workflow_status = 'cancelled'
        or exists (select 1 from public.digital_po_work_order_links l where l.po_id = v_po_id) then
       v_skipped := v_skipped + 1;
@@ -2252,6 +2260,8 @@ language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
+declare
+  v_job_number text;
 begin
   if not jgc_private.digital_po_is_work_order_manager() then
     raise exception 'Supervisor or admin access is required to review digital POs for Work Orders.' using errcode = '42501';
@@ -2259,6 +2269,14 @@ begin
   if p_job_id is null or p_order_date is null then
     return;
   end if;
+
+  select j.job_number into v_job_number
+  from public.jobs j
+  where j.id = p_job_id;
+  if not found then
+    raise exception 'The selected job was not found.' using errcode = 'P0002';
+  end if;
+
   if p_work_order_id is not null and not exists (
     select 1 from public.work_orders w
     where w.id = p_work_order_id and w.job_id = p_job_id
@@ -2282,7 +2300,14 @@ begin
   from public.digital_purchase_orders po
   left join public.digital_po_items i on i.po_id = po.id
   left join public.digital_po_work_order_links l on l.po_id = po.id
-  where po.job_id = p_job_id
+  where (
+      po.job_id = p_job_id
+      or (
+        po.job_id is null
+        and upper(regexp_replace(coalesce(po.job_number, ''), '[^A-Za-z0-9]', '', 'g'))
+          = upper(regexp_replace(coalesce(v_job_number, ''), '[^A-Za-z0-9]', '', 'g'))
+      )
+    )
     and po.order_date = p_order_date
     and po.workflow_status <> 'cancelled'
     and (l.work_order_id is null or l.work_order_id = p_work_order_id)
