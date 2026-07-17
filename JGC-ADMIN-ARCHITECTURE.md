@@ -8,6 +8,7 @@ The Admin portal is being split gradually so each release remains testable and t
 - `admin.css` owns the Admin page-level styles that previously lived in the document head.
 - `admin-backups.js` owns the backup command, local inspection history, ZIP/JSON inspection, and restore-readiness display helpers.
 - `admin-contacts.js` owns Contacts plus Subcontractors/Suppliers company and contact management.
+- `admin-vacation.js` owns Vacation Requests calendar rendering, approvals, denials, decision notices, Google Calendar synchronization, and deletion.
 - Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
 - Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
 
@@ -33,6 +34,7 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-equipment.js`: equipment, vehicles, lift documents, and QR management.
 - `admin-work-orders.js`: work-order lists and the embedded editor.
 - `admin-contacts.js`: subcontractor, supplier, and contact administration. This extraction is complete.
+- `admin-vacation.js`: vacation calendar and request administration. This extraction is complete.
 - `admin-backups.js`: backup inspection and restore-preparation tools. This extraction is complete.
 
 The next extraction should start with a lower-risk, self-contained tab module. High-traffic modules such as Summary, Timesheets, Equipment, and Work Orders should remain in `admin.html` until the shared module loader and smoke checks have proven stable.
