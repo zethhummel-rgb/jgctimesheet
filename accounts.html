@@ -356,6 +356,61 @@ th {
     border-color: #ff9a91;
 }
 
+.past-employees {
+    margin-top: 14px;
+    overflow: hidden;
+    background: #f7f9f6;
+    border: 1px solid #7b9180;
+    border-radius: 6px;
+}
+
+.past-employees > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 13px;
+    color: #ffffff;
+    background: #283b30;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    list-style: none;
+}
+
+.past-employees > summary::-webkit-details-marker {
+    display: none;
+}
+
+.past-employees > summary::after {
+    margin-left: auto;
+    content: "+";
+    color: #70df86;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.past-employees[open] > summary::after {
+    content: "-";
+}
+
+.past-employees-count {
+    padding: 3px 8px;
+    color: #ffffff;
+    background: #8f2420;
+    border-radius: 999px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.past-employees-body {
+    padding: 12px;
+}
+
+.accounts-empty-note {
+    margin: 0 0 12px;
+    color: #58635c;
+}
+
 button {
     background: #0b5e3b;
     color: white;
@@ -555,6 +610,60 @@ function formatDate(value) {
     return formatDisplayDate(value);
 }
 
+function renderAccountRows(accountList) {
+    return accountList.map((account) => {
+        const isSelf = account.id === currentUserId;
+        const statusClass = account.account_status || "pending";
+        const statusToneClass = statusClass === "approved"
+            ? "jgc-badge--success"
+            : statusClass === "inactive"
+                ? "jgc-badge--danger"
+                : "jgc-badge--warning";
+        return `
+            <tr>
+                <td>${escapeHtml(account.display_name)}</td>
+                <td>${escapeHtml(account.email)}</td>
+                <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusClass)}</span></td>
+                <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
+                <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
+                <td>${escapeHtml(formatDate(account.created_at))}</td>
+                <td>
+                    <div class="row-actions jgc-table-actions">
+                        ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
+                        ${account.account_status === "inactive" ? `<button class="jgc-button" type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
+                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger jgc-button jgc-button--danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
+                        ${account.account_status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
+                        ${renderAccountTypeActions(account, isSelf)}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function renderAccountsTable(accountList) {
+    return `
+        <div class="table-wrap jgc-table-wrap">
+            <table class="accounts-table jgc-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Account Type</th>
+                        <th>Digital PO</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${renderAccountRows(accountList)}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderAccounts() {
     const list = document.getElementById("accountsList");
     const search = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -570,53 +679,29 @@ function renderAccounts() {
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap jgc-table-wrap">
-            <table class="accounts-table jgc-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Status</th>
-                        <th>Account Type</th>
-                        <th>Digital PO</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((account) => {
-                        const isSelf = account.id === currentUserId;
-                        const statusClass = account.account_status || "pending";
-                        const statusToneClass = statusClass === "approved"
-                            ? "jgc-badge--success"
-                            : statusClass === "inactive"
-                                ? "jgc-badge--danger"
-                                : "jgc-badge--warning";
-                        return `
-                            <tr>
-                                <td>${escapeHtml(account.display_name)}</td>
-                                <td>${escapeHtml(account.email)}</td>
-                                <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusClass)}</span></td>
-                                <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
-                                <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
-                                <td>${escapeHtml(formatDate(account.created_at))}</td>
-                                <td>
-                                    <div class="row-actions jgc-table-actions">
-                                        ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
-                                        ${account.account_status === "inactive" ? `<button class="jgc-button" type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
-                                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger jgc-button jgc-button--danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
-                                        ${account.account_status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
-                                        ${renderAccountTypeActions(account, isSelf)}
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    }).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const currentAccounts = filtered.filter((account) => account.account_status !== "inactive");
+    const pastEmployees = filtered.filter((account) => account.account_status === "inactive");
+    const openPastEmployees = status === "inactive" || (Boolean(search) && pastEmployees.length > 0);
+    const currentAccountsMarkup = currentAccounts.length
+        ? renderAccountsTable(currentAccounts)
+        : status === "inactive"
+            ? ""
+            : '<p class="accounts-empty-note">No current accounts match this search.</p>';
+    const pastEmployeesMarkup = pastEmployees.length
+        ? `
+            <details class="past-employees"${openPastEmployees ? " open" : ""}>
+                <summary>
+                    <span>Past Employees</span>
+                    <span class="past-employees-count">${pastEmployees.length} inactive</span>
+                </summary>
+                <div class="past-employees-body">
+                    ${renderAccountsTable(pastEmployees)}
+                </div>
+            </details>
+        `
+        : "";
+
+    list.innerHTML = currentAccountsMarkup + pastEmployeesMarkup;
 }
 
 function getAccountTypeLabel(role) {

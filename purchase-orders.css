@@ -98,6 +98,11 @@ body.po-page {
   height: auto;
 }
 
+.po-admin-page .po-brand img {
+  width: min(347px, calc(100vw - 40px));
+  max-width: 347px;
+}
+
 .po-page h1 {
   margin: 0;
   color: #fff;
