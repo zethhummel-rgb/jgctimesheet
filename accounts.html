@@ -289,18 +289,30 @@ th {
 }
 
 .status.pending.jgc-badge {
-    color: #684d00;
-    background: #fff2c2;
+    color: #3f2d00;
+    background: #ffe39a;
+    border: 1px solid #b98500;
 }
 
 .status.approved.jgc-badge {
-    color: #1d5b28;
-    background: #dcefdc;
+    color: #083b18;
+    background: #aee6b7;
+    border: 1px solid #438b52;
 }
 
 .status.inactive.jgc-badge {
-    color: #7b1f1f;
-    background: #f4d3d3;
+    color: #5c1010;
+    background: #f2b9b9;
+    border: 1px solid #b64a4a;
+}
+
+.status.pending.jgc-badge,
+.status.approved.jgc-badge,
+.status.inactive.jgc-badge {
+    min-width: 76px;
+    padding: 5px 9px;
+    text-align: center;
+    text-transform: capitalize;
 }
 
 .pending {

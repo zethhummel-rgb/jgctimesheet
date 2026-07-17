@@ -2184,6 +2184,55 @@ button.admin-schedule-event-button.admin-event-vacation {
     background: #e6ece6;
 }
 
+@media (min-width: 1100px) {
+    #equipmentSection.jgc-panel {
+        width: calc(100vw - 40px);
+        max-width: 1760px;
+        box-sizing: border-box;
+    }
+
+    #equipmentSection .table-wrap.jgc-table-wrap {
+        overflow-x: visible;
+    }
+
+    #equipmentSection table.jgc-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    #equipmentSection table.jgc-table th,
+    #equipmentSection table.jgc-table td {
+        padding: 5px 4px;
+        font-size: 11px;
+        overflow-wrap: anywhere;
+    }
+
+    #equipmentSection table.jgc-table th:nth-child(1) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(2) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(3) { width: 5%; }
+    #equipmentSection table.jgc-table th:nth-child(8) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(10) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(12) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(13) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(15) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(16) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(17) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(18) { width: 7%; }
+
+    #equipmentSection table.jgc-table .actions {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    #equipmentSection table.jgc-table button.jgc-button {
+        width: 100%;
+        padding: 6px 4px;
+        font-size: 10px;
+    }
+}
+
 #equipmentSection .jgc-empty-state {
     color: #58635c;
 }
@@ -2337,6 +2386,23 @@ button.admin-schedule-event-button.admin-event-vacation {
     border-color: rgba(57, 200, 72, 0.35);
     background: rgba(5, 24, 18, 0.92);
     color: #f5fff6;
+}
+
+#subcontractorsSuppliersSection .supplier-contact-editor.sub-card {
+    color: #f2fff4;
+    background: linear-gradient(145deg, rgba(16, 45, 29, 0.98), rgba(7, 25, 18, 0.98));
+    border: 1px solid rgba(55, 240, 90, 0.32);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+#subcontractorsSuppliersSection .supplier-contact-editor h3,
+#subcontractorsSuppliersSection .supplier-contact-editor label {
+    color: #e9ffed;
+}
+
+#subcontractorsSuppliersSection .supplier-contact-editor .small,
+.calendar-panel .small {
+    color: #bcd0c2;
 }
 
 .supplier-contact-card strong {
@@ -2768,9 +2834,10 @@ button.admin-schedule-event-button.admin-event-vacation {
 .calendar-panel {
     margin-bottom: 16px;
     padding: 14px;
-    border: 1px solid #b8ccb8;
+    border: 1px solid rgba(55, 240, 90, 0.38);
     border-radius: 10px;
-    background: #eef5ed;
+    background: linear-gradient(145deg, #10281c, #091a13);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .calendar-controls {
@@ -2787,7 +2854,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .calendar-title {
     font-weight: bold;
-    color: #12351d;
+    color: #f4fff5;
     text-align: center;
     font-size: 18px;
 }
@@ -2930,8 +2997,8 @@ button.admin-schedule-event-button.admin-event-vacation {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 1px;
-    border: 1px solid #8faa8f;
-    background: #8faa8f;
+    border: 1px solid #295d38;
+    background: #295d38;
     border-radius: 8px;
     overflow: hidden;
 }
@@ -2955,18 +3022,18 @@ button.admin-schedule-event-button.admin-event-vacation {
 }
 
 .calendar-day {
-    background: #fbfff9;
-    color: #15251b;
+    background: #173324;
+    color: #eef8f0;
 }
 
 .calendar-day.past {
-    background: #e9eee7;
-    color: #2e3b33;
+    background: #10251a;
+    color: #aebdaf;
 }
 
 .day-number {
     font-weight: bold;
-    color: #0e2415;
+    color: #ffffff;
     margin-bottom: 4px;
     font-size: 15px;
     line-height: 1;
@@ -4093,7 +4160,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     </div>
     <div id="supplierStatus" class="small" style="margin-top:10px;"></div>
 
-    <div class="sub-card" style="margin-top:14px;">
+    <div class="sub-card supplier-contact-editor" style="margin-top:14px;">
         <h3>Contacts for Selected Company</h3>
         <div id="supplierSelectedCompany" class="small" style="margin-bottom:10px;">Select a company below, or save a new company first.</div>
         <div class="filters">
@@ -4755,12 +4822,13 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "jobDashboard") {
-        const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
+        const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, digitalPoResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
             { label: "job dashboard submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
             { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
             { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
             { label: "job dashboard work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
+            { label: "job dashboard digital purchase orders", query: () => supabaseClient.from("digital_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false }).limit(2000) },
             { label: "job dashboard labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
             { label: "job dashboard purchase orders", query: () => supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }) },
             { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
@@ -4771,6 +4839,7 @@ async function loadAdminTabData(tab) {
         inspections = inspectionResult.data || [];
         dailySiteReports = dailyResult.data || [];
         workOrders = workOrderResult.data || [];
+        digitalPurchaseOrders = digitalPoResult.data || [];
         workOrderLabourRows = labourResult.data || [];
         workOrderPurchaseOrders = poResult.data || [];
         workOrderEquipmentRows = equipmentResult.data || [];
@@ -14969,6 +15038,35 @@ function getDashboardWorkOrders(job) {
     return workOrders.filter((wo) => itemMatchesJob(wo, job, ["job_number", "job_name"]));
 }
 
+function getDashboardPurchaseOrders(job, workOrderRows) {
+    const workOrderIds = new Set((workOrderRows || []).map((workOrder) => workOrder.id));
+    const jobTokens = getJobMatchTokens(job);
+    const digitalRows = digitalPurchaseOrders
+        .filter((purchaseOrder) => {
+            const purchaseOrderJobNumber = normalizeWorkerName(purchaseOrder && purchaseOrder.job_number);
+
+            if (jobTokens.number && purchaseOrderJobNumber) {
+                return purchaseOrderJobNumber === jobTokens.number;
+            }
+
+            return valueMatchesJob(purchaseOrder && purchaseOrder.job_name, job);
+        })
+        .map((purchaseOrder) => ({
+            id: purchaseOrder.id,
+            poNumber: purchaseOrder.po_number,
+            source: "digital"
+        }));
+    const manualRows = workOrderPurchaseOrders
+        .filter((purchaseOrder) => workOrderIds.has(purchaseOrder.work_order_id))
+        .map((purchaseOrder) => ({
+            id: purchaseOrder.id,
+            poNumber: purchaseOrder.po_number || purchaseOrder.purchase_order_number,
+            source: "work-order"
+        }));
+
+    return digitalRows.concat(manualRows);
+}
+
 function getDashboardDailyReports(job) {
     return dailySiteReports.filter((report) => itemMatchesJob(report, job, ["project", "location"]));
 }
@@ -15100,6 +15198,7 @@ function renderJobDashboard() {
     }
 
     const workOrderRows = getDashboardWorkOrders(job);
+    const purchaseOrderRows = getDashboardPurchaseOrders(job, workOrderRows);
     const timesheetRows = getDashboardTimesheetRows(job);
     const manualWorkOrderLabourRows = getDashboardManualWorkOrderLabourRows(job, workOrderRows);
     const labourHourRows = timesheetRows.concat(manualWorkOrderLabourRows);
@@ -15194,6 +15293,7 @@ function renderJobDashboard() {
                 ${renderJobDashboardMetric("Total Hours", totalHours.toFixed(2), manualWorkOrderLabourRows.length ? "Timesheets + manual WO labour" : "Submitted labour hours")}
                 ${renderJobDashboardMetric("Employees on Job", employees.size, "Workers with logged hours")}
                 ${renderJobDashboardMetric("Work Orders", workOrderRows.length, "Saved Work Orders")}
+                ${renderJobDashboardMetric("Purchase Orders", purchaseOrderRows.length, "Digital and Work Order POs")}
                 ${renderJobDashboardMetric("Daily Reports", dailyRows.length, "Submitted reports")}
                 ${renderJobDashboardMetric("Inspections", inspectionRows.length, "Matching records")}
                 ${renderJobDashboardMetric("Equipment Used", equipmentRows.length, "From Work Orders")}
