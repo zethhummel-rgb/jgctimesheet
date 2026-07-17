@@ -156,35 +156,40 @@ button:hover,
     }
 }
 </style>
+<link rel="stylesheet" href="permit-design-system.css?v=1">
 </head>
-<body>
-<div class="logo-wrap"><img src="logo.png" alt="John Gordon Construction logo"></div>
-<div class="user-bar" id="userBar"></div>
-<div class="container">
-  <h1>Permits</h1>
-  <div class="subtitle">Quick Links</div>
+<body class="permit-directory-page jgc-page">
+<main class="permit-page-shell jgc-page-shell jgc-page-shell--wide">
+<header class="permit-page-header jgc-page-header">
+  <div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction logo"></div>
+  <p class="user-bar" id="userBar"></p>
+</header>
+<section class="container jgc-panel">
+  <h1 class="jgc-page-title">Permits</h1>
+  <div class="subtitle jgc-section-title">Quick Links</div>
   <div class="permit-grid">
-    <button class="permit-card" type="button" onclick="window.location.href='todays-inspections.html?recordType=permits'">
+    <button class="permit-card jgc-card" type="button" onclick="window.location.href='todays-inspections.html?recordType=permits'">
       <strong>Today's Permits</strong>
       <span>Permits completed in the last 24 hours.</span>
     </button>
-    <button class="permit-card" type="button" onclick="window.location.href='previous-inspections.html?recordType=permits'">
+    <button class="permit-card jgc-card" type="button" onclick="window.location.href='previous-inspections.html?recordType=permits'">
       <strong>Previous Permits</strong>
       <span>Permits completed in the last 2 months.</span>
     </button>
   </div>
 
-  <div class="subtitle">Start a New Permit</div>
+  <div class="subtitle jgc-section-title">Start a New Permit</div>
   <div id="permitFormsSection" class="permit-grid">
-    <button class="permit-card" type="button" onclick="window.location.href='hot-work-permit.html'"><strong>Hot Work Permit</strong><span>Welding, cutting, grinding, torch work, and fire watch requirements.</span></button>
-    <button class="permit-card" type="button" onclick="window.location.href='confined-space-permit.html'"><strong>Confined Space Permit</strong><span>Entry review, atmospheric testing, attendants, rescue plan, and authorization.</span></button>
-    <button class="permit-card" type="button" onclick="window.location.href='excavation-permit.html'"><strong>Excavation Permit</strong><span>Locate checks, soil conditions, protective systems, access, and daily approval.</span></button>
+    <button class="permit-card jgc-card" type="button" onclick="window.location.href='hot-work-permit.html'"><strong>Hot Work Permit</strong><span>Welding, cutting, grinding, torch work, and fire watch requirements.</span></button>
+    <button class="permit-card jgc-card" type="button" onclick="window.location.href='confined-space-permit.html'"><strong>Confined Space Permit</strong><span>Entry review, atmospheric testing, attendants, rescue plan, and authorization.</span></button>
+    <button class="permit-card jgc-card" type="button" onclick="window.location.href='excavation-permit.html'"><strong>Excavation Permit</strong><span>Locate checks, soil conditions, protective systems, access, and daily approval.</span></button>
   </div>
-  <div class="actions">
-    <button class="small-button" type="button" onclick="window.location.href='home.html'">Home</button>
-    <button class="small-button" type="button" onclick="signOut()">Sign Out</button>
+  <div class="actions jgc-actions">
+    <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
   </div>
-</div>
+</section>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>
 <script>

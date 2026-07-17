@@ -7,18 +7,19 @@
   <title>JGC Portal - Field Calculator</title>
   <link rel="manifest" href="manifest.json?v=4">
   <link rel="stylesheet" href="field-calculator.css?v=14">
+  <link rel="stylesheet" href="field-calculator-design-system.css?v=1">
 </head>
-<body class="field-calculator-page">
-  <main class="field-calculator-shell">
+<body class="field-calculator-page jgc-page">
+  <main class="field-calculator-shell field-calculator-design-shell jgc-page-shell jgc-page-shell--wide">
     <div class="calculator-workbench">
-      <nav class="quick-calc-rail" aria-label="Quick calculations">
-        <button type="button" class="quick-calc-tab active" data-quick-calc="main" aria-label="Show field calculator">Calc</button>
-        <button type="button" class="quick-calc-tab" data-quick-calc="sonotube" aria-label="Open Sonotube calculator">Sono</button>
-        <button type="button" class="quick-calc-tab" data-quick-calc="stairs" aria-label="Open stair calculator">Stairs</button>
-        <button type="button" class="quick-calc-tab coming-soon" data-quick-calc="gravel" aria-label="Gravel calculator coming soon" disabled>Gravel</button>
+      <nav class="quick-calc-rail jgc-tabs" aria-label="Quick calculations">
+        <button type="button" class="quick-calc-tab jgc-tab active" data-quick-calc="main" aria-label="Show field calculator">Calc</button>
+        <button type="button" class="quick-calc-tab jgc-tab" data-quick-calc="sonotube" aria-label="Open Sonotube calculator">Sono</button>
+        <button type="button" class="quick-calc-tab jgc-tab" data-quick-calc="stairs" aria-label="Open stair calculator">Stairs</button>
+        <button type="button" class="quick-calc-tab jgc-tab coming-soon" data-quick-calc="gravel" aria-label="Gravel calculator coming soon" disabled>Gravel</button>
       </nav>
 
-      <section id="mainCalculatorPanel" class="field-calculator calc-view-panel active" aria-label="JGC Field Calculator">
+      <section id="mainCalculatorPanel" class="field-calculator calc-view-panel jgc-panel active" aria-label="JGC Field Calculator">
         <header class="calc-toolbar">
           <div class="toolbar-brand-mark" aria-hidden="true">JGC</div>
           <div class="toolbar-title">JGC Field Calculator</div>
@@ -47,7 +48,7 @@
         </footer>
       </section>
 
-      <section id="quickCalcPanel" class="quick-calc-panel calc-view-panel" aria-label="Quick calculations" hidden>
+      <section id="quickCalcPanel" class="quick-calc-panel calc-view-panel jgc-panel" aria-label="Quick calculations" hidden>
         <header class="quick-calc-header">
           <div>
             <span class="quick-calc-kicker">Quick Calculations</span>
@@ -57,7 +58,7 @@
         </header>
 
         <form id="sonotubeCalcForm" class="quick-calc-form" data-quick-form="sonotube">
-          <section class="quick-calc-card">
+          <section class="quick-calc-card jgc-card">
             <h2>Requirements</h2>
             <label>
               <span>Sonotube size</span>
@@ -115,7 +116,7 @@
             </div>
           </section>
 
-          <section class="quick-calc-card">
+          <section class="quick-calc-card jgc-card">
             <h2>Concrete Materials</h2>
             <label>
               <span>Concrete mix</span>
@@ -148,14 +149,14 @@
             </label>
           </section>
 
-          <section class="quick-calc-card output-card">
+          <section class="quick-calc-card output-card jgc-card">
             <h2>Results</h2>
             <div id="sonotubeResults" class="quick-calc-results" aria-live="polite"></div>
           </section>
         </form>
 
         <form id="stairsCalcForm" class="quick-calc-form" data-quick-form="stairs" hidden>
-          <section class="quick-calc-card">
+          <section class="quick-calc-card jgc-card">
             <h2>Your Stairs</h2>
             <div class="quick-calc-inline">
               <label>
@@ -222,12 +223,12 @@
             </label>
           </section>
 
-          <section class="quick-calc-card output-card">
+          <section class="quick-calc-card output-card jgc-card">
             <h2>Results</h2>
             <div id="stairsResults" class="quick-calc-results" aria-live="polite"></div>
           </section>
 
-          <section class="quick-calc-card output-card">
+          <section class="quick-calc-card output-card jgc-card">
             <h2>Stringer</h2>
             <div id="stairsStringerResults" class="quick-calc-results" aria-live="polite"></div>
           </section>
@@ -237,8 +238,8 @@
   </main>
 
   <div id="calcOverlay" class="calc-overlay-backdrop" onclick="window.JgcFieldCalculator.closeOverlay(event)">
-    <section class="calc-overlay" onclick="event.stopPropagation()">
-      <header class="calc-overlay-header">
+    <section class="calc-overlay jgc-modal__dialog" onclick="event.stopPropagation()">
+      <header class="calc-overlay-header jgc-modal__header">
         <h2 id="calcOverlayTitle">Calculator</h2>
         <button type="button" class="toolbar-button" onclick="window.JgcFieldCalculator.closeOverlay()">Close</button>
       </header>
@@ -249,6 +250,6 @@
   <script src="common.js?v=24"></script>
   <script src="calculator-engine.js?v=25"></script>
   <script src="calculator-functions.js?v=28"></script>
-  <script src="field-calculator.js?v=29"></script>
+  <script src="field-calculator.js?v=30"></script>
 </body>
 </html>

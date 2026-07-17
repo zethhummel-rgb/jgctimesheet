@@ -6,6 +6,7 @@
   <title>Time Sheet App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="timesheet-design-system.css?v=1" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -1255,40 +1256,42 @@
   </style>
 </head>
 
-<body>
+<body class="timesheet-page jgc-page">
 
-<div class="logo-wrap">
-  <img src="logo.png" alt="John Gordon Construction" />
+<main class="timesheet-page-shell jgc-page-shell jgc-page-shell--wide">
+
+<div class="logo-wrap jgc-brand">
+  <img src="logo.webp" alt="John Gordon Construction" />
 </div>
 
-<h2 class="page-title">Construction Time Sheet</h2>
+<h2 class="page-title jgc-page-title">Construction Time Sheet</h2>
 
-<div id="currentUser" class="user-bar"></div>
+<div id="currentUser" class="user-bar jgc-page-user"></div>
 
-<div id="woTimesheetRequestsCard" class="wo-timesheet-card">
+<div id="woTimesheetRequestsCard" class="wo-timesheet-card jgc-panel">
   <h3>WO Requested Hours</h3>
   <div class="small">Tap a request to prefill the time entry form.</div>
   <div id="woTimesheetRequests" class="wo-request-list"></div>
 </div>
 
-<div id="weekSubmitBanner" class="week-submit-banner" aria-live="polite">
+<div id="weekSubmitBanner" class="week-submit-banner jgc-notice" aria-live="polite">
   <div class="week-submit-copy">
     <strong id="weekSubmitBannerTitle"></strong>
     <span id="weekSubmitBannerDetail"></span>
   </div>
-  <button type="button" onclick="emailEntries()">Submit week now</button>
+  <button class="jgc-button" type="button" onclick="emailEntries()">Submit week now</button>
 </div>
 
 <div class="timesheet-shell">
-<div class="card calendar-card">
+<div class="card calendar-card jgc-panel">
   <div class="timesheet-calendar-header">
-    <button type="button" onclick="changeCalendarMonth(-1)">Previous</button>
+    <button class="jgc-button jgc-button--secondary" type="button" onclick="changeCalendarMonth(-1)">Previous</button>
     <div id="timesheetCalendarTitle" class="timesheet-calendar-title"></div>
-    <button type="button" onclick="changeCalendarMonth(1)">Next</button>
+    <button class="jgc-button jgc-button--secondary" type="button" onclick="changeCalendarMonth(1)">Next</button>
   </div>
   <div class="timesheet-calendar-quick">
-    <button type="button" onclick="selectThisWeek()">This Week</button>
-    <button type="button" onclick="selectLastWeek()">Last Week</button>
+    <button class="jgc-button" type="button" onclick="selectThisWeek()">This Week</button>
+    <button class="jgc-button jgc-button--secondary" type="button" onclick="selectLastWeek()">Last Week</button>
   </div>
   <div id="timesheetCalendar" class="timesheet-calendar-grid"></div>
   <div class="calendar-legend" aria-label="Calendar status legend">
@@ -1301,11 +1304,12 @@
   <div class="small">Pick a date to start an entry for that day. Soft green shows the selected week and blue marks submitted weeks.</div>
 </div>
 
-<div class="card form-card">
-  <h3>Submit Time Entry</h3>
+<div class="card form-card jgc-panel">
+  <h3 class="jgc-section-title">Submit Time Entry</h3>
 
-  <label>Week Date</label>
+  <label class="jgc-label">Week Date</label>
   <input
+    class="jgc-input"
     type="date"
     id="weekStart"
     onchange="validateSunday(this)"
@@ -1313,8 +1317,8 @@
 
   <div id="weekDisplay" class="small"></div>
 
-  <label>Day of Week</label>
-  <select id="day">
+  <label class="jgc-label">Day of Week</label>
+  <select id="day" class="jgc-select">
     <option value="">Select Day</option>
     <option>Sunday</option>
     <option>Monday</option>
@@ -1325,8 +1329,8 @@
     <option>Saturday</option>
   </select>
 
-  <label>Entry Type</label>
-  <select id="entryType" onchange="updateEntryTypeFields()">
+  <label class="jgc-label">Entry Type</label>
+  <select id="entryType" class="jgc-select" onchange="updateEntryTypeFields()">
     <option value="work">Work</option>
     <option value="sick">Sick Day</option>
     <option value="vacation">Vacation Day</option>
@@ -1335,14 +1339,14 @@
 
   <div id="multiDayLeaveFields" class="field-hidden">
     <label id="multiDayLeaveLabel">How Many Weekdays?</label>
-    <input id="leaveDayCount" type="number" min="1" max="20" step="1" value="1">
+    <input id="leaveDayCount" class="jgc-input" type="number" min="1" max="20" step="1" value="1">
     <div class="small">Starts on the selected day and fills the next weekday entries automatically.</div>
   </div>
 
   <div id="workEntryFields">
     <label id="jobNameLabel">Job Name</label>
     <div id="jobPicker" class="job-picker">
-      <input
+      <input class="jgc-input"
         id="jobName"
         placeholder="Search jobs or type job name"
         autocomplete="off"
@@ -1356,7 +1360,7 @@
       <div id="jobDropdown" class="job-dropdown" role="listbox" aria-label="Active jobs"></div>
     </div>
     <label id="jobNumberLabel">Job Number</label>
-    <input
+    <input class="jgc-input"
       id="jobNumber"
       type="text"
       placeholder="Job number if available"
@@ -1366,7 +1370,7 @@
 
     <div id="timeEntryFields">
       <label>Time In</label>
-      <select id="timeIn" onchange="refreshTimeOutOptions()">
+      <select id="timeIn" class="jgc-select" onchange="refreshTimeOutOptions()">
         <option value="">Select Time In</option>
       </select>
 
@@ -1381,7 +1385,7 @@
       </label>
 
       <label>Time Out</label>
-      <select id="timeOut">
+      <select id="timeOut" class="jgc-select">
         <option value="">Select Time Out</option>
       </select>
     </div>
@@ -1389,7 +1393,7 @@
 
   <div id="leaveEntryFields" class="field-hidden">
     <label id="leaveTypeLabel">Day Type</label>
-    <select id="leaveType" onchange="updateEntryTypeFields()">
+    <select id="leaveType" class="jgc-select" onchange="updateEntryTypeFields()">
       <option value="">Select Type</option>
       <option value="paid">Paid</option>
       <option value="unpaid">Unpaid</option>
@@ -1398,42 +1402,43 @@
 
     <div id="vacationHalfDayFields" class="field-hidden">
       <label>Vacation Time Start</label>
-      <select id="vacationTimeIn">
+      <select id="vacationTimeIn" class="jgc-select">
         <option value="">Select Start</option>
       </select>
 
       <label>Vacation Time End</label>
-      <select id="vacationTimeOut">
+      <select id="vacationTimeOut" class="jgc-select">
         <option value="">Select End</option>
       </select>
     </div>
 
     <label id="leaveNoteLabel">Note / Reason</label>
-    <textarea id="leaveNote" rows="3" placeholder="Add reason or note"></textarea>
+    <textarea id="leaveNote" class="jgc-textarea" rows="3" placeholder="Add reason or note"></textarea>
   </div>
 
-  <button id="submitButton" type="button" onclick="submitTime().catch(function(error){ showSubmitError('Save crashed: ' + (error && error.message ? error.message : error)); })">Submit Entry</button>
-  <button id="cancelEditButton" class="cancel-edit" type="button" onclick="cancelEdit()">Cancel Edit</button>
-  <div id="submitStatus" class="status"></div>
+  <button id="submitButton" class="jgc-button" type="button" onclick="submitTime().catch(function(error){ showSubmitError('Save crashed: ' + (error && error.message ? error.message : error)); })">Submit Entry</button>
+  <button id="cancelEditButton" class="cancel-edit jgc-button jgc-button--secondary" type="button" onclick="cancelEdit()">Cancel Edit</button>
+  <div id="submitStatus" class="status jgc-notice" aria-live="polite"></div>
 </div>
 
-<div class="card entries-card">
-  <h3>Submitted Entries</h3>
-  <div class="entries-utility-row">
-    <div class="tab-buttons">
-      <button id="currentTabButton" class="active-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
-      <button id="previousTabButton" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
-      <button id="editEntriesTabButton" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
+<div class="card entries-card jgc-panel">
+  <h3 class="jgc-section-title">Submitted Entries</h3>
+  <div class="entries-utility-row jgc-toolbar">
+    <div class="tab-buttons jgc-tabs">
+      <button id="currentTabButton" class="active-tab jgc-tab" type="button" onclick="showEntriesTab('current')">Current Week</button>
+      <button id="previousTabButton" class="jgc-tab" type="button" onclick="showEntriesTab('previous')">Last 2 Months</button>
+      <button id="editEntriesTabButton" class="jgc-tab" type="button" onclick="showEntriesTab('edit')">Edit Entries</button>
     </div>
-    <div class="entry-utility-buttons">
-      <button type="button" onclick="clearEntries()">Clear My Entries</button>
-      <button type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
-      <button type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
+    <div class="entry-utility-buttons jgc-actions">
+      <button class="jgc-button jgc-button--danger" type="button" onclick="clearEntries()">Clear My Entries</button>
+      <button class="jgc-button jgc-button--secondary" type="button" onclick="loadTimesheetsFromSupabase()">Refresh Entries</button>
+      <button class="jgc-button jgc-button--secondary" type="button" onclick="syncPendingTimesheetEntries({ showStatus: true })">Sync Offline Entries</button>
     </div>
   </div>
   <div id="entries"></div>
 </div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

@@ -1,0 +1,136 @@
+/* Tasks compatibility layer. Task CRUD, assignment, status, and embedded-frame behavior stay page-owned. */
+.tasks-page {
+  overflow-x: hidden;
+}
+
+.tasks-page .tasks-page-shell {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+.tasks-page .logo-wrap.jgc-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tasks-page .logo-wrap.jgc-brand img {
+  max-width: 100%;
+  height: auto;
+}
+
+.tasks-page .user-bar.jgc-page-user {
+  min-height: 18px;
+}
+
+.tasks-page .top-actions.jgc-actions {
+  min-width: 0;
+}
+
+.tasks-page .panel.jgc-panel {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.tasks-page .form-grid.jgc-form-grid {
+  min-width: 0;
+}
+
+.tasks-page .field.jgc-field {
+  min-width: 0;
+}
+
+.tasks-page .field.full.jgc-field--full {
+  grid-column: 1 / -1;
+}
+
+.tasks-page .jgc-input,
+.tasks-page .jgc-select,
+.tasks-page .jgc-textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tasks-page .task-grid {
+  min-width: 0;
+}
+
+.tasks-page .task-card,
+.tasks-page .assignee-checklist,
+.tasks-page .empty-state {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tasks-page .task-title,
+.tasks-page .task-meta,
+.tasks-page .notes-preview {
+  overflow-wrap: anywhere;
+}
+
+.tasks-page .task-actions.jgc-actions,
+.tasks-page .form-actions.jgc-actions,
+.tasks-page .filters.jgc-tabs {
+  min-width: 0;
+}
+
+#tasksSection.jgc-task-admin {
+  width: min(100%, 1200px);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+#tasksSection.jgc-task-admin > *,
+#tasksSection.jgc-task-admin .admin-task-frame {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#tasksSection.jgc-task-admin .admin-task-frame {
+  display: block;
+  width: 100%;
+  margin-inline: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .tasks-page input:not([type="checkbox"]):not([type="radio"]),
+  .tasks-page select,
+  .tasks-page textarea {
+    font-size: 16px;
+  }
+
+  .tasks-page .form-grid.jgc-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tasks-page .field.full.jgc-field--full {
+    grid-column: 1;
+  }
+
+  .tasks-page .top-actions.jgc-actions,
+  .tasks-page .form-actions.jgc-actions {
+    width: 100%;
+  }
+
+  .tasks-page .task-actions.jgc-actions {
+    width: 100%;
+  }
+
+  #tasksSection .admin-task-frame {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media print {
+  .tasks-page,
+  .tasks-page .jgc-panel,
+  #tasksSection.jgc-task-admin {
+    overflow: visible !important;
+  }
+}

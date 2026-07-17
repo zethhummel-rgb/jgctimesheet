@@ -1,0 +1,154 @@
+/* Permit-family compatibility layer for the shared JGC design system. */
+body.permit-directory-page.jgc-page,
+body.permit-form-page.jgc-page {
+  padding: 20px;
+}
+
+.permit-page-shell.jgc-page-shell,
+.permit-page-shell.jgc-page-shell--wide {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.permit-page-header.jgc-page-header {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.permit-page-header .logo-wrap.jgc-brand {
+  max-width: 347px;
+  margin: 0 auto 8px;
+}
+
+.permit-page-header .logo-wrap.jgc-brand img {
+  width: 100%;
+  max-width: 347px;
+}
+
+.permit-page-header .user-bar {
+  margin: 0 auto;
+}
+
+.permit-page-shell .container.jgc-panel {
+  margin-inline: auto;
+  border-radius: 8px;
+}
+
+.permit-page-shell .jgc-page-title {
+  letter-spacing: 0;
+}
+
+.permit-directory-page .permit-card.jgc-card {
+  display: block;
+  padding: 16px;
+  color: #1f2a24;
+  background: #ffffff;
+  border: 1px solid #c6cec5;
+  border-top: 4px solid #3f7d4d;
+  box-shadow: none;
+}
+
+.permit-directory-page .permit-card.jgc-card:hover {
+  border-color: #3f7d4d;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.14);
+}
+
+.permit-page-shell .subtitle.jgc-section-title {
+  text-align: center;
+  font-weight: 700;
+}
+
+.permit-form-page .grid.jgc-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.permit-form-page .jgc-field,
+.permit-form-page .jgc-field--full {
+  min-width: 0;
+}
+
+.permit-form-page .jgc-label {
+  margin-bottom: 4px;
+}
+
+.permit-form-page .jgc-input,
+.permit-form-page .jgc-select,
+.permit-form-page .jgc-textarea {
+  min-height: 40px;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.permit-form-page .jgc-textarea {
+  min-height: 85px;
+}
+
+.permit-form-page .section.jgc-section {
+  margin-top: 20px;
+  padding-top: 14px;
+  padding-bottom: 0;
+}
+
+.permit-form-page .section.jgc-section .jgc-section-title {
+  margin-bottom: 12px;
+}
+
+.permit-form-page #permitStatus.jgc-notice {
+  display: block;
+  color: #ffffff;
+  background: #dc3545;
+  border-left: 0;
+}
+
+.permit-form-page #inspectionSaveStatus.jgc-notice:empty {
+  display: none;
+}
+
+.permit-page-shell .actions.jgc-actions {
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  body.permit-directory-page.jgc-page,
+  body.permit-form-page.jgc-page {
+    padding: 12px;
+  }
+
+  .permit-form-page .grid.jgc-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .permit-form-page .jgc-field--full {
+    grid-column: auto;
+  }
+
+  .permit-form-page .jgc-input,
+  .permit-form-page .jgc-select,
+  .permit-form-page .jgc-textarea {
+    font-size: 16px;
+  }
+
+  .permit-page-shell .actions.jgc-actions .jgc-button {
+    width: 100%;
+  }
+}
+
+@media print {
+  body.permit-form-page.jgc-page {
+    padding: 0;
+  }
+
+  .permit-page-header,
+  .permit-page-shell .actions {
+    display: none;
+  }
+
+  .permit-page-shell .container.jgc-panel {
+    box-shadow: none;
+    border: 0;
+    padding: 0;
+  }
+}

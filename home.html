@@ -1415,16 +1415,17 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="home-design-system.css?v=1" />
 </head>
 
-<body>
-<div class="app-shell">
+<body class="home-dashboard-page jgc-page">
+<div class="app-shell home-dashboard-shell jgc-page-shell jgc-page-shell--wide">
   <header class="topbar">
     <button id="sidebarToggle" type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Collapse sidebar">
       <i data-lucide="menu"></i>
     </button>
 
-    <div class="logo-wrap">
+    <div class="logo-wrap jgc-brand">
       <img src="logo.png" alt="John Gordon Construction" />
     </div>
 
@@ -1526,30 +1527,30 @@
       </div>
     </aside>
 
-    <main class="content">
-      <section class="welcome-strip">
+    <main class="content home-dashboard-content">
+      <section class="welcome-strip jgc-page-header">
         <h1><span id="dashboardGreetingText">Welcome back</span>, <span id="dashboardUserName"></span></h1>
         <p class="muted">Here's an overview of what's happening today.</p>
       </section>
 
-      <section class="overview">
+      <section class="overview jgc-panel">
         <div class="overview-grid">
-          <div class="stat">
+          <div class="stat jgc-card">
             <span class="stat-icon"><i data-lucide="clock-3"></i></span>
             <div id="todayHours" class="stat-value">0.00</div>
             <div class="stat-label">Hours This Week</div>
           </div>
-          <div class="stat">
+          <div class="stat jgc-card">
             <span class="stat-icon"><i data-lucide="shield-check"></i></span>
             <div id="todayInspections" class="stat-value">0</div>
             <div class="stat-label">Inspections Today</div>
           </div>
-          <div class="stat">
+          <div class="stat jgc-card">
             <span class="stat-icon"><i data-lucide="badge-alert"></i></span>
             <div id="expiringCertificates" class="stat-value">0</div>
             <div class="stat-label">Certificates Expiring</div>
           </div>
-          <div class="stat">
+          <div class="stat jgc-card">
             <span class="stat-icon"><i data-lucide="calendar-days"></i></span>
             <div id="pendingVacations" class="stat-value">0</div>
             <div class="stat-label">Vacation Request Pending</div>
@@ -1557,12 +1558,12 @@
         </div>
       </section>
 
-      <section id="announcementsPanel" class="announcement-panel" hidden>
-        <div class="section-title" style="margin:0;">Recent Announcements</div>
+      <section id="announcementsPanel" class="announcement-panel jgc-panel" hidden>
+        <div class="section-title jgc-section-title" style="margin:0;">Recent Announcements</div>
         <div id="announcementsList" class="announcement-list"></div>
       </section>
 
-      <details id="homeSchedulePanel" class="home-schedule-panel">
+      <details id="homeSchedulePanel" class="home-schedule-panel jgc-panel">
         <summary>
           <span class="home-schedule-heading"><i data-lucide="calendar-check"></i><span>Schedule / Agenda</span></span>
           <span id="homeScheduleCount" class="home-schedule-count">Loading schedule...</span>
@@ -1576,8 +1577,8 @@
         </div>
       </details>
 
-      <div class="section-title">Quick Access</div>
-      <section class="cards-grid">
+      <div class="section-title jgc-section-title">Quick Access</div>
+      <section class="cards-grid jgc-card-grid">
         <button type="button" class="feature-card" onclick="goTo('schedule.html')">
           <span class="card-icon"><i data-lucide="calendar-check"></i></span>
           <h2>Schedule</h2>
@@ -1705,7 +1706,7 @@
 </div>
 
 <div id="profileModal" class="profile-modal-backdrop" onclick="closeProfileEditor(event)">
-  <section class="profile-modal" onclick="event.stopPropagation()">
+  <section class="profile-modal jgc-modal__dialog" onclick="event.stopPropagation()">
     <h2>Edit My Profile</h2>
     <div class="profile-form-grid">
       <div>
@@ -1734,7 +1735,7 @@
         <textarea id="profileAddress"></textarea>
       </div>
     </div>
-    <div class="actions" style="margin-top:14px;">
+    <div class="actions jgc-actions" style="margin-top:14px;">
       <button type="button" onclick="saveMyProfile()">Save Profile</button>
       <button type="button" class="secondary" onclick="closeProfileEditor()">Cancel</button>
     </div>
@@ -1743,7 +1744,7 @@
 </div>
 
 <div id="homeScheduleModal" class="home-schedule-modal-backdrop" onclick="closeHomeScheduleModal(event)">
-  <section class="home-schedule-modal" onclick="event.stopPropagation()">
+  <section class="home-schedule-modal jgc-modal__dialog" onclick="event.stopPropagation()">
     <h2>Add Schedule Event</h2>
     <div class="home-schedule-form-grid">
       <div>
@@ -1803,7 +1804,7 @@
         <textarea id="homeScheduleNotes" placeholder="Optional notes for the crew"></textarea>
       </div>
     </div>
-    <div class="actions" style="margin-top:14px;">
+    <div class="actions jgc-actions" style="margin-top:14px;">
       <button type="button" onclick="saveHomeScheduleEvent()">Save Event</button>
       <button type="button" class="secondary" onclick="closeHomeScheduleModal()">Cancel</button>
     </div>

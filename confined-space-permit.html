@@ -10,26 +10,30 @@
 <style>
 body{font-family:Arial,sans-serif;background:#8f9691;margin:0;padding:20px;color:#1f2a24}.logo-wrap{max-width:347px;margin:0 auto 8px;text-align:center}.logo-wrap img{width:100%;max-width:347px;display:block;margin:auto}.user-bar{max-width:1100px;margin:0 auto 12px;color:#fff;text-align:center;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,.25)}.container{max-width:1100px;margin:auto;background:#fff;padding:20px;border-radius:8px;border-top:4px solid #0b5e3b;box-shadow:0 3px 10px rgba(0,0,0,.18)}h1{text-align:center;color:#0b5e3b;margin:0 0 16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}label{font-weight:bold;display:block;margin-bottom:4px}input,select,textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid #bcc7bc;border-radius:4px;background:#fff;color:#1f2a24}textarea{min-height:85px}.section{margin-top:20px;border-top:2px solid #d7ded5;padding-top:14px}.check-row{padding:8px;border-bottom:1px solid #eee}.check-row input{width:auto;margin-right:8px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}button{background:#0b5e3b;color:#fff;border:0;border-radius:4px;padding:12px 18px;font-weight:bold;cursor:pointer}.secondary{background:#47534b}#permitStatus{background:#dc3545;color:#fff;padding:14px;text-align:center;font-size:20px;font-weight:bold;border-radius:5px;margin-bottom:18px}@media(max-width:768px){body{padding:12px}.grid{grid-template-columns:1fr}.full{grid-column:auto}.actions button{width:100%}}
 </style>
+<link rel="stylesheet" href="permit-design-system.css?v=1">
 </head>
-<body>
-<div class="logo-wrap"><img src="logo.png" alt="John Gordon Construction logo"></div>
-<div class="user-bar" id="userBar"></div>
-<div class="container">
-<h1>Confined Space Entry Permit</h1>
-<div id="permitStatus">INCOMPLETE CONFINED SPACE PERMIT</div>
-<div class="grid">
-  <div><label>Date</label><input id="permitDate" type="date"></div>
-  <div><label>Project / Job</label><input id="projectName" data-jgc-project-job placeholder="Select project/job or type manually"></div>
-  <div><label>Confined Space Location</label><input id="spaceLocation"></div>
-  <div><label>Purpose of Entry</label><input id="entryPurpose"></div>
-  <div><label>Entry Start Time</label><input id="entryStart" type="time"></div>
-  <div><label>Entry End Time</label><input id="entryEnd" type="time"></div>
-  <div><label>Entry Supervisor</label><input id="entrySupervisor"></div>
-  <div><label>Attendant</label><input id="attendant"></div>
-  <div class="full"><label>Authorized Entrants</label><textarea id="authorizedEntrants"></textarea></div>
+<body class="permit-form-page confined-space-permit-page jgc-page">
+<main class="permit-page-shell jgc-page-shell jgc-page-shell--wide">
+<header class="permit-page-header jgc-page-header">
+  <div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction logo"></div>
+  <p class="user-bar" id="userBar"></p>
+</header>
+<section class="container jgc-panel">
+<h1 class="jgc-page-title">Confined Space Entry Permit</h1>
+<div id="permitStatus" class="jgc-notice jgc-notice--danger" role="status">INCOMPLETE CONFINED SPACE PERMIT</div>
+<div class="grid jgc-form-grid">
+  <div class="jgc-field"><label class="jgc-label" for="permitDate">Date</label><input class="jgc-input" id="permitDate" type="date"></div>
+  <div class="jgc-field"><label class="jgc-label" for="projectName">Project / Job</label><input class="jgc-input" id="projectName" data-jgc-project-job placeholder="Select project/job or type manually"></div>
+  <div class="jgc-field"><label class="jgc-label" for="spaceLocation">Confined Space Location</label><input class="jgc-input" id="spaceLocation"></div>
+  <div class="jgc-field"><label class="jgc-label" for="entryPurpose">Purpose of Entry</label><input class="jgc-input" id="entryPurpose"></div>
+  <div class="jgc-field"><label class="jgc-label" for="entryStart">Entry Start Time</label><input class="jgc-input" id="entryStart" type="time"></div>
+  <div class="jgc-field"><label class="jgc-label" for="entryEnd">Entry End Time</label><input class="jgc-input" id="entryEnd" type="time"></div>
+  <div class="jgc-field"><label class="jgc-label" for="entrySupervisor">Entry Supervisor</label><input class="jgc-input" id="entrySupervisor"></div>
+  <div class="jgc-field"><label class="jgc-label" for="attendant">Attendant</label><input class="jgc-input" id="attendant"></div>
+  <div class="full jgc-field jgc-field--full"><label class="jgc-label" for="authorizedEntrants">Authorized Entrants</label><textarea class="jgc-textarea" id="authorizedEntrants"></textarea></div>
 </div>
-<div class="section"><h3>Atmospheric Testing</h3><div class="grid"><div><label>Oxygen %</label><input id="oxygenLevel"></div><div><label>LEL %</label><input id="lelLevel"></div><div><label>CO ppm</label><input id="coLevel"></div><div><label>H2S ppm</label><input id="h2sLevel"></div><div class="full"><label>Testing Notes</label><textarea id="testingNotes"></textarea></div></div></div>
-<div class="section"><h3>Required Controls</h3>
+<div class="section jgc-section"><h3 class="jgc-section-title">Atmospheric Testing</h3><div class="grid jgc-form-grid"><div class="jgc-field"><label class="jgc-label" for="oxygenLevel">Oxygen %</label><input class="jgc-input" id="oxygenLevel"></div><div class="jgc-field"><label class="jgc-label" for="lelLevel">LEL %</label><input class="jgc-input" id="lelLevel"></div><div class="jgc-field"><label class="jgc-label" for="coLevel">CO ppm</label><input class="jgc-input" id="coLevel"></div><div class="jgc-field"><label class="jgc-label" for="h2sLevel">H2S ppm</label><input class="jgc-input" id="h2sLevel"></div><div class="full jgc-field jgc-field--full"><label class="jgc-label" for="testingNotes">Testing Notes</label><textarea class="jgc-textarea" id="testingNotes"></textarea></div></div></div>
+<div class="section jgc-section"><h3 class="jgc-section-title">Required Controls</h3>
   <div class="check-row"><input class="permitCheck" type="checkbox">Hazards identified and reviewed with entrants</div>
   <div class="check-row"><input class="permitCheck" type="checkbox">Space isolated / locked out where required</div>
   <div class="check-row"><input class="permitCheck" type="checkbox">Ventilation provided and operating</div>
@@ -39,10 +43,11 @@ body{font-family:Arial,sans-serif;background:#8f9691;margin:0;padding:20px;color
   <div class="check-row"><input class="permitCheck" type="checkbox">Rescue plan and equipment confirmed</div>
   <div class="check-row"><input class="permitCheck" type="checkbox">Required PPE available and worn</div>
 </div>
-<div class="section"><h3>Authorization</h3><div class="grid"><div><label>Authorized By</label><input id="authorizedBy"></div><div><label>Signature</label><input id="signature"></div><div class="full"><label>Additional Notes</label><textarea id="notes"></textarea></div></div></div>
-<div class="actions"><button onclick="handleInspectionSave('Confined Space Permit')">Save</button><button class="secondary" onclick="window.location.href='permits.html'">Permits</button><button class="secondary" onclick="window.location.href='home.html'">Home</button><button class="secondary" onclick="signOut()">Sign Out</button></div>
-<div id="inspectionSaveStatus"></div>
-</div>
+<div class="section jgc-section"><h3 class="jgc-section-title">Authorization</h3><div class="grid jgc-form-grid"><div class="jgc-field"><label class="jgc-label" for="authorizedBy">Authorized By</label><input class="jgc-input" id="authorizedBy"></div><div class="jgc-field"><label class="jgc-label" for="signature">Signature</label><input class="jgc-input" id="signature"></div><div class="full jgc-field jgc-field--full"><label class="jgc-label" for="notes">Additional Notes</label><textarea class="jgc-textarea" id="notes"></textarea></div></div></div>
+<div class="actions jgc-actions"><button class="jgc-button" onclick="handleInspectionSave('Confined Space Permit')">Save</button><button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='permits.html'">Permits</button><button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button><button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button></div>
+<div id="inspectionSaveStatus" class="jgc-notice" aria-live="polite"></div>
+</section>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="common.js?v=24"></script><script src="safety-acknowledgements.js?v=2"></script><script src="inspection-records.js?v=7"></script>
 <script>
 const worker=requireJgcWorker();document.getElementById("userBar").textContent="Signed in as: "+(worker.display||worker.key);document.getElementById("permitDate").value=new Date().toISOString().slice(0,10);const checks=document.querySelectorAll(".permitCheck");checks.forEach((box)=>box.addEventListener("change",updateStatus));function updateStatus(){const ready=Array.from(checks).every((box)=>box.checked);const banner=document.getElementById("permitStatus");banner.textContent=ready?"PERMIT READY FOR APPROVAL":"INCOMPLETE CONFINED SPACE PERMIT";banner.style.background=ready?"#28a745":"#dc3545"}function handleInspectionSave(type){if(typeof saveInspection!=="function"){alert("The inspection save file did not load. Upload inspection-records.js, then refresh.");return}saveInspection(type)}async function signOut(){await signOutJgc(inspectionSupabaseClient)}

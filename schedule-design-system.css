@@ -1,0 +1,115 @@
+/* Phase 17: schedule-family compatibility layer. */
+.schedule-page,
+.schedule-page * {
+  box-sizing: border-box;
+}
+
+.schedule-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.schedule-page .schedule-page-shell,
+.schedule-page .layout,
+.schedule-page .card,
+.schedule-page aside,
+.schedule-page .calendar-grid,
+.schedule-page .detail-list,
+.schedule-page .employee-checks,
+.schedule-page .top-actions,
+.schedule-page .calendar-controls,
+.schedule-page .form-actions {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.schedule-page .schedule-page-shell {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+}
+
+.schedule-page .calendar-grid,
+.jgc-schedule-admin .admin-schedule-grid {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.schedule-page input,
+.schedule-page select,
+.schedule-page textarea,
+.jgc-schedule-admin input,
+.jgc-schedule-admin select,
+.jgc-schedule-admin textarea,
+.jgc-schedule-modal input,
+.jgc-schedule-modal select,
+.jgc-schedule-modal textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.jgc-schedule-admin,
+.jgc-schedule-admin > *,
+.jgc-schedule-admin .admin-schedule-header,
+.jgc-schedule-admin .admin-schedule-controls,
+.jgc-schedule-admin .admin-schedule-agenda,
+.jgc-schedule-modal,
+.jgc-schedule-modal > *,
+.jgc-schedule-modal .admin-schedule-form-grid {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.jgc-schedule-admin,
+.jgc-schedule-modal {
+  overflow-x: hidden;
+}
+
+@media (max-width: 860px) {
+  .schedule-page {
+    padding-inline: 12px;
+  }
+
+  .schedule-page .schedule-page-shell {
+    width: 100%;
+  }
+
+  .schedule-page .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .schedule-page .top-actions,
+  .schedule-page .form-actions,
+  .jgc-schedule-admin .admin-schedule-controls,
+  .jgc-schedule-modal .actions {
+    width: 100%;
+  }
+
+  .jgc-schedule-modal .admin-schedule-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jgc-schedule-modal .admin-schedule-form-grid .full {
+    grid-column: 1;
+  }
+
+  .schedule-page input:not([type="checkbox"]):not([type="radio"]),
+  .schedule-page select,
+  .schedule-page textarea,
+  .jgc-schedule-modal input:not([type="checkbox"]):not([type="radio"]),
+  .jgc-schedule-modal select,
+  .jgc-schedule-modal textarea {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  .schedule-page,
+  .schedule-page .calendar-grid,
+  .jgc-schedule-admin,
+  .jgc-schedule-admin .admin-schedule-grid {
+    overflow: visible;
+  }
+}

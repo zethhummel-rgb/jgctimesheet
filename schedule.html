@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Schedule</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="schedule-design-system.css?v=1">
 <style>
 body {
   margin: 0;
@@ -484,8 +485,8 @@ textarea {
 }
 </style>
 </head>
-<body>
-<div class="page">
+<body class="schedule-page jgc-page">
+<main class="page schedule-page-shell jgc-page-shell jgc-page-shell--wide">
   <div id="adminTabs" class="admin-tabs hidden">
     <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" onclick="window.location.href='admin.html?tab=jobDashboard'">Jobs</button>
@@ -509,28 +510,28 @@ textarea {
     <button type="button" onclick="window.location.href='accounts.html'">Accounts</button>
   </div>
 
-  <div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+  <div class="logo-wrap jgc-brand-region">
+    <img src="logo.webp" alt="John Gordon Construction logo">
   </div>
 
-  <h1>Schedule</h1>
-  <div id="currentUser" class="small" style="text-align:center;"></div>
+  <h1 class="jgc-page-title">Schedule</h1>
+  <div id="currentUser" class="small jgc-user-line" style="text-align:center;"></div>
 
-  <div class="top-actions">
-    <button type="button" onclick="window.location.href='home.html'">Home</button>
-    <button id="adminHomeButton" type="button" class="secondary hidden" onclick="window.location.href='admin.html'">Admin</button>
-    <button type="button" class="secondary" onclick="loadScheduleData()">Refresh</button>
-    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  <div class="top-actions jgc-actions">
+    <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button id="adminHomeButton" type="button" class="secondary hidden jgc-button jgc-button--secondary" onclick="window.location.href='admin.html'">Admin</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadScheduleData()">Refresh</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
   <div id="scheduleStatus" class="small" style="text-align:center;margin-bottom:12px;">Loading schedule...</div>
 
   <div class="layout">
-    <section class="card">
-      <div class="calendar-controls">
-        <button type="button" class="secondary" onclick="changeMonth(-1)">Previous</button>
+    <section class="card jgc-panel">
+      <div class="calendar-controls jgc-actions">
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeMonth(-1)">Previous</button>
         <div id="calendarTitle" class="calendar-title"></div>
-        <button type="button" class="secondary" onclick="changeMonth(1)">Next</button>
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeMonth(1)">Next</button>
       </div>
       <div class="legend">
         <span class="mine">My Schedule</span>
@@ -544,12 +545,12 @@ textarea {
     </section>
 
     <aside>
-      <section class="card">
+      <section class="card jgc-panel">
         <h2 id="selectedDateTitle">Selected Day</h2>
         <div id="selectedDateDetails" class="detail-list small">Select a day to view schedule details.</div>
       </section>
 
-      <section id="scheduleForm" class="card" style="margin-top:16px;">
+      <section id="scheduleForm" class="card jgc-panel" style="margin-top:16px;">
         <h2>Add Schedule</h2>
         <label>Schedule Type</label>
         <select id="eventType" onchange="updateScheduleTypeFields()">
@@ -599,14 +600,14 @@ textarea {
         <label>Notes</label>
         <textarea id="notes" placeholder="Optional notes for the crew"></textarea>
 
-        <div class="form-actions" style="margin-top:12px;">
-          <button id="scheduleSaveButton" type="button" onclick="saveScheduleEvent()">Save Schedule</button>
-          <button type="button" class="secondary" onclick="clearScheduleForm()">Clear</button>
+        <div class="form-actions jgc-actions" style="margin-top:12px;">
+          <button id="scheduleSaveButton" class="jgc-button" type="button" onclick="saveScheduleEvent()">Save Schedule</button>
+          <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="clearScheduleForm()">Clear</button>
         </div>
       </section>
     </aside>
   </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

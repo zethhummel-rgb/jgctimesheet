@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Tasks</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="tasks-design-system.css?v=1">
 
 <style>
 body {
@@ -455,35 +456,35 @@ body.embedded-task-page {
 </style>
 </head>
 
-<body>
-<div class="page">
-  <div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+<body class="tasks-page jgc-page">
+<main class="page tasks-page-shell jgc-page-shell jgc-page-shell--wide">
+  <div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction logo">
   </div>
 
-  <h1>Tasks</h1>
-  <div id="currentUser" class="user-bar"></div>
+  <h1 class="jgc-page-title">Tasks</h1>
+  <div id="currentUser" class="user-bar jgc-page-user"></div>
 
-  <div class="top-actions">
-    <button type="button" onclick="window.location.href='home.html'">Home</button>
-    <button type="button" class="secondary" onclick="loadTasks()">Refresh Tasks</button>
-    <button type="button" class="secondary" onclick="signOut()">Logout</button>
+  <div class="top-actions jgc-actions">
+    <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadTasks()">Refresh Tasks</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
-  <section class="panel task-form-panel">
+  <section class="panel task-form-panel jgc-panel">
     <details id="taskFormDetails" class="task-form-details">
       <summary><span id="taskFormTitle">New Task</span></summary>
       <div class="small task-form-help">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
 
-    <div class="form-grid" style="margin-top:14px;">
-      <div class="field full">
-        <label for="taskTitle">Task Title</label>
-        <input id="taskTitle" maxlength="180" placeholder="Example: Fix WO name bug">
+    <div class="form-grid jgc-form-grid" style="margin-top:14px;">
+      <div class="field full jgc-field jgc-field--full">
+        <label class="jgc-label" for="taskTitle">Task Title</label>
+        <input class="jgc-input" id="taskTitle" maxlength="180" placeholder="Example: Fix WO name bug">
       </div>
 
-      <div class="field">
-        <label for="taskStatus">Status</label>
-        <select id="taskStatus">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskStatus">Status</label>
+        <select class="jgc-select" id="taskStatus">
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
           <option value="complete">Complete</option>
@@ -491,9 +492,9 @@ body.embedded-task-page {
         </select>
       </div>
 
-      <div class="field">
-        <label for="taskPriority">Priority</label>
-        <select id="taskPriority">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskPriority">Priority</label>
+        <select class="jgc-select" id="taskPriority">
           <option value="">No priority</option>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -502,20 +503,20 @@ body.embedded-task-page {
         </select>
       </div>
 
-      <div class="field">
-        <label for="taskDueDate">Due Date</label>
-        <input id="taskDueDate" type="date">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskDueDate">Due Date</label>
+        <input class="jgc-input" id="taskDueDate" type="date">
       </div>
 
-      <div class="field">
-        <label>Assigned To</label>
+      <div class="field jgc-field">
+        <label class="jgc-label">Assigned To</label>
         <div id="taskAssignedToList" class="assignee-checklist"></div>
         <div class="small">Optional. Select one or more workers, or leave blank for unassigned.</div>
       </div>
 
-      <div class="field">
-        <label for="taskCategory">Category</label>
-        <select id="taskCategory">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskCategory">Category</label>
+        <select class="jgc-select" id="taskCategory">
           <option value="">No category</option>
           <option value="portal_fix">Portal Fix</option>
           <option value="field_work">Field Work</option>
@@ -527,39 +528,39 @@ body.embedded-task-page {
         </select>
       </div>
 
-      <div class="field">
-        <label for="taskJobName">Job Name</label>
-        <input id="taskJobName" list="taskJobOptions" placeholder="Optional job link" oninput="fillTaskJobFromName()">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskJobName">Job Name</label>
+        <input class="jgc-input" id="taskJobName" list="taskJobOptions" placeholder="Optional job link" oninput="fillTaskJobFromName()">
         <datalist id="taskJobOptions"></datalist>
       </div>
 
-      <div class="field">
-        <label for="taskJobNumber">Job Number</label>
-        <input id="taskJobNumber" list="taskJobNumberOptions" placeholder="Optional job number" oninput="fillTaskJobFromNumber()">
+      <div class="field jgc-field">
+        <label class="jgc-label" for="taskJobNumber">Job Number</label>
+        <input class="jgc-input" id="taskJobNumber" list="taskJobNumberOptions" placeholder="Optional job number" oninput="fillTaskJobFromNumber()">
         <datalist id="taskJobNumberOptions"></datalist>
       </div>
 
-      <div class="field full">
-        <label for="taskDescription">Notes</label>
-        <textarea id="taskDescription" placeholder="Optional notes or details"></textarea>
+      <div class="field full jgc-field jgc-field--full">
+        <label class="jgc-label" for="taskDescription">Notes</label>
+        <textarea class="jgc-textarea" id="taskDescription" placeholder="Optional notes or details"></textarea>
       </div>
     </div>
 
-    <div class="form-actions">
-      <button id="taskSaveButton" type="button" onclick="saveTask()">Save Task</button>
-      <button type="button" class="secondary" onclick="clearTaskForm()">Clear</button>
+    <div class="form-actions jgc-actions">
+      <button id="taskSaveButton" class="jgc-button" type="button" onclick="saveTask()">Save Task</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="clearTaskForm()">Clear</button>
     </div>
-      <div id="taskFormStatus" class="status-line"></div>
+      <div id="taskFormStatus" class="status-line jgc-notice" aria-live="polite"></div>
     </details>
   </section>
 
-  <section class="panel">
-    <h2>Task List</h2>
-    <div class="filters" id="taskFilters"></div>
-    <div id="taskListStatus" class="status-line"></div>
+  <section class="panel jgc-panel">
+    <h2 class="jgc-section-title">Task List</h2>
+    <div class="filters jgc-tabs" id="taskFilters"></div>
+    <div id="taskListStatus" class="status-line jgc-notice" aria-live="polite"></div>
     <div id="taskList" class="task-grid"></div>
   </section>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

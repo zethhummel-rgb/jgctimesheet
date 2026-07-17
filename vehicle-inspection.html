@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Vehicle Inspection</title>
 <link rel="manifest" href="manifest.json?v=4">
+<link rel="stylesheet" href="qr-inspection-design-system.css?v=1">
 <style>
 :root {
     color-scheme: dark;
@@ -360,12 +361,12 @@ button:disabled {
 }
 </style>
 </head>
-<body>
-<main class="page-shell">
-    <header class="scan-header">
+<body class="qr-inspection-page vehicle-qr-inspection jgc-page">
+<main class="page-shell qr-inspection-shell jgc-page-shell">
+    <header class="scan-header jgc-brand-region">
         <img src="logo.webp" alt="John Gordon Construction logo">
-        <h1>Daily Vehicle Inspection</h1>
-        <div class="small" id="signedInAs">Employee login not required for QR inspection.</div>
+        <h1 class="jgc-page-title">Daily Vehicle Inspection</h1>
+        <div class="small jgc-user-line" id="signedInAs">Employee login not required for QR inspection.</div>
     </header>
 
     <section id="statusCard" class="card status-card">Loading vehicle inspection...</section>
@@ -391,7 +392,7 @@ button:disabled {
     <section id="todayCard" class="card" hidden>
         <h2>Today's Inspection</h2>
         <div id="todayInspectionDetails" class="small" style="margin-top:10px;"></div>
-        <div class="actions" style="margin-top:12px;">
+        <div class="actions jgc-actions" style="margin-top:12px;">
             <button type="button" onclick="showInspectionForm()">Start Another Inspection</button>
             <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>
             <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
@@ -475,7 +476,7 @@ button:disabled {
             <textarea id="repairNotes" placeholder="Repair notes, follow-up notes, or general inspection comments"></textarea>
         </div>
 
-        <div class="actions" style="margin-top:14px;">
+        <div class="actions jgc-actions" style="margin-top:14px;">
             <button type="button" class="secondary" onclick="saveInspection('draft')">Save Draft</button>
             <button id="submitButton" type="submit">Submit Inspection</button>
             <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>

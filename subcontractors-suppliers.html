@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Subcontractors / Suppliers</title>
 <link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="directory-design-system.css?v=1">
 
 <style>
 body {
@@ -195,26 +196,28 @@ button:hover {
 </style>
 </head>
 
-<body>
-<div class="logo-wrap">
+<body class="directory-page jgc-page">
+<main class="directory-page-shell jgc-page-shell">
+<div class="logo-wrap jgc-brand-region">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
-<h1>Subcontractors / Suppliers</h1>
-<div id="currentUser" class="user-bar"></div>
+<h1 class="jgc-page-title">Subcontractors / Suppliers</h1>
+<div id="currentUser" class="user-bar jgc-user-line"></div>
 
-<div class="actions">
-    <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
-    <button class="secondary" type="button" onclick="signOut()">Sign Out</button>
+<div class="actions jgc-actions">
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
-<div class="panel">
-    <div class="supplier-search">
-        <label for="subcontractorSupplierSearch">Search</label>
-        <input id="subcontractorSupplierSearch" type="search" placeholder="Search company, trade, contact, phone, email">
+<div class="panel jgc-panel">
+    <div class="supplier-search jgc-field">
+        <label class="jgc-label" for="subcontractorSupplierSearch">Search</label>
+        <input class="jgc-input" id="subcontractorSupplierSearch" type="search" placeholder="Search company, trade, contact, phone, email">
     </div>
     <div id="subcontractorsSuppliersList" class="small">Loading subcontractors and suppliers...</div>
 </div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

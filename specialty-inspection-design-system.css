@@ -1,0 +1,74 @@
+/* Phase 18: specialty inspection checklist compatibility layer. */
+.specialty-inspection-page,
+.specialty-inspection-page * {
+  box-sizing: border-box;
+}
+
+.specialty-inspection-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.specialty-inspection-page .logo-wrap,
+.specialty-inspection-page .user-bar,
+.specialty-inspection-page .container,
+.specialty-inspection-page .grid,
+.specialty-inspection-page .details-grid,
+.specialty-inspection-page .field,
+.specialty-inspection-page .table-wrap,
+.specialty-inspection-page .actions {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.specialty-inspection-page .container {
+  width: min(100%, 1100px);
+  margin-inline: auto;
+}
+
+.specialty-inspection-page .table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.specialty-inspection-page input,
+.specialty-inspection-page select,
+.specialty-inspection-page textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.specialty-inspection-page .contact-line,
+.specialty-inspection-page td,
+.specialty-inspection-page th {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .specialty-inspection-page .container {
+    width: 100%;
+  }
+
+  .specialty-inspection-page .grid,
+  .specialty-inspection-page .details-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .specialty-inspection-page .actions.jgc-actions {
+    width: 100%;
+  }
+
+  .specialty-inspection-page input:not([type="checkbox"]):not([type="radio"]),
+  .specialty-inspection-page select,
+  .specialty-inspection-page textarea {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  .specialty-inspection-page,
+  .specialty-inspection-page .table-wrap {
+    overflow: visible;
+  }
+}

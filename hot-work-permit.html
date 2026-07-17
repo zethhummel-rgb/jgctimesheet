@@ -234,48 +234,51 @@ button:hover {
     }
 }
 </style>
+<link rel="stylesheet" href="permit-design-system.css?v=1">
 </head>
 
-<body>
-<div class="logo-wrap">
-    <img src="logo.png" alt="John Gordon Construction logo">
+<body class="permit-form-page hot-work-permit-page jgc-page">
+<main class="permit-page-shell jgc-page-shell jgc-page-shell--wide">
+<header class="permit-page-header jgc-page-header">
+<div class="logo-wrap jgc-brand">
+    <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
+<p class="user-bar" id="userBar"></p>
+</header>
 
-<div class="user-bar" id="userBar"></div>
+<section class="container jgc-panel">
+<h1 class="jgc-page-title">Hot Work Permit</h1>
 
-<div class="container">
-<h1>Hot Work Permit</h1>
-
-<div id="permitStatus">
+<div id="permitStatus" class="jgc-notice jgc-notice--danger" role="status">
     INCOMPLETE HOT WORK PERMIT
 </div>
 
-<div class="grid">
-    <div>
-        <label for="hotWorkDate">Date</label>
-        <input id="hotWorkDate" type="date">
+<div class="grid jgc-form-grid">
+    <div class="jgc-field">
+        <label class="jgc-label" for="hotWorkDate">Date</label>
+        <input class="jgc-input" id="hotWorkDate" type="date">
     </div>
 
-    <div>
-        <label for="hotWorkLocation">Location / Building / Floor</label>
-        <input id="hotWorkLocation" type="text" data-jgc-project-job placeholder="Select project/job or type location manually">
+    <div class="jgc-field">
+        <label class="jgc-label" for="hotWorkLocation">Location / Building / Floor</label>
+        <input class="jgc-input" id="hotWorkLocation" type="text" data-jgc-project-job placeholder="Select project/job or type location manually">
     </div>
 
-    <div>
-        <label for="hotWorkStart">Time Started</label>
-        <input id="hotWorkStart" type="time">
+    <div class="jgc-field">
+        <label class="jgc-label" for="hotWorkStart">Time Started</label>
+        <input class="jgc-input" id="hotWorkStart" type="time">
     </div>
 
-    <div>
-        <label for="hotWorkEnd">Time Completed</label>
-        <input id="hotWorkEnd" type="time">
+    <div class="jgc-field">
+        <label class="jgc-label" for="hotWorkEnd">Time Completed</label>
+        <input class="jgc-input" id="hotWorkEnd" type="time">
     </div>
 </div>
 
 <br>
 
-<label for="hotWorkDescription">Work To Be Done</label>
-<textarea id="hotWorkDescription"></textarea>
+<label class="jgc-label" for="hotWorkDescription">Work To Be Done</label>
+<textarea class="jgc-textarea" id="hotWorkDescription"></textarea>
 
 <br>
 <br>
@@ -288,24 +291,24 @@ button:hover {
 
 <br>
 
-<label for="hotWorkPerson">Name of Person Doing Hot Work</label>
-<input id="hotWorkPerson" type="text">
+<label class="jgc-label" for="hotWorkPerson">Name of Person Doing Hot Work</label>
+<input class="jgc-input" id="hotWorkPerson" type="text">
 
 <br>
 <br>
 
-<label for="hotWorkAuthorizer">Permit Authorizing Individual</label>
-<input id="hotWorkAuthorizer" type="text">
+<label class="jgc-label" for="hotWorkAuthorizer">Permit Authorizing Individual</label>
+<input class="jgc-input" id="hotWorkAuthorizer" type="text">
 
-<div class="section">
-<h3>General Requirements</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">General Requirements</h3>
 <div class="check-row"><input type="checkbox" class="permitCheck">Available sprinklers, hose streams and extinguishers are operable</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Hot work equipment is in good condition</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Special permission obtained where required</div>
 </div>
 
-<div class="section">
-<h3>Requirements Within 35 ft</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">Requirements Within 35 ft</h3>
 <div class="check-row"><input type="checkbox" class="permitCheck">Flammable liquids removed</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Explosive atmosphere eliminated</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Floors swept clean</div>
@@ -316,44 +319,45 @@ button:hover {
 <div class="check-row"><input type="checkbox" class="permitCheck">Ducts and conveyors protected</div>
 </div>
 
-<div class="section">
-<h3>Walls, Ceilings &amp; Roofs</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">Walls, Ceilings &amp; Roofs</h3>
 <div class="check-row"><input type="checkbox" class="permitCheck">Construction is non-combustible</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Combustibles on opposite side removed</div>
 </div>
 
-<div class="section">
-<h3>Enclosed Equipment</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">Enclosed Equipment</h3>
 <div class="check-row"><input type="checkbox" class="permitCheck">Equipment cleaned of combustibles</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Containers purged</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Vessels isolated and vented</div>
 </div>
 
-<div class="section">
-<h3>Fire Watch</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">Fire Watch</h3>
 <div class="check-row"><input type="checkbox" class="permitCheck">Fire watch provided during work and 1 hour after</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Fire watch has extinguisher or charged hose</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Fire watch trained</div>
 <div class="check-row"><input type="checkbox" class="permitCheck">Adjoining areas checked</div>
 </div>
 
-<div class="section">
-<h3>Extended Monitoring Required?</h3>
+<div class="section jgc-section">
+<h3 class="jgc-section-title">Extended Monitoring Required?</h3>
 <div class="radio-stack">
     <label><input type="radio" name="extended" value="Yes">Yes</label>
     <label><input type="radio" name="extended" value="No">No</label>
 </div>
 </div>
 
-<div class="actions">
-    <button onclick="handleInspectionSave('Hot Work Permit')">Save</button>
-    <button class="secondary" onclick="window.location.href='permits.html'">Permits</button>
-    <button class="secondary" onclick="window.location.href='home.html'">Home</button>
-    <button class="secondary" onclick="signOut()">Sign Out</button>
+<div class="actions jgc-actions">
+    <button class="jgc-button" onclick="handleInspectionSave('Hot Work Permit')">Save</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='permits.html'">Permits</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
 </div>
-<div id="inspectionSaveStatus"></div>
+<div id="inspectionSaveStatus" class="jgc-notice" aria-live="polite"></div>
 
-</div>
+</section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="common.js?v=24"></script>

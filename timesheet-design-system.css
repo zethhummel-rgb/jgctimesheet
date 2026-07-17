@@ -1,0 +1,175 @@
+/* Timesheet compatibility layer. Entry, submission, PDF, email, and offline logic stay page-owned. */
+.timesheet-page {
+  overflow-x: hidden;
+}
+
+.timesheet-page .timesheet-page-shell {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+.timesheet-page .logo-wrap.jgc-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.timesheet-page .logo-wrap.jgc-brand img {
+  max-width: 100%;
+  height: auto;
+}
+
+.timesheet-page .user-bar.jgc-page-user {
+  min-height: 18px;
+}
+
+.timesheet-page .timesheet-shell {
+  min-width: 0;
+}
+
+.timesheet-page .timesheet-shell > .jgc-panel,
+.timesheet-page .wo-timesheet-card.jgc-panel {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.timesheet-page .form-card .jgc-label {
+  display: block;
+}
+
+.timesheet-page .form-card .jgc-input,
+.timesheet-page .form-card .jgc-select,
+.timesheet-page .form-card .jgc-textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.timesheet-page .entries-utility-row.jgc-toolbar,
+.timesheet-page .entry-utility-buttons.jgc-actions,
+.timesheet-page .week-submit-banner.jgc-notice {
+  min-width: 0;
+}
+
+.timesheet-page .tab-buttons.jgc-tabs {
+  min-width: 0;
+}
+
+.timesheet-page .table-wrap.jgc-table-wrap,
+.timesheet-page .weekly-summary-table-wrap,
+.timesheet-page .edit-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.timesheet-page .mobile-week-summary,
+.timesheet-page .mobile-edit-list {
+  min-width: 0;
+}
+
+#timesheetsSection.jgc-timesheet-admin {
+  width: min(100%, 1200px);
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+#timesheetsSection .admin-time-entry-card.jgc-section {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+#timesheetsSection .announcement-grid.jgc-form-grid,
+#timesheetsSection .filters.jgc-filter-grid {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+#timesheetsSection input:not([type="checkbox"]):not([type="radio"]),
+#timesheetsSection select,
+#timesheetsSection textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#timesheetsSection .timesheet-worker-group,
+#timesheetsSection .timesheet-worker-body,
+#timesheetsSection .timesheet-edit-panel,
+#timesheetsSection #timesheetsList {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#timesheetsSection .timesheet-worker-body,
+#timesheetsSection .timesheet-edit-panel .table-wrap,
+#timesheetsSection .timesheet-edit-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#timesheetsSection .timesheet-worker-group summary {
+  min-width: 0;
+}
+
+#timesheetsSection .timesheet-worker-meta {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .timesheet-page .timesheet-page-shell,
+  .timesheet-page .timesheet-shell,
+  .timesheet-page .timesheet-shell > .jgc-panel,
+  .timesheet-page .wo-timesheet-card.jgc-panel,
+  .timesheet-page .week-submit-banner.jgc-notice {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .timesheet-page input:not([type="checkbox"]):not([type="radio"]),
+  .timesheet-page select,
+  .timesheet-page textarea,
+  #timesheetsSection input:not([type="checkbox"]):not([type="radio"]),
+  #timesheetsSection select,
+  #timesheetsSection textarea {
+    font-size: 16px;
+  }
+
+  .timesheet-page .entries-utility-row.jgc-toolbar,
+  .timesheet-page .entry-utility-buttons.jgc-actions,
+  #timesheetsSection .jgc-actions {
+    width: 100%;
+  }
+
+  #timesheetsSection .announcement-grid.jgc-form-grid,
+  #timesheetsSection .filters.jgc-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #timesheetsSection .announcement-grid .full,
+  #timesheetsSection .jgc-field--full {
+    grid-column: 1;
+  }
+
+  #timesheetsSection .timesheet-worker-group summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #timesheetsSection .timesheet-worker-body {
+    padding-inline: 10px;
+  }
+}
+
+@media print {
+  .timesheet-page,
+  .timesheet-page .jgc-panel,
+  #timesheetsSection.jgc-timesheet-admin {
+    overflow: visible !important;
+  }
+}

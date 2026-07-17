@@ -1,0 +1,98 @@
+/* Phase 19: QR vehicle and equipment inspection compatibility layer. */
+.qr-inspection-page,
+.qr-inspection-page * {
+  box-sizing: border-box;
+}
+
+.qr-inspection-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.qr-inspection-page .qr-inspection-shell,
+.qr-inspection-page .scan-header,
+.qr-inspection-page .card,
+.qr-inspection-page .form-grid,
+.qr-inspection-page .field,
+.qr-inspection-page .actions,
+.qr-inspection-page .asset-grid,
+.qr-inspection-page .equipment-grid,
+.qr-inspection-page .inspection-section,
+.qr-inspection-page .inspection-list,
+.qr-inspection-page .inspection-card,
+.qr-inspection-page .inspection-item,
+.qr-inspection-page .history-list,
+.qr-inspection-page .equipment-document-tabs,
+.qr-inspection-page .equipment-document-tab,
+.qr-inspection-page .equipment-document-list,
+.qr-inspection-page .equipment-document-row,
+.qr-inspection-page .today-table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.qr-inspection-page .qr-inspection-shell {
+  margin-inline: auto;
+}
+
+.vehicle-qr-inspection .qr-inspection-shell {
+  width: min(1000px, calc(100% - 24px));
+}
+
+.equipment-qr-inspection .qr-inspection-shell {
+  width: min(980px, calc(100% - 24px));
+}
+
+.qr-inspection-page input,
+.qr-inspection-page select,
+.qr-inspection-page textarea,
+.qr-inspection-page button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.qr-inspection-page .today-table-wrap,
+.qr-inspection-page .history-list {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.qr-inspection-page .equipment-document-row,
+.qr-inspection-page .inspection-question,
+.qr-inspection-page .item-help,
+.qr-inspection-page .asset-fact,
+.qr-inspection-page .equipment-fact,
+.qr-inspection-page .history-item {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .qr-inspection-page .qr-inspection-shell {
+    width: calc(100% - 24px);
+  }
+
+  .qr-inspection-page .form-grid,
+  .qr-inspection-page .asset-grid,
+  .qr-inspection-page .equipment-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .qr-inspection-page .actions.jgc-actions {
+    width: 100%;
+  }
+
+  .qr-inspection-page input:not([type="checkbox"]):not([type="radio"]),
+  .qr-inspection-page select,
+  .qr-inspection-page textarea {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  .qr-inspection-page,
+  .qr-inspection-page .today-table-wrap,
+  .qr-inspection-page .history-list {
+    overflow: visible;
+  }
+}

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Equipment Inspection</title>
 <link rel="manifest" href="manifest.json?v=4">
+<link rel="stylesheet" href="qr-inspection-design-system.css?v=1">
 <style>
 :root {
     color-scheme: dark;
@@ -456,13 +457,13 @@ th {
 }
 </style>
 </head>
-<body>
-<main class="page-shell">
-    <header class="scan-header">
+<body class="qr-inspection-page equipment-qr-inspection jgc-page">
+<main class="page-shell qr-inspection-shell jgc-page-shell">
+    <header class="scan-header jgc-brand-region">
         <img src="logo.webp" alt="John Gordon Construction logo">
         <div>
             <p class="eyebrow">Equipment QR Inspection</p>
-            <h1 id="pageTitle">Loading Inspection</h1>
+            <h1 id="pageTitle" class="jgc-page-title">Loading Inspection</h1>
         </div>
     </header>
 
@@ -471,7 +472,7 @@ th {
     <section id="equipmentCard" class="card" hidden>
         <h2 id="equipmentHeading">Equipment</h2>
         <div class="equipment-grid" id="equipmentFacts"></div>
-        <div class="actions">
+        <div class="actions jgc-actions">
             <button type="button" onclick="showTodayView()">Today's Inspection</button>
             <button type="button" onclick="showFormView()">Start Inspection</button>
             <button type="button" class="secondary" onclick="loadEquipmentInspection()">Refresh</button>
@@ -538,7 +539,7 @@ th {
                 <textarea id="inspectionComments" placeholder="Notes, defects, or repair comments"></textarea>
             </div>
 
-            <div class="actions">
+            <div class="actions jgc-actions">
                 <button id="submitButton" type="submit">Submit Inspection</button>
                 <button type="button" class="secondary" onclick="showTodayView()">Cancel</button>
             </div>

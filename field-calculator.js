@@ -712,7 +712,7 @@
   function openOverlay(title, bodyHtml, modifierClass) {
     const overlayShell = document.querySelector(".calc-overlay");
     if (overlayShell) {
-      overlayShell.className = "calc-overlay" + (modifierClass ? " " + modifierClass : "");
+      overlayShell.className = "calc-overlay jgc-modal__dialog" + (modifierClass ? " " + modifierClass : "");
     }
     document.getElementById("calcOverlayTitle").textContent = title;
     document.getElementById("calcOverlayBody").innerHTML = bodyHtml;

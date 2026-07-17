@@ -1,0 +1,96 @@
+/* Phase 16: jobs-family compatibility layer. */
+.jobs-page,
+.jobs-page * {
+  box-sizing: border-box;
+}
+
+.jobs-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.jobs-page .jobs-page-shell,
+.jobs-page .logo-wrap,
+.jobs-page .top-actions,
+.jobs-page .card,
+.jobs-page #jobsList,
+.jobs-page .table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.jobs-page .jobs-page-shell {
+  width: min(100%, 1100px);
+  margin-inline: auto;
+}
+
+.jobs-page .table-wrap,
+#jobDashboardSection.jgc-job-admin .job-dashboard-panel,
+#jobsSection.jgc-job-admin #jobsList .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#jobDashboardSection.jgc-job-admin,
+#jobsSection.jgc-job-admin,
+#jobDashboardSection.jgc-job-admin .job-dashboard-shell,
+#jobDashboardSection.jgc-job-admin .job-dashboard-grid,
+#jobDashboardSection.jgc-job-admin .job-dashboard-panel,
+#jobsSection.jgc-job-admin > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#jobDashboardSection.jgc-job-admin,
+#jobsSection.jgc-job-admin {
+  overflow-x: hidden;
+}
+
+#jobsSection.jgc-job-admin input,
+#jobsSection.jgc-job-admin select,
+#jobDashboardSection.jgc-job-admin input,
+#jobDashboardSection.jgc-job-admin select,
+#jobDashboardSection.jgc-job-admin textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .jobs-page {
+    padding-inline: 12px;
+  }
+
+  .jobs-page .jobs-page-shell {
+    width: 100%;
+  }
+
+  .jobs-page .top-actions,
+  #jobsSection.jgc-job-admin .actions {
+    width: 100%;
+  }
+
+  #jobDashboardSection.jgc-job-admin .job-dashboard-controls,
+  #jobDashboardSection.jgc-job-admin .job-dashboard-grid,
+  #jobDashboardSection.jgc-job-admin .job-dashboard-edit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jobs-page input:not([type="checkbox"]):not([type="radio"]),
+  #jobsSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
+  #jobDashboardSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
+  #jobDashboardSection.jgc-job-admin select,
+  #jobDashboardSection.jgc-job-admin textarea {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  .jobs-page,
+  .jobs-page .table-wrap,
+  #jobDashboardSection.jgc-job-admin,
+  #jobsSection.jgc-job-admin {
+    overflow: visible;
+  }
+}

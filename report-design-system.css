@@ -1,0 +1,168 @@
+/* Reports family compatibility layer. Existing report workflows and print layouts stay page-owned. */
+.report-family-page {
+  overflow-x: hidden;
+}
+
+.report-family-page .report-page-shell {
+  width: 100%;
+  max-width: none;
+}
+
+.report-family-page .logo-wrap.jgc-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.report-family-page .logo-wrap.jgc-brand img {
+  max-width: 100%;
+  height: auto;
+}
+
+.report-family-page .user-bar.jgc-page-user {
+  min-height: 18px;
+}
+
+.report-family-page .container.jgc-panel {
+  width: min(100%, 1200px);
+  box-sizing: border-box;
+}
+
+.report-directory-page .reports-grid.jgc-card-grid {
+  align-items: stretch;
+}
+
+.report-directory-page .report-card.jgc-card {
+  width: 100%;
+  box-sizing: border-box;
+  color: #1f2a24;
+  background: #ffffff;
+  border: 1px solid #c6cec5;
+  border-top: 4px solid #3f7d4d;
+  box-shadow: none;
+  text-align: left;
+}
+
+.report-directory-page .report-card.jgc-card h2 {
+  color: #ffffff !important;
+}
+
+.report-directory-page .report-card.jgc-card p {
+  color: #f5f7f3 !important;
+}
+
+.report-form-page .grid.jgc-form-grid {
+  align-items: start;
+}
+
+.report-form-page .field,
+.report-form-page .jgc-field {
+  min-width: 0;
+}
+
+.report-form-page .field.full,
+.report-form-page .jgc-field--full {
+  grid-column: 1 / -1;
+}
+
+.report-form-page input:not([type="checkbox"]):not([type="radio"]),
+.report-form-page select,
+.report-form-page textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.report-form-page .actions.jgc-actions,
+.report-directory-page .actions.jgc-actions {
+  align-items: center;
+}
+
+.report-form-page .table-wrap.jgc-table-wrap,
+.report-family-page .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-form-page .card.jgc-section,
+.report-form-page .signoff.jgc-section,
+.report-form-page .post-save-qr.jgc-notice {
+  box-sizing: border-box;
+}
+
+.report-form-page .status.jgc-notice:empty,
+.report-form-page .subtitle.jgc-notice:empty {
+  display: none;
+}
+
+#reportsSection.jgc-report-admin {
+  min-width: 0;
+}
+
+#reportsSection .admin-report-tabs.jgc-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+#reportsSection .admin-report-tabs .jgc-tab {
+  flex: 0 0 auto;
+}
+
+#reportsSection .admin-report-panel.jgc-section {
+  min-width: 0;
+}
+
+#reportsSection .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 800px) {
+  .report-family-page .container.jgc-panel {
+    width: calc(100% - 20px);
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+
+  .report-directory-page .reports-grid.jgc-card-grid,
+  .report-form-page .grid.jgc-form-grid,
+  .report-form-page .crew-picker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-form-page input:not([type="checkbox"]):not([type="radio"]),
+  .report-form-page select,
+  .report-form-page textarea {
+    font-size: 16px;
+  }
+
+  .report-form-page .actions.jgc-actions,
+  .report-directory-page .actions.jgc-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-form-page .actions.jgc-actions > button,
+  .report-form-page .actions.jgc-actions > a,
+  .report-directory-page .actions.jgc-actions > button,
+  .report-directory-page .actions.jgc-actions > a {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+  }
+}
+
+@media print {
+  .report-family-page {
+    overflow: visible;
+  }
+
+  .report-family-page .container.jgc-panel {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+}

@@ -1,0 +1,68 @@
+/* Phase 15: employee directory-family compatibility layer. */
+.directory-page,
+.directory-page * {
+  box-sizing: border-box;
+}
+
+.directory-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.directory-page .directory-page-shell {
+  width: min(100%, 1040px);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.directory-page .logo-wrap,
+.directory-page .user-bar,
+.directory-page .actions,
+.directory-page .panel,
+.directory-page .contacts-grid,
+.directory-page .contact-card,
+.directory-page .supplier-contact-list,
+.directory-page .supplier-contact {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.directory-page .contact-card,
+.directory-page .contact-line,
+.directory-page .supplier-contact {
+  overflow-wrap: anywhere;
+}
+
+.directory-page .supplier-search input {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .directory-page {
+    padding-inline: 14px;
+  }
+
+  .directory-page .directory-page-shell {
+    width: 100%;
+  }
+
+  .directory-page .contacts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directory-page .actions {
+    width: 100%;
+  }
+
+  .directory-page .supplier-search input {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  .directory-page {
+    overflow: visible;
+  }
+}
