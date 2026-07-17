@@ -127,43 +127,46 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="subcontractor-design-system.css?v=1">
 </head>
-<body>
-  <main class="page">
-    <section class="hero">
-      <img src="logo.png" alt="John Gordon Construction">
+<body class="subcontractor-page jgc-page">
+  <main class="page subcontractor-shell jgc-page-shell">
+    <section class="hero subcontractor-header jgc-page-header">
+      <div class="subcontractor-brand jgc-brand">
+        <img src="logo.webp" alt="John Gordon Construction">
+      </div>
       <h1>Subcontractor Portal</h1>
       <div id="subcontractorUser" class="user-bar"></div>
       <div class="subtitle">Use these links to submit project paperwork or review JGC safety information.</div>
     </section>
 
-    <section class="portal-card">
+    <section class="portal-card jgc-panel">
       <div class="quick-grid">
-        <button type="button" class="quick-card" onclick="window.location.href='reports.html'">
+        <button type="button" class="quick-card jgc-card" onclick="window.location.href='reports.html'">
           <strong>Reports</strong>
           <span>Daily site reports, JSA, incident/near miss, accident, and injury forms.</span>
         </button>
-        <button type="button" class="quick-card" onclick="window.location.href='inspections.html'">
+        <button type="button" class="quick-card jgc-card" onclick="window.location.href='inspections.html'">
           <strong>Inspections</strong>
           <span>Equipment and safety inspections available to project partners.</span>
         </button>
-        <button type="button" class="quick-card" onclick="window.location.href='permits.html'">
+        <button type="button" class="quick-card jgc-card" onclick="window.location.href='permits.html'">
           <strong>Permits</strong>
           <span>Hot work, confined space, and excavation permit forms.</span>
         </button>
-        <button type="button" class="quick-card" onclick="window.location.href='policies-announcements.html'">
+        <button type="button" class="quick-card jgc-card" onclick="window.location.href='policies-announcements.html'">
           <strong>Policies</strong>
           <span>Review active JGC policies and safety announcements.</span>
         </button>
-        <button type="button" class="quick-card" onclick="window.location.href='contacts.html'">
+        <button type="button" class="quick-card jgc-card" onclick="window.location.href='contacts.html'">
           <strong>Contacts</strong>
           <span>Find current JGC contacts for coordination and questions.</span>
         </button>
       </div>
     </section>
 
-    <div class="actions">
-      <button type="button" class="secondary" onclick="signOut()">Sign Out</button>
+    <div class="actions jgc-actions">
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
   </main>
 
