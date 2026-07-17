@@ -10,6 +10,7 @@ The Admin portal is being split gradually so each release remains testable and t
 - `admin-contacts.js` owns Contacts plus Subcontractors/Suppliers company and contact management.
 - `admin-vacation.js` owns Vacation Requests calendar rendering, approvals, denials, decision notices, Google Calendar synchronization, and deletion.
 - `admin-notices.js` owns announcements, toolbox talks, policies, acknowledgement displays, signed document URLs, and announcement email delivery.
+- `admin-inspections.js` owns inspection list rendering, submitted-detail views, vehicle inspection print views, deletion, and related notification cleanup.
 - Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
 - Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
 
@@ -31,7 +32,7 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-summary.js`: summary search, schedule, announcements, and dashboard data.
 - `admin-jobs.js`: job dashboard and job import/management behavior.
 - `admin-timesheets.js`: timesheet lists, editors, and PDF actions.
-- `admin-inspections.js`: inspection lists and report viewing.
+- `admin-inspections.js`: inspection lists, submitted-detail viewing, vehicle print views, and deletion. This extraction is complete.
 - `admin-equipment.js`: equipment, vehicles, lift documents, and QR management.
 - `admin-work-orders.js`: work-order lists and the embedded editor.
 - `admin-contacts.js`: subcontractor, supplier, and contact administration. This extraction is complete.
