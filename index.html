@@ -616,15 +616,16 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="login-design-system.css?v=1" />
 </head>
 
-<body>
+<body class="login-page jgc-page">
 
-<main class="login-shell">
-  <section class="brand-panel">
+<main class="login-shell jgc-page-shell">
+  <section class="brand-panel jgc-page-header">
     <div>
-      <div class="logo-wrap">
-        <img src="logo.png" alt="John Gordon Construction" />
+      <div class="logo-wrap jgc-brand">
+        <img src="logo.webp" alt="John Gordon Construction" />
       </div>
       <div class="portal-label">Employee Portal</div>
       <div class="brand-line"></div>
@@ -635,61 +636,61 @@
     </div>
 
     <div class="trust-row">
-      <div class="trust-item"><span class="trust-icon">S</span><span>Safety<br>First</span></div>
-      <div class="trust-item"><span class="trust-icon">T</span><span>One Team<br>One Goal</span></div>
-      <div class="trust-item"><span class="trust-icon">Q</span><span>Quality<br>Always</span></div>
+      <div class="trust-item jgc-card"><span class="trust-icon">S</span><span>Safety<br>First</span></div>
+      <div class="trust-item jgc-card"><span class="trust-icon">T</span><span>One Team<br>One Goal</span></div>
+      <div class="trust-item jgc-card"><span class="trust-icon">Q</span><span>Quality<br>Always</span></div>
     </div>
   </section>
 
   <section>
-    <div class="card">
-      <div class="login-card-logo">
-        <img src="logo.png" alt="John Gordon Construction" />
+    <div class="card login-card jgc-panel">
+      <div class="login-card-logo jgc-brand">
+        <img src="logo.webp" alt="John Gordon Construction" />
       </div>
       <div class="divider"></div>
-      <button type="button" class="public-tool-button public-tool-button-top" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
-      <button type="button" class="public-tool-button public-notes-button" onclick="openLoginNotes()">Notes</button>
-      <button type="button" class="secondary subcontractor-access-button" onclick="openSubcontractorAccess()">Subcontractor Access</button>
+      <button type="button" class="public-tool-button public-tool-button-top jgc-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
+      <button type="button" class="public-tool-button public-notes-button jgc-button" onclick="openLoginNotes()">Notes</button>
+      <button type="button" class="secondary subcontractor-access-button jgc-button jgc-button--secondary" onclick="openSubcontractorAccess()">Subcontractor Access</button>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
 
-      <label>Email</label>
-      <input id="email" type="email" autocomplete="email" maxlength="254" placeholder="Email address" onkeydown="submitOnEnter(event)" />
+      <label class="jgc-label" for="email">Email</label>
+      <input id="email" class="jgc-input" type="email" autocomplete="email" maxlength="254" placeholder="Email address" onkeydown="submitOnEnter(event)" />
 
-      <label>Password</label>
-      <input id="password" type="password" autocomplete="current-password" maxlength="128" placeholder="Password" onkeydown="submitOnEnter(event)" />
+      <label class="jgc-label" for="password">Password</label>
+      <input id="password" class="jgc-input" type="password" autocomplete="current-password" maxlength="128" placeholder="Password" onkeydown="submitOnEnter(event)" />
 
-      <label class="stay-row">
+      <label class="stay-row jgc-label" for="stayLoggedIn">
         <input id="stayLoggedIn" type="checkbox" checked />
         Stay logged in
       </label>
 
-      <button type="button" onclick="signIn()">Sign In</button>
-      <button type="button" class="secondary" onclick="resetPassword()">Forgot Password</button>
-      <div id="loginStatus" class="status"></div>
+      <button type="button" class="jgc-button" onclick="signIn()">Sign In</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetPassword()">Forgot Password</button>
+      <div id="loginStatus" class="status jgc-notice" role="status" aria-live="polite"></div>
       <div class="security-note">Secure. Private. Trusted.</div>
 
-      <div class="toggle-card">
-        <button id="createAccountToggle" type="button" class="toggle-button" onclick="toggleCreateAccount()">Create Account</button>
+      <div class="toggle-card jgc-card">
+        <button id="createAccountToggle" type="button" class="toggle-button jgc-button jgc-button--secondary" onclick="toggleCreateAccount()">Create Account</button>
 
-        <div id="createAccountPanel" class="signup-panel" hidden>
+        <div id="createAccountPanel" class="signup-panel jgc-section" hidden>
           <h3>Create Account</h3>
 
-          <label>Full Name</label>
-          <input id="signupName" maxlength="80" placeholder="Example: Zeth Hummel" />
+          <label class="jgc-label" for="signupName">Full Name</label>
+          <input id="signupName" class="jgc-input" maxlength="80" placeholder="Example: Zeth Hummel" />
 
-          <label>Email</label>
-          <input id="signupEmail" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" />
+          <label class="jgc-label" for="signupEmail">Email</label>
+          <input id="signupEmail" class="jgc-input" type="email" autocomplete="email" maxlength="254" placeholder="name@example.com" />
 
-          <label>Password</label>
-          <input id="signupPassword" type="password" autocomplete="new-password" maxlength="128" placeholder="At least 6 characters" />
+          <label class="jgc-label" for="signupPassword">Password</label>
+          <input id="signupPassword" class="jgc-input" type="password" autocomplete="new-password" maxlength="128" placeholder="At least 6 characters" />
 
-          <button type="button" onclick="signUp()">Create Account</button>
-          <div class="small">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
+          <button type="button" class="jgc-button" onclick="signUp()">Create Account</button>
+          <div class="small jgc-help-text">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
         </div>
       </div>
 
-      <div class="portal-share-qr" aria-label="JGC Portal QR code">
+      <div class="portal-share-qr jgc-card" aria-label="JGC Portal QR code">
         <h4>Share Portal</h4>
         <img src="jgc-login-qr.png" alt="QR code to open the JGC Portal login page" loading="lazy" />
         <p>Scan to open this login page.</p>
@@ -698,61 +699,61 @@
   </section>
 </main>
 
-<div id="loginNotesOverlay" class="notes-overlay" hidden onclick="closeLoginNotes()">
-  <section class="notes-panel" role="dialog" aria-modal="true" aria-labelledby="loginNotesTitle" onclick="event.stopPropagation()">
+<div id="loginNotesOverlay" class="notes-overlay jgc-modal" hidden onclick="closeLoginNotes()">
+  <section class="notes-panel jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="loginNotesTitle" onclick="event.stopPropagation()">
     <div class="notes-panel-inner">
-      <div class="notes-header">
+      <div class="notes-header jgc-modal__header">
         <div>
           <h3 id="loginNotesTitle">Notes</h3>
           <p>Quick scratch pads for measurements and material lists. These save only on this device.</p>
         </div>
-        <button type="button" class="notes-close-button" onclick="closeLoginNotes()">Close</button>
+        <button type="button" class="notes-close-button jgc-button jgc-button--secondary" onclick="closeLoginNotes()">Close</button>
       </div>
 
       <div class="notes-grid">
-        <div class="notes-card">
-          <label for="loginMeasurementNotes">Measurement Scratch Pad</label>
-          <textarea id="loginMeasurementNotes" placeholder="Example: Opening 42 1/2 x 81, footing 10 ft x 24 in x 8 in"></textarea>
+        <div class="notes-card jgc-card">
+          <label class="jgc-label" for="loginMeasurementNotes">Measurement Scratch Pad</label>
+          <textarea id="loginMeasurementNotes" class="jgc-textarea" placeholder="Example: Opening 42 1/2 x 81, footing 10 ft x 24 in x 8 in"></textarea>
         </div>
 
-        <div class="notes-card">
-          <label for="loginMaterialNotes">Material List Scratch Pad</label>
-          <textarea id="loginMaterialNotes" placeholder="Example: 12 - 2x4x8, 3 sheets 5/8 plywood, 2 bags concrete"></textarea>
+        <div class="notes-card jgc-card">
+          <label class="jgc-label" for="loginMaterialNotes">Material List Scratch Pad</label>
+          <textarea id="loginMaterialNotes" class="jgc-textarea" placeholder="Example: 12 - 2x4x8, 3 sheets 5/8 plywood, 2 bags concrete"></textarea>
         </div>
       </div>
 
-      <div class="notes-actions">
+      <div class="notes-actions jgc-actions">
         <p id="loginNotesStatus" class="notes-status">Auto-saves on this device.</p>
         <div>
-          <button type="button" class="notes-clear-button" onclick="clearLoginNotes()">Clear Notes</button>
-          <button type="button" class="notes-done-button" onclick="closeLoginNotes()">Done</button>
+          <button type="button" class="notes-clear-button jgc-button jgc-button--danger" onclick="clearLoginNotes()">Clear Notes</button>
+          <button type="button" class="notes-done-button jgc-button" onclick="closeLoginNotes()">Done</button>
         </div>
       </div>
     </div>
   </section>
 </div>
 
-<div id="subcontractorAccessOverlay" class="subcontractor-overlay" hidden onclick="closeSubcontractorAccess()">
-  <section class="subcontractor-panel" role="dialog" aria-modal="true" aria-labelledby="subcontractorAccessTitle" onclick="event.stopPropagation()">
+<div id="subcontractorAccessOverlay" class="subcontractor-overlay jgc-modal" hidden onclick="closeSubcontractorAccess()">
+  <section class="subcontractor-panel jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="subcontractorAccessTitle" onclick="event.stopPropagation()">
     <div class="subcontractor-panel-inner">
       <h3 id="subcontractorAccessTitle">Subcontractor Access</h3>
       <p class="small" style="margin:0 0 16px;">Enter your details so JGC can track portal use and include your email on submitted paperwork.</p>
 
-      <label>Company Name</label>
-      <input id="subcontractorCompany" maxlength="120" placeholder="Example: ABC Electrical" />
+      <label class="jgc-label" for="subcontractorCompany">Company Name</label>
+      <input id="subcontractorCompany" class="jgc-input" maxlength="120" placeholder="Example: ABC Electrical" />
 
-      <label>Your Name</label>
-      <input id="subcontractorName" maxlength="80" placeholder="Example: Pat Smith" />
+      <label class="jgc-label" for="subcontractorName">Your Name</label>
+      <input id="subcontractorName" class="jgc-input" maxlength="80" placeholder="Example: Pat Smith" />
 
-      <label>Email</label>
-      <input id="subcontractorEmail" type="email" maxlength="254" placeholder="name@company.com" />
+      <label class="jgc-label" for="subcontractorEmail">Email</label>
+      <input id="subcontractorEmail" class="jgc-input" type="email" maxlength="254" placeholder="name@company.com" />
 
-      <label>Phone <span class="small">(optional)</span></label>
-      <input id="subcontractorPhone" maxlength="40" placeholder="Phone number" />
+      <label class="jgc-label" for="subcontractorPhone">Phone <span class="small">(optional)</span></label>
+      <input id="subcontractorPhone" class="jgc-input" maxlength="40" placeholder="Phone number" />
 
-      <button type="button" onclick="enterSubcontractorPortal()">Continue</button>
-      <button type="button" class="secondary" onclick="closeSubcontractorAccess()">Cancel</button>
-      <p id="subcontractorAccessStatus" class="subcontractor-status"></p>
+      <button type="button" class="jgc-button" onclick="enterSubcontractorPortal()">Continue</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeSubcontractorAccess()">Cancel</button>
+      <p id="subcontractorAccessStatus" class="subcontractor-status jgc-notice" role="status" aria-live="polite"></p>
     </div>
   </section>
 </div>
