@@ -247,8 +247,9 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="notification-settings-design-system.css?v=1">
 </head>
-<body class="jgc-theme">
+<body class="notification-settings-page jgc-theme jgc-page">
   <div class="tabs">
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
@@ -264,36 +265,36 @@
     <button type="button" class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
   </div>
 
-  <div class="logo-wrap">
+  <div class="logo-wrap jgc-brand">
     <img src="logo.png" alt="John Gordon Construction logo">
   </div>
 
   <h1>Notification Settings</h1>
   <div id="currentUser" class="user-bar"></div>
 
-  <main class="panel">
-    <h2>Notification Settings</h2>
+  <main class="panel notification-settings-shell jgc-page-shell jgc-page-shell--wide jgc-panel">
+    <h2 class="jgc-section-title">Notification Settings</h2>
     <div class="small">Choose which account types receive each notification type. Notification records disappear from a user's bell only after they open them or press Clear All.</div>
 
-    <div class="toolbar">
-      <button type="button" onclick="loadNotificationSettings()">Refresh Settings</button>
-      <button type="button" class="secondary" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
+    <div class="toolbar jgc-toolbar">
+      <button type="button" class="jgc-button" onclick="loadNotificationSettings()">Refresh Settings</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='admin.html?tab=adminTools'">Back to Admin Tools</button>
     </div>
 
-    <section class="settings-form" aria-label="Add notification type">
-      <div>
-        <label for="newNotificationType">Type Key</label>
-        <input id="newNotificationType" placeholder="example_key">
+    <section class="settings-form jgc-form-grid jgc-section" aria-label="Add notification type">
+      <div class="jgc-field">
+        <label class="jgc-label" for="newNotificationType">Type Key</label>
+        <input id="newNotificationType" class="jgc-input" placeholder="example_key">
       </div>
-      <div>
-        <label for="newNotificationLabel">Label</label>
-        <input id="newNotificationLabel" placeholder="Example notification">
+      <div class="jgc-field">
+        <label class="jgc-label" for="newNotificationLabel">Label</label>
+        <input id="newNotificationLabel" class="jgc-input" placeholder="Example notification">
       </div>
-      <div>
-        <label for="newNotificationDescription">Description</label>
-        <textarea id="newNotificationDescription" placeholder="What creates this notification?"></textarea>
+      <div class="jgc-field">
+        <label class="jgc-label" for="newNotificationDescription">Description</label>
+        <textarea id="newNotificationDescription" class="jgc-textarea" placeholder="What creates this notification?"></textarea>
       </div>
-      <button type="button" onclick="addNotificationType()">Add Type</button>
+      <button type="button" class="jgc-button" onclick="addNotificationType()">Add Type</button>
     </section>
 
     <div id="settingsList" class="small">Loading notification settings...</div>
@@ -338,8 +339,8 @@
       }
 
       list.innerHTML = `
-        <div class="table-wrap">
-          <table>
+        <div class="table-wrap jgc-table-wrap">
+          <table class="jgc-table">
             <thead>
               <tr>
                 <th>Notification</th>

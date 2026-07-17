@@ -1,0 +1,194 @@
+/* Phase 22: Notification Settings compatibility layer. */
+.notification-settings-page,
+.notification-settings-page * {
+  box-sizing: border-box;
+}
+
+body.notification-settings-page {
+  min-width: 0;
+  margin: 0;
+  padding: 0 20px 24px;
+  overflow-x: hidden;
+  color: #f4fff6;
+  background: radial-gradient(circle at top, #062817 0, #020b08 58%);
+  font-family: Arial, sans-serif;
+}
+
+.notification-settings-page .logo-wrap,
+.notification-settings-page .user-bar,
+.notification-settings-page .notification-settings-shell,
+.notification-settings-page .toolbar,
+.notification-settings-page .settings-form,
+.notification-settings-page .settings-form > *,
+.notification-settings-page .table-wrap,
+.notification-settings-page table {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.notification-settings-page .logo-wrap img {
+  width: 100%;
+  max-width: 347px;
+}
+
+.notification-settings-page .notification-settings-shell {
+  width: min(1180px, calc(100vw - 40px));
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px;
+  color: #f4fff6;
+  background: rgba(12, 30, 27, 0.96);
+  border: 1px solid rgba(64, 220, 78, 0.35);
+  border-top: 4px solid #28d84a;
+  border-radius: 8px;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+.notification-settings-page .notification-settings-shell > .jgc-section-title {
+  margin-top: 0;
+  color: #2ee64f;
+}
+
+.notification-settings-page .toolbar.jgc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 0;
+}
+
+.notification-settings-page button.jgc-button {
+  width: auto;
+  min-height: 0;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #159447;
+  border: 0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: normal;
+}
+
+.notification-settings-page button.secondary.jgc-button {
+  color: #ffffff;
+  background: #1d332d;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.notification-settings-page .settings-form.jgc-form-grid.jgc-section {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.4fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 14px 0 18px;
+  padding: 12px;
+  background: rgba(4, 20, 16, 0.65);
+  border: 1px solid rgba(64, 220, 78, 0.25);
+  border-radius: 8px;
+}
+
+.notification-settings-page .settings-form .jgc-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.notification-settings-page .settings-form .jgc-input,
+.notification-settings-page .settings-form .jgc-textarea {
+  width: 100%;
+  min-height: 0;
+  padding: 9px;
+  color: #071511;
+  background: #f7faf4;
+  border: 1px solid #bcc7bc;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: normal;
+  color-scheme: light;
+}
+
+.notification-settings-page .settings-form .jgc-textarea {
+  min-height: 40px;
+  resize: vertical;
+}
+
+.notification-settings-page .table-wrap.jgc-table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.notification-settings-page table.jgc-table {
+  width: 100%;
+  min-width: 840px;
+  border-collapse: collapse;
+}
+
+.notification-settings-page table.jgc-table th,
+.notification-settings-page table.jgc-table td {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  text-align: left;
+  vertical-align: top;
+}
+
+.notification-settings-page table.jgc-table th {
+  color: #ffffff;
+  background: rgba(16, 70, 34, 0.88);
+}
+
+.notification-settings-page table.jgc-table td,
+.notification-settings-page table.jgc-table tbody tr:nth-child(even) td {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.notification-settings-page table.jgc-table .switch-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.notification-settings-page .status-line,
+.notification-settings-page .small,
+.notification-settings-page table.jgc-table td {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 780px) {
+  body.notification-settings-page {
+    padding: 0 12px 96px;
+  }
+
+  .notification-settings-page .notification-settings-shell {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .notification-settings-page .settings-form.jgc-form-grid.jgc-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .notification-settings-page .settings-form .jgc-input,
+  .notification-settings-page .settings-form .jgc-textarea {
+    font-size: 16px;
+  }
+
+  .notification-settings-page .toolbar.jgc-toolbar {
+    align-items: stretch;
+  }
+}
+
+@media print {
+  body.notification-settings-page,
+  .notification-settings-page .table-wrap.jgc-table-wrap {
+    overflow: visible;
+  }
+}

@@ -1,4 +1,4 @@
-const JGC_CACHE_NAME = "jgc-portal-v554";
+const JGC_CACHE_NAME = "jgc-portal-v555";
 const JGC_APP_SHELL = [
   "./",
   "./index.html",
@@ -60,6 +60,7 @@ const JGC_APP_SHELL = [
   "./qr-inspection-design-system.css?v=1",
   "./home-design-system.css?v=1",
   "./field-calculator-design-system.css?v=1",
+  "./notification-settings-design-system.css?v=1",
   "./common.js?v=24",
   "./purchase-orders.css?v=15",
   "./purchase-orders-pdf.js?v=1",
