@@ -15339,18 +15339,10 @@ function openJobDashboardWorkOrder(id) {
         return;
     }
 
-    const labourRows = getAdminWorkOrderLabourRows(workOrder.id);
-    const labourHours = labourRows.reduce((total, row) => total + Number(row.hours || 0), 0);
-    openJobDashboardRecordModal("Work Order", workOrder.wo_number || "Work Order", [
-        ["Date Used", workOrder.work_order_date ? formatDate(workOrder.work_order_date) : ""],
-        ["Status", getAdminWorkOrderStatusText(workOrder)],
-        ["Job", [workOrder.job_number, workOrder.job_name].filter(Boolean).join(" - ")],
-        ["Attention", workOrder.customer || ""],
-        ["Created By", workOrder.created_by_name || workOrder.supervisor_name || ""],
-        ["Labour", labourRows.length ? labourHours.toFixed(2) + " hours" : "No labour rows"],
-        ["Purchase Orders", String(getAdminWorkOrderPoCount(workOrder.id))],
-        ["Customer PO", workOrder.customer_po_number || ""]
-    ], "Work Completed", workOrder.description_of_work || workOrder.notes || "");
+    adminWorkOrderManagementView = isAdminWorkOrderSubmittedForManagement(workOrder) ? "submitted" : "active";
+    showTab("workOrders");
+    renderAdminWorkOrders();
+    openAdminWorkOrderEditor(workOrder.id);
 }
 
 function openJobDashboardPurchaseOrder(source, id) {
@@ -15362,16 +15354,7 @@ function openJobDashboardPurchaseOrder(source, id) {
             return;
         }
 
-        openJobDashboardRecordModal("Digital Purchase Order", formatAdminGlobalSearchPoNumber(purchaseOrder.po_number), [
-            ["Date Used", purchaseOrder.order_date ? formatDate(purchaseOrder.order_date) : ""],
-            ["Status", getJobDashboardDigitalPoStatus(purchaseOrder)],
-            ["Job", [purchaseOrder.job_number, purchaseOrder.job_name].filter(Boolean).join(" - ")],
-            ["Supplier", purchaseOrder.supplier_name || ""],
-            ["Created By", purchaseOrder.creator_name || ""],
-            ["Last Edited By", purchaseOrder.last_edited_by_name || "Not edited"],
-            ["Submitted By", purchaseOrder.submitted_by_name || "Not submitted"],
-            ["Email Status", capitalizeWords(purchaseOrder.email_status || "Not ready")]
-        ], "Order Notes", purchaseOrder.order_notes || purchaseOrder.notes || "");
+        window.location.href = "purchase-orders-admin.html?po=" + encodeURIComponent(purchaseOrder.id);
         return;
     }
 
@@ -15385,13 +15368,12 @@ function openJobDashboardPurchaseOrder(source, id) {
         return;
     }
 
-    openJobDashboardRecordModal("Manual Work Order PO", formatAdminGlobalSearchPoNumber(purchaseOrder.po_number || purchaseOrder.purchase_order_number), [
-        ["Date Used", linkedWorkOrder && linkedWorkOrder.work_order_date ? formatDate(linkedWorkOrder.work_order_date) : ""],
-        ["Status", linkedWorkOrder ? "Manual / " + getAdminWorkOrderStatusLabel(linkedWorkOrder.status) : "Manual PO"],
-        ["Job", linkedWorkOrder ? [linkedWorkOrder.job_number, linkedWorkOrder.job_name].filter(Boolean).join(" - ") : ""],
-        ["Supplier", purchaseOrder.company_name || purchaseOrder.supplier || ""],
-        ["Linked Work Order", linkedWorkOrder ? linkedWorkOrder.wo_number || "" : "Not linked"]
-    ], "Notes", purchaseOrder.notes || purchaseOrder.description || "");
+    if (!linkedWorkOrder) {
+        alert("This manual Purchase Order is not linked to a Work Order that can be opened.");
+        return;
+    }
+
+    openJobDashboardWorkOrder(linkedWorkOrder.id);
 }
 
 document.addEventListener("keydown", (event) => {
