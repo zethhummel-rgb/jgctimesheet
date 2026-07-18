@@ -56,8 +56,7 @@ const JGC_ADMIN_NAV_ITEMS = [
   { key: "reports", label: "Reports", href: "admin.html?tab=reports" },
   { key: "workOrders", label: "Work Orders", href: "admin.html?tab=workOrders" },
   { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html" },
-  { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" },
-  { key: "diagnostics", label: "Diagnostics", href: "diagnostics-admin.html" }
+  { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }
 ];
 const JGC_ADMIN_TOOL_SECTIONS = new Set([
   "employeeProfile",
@@ -1223,7 +1222,7 @@ function getJgcAdminNavigationSection(page, adminNav) {
   }
 
   if (page === "diagnostics-admin.html") {
-    return "diagnostics";
+    return "adminTools";
   }
 
   if (page !== "admin.html") {
