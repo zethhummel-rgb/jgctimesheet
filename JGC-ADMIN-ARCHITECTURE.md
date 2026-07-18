@@ -4,8 +4,9 @@ The Admin portal is being split gradually so each release remains testable and t
 
 ## Current Structure
 
-- `admin.html` owns the Admin page markup and existing JavaScript behavior.
+- `admin.html` owns the Admin page markup and ordered module loading.
 - `admin.css` owns the Admin page-level styles that previously lived in the document head.
+- `admin-core.js` owns authentication, shared Admin state, tab routing, lazy and full data loading, initialization, sign-out, and common event wiring.
 - `admin-backups.js` owns the backup command, local inspection history, ZIP/JSON inspection, and restore-readiness display helpers.
 - `admin-contacts.js` owns Contacts plus Subcontractors/Suppliers company and contact management.
 - `admin-vacation.js` owns Vacation Requests calendar rendering, approvals, denials, decision notices, Google Calendar synchronization, and deletion.
@@ -36,7 +37,7 @@ The Admin portal is being split gradually so each release remains testable and t
 
 Future extractions should use the existing Admin tab boundaries:
 
-- `admin-core.js`: authentication, tab routing, shared state, and common Admin helpers.
+- `admin-core.js`: authentication, tab routing, shared state, data loading, initialization, and common Admin helpers. This extraction is complete.
 - `admin-summary.js`: summary search, schedule, announcements, and dashboard data. This extraction is complete.
 - `admin-jobs.js`: job dashboard and job import/management behavior. This extraction is complete.
 - `admin-timesheets.js`: timesheet lists, editors, PDF/email actions, manual time entry, and sick days. This extraction is complete.
@@ -51,4 +52,4 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-employee-profile.js`: employee profile dashboards, detail and photo updates, and profile sick-day entry. This extraction is complete.
 - `admin-backups.js`: backup inspection and restore-preparation tools. This extraction is complete.
 
-The remaining high-traffic boundary is the shared Admin core. Audit its authentication, tab routing, data loading, initialization, and event wiring before extracting it.
+The planned Admin JavaScript extraction is complete. Future changes should stay inside the owning feature module and preserve the shared core startup contract documented above.
