@@ -5,6 +5,87 @@ const INSPECTION_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58"
 const inspectionSupabaseClient = window.supabase
     ? window.supabase.createClient(INSPECTION_SUPABASE_URL, INSPECTION_SUPABASE_KEY)
     : null;
+const INSPECTION_OFFLINE_QUEUE_KEY = "jgcInspectionOfflineQueueV1";
+let inspectionSaveInFlight = false;
+let inspectionSyncInFlightPromise = null;
+
+function getInspectionOfflineQueue() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(INSPECTION_OFFLINE_QUEUE_KEY) || "[]");
+        return Array.isArray(saved) ? saved : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function getCurrentWorkerInspectionQueue() {
+    const worker = getCurrentWorker();
+    return getInspectionOfflineQueue().filter((item) => String(item.workerName || "") === String(worker.key || ""));
+}
+
+function reportInspectionSyncState(status, message) {
+    const detail = {
+        source: "inspections",
+        pending: getCurrentWorkerInspectionQueue().length,
+        status: status || "idle",
+        message: message || ""
+    };
+
+    window.__jgcSyncStates = window.__jgcSyncStates || {};
+    window.__jgcSyncStates.inspections = detail;
+
+    if (typeof window.reportJgcSyncState === "function") {
+        window.reportJgcSyncState("inspections", detail);
+    } else {
+        window.dispatchEvent(new CustomEvent("jgc:sync-state", { detail }));
+    }
+}
+
+function saveInspectionOfflineQueue(queue) {
+    localStorage.setItem(INSPECTION_OFFLINE_QUEUE_KEY, JSON.stringify(queue || []));
+    reportInspectionSyncState(inspectionSyncInFlightPromise ? "syncing" : "idle");
+}
+
+function makeInspectionSubmissionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return "inspection-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+}
+
+function queueInspectionRecord(record, worker) {
+    const queue = getInspectionOfflineQueue();
+    const localId = record && record.form_data && record.form_data.offline_submission_id
+        ? record.form_data.offline_submission_id
+        : makeInspectionSubmissionId();
+    const existingIndex = queue.findIndex((item) => item.localId === localId);
+    const previous = existingIndex >= 0 ? queue[existingIndex] : null;
+    const queueItem = {
+        localId,
+        workerName: worker.key,
+        record,
+        queuedAt: previous && previous.queuedAt ? previous.queuedAt : new Date().toISOString(),
+        attempts: previous ? Number(previous.attempts || 0) : 0,
+        lastAttemptAt: previous ? previous.lastAttemptAt || "" : "",
+        lastError: previous ? previous.lastError || "" : "",
+        emailAfterSync: Boolean(typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
+    };
+
+    if (existingIndex >= 0) {
+        queue[existingIndex] = queueItem;
+    } else {
+        queue.push(queueItem);
+    }
+
+    saveInspectionOfflineQueue(queue);
+    return queueItem;
+}
+
+function isInspectionConnectionError(error) {
+    const message = String(error && error.message || error || "").toLowerCase();
+    return navigator.onLine === false || /failed to fetch|network|load failed|fetch failed|connection/.test(message);
+}
 
 function setInspectionSaveStatus(message) {
     const status = document.getElementById("inspectionSaveStatus");
@@ -586,26 +667,20 @@ function buildInspectionPdfHtml(record) {
     `;
 }
 
-async function saveInspection(type) {
-    const worker = getCurrentWorker();
-    setInspectionSaveStatus("Saving inspection...");
-
-    if (!worker.key) {
-        window.location.href = "index.html";
-        return;
-    }
-
-    if (!inspectionSupabaseClient) {
-        setInspectionSaveStatus("");
-        alert("Supabase is not available right now. Please try again.");
-        return;
-    }
-
+async function buildInspectionRecord(type, worker) {
     const fields = collectFields();
     const rows = collectTableRows();
     const inspectionDate = getInspectionDate(fields);
     const emailBody = buildInspectionEmail(type, fields, rows);
-    const jobContext = await resolveInspectionJobContext(fields);
+    let jobContext = splitProjectDisplay(getProjectFieldFromFormFields(fields));
+
+    try {
+        jobContext = await resolveInspectionJobContext(fields);
+    } catch (error) {
+        console.warn("Inspection job details could not be refreshed. Using the entered project details.", error);
+    }
+
+    const submissionId = makeInspectionSubmissionId();
     const record = {
         worker_name: worker.key,
         worker_display_name: worker.display,
@@ -620,10 +695,41 @@ async function saveInspection(type) {
         form_data: {
             fields,
             rows,
-            job_context: jobContext
+            job_context: jobContext,
+            offline_submission_id: submissionId
         },
         email_body: emailBody
     };
+
+    return { fields, record };
+}
+
+async function persistInspectionRecord(record) {
+    if (!inspectionSupabaseClient) {
+        throw new Error("Supabase is not available.");
+    }
+
+    const submissionId = record && record.form_data ? record.form_data.offline_submission_id : "";
+
+    if (submissionId) {
+        const existingResult = await inspectionSupabaseClient
+            .from("inspection_records")
+            .select("*")
+            .contains("form_data", { offline_submission_id: submissionId })
+            .limit(1)
+            .maybeSingle();
+
+        if (existingResult.error) {
+            throw existingResult.error;
+        }
+
+        if (existingResult.data) {
+            return {
+                ...record,
+                ...existingResult.data
+            };
+        }
+    }
 
     const { data, error } = await inspectionSupabaseClient
         .from("inspection_records")
@@ -632,16 +738,25 @@ async function saveInspection(type) {
         .single();
 
     if (error) {
-        setInspectionSaveStatus("");
-        alert("This inspection could not be saved. Please try again. " + (error.message || ""));
-        return;
+        throw error;
     }
 
-    const savedRecord = {
+    return {
         ...record,
         ...(data || {})
     };
-    const safetyRows = await createJsaSafetyAcknowledgements(savedRecord, fields);
+}
+
+function getInspectionReturnPage() {
+    return (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
+        ? "inspections.html"
+        : "todays-inspections.html";
+}
+
+async function finishInspectionSave(savedRecord, fields) {
+    const safetyRows = typeof createJsaSafetyAcknowledgements === "function"
+        ? await createJsaSafetyAcknowledgements(savedRecord, fields)
+        : [];
     savedRecord.safety_acknowledgements = safetyRows;
 
     if (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession()) {
@@ -655,9 +770,133 @@ async function saveInspection(type) {
     }
 
     setInspectionSaveStatus("Inspection saved.");
-    window.location.href = (typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession())
-        ? "inspections.html"
-        : "todays-inspections.html";
+    window.location.href = getInspectionReturnPage();
+}
+
+async function saveInspection(type) {
+    const worker = getCurrentWorker();
+
+    if (inspectionSaveInFlight) {
+        setInspectionSaveStatus("This inspection is already being saved.");
+        return;
+    }
+
+    if (!worker.key) {
+        window.location.href = "index.html";
+        return;
+    }
+
+    inspectionSaveInFlight = true;
+    setInspectionSaveStatus("Saving inspection...");
+
+    try {
+        const prepared = await buildInspectionRecord(type, worker);
+
+        if (!inspectionSupabaseClient || navigator.onLine === false) {
+            queueInspectionRecord(prepared.record, worker);
+            setInspectionSaveStatus("Inspection saved on this device. It will sync when the connection returns.");
+            alert("Inspection saved on this device. It will sync when the connection returns.");
+            window.location.href = getInspectionReturnPage();
+            return;
+        }
+
+        try {
+            const savedRecord = await persistInspectionRecord(prepared.record);
+            await finishInspectionSave(savedRecord, prepared.fields);
+        } catch (error) {
+            if (isInspectionConnectionError(error)) {
+                queueInspectionRecord(prepared.record, worker);
+                setInspectionSaveStatus("Inspection saved on this device. It will sync when the connection returns.");
+                alert("The connection dropped, so this inspection was saved on this device and will sync automatically.");
+                window.location.href = getInspectionReturnPage();
+                return;
+            }
+
+            setInspectionSaveStatus("");
+            alert("This inspection could not be saved. Please try again. " + (error.message || ""));
+        }
+    } catch (error) {
+        setInspectionSaveStatus("");
+        alert("This inspection could not be saved. Please try again. " + (error.message || ""));
+    } finally {
+        inspectionSaveInFlight = false;
+    }
+}
+
+async function runPendingInspectionSync() {
+    if (!inspectionSupabaseClient || navigator.onLine === false) {
+        reportInspectionSyncState("idle");
+        return;
+    }
+
+    const worker = getCurrentWorker();
+    const items = getCurrentWorkerInspectionQueue();
+
+    if (!worker.key || !items.length) {
+        reportInspectionSyncState("idle");
+        return;
+    }
+
+    reportInspectionSyncState("syncing");
+
+    for (const item of items) {
+        let queue = getInspectionOfflineQueue();
+        const attemptIndex = queue.findIndex((queuedItem) => queuedItem.localId === item.localId);
+        if (attemptIndex >= 0) {
+            queue[attemptIndex] = {
+                ...queue[attemptIndex],
+                attempts: Number(queue[attemptIndex].attempts || 0) + 1,
+                lastAttemptAt: new Date().toISOString(),
+                lastError: ""
+            };
+            localStorage.setItem(INSPECTION_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+        }
+
+        try {
+            const savedRecord = await persistInspectionRecord(item.record);
+            if (typeof createJsaSafetyAcknowledgements === "function") {
+                await createJsaSafetyAcknowledgements(savedRecord, item.record && item.record.form_data ? item.record.form_data.fields || [] : []);
+            }
+
+            if (item.emailAfterSync) {
+                await emailInspectionRecord(savedRecord, { silent: true });
+            }
+
+            queue = getInspectionOfflineQueue().filter((queuedItem) => queuedItem.localId !== item.localId);
+            saveInspectionOfflineQueue(queue);
+        } catch (error) {
+            queue = getInspectionOfflineQueue();
+            const failedIndex = queue.findIndex((queuedItem) => queuedItem.localId === item.localId);
+            if (failedIndex >= 0) {
+                queue[failedIndex] = {
+                    ...queue[failedIndex],
+                    lastError: error.message || "Sync failed"
+                };
+                localStorage.setItem(INSPECTION_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+            }
+            reportInspectionSyncState("error", "Some inspections are still waiting to sync");
+            return;
+        }
+    }
+
+    reportInspectionSyncState("idle");
+}
+
+function syncPendingInspectionRecords() {
+    if (inspectionSyncInFlightPromise) {
+        return inspectionSyncInFlightPromise;
+    }
+
+    inspectionSyncInFlightPromise = runPendingInspectionSync().catch((error) => {
+        reportInspectionSyncState("error", error.message || "Inspection sync failed");
+    }).finally(() => {
+        inspectionSyncInFlightPromise = null;
+        if (!getCurrentWorkerInspectionQueue().length) {
+            reportInspectionSyncState("idle");
+        }
+    });
+
+    return inspectionSyncInFlightPromise;
 }
 
 function openInspectionMailto(record) {
@@ -666,19 +905,24 @@ function openInspectionMailto(record) {
     window.location.href = `mailto:${INSPECTION_EMAIL}?subject=${subject}&body=${body}`;
 }
 
-async function emailInspectionRecord(record) {
+async function emailInspectionRecord(record, options) {
+    const settings = options || {};
     if (!record) {
-        alert("This inspection could not be found.");
-        return;
+        if (!settings.silent) {
+            alert("This inspection could not be found.");
+        }
+        return false;
     }
 
     const subject = `${record.inspection_type} - ${record.inspection_date || ""}`;
     const body = record.email_body || "";
 
     if (!INSPECTION_EMAIL_SCRIPT_URL) {
-        alert("Automatic inspection email is not set up yet. Your email app will open instead.");
-        openInspectionMailto(record);
-        return;
+        if (!settings.silent) {
+            alert("Automatic inspection email is not set up yet. Your email app will open instead.");
+            openInspectionMailto(record);
+        }
+        return false;
     }
 
     try {
@@ -700,9 +944,27 @@ async function emailInspectionRecord(record) {
             }))
         });
 
-        alert("Inspection email sent.");
+        if (!settings.silent) {
+            alert("Inspection email sent.");
+        }
+        return true;
     } catch (error) {
-        alert("Automatic inspection email could not be sent. Your email app will open instead.");
-        openInspectionMailto(record);
+        if (!settings.silent) {
+            alert("Automatic inspection email could not be sent. Your email app will open instead.");
+            openInspectionMailto(record);
+        }
+        return false;
     }
+}
+
+window.addEventListener("online", syncPendingInspectionRecords);
+window.addEventListener("focus", function() {
+    if (navigator.onLine) {
+        syncPendingInspectionRecords();
+    }
+});
+
+reportInspectionSyncState("idle");
+if (navigator.onLine) {
+    window.setTimeout(syncPendingInspectionRecords, 0);
 }

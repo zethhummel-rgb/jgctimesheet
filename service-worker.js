@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "585";
+const JGC_RELEASE_ID = "586";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -68,7 +68,8 @@ const JGC_APP_SHELL = [
   "./reset-password-design-system.css?v=1",
   "./login-design-system.css?v=1",
   "./subcontractor-design-system.css?v=1",
-  "./common.js?v=24",
+  "./common.js?v=25",
+  "./offline-sync.js?v=1",
   "./admin-backups.js?v=1",
   "./admin-contacts.js?v=1",
   "./admin-vacation.js?v=1",
@@ -85,7 +86,7 @@ const JGC_APP_SHELL = [
   "./admin-core.js?v=1",
   "./purchase-orders.css?v=15",
   "./purchase-orders-pdf.js?v=1",
-  "./purchase-orders.js?v=14",
+  "./purchase-orders.js?v=15",
   "./purchase-orders-admin.js?v=10",
   "./work-order-digital-pos.js?v=3",
   "./safety-acknowledgements.js?v=3",
@@ -94,7 +95,7 @@ const JGC_APP_SHELL = [
   "./calculator-functions.js?v=28",
   "./field-calculator.js?v=30",
   "./auth.js?v=6",
-  "./inspection-records.js?v=7",
+  "./inspection-records.js?v=8",
   "./inspection-mobile.css?v=2",
   "./inspection-mobile.js?v=4",
   "./manifest.json?v=5",
@@ -187,7 +188,7 @@ self.addEventListener("fetch", (event) => {
           storeJgcResponse(request, response);
           return response;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
+        .catch(() => caches.match(request, { ignoreSearch: true }).then((cached) => cached || caches.match("./index.html")))
     );
     return;
   }

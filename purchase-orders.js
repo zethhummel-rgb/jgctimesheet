@@ -1269,6 +1269,20 @@
       elements.syncBadge.textContent = "Synced";
       elements.syncBadge.className = badgeClass("green");
     }
+
+    const syncDetail = {
+      source: "purchase-orders",
+      pending,
+      status: state.syncing ? "syncing" : "idle",
+      message: ""
+    };
+    window.__jgcSyncStates = window.__jgcSyncStates || {};
+    window.__jgcSyncStates["purchase-orders"] = syncDetail;
+    if (typeof window.reportJgcSyncState === "function") {
+      window.reportJgcSyncState("purchase-orders", syncDetail);
+    } else {
+      window.dispatchEvent(new CustomEvent("jgc:sync-state", { detail: syncDetail }));
+    }
   }
 
   async function handleSave(event) {

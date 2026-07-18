@@ -1011,7 +1011,7 @@ th {
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=24"></script>
+<script src="common.js?v=25"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -1043,6 +1043,187 @@ let currentWorkOrderSubmitInFlight = false;
 const workOrderFinalizeLocks = new Set();
 const workOrderSubmitLocks = new Set();
 let digitalPoCounts = {};
+const WORK_ORDER_LOCAL_DRAFT_PREFIX = "jgcWorkOrderLocalDraftV1:";
+let workOrderLocalDraftTimer = 0;
+let restoringLocalWorkOrderDraft = false;
+let workOrderLocalDraftDirty = false;
+
+function getWorkOrderLocalDraftKey() {
+  return WORK_ORDER_LOCAL_DRAFT_PREFIX + normalizeWorkerName(worker.key || worker.email || "worker");
+}
+
+function reportWorkOrderDraftState(status, message) {
+  const pending = localStorage.getItem(getWorkOrderLocalDraftKey()) ? 1 : 0;
+  const detail = {
+    source: "work-orders",
+    pending,
+    status: status || "idle",
+    message: message || ""
+  };
+
+  window.__jgcSyncStates = window.__jgcSyncStates || {};
+  window.__jgcSyncStates["work-orders"] = detail;
+  if (typeof window.reportJgcSyncState === "function") {
+    window.reportJgcSyncState("work-orders", detail);
+  } else {
+    window.dispatchEvent(new CustomEvent("jgc:sync-state", { detail }));
+  }
+}
+
+function captureLocalWorkOrderDraft() {
+  return {
+    savedAt: new Date().toISOString(),
+    editingWorkOrderId: editingWorkOrderId || "",
+    woNumber: document.getElementById("woNumber").value || "",
+    workOrderDate: document.getElementById("woDate").value || "",
+    customer: document.getElementById("woCustomer").value || "",
+    status: document.getElementById("woStatus").value || "draft",
+    customerPoNumber: document.getElementById("woCustomerPo").value || "",
+    jobId: document.getElementById("woJob").value || "",
+    jobSearch: document.getElementById("woJobSearch").value || "",
+    jobNumber: document.getElementById("woJobNumber").value || "",
+    jobName: document.getElementById("woJobName").value || "",
+    jobType: document.getElementById("woJobType").value || "T&M",
+    jobAddress: document.getElementById("woJobAddress").value || "",
+    description: document.getElementById("woDescription").value || "",
+    notes: document.getElementById("woNotes").value || "",
+    purchaseOrders: collectPoRows(),
+    equipment: collectEquipmentRows(),
+    rentals: collectRentalRows(),
+    materials: collectMaterialRows(),
+    misc: collectMiscRows(),
+    travel: collectTravelRows(),
+    selectedWorkers: collectSelectedEmployees().map((item) => item.worker_key).filter(Boolean),
+    manualLabour: collectManualLabourRows()
+  };
+}
+
+function hasMeaningfulLocalWorkOrderDraft(draft) {
+  if (!draft) {
+    return false;
+  }
+
+  return Boolean(
+    draft.woNumber || draft.customer || draft.customerPoNumber || draft.jobId || draft.jobNumber ||
+    draft.jobName || draft.jobAddress || draft.description || draft.notes ||
+    (draft.purchaseOrders && draft.purchaseOrders.length) || (draft.equipment && draft.equipment.length) ||
+    (draft.rentals && draft.rentals.length) || (draft.materials && draft.materials.length) ||
+    (draft.misc && draft.misc.length) || (draft.travel && draft.travel.length) ||
+    (draft.selectedWorkers && draft.selectedWorkers.length) || (draft.manualLabour && draft.manualLabour.length)
+  );
+}
+
+function persistLocalWorkOrderDraft(options) {
+  const settings = options || {};
+  if (!settings.force && !workOrderLocalDraftDirty) {
+    return;
+  }
+
+  const draft = captureLocalWorkOrderDraft();
+  if (!hasMeaningfulLocalWorkOrderDraft(draft)) {
+    localStorage.removeItem(getWorkOrderLocalDraftKey());
+    workOrderLocalDraftDirty = false;
+    reportWorkOrderDraftState("idle");
+    return;
+  }
+
+  localStorage.setItem(getWorkOrderLocalDraftKey(), JSON.stringify(draft));
+  workOrderLocalDraftDirty = false;
+  reportWorkOrderDraftState("idle");
+}
+
+function clearLocalWorkOrderDraft() {
+  window.clearTimeout(workOrderLocalDraftTimer);
+  localStorage.removeItem(getWorkOrderLocalDraftKey());
+  workOrderLocalDraftDirty = false;
+  reportWorkOrderDraftState("idle");
+}
+
+function restoreLocalWorkOrderRows(containerId, rows, addRow) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  if (Array.isArray(rows) && rows.length) {
+    rows.forEach((row) => addRow(row));
+  } else {
+    addRow();
+  }
+}
+
+function restoreLocalWorkOrderDraft() {
+  if (editingWorkOrderId) {
+    return false;
+  }
+
+  let draft = null;
+  try {
+    draft = JSON.parse(localStorage.getItem(getWorkOrderLocalDraftKey()) || "null");
+  } catch (error) {
+    clearLocalWorkOrderDraft();
+    return false;
+  }
+
+  if (!hasMeaningfulLocalWorkOrderDraft(draft)) {
+    reportWorkOrderDraftState("idle");
+    return false;
+  }
+
+  if (draft.editingWorkOrderId) {
+    if (!workOrders.some((item) => item.id === draft.editingWorkOrderId)) {
+      clearLocalWorkOrderDraft();
+      return false;
+    }
+
+    restoringLocalWorkOrderDraft = true;
+    editWorkOrder(draft.editingWorkOrderId);
+    restoringLocalWorkOrderDraft = false;
+  }
+
+  document.getElementById("woNumber").value = draft.woNumber || "";
+  document.getElementById("woDate").value = draft.workOrderDate || getTorontoTodayValue();
+  document.getElementById("woCustomer").value = draft.customer || "";
+  document.getElementById("woStatus").value = draft.status || "draft";
+  document.getElementById("woCustomerPo").value = draft.customerPoNumber || "";
+  document.getElementById("woJob").value = draft.jobId || "";
+  document.getElementById("woJobSearch").value = draft.jobSearch || "";
+  document.getElementById("woJobNumber").value = draft.jobNumber || "";
+  document.getElementById("woJobName").value = draft.jobName || "";
+  document.getElementById("woJobType").value = draft.jobType || "T&M";
+  document.getElementById("woJobAddress").value = draft.jobAddress || "";
+  document.getElementById("woDescription").value = draft.description || "";
+  document.getElementById("woNotes").value = draft.notes || "";
+  restoreLocalWorkOrderRows("poRows", draft.purchaseOrders, addPoRow);
+  restoreLocalWorkOrderRows("equipmentRows", draft.equipment, addEquipmentRow);
+  restoreLocalWorkOrderRows("rentalRows", draft.rentals, addRentalRow);
+  restoreLocalWorkOrderRows("materialRows", draft.materials, addMaterialRow);
+  restoreLocalWorkOrderRows("miscRows", draft.misc, addMiscRow);
+  restoreLocalWorkOrderRows("travelRows", draft.travel, addTravelRow);
+  setManualLabourFields(draft.manualLabour || []);
+  renderEmployeePicker(draft.selectedWorkers || []);
+  renderLabourPreview();
+  setFormStatus("Unsaved Work Order restored from this device.");
+  reportWorkOrderDraftState("idle");
+  return true;
+}
+
+function scheduleLocalWorkOrderDraftSave() {
+  workOrderLocalDraftDirty = true;
+  window.clearTimeout(workOrderLocalDraftTimer);
+  workOrderLocalDraftTimer = window.setTimeout(persistLocalWorkOrderDraft, 350);
+}
+
+function activateLocalWorkOrderDrafts() {
+  const form = document.getElementById("workOrderFormCard");
+  if (!form || form.dataset.localDraftsActive === "true") {
+    return;
+  }
+
+  form.dataset.localDraftsActive = "true";
+  form.addEventListener("input", scheduleLocalWorkOrderDraftSave);
+  form.addEventListener("change", scheduleLocalWorkOrderDraftSave);
+  window.addEventListener("offline", () => persistLocalWorkOrderDraft({ force: true }));
+  window.addEventListener("beforeunload", persistLocalWorkOrderDraft);
+  reportWorkOrderDraftState("idle");
+}
 
 if (isEmbeddedWorkOrderPage) {
   document.documentElement.classList.add("embedded-work-order-root");
@@ -2018,7 +2199,13 @@ function collectTravelRows() {
   }).filter((row) => row.vehicle_id || row.vehicle_name || row.identification_number || row.total_km || row.trailer_used || row.trailer_equipment_id || row.trailer_name);
 }
 
-function resetWorkOrderForm() {
+function resetWorkOrderForm(options) {
+  const settings = options || {};
+  if (!settings.preserveLocalDraft) {
+    clearLocalWorkOrderDraft();
+  } else {
+    workOrderLocalDraftDirty = false;
+  }
   editingWorkOrderId = "";
   document.getElementById("formTitle").textContent = "New Work Order";
   document.getElementById("lockedNotice").style.display = "none";
@@ -2310,6 +2497,10 @@ function editWorkOrder(id) {
     return;
   }
 
+  if (!restoringLocalWorkOrderDraft) {
+    clearLocalWorkOrderDraft();
+  }
+
   editingWorkOrderId = id;
   document.getElementById("formTitle").textContent = "Edit Work Order";
   document.getElementById("saveButton").textContent = "Update Work Order";
@@ -2503,6 +2694,13 @@ async function saveWorkOrder(options) {
   if (!woNumber || !workOrderDate || !jobNumber || !jobName) {
     setFormStatus("Select a job so the WO number and job details can be generated.", true);
     return;
+  }
+
+  if (!supabaseClient || navigator.onLine === false) {
+    persistLocalWorkOrderDraft();
+    setFormStatus("Work Order saved on this device. Reconnect before submitting it.");
+    reportWorkOrderDraftState("idle");
+    return "";
   }
 
   setFormStatus("Saving work order...");
@@ -2709,6 +2907,8 @@ async function saveWorkOrder(options) {
       return workOrderId;
     }
   }
+
+  clearLocalWorkOrderDraft();
 
   await notifyWorkOrderRequestedHours(result.data, previewRows, settings);
 
@@ -3090,6 +3290,12 @@ async function submitCurrentWorkOrder(options) {
   const settings = options || {};
   if (currentWorkOrderSubmitInFlight) {
     setFormStatus("This Work Order is already being submitted.");
+    return;
+  }
+
+  if (!supabaseClient || navigator.onLine === false) {
+    persistLocalWorkOrderDraft();
+    setFormStatus("Work Order saved on this device. Reconnect before submitting it.");
     return;
   }
 
@@ -3733,12 +3939,16 @@ async function signOut() {
   await signOutJgc(supabaseClient);
 }
 
-resetWorkOrderForm();
+resetWorkOrderForm({ preserveLocalDraft: true });
+activateLocalWorkOrderDrafts();
 Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries()]).then(() => loadEmployees()).then(async () => {
   await refreshOpenWorkOrderLabourRows();
   await loadWorkOrders(false);
   await autoSubmitReadyWorkOrders();
   openRequestedEmbeddedWorkOrder();
+  if (!requestedWorkOrderId) {
+    restoreLocalWorkOrderDraft();
+  }
 });
 </script>
 <script src="work-order-digital-pos.js?v=3"></script>

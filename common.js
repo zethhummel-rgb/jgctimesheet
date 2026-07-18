@@ -451,6 +451,21 @@ function activateJgcPwa() {
   }
 }
 
+function activateJgcOfflineSupport() {
+  if (document.querySelector('script[data-jgc-offline-sync="true"]')) {
+    return;
+  }
+
+  window.__jgcSyncStates = window.__jgcSyncStates || {};
+  const script = document.createElement("script");
+  script.src = "offline-sync.js?v=1";
+  script.async = true;
+  script.dataset.jgcOfflineSync = "true";
+  document.head.appendChild(script);
+}
+
+activateJgcOfflineSupport();
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", activateJgcPwa);
 } else {
