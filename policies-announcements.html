@@ -207,29 +207,28 @@ p {
   </section>
 
   <div class="content-grid">
-    <section class="content-card">
-      <div class="section-title">Policies</div>
-      <div id="policyList" class="policy-list">
-        <article class="policy-card">
-          <h3>Safety Policies</h3>
-          <p class="muted">Company safety policies and field requirements will be listed here.</p>
-        </article>
-        <article class="policy-card">
-          <h3>Company Policies</h3>
-          <p class="muted">General company policies and employee reference documents will be listed here.</p>
-        </article>
-        <article class="policy-card">
-          <h3>Forms and References</h3>
-          <p class="muted">Helpful forms, PDFs, and reference documents will be listed here as they are added.</p>
-        </article>
+    <details id="policiesDetails" class="content-card jgc-archive">
+      <summary>
+        <span class="jgc-archive__title">Policies</span>
+        <span id="policiesLazyStatus" class="jgc-archive__count">Open to load</span>
+      </summary>
+      <div class="jgc-archive__body">
+        <div id="policyList" class="policy-list">
+          <div class="empty-state">Policies have not been loaded yet.</div>
+        </div>
       </div>
-    </section>
+    </details>
 
-    <section class="content-card">
-      <div class="section-title">Previous Announcements</div>
-      <div id="announcementsStatus" class="empty-state">Loading announcements...</div>
-      <div id="announcementsList" class="announcement-list"></div>
-    </section>
+    <details id="announcementsDetails" class="content-card jgc-archive">
+      <summary>
+        <span class="jgc-archive__title">Previous Announcements</span>
+        <span id="announcementsLazyStatus" class="jgc-archive__count">Open to load</span>
+      </summary>
+      <div class="jgc-archive__body">
+        <div id="announcementsStatus" class="empty-state">Announcements have not been loaded yet.</div>
+        <div id="announcementsList" class="announcement-list"></div>
+      </div>
+    </details>
   </div>
 </main>
 
@@ -244,6 +243,10 @@ let announcements = [];
 let policyUrls = {};
 let announcementUrls = {};
 let currentUserId = "";
+let policiesLoaded = false;
+let policiesLoading = false;
+let announcementsLoaded = false;
+let announcementsLoading = false;
 
 document.getElementById("workerName").textContent = worker.display || worker.key || "";
 
@@ -251,8 +254,12 @@ if (window.lucide) {
   window.lucide.createIcons();
 }
 
-loadPolicies();
-loadAnnouncements();
+document.getElementById("policiesDetails").addEventListener("toggle", function() {
+  if (this.open) loadPolicies();
+});
+document.getElementById("announcementsDetails").addEventListener("toggle", function() {
+  if (this.open) loadAnnouncements();
+});
 
 async function getCurrentUserId() {
   if (currentUserId) {
@@ -299,9 +306,19 @@ async function acknowledgeAnnouncement(announcementId, source) {
 
 async function loadPolicies() {
   const list = document.getElementById("policyList");
+  const lazyStatus = document.getElementById("policiesLazyStatus");
+
+  if (policiesLoading || policiesLoaded) {
+    return;
+  }
+
+  policiesLoading = true;
+  if (lazyStatus) lazyStatus.textContent = "Loading...";
 
   if (!supabaseClient) {
     list.innerHTML = '<div class="empty-state">Policies could not be loaded.</div>';
+    policiesLoading = false;
+    if (lazyStatus) lazyStatus.textContent = "Unavailable";
     return;
   }
 
@@ -314,11 +331,16 @@ async function loadPolicies() {
 
   if (error) {
     list.innerHTML = '<div class="empty-state">Policies could not be loaded.</div>';
+    policiesLoading = false;
+    if (lazyStatus) lazyStatus.textContent = "Retry";
     return;
   }
 
   policies = data || [];
   await preparePolicyUrls();
+  policiesLoaded = true;
+  policiesLoading = false;
+  if (lazyStatus) lazyStatus.textContent = `${policies.length} polic${policies.length === 1 ? "y" : "ies"}`;
   renderPolicies();
 }
 
@@ -371,9 +393,19 @@ function renderPolicies() {
 
 async function loadAnnouncements() {
   const status = document.getElementById("announcementsStatus");
+  const lazyStatus = document.getElementById("announcementsLazyStatus");
+
+  if (announcementsLoading || announcementsLoaded) {
+    return;
+  }
+
+  announcementsLoading = true;
+  if (lazyStatus) lazyStatus.textContent = "Loading...";
 
   if (!supabaseClient) {
     status.textContent = "Announcements could not be loaded.";
+    announcementsLoading = false;
+    if (lazyStatus) lazyStatus.textContent = "Unavailable";
     return;
   }
 
@@ -385,6 +417,8 @@ async function loadAnnouncements() {
 
   if (error) {
     status.textContent = "Announcements could not be loaded.";
+    announcementsLoading = false;
+    if (lazyStatus) lazyStatus.textContent = "Retry";
     return;
   }
 
@@ -396,6 +430,9 @@ async function loadAnnouncements() {
       targetEmail === normalizeWorkerName(worker.email);
   });
   await prepareAnnouncementUrls();
+  announcementsLoaded = true;
+  announcementsLoading = false;
+  if (lazyStatus) lazyStatus.textContent = `${announcements.length} announcement${announcements.length === 1 ? "" : "s"}`;
   renderAnnouncements();
 }
 

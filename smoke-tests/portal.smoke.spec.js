@@ -408,6 +408,67 @@ test("admin vacation requests build each employee table only when opened", async
   await expectNoRuntimeErrors(errors, "admin vacation employee groups");
 });
 
+test("employee directories defer Supabase data until their sections are opened", async ({ page }) => {
+  test.setTimeout(45_000);
+  const errors = watchRuntimeErrors(page);
+  const tableRequests = [];
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) tableRequests.push(match[1]);
+  });
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  const directories = [
+    ["equipment-vehicles.html", "#equipmentDirectoryDetails", "equipment_vehicles"],
+    ["contacts.html", "#contactsDirectoryDetails", "contacts"],
+    ["subcontractors-suppliers.html", "#supplierDirectoryDetails", "subcontractors_suppliers"]
+  ];
+
+  for (const [pageName, detailsSelector, table] of directories) {
+    tableRequests.length = 0;
+    await page.goto(`/${pageName}`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(150);
+    expect(tableRequests, `${table} was requested before its directory opened`).not.toContain(table);
+
+    await page.locator(`${detailsSelector} > summary`).click();
+    await expect.poll(() => tableRequests.includes(table), {
+      message: `${table} was not requested after its directory opened`
+    }).toBe(true);
+  }
+
+  tableRequests.length = 0;
+  await page.goto("/policies-announcements.html", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(150);
+  expect(tableRequests).not.toContain("policies");
+  expect(tableRequests).not.toContain("announcements");
+
+  await page.locator("#policiesDetails > summary").click();
+  await expect.poll(() => tableRequests.includes("policies")).toBe(true);
+  expect(tableRequests).not.toContain("announcements");
+
+  await page.locator("#announcementsDetails > summary").click();
+  await expect.poll(() => tableRequests.includes("announcements")).toBe(true);
+
+  tableRequests.length = 0;
+  await page.goto("/tasks.html", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(150);
+  expect(tableRequests).not.toContain("tasks");
+  expect(tableRequests).not.toContain("jobs");
+  expect(tableRequests).not.toContain("work_order_labour_workers");
+
+  await page.locator("#taskListDetails > summary").click();
+  await expect.poll(() => tableRequests.includes("tasks")).toBe(true);
+  expect(tableRequests).not.toContain("jobs");
+  expect(tableRequests).not.toContain("work_order_labour_workers");
+
+  await page.locator("#taskFormDetails > summary").click();
+  await expect.poll(() => tableRequests.includes("jobs")).toBe(true);
+  await expect.poll(() => tableRequests.includes("work_order_labour_workers")).toBe(true);
+  await expectNoRuntimeErrors(errors, "employee directory lazy loading");
+});
+
 test("employee submitted work orders load only after their tab is clicked", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const workOrderRequests = [];

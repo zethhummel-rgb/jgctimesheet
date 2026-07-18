@@ -471,7 +471,7 @@ body.embedded-task-page {
 
   <div class="top-actions jgc-actions">
     <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
-    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadTasks()">Refresh Tasks</button>
+    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openTaskList(true)">Refresh Tasks</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
@@ -559,10 +559,17 @@ body.embedded-task-page {
   </section>
 
   <section class="panel jgc-panel">
-    <h2 class="jgc-section-title">Task List</h2>
-    <div class="filters jgc-tabs" id="taskFilters"></div>
-    <div id="taskListStatus" class="status-line jgc-notice" aria-live="polite"></div>
-    <div id="taskList" class="task-grid"></div>
+    <details id="taskListDetails" class="jgc-archive">
+      <summary>
+        <span class="jgc-archive__title">Task List</span>
+        <span id="taskListLazyStatus" class="jgc-archive__count">Open to load</span>
+      </summary>
+      <div class="jgc-archive__body">
+        <div class="filters jgc-tabs" id="taskFilters"></div>
+        <div id="taskListStatus" class="status-line jgc-notice" aria-live="polite">Tasks have not been loaded yet.</div>
+        <div id="taskList" class="task-grid"></div>
+      </div>
+    </details>
   </section>
 </main>
 
@@ -585,6 +592,12 @@ let jobs = [];
 let activeFilter = "all";
 let editingTaskId = "";
 let taskFrameResizeTimer = null;
+let taskFormDataLoaded = false;
+let taskFormDataLoading = false;
+let taskFormDataPromise = null;
+let taskListLoaded = false;
+let taskListLoading = false;
+let taskListPromise = null;
 
 const TASK_FILTERS = [
   { key: "all", label: "All Tasks" },
@@ -1206,13 +1219,14 @@ function clearTaskForm() {
   requestTaskFrameResize();
 }
 
-function editTask(id) {
+async function editTask(id) {
   const task = tasks.find((item) => item.id === id);
   if (!task) {
     alert("Task could not be found.");
     return;
   }
 
+  await ensureTaskFormDataLoaded();
   editingTaskId = id;
   document.getElementById("taskFormDetails").open = true;
   document.getElementById("taskFormTitle").textContent = "Edit Task";
@@ -1232,6 +1246,7 @@ function editTask(id) {
 }
 
 async function saveTask() {
+  await ensureTaskFormDataLoaded();
   const title = document.getElementById("taskTitle").value.trim();
   const status = document.getElementById("taskStatus").value || "open";
   const priority = document.getElementById("taskPriority").value || null;
@@ -1383,6 +1398,8 @@ async function loadJobs() {
 async function loadTasks() {
   if (!supabaseClient) {
     setTaskListStatus("Supabase is not available.", true);
+    taskListLoading = false;
+    document.getElementById("taskListLazyStatus").textContent = "Unavailable";
     return;
   }
 
@@ -1396,12 +1413,58 @@ async function loadTasks() {
   if (error) {
     setTaskListStatus("Tasks could not be loaded: " + error.message, true);
     tasks = [];
+    taskListLoading = false;
+    taskListLoaded = false;
+    document.getElementById("taskListLazyStatus").textContent = "Retry";
     renderTasks();
     return;
   }
 
   tasks = (data || []).map(normalizeTaskAfterLoad);
+  taskListLoaded = true;
+  taskListLoading = false;
+  document.getElementById("taskListLazyStatus").textContent = `${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
   renderTasks();
+}
+
+async function ensureTaskFormDataLoaded() {
+  if (taskFormDataLoaded || !supabaseClient) return;
+  if (taskFormDataPromise) return taskFormDataPromise;
+
+  taskFormDataLoading = true;
+  setTaskFormStatus("Loading employee and job choices...");
+  taskFormDataPromise = (async () => {
+    try {
+      await Promise.all([loadProfiles(), loadJobs()]);
+      renderTaskFormOptions();
+      taskFormDataLoaded = true;
+      setTaskFormStatus("");
+    } finally {
+      taskFormDataLoading = false;
+      taskFormDataPromise = null;
+    }
+  })();
+
+  return taskFormDataPromise;
+}
+
+async function ensureTaskListLoaded(forceRefresh) {
+  if (taskListLoaded && !forceRefresh) return;
+  if (taskListPromise) return taskListPromise;
+
+  taskListLoading = true;
+  document.getElementById("taskListLazyStatus").textContent = "Loading...";
+  taskListPromise = loadTasks().finally(() => {
+    taskListLoading = false;
+    taskListPromise = null;
+  });
+  return taskListPromise;
+}
+
+function openTaskList(forceRefresh) {
+  const details = document.getElementById("taskListDetails");
+  if (details) details.open = true;
+  return ensureTaskListLoaded(Boolean(forceRefresh));
 }
 
 async function loadInitialData() {
@@ -1417,11 +1480,17 @@ async function loadInitialData() {
     currentUserId = "";
   }
 
-  await Promise.all([loadProfiles(), loadJobs()]);
-  renderTaskFormOptions();
-  await loadTasks();
+  if (taskPageParams.get("embedded") === "1") {
+    await openTaskList(false);
+  }
 }
 
+document.getElementById("taskFormDetails").addEventListener("toggle", function() {
+  if (this.open) ensureTaskFormDataLoaded();
+});
+document.getElementById("taskListDetails").addEventListener("toggle", function() {
+  if (this.open) ensureTaskListLoaded(false);
+});
 loadInitialData();
 </script>
 </body>

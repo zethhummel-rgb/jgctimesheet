@@ -164,7 +164,15 @@ button:hover {
 </div>
 
 <div class="panel jgc-panel">
-    <div id="contactsList" class="small">Loading contacts...</div>
+    <details id="contactsDirectoryDetails" class="jgc-archive">
+        <summary>
+            <span class="jgc-archive__title">Company Contacts</span>
+            <span id="contactsLazyStatus" class="jgc-archive__count">Open to load</span>
+        </summary>
+        <div class="jgc-archive__body">
+            <div id="contactsList" class="small">Contacts have not been loaded yet.</div>
+        </div>
+    </details>
 </div>
 </main>
 
@@ -175,14 +183,26 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display;
+let contactsLoaded = false;
+let contactsLoading = false;
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 async function loadContacts() {
     const list = document.getElementById("contactsList");
+    const lazyStatus = document.getElementById("contactsLazyStatus");
+
+    if (contactsLoading || contactsLoaded) {
+        return;
+    }
+
+    contactsLoading = true;
+    if (lazyStatus) lazyStatus.textContent = "Loading...";
 
     if (!supabaseClient) {
         list.textContent = "Supabase is not available.";
+        contactsLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Unavailable";
         return;
     }
 
@@ -195,10 +215,15 @@ async function loadContacts() {
 
     if (error) {
         list.textContent = "Contacts could not be loaded.";
+        contactsLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Retry";
         return;
     }
 
     const contacts = data || [];
+    contactsLoaded = true;
+    contactsLoading = false;
+    if (lazyStatus) lazyStatus.textContent = `${contacts.length} contact${contacts.length === 1 ? "" : "s"}`;
 
     if (!contacts.length) {
         list.textContent = "No contacts have been added yet.";
@@ -224,7 +249,9 @@ async function signOut() {
     await signOutJgc(supabaseClient);
 }
 
-loadContacts();
+document.getElementById("contactsDirectoryDetails").addEventListener("toggle", function() {
+    if (this.open) loadContacts();
+});
 </script>
 </body>
 </html>

@@ -211,11 +211,19 @@ button:hover {
 </div>
 
 <div class="panel jgc-panel">
-    <div class="supplier-search jgc-field">
-        <label class="jgc-label" for="subcontractorSupplierSearch">Search</label>
-        <input class="jgc-input" id="subcontractorSupplierSearch" type="search" placeholder="Search company, trade, contact, phone, email">
-    </div>
-    <div id="subcontractorsSuppliersList" class="small">Loading subcontractors and suppliers...</div>
+    <details id="supplierDirectoryDetails" class="jgc-archive">
+        <summary>
+            <span class="jgc-archive__title">Subcontractors and Suppliers</span>
+            <span id="supplierLazyStatus" class="jgc-archive__count">Open to load</span>
+        </summary>
+        <div class="jgc-archive__body">
+            <div class="supplier-search jgc-field">
+                <label class="jgc-label" for="subcontractorSupplierSearch">Search</label>
+                <input class="jgc-input" id="subcontractorSupplierSearch" type="search" placeholder="Search company, trade, contact, phone, email">
+            </div>
+            <div id="subcontractorsSuppliersList" class="small">The directory has not been loaded yet.</div>
+        </div>
+    </details>
 </div>
 </main>
 
@@ -228,6 +236,8 @@ const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display;
 let subcontractorSupplierEntries = [];
 let subcontractorSupplierContacts = [];
+let supplierDirectoryLoaded = false;
+let supplierDirectoryLoading = false;
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 document.getElementById("subcontractorSupplierSearch").addEventListener("input", renderSubcontractorsSuppliers);
@@ -322,9 +332,19 @@ function renderSubcontractorsSuppliers() {
 
 async function loadSubcontractorsSuppliers() {
     const list = document.getElementById("subcontractorsSuppliersList");
+    const lazyStatus = document.getElementById("supplierLazyStatus");
+
+    if (supplierDirectoryLoading || supplierDirectoryLoaded) {
+        return;
+    }
+
+    supplierDirectoryLoading = true;
+    if (lazyStatus) lazyStatus.textContent = "Loading...";
 
     if (!supabaseClient) {
         list.textContent = "Supabase is not available.";
+        supplierDirectoryLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Unavailable";
         return;
     }
 
@@ -337,12 +357,17 @@ async function loadSubcontractorsSuppliers() {
 
     if (companyResult.error) {
         list.textContent = "Subcontractors and suppliers could not be loaded.";
+        supplierDirectoryLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Retry";
         return;
     }
 
     subcontractorSupplierEntries = companyResult.data || [];
 
     if (!subcontractorSupplierEntries.length) {
+        supplierDirectoryLoaded = true;
+        supplierDirectoryLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "0 companies";
         renderSubcontractorsSuppliers();
         return;
     }
@@ -364,6 +389,9 @@ async function loadSubcontractorsSuppliers() {
         }
     }
 
+    supplierDirectoryLoaded = true;
+    supplierDirectoryLoading = false;
+    if (lazyStatus) lazyStatus.textContent = companyCountLabel(subcontractorSupplierEntries.length);
     renderSubcontractorsSuppliers();
 }
 
@@ -371,7 +399,9 @@ async function signOut() {
     await signOutJgc(supabaseClient);
 }
 
-loadSubcontractorsSuppliers();
+document.getElementById("supplierDirectoryDetails").addEventListener("toggle", function() {
+    if (this.open) loadSubcontractorsSuppliers();
+});
 </script>
 </body>
 </html>

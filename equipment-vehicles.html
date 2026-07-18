@@ -270,14 +270,22 @@ body.equipment-directory-page.jgc-page {
 </header>
 
 <div class="actions jgc-actions">
-    <button class="jgc-button" type="button" onclick="loadEquipment()">Refresh</button>
+    <button class="jgc-button" type="button" onclick="openEquipmentDirectory(true)">Refresh</button>
     <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
 </div>
 
 <section class="panel jgc-panel">
-    <div id="equipmentStatus" class="small jgc-notice" style="margin: 0 0 10px;" aria-live="polite"></div>
-    <div id="equipmentList" class="small">Loading equipment and vehicles...</div>
+    <details id="equipmentDirectoryDetails" class="jgc-archive">
+        <summary>
+            <span class="jgc-archive__title">Equipment and Vehicles</span>
+            <span id="equipmentLazyStatus" class="jgc-archive__count">Open to load</span>
+        </summary>
+        <div class="jgc-archive__body">
+            <div id="equipmentStatus" class="small jgc-notice" style="margin: 0 0 10px;" aria-live="polite"></div>
+            <div id="equipmentList" class="small">Equipment has not been loaded yet.</div>
+        </div>
+    </details>
 </section>
 </main>
 
@@ -286,6 +294,8 @@ body.equipment-directory-page.jgc-page {
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
+let equipmentDirectoryLoaded = false;
+let equipmentDirectoryLoading = false;
 
 document.getElementById("currentUser").textContent = "Signed in as: " + (worker.display || worker.key);
 
@@ -421,14 +431,24 @@ function renderEquipmentTable(items, category) {
     `;
 }
 
-async function loadEquipment() {
+async function loadEquipment(forceRefresh) {
     const list = document.getElementById("equipmentList");
     const status = document.getElementById("equipmentStatus");
+    const lazyStatus = document.getElementById("equipmentLazyStatus");
     if (!list || !status) return;
+
+    if (equipmentDirectoryLoading || (equipmentDirectoryLoaded && !forceRefresh)) {
+        return;
+    }
+
+    equipmentDirectoryLoading = true;
+    if (lazyStatus) lazyStatus.textContent = "Loading...";
 
     if (!supabaseClient) {
         status.textContent = "";
         list.innerHTML = '<div class="jgc-empty-state">Supabase is not available.</div>';
+        equipmentDirectoryLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Unavailable";
         return;
     }
 
@@ -450,10 +470,15 @@ async function loadEquipment() {
             ${escapeHtml(details)}
           </div>
         `;
+        equipmentDirectoryLoading = false;
+        if (lazyStatus) lazyStatus.textContent = "Retry";
         return;
     }
 
     const items = data || [];
+    equipmentDirectoryLoaded = true;
+    equipmentDirectoryLoading = false;
+    if (lazyStatus) lazyStatus.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`;
     status.textContent = `Showing ${items.length} active item${items.length === 1 ? "" : "s"}.`;
 
     if (!items.length) {
@@ -484,11 +509,19 @@ async function loadEquipment() {
     }
 }
 
+function openEquipmentDirectory(forceRefresh) {
+    const details = document.getElementById("equipmentDirectoryDetails");
+    if (details) details.open = true;
+    return loadEquipment(Boolean(forceRefresh));
+}
+
 async function signOut() {
     await signOutJgc(supabaseClient);
 }
 
-loadEquipment();
+document.getElementById("equipmentDirectoryDetails").addEventListener("toggle", function() {
+    if (this.open) loadEquipment(false);
+});
 </script>
 </body>
 </html>
