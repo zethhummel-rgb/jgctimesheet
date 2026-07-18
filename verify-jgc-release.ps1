@@ -158,6 +158,57 @@ if ($missingShellAssets.Count -eq 0) {
     }
 }
 
+$localShellFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$appShellBytes = [long]0
+foreach ($reference in $shellReferences) {
+    $assetPath = Get-LocalAssetPath $reference
+    if (-not $assetPath -or $assetPath.EndsWith("\") -or -not $localShellFiles.Add($assetPath)) {
+        continue
+    }
+
+    $fullAssetPath = Join-Path $PortalRoot $assetPath
+    if (Test-Path -LiteralPath $fullAssetPath -PathType Leaf) {
+        $appShellBytes += (Get-Item -LiteralPath $fullAssetPath).Length
+    }
+}
+
+$appShellMegabytes = $appShellBytes / 1MB
+Write-ReleaseResult "PASS" ("Offline app-shell payload is {0:N2} MB across {1} local files." -f $appShellMegabytes, $localShellFiles.Count)
+
+$assetReferenceText = [System.Text.StringBuilder]::new()
+$assetReferenceExtensions = @(".html", ".js", ".css", ".json")
+foreach ($referenceFile in Get-ChildItem -LiteralPath $PortalRoot -File) {
+    if ($assetReferenceExtensions -notcontains $referenceFile.Extension.ToLowerInvariant()) {
+        continue
+    }
+
+    $null = $assetReferenceText.AppendLine([System.IO.File]::ReadAllText($referenceFile.FullName))
+}
+
+$bundledAssetCandidates = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
+foreach ($imageFile in Get-ChildItem -LiteralPath $PortalRoot -File | Where-Object { $_.Extension -match '^(?i)\.(?:png|webp|jpg|jpeg|gif|svg)$' }) {
+    $bundledAssetCandidates.Add($imageFile)
+}
+
+$vendorRoot = Join-Path $PortalRoot "vendor"
+if (Test-Path -LiteralPath $vendorRoot -PathType Container) {
+    foreach ($vendorFile in Get-ChildItem -LiteralPath $vendorRoot -File) {
+        $bundledAssetCandidates.Add($vendorFile)
+    }
+}
+
+$unusedBundledAssets = @($bundledAssetCandidates | Where-Object {
+    $assetReferenceText.ToString().IndexOf($_.Name, [System.StringComparison]::OrdinalIgnoreCase) -lt 0
+})
+
+if ($unusedBundledAssets.Count -eq 0) {
+    Write-ReleaseResult "PASS" "Every bundled image and vendor library is referenced by the portal."
+} else {
+    foreach ($unusedAsset in $unusedBundledAssets) {
+        Write-ReleaseResult "FAIL" ("Unreferenced bundled asset: {0}" -f $unusedAsset.FullName.Substring($PortalRoot.Length + 1))
+    }
+}
+
 $shellHtmlNames = @($shellReferences | ForEach-Object { (($_ -split '[?#]', 2)[0]).TrimStart('.', '/') } | Where-Object { $_ -like "*.html" } | Sort-Object -Unique)
 $uncachedPages = @(Get-ChildItem -LiteralPath $PortalRoot -File -Filter "*.html" | Where-Object { $shellHtmlNames -notcontains $_.Name })
 if ($uncachedPages.Count -eq 0) {
