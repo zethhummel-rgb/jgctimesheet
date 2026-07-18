@@ -17,6 +17,7 @@ The Admin portal is being split gradually so each release remains testable and t
 - `admin-jobs.js` owns the Job Dashboard, job-list rendering, Excel import rules, permanent active/inactive management, and job-level WO/PO navigation.
 - `admin-work-orders.js` owns Work Order status gates, management lists, embedded-editor control, labour-worker approvals, linked PO counts, deletion, and refresh messaging.
 - `admin-equipment.js` owns equipment and vehicle administration, expiry alerts, maintenance logs, lift documents, inspection QR codes, and related Storage operations.
+- `admin-timesheets.js` owns submitted and live Timesheet administration, manual time and sick-day entry, editing, PDF/email generation, resubmission, and deletion.
 - Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
 - Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
 
@@ -37,7 +38,7 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-core.js`: authentication, tab routing, shared state, and common Admin helpers.
 - `admin-summary.js`: summary search, schedule, announcements, and dashboard data.
 - `admin-jobs.js`: job dashboard and job import/management behavior. This extraction is complete.
-- `admin-timesheets.js`: timesheet lists, editors, and PDF actions.
+- `admin-timesheets.js`: timesheet lists, editors, PDF/email actions, manual time entry, and sick days. This extraction is complete.
 - `admin-inspections.js`: inspection lists, submitted-detail viewing, vehicle print views, and deletion. This extraction is complete.
 - `admin-equipment.js`: equipment, vehicles, lift documents, and QR management. This extraction is complete.
 - `admin-work-orders.js`: work-order lists, embedded-editor control, labour-worker approvals, and linked PO counts. This extraction is complete.
@@ -49,4 +50,4 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-employee-profile.js`: employee profile dashboards, detail and photo updates, and profile sick-day entry. This extraction is complete.
 - `admin-backups.js`: backup inspection and restore-preparation tools. This extraction is complete.
 
-The remaining high-traffic boundaries are Summary, Timesheets, and the shared Admin core. Extract them one at a time after auditing their cross-module callers and shared state.
+The remaining high-traffic boundaries are Summary and the shared Admin core. Extract them one at a time after auditing their cross-module callers and shared state.
