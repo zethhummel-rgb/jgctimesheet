@@ -126,6 +126,13 @@ body.work-orders-page.jgc-page {
 body.embedded-work-order {
   padding: 0;
   background: #061411;
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.embedded-work-order-root {
+  min-height: 0;
+  overflow: hidden;
 }
 
 body.embedded-work-order .logo-wrap,
@@ -1038,8 +1045,71 @@ const workOrderSubmitLocks = new Set();
 let digitalPoCounts = {};
 
 if (isEmbeddedWorkOrderPage) {
+  document.documentElement.classList.add("embedded-work-order-root");
   document.body.classList.add("embedded-work-order");
 }
+
+let embeddedWorkOrderHeightFrame = 0;
+let embeddedWorkOrderLastHeight = 0;
+
+function notifyParentWorkOrderHeight() {
+  if (!isEmbeddedWorkOrderPage || !window.parent || window.parent === window) {
+    return;
+  }
+
+  if (embeddedWorkOrderHeightFrame) {
+    cancelAnimationFrame(embeddedWorkOrderHeightFrame);
+  }
+
+  embeddedWorkOrderHeightFrame = requestAnimationFrame(() => {
+    embeddedWorkOrderHeightFrame = 0;
+    const page = document.querySelector(".page");
+    const body = document.body;
+    const height = Math.ceil(page
+      ? Math.max(page.scrollHeight, page.offsetHeight, page.getBoundingClientRect().height)
+      : Math.max(body.scrollHeight, body.offsetHeight));
+
+    if (!height || Math.abs(height - embeddedWorkOrderLastHeight) < 2) {
+      return;
+    }
+
+    embeddedWorkOrderLastHeight = height;
+    window.parent.postMessage({
+      type: "jgc-work-order-frame-height",
+      height
+    }, window.location.origin);
+  });
+}
+
+function startEmbeddedWorkOrderHeightSync() {
+  if (!isEmbeddedWorkOrderPage) {
+    return;
+  }
+
+  notifyParentWorkOrderHeight();
+
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(notifyParentWorkOrderHeight);
+    resizeObserver.observe(document.body);
+  }
+
+  if (typeof MutationObserver === "function") {
+    const mutationObserver = new MutationObserver(notifyParentWorkOrderHeight);
+    mutationObserver.observe(document.body, {
+      attributes: true,
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  window.addEventListener("load", notifyParentWorkOrderHeight);
+  window.addEventListener("resize", notifyParentWorkOrderHeight);
+  setTimeout(notifyParentWorkOrderHeight, 250);
+  setTimeout(notifyParentWorkOrderHeight, 1000);
+}
+
+startEmbeddedWorkOrderHeightSync();
 
 function getTorontoTodayValue() {
   const parts = new Intl.DateTimeFormat("en-CA", {

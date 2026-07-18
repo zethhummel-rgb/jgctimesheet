@@ -98,6 +98,22 @@ function getAdminWorkOrderPoCount(id) {
     return workOrderPurchaseOrders.filter((row) => row.work_order_id === id).length + Number(adminWorkOrderDigitalPoCounts[id] || 0);
 }
 
+function setAdminWorkOrderEditorHeight(value) {
+    const frame = document.getElementById("adminWorkOrderEditorFrame");
+    const height = Math.ceil(Number(value));
+
+    if (!frame || !Number.isFinite(height) || height < 1) {
+        return;
+    }
+
+    const nextHeight = Math.max(720, Math.min(height + 4, 50000));
+    const currentHeight = parseFloat(frame.style.height || "0");
+
+    if (!Number.isFinite(currentHeight) || Math.abs(currentHeight - nextHeight) > 2) {
+        frame.style.height = nextHeight + "px";
+    }
+}
+
 function openAdminWorkOrderEditor(id) {
     const wo = workOrders.find((item) => String(item.id) === String(id));
     const panel = document.getElementById("adminWorkOrderEditorPanel");
@@ -119,6 +135,7 @@ function openAdminWorkOrderEditor(id) {
     }
 
     panel.hidden = false;
+    frame.style.height = "720px";
     frame.src = "work-orders.html?embedded=1&admin=1&wo=" + encodeURIComponent(id);
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -137,6 +154,7 @@ async function closeAdminWorkOrderEditor() {
 
     if (frame) {
         frame.removeAttribute("src");
+        frame.style.height = "720px";
     }
 
     if (panel) {
@@ -576,9 +594,15 @@ async function loadAdminWorkOrders() {
 }
 
 window.addEventListener("message", (event) => {
-    if (event.origin !== window.location.origin || !event.data || event.data.type !== "jgc-work-order-updated") {
+    const frame = document.getElementById("adminWorkOrderEditorFrame");
+
+    if (event.origin !== window.location.origin || !event.data || !frame || event.source !== frame.contentWindow) {
         return;
     }
 
-    loadAdminWorkOrders();
+    if (event.data.type === "jgc-work-order-frame-height") {
+        setAdminWorkOrderEditorHeight(event.data.height);
+    } else if (event.data.type === "jgc-work-order-updated") {
+        loadAdminWorkOrders();
+    }
 });

@@ -285,10 +285,13 @@ textarea {
 
 .admin-wo-editor-frame {
     width: 100%;
-    min-height: 1120px;
+    height: 720px;
+    min-height: 720px;
     border: 1px solid rgba(199, 221, 211, 0.22);
     border-radius: 8px;
     background: #061411;
+    display: block;
+    overflow: hidden;
 }
 
 .wo-management-tabs {
