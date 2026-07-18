@@ -255,6 +255,60 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin tabs");
 });
 
+test("admin inspection categories build their tables only when opened", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderInspections === "function");
+  await page.locator("#inspectionsTab").click();
+  await expect(page.locator("#inspectionsSection")).toBeVisible();
+  await page.waitForFunction(() => adminTabDataLoaded.has("inspections"));
+
+  await page.evaluate(() => {
+    adminTabDataLoading.inspections = false;
+    adminTabDataLoaded.add("inspections");
+    inspections = [
+      {
+        id: "smoke-aerial",
+        inspection_date: "2026-07-18",
+        inspection_type: "Aerial Lifts",
+        worker_display_name: "Smoke Inspector",
+        equipment_name: "Lift 1",
+        created_at: "2026-07-18T12:00:00Z"
+      },
+      {
+        id: "smoke-harness",
+        inspection_date: "2026-07-18",
+        inspection_type: "Harness",
+        worker_display_name: "Smoke Inspector",
+        equipment_name: "Harness 1",
+        created_at: "2026-07-18T12:01:00Z"
+      }
+    ];
+    vehicleInspections = [{
+      id: "smoke-vehicle",
+      inspection_date: "2026-07-18",
+      inspection_type: "Pre Inspection",
+      driver_name: "Smoke Driver",
+      vehicle_license_plate: "TEST123",
+      created_at: "2026-07-18T12:02:00Z"
+    }];
+    renderInspections();
+  });
+
+  const categories = page.locator("#inspectionsList > .jgc-archive-list > details[data-inspection-category]");
+  await expect(categories).toHaveCount(3);
+  await expect(page.locator("#inspectionsList table")).toHaveCount(0);
+
+  const vehicleCategory = categories.filter({ hasText: "Vehicle / Trailer" });
+  await vehicleCategory.locator("summary").click();
+  await expect(vehicleCategory.locator("[data-inspection-lazy-body]")).toHaveAttribute("data-loaded", "true");
+  await expect(vehicleCategory.locator("table")).toHaveCount(1);
+  await expect(page.locator("#inspectionsList table")).toHaveCount(1);
+  await expectNoRuntimeErrors(errors, "admin inspection categories");
+});
+
 test("purchase order list tabs and key controls respond", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);

@@ -33,6 +33,152 @@ function renderAdminInspectionTable(rows) {
     `;
 }
 
+const ADMIN_INSPECTION_CATEGORY_ORDER = [
+    "vehicle",
+    "aerial-lifts",
+    "fork-lifts",
+    "telehandlers",
+    "harnesses",
+    "equipment",
+    "safety-permits",
+    "other"
+];
+
+const ADMIN_INSPECTION_CATEGORY_LABELS = {
+    vehicle: "Vehicle / Trailer",
+    "aerial-lifts": "Aerial Lifts",
+    "fork-lifts": "Fork Lifts",
+    telehandlers: "Telehandlers",
+    harnesses: "Harnesses",
+    equipment: "Equipment",
+    "safety-permits": "Safety / Permits",
+    other: "Other Inspections"
+};
+
+let adminInspectionLazyCategoryRows = new Map();
+
+function getAdminInspectionCategoryKey(inspection) {
+    if (inspection.kind === "vehicle") {
+        return "vehicle";
+    }
+
+    const record = inspection.record || {};
+    const categoryText = [
+        inspection.type,
+        inspection.source,
+        inspection.asset,
+        record.equipment_type,
+        record.title,
+        record.form_data && record.form_data.template_key
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    if (categoryText.includes("fork lift") || categoryText.includes("forklift")) {
+        return "fork-lifts";
+    }
+
+    if (categoryText.includes("tele handler") || categoryText.includes("telehandler")) {
+        return "telehandlers";
+    }
+
+    if (categoryText.includes("harness")) {
+        return "harnesses";
+    }
+
+    if (["jsa", "toolbox", "hot work", "permit"].some((term) => categoryText.includes(term))) {
+        return "safety-permits";
+    }
+
+    if (["aerial", "scissor", "boom lift", "man lift"].some((term) => categoryText.includes(term))) {
+        return "aerial-lifts";
+    }
+
+    if (categoryText.includes("equipment")) {
+        return "equipment";
+    }
+
+    return "other";
+}
+
+function renderAdminInspectionCategoryBody(rows, openArchive) {
+    const archiveDays = window.JgcAdminHousekeeping?.inspectionArchiveDays || 60;
+    const olderInspections = rows.filter((inspection) =>
+        window.JgcAdminHousekeeping?.isOlderThanDays(inspection.date || inspection.saved, archiveDays)
+    );
+    const olderIds = new Set(olderInspections.map((inspection) => inspection.kind + ":" + inspection.id));
+    const recentInspections = rows.filter((inspection) => !olderIds.has(inspection.kind + ":" + inspection.id));
+    const recentMarkup = recentInspections.length
+        ? renderAdminInspectionTable(recentInspections)
+        : '<p class="jgc-archive__empty">No inspections from the last ' + archiveDays + ' days in this category.</p>';
+    const archiveMarkup = olderInspections.length ? `
+        <details class="jgc-archive"${openArchive ? " open" : ""}>
+            <summary>
+                <span class="jgc-archive__title">Older Inspections</span>
+                <span class="jgc-archive__count">${olderInspections.length} older than ${archiveDays} days</span>
+            </summary>
+            <div class="jgc-archive__body">${renderAdminInspectionTable(olderInspections)}</div>
+        </details>
+    ` : "";
+
+    return recentMarkup + archiveMarkup;
+}
+
+function loadAdminInspectionCategory(details) {
+    if (!details || !details.open) {
+        return;
+    }
+
+    const body = details.querySelector("[data-inspection-lazy-body]");
+
+    if (!body || body.dataset.loaded === "true") {
+        return;
+    }
+
+    const category = adminInspectionLazyCategoryRows.get(details.dataset.inspectionCategory);
+    body.innerHTML = category
+        ? renderAdminInspectionCategoryBody(category.rows, category.openArchive)
+        : '<p class="jgc-archive__empty">No inspection reports in this category.</p>';
+    body.dataset.loaded = "true";
+}
+
+function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCategories) {
+    const groupedRows = new Map();
+
+    rows.forEach((inspection) => {
+        const categoryKey = getAdminInspectionCategoryKey(inspection);
+        const categoryRows = groupedRows.get(categoryKey) || [];
+        categoryRows.push(inspection);
+        groupedRows.set(categoryKey, categoryRows);
+    });
+
+    const groups = ADMIN_INSPECTION_CATEGORY_ORDER
+        .filter((categoryKey) => groupedRows.has(categoryKey))
+        .map((categoryKey) => ({
+            key: categoryKey,
+            label: ADMIN_INSPECTION_CATEGORY_LABELS[categoryKey],
+            rows: groupedRows.get(categoryKey)
+        }));
+
+    adminInspectionLazyCategoryRows = new Map(groups.map((group) => [group.key, {
+        rows: group.rows,
+        openArchive: openFilteredCategories
+    }]));
+
+    return `<div class="jgc-archive-list">${groups.map((group) => {
+        const isOpen = openFilteredCategories || openCategoryKeys.has(group.key);
+        const countLabel = group.rows.length + " inspection" + (group.rows.length === 1 ? "" : "s");
+
+        return `
+            <details class="jgc-archive" data-inspection-category="${escapeHtml(group.key)}"${isOpen ? " open" : ""} ontoggle="loadAdminInspectionCategory(this)">
+                <summary>
+                    <span class="jgc-archive__title">${escapeHtml(group.label)}</span>
+                    <span class="jgc-archive__count">${escapeHtml(countLabel)}</span>
+                </summary>
+                <div class="jgc-archive__body" data-inspection-lazy-body data-loaded="${isOpen ? "true" : "false"}">${isOpen ? renderAdminInspectionCategoryBody(group.rows, openFilteredCategories) : ""}</div>
+            </details>
+        `;
+    }).join("")}</div>`;
+}
+
 function renderInspections() {
     const list = document.getElementById("inspectionsList");
     const workerInput = document.getElementById("inspectionWorkerFilter");
@@ -98,27 +244,10 @@ function renderInspections() {
         return;
     }
 
-    const archiveDays = window.JgcAdminHousekeeping?.inspectionArchiveDays || 60;
-    const olderInspections = filtered.filter((inspection) =>
-        window.JgcAdminHousekeeping?.isOlderThanDays(inspection.date || inspection.saved, archiveDays)
-    );
-    const olderIds = new Set(olderInspections.map((inspection) => inspection.kind + ":" + inspection.id));
-    const recentInspections = filtered.filter((inspection) => !olderIds.has(inspection.kind + ":" + inspection.id));
-    const openArchive = Boolean(workerFilter || typeFilter) && olderInspections.length > 0;
-    const recentMarkup = recentInspections.length
-        ? renderAdminInspectionTable(recentInspections)
-        : '<p class="jgc-archive__empty">No inspections from the last ' + archiveDays + ' days match these filters.</p>';
-    const archiveMarkup = olderInspections.length ? `
-        <details class="jgc-archive"${openArchive ? " open" : ""}>
-            <summary>
-                <span class="jgc-archive__title">Older Inspections</span>
-                <span class="jgc-archive__count">${olderInspections.length} older than ${archiveDays} days</span>
-            </summary>
-            <div class="jgc-archive__body">${renderAdminInspectionTable(olderInspections)}</div>
-        </details>
-    ` : "";
-
-    list.innerHTML = recentMarkup + archiveMarkup;
+    const openCategoryKeys = new Set(Array.from(list.querySelectorAll("details[data-inspection-category][open]"))
+        .map((details) => details.dataset.inspectionCategory));
+    const filtersActive = Boolean(workerFilter || typeFilter);
+    list.innerHTML = renderAdminInspectionCategories(filtered, openCategoryKeys, filtersActive);
 }
 
 function getAdminInspectionRecord(kind, id) {
