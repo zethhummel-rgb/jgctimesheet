@@ -211,7 +211,7 @@ function renderAdminCertificateTable(rows) {
         <div class="table-wrap jgc-table-wrap">
             <table class="jgc-table">
                 <thead>
-                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
+                    <tr><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                     ${rows.map((certificate) => {
@@ -221,7 +221,6 @@ function renderAdminCertificateTable(rows) {
                                 : "jgc-badge--success";
                         return `
                             <tr>
-                                <td>${escapeHtml(certificate.worker_name)}</td>
                                 <td>${escapeHtml(certificate.certificate_name)}</td>
                                 <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
                                 <td><span class="jgc-badge ${tone}">${escapeHtml(status)}</span></td>
@@ -234,6 +233,54 @@ function renderAdminCertificateTable(rows) {
             </table>
         </div>
     `;
+}
+
+function getCertificateEmployeeDisplayName(workerName) {
+    const workerKey = normalizeWorkerName(workerName);
+    const account = accounts.find((item) => [item.worker_key, item.display_name, item.email]
+        .map(normalizeWorkerName)
+        .includes(workerKey));
+
+    return account && account.display_name ? account.display_name : workerName || "Unknown Employee";
+}
+
+function groupCertificatesByEmployee(rows) {
+    const groupsByWorker = {};
+
+    rows.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name) || "unknown employee";
+
+        if (!groupsByWorker[workerKey]) {
+            groupsByWorker[workerKey] = {
+                key: workerKey,
+                name: getCertificateEmployeeDisplayName(certificate.worker_name),
+                certificates: []
+            };
+        }
+
+        groupsByWorker[workerKey].certificates.push(certificate);
+    });
+
+    return Object.values(groupsByWorker).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderCertificateEmployeeGroups(rows, openGroups, openFilteredGroups) {
+    const groups = groupCertificatesByEmployee(rows);
+
+    return `<div class="jgc-archive-list">${groups.map((group) => {
+        const isOpen = openFilteredGroups || openGroups.has(group.key);
+        const countLabel = group.certificates.length + " certificate" + (group.certificates.length === 1 ? "" : "s");
+
+        return `
+            <details class="jgc-archive" data-certificate-worker="${escapeHtml(group.key)}"${isOpen ? " open" : ""}>
+                <summary>
+                    <span class="jgc-archive__title">${escapeHtml(group.name)}</span>
+                    <span class="jgc-archive__count">${escapeHtml(countLabel)}</span>
+                </summary>
+                <div class="jgc-archive__body">${renderAdminCertificateTable(group.certificates)}</div>
+            </details>
+        `;
+    }).join("")}</div>`;
 }
 
 function renderCertificates() {
@@ -253,25 +300,9 @@ function renderCertificates() {
         return;
     }
 
-    const expiredCertificates = filtered.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Expired");
-    const currentCertificates = filtered.filter((certificate) => getCertificateStatus(certificate.expiry_date) !== "Expired");
-    const openArchive = statusFilter === "Expired" || (Boolean(workerFilter) && expiredCertificates.length > 0);
-    const currentMarkup = currentCertificates.length
-        ? renderAdminCertificateTable(currentCertificates)
-        : statusFilter === "Expired"
-            ? ""
-            : '<p class="jgc-archive__empty">No current certificates match these filters.</p>';
-    const archiveMarkup = expiredCertificates.length ? `
-        <details class="jgc-archive"${openArchive ? " open" : ""}>
-            <summary>
-                <span class="jgc-archive__title">Expired Certificates</span>
-                <span class="jgc-archive__count">${expiredCertificates.length} expired</span>
-            </summary>
-            <div class="jgc-archive__body">${renderAdminCertificateTable(expiredCertificates)}</div>
-        </details>
-    ` : "";
-
-    list.innerHTML = currentMarkup + archiveMarkup;
+    const openGroups = new Set(Array.from(list.querySelectorAll("details[data-certificate-worker][open]"))
+        .map((details) => details.dataset.certificateWorker));
+    list.innerHTML = renderCertificateEmployeeGroups(filtered, openGroups, Boolean(workerFilter || statusFilter));
 }
 
 function getMatrixStatusClass(status) {

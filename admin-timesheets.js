@@ -1,42 +1,155 @@
+const ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE = 5;
+const submittedTimesheetVisibleCounts = {};
+const submittedTimesheetOpenWorkers = new Set();
+let submittedTimesheetFinalPanelOpen = false;
+
+function getSubmittedTimesheetWorkerKey(workerName) {
+    return normalizeWorkerName(workerName) || "unknown worker";
+}
+
+function getSubmittedTimesheetWorkerLabel(workerName) {
+    const workerKey = getSubmittedTimesheetWorkerKey(workerName);
+    const account = accounts.find((item) => [item.worker_key, item.display_name, item.email]
+        .map(normalizeWorkerName)
+        .includes(workerKey));
+
+    return account && account.display_name ? account.display_name : workerName || "Unknown Worker";
+}
+
+function groupSubmittedTimesheetsByEmployee(rows) {
+    const groupsByWorker = {};
+
+    rows.forEach((week) => {
+        const workerKey = getSubmittedTimesheetWorkerKey(week.worker_name);
+
+        if (!groupsByWorker[workerKey]) {
+            groupsByWorker[workerKey] = {
+                key: workerKey,
+                name: getSubmittedTimesheetWorkerLabel(week.worker_name),
+                weeks: []
+            };
+        }
+
+        groupsByWorker[workerKey].weeks.push(week);
+    });
+
+    return Object.values(groupsByWorker).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderSubmittedTimesheetTable(rows) {
+    if (!rows.length) {
+        return '<div class="small">No finalized submitted timesheets found.</div>';
+    }
+
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.map((week) => `
+                        <tr>
+                            <td>${escapeHtml(week.week_label)}</td>
+                            <td>${Number(week.total_hours || 0).toFixed(2)}</td>
+                            <td>${escapeHtml(formatDate(week.submitted_at))}</td>
+                            <td>${escapeHtml(week.note || "")}</td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" class="secondary" onclick="viewSubmittedTimesheetHours('${escapeHtml(week.id)}')">View Hours</button>
+                                    <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
+                                    <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
+                                    <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function trackSubmittedTimesheetGroup(details) {
+    if (!details || details.dataset.autoOpen === "true") {
+        return;
+    }
+
+    const workerKey = details.dataset.submittedWorkerKey;
+    if (details.open) {
+        submittedTimesheetOpenWorkers.add(workerKey);
+    } else {
+        submittedTimesheetOpenWorkers.delete(workerKey);
+    }
+}
+
+function trackFinalSubmittedTimesheetPanel(details) {
+    if (!details || details.dataset.autoOpen === "true") {
+        return;
+    }
+
+    submittedTimesheetFinalPanelOpen = details.open;
+}
+
+function loadMoreSubmittedTimesheets(button) {
+    const workerKey = button && button.dataset.submittedWorkerKey;
+    if (!workerKey) {
+        return;
+    }
+
+    submittedTimesheetVisibleCounts[workerKey] = (submittedTimesheetVisibleCounts[workerKey] || ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE) + ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE;
+    submittedTimesheetOpenWorkers.add(workerKey);
+    submittedTimesheetFinalPanelOpen = true;
+    renderTimesheets();
+}
+
+function renderSubmittedTimesheetEmployeeGroups(rows, filter) {
+    const groups = groupSubmittedTimesheetsByEmployee(rows);
+
+    if (!groups.length) {
+        return '<div class="small">No finalized submitted timesheets found.</div>';
+    }
+
+    return groups.map((group) => {
+        const visibleCount = submittedTimesheetVisibleCounts[group.key] || ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE;
+        const visibleWeeks = group.weeks.slice(0, visibleCount);
+        const remaining = Math.max(0, group.weeks.length - visibleWeeks.length);
+        const totalHours = group.weeks.reduce((total, week) => total + Number(week.total_hours || 0), 0);
+        const autoOpen = Boolean(filter);
+        const isOpen = autoOpen || submittedTimesheetOpenWorkers.has(group.key);
+
+        return `
+            <details class="timesheet-worker-group" data-submitted-worker-key="${escapeHtml(group.key)}" data-auto-open="${autoOpen}" ontoggle="trackSubmittedTimesheetGroup(this)"${isOpen ? " open" : ""}>
+                <summary>
+                    <span>
+                        ${escapeHtml(group.name)}
+                        <span class="timesheet-worker-meta">${group.weeks.length} submitted week${group.weeks.length === 1 ? "" : "s"} - ${totalHours.toFixed(2)} total hrs</span>
+                    </span>
+                    <span class="timesheet-worker-count" title="Submitted weeks">${group.weeks.length}</span>
+                </summary>
+                <div class="timesheet-worker-body">
+                    ${renderSubmittedTimesheetTable(visibleWeeks)}
+                    ${remaining ? `
+                        <div class="actions" style="margin-top:12px;">
+                            <button type="button" class="secondary" data-submitted-worker-key="${escapeHtml(group.key)}" onclick="loadMoreSubmittedTimesheets(this)">Load ${Math.min(remaining, ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE)} more</button>
+                            <span class="small">Showing ${visibleWeeks.length} of ${group.weeks.length} submitted weeks</span>
+                        </div>
+                    ` : ""}
+                </div>
+            </details>
+        `;
+    }).join("");
+}
+
 function renderTimesheets() {
     renderAdminTimeEntryOptions();
 
     const filter = document.getElementById("timesheetWorkerFilter").value.trim().toLowerCase();
     const list = document.getElementById("timesheetsList");
     const filtered = timesheets.filter((week) => !filter || String(week.worker_name || "").toLowerCase().includes(filter));
-
-    const submittedWeeksTableHtml = filtered.length
-        ? `
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><th>Worker</th><th>Week</th><th>Total Hours</th><th>Submitted</th><th>Note</th><th>Actions</th></tr>
-                    </thead>
-                    <tbody>
-                        ${filtered.map((week) => `
-                            <tr>
-                                <td>${escapeHtml(week.worker_name)}</td>
-                                <td>${escapeHtml(week.week_label)}</td>
-                                <td>${Number(week.total_hours || 0).toFixed(2)}</td>
-                                <td>${escapeHtml(formatDate(week.submitted_at))}</td>
-                                <td>${escapeHtml(week.note || "")}</td>
-                                <td>
-                                    <div class="actions">
-                                        <button type="button" class="secondary" onclick="viewSubmittedTimesheetHours('${escapeHtml(week.id)}')">View Hours</button>
-                                        <button type="button" class="secondary" onclick="editSubmittedTimesheet('${escapeHtml(week.id)}')">Edit</button>
-                                        <button type="button" onclick="resubmitSubmittedTimesheet('${escapeHtml(week.id)}')">Resubmit</button>
-                                        <button type="button" class="delete-button" onclick="deleteSubmittedTimesheet('${escapeHtml(week.id)}')">Delete</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-            </div>
-        `
-        : '<div class="small">No finalized submitted timesheets found.</div>';
+    const autoOpen = Boolean(filter);
     const submittedWeeksHtml = `
-        <details class="timesheet-worker-group" ${filter ? "open" : ""}>
+        <details class="timesheet-worker-group" data-final-submitted-timesheets data-auto-open="${autoOpen}" ontoggle="trackFinalSubmittedTimesheetPanel(this)"${autoOpen || submittedTimesheetFinalPanelOpen ? " open" : ""}>
             <summary>
                 <span>
                     Final Submitted Timesheets
@@ -45,7 +158,7 @@ function renderTimesheets() {
                 <span class="timesheet-worker-count" title="Submitted weeks">${filtered.length}</span>
             </summary>
             <div class="timesheet-worker-body">
-                ${submittedWeeksTableHtml}
+                ${renderSubmittedTimesheetEmployeeGroups(filtered, filter)}
             </div>
         </details>
     `;
@@ -2130,4 +2243,3 @@ async function deleteSubmittedTimesheet(id) {
     timesheets = timesheets.filter((item) => item.id !== id);
     renderTimesheets();
 }
-

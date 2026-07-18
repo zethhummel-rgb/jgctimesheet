@@ -112,7 +112,9 @@
     (result.data || []).forEach(function(po) {
       const label = "PO-" + po.po_number;
       const relatedUrl = "purchase-orders-admin.html?po=" + encodeURIComponent(po.id);
-      if (po.email_status === "failed") {
+      const emailStatus = String(po.email_status || "").toLowerCase();
+      const cleanupError = String(po.email_last_error || "").trim();
+      if (emailStatus === "failed") {
         events.push(normalizeEvent({
           id: "po-email:" + po.id,
           occurred_at: po.updated_at,
@@ -129,7 +131,7 @@
           central: false
         }));
       }
-      if (po.receipt_status === "cleanup_failed") {
+      if (po.receipt_status === "cleanup_failed" || (emailStatus === "emailed" && cleanupError)) {
         events.push(normalizeEvent({
           id: "po-cleanup:" + po.id,
           occurred_at: po.updated_at,
@@ -142,11 +144,12 @@
           record_table: "digital_purchase_orders",
           record_id: po.id,
           related_url: relatedUrl,
-          details: { job_number: po.job_number, job_name: po.job_name, supplier: po.supplier_name },
+          details: { error: cleanupError || "Temporary file cleanup did not complete.", job_number: po.job_number, job_name: po.job_name, supplier: po.supplier_name },
           central: false
         }));
       }
-      if (po.workflow_status === "submitted" && !po.pdf_storage_path && !["not_ready", "cancelled"].includes(po.email_status)) {
+      // Successfully emailed PO files are temporary: cleanup removes the PDF and clears this path.
+      if (po.workflow_status === "submitted" && !po.pdf_storage_path && ["pending", "sending"].includes(emailStatus)) {
         events.push(normalizeEvent({
           id: "po-pdf:" + po.id,
           occurred_at: po.updated_at,
@@ -154,12 +157,12 @@
           category: "pdf",
           event_type: "digital_po_pdf_missing",
           source: "digital_purchase_orders",
-          message: label + " is submitted without a stored PDF",
+          message: label + " is waiting for email without its temporary PDF",
           actor_name: po.submitted_by_name || po.creator_name,
           record_table: "digital_purchase_orders",
           record_id: po.id,
           related_url: relatedUrl,
-          details: { email_status: po.email_status, job_number: po.job_number, job_name: po.job_name },
+          details: { email_status: emailStatus, job_number: po.job_number, job_name: po.job_name },
           central: false
         }));
       }

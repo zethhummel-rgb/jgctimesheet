@@ -1181,6 +1181,84 @@ function renderAdminCertificateWorkerOptions() {
     }
 }
 
+function renderAdminCertificateTable(rows) {
+    if (!rows.length) {
+        return '<div class="jgc-empty-state">No certificates in this section.</div>';
+    }
+
+    return `
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
+                <thead>
+                    <tr><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.map((certificate) => {
+                        const status = getCertificateStatus(certificate.expiry_date);
+                        return `
+                            <tr>
+                                <td>${escapeHtml(certificate.certificate_name)}</td>
+                                <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+                                <td><span class="status-pill ${escapeHtml(getStatusClass(status))} jgc-badge ${status === "Valid" ? "jgc-badge--success" : status === "Expiring Soon" ? "jgc-badge--warning" : status === "No Expiry" ? "jgc-badge--info" : "jgc-badge--danger"}">${escapeHtml(status)}</span></td>
+                                <td>${certificateUrls[certificate.id] ? '<a class="file-link jgc-button" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                                <td><div class="actions jgc-table-actions"><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></div></td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getCertificateEmployeeDisplayName(workerName) {
+    const workerKey = normalizeWorkerName(workerName);
+    const account = accounts.find((item) => [item.worker_key, item.display_name, item.email]
+        .map(normalizeWorkerName)
+        .includes(workerKey));
+
+    return account && account.display_name ? account.display_name : workerName || "Unknown Employee";
+}
+
+function groupCertificatesByEmployee(rows) {
+    const groupsByWorker = {};
+
+    rows.forEach((certificate) => {
+        const workerKey = normalizeWorkerName(certificate.worker_name) || "unknown employee";
+
+        if (!groupsByWorker[workerKey]) {
+            groupsByWorker[workerKey] = {
+                key: workerKey,
+                name: getCertificateEmployeeDisplayName(certificate.worker_name),
+                certificates: []
+            };
+        }
+
+        groupsByWorker[workerKey].certificates.push(certificate);
+    });
+
+    return Object.values(groupsByWorker).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderCertificateEmployeeGroups(rows, openGroups, openFilteredGroups) {
+    const groups = groupCertificatesByEmployee(rows);
+
+    return `<div class="jgc-archive-list">${groups.map((group) => {
+        const isOpen = openFilteredGroups || openGroups.has(group.key);
+        const countLabel = group.certificates.length + " certificate" + (group.certificates.length === 1 ? "" : "s");
+
+        return `
+            <details class="jgc-archive" data-certificate-worker="${escapeHtml(group.key)}"${isOpen ? " open" : ""}>
+                <summary>
+                    <span class="jgc-archive__title">${escapeHtml(group.name)}</span>
+                    <span class="jgc-archive__count">${escapeHtml(countLabel)}</span>
+                </summary>
+                <div class="jgc-archive__body">${renderAdminCertificateTable(group.certificates)}</div>
+            </details>
+        `;
+    }).join("")}</div>`;
+}
+
 function renderCertificates() {
     const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("certificateStatusFilter").value;
@@ -1199,30 +1277,9 @@ function renderCertificates() {
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap jgc-table-wrap">
-            <table class="jgc-table">
-                <thead>
-                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((certificate) => {
-                        const status = getCertificateStatus(certificate.expiry_date);
-                        return `
-                            <tr>
-                                <td>${escapeHtml(certificate.worker_name)}</td>
-                                <td>${escapeHtml(certificate.certificate_name)}</td>
-                                <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
-                                <td><span class="status-pill ${escapeHtml(getStatusClass(status))} jgc-badge ${status === "Valid" ? "jgc-badge--success" : status === "Expiring Soon" ? "jgc-badge--warning" : status === "No Expiry" ? "jgc-badge--info" : "jgc-badge--danger"}">${escapeHtml(status)}</span></td>
-                                <td>${certificateUrls[certificate.id] ? '<a class="file-link jgc-button" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
-                                <td><div class="actions jgc-table-actions"><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></div></td>
-                            </tr>
-                        `;
-                    }).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const openGroups = new Set(Array.from(list.querySelectorAll("details[data-certificate-worker][open]"))
+        .map((details) => details.dataset.certificateWorker));
+    list.innerHTML = renderCertificateEmployeeGroups(filtered, openGroups, Boolean(workerFilter || statusFilter));
 }
 
 function setAdminCertificateStatus(message) {
