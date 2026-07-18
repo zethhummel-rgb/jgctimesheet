@@ -264,20 +264,39 @@ function groupCertificatesByEmployee(rows) {
     return Object.values(groupsByWorker).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function renderCertificateEmployeeGroups(rows, openGroups, openFilteredGroups) {
+let certificateLazyGroupRows = new Map();
+
+function loadCertificateEmployeeGroup(details) {
+    if (!details || !details.open) {
+        return;
+    }
+
+    const body = details.querySelector("[data-certificate-lazy-body]");
+
+    if (!body || body.dataset.loaded === "true") {
+        return;
+    }
+
+    const rows = certificateLazyGroupRows.get(details.dataset.certificateWorker) || [];
+    body.innerHTML = renderAdminCertificateTable(rows);
+    body.dataset.loaded = "true";
+}
+
+function renderCertificateEmployeeGroups(rows, openGroups) {
     const groups = groupCertificatesByEmployee(rows);
+    certificateLazyGroupRows = new Map(groups.map((group) => [group.key, group.certificates]));
 
     return `<div class="jgc-archive-list">${groups.map((group) => {
-        const isOpen = openFilteredGroups || openGroups.has(group.key);
+        const isOpen = openGroups.has(group.key);
         const countLabel = group.certificates.length + " certificate" + (group.certificates.length === 1 ? "" : "s");
 
         return `
-            <details class="jgc-archive" data-certificate-worker="${escapeHtml(group.key)}"${isOpen ? " open" : ""}>
+            <details class="jgc-archive" data-certificate-worker="${escapeHtml(group.key)}"${isOpen ? " open" : ""} ontoggle="loadCertificateEmployeeGroup(this)">
                 <summary>
                     <span class="jgc-archive__title">${escapeHtml(group.name)}</span>
                     <span class="jgc-archive__count">${escapeHtml(countLabel)}</span>
                 </summary>
-                <div class="jgc-archive__body">${renderAdminCertificateTable(group.certificates)}</div>
+                <div class="jgc-archive__body" data-certificate-lazy-body data-loaded="${isOpen ? "true" : "false"}">${isOpen ? renderAdminCertificateTable(group.certificates) : ""}</div>
             </details>
         `;
     }).join("")}</div>`;
@@ -302,7 +321,7 @@ function renderCertificates() {
 
     const openGroups = new Set(Array.from(list.querySelectorAll("details[data-certificate-worker][open]"))
         .map((details) => details.dataset.certificateWorker));
-    list.innerHTML = renderCertificateEmployeeGroups(filtered, openGroups, Boolean(workerFilter || statusFilter));
+    list.innerHTML = renderCertificateEmployeeGroups(filtered, openGroups);
 }
 
 function getMatrixStatusClass(status) {
