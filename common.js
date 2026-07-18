@@ -588,11 +588,96 @@ if (document.readyState === "loading") {
   activateJgcPwa();
 }
 
+const JGC_SUPABASE_AUTH_STORAGE_PREFIX = "sb-" + new URL(JGC_SUPABASE_URL).hostname.split(".")[0] + "-auth-token";
+
+function getJgcSupabaseAuthStorageTarget() {
+  try {
+    return localStorage.getItem("jgcStayLoggedIn") === "false" ? sessionStorage : localStorage;
+  } catch (error) {
+    return localStorage;
+  }
+}
+
+function getJgcSupabaseAuthStorageOtherTarget() {
+  return getJgcSupabaseAuthStorageTarget() === sessionStorage ? localStorage : sessionStorage;
+}
+
+const JGC_SUPABASE_AUTH_STORAGE = {
+  getItem(key) {
+    try {
+      return getJgcSupabaseAuthStorageTarget().getItem(key);
+    } catch (error) {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    const target = getJgcSupabaseAuthStorageTarget();
+    const otherTarget = getJgcSupabaseAuthStorageOtherTarget();
+    target.setItem(key, value);
+    otherTarget.removeItem(key);
+  },
+  removeItem(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      // Storage may be unavailable in a restricted browser context.
+    }
+
+    try {
+      sessionStorage.removeItem(key);
+    } catch (error) {
+      // Storage may be unavailable in a restricted browser context.
+    }
+  }
+};
+
+function getJgcSupabaseAuthStorageKeys(storage) {
+  const keys = [];
+
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && key.indexOf(JGC_SUPABASE_AUTH_STORAGE_PREFIX) === 0) {
+        keys.push(key);
+      }
+    }
+  } catch (error) {
+    return [];
+  }
+
+  return keys;
+}
+
+function setJgcAuthPersistencePreference(stayLoggedIn) {
+  const target = stayLoggedIn ? localStorage : sessionStorage;
+  const source = stayLoggedIn ? sessionStorage : localStorage;
+
+  try {
+    getJgcSupabaseAuthStorageKeys(source).forEach((key) => {
+      const value = source.getItem(key);
+      if (value !== null) {
+        target.setItem(key, value);
+        source.removeItem(key);
+      }
+    });
+    localStorage.setItem("jgcStayLoggedIn", stayLoggedIn ? "true" : "false");
+  } catch (error) {
+    console.warn("Supabase session persistence could not be changed.", error);
+  }
+}
+
 function createJgcSupabaseClient() {
   return window.supabase
-    ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY)
+    ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY, {
+        auth: {
+          persistSession: true,
+          storage: JGC_SUPABASE_AUTH_STORAGE
+        }
+      })
     : null;
 }
+
+window.setJgcAuthPersistencePreference = setJgcAuthPersistencePreference;
 
 function getJgcDiagnosticsQueue() {
   try {

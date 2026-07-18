@@ -759,8 +759,8 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=29"></script>
-<script src="auth.js?v=6"></script>
+<script src="common.js?v=30"></script>
+<script src="auth.js?v=7"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const LOGIN_NOTES_KEY = "jgc_login_notes_v1";
@@ -985,6 +985,8 @@ async function signIn() {
     return;
   }
 
+  const stayLoggedIn = document.getElementById("stayLoggedIn").checked;
+  setJgcAuthPersistencePreference(stayLoggedIn);
   setStatus("Signing in...");
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
@@ -994,7 +996,6 @@ async function signIn() {
     return;
   }
 
-  const stayLoggedIn = document.getElementById("stayLoggedIn").checked;
   await loadJgcProfileAndEnter(supabaseClient, data.user, setStatus, { stayLoggedIn });
 }
 

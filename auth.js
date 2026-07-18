@@ -65,6 +65,7 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
     }
   }
 
+  setJgcAuthPersistencePreference(stayLoggedIn);
   localStorage.setItem("currentWorker", profile.worker_key);
   localStorage.setItem("currentWorkerDisplay", profile.display_name);
   localStorage.setItem("currentUserEmail", profile.email);
@@ -72,10 +73,6 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
   localStorage.setItem("currentAccountStatus", profile.account_status || "approved");
   localStorage.setItem("jgcStayLoggedIn", stayLoggedIn ? "true" : "false");
   sessionStorage.setItem("jgcActiveSession", "true");
-
-  if (!stayLoggedIn) {
-    await supabaseClient.auth.signOut();
-  }
 
   window.location.href = isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html";
 }
