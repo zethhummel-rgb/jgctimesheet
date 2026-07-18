@@ -72,6 +72,120 @@ function renderVacationCalendar() {
     calendar.innerHTML = html;
 }
 
+function renderAdminVacationTable(rows) {
+    if (!rows.length) {
+        return '<p class="jgc-archive__empty">No vacation requests in this section.</p>';
+    }
+
+    return `
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
+                <thead>
+                    <tr>
+                        <th>Dates</th>
+                        <th>Days</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                        <th>Admin Note</th>
+                        <th>Actions</th>
+                        <th>Delete</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map((request) => `
+                        <tr>
+                            <td>
+                                ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
+                                ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                            </td>
+                            <td>${Number(request.total_days || 0).toFixed(1)}</td>
+                            <td>${escapeHtml(request.request_type)}</td>
+                            <td><span class="jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(formatVacationStatus(request.status))}</span></td>
+                            <td>${escapeHtml(request.reason || "")}</td>
+                            <td>
+                                <textarea class="jgc-textarea" id="vacationNote-${escapeHtml(request.id)}" rows="3" placeholder="Optional note">${escapeHtml(request.admin_note || "")}</textarea>
+                                ${request.reviewed_by ? '<div class="small">Reviewed by ' + escapeHtml(request.reviewed_by) + ' on ' + escapeHtml(formatDate(request.reviewed_at)) + '</div>' : ""}
+                            </td>
+                            <td>
+                                <div class="actions jgc-table-actions">
+                                    <button type="button" class="jgc-button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
+                                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
+                                </div>
+                            </td>
+                            <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getVacationWorkerGroupKey(request) {
+    return normalizeWorkerName(request.worker_display_name || request.worker_name) || "unknown employee";
+}
+
+function groupVacationRequestsByWorker(rows) {
+    const groupsByWorker = new Map();
+
+    rows.forEach((request) => {
+        const workerKey = getVacationWorkerGroupKey(request);
+
+        if (!groupsByWorker.has(workerKey)) {
+            groupsByWorker.set(workerKey, {
+                key: workerKey,
+                name: request.worker_display_name || request.worker_name || "Unknown Employee",
+                requests: []
+            });
+        }
+
+        groupsByWorker.get(workerKey).requests.push(request);
+    });
+
+    return Array.from(groupsByWorker.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+let vacationLazyGroupRows = new Map();
+
+function loadVacationEmployeeGroup(details) {
+    if (!details || !details.open) {
+        return;
+    }
+
+    const body = details.querySelector("[data-vacation-lazy-body]");
+
+    if (!body || body.dataset.loaded === "true") {
+        return;
+    }
+
+    const rows = vacationLazyGroupRows.get(details.dataset.vacationWorker) || [];
+    body.innerHTML = renderAdminVacationTable(rows);
+    body.dataset.loaded = "true";
+}
+
+function renderVacationEmployeeGroups(rows, openGroups, openFilteredGroups) {
+    const groups = groupVacationRequestsByWorker(rows);
+    vacationLazyGroupRows = new Map(groups.map((group) => [group.key, group.requests]));
+
+    return `<div class="jgc-archive-list">${groups.map((group) => {
+        const isOpen = openFilteredGroups || openGroups.has(group.key);
+        const pendingCount = group.requests.filter((request) => String(request.status || "pending").toLowerCase() === "pending").length;
+        const requestLabel = group.requests.length + " request" + (group.requests.length === 1 ? "" : "s");
+        const countLabel = pendingCount ? requestLabel + " | " + pendingCount + " pending" : requestLabel;
+
+        return `
+            <details class="jgc-archive" data-vacation-worker="${escapeHtml(group.key)}"${isOpen ? " open" : ""} ontoggle="loadVacationEmployeeGroup(this)">
+                <summary>
+                    <span class="jgc-archive__title">${escapeHtml(group.name)}</span>
+                    <span class="jgc-archive__count">${escapeHtml(countLabel)}</span>
+                </summary>
+                <div class="jgc-archive__body" data-vacation-lazy-body data-loaded="${isOpen ? "true" : "false"}">${isOpen ? renderAdminVacationTable(group.requests) : ""}</div>
+            </details>
+        `;
+    }).join("")}</div>`;
+}
+
 function renderVacationRequests() {
     const workerFilter = document.getElementById("vacationWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("vacationStatusFilter").value;
@@ -89,52 +203,10 @@ function renderVacationRequests() {
     }
 
     renderVacationCalendar();
-
-    list.innerHTML = `
-        <div class="table-wrap jgc-table-wrap">
-            <table class="jgc-table">
-                <thead>
-                    <tr>
-                        <th>Worker</th>
-                        <th>Dates</th>
-                        <th>Days</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                        <th>Admin Note</th>
-                        <th>Actions</th>
-                        <th>Delete</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((request) => `
-                        <tr>
-                            <td>${escapeHtml(request.worker_display_name || request.worker_name)}</td>
-                            <td>
-                                ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
-                                ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
-                            </td>
-                            <td>${Number(request.total_days || 0).toFixed(1)}</td>
-                            <td>${escapeHtml(request.request_type)}</td>
-                            <td><span class="jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(formatVacationStatus(request.status))}</span></td>
-                            <td>${escapeHtml(request.reason || "")}</td>
-                            <td>
-                                <textarea class="jgc-textarea" id="vacationNote-${request.id}" rows="3" placeholder="Optional note">${escapeHtml(request.admin_note || "")}</textarea>
-                                ${request.reviewed_by ? '<div class="small">Reviewed by ' + escapeHtml(request.reviewed_by) + ' on ' + escapeHtml(formatDate(request.reviewed_at)) + '</div>' : ""}
-                            </td>
-                            <td>
-                                <div class="actions jgc-table-actions">
-                                    <button type="button" class="jgc-button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
-                                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
-                                </div>
-                            </td>
-                            <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const openGroups = new Set(Array.from(list.querySelectorAll("details[data-vacation-worker][open]"))
+        .map((details) => details.dataset.vacationWorker));
+    const filtersActive = Boolean(workerFilter || statusFilter);
+    list.innerHTML = renderVacationEmployeeGroups(filtered, openGroups, filtersActive);
 }
 
 async function reviewVacationRequest(id, status) {

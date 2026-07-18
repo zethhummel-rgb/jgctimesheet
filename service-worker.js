@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "597";
+const JGC_RELEASE_ID = "599";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -76,7 +76,7 @@ const JGC_APP_SHELL = [
   "./offline-sync.js?v=2",
   "./admin-backups.js?v=3",
   "./admin-contacts.js?v=1",
-  "./admin-vacation.js?v=1",
+  "./admin-vacation.js?v=2",
   "./admin-notices.js?v=1",
   "./admin-certificates.js?v=3",
   "./admin-inspections.js?v=3",

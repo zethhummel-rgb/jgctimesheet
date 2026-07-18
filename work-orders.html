@@ -1026,6 +1026,10 @@ const WORK_ORDER_EMAIL_RECIPIENTS = [
 ];
 let jobs = [];
 let workOrders = [];
+let activeWorkOrders = [];
+let submittedWorkOrders = [];
+let submittedWorkOrdersLoaded = false;
+let submittedWorkOrdersLoading = false;
 let purchaseOrders = [];
 let labourRows = [];
 let equipmentItems = [];
@@ -2354,8 +2358,15 @@ function renderSubmittedInfo(wo) {
     : "";
 }
 
-function setWorkOrderManagementView(view) {
+async function setWorkOrderManagementView(view) {
   workOrderManagementView = view === "submitted" ? "submitted" : "active";
+
+  if (workOrderManagementView === "submitted" && !submittedWorkOrdersLoaded) {
+    renderWorkOrders();
+    await loadSubmittedWorkOrders();
+    return;
+  }
+
   renderWorkOrders();
 }
 
@@ -2381,6 +2392,13 @@ function renderWorkOrders() {
   const statusFilter = document.getElementById("woStatusFilter").value;
   const dateFilter = document.getElementById("woDateFilter").value;
   updateWorkOrderManagementTabs();
+
+  if (workOrderManagementView === "submitted" && submittedWorkOrdersLoading && !submittedWorkOrdersLoaded) {
+    status.textContent = "Loading submitted work orders...";
+    list.innerHTML = "";
+    return;
+  }
+
   const filtered = workOrders.filter((wo) => {
     const text = [
       wo.wo_number,
@@ -3578,24 +3596,184 @@ async function loadTimesheetEntries() {
   renderLabourPreview();
 }
 
+function sortLoadedWorkOrders(rows) {
+  return rows.sort((a, b) => {
+    const dateCompare = String(b.work_order_date || "").localeCompare(String(a.work_order_date || ""));
+    return dateCompare || String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+}
+
+function syncLoadedWorkOrders() {
+  const recordsById = new Map();
+  activeWorkOrders.concat(submittedWorkOrders).forEach((workOrder) => {
+    if (workOrder && workOrder.id) {
+      recordsById.set(String(workOrder.id), workOrder);
+    }
+  });
+  workOrders = sortLoadedWorkOrders(Array.from(recordsById.values()));
+}
+
+async function loadWorkOrderRowsForIds(table, workOrderIds, orderColumn) {
+  const rows = [];
+
+  for (let index = 0; index < workOrderIds.length; index += 100) {
+    let query = supabaseClient
+      .from(table)
+      .select("*")
+      .in("work_order_id", workOrderIds.slice(index, index + 100));
+
+    if (orderColumn) {
+      query = query.order(orderColumn, { ascending: true });
+    }
+
+    const result = await query;
+    if (result.error) {
+      return { data: [], error: result.error };
+    }
+    rows.push(...(result.data || []));
+  }
+
+  return { data: rows, error: null };
+}
+
+function replaceRelatedRowsForWorkOrders(currentRows, loadedRows, workOrderIds, append) {
+  if (!append) {
+    return loadedRows || [];
+  }
+
+  const idSet = new Set(workOrderIds.map(String));
+  return currentRows
+    .filter((row) => !idSet.has(String(row.work_order_id || "")))
+    .concat(loadedRows || []);
+}
+
+async function loadDigitalPoCountsForWorkOrders(workOrderIds, append) {
+  const nextCounts = append ? { ...digitalPoCounts } : {};
+  workOrderIds.forEach((id) => delete nextCounts[id]);
+  const linkResults = [];
+
+  for (let index = 0; index < workOrderIds.length; index += 100) {
+    linkResults.push(await supabaseClient
+      .from("digital_po_work_order_links")
+      .select("work_order_id,po_id")
+      .in("work_order_id", workOrderIds.slice(index, index + 100)));
+  }
+
+  const digitalPoLinkError = linkResults.find((result) => result.error);
+  if (!digitalPoLinkError) {
+    linkResults.forEach((result) => {
+      (result.data || []).forEach((link) => {
+        nextCounts[link.work_order_id] = Number(nextCounts[link.work_order_id] || 0) + 1;
+      });
+    });
+    digitalPoCounts = nextCounts;
+    return;
+  }
+
+  const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
+    p_work_order_ids: workOrderIds
+  });
+  if (!digitalPoCountError) {
+    (digitalPoCountRows || []).forEach((row) => {
+      nextCounts[row.work_order_id] = Number(row.po_count || 0);
+    });
+    digitalPoCounts = nextCounts;
+  } else {
+    console.warn("Digital PO counts could not be loaded.", digitalPoLinkError.error, digitalPoCountError);
+  }
+}
+
+async function loadWorkOrderRelatedData(workOrderRows, append = false) {
+  const workOrderIds = (workOrderRows || []).map((workOrder) => workOrder.id).filter(Boolean);
+
+  if (!workOrderIds.length) {
+    if (!append) {
+      purchaseOrders = [];
+      labourRows = [];
+      workOrderEquipmentRows = [];
+      rentalRows = [];
+      materialRows = [];
+      miscRows = [];
+      travelRows = [];
+      digitalPoCounts = {};
+    }
+    return;
+  }
+
+  const [poResult, labourResult, equipmentResult, rentalResult, materialResult, miscResult, travelResult] = await Promise.all([
+    loadWorkOrderRowsForIds("work_order_purchase_orders", workOrderIds, "sort_order"),
+    loadWorkOrderRowsForIds("work_order_labour", workOrderIds, "employee_name"),
+    loadWorkOrderRowsForIds("work_order_equipment", workOrderIds),
+    loadWorkOrderRowsForIds("work_order_rentals", workOrderIds),
+    loadWorkOrderRowsForIds("work_order_materials", workOrderIds),
+    loadWorkOrderRowsForIds("work_order_misc_invoices", workOrderIds),
+    loadWorkOrderRowsForIds("work_order_travel", workOrderIds)
+  ]);
+
+  purchaseOrders = replaceRelatedRowsForWorkOrders(purchaseOrders, poResult.data, workOrderIds, append);
+  labourRows = replaceRelatedRowsForWorkOrders(labourRows, labourResult.data, workOrderIds, append);
+  workOrderEquipmentRows = replaceRelatedRowsForWorkOrders(workOrderEquipmentRows, equipmentResult.data, workOrderIds, append);
+  rentalRows = replaceRelatedRowsForWorkOrders(rentalRows, rentalResult.data, workOrderIds, append);
+  materialRows = replaceRelatedRowsForWorkOrders(materialRows, materialResult.data, workOrderIds, append);
+  miscRows = replaceRelatedRowsForWorkOrders(miscRows, miscResult.data, workOrderIds, append);
+  travelRows = replaceRelatedRowsForWorkOrders(travelRows, travelResult.data, workOrderIds, append);
+  await loadDigitalPoCountsForWorkOrders(workOrderIds, append);
+}
+
+async function loadSubmittedWorkOrders(showLoading = true, options = {}) {
+  if (submittedWorkOrdersLoading || (submittedWorkOrdersLoaded && !options.force)) {
+    renderWorkOrders();
+    return;
+  }
+
+  submittedWorkOrdersLoading = true;
+  if (showLoading) {
+    renderWorkOrders();
+  }
+
+  const submittedResult = await supabaseClient
+    .from("work_orders")
+    .select("*")
+    .or("status.eq.submitted,locked.eq.true")
+    .order("work_order_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (submittedResult.error) {
+    submittedWorkOrders = [];
+    submittedWorkOrdersLoaded = false;
+    submittedWorkOrdersLoading = false;
+    syncLoadedWorkOrders();
+    document.getElementById("woListStatus").textContent = "Submitted work orders could not be loaded.";
+    return;
+  }
+
+  submittedWorkOrders = submittedResult.data || [];
+  await loadWorkOrderRelatedData(submittedWorkOrders, true);
+  submittedWorkOrdersLoaded = true;
+  submittedWorkOrdersLoading = false;
+  syncLoadedWorkOrders();
+  rebuildEmployeeDirectory();
+  renderWorkOrders();
+}
+
 async function loadWorkOrders(showLoading = true) {
   if (showLoading) {
     document.getElementById("woListStatus").textContent = "Loading work orders...";
   }
 
-  const [woResult, poResult, labourResult, equipmentResult, rentalResult, materialResult, miscResult, travelResult] = await Promise.all([
-    supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
-    supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
-    supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
-    supabaseClient.from("work_order_equipment").select("*"),
-    supabaseClient.from("work_order_rentals").select("*"),
-    supabaseClient.from("work_order_materials").select("*"),
-    supabaseClient.from("work_order_misc_invoices").select("*"),
-    supabaseClient.from("work_order_travel").select("*")
-  ]);
+  const woResult = await supabaseClient
+    .from("work_orders")
+    .select("*")
+    .neq("status", "submitted")
+    .or("locked.eq.false,locked.is.null")
+    .order("work_order_date", { ascending: false })
+    .order("created_at", { ascending: false });
 
   if (woResult.error) {
     workOrders = [];
+    activeWorkOrders = [];
+    submittedWorkOrders = [];
+    submittedWorkOrdersLoaded = false;
     purchaseOrders = [];
     labourRows = [];
     workOrderEquipmentRows = [];
@@ -3609,46 +3787,18 @@ async function loadWorkOrders(showLoading = true) {
     return;
   }
 
-  workOrders = woResult.data || [];
-  purchaseOrders = poResult.data || [];
-  labourRows = labourResult.data || [];
-  workOrderEquipmentRows = equipmentResult.data || [];
-  rentalRows = rentalResult.data || [];
-  materialRows = materialResult.data || [];
-  miscRows = miscResult.data || [];
-  travelRows = travelResult.data || [];
-  digitalPoCounts = {};
-  if (workOrders.length) {
-    const workOrderIds = workOrders.map((workOrder) => workOrder.id);
-    const linkResults = [];
-    for (let index = 0; index < workOrderIds.length; index += 100) {
-      linkResults.push(await supabaseClient
-        .from("digital_po_work_order_links")
-        .select("work_order_id,po_id")
-        .in("work_order_id", workOrderIds.slice(index, index + 100)));
-    }
-    const digitalPoLinkError = linkResults.find((result) => result.error);
-    if (!digitalPoLinkError) {
-      digitalPoCounts = linkResults.reduce((counts, result) => {
-        (result.data || []).forEach((link) => {
-          counts[link.work_order_id] = Number(counts[link.work_order_id] || 0) + 1;
-        });
-        return counts;
-      }, {});
-    } else {
-      const { data: digitalPoCountRows, error: digitalPoCountError } = await supabaseClient.rpc("digital_po_work_order_counts", {
-        p_work_order_ids: workOrderIds
-      });
-      if (!digitalPoCountError) {
-        digitalPoCounts = (digitalPoCountRows || []).reduce((counts, row) => {
-          counts[row.work_order_id] = Number(row.po_count || 0);
-          return counts;
-        }, {});
-      } else {
-        console.warn("Digital PO counts could not be loaded.", digitalPoLinkError.error, digitalPoCountError);
-      }
-    }
+  activeWorkOrders = woResult.data || [];
+  submittedWorkOrders = [];
+  submittedWorkOrdersLoaded = false;
+  submittedWorkOrdersLoading = false;
+  await loadWorkOrderRelatedData(activeWorkOrders, false);
+  syncLoadedWorkOrders();
+
+  if (workOrderManagementView === "submitted") {
+    await loadSubmittedWorkOrders(false, { force: true });
+    return;
   }
+
   rebuildEmployeeDirectory();
   renderWorkOrders();
 }
@@ -3945,6 +4095,9 @@ Promise.all([loadJobs(), loadEquipment(), loadWorkOrders(), loadTimesheetEntries
   await refreshOpenWorkOrderLabourRows();
   await loadWorkOrders(false);
   await autoSubmitReadyWorkOrders();
+  if (requestedWorkOrderId && !workOrders.some((workOrder) => String(workOrder.id) === String(requestedWorkOrderId))) {
+    await loadSubmittedWorkOrders(false);
+  }
   openRequestedEmbeddedWorkOrder();
   if (!requestedWorkOrderId) {
     restoreLocalWorkOrderDraft();

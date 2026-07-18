@@ -309,6 +309,87 @@ test("admin inspection categories build their tables only when opened", async ({
   await expectNoRuntimeErrors(errors, "admin inspection categories");
 });
 
+test("admin vacation requests build each employee table only when opened", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderVacationRequests === "function");
+  await page.locator("#vacationTab").click();
+  await expect(page.locator("#vacationSection")).toBeVisible();
+
+  await page.evaluate(() => {
+    vacationRequests = [
+      {
+        id: "smoke-vacation-one",
+        worker_name: "smoke worker one",
+        worker_display_name: "Smoke Worker One",
+        start_date: "2026-07-20",
+        end_date: "2026-07-21",
+        return_date: "2026-07-22",
+        total_days: 2,
+        request_type: "paid",
+        status: "pending",
+        reason: "Smoke test"
+      },
+      {
+        id: "smoke-vacation-two",
+        worker_name: "smoke worker two",
+        worker_display_name: "Smoke Worker Two",
+        start_date: "2026-07-23",
+        end_date: "2026-07-23",
+        return_date: "2026-07-24",
+        total_days: 1,
+        request_type: "unpaid",
+        status: "approved",
+        reason: "Smoke test"
+      }
+    ];
+    renderVacationRequests();
+  });
+
+  const groups = page.locator("#vacationList > .jgc-archive-list > details[data-vacation-worker]");
+  await expect(groups).toHaveCount(2);
+  await expect(page.locator("#vacationList table")).toHaveCount(0);
+
+  const firstWorker = groups.filter({ hasText: "Smoke Worker One" });
+  await firstWorker.locator("summary").click();
+  await expect(firstWorker.locator("[data-vacation-lazy-body]")).toHaveAttribute("data-loaded", "true");
+  await expect(firstWorker.locator("table")).toHaveCount(1);
+  await expect(page.locator("#vacationList table")).toHaveCount(1);
+  await expectNoRuntimeErrors(errors, "admin vacation employee groups");
+});
+
+test("employee submitted work orders load only after their tab is clicked", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const workOrderRequests = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/rest/v1/work_orders")) {
+      workOrderRequests.push(decodeURIComponent(request.url()));
+    }
+  });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/work-orders.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() =>
+    typeof window.loadSubmittedWorkOrders === "function" &&
+    document.getElementById("woListStatus")?.textContent.includes("active work order")
+  );
+  await page.waitForTimeout(250);
+
+  expect(await page.evaluate(() => submittedWorkOrdersLoaded)).toBe(false);
+  expect(workOrderRequests.some((url) => url.includes("status.eq.submitted"))).toBe(false);
+
+  await page.locator("#workOrderManagementCard .collapse-header").click();
+  await expect(page.locator("#managementBody")).toBeVisible();
+  await page.locator("#woSubmittedTabButton").click();
+  await page.waitForFunction(() => submittedWorkOrdersLoaded && !submittedWorkOrdersLoading);
+
+  expect(workOrderRequests.some((url) => url.includes("status.eq.submitted"))).toBe(true);
+  await expect(page.locator("#woSubmittedTabButton")).toHaveClass(/active/);
+  await expectNoRuntimeErrors(errors, "employee submitted work order lazy loading");
+});
+
 test("purchase order list tabs and key controls respond", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
