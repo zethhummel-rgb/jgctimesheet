@@ -244,12 +244,6 @@ function getSelectedDashboardJob() {
     return availableJobs.find((job) => (job.job_number || job.id) === selectedValue) || availableJobs[0] || null;
 }
 
-function getArchiveCutoffDate() {
-    const date = new Date();
-    date.setMonth(date.getMonth() + 2);
-    return date.toISOString().slice(0, 10);
-}
-
 function shouldShowJobOnDashboard(job) {
     if (!job) {
         return false;
@@ -259,13 +253,13 @@ function shouldShowJobOnDashboard(job) {
         return true;
     }
 
-    return Boolean(job.archive_until && String(job.archive_until) >= new Date().toISOString().slice(0, 10));
+    return Boolean(job.removed_from_import_at);
 }
 
 function getArchivedDashboardJobs() {
     return jobs
         .filter((job) => job.active === false && shouldShowJobOnDashboard(job))
-        .sort((a, b) => String(a.archive_until || "").localeCompare(String(b.archive_until || "")));
+        .sort((a, b) => String(b.removed_from_import_at || "").localeCompare(String(a.removed_from_import_at || "")));
 }
 
 function getJobMatchTokens(job) {
@@ -898,15 +892,14 @@ function renderJobDashboard() {
                 </div>
             </section>
             <details class="job-dashboard-panel">
-                <summary style="cursor:pointer;color:#37f05a;font-weight:900;">Archived Jobs</summary>
+                <summary style="cursor:pointer;color:#37f05a;font-weight:900;">Inactive Jobs</summary>
                 <div style="margin-top:12px;">
-                    ${renderDashboardTable(["Job Number", "Job Name", "Project Manager", "Removed", "Archive Until"], archivedJobs, (row) => [
+                    ${renderDashboardTable(["Job Number", "Job Name", "Project Manager", "Made Inactive"], archivedJobs, (row) => [
                         row.job_number || "",
                         row.job_name || "",
                         row.project_manager || "",
-                        row.removed_from_import_at ? formatDate(row.removed_from_import_at) : "",
-                        row.archive_until ? formatDate(row.archive_until) : ""
-                    ], "No archived jobs are currently being retained.")}
+                        row.removed_from_import_at ? formatDate(row.removed_from_import_at) : ""
+                    ], "No jobs have been made inactive by a job-list update.")}
                 </div>
             </details>
         </div>
@@ -1013,7 +1006,7 @@ async function toggleJobActive(jobId, isActive) {
     const payload = {
         active: isActive,
         removed_from_import_at: isActive ? null : new Date().toISOString(),
-        archive_until: isActive ? null : getArchiveCutoffDate(),
+        archive_until: null,
         updated_at: new Date().toISOString()
     };
 
@@ -1200,7 +1193,7 @@ async function importJobsFromExcel() {
                 .update({
                     active: false,
                     removed_from_import_at: new Date().toISOString(),
-                    archive_until: getArchiveCutoffDate(),
+                    archive_until: null,
                     updated_at: new Date().toISOString()
                 })
                 .in("job_number", removedJobNumbers);
@@ -1213,7 +1206,7 @@ async function importJobsFromExcel() {
         }
 
         fileInput.value = "";
-        status.textContent = "Import complete: " + records.length + " jobs imported from " + sheetNames.join(", ") + " (" + activeJobCount + " active, " + inactiveJobCount + " inactive). " + skippedCancelled + " red row" + (skippedCancelled === 1 ? " was" : "s were") + " skipped as cancelled. " + highlightedInactive + " other highlighted row" + (highlightedInactive === 1 ? " was" : "s were") + " imported as inactive. " + removedJobNumbers.length + " jobs missing from the workbook were archived for 2 months. " + skippedIncomplete + " incomplete rows skipped.";
+        status.textContent = "Import complete: " + records.length + " jobs imported from " + sheetNames.join(", ") + " (" + activeJobCount + " active, " + inactiveJobCount + " inactive). " + skippedCancelled + " red row" + (skippedCancelled === 1 ? " was" : "s were") + " skipped as cancelled. " + highlightedInactive + " other highlighted row" + (highlightedInactive === 1 ? " was" : "s were") + " imported as inactive. " + removedJobNumbers.length + " jobs missing from the workbook were marked inactive and retained. " + skippedIncomplete + " incomplete rows skipped.";
         await loadJobsManagement();
     } catch (error) {
         status.textContent = "Could not import this Excel file.";

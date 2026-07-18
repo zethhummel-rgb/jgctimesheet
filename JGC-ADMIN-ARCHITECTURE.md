@@ -14,7 +14,7 @@ The Admin portal is being split gradually so each release remains testable and t
 - `admin-inspections.js` owns inspection list rendering, submitted-detail views, vehicle inspection print views, deletion, and related notification cleanup.
 - `admin-reports.js` owns report subtab behavior, report-table rendering, and JSA, toolbox talk, accident, and injury acknowledgement summaries.
 - `admin-employee-profile.js` owns employee profile selection, dashboard rendering, profile detail and photo updates, and profile sick-day entry.
-- `admin-jobs.js` owns the Job Dashboard, job-list rendering, Excel import rules, active/inactive management, and job-level WO/PO navigation.
+- `admin-jobs.js` owns the Job Dashboard, job-list rendering, Excel import rules, permanent active/inactive management, and job-level WO/PO navigation.
 - Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
 - Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
 
