@@ -39,6 +39,12 @@
     objectUrls: new WeakMap()
   };
 
+  function reportDiagnostic(options) {
+    if (typeof window.logJgcDiagnostic === "function") {
+      window.logJgcDiagnostic(options);
+    }
+  }
+
   function configure(options) {
     const config = options || {};
     state.projectUrl = String(config.projectUrl || state.projectUrl || "").replace(/\/$/, "");
@@ -503,6 +509,16 @@
             if (typeof config.onError === "function") {
               config.onError(uploadError);
             }
+            reportDiagnostic({
+              severity: "error",
+              category: "storage",
+              event_type: "storage_upload_failed",
+              source: "shared-uploads",
+              message,
+              record_table: config.recordTable || "",
+              record_id: config.recordId || "",
+              details: { bucket: config.bucket, path: config.path, file_name: file.name || "", file_size: file.size || 0, error: uploadError }
+            });
             resolve({ data: null, error: { message, originalError: uploadError } });
           }
         });
@@ -513,6 +529,16 @@
       if (input) {
         setInputStatus(input, message, "error", retry);
       }
+      reportDiagnostic({
+        severity: "error",
+        category: "storage",
+        event_type: "storage_upload_failed",
+        source: "shared-uploads",
+        message,
+        record_table: config.recordTable || "",
+        record_id: config.recordId || "",
+        details: { bucket: config.bucket, path: config.path, file_name: file.name || "", file_size: file.size || 0, error }
+      });
       return { data: null, error: { message, originalError: error } };
     }
   }
@@ -557,6 +583,14 @@
     }
     if (!client || !bucket || !path) {
       const message = "The secure file location is incomplete.";
+      reportDiagnostic({
+        severity: "error",
+        category: "storage",
+        event_type: "signed_storage_link_incomplete",
+        source: "shared-uploads",
+        message,
+        details: { bucket, path }
+      });
       writeViewerMessage(viewer, "File could not be opened", message, true);
       if (!viewer && typeof config.onError === "function") {
         config.onError({ message });
@@ -578,6 +612,16 @@
       return result;
     } catch (error) {
       const message = friendlyError(error, "File could not be opened.");
+      reportDiagnostic({
+        severity: "error",
+        category: "storage",
+        event_type: "signed_storage_link_failed",
+        source: "shared-uploads",
+        message,
+        record_table: config.recordTable || "",
+        record_id: config.recordId || "",
+        details: { bucket, path, error }
+      });
       writeViewerMessage(viewer, "File could not be opened", message, true);
       if (!viewer && typeof config.onError === "function") {
         config.onError({ message, originalError: error });

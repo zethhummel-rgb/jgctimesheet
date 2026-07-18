@@ -228,8 +228,25 @@
   }
 
   async function createBlob(data) {
-    const doc = await createDocument(data);
-    return doc.output("blob");
+    try {
+      const doc = await createDocument(data);
+      return doc.output("blob");
+    } catch (error) {
+      if (typeof window.logJgcDiagnostic === "function") {
+        window.logJgcDiagnostic({
+          severity: "error",
+          category: "pdf",
+          event_type: "purchase_order_pdf_failed",
+          source: "purchase-orders-pdf",
+          message: error && error.message || "Purchase order PDF could not be created.",
+          record_table: "digital_purchase_orders",
+          record_id: data && data.id || "",
+          related_url: data && data.id ? "purchase-orders-admin.html?po=" + encodeURIComponent(data.id) : "purchase-orders.html",
+          details: { po_number: data && data.po_number, error }
+        });
+      }
+      throw error;
+    }
   }
 
   async function view(data) {

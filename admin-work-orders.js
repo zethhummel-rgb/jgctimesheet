@@ -67,7 +67,7 @@ function getAdminWorkOrderStatusText(wo) {
 }
 
 function isAdminWorkOrderSubmittedForManagement(wo) {
-    return Boolean(wo && (wo.locked || wo.status === "submitted" || isAdminWorkOrderPendingSubmission(wo)));
+    return Boolean(wo && wo.status === "submitted");
 }
 
 function setAdminWorkOrderManagementView(view) {
@@ -164,6 +164,78 @@ async function closeAdminWorkOrderEditor() {
     await loadAdminWorkOrders();
 }
 
+function renderAdminWorkOrderTable(rows) {
+    return `
+        <div class="table-wrap admin-wo-management-table jgc-table-wrap">
+            <table class="jgc-table">
+                <thead>
+                    <tr>
+                        <th>WO #</th>
+                        <th>Date</th>
+                        <th>Attention</th>
+                        <th>Job</th>
+                        <th>Creator</th>
+                        <th>Status</th>
+                        <th>Labour</th>
+                        <th>POs</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map((wo) => {
+                        const labour = getAdminWorkOrderLabourRows(wo.id);
+                        const completeCount = labour.filter((row) => row.complete).length;
+                        const isLocked = Boolean(wo.locked || wo.status === "submitted");
+                        const isPendingSubmission = isAdminWorkOrderPendingSubmission(wo);
+                        const statusClass = escapeHtml(wo.status || "draft");
+                        return `
+                            <tr>
+                                <td>${escapeHtml(wo.wo_number || "")}</td>
+                                <td>${escapeHtml(wo.work_order_date || "")}</td>
+                                <td>${escapeHtml(wo.customer || "")}</td>
+                                <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
+                                <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
+                                <td><span class="pill jgc-badge ${wo.status === "submitted" ? "jgc-badge--info" : wo.status === "ready_for_submission" ? "jgc-badge--warning" : "jgc-badge--success"} ${statusClass} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getAdminWorkOrderStatusText(wo))}</span></td>
+                                <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
+                                <td>${getAdminWorkOrderPoCount(wo.id)}</td>
+                                <td>
+                                    <div class="actions jgc-table-actions">
+                                        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
+                                        ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
+                                        <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderAdminPastWorkOrderGroups(rows, hasActiveFilter) {
+    const list = document.getElementById("adminWorkOrdersList");
+    const openGroups = new Set(Array.from(list.querySelectorAll("details[open][data-archive-key]"), (details) => details.dataset.archiveKey));
+    const groups = window.JgcAdminHousekeeping?.groupByMonth(
+        rows,
+        (wo) => wo.submitted_at || wo.work_order_date || wo.created_at
+    ) || [{ key: "past", label: "Past Work Orders", items: rows }];
+
+    return `<div class="jgc-archive-list">${groups.map((group) => {
+        const isOpen = hasActiveFilter || openGroups.has(group.key);
+        return `
+            <details class="jgc-archive" data-archive-key="${escapeHtml(group.key)}"${isOpen ? " open" : ""}>
+                <summary>
+                    <span class="jgc-archive__title">${escapeHtml(group.label)}</span>
+                    <span class="jgc-archive__count">${group.items.length} WO${group.items.length === 1 ? "" : "s"}</span>
+                </summary>
+                <div class="jgc-archive__body">${renderAdminWorkOrderTable(group.items)}</div>
+            </details>
+        `;
+    }).join("")}</div>`;
+}
+
 function renderAdminWorkOrders() {
     const summary = document.getElementById("adminWorkOrdersSummary");
     const list = document.getElementById("adminWorkOrdersList");
@@ -221,61 +293,18 @@ function renderAdminWorkOrders() {
     `;
 
     if (listStatus) {
-        listStatus.textContent = filtered.length + " " + (adminWorkOrderManagementView === "submitted" ? "submitted" : "active") + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
+        listStatus.textContent = filtered.length + " " + (adminWorkOrderManagementView === "submitted" ? "past" : "active") + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
     }
 
     if (!filtered.length) {
-        list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (adminWorkOrderManagementView === "submitted" ? "submitted" : "active") + ' Work Orders found.</div>';
+        list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (adminWorkOrderManagementView === "submitted" ? "past" : "active") + ' Work Orders found.</div>';
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap admin-wo-management-table jgc-table-wrap">
-            <table class="jgc-table">
-                <thead>
-                    <tr>
-                        <th>WO #</th>
-                        <th>Date</th>
-                        <th>Attention</th>
-                        <th>Job</th>
-                        <th>Creator</th>
-                        <th>Status</th>
-                        <th>Labour</th>
-                        <th>POs</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((wo) => {
-                        const labour = getAdminWorkOrderLabourRows(wo.id);
-                        const completeCount = labour.filter((row) => row.complete).length;
-                        const isLocked = Boolean(wo.locked || wo.status === "submitted");
-                        const isPendingSubmission = isAdminWorkOrderPendingSubmission(wo);
-                        const statusClass = escapeHtml(wo.status || "draft");
-                        return `
-                            <tr>
-                                <td>${escapeHtml(wo.wo_number || "")}</td>
-                                <td>${escapeHtml(wo.work_order_date || "")}</td>
-                                <td>${escapeHtml(wo.customer || "")}</td>
-                                <td>${escapeHtml([wo.job_number, wo.job_name].filter(Boolean).join(" - "))}</td>
-                                <td>${escapeHtml(wo.created_by_name || wo.supervisor_name || "-")}</td>
-                                <td><span class="pill jgc-badge ${wo.status === "submitted" ? "jgc-badge--info" : wo.status === "ready_for_submission" ? "jgc-badge--warning" : "jgc-badge--success"} ${statusClass} ${isPendingSubmission ? "pending-submission" : ""}">${escapeHtml(getAdminWorkOrderStatusText(wo))}</span></td>
-                                <td>${labour.length ? completeCount + " / " + labour.length : "-"}</td>
-                                <td>${getAdminWorkOrderPoCount(wo.id)}</td>
-                                <td>
-                                    <div class="actions jgc-table-actions">
-                                        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="openAdminWorkOrderEditor('${escapeHtml(wo.id)}')">${isLocked ? "View" : "Edit"}</button>
-                                        ${!isLocked && String(wo.status || "").toLowerCase() === "ready_for_submission" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="moveAdminWorkOrderToDraft('${escapeHtml(wo.id)}')">Move to Draft</button>` : ""}
-                                        <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminWorkOrder('${escapeHtml(wo.id)}')">Delete</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                    }).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const hasActiveFilter = Boolean(search || statusFilter || dateFilter);
+    list.innerHTML = adminWorkOrderManagementView === "submitted"
+        ? renderAdminPastWorkOrderGroups(filtered, hasActiveFilter)
+        : renderAdminWorkOrderTable(filtered);
 }
 
 async function moveAdminWorkOrderToDraft(id) {

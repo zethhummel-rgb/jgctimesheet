@@ -356,56 +356,6 @@ th {
     border-color: #ff9a91;
 }
 
-.past-employees {
-    margin-top: 14px;
-    overflow: hidden;
-    background: #f7f9f6;
-    border: 1px solid #7b9180;
-    border-radius: 6px;
-}
-
-.past-employees > summary {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 13px;
-    color: #ffffff;
-    background: #283b30;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    list-style: none;
-}
-
-.past-employees > summary::-webkit-details-marker {
-    display: none;
-}
-
-.past-employees > summary::after {
-    margin-left: auto;
-    content: "+";
-    color: #70df86;
-    font-size: 20px;
-    line-height: 1;
-}
-
-.past-employees[open] > summary::after {
-    content: "-";
-}
-
-.past-employees-count {
-    padding: 3px 8px;
-    color: #ffffff;
-    background: #8f2420;
-    border-radius: 999px;
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.past-employees-body {
-    padding: 12px;
-}
-
 .accounts-empty-note {
     margin: 0 0 12px;
     color: #58635c;
@@ -588,7 +538,7 @@ button:hover {
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-  <script src="common.js?v=27"></script>
+  <script src="common.js?v=29"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -689,12 +639,12 @@ function renderAccounts() {
             : '<p class="accounts-empty-note">No current accounts match this search.</p>';
     const pastEmployeesMarkup = pastEmployees.length
         ? `
-            <details class="past-employees"${openPastEmployees ? " open" : ""}>
+            <details class="past-employees jgc-archive"${openPastEmployees ? " open" : ""}>
                 <summary>
-                    <span>Past Employees</span>
-                    <span class="past-employees-count">${pastEmployees.length} inactive</span>
+                    <span class="jgc-archive__title">Past Employees</span>
+                    <span class="jgc-archive__count">${pastEmployees.length} inactive</span>
                 </summary>
-                <div class="past-employees-body">
+                <div class="past-employees-body jgc-archive__body">
                     ${renderAccountsTable(pastEmployees)}
                 </div>
             </details>

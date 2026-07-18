@@ -1,3 +1,38 @@
+function renderAdminInspectionTable(rows) {
+    if (!rows.length) {
+        return '<p class="jgc-archive__empty">No inspection reports in this section.</p>';
+    }
+
+    return `
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
+                <thead>
+                    <tr><th>Date</th><th>Source</th><th>Type</th><th>Completed By</th><th>Asset</th><th>Details</th><th>Saved</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.map((inspection) => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(inspection.date))}</td>
+                            <td>${escapeHtml(inspection.source)}</td>
+                            <td>${escapeHtml(inspection.type || "")}</td>
+                            <td>${escapeHtml(inspection.completedBy || "")}</td>
+                            <td>${escapeHtml(inspection.asset || "")}</td>
+                            <td>${escapeHtml(inspection.details || "")}</td>
+                            <td>${escapeHtml(formatDate(inspection.saved))}</td>
+                            <td>
+                                <div class="actions jgc-table-actions">
+                                    <button type="button" class="jgc-button" onclick="viewAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">View</button>
+                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderInspections() {
     const list = document.getElementById("inspectionsList");
     const workerInput = document.getElementById("inspectionWorkerFilter");
@@ -63,34 +98,27 @@ function renderInspections() {
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Date</th><th>Source</th><th>Type</th><th>Completed By</th><th>Asset</th><th>Details</th><th>Saved</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((inspection) => `
-                        <tr>
-                            <td>${escapeHtml(formatDate(inspection.date))}</td>
-                            <td>${escapeHtml(inspection.source)}</td>
-                            <td>${escapeHtml(inspection.type || "")}</td>
-                            <td>${escapeHtml(inspection.completedBy || "")}</td>
-                            <td>${escapeHtml(inspection.asset || "")}</td>
-                            <td>${escapeHtml(inspection.details || "")}</td>
-                            <td>${escapeHtml(formatDate(inspection.saved))}</td>
-                            <td>
-                                <div class="actions jgc-table-actions">
-                                    <button type="button" class="jgc-button" onclick="viewAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">View</button>
-                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminInspection('${escapeHtml(inspection.kind)}', '${escapeHtml(inspection.id)}')">Delete</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const archiveDays = window.JgcAdminHousekeeping?.inspectionArchiveDays || 60;
+    const olderInspections = filtered.filter((inspection) =>
+        window.JgcAdminHousekeeping?.isOlderThanDays(inspection.date || inspection.saved, archiveDays)
+    );
+    const olderIds = new Set(olderInspections.map((inspection) => inspection.kind + ":" + inspection.id));
+    const recentInspections = filtered.filter((inspection) => !olderIds.has(inspection.kind + ":" + inspection.id));
+    const openArchive = Boolean(workerFilter || typeFilter) && olderInspections.length > 0;
+    const recentMarkup = recentInspections.length
+        ? renderAdminInspectionTable(recentInspections)
+        : '<p class="jgc-archive__empty">No inspections from the last ' + archiveDays + ' days match these filters.</p>';
+    const archiveMarkup = olderInspections.length ? `
+        <details class="jgc-archive"${openArchive ? " open" : ""}>
+            <summary>
+                <span class="jgc-archive__title">Older Inspections</span>
+                <span class="jgc-archive__count">${olderInspections.length} older than ${archiveDays} days</span>
+            </summary>
+            <div class="jgc-archive__body">${renderAdminInspectionTable(olderInspections)}</div>
+        </details>
+    ` : "";
+
+    list.innerHTML = recentMarkup + archiveMarkup;
 }
 
 function getAdminInspectionRecord(kind, id) {

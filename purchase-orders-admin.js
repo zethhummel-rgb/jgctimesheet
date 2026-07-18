@@ -164,9 +164,9 @@
     `;
   }
 
-  function renderSubmittedOrderTable(orders) {
+  function renderSubmittedOrderTable(orders, emptyText) {
     if (!orders.length) {
-      return '<p class="po-employee-group-empty">No submitted purchase orders.</p>';
+      return `<p class="po-employee-group-empty">${escapeText(emptyText || "No purchase orders in this archive.")}</p>`;
     }
     return `
       <div class="po-table-wrap jgc-table-wrap">
@@ -186,6 +186,8 @@
   function renderSubmittedGroups(orders) {
     const openGroups = new Set(Array.from(elements.submittedGroups.querySelectorAll("details[open]"), (group) => group.dataset.creatorGroup));
     const hasActiveFilter = Boolean(elements.search.value.trim() || elements.statusFilter.value || elements.dateFilter.value);
+    const isCancelledArchive = state.tab === "cancelled";
+    const archiveLabel = isCancelledArchive ? "cancelled" : "submitted / completed";
     const approvedCreators = state.profiles
       .filter((profile) => profile.account_status === "approved" && profile.can_create_digital_pos)
       .sort((a, b) => String(a.display_name || a.email || "").localeCompare(String(b.display_name || b.email || "")));
@@ -198,14 +200,16 @@
     }));
     const otherOrders = orders.filter((order) => !approvedIds.has(order.creator_profile_id));
     if (otherOrders.length) {
-      groups.push({ key: "other", name: "Other / Former Accounts", email: "Historical submitted POs", orders: otherOrders });
+      groups.push({ key: "other", name: "Other / Former Accounts", email: `Historical ${archiveLabel} POs`, orders: otherOrders });
     }
-    const visibleGroups = hasActiveFilter ? groups.filter((group) => group.orders.length) : groups;
+    const visibleGroups = (isCancelledArchive || hasActiveFilter)
+      ? groups.filter((group) => group.orders.length)
+      : groups;
 
     elements.submittedGroups.innerHTML = visibleGroups.map((group) => {
       const isOpen = hasActiveFilter || openGroups.has(group.key);
       return `
-        <details class="po-employee-order-group jgc-section" data-creator-group="${escapeText(group.key)}"${isOpen ? " open" : ""}>
+        <details class="po-employee-order-group jgc-section jgc-archive" data-creator-group="${escapeText(group.key)}"${isOpen ? " open" : ""}>
           <summary>
             <span class="po-employee-group-person">
               <strong>${escapeText(group.name)}</strong>
@@ -213,10 +217,10 @@
             </span>
             <span class="${badgeClass(group.orders.length ? "green" : "info")}">${group.orders.length} PO${group.orders.length === 1 ? "" : "s"}</span>
           </summary>
-          <div class="po-employee-group-content">${renderSubmittedOrderTable(group.orders)}</div>
+          <div class="po-employee-group-content jgc-archive__body">${renderSubmittedOrderTable(group.orders, `No ${archiveLabel} purchase orders.`)}</div>
         </details>
       `;
-    }).join("") || '<div class="po-submitted-empty jgc-notice">No submitted purchase orders match the current filters.</div>';
+    }).join("") || `<div class="po-submitted-empty jgc-notice">No ${escapeText(archiveLabel)} purchase orders match the current filters.</div>`;
   }
 
   function renderOrders() {
@@ -248,10 +252,10 @@
         (!status || order.workflow_status === status || order.email_status === status || order.receipt_status === status);
     });
 
-    const showSubmittedGroups = state.tab === "submitted";
-    elements.ordersTableWrap.hidden = showSubmittedGroups;
-    elements.submittedGroups.hidden = !showSubmittedGroups;
-    if (showSubmittedGroups) {
+    const showArchiveGroups = state.tab === "submitted" || state.tab === "cancelled";
+    elements.ordersTableWrap.hidden = showArchiveGroups;
+    elements.submittedGroups.hidden = !showArchiveGroups;
+    if (showArchiveGroups) {
       renderSubmittedGroups(orders);
     } else {
       elements.ordersBody.innerHTML = orders.map(renderOrderRow).join("") || '<tr class="po-empty-row"><td colspan="9">No purchase orders found.</td></tr>';

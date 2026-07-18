@@ -186,6 +186,31 @@ function Invoke-SupabaseJson($Uri, $Key, $Method = "Get", $Body = $null) {
   ConvertFrom-JsonItems -Json $responseText
 }
 
+function Write-BackupDiagnostic($Url, $Key, $Severity, $EventType, $Message, $Details = $null) {
+  try {
+    $detailValue = if ($null -ne $Details) { $Details } else { @{} }
+    $payload = [ordered]@{
+      client_event_id = "backup-" + [guid]::NewGuid().ToString()
+      occurred_at = (Get-Date).ToString("o")
+      severity = $Severity
+      category = "backup"
+      event_type = $EventType
+      source = "backup-jgc-portal.ps1"
+      message = $Message
+      details = $detailValue
+      profile_id = $null
+      actor_name = $env:USERNAME
+      page_url = ""
+      record_table = ""
+      record_id = ""
+      related_url = "admin.html?tab=backups"
+    }
+    Invoke-SupabaseJson -Uri "$Url/rest/v1/portal_diagnostics" -Key $Key -Method Post -Body $payload | Out-Null
+  } catch {
+    Write-Step ("Diagnostics note could not be uploaded: " + (Get-SafeErrorMessage $_))
+  }
+}
+
 function Test-SupabasePreflight($Url, $Key) {
   if (-not $Url -or $Url -notmatch "^https://[a-z0-9-]+\.supabase\.co$") {
     throw "The Supabase URL is missing or invalid."
@@ -665,7 +690,9 @@ Write-Step "Running Supabase authentication and schema preflight..."
 try {
   $preflight = Test-SupabasePreflight -Url $credential.url -Key $credential.key
 } catch {
-  Write-Error ("Backup preflight failed. No backup ZIP was created. " + (Get-SafeErrorMessage $_))
+  $preflightError = Get-SafeErrorMessage $_
+  Write-BackupDiagnostic -Url $credential.url -Key $credential.key -Severity "error" -EventType "backup_preflight_failed" -Message "Backup preflight failed. No backup ZIP was created." -Details @{ error = $preflightError }
+  Write-Error ("Backup preflight failed. No backup ZIP was created. " + $preflightError)
   exit 1
 }
 
@@ -920,10 +947,26 @@ try {
   }
 
   if ($overallStatus -ne "PASSED" -or $validation.status -ne "PASS") {
+    Write-BackupDiagnostic -Url $credential.url -Key $credential.key -Severity "error" -EventType "backup_failed" -Message "Backup was created but failed validation." -Details @{
+      archive = $zipPath
+      overallStatus = $overallStatus
+      validationStatus = $validation.status
+      databaseStatus = $databaseStatus
+      storageStatus = $storageStatus
+      websiteStatus = $websiteResult.status
+      failedItems = $failedItems.ToArray()
+    }
     Write-Error "Backup created but FAILED validation: $zipPath"
     exit 1
   }
 
+  Write-BackupDiagnostic -Url $credential.url -Key $credential.key -Severity "info" -EventType "backup_completed" -Message "Portal backup completed and passed validation." -Details @{
+    archive = $zipPath
+    databaseRows = $totalRows
+    storageFiles = $storageFiles
+    websiteFiles = $websiteResult.files
+    validationStatus = $validation.status
+  }
   Write-Step "Backup validation PASS."
   Write-Step "Backup complete: $zipPath"
   Write-Output $zipPath

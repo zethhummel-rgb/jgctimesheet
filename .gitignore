@@ -5,3 +5,6 @@ backup-secrets*.json
 *.credential.json
 *.zip
 jgc-portal-backup-*/
+node_modules/
+playwright-report/
+test-results/

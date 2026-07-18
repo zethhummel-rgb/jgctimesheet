@@ -514,6 +514,16 @@ function formatDate(value) {
 function logAdminLoadError(label, error) {
     if (error) {
         console.warn("Admin load issue - " + label + ":", error);
+        if (typeof window.logJgcDiagnostic === "function") {
+            window.logJgcDiagnostic({
+                severity: "error",
+                category: "admin",
+                event_type: "admin_data_load_failed",
+                source: "admin-core",
+                message: "Admin data could not load: " + label,
+                details: { error }
+            });
+        }
     }
 }
 

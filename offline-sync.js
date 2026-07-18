@@ -5,6 +5,7 @@
   let onlineMessageTimer = 0;
   let indicator = null;
   let indicatorText = null;
+  const loggedErrors = {};
 
   function normalizeState(source, detail) {
     const value = detail || {};
@@ -120,6 +121,22 @@
   function report(source, detail) {
     const normalized = normalizeState(source, detail);
     states[normalized.source] = normalized;
+    if (normalized.status === "error" && normalized.message) {
+      const errorKey = normalized.source + "|" + normalized.message;
+      if (loggedErrors[normalized.source] !== errorKey && typeof window.logJgcDiagnostic === "function") {
+        loggedErrors[normalized.source] = errorKey;
+        window.logJgcDiagnostic({
+          severity: "error",
+          category: "sync",
+          event_type: "offline_sync_failed",
+          source: normalized.source,
+          message: normalized.message,
+          details: { pending: normalized.pending, status: normalized.status }
+        });
+      }
+    } else {
+      delete loggedErrors[normalized.source];
+    }
     render();
   }
 

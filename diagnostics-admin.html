@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Diagnostics</title>
+  <link rel="manifest" href="manifest.json?v=5">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="diagnostics-admin.css?v=1">
+</head>
+<body class="diagnostics-page jgc-page">
+  <nav class="diagnostics-admin-tabs" aria-label="Admin navigation">
+    <a class="tab-button" href="admin.html?tab=summary">Summary</a>
+    <a class="tab-button" href="admin.html?tab=jobDashboard">Job Dashboard</a>
+    <a class="tab-button" href="admin.html?tab=timesheets">Timesheets</a>
+    <a class="tab-button" href="admin.html?tab=inspections">Inspections</a>
+    <a class="tab-button" href="admin.html?tab=vacation">Vacation Requests</a>
+    <a class="tab-button" href="admin.html?tab=tasks">Tasks</a>
+    <a class="tab-button" href="admin.html?tab=reports">Reports</a>
+    <a class="tab-button" href="admin.html?tab=workOrders">Work Orders</a>
+    <a class="tab-button" href="purchase-orders-admin.html">Purchase Orders</a>
+    <a class="tab-button" href="admin.html?tab=adminTools">Admin Tools</a>
+    <a class="tab-button active" aria-current="page" href="diagnostics-admin.html">Diagnostics</a>
+  </nav>
+
+  <main class="diagnostics-shell jgc-page-shell">
+    <header class="diagnostics-header jgc-page-header">
+      <div class="diagnostics-brand jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Portal Diagnostics</h1>
+      <p id="diagnosticsCurrentUser" class="diagnostics-user-line"></p>
+    </header>
+
+    <div id="diagnosticsNotice" class="diagnostics-notice jgc-notice" hidden role="status"></div>
+
+    <div class="diagnostics-toolbar jgc-toolbar">
+      <div class="jgc-actions">
+        <a class="jgc-button jgc-button--secondary" href="admin.html?tab=adminTools"><i data-lucide="wrench"></i> Admin Tools</a>
+      </div>
+      <div class="jgc-actions">
+        <span id="diagnosticsUpdatedAt" class="diagnostics-updated"></span>
+        <button id="diagnosticsRefreshButton" class="jgc-button" type="button"><i data-lucide="refresh-cw"></i> Refresh</button>
+      </div>
+    </div>
+
+    <section id="diagnosticsSummary" class="diagnostics-summary" aria-label="Diagnostics summary"></section>
+
+    <div class="diagnostics-tabs jgc-tabs" role="tablist" aria-label="Diagnostics views">
+      <button class="active jgc-tab" type="button" data-diagnostics-view="issues"><i data-lucide="triangle-alert"></i> Open Issues</button>
+      <button class="secondary jgc-tab" type="button" data-diagnostics-view="activity"><i data-lucide="save"></i> Recent Saves</button>
+      <button class="secondary jgc-tab" type="button" data-diagnostics-view="backups"><i data-lucide="database-backup"></i> Backup Results</button>
+      <button class="secondary jgc-tab" type="button" data-diagnostics-view="all"><i data-lucide="list-filter"></i> All Events</button>
+    </div>
+
+    <section class="diagnostics-panel jgc-panel">
+      <div class="diagnostics-filters jgc-filter-grid">
+        <div class="jgc-field diagnostics-search-field">
+          <label class="jgc-label" for="diagnosticsSearch">Search</label>
+          <input id="diagnosticsSearch" class="jgc-input" type="search" placeholder="Message, employee, PO, WO, page, or source">
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="diagnosticsCategory">Category</label>
+          <select id="diagnosticsCategory" class="jgc-select">
+            <option value="">All categories</option>
+            <option value="sync">Sync</option>
+            <option value="email">Email</option>
+            <option value="pdf">PDF</option>
+            <option value="storage">Storage</option>
+            <option value="backup">Backup</option>
+            <option value="save">Save activity</option>
+            <option value="admin">Admin</option>
+            <option value="system">System</option>
+          </select>
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="diagnosticsSeverity">Severity</label>
+          <select id="diagnosticsSeverity" class="jgc-select">
+            <option value="">All severities</option>
+            <option value="error">Error</option>
+            <option value="warning">Warning</option>
+            <option value="info">Information</option>
+          </select>
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="diagnosticsStatus">Status</label>
+          <select id="diagnosticsStatus" class="jgc-select">
+            <option value="open">Open</option>
+            <option value="resolved">Resolved</option>
+            <option value="">Open and resolved</option>
+          </select>
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="diagnosticsDate">Since</label>
+          <select id="diagnosticsDate" class="jgc-select">
+            <option value="1">Last 24 hours</option>
+            <option value="7" selected>Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="diagnostics-table-wrap jgc-table-wrap">
+        <table class="diagnostics-table jgc-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Category</th>
+              <th>Event</th>
+              <th>Employee / Source</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="diagnosticsBody"></tbody>
+        </table>
+      </div>
+      <div id="diagnosticsEmpty" class="diagnostics-empty" hidden>No matching diagnostics found.</div>
+    </section>
+  </main>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="common.js?v=29"></script>
+  <script src="diagnostics-admin.js?v=1"></script>
+</body>
+</html>

@@ -349,7 +349,20 @@ if (-not (Test-Path -LiteralPath $MirrorRoot -PathType Container)) {
             $null = $releaseFiles.Add($assetPath)
         }
     }
-    foreach ($fileName in @("service-worker.js", "verify-jgc-release.ps1", "run-jgc-release-check.bat", "JGC-RELEASE.md")) {
+    foreach ($fileName in @(
+        "service-worker.js",
+        "verify-jgc-release.ps1",
+        "run-jgc-release-check.bat",
+        "run-jgc-smoke-tests.ps1",
+        "run-jgc-smoke-tests.bat",
+        "playwright.config.js",
+        "package.json",
+        "package-lock.json",
+        "pnpm-lock.yaml",
+        "smoke-tests\static-server.js",
+        "smoke-tests\portal.smoke.spec.js",
+        "JGC-RELEASE.md"
+    )) {
         $null = $releaseFiles.Add($fileName)
     }
 

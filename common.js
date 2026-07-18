@@ -42,8 +42,10 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "4";
-const JGC_UPLOAD_SYSTEM_VERSION = "1";
+const JGC_DESIGN_SYSTEM_VERSION = "5";
+const JGC_UPLOAD_SYSTEM_VERSION = "2";
+const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
+const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
   { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
@@ -54,7 +56,8 @@ const JGC_ADMIN_NAV_ITEMS = [
   { key: "reports", label: "Reports", href: "admin.html?tab=reports" },
   { key: "workOrders", label: "Work Orders", href: "admin.html?tab=workOrders" },
   { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html" },
-  { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }
+  { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" },
+  { key: "diagnostics", label: "Diagnostics", href: "diagnostics-admin.html" }
 ];
 const JGC_ADMIN_TOOL_SECTIONS = new Set([
   "employeeProfile",
@@ -418,6 +421,7 @@ function applyJgcPortalName() {
     "policies-announcements.html": "Policies/Announcements",
     "purchase-orders.html": "Purchase Orders",
     "purchase-orders-admin.html": "Purchase Order Admin",
+    "diagnostics-admin.html": "Diagnostics",
     "reports.html": "Reports",
     "subcontractor.html": "Subcontractor Access"
   };
@@ -571,7 +575,7 @@ function activateJgcOfflineSupport() {
 
   window.__jgcSyncStates = window.__jgcSyncStates || {};
   const script = document.createElement("script");
-  script.src = "offline-sync.js?v=1";
+  script.src = "offline-sync.js?v=2";
   script.async = true;
   script.dataset.jgcOfflineSync = "true";
   document.head.appendChild(script);
@@ -590,6 +594,217 @@ function createJgcSupabaseClient() {
     ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY)
     : null;
 }
+
+function getJgcDiagnosticsQueue() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(JGC_DIAGNOSTICS_QUEUE_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveJgcDiagnosticsQueue(events) {
+  try {
+    localStorage.setItem(JGC_DIAGNOSTICS_QUEUE_KEY, JSON.stringify((events || []).slice(-100)));
+  } catch (error) {
+    console.warn("The local diagnostics queue could not be saved.", error);
+  }
+}
+
+function sanitizeJgcDiagnosticValue(value, depth) {
+  const level = Number(depth || 0);
+  if (level > 4) {
+    return "[DETAIL LIMIT]";
+  }
+  if (value === null || value === undefined || typeof value === "boolean" || typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return value.length > 1600 ? value.slice(0, 1600) + "..." : value;
+  }
+  if (value instanceof Error) {
+    return {
+      name: sanitizeJgcDiagnosticValue(value.name, level + 1),
+      message: sanitizeJgcDiagnosticValue(value.message, level + 1),
+      code: sanitizeJgcDiagnosticValue(value.code, level + 1),
+      stack: sanitizeJgcDiagnosticValue(value.stack, level + 1)
+    };
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 30).map(function(item) {
+      return sanitizeJgcDiagnosticValue(item, level + 1);
+    });
+  }
+  if (typeof value === "object") {
+    const clean = {};
+    Object.keys(value).slice(0, 50).forEach(function(key) {
+      if (/token|secret|password|authorization|cookie|api.?key|credential/i.test(key)) {
+        clean[key] = "[REDACTED]";
+        return;
+      }
+      clean[key] = sanitizeJgcDiagnosticValue(value[key], level + 1);
+    });
+    return clean;
+  }
+  return String(value);
+}
+
+function createJgcDiagnosticId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return "diag-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+}
+
+function getJgcDiagnosticActorName() {
+  try {
+    const worker = typeof getCurrentWorkerRecord === "function" ? getCurrentWorkerRecord() : null;
+    return String(worker && (worker.display || worker.email || worker.key) || "").trim();
+  } catch (error) {
+    return "";
+  }
+}
+
+function shouldRecordJgcDiagnostic(event) {
+  const key = [event.category, event.event_type, event.message, event.page_url, event.record_id].join("|");
+  const now = Date.now();
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(JGC_DIAGNOSTICS_DEDUPE_KEY) || "{}");
+    if (Number(saved[key] || 0) > now - 60000) {
+      return false;
+    }
+    saved[key] = now;
+    Object.keys(saved).forEach(function(savedKey) {
+      if (Number(saved[savedKey] || 0) < now - 300000) {
+        delete saved[savedKey];
+      }
+    });
+    sessionStorage.setItem(JGC_DIAGNOSTICS_DEDUPE_KEY, JSON.stringify(saved));
+  } catch (error) {
+    // Dedupe is optional when storage is unavailable.
+  }
+  return true;
+}
+
+function normalizeJgcDiagnosticEvent(options) {
+  const config = options || {};
+  const severity = ["info", "warning", "error"].includes(config.severity) ? config.severity : "error";
+  const category = ["sync", "email", "pdf", "storage", "backup", "save", "admin", "system"].includes(config.category)
+    ? config.category
+    : "system";
+  return {
+    client_event_id: String(config.client_event_id || createJgcDiagnosticId()),
+    occurred_at: config.occurred_at || new Date().toISOString(),
+    severity,
+    category,
+    event_type: String(config.event_type || "portal_error").slice(0, 140),
+    source: String(config.source || "portal").slice(0, 180),
+    message: String(config.message || "Portal issue").slice(0, 1600),
+    details: sanitizeJgcDiagnosticValue(config.details || {}, 0),
+    actor_name: String(config.actor_name || getJgcDiagnosticActorName()).slice(0, 240),
+    page_url: String(config.page_url || (window.location.pathname.split("/").pop() || "") + window.location.search).slice(0, 700),
+    record_table: String(config.record_table || "").slice(0, 140) || null,
+    record_id: String(config.record_id || "").slice(0, 240) || null,
+    related_url: String(config.related_url || "").slice(0, 700) || null
+  };
+}
+
+async function sendJgcDiagnosticEvent(event) {
+  const client = createJgcSupabaseClient();
+  if (!client || navigator.onLine === false) {
+    return false;
+  }
+
+  try {
+    const sessionResult = await client.auth.getSession();
+    const user = sessionResult.data && sessionResult.data.session
+      ? sessionResult.data.session.user
+      : null;
+    if (!user) {
+      return false;
+    }
+    const payload = Object.assign({}, event, { profile_id: user.id });
+    const result = await client.from("portal_diagnostics").insert(payload);
+    if (result.error && result.error.code !== "23505") {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function flushJgcDiagnostics() {
+  const queue = getJgcDiagnosticsQueue();
+  if (!queue.length || navigator.onLine === false) {
+    return { sent: 0, pending: queue.length };
+  }
+
+  const pending = [];
+  let sent = 0;
+  for (const event of queue) {
+    if (await sendJgcDiagnosticEvent(event)) {
+      sent += 1;
+    } else {
+      pending.push(event);
+    }
+  }
+  saveJgcDiagnosticsQueue(pending);
+  return { sent, pending: pending.length };
+}
+
+function logJgcDiagnostic(options) {
+  const event = normalizeJgcDiagnosticEvent(options);
+  if (!shouldRecordJgcDiagnostic(event)) {
+    return Promise.resolve(false);
+  }
+  const queue = getJgcDiagnosticsQueue();
+  queue.push(event);
+  saveJgcDiagnosticsQueue(queue);
+  return sendJgcDiagnosticEvent(event).then(function(sent) {
+    if (sent) {
+      saveJgcDiagnosticsQueue(getJgcDiagnosticsQueue().filter(function(item) {
+        return item.client_event_id !== event.client_event_id;
+      }));
+    }
+    return sent;
+  }).catch(function() {
+    return false;
+  });
+}
+
+window.logJgcDiagnostic = logJgcDiagnostic;
+window.flushJgcDiagnostics = flushJgcDiagnostics;
+window.addEventListener("online", function() {
+  runJgcBackgroundTask(flushJgcDiagnostics, 1200);
+});
+window.addEventListener("error", function(event) {
+  const message = String(event && event.message || "");
+  if (!message || message === "Script error." || /ResizeObserver loop/i.test(message)) {
+    return;
+  }
+  logJgcDiagnostic({
+    severity: "error",
+    category: "system",
+    event_type: "browser_error",
+    source: "window.error",
+    message,
+    details: { file: event.filename || "", line: event.lineno || 0, column: event.colno || 0, error: event.error || null }
+  });
+});
+window.addEventListener("unhandledrejection", function(event) {
+  const reason = event && event.reason;
+  logJgcDiagnostic({
+    severity: "error",
+    category: "system",
+    event_type: "unhandled_promise_rejection",
+    source: "window.unhandledrejection",
+    message: String(reason && reason.message || reason || "Unhandled promise rejection"),
+    details: { error: reason || null }
+  });
+});
+runJgcBackgroundTask(flushJgcDiagnostics, 3500);
 
 let jgcProjectJobOptions = null;
 
@@ -1007,6 +1222,10 @@ function getJgcAdminNavigationSection(page, adminNav) {
     return "purchaseOrders";
   }
 
+  if (page === "diagnostics-admin.html") {
+    return "diagnostics";
+  }
+
   if (page !== "admin.html") {
     return "adminTools";
   }
@@ -1066,9 +1285,9 @@ function renderJgcAdminNavigation(adminNav, page) {
 function markJgcAdminHeaderElements(page) {
   const title = page === "purchase-orders-admin.html"
     ? document.querySelector(".po-shell > h1")
-    : document.querySelector("body > h1, .hero h1, .top-actions h1");
-  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #workerName");
-  const brandRegion = document.querySelector(".logo-wrap, .po-brand, .hero, .top-actions .brand");
+    : document.querySelector("body > h1, .hero h1, .top-actions h1, .jgc-page-header h1");
+  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #diagnosticsCurrentUser, #workerName");
+  const brandRegion = document.querySelector(".logo-wrap, .po-brand, .diagnostics-brand, .hero, .top-actions .brand");
   const existingHeader = title && title.closest(".hero, .top-actions");
 
   if (title) {

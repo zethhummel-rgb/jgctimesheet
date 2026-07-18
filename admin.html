@@ -132,6 +132,10 @@
             <strong>Backups</strong>
             <span>Check backup status, force backup prep, and inspect backup files.</span>
         </button>
+        <button type="button" class="admin-tool-card" onclick="window.location.href='diagnostics-admin.html'">
+            <strong>Diagnostics</strong>
+            <span>Review failed syncs, email and PDF problems, storage errors, backup results, and recent saves.</span>
+        </button>
     </div>
 </div>
 
@@ -878,7 +882,7 @@
     <div class="admin-wo-management jgc-section">
         <div class="wo-management-tabs jgc-tabs" role="tablist" aria-label="Admin Work Order Management Views">
             <button id="adminWoActiveTabButton" type="button" role="tab" aria-selected="true" class="active jgc-tab" onclick="setAdminWorkOrderManagementView('active')">Active WOs</button>
-            <button id="adminWoSubmittedTabButton" type="button" role="tab" aria-selected="false" class="jgc-tab" onclick="setAdminWorkOrderManagementView('submitted')">Submitted WOs</button>
+            <button id="adminWoSubmittedTabButton" type="button" role="tab" aria-selected="false" class="jgc-tab" onclick="setAdminWorkOrderManagementView('submitted')">Past WOs</button>
         </div>
         <div class="filters jgc-filter-grid">
             <div class="jgc-field">
@@ -1088,21 +1092,22 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="common.js?v=27"></script>
+<script src="common.js?v=29"></script>
+<script src="admin-housekeeping.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=3"></script>
-<script src="admin-backups.js?v=2"></script>
+<script src="admin-backups.js?v=3"></script>
 <script src="admin-contacts.js?v=1"></script>
 <script src="admin-vacation.js?v=1"></script>
 <script src="admin-notices.js?v=1"></script>
-<script src="admin-certificates.js?v=1"></script>
-<script src="admin-inspections.js?v=1"></script>
+<script src="admin-certificates.js?v=2"></script>
+<script src="admin-inspections.js?v=2"></script>
 <script src="admin-reports.js?v=1"></script>
 <script src="admin-employee-profile.js?v=1"></script>
 <script src="admin-jobs.js?v=2"></script>
-<script src="admin-work-orders.js?v=1"></script>
+<script src="admin-work-orders.js?v=2"></script>
 <script src="admin-equipment.js?v=1"></script>
 <script src="admin-timesheets.js?v=1"></script>
 <script src="admin-summary.js?v=1"></script>
-<script src="admin-core.js?v=1"></script>
+<script src="admin-core.js?v=2"></script>
 </body>
 </html>

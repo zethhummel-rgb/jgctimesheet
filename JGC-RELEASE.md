@@ -7,10 +7,26 @@ Run `run-jgc-release-check.bat` before pushing portal changes to GitHub. You can
 - versioned asset references are consistent across pages;
 - every portal page is represented in the service-worker app shell;
 - service-worker entries exist and are not duplicated;
+- every cached portal page opens in Chromium without an uncaught JavaScript error;
+- login controls, admin tabs, PO tabs, and the mobile More menu respond correctly;
+- the service worker installs and controls a portal page in a real browser;
 - the shared design-system version matches the cached version; and
 - release files in the working folder match the `GitHub\jgctimesheet` mirror.
 
-The checker does not modify portal files. It exits with a failure status when a release problem is found, making the result suitable for a future automated deployment or Git hook.
+The browser checks use a local static server and a fake approved-admin session. Supabase, Google Script, and email requests are intercepted, so the tests do not read or change production data. The checker does not modify portal files. It exits with a failure status when a release problem is found, making the result suitable for a future automated deployment or Git hook.
+
+## One-Time Browser Setup
+
+From the portal folder, run:
+
+```powershell
+npm install
+npm run smoke:install
+```
+
+After setup, `run-jgc-release-check.bat` runs both the static release verifier and the browser smoke tests. To run only the browser checks, launch `run-jgc-smoke-tests.bat`. For visible browser troubleshooting, run `npm run smoke:headed`.
+
+The browser test page list comes from `JGC_APP_SHELL` in `service-worker.js`. Adding a page to the app shell automatically adds it to the page-opening smoke test. Focused actions live in `smoke-tests/portal.smoke.spec.js` and should be expanded when a new workflow introduces an important tab or command.
 
 ## Service Worker Rules
 

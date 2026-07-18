@@ -75,9 +75,23 @@ function getBackupHistory() {
 }
 
 function saveBackupHistory(record) {
-    const existing = getBackupHistory().filter((item) => item.fileName !== record.fileName);
-    const next = [record].concat(existing).slice(0, 12);
+    const savedRecord = { ...record, inspectedAt: new Date().toISOString() };
+    const existing = getBackupHistory().filter((item) => item.fileName !== savedRecord.fileName);
+    const next = [savedRecord].concat(existing).slice(0, 12);
     localStorage.setItem("jgcBackupHistory", JSON.stringify(next));
+    if (typeof window.logJgcDiagnostic === "function") {
+        const status = String(savedRecord.status || savedRecord.supabase || "Unknown");
+        const failed = /fail|unverified|not ready/i.test(status);
+        window.logJgcDiagnostic({
+            severity: failed ? "error" : "info",
+            category: "backup",
+            event_type: "backup_inspected",
+            source: "admin-backups",
+            message: "Backup inspection " + status + ": " + (savedRecord.fileName || "backup"),
+            details: savedRecord,
+            related_url: "admin.html?tab=backups"
+        });
+    }
     renderBackupHistory();
 }
 
@@ -309,5 +323,16 @@ async function inspectBackupFile() {
         setBackupStatus("backupInspectStatus", "Backup inspection result: " + (record.status || record.supabase || "Unknown"), failed);
     } catch (err) {
         setBackupStatus("backupInspectStatus", "Could not inspect backup: " + err.message, true);
+        if (typeof window.logJgcDiagnostic === "function") {
+            window.logJgcDiagnostic({
+                severity: "error",
+                category: "backup",
+                event_type: "backup_inspection_failed",
+                source: "admin-backups",
+                message: "Backup could not be inspected: " + (file.name || "backup"),
+                details: { error: err, file_name: file.name || "", file_size: file.size || 0 },
+                related_url: "admin.html?tab=backups"
+            });
+        }
     }
 }

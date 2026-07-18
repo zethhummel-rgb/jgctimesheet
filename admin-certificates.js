@@ -202,6 +202,40 @@ async function sendCertificateExpiryEmail(certificate) {
     }
 }
 
+function renderAdminCertificateTable(rows) {
+    if (!rows.length) {
+        return '<p class="jgc-archive__empty">No certificates in this section.</p>';
+    }
+
+    return `
+        <div class="table-wrap jgc-table-wrap">
+            <table class="jgc-table">
+                <thead>
+                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    ${rows.map((certificate) => {
+                        const status = getCertificateStatus(certificate.expiry_date);
+                        const tone = status === "Expired" ? "jgc-badge--danger"
+                            : status === "Expiring Soon" ? "jgc-badge--warning"
+                                : "jgc-badge--success";
+                        return `
+                            <tr>
+                                <td>${escapeHtml(certificate.worker_name)}</td>
+                                <td>${escapeHtml(certificate.certificate_name)}</td>
+                                <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+                                <td><span class="jgc-badge ${tone}">${escapeHtml(status)}</span></td>
+                                <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                                <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderCertificates() {
     const workerFilter = document.getElementById("certificateWorkerFilter").value.trim().toLowerCase();
     const statusFilter = document.getElementById("certificateStatusFilter").value;
@@ -219,27 +253,25 @@ function renderCertificates() {
         return;
     }
 
-    list.innerHTML = `
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Status</th><th>File</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((certificate) => `
-                        <tr>
-                            <td>${escapeHtml(certificate.worker_name)}</td>
-                            <td>${escapeHtml(certificate.certificate_name)}</td>
-                            <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
-                            <td>${escapeHtml(getCertificateStatus(certificate.expiry_date))}</td>
-                            <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
-                            <td><button type="button" class="delete-button" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
+    const expiredCertificates = filtered.filter((certificate) => getCertificateStatus(certificate.expiry_date) === "Expired");
+    const currentCertificates = filtered.filter((certificate) => getCertificateStatus(certificate.expiry_date) !== "Expired");
+    const openArchive = statusFilter === "Expired" || (Boolean(workerFilter) && expiredCertificates.length > 0);
+    const currentMarkup = currentCertificates.length
+        ? renderAdminCertificateTable(currentCertificates)
+        : statusFilter === "Expired"
+            ? ""
+            : '<p class="jgc-archive__empty">No current certificates match these filters.</p>';
+    const archiveMarkup = expiredCertificates.length ? `
+        <details class="jgc-archive"${openArchive ? " open" : ""}>
+            <summary>
+                <span class="jgc-archive__title">Expired Certificates</span>
+                <span class="jgc-archive__count">${expiredCertificates.length} expired</span>
+            </summary>
+            <div class="jgc-archive__body">${renderAdminCertificateTable(expiredCertificates)}</div>
+        </details>
+    ` : "";
+
+    list.innerHTML = currentMarkup + archiveMarkup;
 }
 
 function getMatrixStatusClass(status) {

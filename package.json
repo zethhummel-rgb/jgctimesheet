@@ -1,0 +1,12 @@
+{
+  "name": "jgc-portal-smoke-tests",
+  "private": true,
+  "scripts": {
+    "smoke": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run-jgc-smoke-tests.ps1",
+    "smoke:headed": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./run-jgc-smoke-tests.ps1 -Headed",
+    "smoke:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}
