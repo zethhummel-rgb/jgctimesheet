@@ -16,6 +16,7 @@ The Admin portal is being split gradually so each release remains testable and t
 - `admin-employee-profile.js` owns employee profile selection, dashboard rendering, profile detail and photo updates, and profile sick-day entry.
 - `admin-jobs.js` owns the Job Dashboard, job-list rendering, Excel import rules, permanent active/inactive management, and job-level WO/PO navigation.
 - `admin-work-orders.js` owns Work Order status gates, management lists, embedded-editor control, labour-worker approvals, linked PO counts, deletion, and refresh messaging.
+- `admin-equipment.js` owns equipment and vehicle administration, expiry alerts, maintenance logs, lift documents, inspection QR codes, and related Storage operations.
 - Shared visual rules continue to come from `styles.css`, `jgc-design-system.css`, and the feature design-system files already linked by `admin.html`.
 - Report and PDF styles generated inside JavaScript templates remain embedded with their generators.
 
@@ -38,7 +39,7 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-jobs.js`: job dashboard and job import/management behavior. This extraction is complete.
 - `admin-timesheets.js`: timesheet lists, editors, and PDF actions.
 - `admin-inspections.js`: inspection lists, submitted-detail viewing, vehicle print views, and deletion. This extraction is complete.
-- `admin-equipment.js`: equipment, vehicles, lift documents, and QR management.
+- `admin-equipment.js`: equipment, vehicles, lift documents, and QR management. This extraction is complete.
 - `admin-work-orders.js`: work-order lists, embedded-editor control, labour-worker approvals, and linked PO counts. This extraction is complete.
 - `admin-contacts.js`: subcontractor, supplier, and contact administration. This extraction is complete.
 - `admin-vacation.js`: vacation calendar and request administration. This extraction is complete.
@@ -48,4 +49,4 @@ Future extractions should use the existing Admin tab boundaries:
 - `admin-employee-profile.js`: employee profile dashboards, detail and photo updates, and profile sick-day entry. This extraction is complete.
 - `admin-backups.js`: backup inspection and restore-preparation tools. This extraction is complete.
 
-The next extraction should start with a lower-risk, self-contained tab module. High-traffic modules such as Summary, Timesheets, Equipment, and Work Orders should remain in `admin.html` until the shared module loader and smoke checks have proven stable.
+The remaining high-traffic boundaries are Summary, Timesheets, and the shared Admin core. Extract them one at a time after auditing their cross-module callers and shared state.
