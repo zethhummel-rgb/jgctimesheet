@@ -51,7 +51,7 @@ create table if not exists public.notifications (
   target_role text default '',
   source_table text default '',
   source_id text default '',
-  dedupe_key text default '',
+  dedupe_key text,
   metadata jsonb not null default '{}'::jsonb,
   clicked_at timestamptz,
   cleared_at timestamptz,
@@ -63,7 +63,14 @@ create table if not exists public.notifications (
 );
 
 alter table public.notifications
-  add column if not exists dedupe_key text default '';
+  add column if not exists dedupe_key text;
+
+alter table public.notifications
+  alter column dedupe_key drop default;
+
+update public.notifications
+set dedupe_key = null
+where trim(coalesce(dedupe_key, '')) = '';
 
 create index if not exists idx_notifications_target_profile
   on public.notifications (target_profile_id, cleared_at, created_at desc);
@@ -83,6 +90,41 @@ create index if not exists idx_notifications_type
 create unique index if not exists idx_notifications_dedupe_key
   on public.notifications (dedupe_key)
   where dedupe_key is not null and dedupe_key <> '';
+
+do $$
+begin
+  if exists (
+    select 1
+    from public.notifications
+    where dedupe_key is not null
+    group by dedupe_key
+    having count(*) > 1
+  ) then
+    with ranked as (
+      select
+        id,
+        dedupe_key,
+        row_number() over (partition by dedupe_key order by created_at desc, id desc) as duplicate_rank
+      from public.notifications
+      where dedupe_key is not null
+    )
+    update public.notifications n
+    set dedupe_key = ranked.dedupe_key || ':duplicate:' || ranked.id::text
+    from ranked
+    where n.id = ranked.id
+      and ranked.duplicate_rank > 1;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'notifications_dedupe_key_unique'
+      and conrelid = 'public.notifications'::regclass
+  ) then
+    alter table public.notifications
+      add constraint notifications_dedupe_key_unique unique (dedupe_key);
+  end if;
+end $$;
 
 create index if not exists idx_notification_settings_type
   on public.notification_settings (notification_type);
@@ -223,7 +265,8 @@ values
   ('certificate_expiring', 'Certificate expiring', 'Certificate expiry notices.', true, true, true),
   ('inspection_issue', 'Inspection or equipment issue', 'Inspection defects, equipment expiry, or maintenance attention.', true, true, true),
   ('vacation_request', 'Vacation requests', 'Vacation requests waiting for review.', false, true, true),
-  ('admin_account_pending', 'Pending accounts', 'Accounts waiting for admin approval.', false, false, true)
+  ('admin_account_pending', 'Pending accounts', 'Accounts waiting for admin approval.', false, false, true),
+  ('diagnostic_error', 'Portal errors', 'New error-level diagnostics requiring admin attention.', false, false, true)
 on conflict (notification_type) do update
 set
   label = excluded.label,

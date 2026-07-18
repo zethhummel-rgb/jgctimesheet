@@ -77,6 +77,83 @@ create policy "Approved admins can resolve diagnostics"
   using ((select public.is_admin()))
   with check ((select public.is_admin()));
 
+create or replace function public.notify_admins_of_portal_diagnostic()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  notifications_available boolean := to_regclass('public.notifications') is not null;
+  notification_enabled boolean := true;
+begin
+  if new.severity <> 'error' or not notifications_available then
+    return new;
+  end if;
+
+  if to_regclass('public.notification_settings') is not null then
+    select coalesce(ns.admin_enabled, true)
+    into notification_enabled
+    from public.notification_settings ns
+    where ns.notification_type = 'diagnostic_error';
+
+    notification_enabled := coalesce(notification_enabled, true);
+  end if;
+
+  if not notification_enabled then
+    return new;
+  end if;
+
+  insert into public.notifications (
+    notification_type,
+    title,
+    message,
+    link_url,
+    target_role,
+    source_table,
+    source_id,
+    dedupe_key,
+    metadata,
+    created_by_name
+  ) values (
+    'diagnostic_error',
+    'Portal error detected',
+    left(new.message, 1000),
+    'diagnostics-admin.html',
+    'admin',
+    'portal_diagnostics',
+    new.id::text,
+    'diagnostic_error:' || coalesce(nullif(new.client_event_id, ''), new.id::text) || ':role:admin',
+    jsonb_strip_nulls(jsonb_build_object(
+      'diagnostic_id', new.id,
+      'severity', new.severity,
+      'category', new.category,
+      'event_type', new.event_type,
+      'source', new.source,
+      'page_url', new.page_url,
+      'record_table', new.record_table,
+      'record_id', new.record_id
+    )),
+    coalesce(new.actor_name, '')
+  )
+  on conflict do nothing;
+
+  return new;
+exception
+  when others then
+    -- Notification delivery must never block the diagnostic that produced it.
+    return new;
+end;
+$$;
+
+revoke execute on function public.notify_admins_of_portal_diagnostic() from public, anon, authenticated;
+grant execute on function public.notify_admins_of_portal_diagnostic() to service_role;
+
+drop trigger if exists portal_diagnostics_notify_admins on public.portal_diagnostics;
+create trigger portal_diagnostics_notify_admins
+  after insert on public.portal_diagnostics
+  for each row execute function public.notify_admins_of_portal_diagnostic();
+
 create or replace function public.record_portal_save_activity()
 returns trigger
 language plpgsql
