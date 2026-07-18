@@ -43,6 +43,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Contacts", href: "contacts.html" }
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "4";
+const JGC_UPLOAD_SYSTEM_VERSION = "1";
 const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
   { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
@@ -150,6 +151,46 @@ function loadJgcDesignSystem() {
 }
 
 loadJgcDesignSystem();
+
+function loadJgcUploadStyles() {
+  if (document.querySelector("link[data-jgc-upload-system]")) {
+    return;
+  }
+
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "shared-uploads.css?v=" + JGC_UPLOAD_SYSTEM_VERSION;
+  stylesheet.setAttribute("data-jgc-upload-system", JGC_UPLOAD_SYSTEM_VERSION);
+  document.head.appendChild(stylesheet);
+}
+
+function getJgcUploadSystem() {
+  loadJgcUploadStyles();
+  return loadJgcScriptOnce(
+    "shared-uploads.js?v=" + JGC_UPLOAD_SYSTEM_VERSION,
+    "JGCUploads"
+  ).then((uploads) => uploads.configure({
+    projectUrl: JGC_SUPABASE_URL,
+    publishableKey: JGC_SUPABASE_KEY,
+    createClient: createJgcSupabaseClient
+  }));
+}
+
+async function uploadJgcFile(options) {
+  const uploads = await getJgcUploadSystem();
+  return uploads.uploadResult(options);
+}
+
+async function openJgcSignedFile(options) {
+  const uploads = await getJgcUploadSystem();
+  return uploads.openSignedFile(options);
+}
+
+window.loadJgcScriptOnce = loadJgcScriptOnce;
+window.getJgcUploadSystem = getJgcUploadSystem;
+window.uploadJgcFile = uploadJgcFile;
+window.openJgcSignedFile = openJgcSignedFile;
+runJgcBackgroundTask(() => getJgcUploadSystem(), 2500);
 
 function jgcScheduleArray(value) {
   if (Array.isArray(value)) {
@@ -2247,17 +2288,20 @@ function activateAdminPoliciesTab() {
 
     const filePath = "policies/" + Date.now() + "-" + makePolicyFileName(file.name);
     const fileType = file.type || "application/pdf";
-    const { error: uploadError } = await client
-      .storage
-      .from("policies")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: fileType
-      });
+    const { error: uploadError } = await uploadJgcFile({
+      client,
+      bucket: "policies",
+      path: filePath,
+      file,
+      input: fileInput,
+      cacheControl: "3600",
+      upsert: false,
+      contentType: fileType,
+      retry: publishPolicy
+    });
 
     if (uploadError) {
-      setPolicyStatus("Policy PDF upload failed.");
+      setPolicyStatus("Policy PDF upload failed: " + uploadError.message);
       return;
     }
 

@@ -143,6 +143,25 @@
     elements.notice.hidden = !message;
   }
 
+  async function uploadPoStorageFile(path, file, options) {
+    const config = options || {};
+    const label = config.label || "purchase order file";
+    return uploadJgcFile({
+      client: state.client,
+      bucket: TEMP_BUCKET,
+      path,
+      file,
+      input: config.input || null,
+      upsert: config.upsert !== false,
+      contentType: config.contentType || file.type || "application/octet-stream",
+      cacheControl: "0",
+      retry: config.retry || null,
+      onProgress: function(bytesUploaded, bytesTotal, percent) {
+        showNotice("Uploading " + label + "... " + Math.round(percent) + "%");
+      }
+    });
+  }
+
   function updateIcons() {
     if (window.lucide && typeof window.lucide.createIcons === "function") {
       window.lucide.createIcons();
@@ -974,10 +993,10 @@
     });
     const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
     const pdfPath = record.id + "/current/po.pdf";
-    const uploadResult = await state.client.storage.from(TEMP_BUCKET).upload(pdfPath, pdfBlob, {
-      upsert: true,
+    const uploadResult = await uploadPoStorageFile(pdfPath, pdfBlob, {
+      label: "updated PO PDF",
       contentType: "application/pdf",
-      cacheControl: "0"
+      retry: function() { return savePendingMaterialChanges(record); }
     });
     if (uploadResult.error) {
       throw uploadResult.error;
@@ -1012,10 +1031,11 @@
     });
     const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
     const pdfPath = record.id + "/current/po.pdf";
-    const pdfUpload = await state.client.storage.from(TEMP_BUCKET).upload(pdfPath, pdfBlob, {
-      upsert: true,
+    const retryPendingSave = function() { return savePendingSubmissionChanges(record); };
+    const pdfUpload = await uploadPoStorageFile(pdfPath, pdfBlob, {
+      label: "updated PO PDF",
       contentType: "application/pdf",
-      cacheControl: "0"
+      retry: retryPendingSave
     });
     if (pdfUpload.error) {
       throw pdfUpload.error;
@@ -1026,10 +1046,11 @@
     if (state.pendingReceipt && state.pendingReceipt.blob) {
       receiptPath = record.id + "/current/receipt.jpg";
       receiptName = state.pendingReceipt.name || "receipt.jpg";
-      const receiptUpload = await state.client.storage.from(TEMP_BUCKET).upload(receiptPath, state.pendingReceipt.blob, {
-        upsert: true,
+      const receiptUpload = await uploadPoStorageFile(receiptPath, state.pendingReceipt.blob, {
+        label: "receipt photo",
+        input: elements.receiptInput,
         contentType: "image/jpeg",
-        cacheControl: "0"
+        retry: retryPendingSave
       });
       if (receiptUpload.error) {
         throw receiptUpload.error;
@@ -1104,10 +1125,11 @@
     });
     const pdfBlob = await window.JgcPurchaseOrderPdf.createBlob(pdfData);
     const pdfPath = draft.id + "/current/po.pdf";
-    const pdfResult = await state.client.storage.from(TEMP_BUCKET).upload(pdfPath, pdfBlob, {
-      upsert: true,
+    const retrySubmission = function() { return syncDraft(draft.id); };
+    const pdfResult = await uploadPoStorageFile(pdfPath, pdfBlob, {
+      label: "PO PDF",
       contentType: "application/pdf",
-      cacheControl: "0"
+      retry: retrySubmission
     });
     if (pdfResult.error) {
       throw pdfResult.error;
@@ -1117,10 +1139,11 @@
     let receiptPath = null;
     if (receipt && receipt.blob) {
       receiptPath = draft.id + "/current/receipt.jpg";
-      const receiptResult = await state.client.storage.from(TEMP_BUCKET).upload(receiptPath, receipt.blob, {
-        upsert: true,
+      const receiptResult = await uploadPoStorageFile(receiptPath, receipt.blob, {
+        label: "receipt photo",
+        input: elements.receiptInput,
         contentType: "image/jpeg",
-        cacheControl: "0"
+        retry: retrySubmission
       });
       if (receiptResult.error) {
         throw receiptResult.error;

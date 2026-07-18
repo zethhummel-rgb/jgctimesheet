@@ -548,7 +548,7 @@ th {
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=26"></script>
+<script src="common.js?v=27"></script>
 <script>
 const QR_PARAMS = new URLSearchParams(window.location.search);
 const QR_TOKEN = (QR_PARAMS.get("token") || "").trim();
@@ -859,27 +859,16 @@ async function openQrEquipmentDocument(id) {
     }
 
     const viewer = window.open("", "_blank");
+    const result = await openJgcSignedFile({
+        client,
+        bucket: "equipment-documents",
+        path: documentRecord.storage_path,
+        expiresIn: 600,
+        viewer
+    });
 
-    try {
-        const { data, error } = await client.storage
-            .from("equipment-documents")
-            .createSignedUrl(documentRecord.storage_path, 600);
-
-        if (error || !data || !data.signedUrl) {
-            throw new Error((error && error.message) || "A secure PDF link could not be created.");
-        }
-
-        if (viewer) {
-            viewer.opener = null;
-            viewer.location.href = data.signedUrl;
-        } else {
-            window.location.href = data.signedUrl;
-        }
-    } catch (error) {
-        if (viewer) {
-            viewer.close();
-        }
-        setStatus("PDF could not be opened. " + (error && error.message ? error.message : ""), true);
+    if (result.error) {
+        setStatus("PDF could not be opened. " + result.error.message, true);
     }
 }
 

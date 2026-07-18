@@ -508,17 +508,20 @@ async function uploadAdminCertificate() {
     const filePath = workerName + "/" + Date.now() + "-" + makeSafeFileName(file.name);
     const fileType = file.type || "application/octet-stream";
 
-    const { error: uploadError } = await supabaseClient
-        .storage
-        .from("certificates")
-        .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: fileType
-        });
+    const { error: uploadError } = await uploadJgcFile({
+        client: supabaseClient,
+        bucket: "certificates",
+        path: filePath,
+        file,
+        input: fileInput,
+        cacheControl: "3600",
+        upsert: false,
+        contentType: fileType,
+        retry: uploadAdminCertificate
+    });
 
     if (uploadError) {
-        setAdminCertificateStatus("Certificate file upload failed.");
+        setAdminCertificateStatus("Certificate file upload failed: " + uploadError.message);
         return;
     }
 

@@ -1,0 +1,146 @@
+.jgc-upload-assistant {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #315046;
+  background: #0b1f18;
+  color: #e8f1ed;
+}
+
+.jgc-upload-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.jgc-upload-preview[hidden],
+.jgc-upload-progress[hidden],
+.jgc-upload-retry[hidden] {
+  display: none !important;
+}
+
+.jgc-upload-preview-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px;
+  border: 1px solid #315046;
+  background: #10271f;
+}
+
+.jgc-upload-preview-item img,
+.jgc-upload-file-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  object-fit: cover;
+  border: 1px solid #4a685e;
+  background: #173329;
+  color: #5bea6c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.jgc-upload-file-details {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.jgc-upload-file-details strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jgc-upload-file-details small,
+.jgc-upload-status {
+  color: #b8c9c1;
+}
+
+.jgc-upload-status-row,
+.jgc-upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.jgc-upload-status-row {
+  justify-content: space-between;
+}
+
+.jgc-upload-assistant[data-state="error"] {
+  border-color: #df4138;
+}
+
+.jgc-upload-assistant[data-state="error"] .jgc-upload-status {
+  color: #ffb8b4;
+}
+
+.jgc-upload-assistant[data-state="success"] {
+  border-color: #2bd957;
+}
+
+.jgc-upload-assistant[data-state="success"] .jgc-upload-status {
+  color: #9ef2ae;
+}
+
+.jgc-upload-progress {
+  margin-top: 8px;
+}
+
+.jgc-upload-progress-track {
+  flex: 1;
+  height: 9px;
+  overflow: hidden;
+  border: 1px solid #4a685e;
+  background: #07140f;
+}
+
+.jgc-upload-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #2bd957;
+  transition: width 120ms linear;
+}
+
+.jgc-upload-progress-label {
+  min-width: 42px;
+  text-align: right;
+}
+
+.jgc-upload-retry {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #4db467;
+  border-radius: 4px;
+  background: #118b3f;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jgc-upload-retry:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 700px) {
+  .jgc-upload-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .jgc-upload-status-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .jgc-upload-retry {
+    width: 100%;
+  }
+}

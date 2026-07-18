@@ -1814,7 +1814,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="vendor/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest';"></script>
-<script src="common.js?v=26"></script>
+<script src="common.js?v=27"></script>
 <script src="safety-acknowledgements.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -2226,13 +2226,17 @@ async function uploadMyProfilePhoto(userId) {
   }
 
   const filePath = userId + "/" + Date.now() + "-" + makeProfilePhotoFileName(file.name);
-  const { error } = await supabaseClient.storage
-    .from("profile-photos")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: getProfilePhotoContentType(file)
-    });
+  const { error } = await uploadJgcFile({
+    client: supabaseClient,
+    bucket: "profile-photos",
+    path: filePath,
+    file,
+    input: fileInput,
+    cacheControl: "3600",
+    upsert: false,
+    contentType: getProfilePhotoContentType(file),
+    retry: saveMyProfile
+  });
 
   if (error) {
     throw error;

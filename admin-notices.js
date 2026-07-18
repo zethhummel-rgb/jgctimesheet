@@ -215,17 +215,20 @@ async function publishAnnouncement() {
         fileName = file.name;
         fileType = file.type || "application/pdf";
 
-        const { error: uploadError } = await supabaseClient
-            .storage
-            .from("announcements")
-            .upload(filePath, file, {
-                cacheControl: "3600",
-                upsert: false,
-                contentType: fileType
-            });
+        const { error: uploadError } = await uploadJgcFile({
+            client: supabaseClient,
+            bucket: "announcements",
+            path: filePath,
+            file,
+            input: fileInput,
+            cacheControl: "3600",
+            upsert: false,
+            contentType: fileType,
+            retry: publishAnnouncement
+        });
 
         if (uploadError) {
-            setAnnouncementStatus("PDF upload failed.");
+            setAnnouncementStatus("PDF upload failed: " + uploadError.message);
             return;
         }
 
@@ -443,17 +446,20 @@ async function publishToolboxTalk() {
     setToolboxTalkStatus("Uploading toolbox talk...");
 
     const filePath = "toolbox-talks/" + Date.now() + "-" + makeSafeFileName(file.name);
-    const { error: uploadError } = await supabaseClient
-        .storage
-        .from("toolbox-talks")
-        .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type || "application/pdf"
-        });
+    const { error: uploadError } = await uploadJgcFile({
+        client: supabaseClient,
+        bucket: "toolbox-talks",
+        path: filePath,
+        file,
+        input: fileInput,
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "application/pdf",
+        retry: publishToolboxTalk
+    });
 
     if (uploadError) {
-        setToolboxTalkStatus("Toolbox talk PDF upload failed.");
+        setToolboxTalkStatus("Toolbox talk PDF upload failed: " + uploadError.message);
         return;
     }
 
@@ -612,17 +618,20 @@ async function publishPolicy() {
     const filePath = "policies/" + Date.now() + "-" + makeSafeFileName(file.name);
     const fileType = file.type || "application/pdf";
 
-    const { error: uploadError } = await supabaseClient
-        .storage
-        .from("policies")
-        .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: fileType
-        });
+    const { error: uploadError } = await uploadJgcFile({
+        client: supabaseClient,
+        bucket: "policies",
+        path: filePath,
+        file,
+        input: fileInput,
+        cacheControl: "3600",
+        upsert: false,
+        contentType: fileType,
+        retry: publishPolicy
+    });
 
     if (uploadError) {
-        setPolicyStatus("Policy PDF upload failed.");
+        setPolicyStatus("Policy PDF upload failed: " + uploadError.message);
         return;
     }
 

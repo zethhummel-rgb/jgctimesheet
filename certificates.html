@@ -519,7 +519,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=26"></script>
+<script src="common.js?v=27"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 
@@ -599,17 +599,20 @@ async function uploadCertificate() {
   status.innerText = "Uploading certificate...";
 
   const filePath = currentWorker + "/" + Date.now() + "-" + makeSafeFileName(file.name);
-  const { error: uploadError } = await supabaseClient
-    .storage
-    .from("certificates")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type
-    });
+  const { error: uploadError } = await uploadJgcFile({
+    client: supabaseClient,
+    bucket: "certificates",
+    path: filePath,
+    file,
+    input: fileInput,
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || "application/octet-stream",
+    retry: uploadCertificate
+  });
 
   if (uploadError) {
-    status.innerText = "Certificate file upload failed.";
+    status.innerText = "Certificate file upload failed: " + uploadError.message;
     return;
   }
 

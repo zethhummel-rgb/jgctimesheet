@@ -847,13 +847,17 @@ async function uploadAdminProfilePhoto(account) {
     }
 
     const filePath = account.id + "/" + Date.now() + "-" + makeProfilePhotoFileName(file.name);
-    const { error } = await supabaseClient.storage
-        .from("profile-photos")
-        .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: getProfilePhotoContentType(file)
-        });
+    const { error } = await uploadJgcFile({
+        client: supabaseClient,
+        bucket: "profile-photos",
+        path: filePath,
+        file,
+        input: fileInput,
+        cacheControl: "3600",
+        upsert: false,
+        contentType: getProfilePhotoContentType(file),
+        retry: saveEmployeeProfileDetails
+    });
 
     if (error) {
         throw error;

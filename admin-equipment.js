@@ -540,13 +540,18 @@ async function saveEquipmentDocumentFile(item, documentType, file) {
     }
 
     const storagePath = token + "/" + documentType + "/" + createEquipmentDocumentStorageId() + ".pdf";
-    const { error: uploadError } = await supabaseClient.storage
-        .from("equipment-documents")
-        .upload(storagePath, file, {
-            cacheControl: "3600",
-            contentType: "application/pdf",
-            upsert: false
-        });
+    const input = document.getElementById(documentType === "manual" ? "equipmentManualFiles" : "equipmentYearlyInspectionFile");
+    const { error: uploadError } = await uploadJgcFile({
+        client: supabaseClient,
+        bucket: "equipment-documents",
+        path: storagePath,
+        file,
+        input,
+        cacheControl: "3600",
+        contentType: "application/pdf",
+        upsert: false,
+        retry: function() { return uploadEquipmentDocuments(documentType); }
+    });
 
     if (uploadError) {
         throw new Error(file.name + " could not be uploaded: " + uploadError.message);
@@ -642,27 +647,16 @@ async function viewEquipmentDocument(id) {
     }
 
     const viewer = window.open("", "_blank");
+    const result = await openJgcSignedFile({
+        client: supabaseClient,
+        bucket: "equipment-documents",
+        path: documentRecord.storage_path,
+        expiresIn: 600,
+        viewer
+    });
 
-    try {
-        const { data, error } = await supabaseClient.storage
-            .from("equipment-documents")
-            .createSignedUrl(documentRecord.storage_path, 600);
-
-        if (error || !data || !data.signedUrl) {
-            throw new Error((error && error.message) || "A secure document link could not be created.");
-        }
-
-        if (viewer) {
-            viewer.opener = null;
-            viewer.location.href = data.signedUrl;
-        } else {
-            window.location.href = data.signedUrl;
-        }
-    } catch (error) {
-        if (viewer) {
-            viewer.close();
-        }
-        setEquipmentDocumentsStatus(error && error.message ? error.message : "Document could not be opened.", true);
+    if (result.error) {
+        setEquipmentDocumentsStatus(result.error.message || "Document could not be opened.", true);
     }
 }
 
@@ -1401,4 +1395,3 @@ async function loadEquipment() {
         setEquipmentStatus("Equipment refreshed.");
     }
 }
-
