@@ -255,6 +255,54 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin tabs");
 });
 
+test("admin tool data loads only after its tool is opened", async ({ page }) => {
+  test.setTimeout(45_000);
+  const errors = watchRuntimeErrors(page);
+  const tableRequests = [];
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) {
+      tableRequests.push(match[1]);
+    }
+  });
+
+  const tools = [
+    ["employeeProfile", "previous_timesheet_weeks"],
+    ["certificates", "certificates"],
+    ["jobs", "jobs"],
+    ["equipment", "equipment_vehicles"],
+    ["contacts", "contacts"],
+    ["subcontractorsSuppliers", "subcontractors_suppliers"],
+    ["noticePolicy", "announcements"]
+  ];
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  for (const [tab, table] of tools) {
+    tableRequests.length = 0;
+    await page.goto("/admin.html?tab=adminTools", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => adminDataLoaded === true);
+    await expect(page.locator("#adminToolsSection")).toBeVisible();
+    expect(tableRequests, `${table} was requested before ${tab} opened`).not.toContain(table);
+
+    await page.evaluate((toolTab) => openAdminTool(toolTab), tab);
+    await page.waitForFunction((toolTab) => adminTabDataLoaded.has(toolTab), tab);
+    expect(tableRequests, `${table} was not requested after ${tab} opened`).toContain(table);
+
+    const requestCount = tableRequests.filter((name) => name === table).length;
+    await page.evaluate(() => showTab("adminTools"));
+    await page.evaluate((toolTab) => openAdminTool(toolTab), tab);
+    await page.waitForTimeout(100);
+    expect(
+      tableRequests.filter((name) => name === table).length,
+      `${table} was requested again when ${tab} reopened`
+    ).toBe(requestCount);
+  }
+
+  await expectNoRuntimeErrors(errors, "admin tool lazy loading");
+});
+
 test("admin inspection categories build their tables only when opened", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);

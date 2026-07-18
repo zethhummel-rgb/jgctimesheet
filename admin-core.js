@@ -66,6 +66,8 @@ let adminDataLoading = false;
 let pendingAdminTabRender = "";
 let adminTabDataLoaded = new Set();
 let adminTabDataLoading = {};
+let adminScheduleReferenceDataLoaded = false;
+let adminScheduleReferenceDataPromise = null;
 let timesheetsTabRefreshInFlight = false;
 let timesheetMissingNotificationKeys = new Set();
 let adminGlobalSearchTasks = [];
@@ -135,12 +137,19 @@ function ensureAdminTabData(tab) {
         return false;
     }
 
+    const section = document.getElementById(tab + "Section");
     adminTabDataLoading[tab] = true;
+    if (section) {
+        section.setAttribute("aria-busy", "true");
+    }
     loadAdminTabData(tab)
         .catch((error) => logAdminLoadError("lazy load " + tab, error))
         .finally(() => {
             adminTabDataLoaded.add(tab);
             adminTabDataLoading[tab] = false;
+            if (section) {
+                section.removeAttribute("aria-busy");
+            }
 
             if (getActiveAdminTab() === tab) {
                 renderActiveAdminTab(tab);
@@ -436,6 +445,10 @@ function showTab(tab, options = {}) {
 
     renderActiveAdminTab(requestedTab);
 
+    if (requestedTab === "tasks") {
+        ensureAdminTaskFrameLoaded();
+    }
+
     if (requestedTab === "timesheets") {
         refreshTimesheetsTabOnOpen();
     }
@@ -469,6 +482,19 @@ function renderAdminTools() {
 
     if (!section) {
         return;
+    }
+}
+
+function ensureAdminTaskFrameLoaded() {
+    const frame = document.querySelector(".admin-task-frame");
+
+    if (!frame || frame.getAttribute("src")) {
+        return;
+    }
+
+    const source = frame.getAttribute("data-src");
+    if (source) {
+        frame.setAttribute("src", source);
     }
 }
 
@@ -741,32 +767,18 @@ async function loadAdminData(options = {}) {
         if (!options.full) {
             const adminDataResults = await runAdminQueries([
                 { label: "live timesheet entries", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
-                { label: "certificates", query: () => supabaseClient.from("certificates").select("*").order("worker_name", { ascending: true }) },
-                { label: "certificate notifications", query: () => supabaseClient.from("certificate_expiry_notifications").select("*").order("created_at", { ascending: false }) },
                 { label: "vacation requests", query: () => supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }) },
                 { label: "schedule events", query: () => supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }) },
                 { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
-                { label: "jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) },
-                { label: "work order labour workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
-                { label: "equipment", query: () => supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }) },
-                { label: "equipment notifications", query: () => supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }) },
-                { label: "equipment maintenance", query: () => supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }) },
                 { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
             ]);
 
-            const [liveTimesheetResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, subcontractorActivityResult] = adminDataResults;
+            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, subcontractorActivityResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
-            certificates = certificateResult.data || [];
-            certificateNotifications = certificateNotificationResult.data || [];
             vacationRequests = vacationResult.data || [];
             scheduleEvents = scheduleResult.data || [];
             accounts = accountResult.data || [];
-            jobs = jobsResult.data || [];
-            workOrderLabourWorkers = workOrderWorkerResult.data || [];
-            equipmentItems = equipmentResult.data || [];
-            equipmentNotifications = equipmentNotificationResult.data || [];
-            equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];
             subcontractorActivity = subcontractorActivityResult.data || [];
 
             if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
@@ -782,10 +794,8 @@ async function loadAdminData(options = {}) {
                 }
             }
 
-            await safeAdminSetupStep("certificate expiry notifications", processCertificateExpiryNotifications);
-            await safeAdminSetupStep("equipment expiry notifications", processEquipmentExpiryNotifications);
             initializeAdminSummaryBaselines();
-            adminTabDataLoaded = new Set(["summary", "vacation", "timesheets"]);
+            adminTabDataLoaded = new Set(["summary", "vacation", "adminTools"]);
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
             showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -943,5 +953,5 @@ if (supplierContactPhoneInput) {
     });
 }
 
-showTab(getRequestedAdminTab(), { persist: false });
 loadAdminData();
+showTab(getRequestedAdminTab(), { persist: false });

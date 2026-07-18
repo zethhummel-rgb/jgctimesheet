@@ -1634,6 +1634,31 @@ function renderAdminScheduleVehicleOptions() {
     ).join("");
 }
 
+async function ensureAdminScheduleReferenceData() {
+    if (adminScheduleReferenceDataLoaded) {
+        return;
+    }
+
+    if (adminScheduleReferenceDataPromise) {
+        return adminScheduleReferenceDataPromise;
+    }
+
+    adminScheduleReferenceDataPromise = (async function() {
+        const [jobResult, equipmentResult] = await runAdminQueries([
+            { label: "schedule jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) },
+            { label: "schedule equipment", query: () => supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }) }
+        ]);
+
+        jobs = jobResult.data || [];
+        equipmentItems = equipmentResult.data || [];
+        adminScheduleReferenceDataLoaded = !jobResult.error && !equipmentResult.error;
+    })().finally(() => {
+        adminScheduleReferenceDataPromise = null;
+    });
+
+    return adminScheduleReferenceDataPromise;
+}
+
 function findAdminScheduleAccountByName(value) {
     const target = normalizeWorkerName(value);
 
@@ -1755,6 +1780,28 @@ function openAdminScheduleModal(dateValue) {
     document.getElementById("adminScheduleModalTitle").textContent = "Add Schedule - " + makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
     renderAdminScheduleDayEvents(dateValue);
     document.getElementById("adminScheduleModal").classList.add("open");
+
+    if (!adminScheduleReferenceDataLoaded) {
+        const status = document.getElementById("adminScheduleStatus");
+        status.textContent = "Loading job and equipment choices...";
+        ensureAdminScheduleReferenceData().then(() => {
+            renderAdminScheduleJobs();
+            renderAdminScheduleVehicleOptions();
+
+            const editingEvent = scheduleEvents.find((item) => String(item.id) === String(editingAdminScheduleEventId));
+            if (editingEvent) {
+                selectAdminScheduleJobForEvent(editingEvent);
+                selectAdminScheduleVehicleForEvent(editingEvent);
+            }
+
+            if (status.textContent === "Loading job and equipment choices...") {
+                status.textContent = "";
+            }
+        }).catch((error) => {
+            logAdminLoadError("schedule reference data", error);
+            status.textContent = "Job and equipment choices could not be loaded. Manual entry is still available.";
+        });
+    }
 }
 
 function closeAdminScheduleModal(event) {
@@ -2368,4 +2415,3 @@ function notifyPendingAccountsForReview(pendingRows) {
         });
     });
 }
-
