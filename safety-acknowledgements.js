@@ -58,6 +58,17 @@ function safetyAckCreateToken() {
     return "ack-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2);
 }
 
+function safetyAckCreateUuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+        const random = Math.random() * 16 | 0;
+        return (character === "x" ? random : (random & 3 | 8)).toString(16);
+    });
+}
+
 function safetyAckFormatDateTime(value) {
     if (!value) {
         return "";
@@ -228,6 +239,23 @@ function safetyAckBuildRowsForRecord(config) {
 async function safetyAckSaveRows(client, rows) {
     if (!client || !rows || !rows.length) {
         return { data: [], error: null };
+    }
+
+    const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
+
+    if (isPublicCreator) {
+        const publicRows = rows.map((row) => ({
+            ...row,
+            id: row.id || safetyAckCreateUuid()
+        }));
+        const publicResult = await client
+            .from(SAFETY_ACK_TABLE)
+            .insert(publicRows);
+
+        return {
+            data: publicResult.error ? [] : publicRows,
+            error: publicResult.error
+        };
     }
 
     const result = await client

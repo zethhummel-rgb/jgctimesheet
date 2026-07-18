@@ -54,6 +54,17 @@ function makeInspectionSubmissionId() {
     return "inspection-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
 }
 
+function makeInspectionRecordId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+        const random = Math.random() * 16 | 0;
+        return (character === "x" ? random : (random & 3 | 8)).toString(16);
+    });
+}
+
 function queueInspectionRecord(record, worker) {
     const queue = getInspectionOfflineQueue();
     const localId = record && record.form_data && record.form_data.offline_submission_id
@@ -682,6 +693,7 @@ async function buildInspectionRecord(type, worker) {
 
     const submissionId = makeInspectionSubmissionId();
     const record = {
+        id: makeInspectionRecordId(),
         worker_name: worker.key,
         worker_display_name: worker.display,
         inspection_type: type,
@@ -710,8 +722,9 @@ async function persistInspectionRecord(record) {
     }
 
     const submissionId = record && record.form_data ? record.form_data.offline_submission_id : "";
+    const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
 
-    if (submissionId) {
+    if (submissionId && !isPublicCreator) {
         const existingResult = await inspectionSupabaseClient
             .from("inspection_records")
             .select("*")
@@ -731,13 +744,21 @@ async function persistInspectionRecord(record) {
         }
     }
 
-    const { data, error } = await inspectionSupabaseClient
+    if (!record.id) {
+        record.id = makeInspectionRecordId();
+    }
+
+    const insertQuery = inspectionSupabaseClient
         .from("inspection_records")
-        .insert(record)
-        .select()
-        .single();
+        .insert(record);
+    const { data, error } = isPublicCreator
+        ? await insertQuery
+        : await insertQuery.select().single();
 
     if (error) {
+        if (isPublicCreator && error.code === "23505") {
+            return record;
+        }
         throw error;
     }
 

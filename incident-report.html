@@ -318,6 +318,17 @@ function getValue(id) {
     return document.getElementById(id).value.trim();
 }
 
+function createPublicReportId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+        const random = Math.random() * 16 | 0;
+        return (character === "x" ? random : (random & 3 | 8)).toString(16);
+    });
+}
+
 function setStatus(message) {
     document.getElementById("saveStatus").textContent = message || "";
 }
@@ -372,26 +383,22 @@ async function uploadPhotos(reportId, retryAction) {
     return uploaded;
 }
 
-async function finishIncidentReport(recordData, baseRecord) {
+async function finishIncidentReport(baseRecord) {
     const retryAction = function() {
-        return finishIncidentReport(recordData, baseRecord);
+        return finishIncidentReport(baseRecord);
     };
-    const uploadedPhotos = await uploadPhotos(recordData.id, retryAction);
+    const uploadedPhotos = await uploadPhotos(baseRecord.id, retryAction);
     const record = {
         ...baseRecord,
-        id: recordData.id,
         photos: uploadedPhotos
     };
 
-    if (uploadedPhotos.length) {
-        const updateResult = await supabaseClient
-            .from("incident_reports")
-            .update({ photos: uploadedPhotos })
-            .eq("id", recordData.id);
+    const insertResult = await supabaseClient
+        .from("incident_reports")
+        .insert(record);
 
-        if (updateResult.error) {
-            throw updateResult.error;
-        }
+    if (insertResult.error) {
+        throw insertResult.error;
     }
 
     setStatus("Emailing report...");
@@ -521,6 +528,7 @@ async function submitIncidentReport() {
     }
 
     const baseRecord = {
+        id: createPublicReportId(),
         incident_type: getValue("incidentType"),
         severity: getValue("severity"),
         report_date: getValue("reportDate"),
@@ -541,23 +549,12 @@ async function submitIncidentReport() {
         photos: []
     };
 
-    setStatus("Saving report...");
-
-    const { data, error } = await supabaseClient
-        .from("incident_reports")
-        .insert(baseRecord)
-        .select()
-        .single();
-
-    if (error) {
-        setStatus("Incident report could not be saved.");
-        return;
-    }
+    setStatus("Uploading photos and saving report...");
 
     try {
-        await finishIncidentReport(data, baseRecord);
+        await finishIncidentReport(baseRecord);
     } catch (error) {
-        setStatus("Report saved, but its photos or email could not finish: " + (error.message || error));
+        setStatus("Incident report could not be completed: " + (error.message || error));
     }
 }
 

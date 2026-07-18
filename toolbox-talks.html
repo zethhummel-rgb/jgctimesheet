@@ -354,7 +354,7 @@ th {
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=30"></script>
-<script src="safety-acknowledgements.js?v=3"></script>
+<script src="safety-acknowledgements.js?v=4"></script>
 <script>
 const TOOLBOX_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
@@ -376,6 +376,17 @@ function setReportStatus(message) {
 
 function getValue(id) {
     return document.getElementById(id).value.trim();
+}
+
+function createPublicReportId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+    }
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+        const random = Math.random() * 16 | 0;
+        return (character === "x" ? random : (random & 3 | 8)).toString(16);
+    });
 }
 
 function makeSafeFileName(name) {
@@ -696,6 +707,7 @@ async function submitToolboxTalkReport() {
     }
 
     const record = {
+        id: createPublicReportId(),
         talk_id: selectedTalk.id,
         talk_title: selectedTalk.title,
         talk_file_path: selectedTalk.file_path || "",
@@ -713,11 +725,9 @@ async function submitToolboxTalkReport() {
 
     setReportStatus("Saving toolbox talk report...");
 
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
         .from("toolbox_talk_reports")
-        .insert(record)
-        .select()
-        .single();
+        .insert(record);
 
     if (error) {
         setReportStatus("Toolbox talk report could not be saved.");
@@ -726,7 +736,7 @@ async function submitToolboxTalkReport() {
 
     if (crew.length) {
         const attendanceRows = crew.map((person) => ({
-            report_id: data.id,
+            report_id: record.id,
             talk_id: selectedTalk.id,
             worker_name: person.workerName,
             worker_display_name: person.displayName
@@ -742,7 +752,7 @@ async function submitToolboxTalkReport() {
         }
     }
 
-    const safetyRows = await createToolboxSafetyAcknowledgements(data, allCrew);
+    const safetyRows = await createToolboxSafetyAcknowledgements(record, allCrew);
     record.safety_acknowledgements = safetyRows;
 
     setReportStatus("Emailing toolbox talk report...");
@@ -760,7 +770,7 @@ async function submitToolboxTalkReport() {
     document.getElementById("hazardsDiscussed").value = "";
     document.getElementById("correctiveActions").value = "";
     document.getElementById("externalCrewList").value = "";
-    document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(data.id, safetyRows);
+    document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(record.id, safetyRows);
     document.querySelectorAll(".crew-checkbox").forEach((box) => {
         box.checked = false;
     });
