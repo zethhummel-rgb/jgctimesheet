@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "586";
+const JGC_RELEASE_ID = "587";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -68,9 +68,9 @@ const JGC_APP_SHELL = [
   "./reset-password-design-system.css?v=1",
   "./login-design-system.css?v=1",
   "./subcontractor-design-system.css?v=1",
-  "./common.js?v=25",
+  "./common.js?v=26",
   "./offline-sync.js?v=1",
-  "./admin-backups.js?v=1",
+  "./admin-backups.js?v=2",
   "./admin-contacts.js?v=1",
   "./admin-vacation.js?v=1",
   "./admin-notices.js?v=1",
@@ -78,7 +78,7 @@ const JGC_APP_SHELL = [
   "./admin-inspections.js?v=1",
   "./admin-reports.js?v=1",
   "./admin-employee-profile.js?v=1",
-  "./admin-jobs.js?v=1",
+  "./admin-jobs.js?v=2",
   "./admin-work-orders.js?v=1",
   "./admin-equipment.js?v=1",
   "./admin-timesheets.js?v=1",
@@ -100,6 +100,8 @@ const JGC_APP_SHELL = [
   "./inspection-mobile.js?v=4",
   "./manifest.json?v=5",
   "./vendor/supabase-js.min.js?v=1",
+  "./vendor/exceljs.min.js?v=1",
+  "./vendor/jszip.min.js?v=1",
   "./vendor/jspdf.umd.min.js?v=1",
   "./vendor/lucide.min.js",
   "./logo.webp",

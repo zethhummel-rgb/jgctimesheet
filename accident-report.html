@@ -95,8 +95,8 @@ textarea{min-height:88px;resize:vertical}.checks{display:grid;grid-template-colu
   <div id="saveStatus" class="status jgc-notice" aria-live="polite"></div>
 </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js?v=25"></script>
+<script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+<script src="common.js?v=26"></script>
 <script>
 const REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();

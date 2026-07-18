@@ -211,6 +211,16 @@ function renderBackupInspection(fileName, manifest, tableSummary, storageSummary
 }
 
 async function inspectBackupZip(file) {
+    try {
+        await loadJgcScriptOnce(
+            "vendor/jszip.min.js?v=1",
+            "JSZip",
+            "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        );
+    } catch (error) {
+        throw new Error("ZIP reader did not load. Check the connection and try again.");
+    }
+
     if (!window.JSZip) {
         throw new Error("ZIP reader did not load. Refresh the page and try again.");
     }

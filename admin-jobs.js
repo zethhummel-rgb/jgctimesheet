@@ -1079,8 +1079,20 @@ async function importJobsFromExcel() {
         return;
     }
 
+    try {
+        status.textContent = "Loading Excel reader...";
+        await loadJgcScriptOnce(
+            "vendor/exceljs.min.js?v=1",
+            "ExcelJS",
+            "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"
+        );
+    } catch (error) {
+        status.textContent = "Excel reader could not be loaded. Check the connection and try again.";
+        return;
+    }
+
     if (!window.ExcelJS) {
-        status.textContent = "Excel reader could not be loaded. Please refresh and try again.";
+        status.textContent = "Excel reader could not be loaded. Please try again.";
         return;
     }
 

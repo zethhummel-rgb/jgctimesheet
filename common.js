@@ -6,6 +6,7 @@ const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9Crhe
 const JGC_PUSH_FUNCTION_NAME = "send-push-notification";
 const JGC_PUSH_SENT_SESSION_IDS = new Set();
 const JGC_PUSH_IN_FLIGHT_IDS = new Set();
+const JGC_SCRIPT_LOAD_PROMISES = new Map();
 let jgcLoadedNotificationRecords = [];
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
@@ -64,6 +65,77 @@ const JGC_ADMIN_TOOL_SECTIONS = new Set([
   "subcontractorsSuppliers",
   "backups"
 ]);
+
+function runJgcBackgroundTask(callback, timeoutMs) {
+  const run = function() {
+    Promise.resolve()
+      .then(callback)
+      .catch((error) => console.warn("JGC background task could not finish.", error));
+  };
+
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(run, { timeout: Number(timeoutMs || 1500) });
+    return;
+  }
+
+  window.setTimeout(run, 250);
+}
+
+function loadJgcScriptOnce(src, globalName, fallbackSrc) {
+  if (globalName && window[globalName]) {
+    return Promise.resolve(window[globalName]);
+  }
+
+  const key = String(src || "").trim();
+  if (!key) {
+    return Promise.reject(new Error("A script source is required."));
+  }
+
+  if (JGC_SCRIPT_LOAD_PROMISES.has(key)) {
+    return JGC_SCRIPT_LOAD_PROMISES.get(key);
+  }
+
+  const loadSource = function(source) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-jgc-lazy-src="' + source + '"]');
+      if (existing && existing.dataset.jgcLoaded === "true") {
+        resolve(globalName ? window[globalName] : true);
+        return;
+      }
+
+      const script = existing || document.createElement("script");
+      script.async = true;
+      script.src = source;
+      script.setAttribute("data-jgc-lazy-src", source);
+      script.addEventListener("load", function() {
+        script.dataset.jgcLoaded = "true";
+        if (globalName && !window[globalName]) {
+          reject(new Error(globalName + " did not become available."));
+          return;
+        }
+        resolve(globalName ? window[globalName] : true);
+      }, { once: true });
+      script.addEventListener("error", function() {
+        script.remove();
+        reject(new Error("Could not load " + source));
+      }, { once: true });
+
+      if (!existing) {
+        document.head.appendChild(script);
+      }
+    });
+  };
+
+  const promise = loadSource(key)
+    .catch((error) => fallbackSrc ? loadSource(fallbackSrc) : Promise.reject(error))
+    .catch((error) => {
+      JGC_SCRIPT_LOAD_PROMISES.delete(key);
+      throw error;
+    });
+
+  JGC_SCRIPT_LOAD_PROMISES.set(key, promise);
+  return promise;
+}
 
 function loadJgcDesignSystem() {
   if (document.querySelector("link[data-jgc-design-system]")) {
@@ -669,10 +741,14 @@ async function recordJgcProfileActivity(client, options) {
   }
 }
 
+function scheduleJgcPortalActivity() {
+  runJgcBackgroundTask(recordJgcPortalActivity, 2000);
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", recordJgcPortalActivity);
+  document.addEventListener("DOMContentLoaded", scheduleJgcPortalActivity);
 } else {
-  recordJgcPortalActivity();
+  scheduleJgcPortalActivity();
 }
 
 function normalizeWorkerName(name) {
@@ -2375,6 +2451,7 @@ function activateTimesheetTableContrastFeature() {
 }
 
 let jgcNotificationRecords = [];
+let jgcNotificationLoadInFlight = false;
 
 const JGC_LOCAL_CLEARED_NOTIFICATIONS_KEY = "jgcLocalClearedNotifications";
 
@@ -4037,7 +4114,7 @@ function renderJgcNotificationPanel() {
 }
 
 async function loadJgcNotifications() {
-  if (!shouldActivateJgcNotificationBell()) {
+  if (!shouldActivateJgcNotificationBell() || jgcNotificationLoadInFlight) {
     return;
   }
 
@@ -4046,6 +4123,8 @@ async function loadJgcNotifications() {
   if (!client) {
     return;
   }
+
+  jgcNotificationLoadInFlight = true;
 
   try {
     const worker = getCurrentWorkerRecord();
@@ -4098,6 +4177,8 @@ async function loadJgcNotifications() {
     renderJgcNotificationPanel();
   } catch (error) {
     console.warn("JGC notifications could not be loaded.", error);
+  } finally {
+    jgcNotificationLoadInFlight = false;
   }
 }
 
@@ -4286,8 +4367,10 @@ function activateJgcNotificationBell() {
     }
   });
 
-  loadJgcNotifications();
-  refreshJgcPushUi();
+  runJgcBackgroundTask(function() {
+    loadJgcNotifications();
+    refreshJgcPushUi();
+  }, 2000);
   window.setInterval(loadJgcNotifications, 120000);
 }
 
