@@ -98,6 +98,61 @@ h1 {
     opacity: 0.82;
 }
 
+.daily-report-history {
+    margin-top: 22px;
+    border-top: 1px solid #2b5f3d;
+    padding-top: 16px;
+}
+
+.daily-report-history > summary {
+    cursor: pointer;
+    list-style: none;
+    font-size: 20px;
+    font-weight: bold;
+    color: #39d353;
+    padding: 12px 0;
+}
+
+.daily-report-history > summary::-webkit-details-marker {
+    display: none;
+}
+
+.daily-report-history > summary::after {
+    content: "+";
+    float: right;
+}
+
+.daily-report-history[open] > summary::after {
+    content: "-";
+}
+
+.daily-report-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.daily-report-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 0.7fr) minmax(220px, 2fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #2b5f3d;
+    background: #0b2118;
+    border-radius: 6px;
+}
+
+.daily-report-row strong,
+.daily-report-row span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.daily-report-row .jgc-actions {
+    margin: 0;
+}
+
 .toolbox-panel {
     margin-top: 16px;
     border-top: 1px solid #d6ddd4;
@@ -180,6 +235,10 @@ button:hover,
         box-sizing: border-box;
         text-align: center;
     }
+
+    .daily-report-row {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 </head>
@@ -243,6 +302,12 @@ button:hover,
         </button>
     </section>
 
+    <details id="myDailyReportsSection" class="daily-report-history jgc-section" ontoggle="handleMyDailyReportsToggle(this)">
+        <summary>My Daily Site Reports <span id="myDailyReportsCount" class="jgc-badge"></span></summary>
+        <div id="myDailyReportsStatus" class="small">Open this section to load your reports.</div>
+        <div id="myDailyReportsList" class="daily-report-list"></div>
+    </details>
+
     <div class="actions jgc-actions">
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
@@ -258,6 +323,7 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
+let myDailyReportsLoaded = false;
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 
 if (isJgcSubcontractorSession(worker)) {
@@ -265,6 +331,64 @@ if (isJgcSubcontractorSession(worker)) {
     if (grids[0]) {
         grids[0].querySelectorAll("[onclick*='previous-inspections']").forEach((button) => button.remove());
     }
+}
+
+function formatDailyReportDate(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(String(value).slice(0, 10) + "T12:00:00");
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+}
+
+function dailyReportLink(reportId, mode) {
+    return `daily-site-report.html?reportId=${encodeURIComponent(reportId)}&mode=${mode}&return=reports`;
+}
+
+async function handleMyDailyReportsToggle(section) {
+    if (!section.open || myDailyReportsLoaded || !supabaseClient || isJgcSubcontractorSession(worker)) {
+        return;
+    }
+
+    const status = document.getElementById("myDailyReportsStatus");
+    const list = document.getElementById("myDailyReportsList");
+    status.textContent = "Loading your daily site reports...";
+
+    const { data, error } = await supabaseClient
+        .from("daily_site_reports")
+        .select("id,report_date,project,created_at")
+        .ilike("worker_name", currentWorker)
+        .order("report_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+    if (error) {
+        status.textContent = "Your reports could not be loaded: " + error.message;
+        return;
+    }
+
+    const reports = data || [];
+    myDailyReportsLoaded = true;
+    document.getElementById("myDailyReportsCount").textContent = String(reports.length);
+
+    if (!reports.length) {
+        status.textContent = "You have not submitted any daily site reports yet.";
+        list.innerHTML = "";
+        return;
+    }
+
+    status.textContent = `${reports.length} report${reports.length === 1 ? "" : "s"}`;
+    list.innerHTML = reports.map((report) => `
+        <article class="daily-report-row">
+            <strong>${escapeHtml(formatDailyReportDate(report.report_date))}</strong>
+            <span>${escapeHtml(report.project || "Project not entered")}</span>
+            <div class="jgc-actions jgc-actions--compact">
+                <button type="button" class="jgc-button" onclick="window.location.href='${dailyReportLink(report.id, "view")}'">View</button>
+                <button type="button" class="jgc-button jgc-button--secondary" onclick="window.location.href='${dailyReportLink(report.id, "edit")}'">Edit</button>
+            </div>
+        </article>
+    `).join("");
 }
 
 async function signOut() {

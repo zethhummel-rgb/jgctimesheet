@@ -396,6 +396,22 @@
   outline-offset: 1px;
 }
 
+.jgc-project-job-picker {
+  display: grid;
+  width: 100%;
+  gap: var(--jgc-space-2);
+}
+
+.jgc-project-job-select,
+.jgc-project-job-manual {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.jgc-project-job-manual[hidden] {
+  display: none !important;
+}
+
 .jgc-help-text {
   margin-top: var(--jgc-space-1);
   color: var(--jgc-color-text-muted);

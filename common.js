@@ -919,6 +919,31 @@ function getJgcProjectJobDisplay(job) {
   return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
+function setJgcProjectJobValue(fieldOrId, value) {
+  const field = typeof fieldOrId === "string"
+    ? document.getElementById(fieldOrId)
+    : fieldOrId;
+
+  if (!field) {
+    return;
+  }
+
+  const nextValue = String(value || "").trim();
+  field.value = nextValue;
+
+  const picker = field.closest(".jgc-project-job-picker");
+  const select = picker && picker.querySelector(".jgc-project-job-select");
+
+  if (select) {
+    const matchingOption = Array.from(select.options).some((option) => option.value === nextValue);
+    select.value = matchingOption && nextValue ? nextValue : (nextValue ? "__manual__" : "");
+    field.hidden = Boolean(matchingOption && nextValue) || !nextValue;
+  }
+
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  field.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 async function getJgcProjectJobOptions() {
   if (jgcProjectJobOptions) {
     return jgcProjectJobOptions;
@@ -954,26 +979,95 @@ function enhanceJgcProjectJobInputs() {
     return;
   }
 
-  const listId = "jgcProjectJobOptions";
-  let list = document.getElementById(listId);
-
-  if (!list) {
-    list = document.createElement("datalist");
-    list.id = listId;
-    document.body.appendChild(list);
-  }
-
   fields.forEach((field) => {
-    field.setAttribute("list", listId);
+    field.removeAttribute("list");
+    field.setAttribute("autocomplete", "off");
     if (!field.placeholder) {
-      field.placeholder = "Select project/job or type manually";
+      field.placeholder = "Enter project/job manually";
     }
   });
 
   getJgcProjectJobOptions().then((jobs) => {
-    list.innerHTML = jobs
-      .map((job) => '<option value="' + escapeHtml(getJgcProjectJobDisplay(job)) + '"></option>')
-      .join("");
+    fields.forEach((field, fieldIndex) => {
+      if (field.dataset.jgcProjectJobEnhanced === "true") {
+        return;
+      }
+
+      const initialValue = String(field.value || "").trim();
+      const picker = document.createElement("div");
+      const select = document.createElement("select");
+      const fieldId = field.id || "jgcProjectJobManual" + fieldIndex;
+      const selectId = fieldId + "Select";
+
+      field.id = fieldId;
+      field.dataset.jgcProjectJobEnhanced = "true";
+      field.classList.add("jgc-input", "jgc-project-job-manual");
+      field.placeholder = "Enter project/job manually";
+
+      picker.className = "jgc-project-job-picker";
+      select.id = selectId;
+      select.className = "jgc-select jgc-project-job-select";
+      select.setAttribute("aria-label", "Select project or job");
+      select.innerHTML = [
+        '<option value="">Select project / job</option>',
+        ...jobs.map((job) => {
+          const display = getJgcProjectJobDisplay(job);
+          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(display) + '</option>';
+        }),
+        '<option value="__manual__">Enter a job manually...</option>'
+      ].join("");
+
+      field.parentNode.insertBefore(picker, field);
+      picker.appendChild(select);
+      picker.appendChild(field);
+
+      const fieldContainer = picker.closest(".field, .jgc-field, td");
+      const label = fieldContainer && fieldContainer.querySelector("label");
+      if (label && (!label.htmlFor || label.htmlFor === fieldId)) {
+        label.htmlFor = selectId;
+      }
+
+      function dispatchProjectJobChange() {
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
+      function showManualEntry(shouldFocus) {
+        field.hidden = false;
+        if (shouldFocus) {
+          window.setTimeout(() => field.focus(), 0);
+        }
+      }
+
+      function useSelectedJob() {
+        if (select.value === "__manual__") {
+          if (jobs.some((job) => getJgcProjectJobDisplay(job) === field.value)) {
+            field.value = "";
+          }
+          showManualEntry(true);
+          dispatchProjectJobChange();
+          return;
+        }
+
+        field.value = select.value;
+        field.hidden = true;
+        dispatchProjectJobChange();
+      }
+
+      select.addEventListener("change", useSelectedJob);
+
+      const matchingJob = jobs.find((job) => getJgcProjectJobDisplay(job) === initialValue);
+      if (matchingJob) {
+        select.value = initialValue;
+        field.hidden = true;
+      } else if (initialValue) {
+        select.value = "__manual__";
+        showManualEntry(false);
+      } else {
+        select.value = "";
+        field.hidden = true;
+      }
+    });
   });
 }
 

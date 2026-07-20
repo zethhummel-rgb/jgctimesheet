@@ -337,7 +337,7 @@ th {
         </div>
 
         <div class="actions jgc-actions">
-            <button type="button" class="jgc-button" onclick="submitToolboxTalkReport()">Save & Email Report</button>
+            <button id="saveToolboxReportButton" type="button" class="jgc-button" onclick="submitToolboxTalkReport()">Save & Email Report</button>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         </div>
@@ -366,6 +366,7 @@ let toolboxTalkUrls = {};
 let employees = [];
 let selectedTalk = null;
 let acknowledgements = [];
+let toolboxReportSubmitting = false;
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
@@ -687,6 +688,10 @@ async function emailToolboxReport(record) {
 }
 
 async function submitToolboxTalkReport() {
+    if (toolboxReportSubmitting) {
+        return;
+    }
+
     const crew = getSelectedCrew();
     const externalCrew = getManualExternalCrew();
     const allCrew = crew.concat(externalCrew);
@@ -723,58 +728,72 @@ async function submitToolboxTalkReport() {
         crew: allCrew
     };
 
-    setReportStatus("Saving toolbox talk report...");
-
-    const { error } = await supabaseClient
-        .from("toolbox_talk_reports")
-        .insert(record);
-
-    if (error) {
-        setReportStatus("Toolbox talk report could not be saved.");
-        return;
-    }
-
-    if (crew.length) {
-        const attendanceRows = crew.map((person) => ({
-            report_id: record.id,
-            talk_id: selectedTalk.id,
-            worker_name: person.workerName,
-            worker_display_name: person.displayName
-        }));
-
-        const { error: attendanceError } = await supabaseClient
-            .from("toolbox_talk_attendance")
-            .insert(attendanceRows);
-
-        if (attendanceError) {
-            setReportStatus("Report saved, but attendance acknowledgements could not be created.");
-            return;
-        }
-    }
-
-    const safetyRows = await createToolboxSafetyAcknowledgements(record, allCrew);
-    record.safety_acknowledgements = safetyRows;
-
-    setReportStatus("Emailing toolbox talk report...");
+    const submitButton = document.getElementById("saveToolboxReportButton");
+    toolboxReportSubmitting = true;
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving Report...";
 
     try {
-        await emailToolboxReport(record);
-        setReportStatus("Toolbox talk report saved and emailed.");
-    } catch (error) {
-        setReportStatus("Report saved, but email could not be sent.");
-    }
+        setReportStatus("Saving toolbox talk report...");
 
-    document.getElementById("projectName").value = "";
-    document.getElementById("location").value = "";
-    document.getElementById("discussionNotes").value = "";
-    document.getElementById("hazardsDiscussed").value = "";
-    document.getElementById("correctiveActions").value = "";
-    document.getElementById("externalCrewList").value = "";
-    document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(record.id, safetyRows);
-    document.querySelectorAll(".crew-checkbox").forEach((box) => {
-        box.checked = false;
-    });
-    await loadToolboxData();
+        const { error } = await supabaseClient
+            .from("toolbox_talk_reports")
+            .insert(record);
+
+        if (error) {
+            setReportStatus("Toolbox talk report could not be saved.");
+            return;
+        }
+
+        if (crew.length) {
+            const attendanceRows = crew.map((person) => ({
+                report_id: record.id,
+                talk_id: selectedTalk.id,
+                worker_name: person.workerName,
+                worker_display_name: person.displayName
+            }));
+
+            const { error: attendanceError } = await supabaseClient
+                .from("toolbox_talk_attendance")
+                .insert(attendanceRows);
+
+            if (attendanceError) {
+                setReportStatus("Report saved, but attendance acknowledgements could not be created.");
+                return;
+            }
+        }
+
+        const safetyRows = await createToolboxSafetyAcknowledgements(record, allCrew);
+        record.safety_acknowledgements = safetyRows;
+
+        setReportStatus("Emailing toolbox talk report...");
+
+        try {
+            await emailToolboxReport(record);
+            setReportStatus("Toolbox talk report saved and emailed.");
+        } catch (error) {
+            setReportStatus("Report saved, but email could not be sent.");
+        }
+
+        document.getElementById("projectName").value = "";
+        document.getElementById("location").value = "";
+        document.getElementById("discussionNotes").value = "";
+        document.getElementById("hazardsDiscussed").value = "";
+        document.getElementById("correctiveActions").value = "";
+        document.getElementById("externalCrewList").value = "";
+        document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(record.id, safetyRows);
+        document.querySelectorAll(".crew-checkbox").forEach((box) => {
+            box.checked = false;
+        });
+        await loadToolboxData();
+    } catch (error) {
+        console.error("Toolbox talk report submission failed", error);
+        setReportStatus("Toolbox talk report could not be completed. Please try again.");
+    } finally {
+        toolboxReportSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.textContent = "Save & Email Report";
+    }
 }
 
 function renderAcknowledgements() {

@@ -373,6 +373,7 @@ function renderToolboxTalks() {
     }
 
     updateAdminReportSubtabCounts();
+    renderToolboxTalkHistory();
 
     if (!toolboxTalks.length) {
         list.textContent = "No toolbox talks uploaded yet.";
@@ -410,18 +411,32 @@ function renderToolboxTalks() {
 }
 
 async function loadToolboxTalks() {
-    const { data, error } = await supabaseClient
-        .from("toolbox_talks")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+    const [talkResult, reportResult, attendanceResult] = await Promise.all([
+        supabaseClient
+            .from("toolbox_talks")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }),
+        supabaseClient
+            .from("toolbox_talk_reports")
+            .select("*")
+            .order("created_at", { ascending: false }),
+        supabaseClient
+            .from("toolbox_talk_attendance")
+            .select("*")
+            .order("created_at", { ascending: false })
+    ]);
+
+    const error = talkResult.error || reportResult.error || attendanceResult.error;
 
     if (error) {
-        setToolboxTalkStatus("Toolbox talks could not be loaded.");
+        setToolboxTalkStatus("Toolbox talk data could not be loaded.");
         return;
     }
 
-    toolboxTalks = data || [];
+    toolboxTalks = talkResult.data || [];
+    toolboxReports = reportResult.data || [];
+    toolboxAttendance = attendanceResult.data || [];
     await prepareToolboxTalkUrls();
     renderToolboxTalks();
     setToolboxTalkStatus("");

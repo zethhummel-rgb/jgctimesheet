@@ -182,6 +182,7 @@ button:hover {
 
 <div class="container jgc-panel">
     <h1 class="jgc-page-title">Daily Site Report</h1>
+    <div id="reportMeta" class="small" hidden></div>
 
     <div class="grid jgc-form-grid">
         <div class="field">
@@ -228,13 +229,15 @@ button:hover {
             <label for="photos">Photos</label>
             <input id="photos" type="file" accept="image/*" multiple onchange="previewPhotos()">
             <div class="small">Photos will be included in the emailed PDF.</div>
+            <div id="storedPhotoSummary" class="small"></div>
             <div id="photoPreview" class="photo-preview"></div>
         </div>
     </div>
 
     <div class="actions jgc-actions">
-        <button type="button" class="jgc-button" onclick="submitDailySiteReport()">Save & Email PDF</button>
-        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
+        <button id="saveReportButton" type="button" class="jgc-button" onclick="submitDailySiteReport()">Save & Email PDF</button>
+        <button id="editReportButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="openDailyReportEdit()" hidden>Edit Report</button>
+        <button id="backToReportsButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="leaveDailySiteReport()">Reports</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
     </div>
 
@@ -248,10 +251,19 @@ button:hover {
 const DAILY_REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
+const dailyReportParams = new URLSearchParams(window.location.search);
+const activeDailyReportId = String(dailyReportParams.get("reportId") || "").trim();
+const dailyReportMode = dailyReportParams.get("mode") === "edit" ? "edit" : "view";
+const dailyReportReturn = dailyReportParams.get("return") === "admin" ? "admin" : "reports";
 let selectedPhotoData = [];
+let loadedDailyReport = null;
 
 document.getElementById("userBar").textContent = "Signed in as: " + (worker.display || worker.key);
 document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
+
+if (activeDailyReportId) {
+    loadDailySiteReport();
+}
 
 function setReportStatus(message) {
     document.getElementById("reportStatus").textContent = message || "";
@@ -259,6 +271,86 @@ function setReportStatus(message) {
 
 function getValue(id) {
     return document.getElementById(id).value.trim();
+}
+
+function leaveDailySiteReport() {
+    window.location.href = dailyReportReturn === "admin" ? "admin.html?tab=reports" : "reports.html";
+}
+
+function openDailyReportEdit() {
+    if (!activeDailyReportId) {
+        return;
+    }
+
+    window.location.href = `daily-site-report.html?reportId=${encodeURIComponent(activeDailyReportId)}&mode=edit&return=${dailyReportReturn}`;
+}
+
+function setDailyReportReadOnly(readOnly) {
+    document.querySelectorAll("#reportDate, #project, #weather, #crew, #workCompleted, #deliveries, #visitors, #delays, #photos")
+        .forEach((field) => {
+            field.disabled = readOnly;
+        });
+
+    document.querySelectorAll(".jgc-project-job-select").forEach((field) => {
+        field.disabled = readOnly;
+    });
+}
+
+function populateDailySiteReport(report) {
+    document.getElementById("reportDate").value = report.report_date || "";
+    setJgcProjectJobValue("project", report.project || "");
+    document.getElementById("weather").value = report.weather || "";
+    document.getElementById("crew").value = report.crew || "";
+    document.getElementById("workCompleted").value = report.work_completed || "";
+    document.getElementById("deliveries").value = report.deliveries || "";
+    document.getElementById("visitors").value = report.visitors || "";
+    document.getElementById("delays").value = report.delays || "";
+
+    const storedPhotos = Array.isArray(report.photos) ? report.photos : [];
+    document.getElementById("storedPhotoSummary").textContent = storedPhotos.length
+        ? `Saved photo references: ${storedPhotos.map((photo) => photo.name || "Photo").join(", ")}. Original image files were not retained with older reports.`
+        : "No photos were attached to this report.";
+
+    const owner = report.worker_display_name || report.worker_name || "Unknown employee";
+    const meta = document.getElementById("reportMeta");
+    meta.hidden = false;
+    meta.textContent = `Submitted by ${owner} on ${report.report_date || "an unknown date"}.`;
+}
+
+async function loadDailySiteReport() {
+    if (!supabaseClient) {
+        setReportStatus("Supabase is not available, so this report cannot be opened.");
+        return;
+    }
+
+    setReportStatus("Loading report...");
+    const { data, error } = await supabaseClient
+        .from("daily_site_reports")
+        .select("*")
+        .eq("id", activeDailyReportId)
+        .single();
+
+    if (error || !data) {
+        setReportStatus("This report could not be opened. It may no longer exist, or your account may not have access.");
+        document.getElementById("saveReportButton").hidden = true;
+        return;
+    }
+
+    loadedDailyReport = data;
+    populateDailySiteReport(data);
+
+    const isOwner = normalizeWorkerName(data.worker_name) === normalizeWorkerName(worker.key);
+    const canEdit = isOwner || isAdminWorker(worker.key, worker.role, worker.email);
+    const isViewOnly = dailyReportMode !== "edit" || !canEdit;
+
+    document.querySelector("h1").textContent = isViewOnly ? "View Daily Site Report" : "Edit Daily Site Report";
+    document.getElementById("saveReportButton").hidden = isViewOnly;
+    document.getElementById("saveReportButton").textContent = "Save Changes";
+    document.getElementById("editReportButton").hidden = !isViewOnly || !canEdit;
+    document.getElementById("photos").closest(".field").hidden = isViewOnly;
+    setDailyReportReadOnly(isViewOnly);
+    getJgcProjectJobOptions().then(() => setDailyReportReadOnly(isViewOnly));
+    setReportStatus(isViewOnly ? "Viewing saved report." : "You can update this report and save your changes.");
 }
 
 function makeSafeFileName(value) {
@@ -318,9 +410,13 @@ async function previewPhotos() {
 }
 
 function buildReportRecord() {
+    const storedPhotos = loadedDailyReport && Array.isArray(loadedDailyReport.photos)
+        ? loadedDailyReport.photos
+        : [];
+
     return {
-        worker_name: worker.key,
-        worker_display_name: worker.display || worker.key,
+        worker_name: loadedDailyReport ? loadedDailyReport.worker_name : worker.key,
+        worker_display_name: loadedDailyReport ? loadedDailyReport.worker_display_name : (worker.display || worker.key),
         report_date: getValue("reportDate"),
         project: getValue("project"),
         weather: getValue("weather"),
@@ -329,11 +425,11 @@ function buildReportRecord() {
         deliveries: getValue("deliveries"),
         visitors: getValue("visitors"),
         delays: getValue("delays"),
-        photos: selectedPhotoData.map((photo) => ({
+        photos: selectedPhotoData.length ? selectedPhotoData.map((photo) => ({
             name: photo.name,
             type: photo.type,
             size: photo.size
-        }))
+        })) : storedPhotos
     };
 }
 
@@ -441,14 +537,21 @@ async function submitDailySiteReport() {
 
     if (supabaseClient) {
         setReportStatus("Saving report...");
-        const { error } = await supabaseClient
-            .from("daily_site_reports")
-            .insert(record);
+        const saveQuery = activeDailyReportId
+            ? supabaseClient.from("daily_site_reports").update(record).eq("id", activeDailyReportId)
+            : supabaseClient.from("daily_site_reports").insert(record);
+        const { error } = await saveQuery;
 
         if (error) {
             setReportStatus("Report could not be saved online: " + error.message);
             return;
         }
+    }
+
+    if (activeDailyReportId) {
+        loadedDailyReport = { ...loadedDailyReport, ...record };
+        setReportStatus("Daily site report changes saved.");
+        return;
     }
 
     const subject = "Daily Site Report - " + record.project + " - " + record.report_date;

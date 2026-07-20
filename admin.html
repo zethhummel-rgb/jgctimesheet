@@ -628,6 +628,7 @@
         <section id="adminReportPanelJsa" class="admin-report-panel jgc-section" data-report-panel="jsa" hidden>
             <h3>JSA Reports</h3>
             <div id="jsaReportsList" class="small">Loading JSA reports...</div>
+            <div id="adminJsaReportViewPanel" class="admin-jsa-report-view jgc-panel" hidden></div>
         </section>
         <section id="adminReportPanelNearMiss" class="admin-report-panel jgc-section" data-report-panel="nearMiss" hidden>
             <h3>Near Miss Reports</h3>
@@ -647,6 +648,10 @@
         </section>
         <section id="adminReportPanelToolbox" class="admin-report-panel jgc-section" data-report-panel="toolbox" hidden>
             <h3>Tool Box Talks</h3>
+            <h4>Completed Toolbox Talk History</h4>
+            <div id="toolboxTalkHistoryList" class="small">Loading completed toolbox talks...</div>
+            <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+            <h4>Toolbox Talk PDF Library</h4>
             <div class="announcement-grid">
                 <div>
                     <label>Title</label>
@@ -663,7 +668,7 @@
             </div>
             <div class="actions" style="margin-top:10px;">
                 <button type="button" onclick="publishToolboxTalk()">Upload Toolbox Talk PDF</button>
-                <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Talks</button>
+                <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Data</button>
             </div>
             <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
             <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
@@ -1101,7 +1106,7 @@
 <script src="admin-notices.js?v=1"></script>
 <script src="admin-certificates.js?v=3"></script>
 <script src="admin-inspections.js?v=3"></script>
-<script src="admin-reports.js?v=1"></script>
+<script src="admin-reports.js?v=2"></script>
 <script src="admin-employee-profile.js?v=1"></script>
 <script src="admin-jobs.js?v=2"></script>
 <script src="admin-work-orders.js?v=2"></script>

@@ -98,11 +98,279 @@ function renderSafetyAcknowledgementOverview() {
     `;
 }
 
+function getToolboxReportPeople(report) {
+    const safetyRows = getToolboxReportSafetyAcknowledgements(report);
+
+    if (safetyRows.length) {
+        return safetyRows.map((ack) => ({
+            name: ack.attendee_name || "Worker",
+            company: ack.attendee_company || "",
+            status: (typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status || "") +
+                (ack.acknowledged_at ? " - " + formatJsaReportAcknowledgementDate(ack.acknowledged_at) : "")
+        }));
+    }
+
+    const attendanceRows = toolboxAttendance.filter((attendance) => attendance.report_id === report.id);
+
+    if (attendanceRows.length) {
+        return attendanceRows.map((attendance) => ({
+            name: attendance.worker_display_name || attendance.worker_name || "Worker",
+            company: "",
+            status: attendance.acknowledged_at
+                ? "Acknowledged - " + formatJsaReportAcknowledgementDate(attendance.acknowledged_at)
+                : "Pending acknowledgement"
+        }));
+    }
+
+    return (Array.isArray(report.crew) ? report.crew : []).map((person) => ({
+        name: person.displayName || person.workerName || person.name || "Worker",
+        company: person.company || "",
+        status: "Recorded present"
+    }));
+}
+
+function renderToolboxTalkHistory() {
+    const list = document.getElementById("toolboxTalkHistoryList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!toolboxReports.length) {
+        list.textContent = "No completed toolbox talk reports found.";
+        return;
+    }
+
+    list.innerHTML = toolboxReports.map((report) => {
+        const people = getToolboxReportPeople(report);
+        const crewCount = people.length || (Array.isArray(report.crew) ? report.crew.length : 0);
+
+        return `
+            <details class="admin-collapsible-panel jgc-card" style="margin-bottom:10px;">
+                <summary>
+                    <span>
+                        <strong>${escapeHtml(report.talk_title || "Toolbox Talk")}</strong><br>
+                        <span class="timesheet-worker-meta">${escapeHtml(formatDate(report.report_date))} | ${escapeHtml(report.project || "No project entered")} | Presented by ${escapeHtml(report.presenter_name || "-")}</span>
+                    </span>
+                    <span class="admin-report-count jgc-badge">${escapeHtml(String(crewCount))} attendee${crewCount === 1 ? "" : "s"}</span>
+                </summary>
+                <div>
+                    <div class="table-wrap">
+                        <table>
+                            <tbody>
+                                <tr><th>Talk</th><td>${escapeHtml(report.talk_title || "")}</td></tr>
+                                <tr><th>Date</th><td>${escapeHtml(formatDate(report.report_date))}</td></tr>
+                                <tr><th>Project</th><td>${escapeHtml(report.project || "")}</td></tr>
+                                <tr><th>Location</th><td>${escapeHtml(report.location || "-")}</td></tr>
+                                <tr><th>Presenter</th><td>${escapeHtml(report.presenter_name || "")}</td></tr>
+                                <tr><th>Submitted By</th><td>${escapeHtml(report.submitted_by_name || report.submitted_by_worker || "")}</td></tr>
+                                <tr><th>Saved</th><td>${escapeHtml(formatJsaReportAcknowledgementDate(report.created_at))}</td></tr>
+                                <tr><th>Discussion Notes</th><td>${escapeHtml(report.discussion_notes || "-")}</td></tr>
+                                <tr><th>Hazards Discussed</th><td>${escapeHtml(report.hazards_discussed || "-")}</td></tr>
+                                <tr><th>Corrective Actions</th><td>${escapeHtml(report.corrective_actions || "-")}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h4 style="margin:14px 0 8px;">Attendance</h4>
+                    ${people.length ? `
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Name</th><th>Company</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    ${people.map((person) => `
+                                        <tr>
+                                            <td>${escapeHtml(person.name)}</td>
+                                            <td>${escapeHtml(person.company || "-")}</td>
+                                            <td>${escapeHtml(person.status || "Recorded present")}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : '<div class="small">No attendance was recorded.</div>'}
+                </div>
+            </details>
+        `;
+    }).join("");
+}
+
 function getAdminJsaReports() {
     return inspections.filter((inspection) =>
         String(inspection.inspection_type || "").toLowerCase().includes("jsa") ||
         String(inspection.inspection_type || "").toLowerCase().includes("job safety")
     );
+}
+
+function getAdminJsaReportById(reportId) {
+    return getAdminJsaReports().find((report) => String(report.id) === String(reportId)) || null;
+}
+
+function getAdminJsaReportFields(report) {
+    const fields = report && report.form_data && Array.isArray(report.form_data.fields)
+        ? report.form_data.fields
+        : [];
+
+    return fields.filter((field) => {
+        const label = String(field && field.label || "").trim();
+        const value = String(field && field.value || "").trim();
+        return label && value && label.toLowerCase() !== "textarea";
+    });
+}
+
+function getAdminJsaReportRows(report) {
+    return report && report.form_data && Array.isArray(report.form_data.rows)
+        ? report.form_data.rows.filter((row) => (row.cells || []).slice(0, 3).some((cell) => String(cell || "").trim()))
+        : [];
+}
+
+function renderAdminJsaReportBody(report) {
+    const fields = getAdminJsaReportFields(report);
+    const rows = getAdminJsaReportRows(report);
+    const acknowledgements = getJsaReportAcknowledgements(report);
+    const acknowledgementSummary = acknowledgements.length && typeof safetyAckSummary === "function"
+        ? safetyAckSummary(acknowledgements)
+        : null;
+
+    return `
+        <div class="admin-jsa-report-meta">
+            <div><strong>Date</strong><span>${escapeHtml(formatDate(report.inspection_date) || "-")}</span></div>
+            <div><strong>Completed By</strong><span>${escapeHtml(report.worker_display_name || report.worker_name || "-")}</span></div>
+            <div><strong>Saved</strong><span>${escapeHtml(formatJsaReportAcknowledgementDate(report.created_at) || "-")}</span></div>
+            <div><strong>Record</strong><span>${escapeHtml(report.title || "JSA")}</span></div>
+        </div>
+        <h4>Submitted Details</h4>
+        ${fields.length ? `
+            <div class="admin-jsa-report-fields">
+                ${fields.map((field) => `
+                    <div>
+                        <strong>${escapeHtml(field.label)}</strong>
+                        <span class="admin-jsa-report-value">${escapeHtml(field.value)}</span>
+                    </div>
+                `).join("")}
+            </div>
+        ` : '<p class="small">No submitted field details were saved.</p>'}
+        <h4>Job Steps, Hazards, and Controls</h4>
+        ${rows.length ? `
+            <div class="table-wrap jgc-table-wrap">
+                <table class="jgc-table admin-jsa-report-table">
+                    <thead>
+                        <tr><th>Sequence of Basic Job Steps</th><th>Potential Hazards</th><th>Required Action or Procedure</th></tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map((row) => `
+                            <tr>
+                                <td class="admin-jsa-report-value">${escapeHtml((row.cells || [])[0] || "-")}</td>
+                                <td class="admin-jsa-report-value">${escapeHtml((row.cells || [])[1] || "-")}</td>
+                                <td class="admin-jsa-report-value">${escapeHtml((row.cells || [])[2] || "-")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : '<p class="small">No job-step rows were saved.</p>'}
+        <h4>Digital Acknowledgements${acknowledgementSummary ? ` - ${escapeHtml(String(acknowledgementSummary.acknowledged))}/${escapeHtml(String(acknowledgementSummary.total))} complete` : ""}</h4>
+        ${acknowledgements.length ? `
+            <div class="table-wrap jgc-table-wrap">
+                <table class="jgc-table">
+                    <thead>
+                        <tr><th>Name</th><th>Company</th><th>Status</th><th>Method</th><th>Acknowledged</th></tr>
+                    </thead>
+                    <tbody>
+                        ${acknowledgements.map((ack) => `
+                            <tr>
+                                <td>${escapeHtml(ack.attendee_name || "Worker")}</td>
+                                <td>${escapeHtml(ack.attendee_company || "-")}</td>
+                                <td>${escapeHtml(typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(ack) : ack.acknowledgement_status || "Pending")}</td>
+                                <td>${escapeHtml(typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(ack) : ack.acknowledgement_method || "-")}</td>
+                                <td>${escapeHtml(formatJsaReportAcknowledgementDate(ack.acknowledged_at) || "-")}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        ` : '<p class="small">No digital acknowledgements were recorded for this JSA.</p>'}
+    `;
+}
+
+function closeAdminJsaReport() {
+    const panel = document.getElementById("adminJsaReportViewPanel");
+
+    if (panel) {
+        panel.hidden = true;
+        panel.innerHTML = "";
+    }
+}
+
+function openAdminJsaReport(reportId) {
+    const report = getAdminJsaReportById(reportId);
+    const panel = document.getElementById("adminJsaReportViewPanel");
+
+    if (!report || !panel) {
+        alert("This JSA report could not be found.");
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="admin-jsa-report-header">
+            <div>
+                <span class="small">Completed JSA</span>
+                <h3>${escapeHtml(report.title || "Job Safety Analysis")}</h3>
+            </div>
+            <div class="jgc-actions jgc-actions--compact">
+                <button type="button" class="jgc-button jgc-button--secondary" onclick="printAdminJsaReport('${escapeHtml(report.id)}')">Print / Save PDF</button>
+                <button type="button" class="jgc-button jgc-button--secondary" onclick="closeAdminJsaReport()">Close</button>
+            </div>
+        </div>
+        ${renderAdminJsaReportBody(report)}
+    `;
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function printAdminJsaReport(reportId) {
+    const report = getAdminJsaReportById(reportId);
+
+    if (!report) {
+        alert("This JSA report could not be found.");
+        return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=920,height=980");
+
+    if (!printWindow) {
+        alert("Popup blocked. Allow popups for this portal, then try again.");
+        return;
+    }
+
+    printWindow.document.write(`
+        <!doctype html>
+        <html>
+        <head>
+            <title>${escapeHtml(report.title || "Job Safety Analysis")}</title>
+            <style>
+                @page { size: letter; margin: 14mm; }
+                * { box-sizing: border-box; }
+                body { margin: 0; color: #17221b; font: 13px Arial, sans-serif; }
+                h3, h4 { color: #174f28; }
+                .small { color: #526158; }
+                .admin-jsa-report-meta, .admin-jsa-report-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+                .admin-jsa-report-meta > div, .admin-jsa-report-fields > div { border: 1px solid #b9c6bc; padding: 8px; }
+                strong, span { display: block; }
+                table { width: 100%; margin-top: 8px; border-collapse: collapse; }
+                th, td { border: 1px solid #aeb8b1; padding: 7px; text-align: left; vertical-align: top; }
+                th { background: #e7f3e9; }
+                .admin-jsa-report-value { white-space: pre-wrap; }
+            </style>
+        </head>
+        <body>
+            <h1>${escapeHtml(report.title || "Job Safety Analysis")}</h1>
+            ${renderAdminJsaReportBody(report)}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 250);
 }
 
 function setAdminReportSubtabCount(tab, count) {
@@ -120,7 +388,7 @@ function updateAdminReportSubtabCounts() {
     setAdminReportSubtabCount("accident", accidentReports.length);
     setAdminReportSubtabCount("injury", employeeInjuryReports.length);
     setAdminReportSubtabCount("acknowledgements", safetyAcknowledgements.filter((ack) => !ack.removed_at).length);
-    setAdminReportSubtabCount("toolbox", toolboxTalks.length);
+    setAdminReportSubtabCount("toolbox", toolboxReports.length);
 }
 
 function switchAdminReportSubtab(tab) {
@@ -156,6 +424,7 @@ function renderReports() {
     const jsaReports = getAdminJsaReports();
 
     renderSafetyAcknowledgementOverview();
+    renderToolboxTalkHistory();
 
     if (dailyList) {
         if (!dailySiteReports.length) {
@@ -165,7 +434,7 @@ function renderReports() {
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr><th>Date</th><th>Project</th><th>Submitted By</th><th>Saved</th></tr>
+                            <tr><th>Date</th><th>Project</th><th>Submitted By</th><th>Saved</th><th>Actions</th></tr>
                         </thead>
                         <tbody>
                             ${dailySiteReports.slice(0, 50).map((report) => `
@@ -174,6 +443,12 @@ function renderReports() {
                                     <td>${escapeHtml(report.project || "")}</td>
                                     <td>${escapeHtml(report.worker_display_name || report.worker_name || "")}</td>
                                     <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                    <td>
+                                        <div class="jgc-actions jgc-actions--compact">
+                                            <button type="button" class="jgc-button" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'view')">View</button>
+                                            <button type="button" class="jgc-button jgc-button--secondary" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'edit')">Edit</button>
+                                        </div>
+                                    </td>
                                 </tr>
                             `).join("")}
                         </tbody>
@@ -191,7 +466,7 @@ function renderReports() {
                 <div class="table-wrap">
                     <table>
                         <thead>
-                            <tr><th>Date</th><th>Completed By</th><th>Acknowledgements</th><th>Saved</th></tr>
+                            <tr><th>Date</th><th>Completed By</th><th>Acknowledgements</th><th>Saved</th><th>Actions</th></tr>
                         </thead>
                         <tbody>
                             ${jsaReports.slice(0, 50).map((inspection) => `
@@ -200,6 +475,7 @@ function renderReports() {
                                     <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name || "")}</td>
                                     <td>${renderJsaReportAcknowledgements(inspection)}</td>
                                     <td>${escapeHtml(formatDate(inspection.created_at))}</td>
+                                    <td><button type="button" class="jgc-button" onclick="openAdminJsaReport('${escapeHtml(inspection.id)}')">View</button></td>
                                 </tr>
                             `).join("")}
                         </tbody>
@@ -309,4 +585,14 @@ function renderReports() {
     }
 
     initializeAdminReportSubtabs();
+}
+
+function openDailySiteReport(reportId, mode) {
+    const id = String(reportId || "").trim();
+    if (!id) {
+        return;
+    }
+
+    const reportMode = mode === "edit" ? "edit" : "view";
+    window.location.href = `daily-site-report.html?reportId=${encodeURIComponent(id)}&mode=${reportMode}&return=admin`;
 }

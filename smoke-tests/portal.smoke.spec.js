@@ -247,6 +247,256 @@ test("signed storage links preserve nested object paths", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "nested signed storage path");
 });
 
+test("report and JSA job fields use a visible dropdown with manual entry", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Content-Range": "0-1/2"
+    },
+    body: JSON.stringify([
+      { job_number: "25058", job_name: "Amazon Drain Issue # 2", active: true },
+      { job_number: "25141", job_name: "Cornwall Electric Lynwood", active: true }
+    ])
+  }));
+  await installAuthenticatedPortalState(page);
+
+  for (const pageName of ["daily-site-report.html", "jsa.html"]) {
+    await page.goto(`/${pageName}`, { waitUntil: "domcontentloaded" });
+    const picker = page.locator(".jgc-project-job-picker").first();
+    const select = picker.locator("select");
+    const manualInput = picker.locator("[data-jgc-project-job]");
+
+    await expect(select).toBeVisible();
+    await expect(select).toContainText("25058 - Amazon Drain Issue # 2");
+    await select.selectOption("25058 - Amazon Drain Issue # 2");
+    await expect(manualInput).toHaveValue("25058 - Amazon Drain Issue # 2");
+    await expect(manualInput).toBeHidden();
+
+    await select.selectOption("__manual__");
+    await expect(manualInput).toBeVisible();
+    await manualInput.fill("Manual Job 99999");
+    await expect(manualInput).toHaveValue("Manual Job 99999");
+
+    if (pageName === "jsa.html") {
+      await expect(page.locator(".grid > .field > label").filter({ hasText: /^Page$/ })).toHaveCount(0);
+      await expect(page.locator(".grid > .field > label").filter({ hasText: /^Of$/ })).toHaveCount(0);
+    }
+  }
+
+  await expectNoRuntimeErrors(errors, "project and job dropdowns");
+});
+
+test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const reportId = "00000000-0000-4000-8000-000000000099";
+  const report = {
+    id: reportId,
+    worker_name: fakeProfile.worker_key,
+    worker_display_name: fakeProfile.display_name,
+    report_date: "2026-07-20",
+    project: "26040 - Williamstown Fairboard Entrance Sign",
+    weather: "Sunny",
+    crew: "Andre and Test Account",
+    work_completed: "Installed entrance sign.",
+    deliveries: "None",
+    visitors: "Inspector",
+    delays: "None",
+    photos: [],
+    created_at: "2026-07-20T12:00:00.000Z"
+  };
+  let updatePayload = null;
+
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/daily_site_reports**`, async (route) => {
+    const request = route.request();
+    const accept = String(request.headers().accept || "");
+
+    if (request.method() === "PATCH") {
+      updatePayload = request.postDataJSON();
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Range": "0-0/1"
+      },
+      body: accept.includes("application/vnd.pgrst.object") ? JSON.stringify(report) : JSON.stringify([report])
+    });
+  });
+  await installAuthenticatedPortalState(page);
+
+  await page.goto("/reports.html", { waitUntil: "domcontentloaded" });
+  await page.locator("#myDailyReportsSection > summary").click();
+  await expect(page.locator("#myDailyReportsList")).toContainText(report.project);
+  await expect(page.getByRole("button", { name: "View", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+
+  await page.goto(`/daily-site-report.html?reportId=${reportId}&mode=edit&return=reports`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Edit Daily Site Report" })).toBeVisible();
+  await expect(page.locator("#workCompleted")).toHaveValue(report.work_completed);
+  await page.locator("#workCompleted").fill("Installed and inspected entrance sign.");
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect.poll(() => updatePayload && updatePayload.work_completed).toBe("Installed and inspected entrance sign.");
+  await expect(page.locator("#reportStatus")).toContainText("changes saved");
+
+  await page.goto("/admin.html?tab=reports", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#dailySiteReportsList").getByRole("button", { name: "View", exact: true })).toBeVisible();
+  await expect(page.locator("#dailySiteReportsList").getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+  await expectNoRuntimeErrors(errors, "daily report history and editing");
+});
+
+test("admins can open the complete saved JSA from Reports", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const reportId = "00000000-0000-4000-8000-000000000110";
+  const report = {
+    id: reportId,
+    worker_name: "andre labrosse",
+    worker_display_name: "Andre Labrosse",
+    inspection_type: "JSA",
+    inspection_date: "2026-07-20",
+    title: "JSA - 2026-07-20",
+    form_data: {
+      fields: [
+        { label: "Project / Job", value: "26040 - Williamstown Fairboard Entrance Sign" },
+        { label: "Location", value: "Williamstown" },
+        { label: "Contractor Supervisor", value: "Andre Labrosse" },
+        { label: "Crew Sign Off (Print Names)", value: "Andre Labrosse\nSteven Leduc" }
+      ],
+      rows: [{
+        cells: ["Strip forms", "Exposed screws", "Remove screws completely"],
+        table: 1
+      }]
+    },
+    created_at: "2026-07-20T13:46:20.000Z"
+  };
+  const acknowledgement = {
+    id: "00000000-0000-4000-8000-000000000111",
+    record_type: "jsa",
+    record_id: reportId,
+    attendee_name: "Steven Leduc",
+    attendee_company: "John Gordon Construction",
+    acknowledgement_status: "acknowledged",
+    acknowledgement_method: "employee_account",
+    acknowledged_at: "2026-07-20T13:48:00.000Z",
+    removed_at: null,
+    created_at: "2026-07-20T13:47:00.000Z"
+  };
+
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/inspection_records**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([report])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/safety_acknowledgements**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([acknowledgement])
+  }));
+  await installAuthenticatedPortalState(page);
+
+  await page.goto("/admin.html?tab=reports", { waitUntil: "domcontentloaded" });
+  const jsaTab = page.locator('[data-report-tab="jsa"]');
+  await expect(jsaTab.locator(".admin-report-count")).toHaveText("1");
+  await jsaTab.click();
+  await page.locator("#jsaReportsList").getByRole("button", { name: "View", exact: true }).click();
+
+  const viewer = page.locator("#adminJsaReportViewPanel");
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toContainText(report.form_data.fields[0].value);
+  await expect(viewer).toContainText("Strip forms");
+  await expect(viewer).toContainText("Exposed screws");
+  await expect(viewer).toContainText("Remove screws completely");
+  await expect(viewer).toContainText("Steven Leduc");
+  await expect(viewer.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
+  await viewer.getByRole("button", { name: "Close" }).click();
+  await expect(viewer).toBeHidden();
+  await expectNoRuntimeErrors(errors, "admin JSA viewer");
+});
+
+test("admin toolbox talks show completed report history and attendance", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const talkId = "00000000-0000-4000-8000-000000000120";
+  const reportId = "00000000-0000-4000-8000-000000000121";
+  const report = {
+    id: reportId,
+    talk_id: talkId,
+    talk_title: "Manual Material Handling",
+    talk_file_path: "toolbox-talks/manual-material-handling.pdf",
+    report_date: "2026-07-20",
+    project: "26040 - Williamstown Fairboard Entrance Sign",
+    location: "Williamstown",
+    presenter_name: "Andre Labrosse",
+    submitted_by_worker: "andre labrosse",
+    submitted_by_name: "Andre Labrosse",
+    discussion_notes: "Reviewed safe lifting practices.",
+    hazards_discussed: "Heavy and awkward materials.",
+    corrective_actions: "Use team lifts and carts.",
+    crew: [{ workerName: "andre labrosse", displayName: "Andre Labrosse", company: "John Gordon Construction" }],
+    created_at: "2026-07-20T13:54:01.000Z"
+  };
+  const attendance = {
+    id: "00000000-0000-4000-8000-000000000122",
+    report_id: reportId,
+    talk_id: talkId,
+    worker_name: "andre labrosse",
+    worker_display_name: "Andre Labrosse",
+    acknowledged_at: null,
+    acknowledgement_name: "",
+    created_at: "2026-07-20T13:54:02.000Z"
+  };
+
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/toolbox_talks**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([{
+      id: talkId,
+      title: report.talk_title,
+      file_path: report.talk_file_path,
+      file_name: "manual-material-handling.pdf",
+      is_active: true,
+      created_at: report.created_at
+    }])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/toolbox_talk_reports**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([report])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/toolbox_talk_attendance**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([attendance])
+  }));
+  await installAuthenticatedPortalState(page);
+
+  await page.goto("/admin.html?tab=reports", { waitUntil: "domcontentloaded" });
+  const toolboxTab = page.locator('[data-report-tab="toolbox"]');
+  await expect(toolboxTab.locator(".admin-report-count")).toHaveText("1");
+  await toolboxTab.click();
+
+  const history = page.locator("#toolboxTalkHistoryList");
+  await expect(history).toContainText(report.talk_title);
+  await expect(history).toContainText(report.project);
+  await expect(history).toContainText("1 attendee");
+  await history.locator("summary").click();
+  await expect(history).toContainText(report.presenter_name);
+  await expect(history).toContainText("Pending acknowledgement");
+  await expectNoRuntimeErrors(errors, "admin toolbox talk history");
+});
+
 test("login controls work without throwing", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);

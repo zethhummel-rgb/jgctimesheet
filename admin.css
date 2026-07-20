@@ -228,6 +228,86 @@ textarea {
     margin-top: 0;
 }
 
+.admin-jsa-report-view {
+    margin-top: 16px;
+    padding: 16px;
+    color: #f7fff8;
+    background: #0a1d15;
+    border: 1px solid rgba(55, 214, 80, 0.42);
+    border-top: 4px solid #37d650;
+    border-radius: 8px;
+}
+
+.admin-jsa-report-view[hidden] {
+    display: none;
+}
+
+.admin-jsa-report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(55, 214, 80, 0.28);
+}
+
+.admin-jsa-report-header h3,
+.admin-jsa-report-view h4 {
+    margin: 4px 0 10px;
+    color: #37d650;
+}
+
+.admin-jsa-report-meta,
+.admin-jsa-report-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.admin-jsa-report-meta > div,
+.admin-jsa-report-fields > div {
+    min-width: 0;
+    padding: 9px;
+    color: #f7fff8;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(162, 194, 170, 0.3);
+}
+
+.admin-jsa-report-meta strong,
+.admin-jsa-report-fields strong,
+.admin-jsa-report-meta span,
+.admin-jsa-report-fields span {
+    display: block;
+}
+
+.admin-jsa-report-meta strong,
+.admin-jsa-report-fields strong {
+    margin-bottom: 3px;
+    color: #bce8c6;
+}
+
+.admin-jsa-report-value {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    .admin-jsa-report-header {
+        display: block;
+    }
+
+    .admin-jsa-report-header .jgc-actions {
+        margin-top: 10px;
+    }
+
+    .admin-jsa-report-meta,
+    .admin-jsa-report-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
 .table-wrap {
     overflow-x: auto;
 }
