@@ -353,9 +353,16 @@ test("JSA approved employee selection immediately adds the crew member", async (
   const approvedPicker = page.locator("#approvedCrewPicker");
   const select = page.locator("#approvedCrewSelect");
   const selectedCrew = page.locator("#selectedCrewList");
+  const initialRowCount = await page.locator("#tableBody > tr").count();
 
   await expect(select.locator("option")).toHaveCount(3);
   await expect(approvedPicker.getByRole("button", { name: "Add Employee" })).toHaveCount(0);
+  await expect(page.locator(".jsa-row-actions").getByRole("button", { name: "Add Row" })).toBeVisible();
+  await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Submit", exact: true })).toBeVisible();
+  await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Reports", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await page.locator(".jsa-row-actions").getByRole("button", { name: "Add Row" }).click();
+  await expect(page.locator("#tableBody > tr")).toHaveCount(initialRowCount + 1);
   await select.selectOption("andre labrosse");
   await expect(selectedCrew).toContainText("Andre Labrosse");
   await expect(page.locator("#crewSignOffCombined")).toHaveValue("Andre Labrosse");
