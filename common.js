@@ -48,7 +48,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Contacts", href: "contacts.html" }
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "5";
-const JGC_UPLOAD_SYSTEM_VERSION = "2";
+const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [

@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "603";
+const JGC_RELEASE_ID = "604";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -72,8 +72,8 @@ const JGC_APP_SHELL = [
   "./subcontractor-design-system.css?v=1",
   "./common.js?v=30",
   "./admin-housekeeping.js?v=1",
-  "./shared-uploads.css?v=2",
-  "./shared-uploads.js?v=2",
+  "./shared-uploads.css?v=3",
+  "./shared-uploads.js?v=3",
   "./offline-sync.js?v=2",
   "./admin-backups.js?v=3",
   "./admin-contacts.js?v=1",

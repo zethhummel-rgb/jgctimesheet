@@ -574,7 +574,9 @@
   async function openSignedFile(options) {
     const config = options || {};
     const bucket = String(config.bucket || "").trim();
-    const path = normalizeStoragePath(bucket, config.path);
+    const path = config.pathIsObjectName
+      ? String(config.path || "").trim().replace(/^\/+/, "")
+      : normalizeStoragePath(bucket, config.path);
     const viewer = config.viewer === false ? null : (config.viewer || window.open("", "_blank"));
     const client = resolveClient(config.client);
 
@@ -662,7 +664,7 @@
       return;
     }
     event.preventDefault();
-    openSignedFile(location);
+    openSignedFile(Object.assign({}, location, { pathIsObjectName: true }));
   }
 
   function registerInputRule(id, options) {

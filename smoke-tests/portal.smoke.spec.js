@@ -223,6 +223,30 @@ test("service worker installs and controls the portal", async ({ browser }) => {
   }
 });
 
+test("signed storage links preserve nested object paths", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/toolbox-talks.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => Boolean(window.JGCUploads));
+
+  await page.evaluate((origin) => {
+    const anchor = document.createElement("a");
+    anchor.id = "nested-storage-smoke-link";
+    anchor.href = `${origin}/storage/v1/object/sign/toolbox-talks/toolbox-talks/test-file.pdf?token=old-token`;
+    anchor.target = "_blank";
+    anchor.textContent = "Open nested storage object";
+    document.body.appendChild(anchor);
+  }, supabaseOrigin);
+
+  const signedRequest = page.waitForRequest((request) =>
+    request.url().includes("/storage/v1/object/sign/toolbox-talks/toolbox-talks/test-file.pdf")
+  );
+  await page.locator("#nested-storage-smoke-link").click();
+  await signedRequest;
+  await expectNoRuntimeErrors(errors, "nested signed storage path");
+});
+
 test("login controls work without throwing", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);
