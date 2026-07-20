@@ -255,6 +255,22 @@ body.po-page {
   border-left-color: #ef5147;
 }
 
+.po-notice.po-submit-error {
+  scroll-margin-top: 96px;
+  border: 2px solid #ff5a52;
+  border-left-width: 8px;
+  background: #3b0b0b;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.po-notice.po-submit-error:focus {
+  outline: 3px solid #ff8a84;
+  outline-offset: 3px;
+}
+
 .po-notice[hidden],
 .po-view[hidden],
 .po-modal[hidden] {
@@ -888,6 +904,10 @@ body.po-page {
     margin: 10px 0;
     padding: 10px 12px;
     font-size: 14px;
+  }
+
+  .po-notice.po-submit-error {
+    font-size: 18px;
   }
 
   .po-toolbar {

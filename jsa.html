@@ -196,6 +196,10 @@ button:hover {
     max-width: 580px;
 }
 
+.approved-crew-grid {
+    grid-template-columns: minmax(220px, 1fr);
+}
+
 .manual-crew-grid input {
     width: 100%;
 }
@@ -414,15 +418,14 @@ button:hover {
 
 <div class="signoff jgc-section">
     <label>Crew Sign Off</label>
-    <div class="crew-picker-grid">
+    <div id="approvedCrewPicker" class="crew-picker-grid approved-crew-grid">
         <div>
             <label for="approvedCrewSelect">Approved Employee</label>
-            <select id="approvedCrewSelect" data-inspection-skip="true">
+            <select id="approvedCrewSelect" data-inspection-skip="true" onchange="addApprovedCrewMember(this.value)">
                 <option value="">Loading approved employees...</option>
             </select>
             <div id="approvedCrewStatus" class="crew-status"></div>
         </div>
-        <button type="button" onclick="addApprovedCrewMember()">Add Employee</button>
     </div>
     <div id="selectedCrewList" class="crew-selected-list"></div>
     <label for="manualCrewInput">Manual Entry</label>
@@ -615,9 +618,9 @@ function syncCrewSignOffField() {
     field.value = lines.join("\n");
 }
 
-function addApprovedCrewMember() {
+function addApprovedCrewMember(selectedKey) {
     const select = document.getElementById("approvedCrewSelect");
-    const key = select ? select.value : "";
+    const key = String(selectedKey || (select ? select.value : ""));
 
     if (!key) {
         return;

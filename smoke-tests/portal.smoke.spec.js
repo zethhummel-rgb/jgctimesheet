@@ -132,7 +132,7 @@ async function mockPortalServices(page, profile = fakeProfile) {
   }));
 }
 
-function watchRuntimeErrors(page) {
+function watchRuntimeErrors(page, dialogAction = "dismiss") {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.stack || error.message));
   page.on("console", (message) => {
@@ -140,7 +140,7 @@ function watchRuntimeErrors(page) {
       errors.push(message.text());
     }
   });
-  page.on("dialog", (dialog) => dialog.dismiss());
+  page.on("dialog", (dialog) => dialogAction === "accept" ? dialog.accept() : dialog.dismiss());
   return errors;
 }
 
@@ -247,6 +247,51 @@ test("signed storage links preserve nested object paths", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "nested signed storage path");
 });
 
+test("toolbox talk report starts with one talk selector and its PDF action", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const talk = {
+    id: "00000000-0000-4000-8000-000000000119",
+    title: "Manual Material Handling",
+    description: "Review safe lifting practices and material handling.",
+    file_path: "toolbox-talks/manual-material-handling.pdf",
+    file_name: "manual-material-handling.pdf",
+    is_active: true,
+    created_at: "2026-07-20T12:00:00.000Z"
+  };
+
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/toolbox_talks**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([talk])
+  }));
+  await installAuthenticatedPortalState(page);
+  await page.goto("/toolbox-talks.html", { waitUntil: "domcontentloaded" });
+
+  const reportSection = page.locator("#toolboxTalkReportSection");
+  const librarySection = page.locator("#toolboxTalkLibrarySection");
+  const talkSelect = page.locator("#toolboxTalkSelect");
+  const pdfButton = page.locator("#selectedTalkPdfButton");
+
+  await expect(talkSelect).toBeEnabled();
+  await expect(talkSelect.locator("option")).toHaveCount(2);
+  await expect(pdfButton).toBeHidden();
+  expect(await page.evaluate(() => {
+    const report = document.getElementById("toolboxTalkReportSection");
+    const library = document.getElementById("toolboxTalkLibrarySection");
+    return Boolean(report.compareDocumentPosition(library) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })).toBe(true);
+
+  await talkSelect.selectOption(talk.id);
+  await expect(pdfButton).toBeVisible();
+  await expect(pdfButton).toHaveAttribute("href", /smoke-test\.pdf/);
+  await expect(page.locator("#discussionNotes")).toHaveValue(new RegExp(talk.title));
+  await expect(reportSection).toContainText("Open Talk PDF");
+  await expect(librarySection).not.toContainText("Use This Talk");
+  await expectNoRuntimeErrors(errors, "toolbox talk report selector");
+});
+
 test("report and JSA job fields use a visible dropdown with manual entry", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);
@@ -288,6 +333,93 @@ test("report and JSA job fields use a visible dropdown with manual entry", async
   }
 
   await expectNoRuntimeErrors(errors, "project and job dropdowns");
+});
+
+test("JSA approved employee selection immediately adds the crew member", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/work_order_labour_workers**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-1/2" },
+    body: JSON.stringify([
+      { id: "1", display_name: "Andre Labrosse", worker_key: "andre labrosse", approved: true },
+      { id: "2", display_name: "Steven Leduc", worker_key: "steven leduc", approved: true }
+    ])
+  }));
+  await installAuthenticatedPortalState(page);
+  await page.goto("/jsa.html", { waitUntil: "domcontentloaded" });
+
+  const approvedPicker = page.locator("#approvedCrewPicker");
+  const select = page.locator("#approvedCrewSelect");
+  const selectedCrew = page.locator("#selectedCrewList");
+
+  await expect(select.locator("option")).toHaveCount(3);
+  await expect(approvedPicker.getByRole("button", { name: "Add Employee" })).toHaveCount(0);
+  await select.selectOption("andre labrosse");
+  await expect(selectedCrew).toContainText("Andre Labrosse");
+  await expect(page.locator("#crewSignOffCombined")).toHaveValue("Andre Labrosse");
+  await expect(select.locator('option[value="andre labrosse"]')).toHaveCount(0);
+
+  await selectedCrew.getByRole("button", { name: "Remove Andre Labrosse" }).click();
+  await expect(selectedCrew).toContainText("No approved employees selected yet.");
+  await expect(select.locator('option[value="andre labrosse"]')).toHaveCount(1);
+  await expectNoRuntimeErrors(errors, "JSA automatic approved crew selection");
+});
+
+test("vacation request date is locked to today's Toronto date", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/vacation-request.html", { waitUntil: "domcontentloaded" });
+
+  const expectedDate = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Toronto",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date());
+    const values = {};
+    parts.forEach((part) => { values[part.type] = part.value; });
+    return values.year + "-" + values.month + "-" + values.day;
+  });
+  const requestDate = page.locator("#requestDate");
+
+  await expect(page.locator('label[for="requestDate"]')).toHaveText("Today's Date");
+  await expect(requestDate).toHaveAttribute("readonly", "");
+  await expect(requestDate).toHaveValue(expectedDate);
+
+  await page.evaluate(() => {
+    document.getElementById("requestDate").value = "2000-01-01";
+  });
+  await page.locator("#startDate").fill(expectedDate);
+  await page.locator("#endDate").fill(expectedDate);
+  await page.locator("#totalDays").fill("1");
+
+  const saveRequestPromise = page.waitForRequest((request) =>
+    request.method() === "POST" && request.url().includes("/rest/v1/vacation_requests")
+  );
+  const notificationPromise = page.waitForRequest((request) =>
+    request.method() === "POST" && request.url().includes("/rest/v1/notifications")
+  );
+  await page.getByRole("button", { name: "Submit Vacation Request" }).click();
+  const saveRequest = await saveRequestPromise;
+  const notificationRequest = await notificationPromise;
+  const payload = saveRequest.postDataJSON();
+  const savedRow = Array.isArray(payload) ? payload[0] : payload;
+  const notificationPayload = notificationRequest.postDataJSON();
+  const notificationRows = Array.isArray(notificationPayload) ? notificationPayload : [notificationPayload];
+  const adminNotification = notificationRows.find((row) => row.target_profile_id === fakeProfile.id);
+
+  expect(savedRow.request_date).toBe(expectedDate);
+  expect(adminNotification).toBeTruthy();
+  expect(adminNotification.target_role).toBe("admin");
+  expect(adminNotification.target_worker_email).toBe(fakeProfile.email);
+  expect(adminNotification.notification_type).toBe("vacation_request");
+  expect(adminNotification.link_url).toBe("admin.html?tab=vacation");
+  await expect(requestDate).toHaveValue(expectedDate);
+  await expectNoRuntimeErrors(errors, "locked vacation request date");
 });
 
 test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
@@ -810,6 +942,75 @@ test("purchase order list tabs and key controls respond", async ({ page }) => {
   await page.locator("#poOpenPendingButton").click();
   await expect(page.locator("#poLookupPanel")).toBeVisible();
   await expectNoRuntimeErrors(errors, "purchase order controls");
+});
+
+test("purchase order submit feedback closes success and emphasizes failure", async ({ page }) => {
+  const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
+  const errors = watchRuntimeErrors(page, "accept");
+  await installAuthenticatedPortalState(page, poProfile);
+  await mockPortalServices(page, poProfile);
+
+  let savedOrder = null;
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      registered: true,
+      device_id: "00000000-0000-4000-8000-000000000101",
+      device_status: "active",
+      lease_expires_at: "2027-07-20T12:00:00.000Z",
+      blocks: [{
+        id: "00000000-0000-4000-8000-000000000102",
+        range_start: 39000,
+        range_end: 39009,
+        next_number: 39000,
+        status: "active"
+      }]
+    })
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_save_manual`, async (route) => {
+    const payload = route.request().postDataJSON();
+    savedOrder = Object.assign({}, payload.p_order, { revision: 1 });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedOrder) });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_submit`, async (route) => {
+    savedOrder = Object.assign({}, savedOrder, {
+      workflow_status: "submitted",
+      email_status: "pending",
+      revision: 2
+    });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedOrder) });
+  });
+
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    window.uploadJgcFile = async (options) => ({
+      data: { path: options.path, fullPath: `${options.bucket}/${options.path}` },
+      error: null
+    });
+  });
+  await expect(page.locator("#poNewButton")).toBeEnabled();
+  await page.locator("#poNewButton").click();
+  await expect(page.locator("#poFormView")).toBeVisible();
+
+  await page.locator("#poSubmitButton").click();
+  await expect(page.locator("#poNotice")).toContainText("PO SUBMISSION FAILED");
+  await expect(page.locator("#poNotice")).toHaveClass(/po-submit-error/);
+  await expect(page.locator("#poNotice")).toHaveAttribute("role", "alert");
+
+  await page.locator("#poManualJobNumber").fill("39999");
+  await page.locator("#poManualJobName").fill("Smoke Test Project");
+  await page.locator("#poSupplierName").fill("Smoke Test Supplier");
+  await page.locator('[data-item-field="quantity_ordered"]').fill("1");
+  await page.locator('[data-item-field="description"]').fill("Smoke test material");
+  await page.locator("#poSubmitButton").click();
+
+  await expect(page.locator("#poFormView")).toBeHidden();
+  await expect(page.locator("#poListView")).toBeVisible();
+  await expect(page.locator('[data-po-list-tab="pending"]')).toHaveClass(/active/);
+  await expect(page.locator("#poNotice")).toContainText("submitted");
+  await expect(page.locator("#poList")).toContainText("PO-39000");
+  await expectNoRuntimeErrors(errors, "purchase order submission feedback");
 });
 
 test("purchase order admin tabs respond", async ({ page }) => {

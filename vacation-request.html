@@ -399,6 +399,12 @@ body.vacation-page.jgc-page {
     min-height: 100px;
 }
 
+.vacation-page #requestDate[readonly] {
+    color: #33463a;
+    background: #e4ebe4;
+    cursor: not-allowed;
+}
+
 .vacation-page .actions.jgc-actions,
 .vacation-page .calendar-controls.jgc-toolbar {
     align-items: center;
@@ -560,8 +566,8 @@ body.vacation-page.jgc-page {
         </div>
 
         <div class="field jgc-field">
-            <label class="jgc-label" for="requestDate">Request Date</label>
-            <input class="jgc-input" id="requestDate" type="date">
+            <label class="jgc-label" for="requestDate">Today's Date</label>
+            <input class="jgc-input" id="requestDate" type="date" readonly aria-readonly="true">
         </div>
 
         <div class="field jgc-field">
@@ -654,10 +660,24 @@ const worker = requireJgcWorker();
 let myVacationRequests = [];
 let vacationCalendarMonth = new Date();
 
+function getVacationRequestToday() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(new Date());
+    const values = {};
+    parts.forEach((part) => {
+        values[part.type] = part.value;
+    });
+    return values.year + "-" + values.month + "-" + values.day;
+}
+
 document.getElementById("currentUser").textContent = "Signed in as: " + worker.display;
 document.getElementById("employeeName").value = worker.display || worker.key || "";
 document.getElementById("employeeSignature").value = worker.display || "";
-document.getElementById("requestDate").value = new Date().toISOString().slice(0, 10);
+document.getElementById("requestDate").value = getVacationRequestToday();
 fillHalfDayFinishOptions();
 
 function getValue(id) {
@@ -1093,7 +1113,8 @@ async function emailVacationRequest(record) {
 
 async function submitVacationRequest() {
     const employeeName = getValue("employeeName");
-    const requestDate = getValue("requestDate");
+    const requestDate = getVacationRequestToday();
+    document.getElementById("requestDate").value = requestDate;
     const startDate = getValue("startDate");
     const endDate = getValue("endDate");
     const totalDays = Number(getValue("totalDays"));
@@ -1163,7 +1184,12 @@ async function submitVacationRequest() {
     }
 
     if (typeof createJgcPortalNotifications === "function") {
-        await createJgcPortalNotifications(supabaseClient, "vacation_request", [{ role: "supervisor" }, { role: "admin" }], {
+        const adminRecipients = typeof getJgcAdminNotificationRecipients === "function"
+            ? await getJgcAdminNotificationRecipients(supabaseClient)
+            : [{ role: "admin" }];
+        const notificationRecipients = [{ role: "supervisor" }].concat(adminRecipients);
+
+        await createJgcPortalNotifications(supabaseClient, "vacation_request", notificationRecipients, {
             title: "Vacation request submitted",
             message: employeeName + " requested " + totalDays.toFixed(1) + " day" + (totalDays === 1 ? "" : "s") + " off from " + startDate + " to " + endDate + ".",
             link_url: "admin.html?tab=vacation",

@@ -139,6 +139,28 @@ textarea {
     color: #0b5e3b;
 }
 
+.toolbox-talk-picker {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.toolbox-talk-picker .file-link {
+    min-width: 170px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.toolbox-talk-pdf[hidden],
+.toolbox-talk-detail[hidden] {
+    display: none;
+}
+
+.toolbox-talk-detail {
+    margin-top: 3px;
+}
+
 .crew-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -255,6 +277,10 @@ th {
         grid-column: auto;
     }
 
+    .toolbox-talk-picker {
+        grid-template-columns: 1fr;
+    }
+
     button,
     .file-link {
         width: 100%;
@@ -277,17 +303,18 @@ th {
     <h1 class="jgc-page-title">Tool Box Talks</h1>
     <div class="subtitle">Choose a talk, complete the report, and submit crew acknowledgement records</div>
 
-    <section class="card jgc-section" style="border-top:0;margin-top:0;padding-top:0;">
-        <h2>Available Toolbox Talk PDFs</h2>
-        <div id="talkLibrary" class="talk-list">Loading toolbox talks...</div>
-    </section>
-
-    <section class="card jgc-section">
+    <section id="toolboxTalkReportSection" class="card jgc-section" style="border-top:0;margin-top:0;padding-top:0;">
         <h2>Tool Box Talk Report</h2>
         <div class="grid jgc-form-grid">
             <div class="field full">
-                <label>Talk Selected</label>
-                <input id="selectedTalkTitle" readonly placeholder="Choose a PDF above">
+                <label for="toolboxTalkSelect">Toolbox Talk</label>
+                <div class="toolbox-talk-picker">
+                    <select id="toolboxTalkSelect" onchange="selectToolboxTalk(this.value)">
+                        <option value="">Loading toolbox talks...</option>
+                    </select>
+                    <a id="selectedTalkPdfButton" class="file-link toolbox-talk-pdf" href="#" target="_blank" rel="noopener" hidden>Open Talk PDF</a>
+                </div>
+                <div id="selectedTalkDescription" class="small toolbox-talk-detail" hidden></div>
             </div>
 
             <div class="field">
@@ -343,6 +370,12 @@ th {
         </div>
         <div id="reportStatus" class="status jgc-notice" aria-live="polite"></div>
         <div id="toolboxSafetyAckPanel" class="small" style="margin-top:10px;"></div>
+    </section>
+
+    <section id="toolboxTalkLibrarySection" class="card jgc-section">
+        <h2>Available Toolbox Talk PDFs</h2>
+        <div class="small" style="margin-bottom:10px;">Reference library. Select the talk for a new report using the dropdown above.</div>
+        <div id="talkLibrary" class="talk-list">Loading toolbox talks...</div>
     </section>
 
     <section class="card jgc-section">
@@ -428,10 +461,32 @@ async function loadToolboxData() {
     })).filter((employee) => employee.workerName);
     acknowledgements = acknowledgementResult.data || [];
     await prepareToolboxTalkUrls();
+    renderTalkSelector();
     renderTalkLibrary();
     renderPresenterOptions();
     renderCrewList();
     renderAcknowledgements();
+}
+
+function renderTalkSelector() {
+    const select = document.getElementById("toolboxTalkSelect");
+    const selectedId = selectedTalk && toolboxTalks.some((talk) => String(talk.id) === String(selectedTalk.id))
+        ? String(selectedTalk.id)
+        : "";
+
+    if (!toolboxTalks.length) {
+        select.innerHTML = '<option value="">No toolbox talks available</option>';
+        select.disabled = true;
+        selectToolboxTalk("");
+        return;
+    }
+
+    select.disabled = false;
+    select.innerHTML = '<option value="">Select a toolbox talk</option>' + toolboxTalks.map((talk) => `
+        <option value="${escapeHtml(talk.id)}">${escapeHtml(talk.title || "Untitled toolbox talk")}</option>
+    `).join("");
+    select.value = selectedId;
+    selectToolboxTalk(selectedId);
 }
 
 async function prepareToolboxTalkUrls() {
@@ -466,8 +521,9 @@ function renderTalkLibrary() {
             <h3>${escapeHtml(talk.title)}</h3>
             <div class="small">${escapeHtml(talk.description || "")}</div>
             <div class="actions">
-                <button type="button" onclick="selectToolboxTalk('${escapeHtml(talk.id)}')">Use This Talk</button>
-                ${toolboxTalkUrls[talk.id] ? "<a class='file-link' href='" + toolboxTalkUrls[talk.id] + "' target='_blank' rel='noopener' onclick='selectToolboxTalk(\"" + escapeHtml(talk.id) + "\")'>Open PDF</a>" : ""}
+                ${toolboxTalkUrls[talk.id]
+                    ? "<a class='file-link' href='" + escapeHtml(toolboxTalkUrls[talk.id]) + "' target='_blank' rel='noopener'>Open PDF</a>"
+                    : '<span class="small">PDF is temporarily unavailable.</span>'}
             </div>
         </article>
     `).join("");
@@ -512,14 +568,44 @@ function renderPresenterOptions() {
 }
 
 function selectToolboxTalk(id) {
-    selectedTalk = toolboxTalks.find((talk) => talk.id === id) || null;
+    const previousDefaultNotes = selectedTalk
+        ? "Toolbox Talk: " + (selectedTalk.title || "") + (selectedTalk.description ? "\n\n" + selectedTalk.description : "")
+        : "";
+    const notes = document.getElementById("discussionNotes");
+    const currentNotes = notes.value;
+    const select = document.getElementById("toolboxTalkSelect");
+    const pdfButton = document.getElementById("selectedTalkPdfButton");
+    const description = document.getElementById("selectedTalkDescription");
+
+    selectedTalk = toolboxTalks.find((talk) => String(talk.id) === String(id)) || null;
+    select.value = selectedTalk ? String(selectedTalk.id) : "";
 
     if (!selectedTalk) {
+        pdfButton.hidden = true;
+        pdfButton.removeAttribute("href");
+        description.hidden = true;
+        description.textContent = "";
+        if (!currentNotes || currentNotes === previousDefaultNotes) {
+            notes.value = "";
+        }
         return;
     }
 
-    document.getElementById("selectedTalkTitle").value = selectedTalk.title || "";
-    document.getElementById("discussionNotes").value = "Toolbox Talk: " + (selectedTalk.title || "") + (selectedTalk.description ? "\n\n" + selectedTalk.description : "");
+    const signedUrl = toolboxTalkUrls[selectedTalk.id] || "";
+    pdfButton.hidden = !signedUrl;
+    if (signedUrl) {
+        pdfButton.href = signedUrl;
+    } else {
+        pdfButton.removeAttribute("href");
+    }
+
+    description.textContent = selectedTalk.description || "";
+    description.hidden = !selectedTalk.description;
+
+    const nextDefaultNotes = "Toolbox Talk: " + (selectedTalk.title || "") + (selectedTalk.description ? "\n\n" + selectedTalk.description : "");
+    if (!currentNotes || currentNotes === previousDefaultNotes) {
+        notes.value = nextDefaultNotes;
+    }
 }
 
 function getSelectedCrew() {
@@ -567,7 +653,7 @@ async function createToolboxSafetyAcknowledgements(savedReport, allCrew) {
     const rows = safetyAckBuildRowsForRecord({
         recordType: "toolbox_talk",
         recordId: savedReport.id,
-        recordTitle: selectedTalk ? selectedTalk.title : getValue("selectedTalkTitle"),
+        recordTitle: selectedTalk ? selectedTalk.title : "",
         recordDate: getValue("reportDate") || null,
         project: getValue("projectName"),
         location: getValue("location"),
@@ -697,7 +783,8 @@ async function submitToolboxTalkReport() {
     const allCrew = crew.concat(externalCrew);
 
     if (!selectedTalk) {
-        alert("Choose the toolbox talk PDF first.");
+        alert("Select the toolbox talk first.");
+        document.getElementById("toolboxTalkSelect").focus();
         return;
     }
 

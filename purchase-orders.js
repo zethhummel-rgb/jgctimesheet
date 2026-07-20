@@ -141,6 +141,29 @@
       kind === "error" ? "jgc-notice--danger" : ""
     ].filter(Boolean).join(" ");
     elements.notice.hidden = !message;
+    elements.notice.setAttribute("role", kind === "error" ? "alert" : "status");
+    elements.notice.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
+    elements.notice.removeAttribute("tabindex");
+  }
+
+  function showSubmitError(error) {
+    const message = error && error.message ? error.message : "PO could not be submitted.";
+    showNotice("PO SUBMISSION FAILED: " + message, "error");
+    elements.notice.classList.add("po-submit-error");
+    elements.notice.setAttribute("tabindex", "-1");
+    requestAnimationFrame(() => {
+      elements.notice.scrollIntoView({ behavior: "smooth", block: "start" });
+      elements.notice.focus({ preventScroll: true });
+    });
+  }
+
+  function showPurchaseOrderList(tab) {
+    state.listTab = tab;
+    document.querySelectorAll("[data-po-list-tab]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.poListTab === state.listTab);
+      button.classList.toggle("secondary", button.dataset.poListTab !== state.listTab);
+    });
+    closeForm();
   }
 
   async function uploadPoStorageFile(path, file, options) {
@@ -1358,23 +1381,17 @@
       const draft = await saveDraftLocally({ submit: true });
       if (!navigator.onLine) {
         showNotice(formatPoNumber(draft.po.po_number) + " is pending sync and will submit when online.", "warning");
-        elements.formStatusBadge.textContent = "Pending Sync";
-        elements.formStatusBadge.className = badgeClass("warning");
+        showPurchaseOrderList("pending");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
       showNotice("Submitting " + formatPoNumber(draft.po.po_number) + "...");
       await syncDraft(draft.id);
-      state.drafts = await idbGetAll(DRAFT_STORE);
-      await loadServerRecords();
       showNotice(formatPoNumber(draft.po.po_number) + " submitted. It will email at 8:00 AM tomorrow.");
-      state.listTab = "submitted";
-      document.querySelectorAll("[data-po-list-tab]").forEach((button) => {
-        button.classList.toggle("active", button.dataset.poListTab === state.listTab);
-        button.classList.toggle("secondary", button.dataset.poListTab !== state.listTab);
-      });
-      closeForm();
+      showPurchaseOrderList("pending");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
-      showNotice(error.message || "PO could not be submitted.", "error");
+      showSubmitError(error);
     } finally {
       elements.submitButton.disabled = false;
       updateSyncBadge();
