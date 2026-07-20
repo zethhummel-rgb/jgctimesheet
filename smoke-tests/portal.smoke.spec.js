@@ -73,7 +73,7 @@ for (let index = 0; index < authenticatedPages.length; index += 8) {
   authenticatedPageGroups.push(authenticatedPages.slice(index, index + 8));
 }
 
-async function installAuthenticatedPortalState(page) {
+async function installAuthenticatedPortalState(page, profile = fakeProfile) {
   const session = createFakeSession();
   await page.addInitScript(({ authSession, profile, ref }) => {
     localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(authSession));
@@ -84,10 +84,10 @@ async function installAuthenticatedPortalState(page) {
     localStorage.setItem("currentAccountStatus", profile.account_status);
     localStorage.setItem("jgcStayLoggedIn", "true");
     sessionStorage.setItem("jgcActiveSession", "true");
-  }, { authSession: session, profile: fakeProfile, ref: projectRef });
+  }, { authSession: session, profile, ref: projectRef });
 }
 
-async function mockPortalServices(page) {
+async function mockPortalServices(page, profile = fakeProfile) {
   const session = createFakeSession();
 
   await page.route(`${supabaseOrigin}/**`, async (route) => {
@@ -102,8 +102,8 @@ async function mockPortalServices(page) {
       body = JSON.stringify(session);
     } else if (url.pathname.includes("/rest/v1/profiles")) {
       body = accept.includes("application/vnd.pgrst.object")
-        ? JSON.stringify(fakeProfile)
-        : JSON.stringify([fakeProfile]);
+        ? JSON.stringify(profile)
+        : JSON.stringify([profile]);
     } else if (url.pathname.startsWith("/rest/v1/rpc/")) {
       body = accept.includes("application/vnd.pgrst.object") ? "{}" : "[]";
     } else if (url.pathname.startsWith("/functions/v1/")) {
@@ -237,6 +237,28 @@ test("login controls work without throwing", async ({ page }) => {
   await page.locator("#createAccountToggle").click();
   await expect(page.locator("#createAccountPanel")).toBeVisible();
   await expectNoRuntimeErrors(errors, "login controls");
+});
+
+test("limited accounts stay inside their read-only personal records hub", async ({ page }) => {
+  const limitedProfile = {
+    ...fakeProfile,
+    role: "worker",
+    account_status: "limited"
+  };
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page, limitedProfile);
+  await installAuthenticatedPortalState(page, limitedProfile);
+
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/limited-access\.html/);
+  await expect(page.getByRole("heading", { name: "Limited Access" })).toBeVisible();
+
+  for (const section of ["Certificates", "Timesheets", "Inspections", "Reports"]) {
+    await page.getByRole("button", { name: section, exact: true }).first().click();
+    await expect(page.locator(`.limited-panel[data-panel="${section.toLowerCase()}"]`)).toHaveClass(/active/);
+  }
+
+  await expectNoRuntimeErrors(errors, "limited access hub");
 });
 
 test("admin tabs switch to their matching sections", async ({ page }) => {

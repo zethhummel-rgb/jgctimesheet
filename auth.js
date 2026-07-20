@@ -51,6 +51,8 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
     return;
   }
 
+  const hasLimitedAccess = profile.account_status === "limited";
+
   if (typeof recordJgcProfileActivity === "function") {
     const loginActivity = await recordJgcProfileActivity(supabaseClient, {
       user,
@@ -74,5 +76,7 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
   localStorage.setItem("jgcStayLoggedIn", stayLoggedIn ? "true" : "false");
   sessionStorage.setItem("jgcActiveSession", "true");
 
-  window.location.href = isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html";
+  window.location.href = hasLimitedAccess
+    ? "limited-access.html"
+    : (isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html");
 }

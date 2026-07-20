@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "602";
+const JGC_RELEASE_ID = "603";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -8,6 +8,7 @@ const JGC_APP_SHELL = [
   "./equipment-inspection.html",
   "./vehicle-inspection.html",
   "./subcontractor.html",
+  "./limited-access.html",
   "./home.html",
   "./timesheet.html",
   "./inspections.html",

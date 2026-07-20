@@ -306,9 +306,16 @@ th {
     border: 1px solid #ef7770;
 }
 
+.status.limited.jgc-badge {
+    color: #ffffff !important;
+    background: #72520d !important;
+    border: 1px solid #e4bc4d;
+}
+
 .status.pending.jgc-badge,
 .status.approved.jgc-badge,
-.status.inactive.jgc-badge {
+.status.inactive.jgc-badge,
+.status.limited.jgc-badge {
     min-width: 76px;
     padding: 5px 9px;
     opacity: 1;
@@ -529,6 +536,7 @@ button:hover {
                 <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
+                <option value="limited">Limited Access</option>
                 <option value="inactive">Inactive</option>
             </select>
         </div>
@@ -569,19 +577,20 @@ function renderAccountRows(accountList) {
             : statusClass === "inactive"
                 ? "jgc-badge--danger"
                 : "jgc-badge--warning";
+        const statusLabel = statusClass === "limited" ? "Limited Access" : statusClass;
         return `
             <tr>
                 <td>${escapeHtml(account.display_name)}</td>
                 <td>${escapeHtml(account.email)}</td>
-                <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusClass)}</span></td>
+                <td><span class="status ${escapeHtml(statusClass)} jgc-badge ${statusToneClass}">${escapeHtml(statusLabel)}</span></td>
                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
                 <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
                 <td>${escapeHtml(formatDate(account.created_at))}</td>
                 <td>
                     <div class="row-actions jgc-table-actions">
-                        ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Approve</button>` : ""}
-                        ${account.account_status === "inactive" ? `<button class="jgc-button" type="button" onclick="reactivateAccount('${account.id}')">Reactivate</button>` : ""}
-                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger jgc-button jgc-button--danger" onclick="deactivateAccount('${account.id}')">Deactivate</button>` : ""}
+                        ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Reactivate</button>` : ""}
+                        ${account.account_status !== "limited" && !isSelf ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="limitAccount('${account.id}')">Limited Access</button>` : ""}
+                        ${account.account_status !== "inactive" && !isSelf ? `<button type="button" class="danger jgc-button jgc-button--danger" onclick="deactivateAccount('${account.id}')">${account.account_status === "limited" ? "Fully Deactivate" : "Deactivate"}</button>` : ""}
                         ${account.account_status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="setDigitalPoPermission('${account.id}', ${account.can_create_digital_pos ? "false" : "true"})">${account.can_create_digital_pos ? "Remove PO Creation" : "Allow PO Creation"}</button>` : ""}
                         ${renderAccountTypeActions(account, isSelf)}
                     </div>
@@ -629,12 +638,12 @@ function renderAccounts() {
         return;
     }
 
-    const currentAccounts = filtered.filter((account) => account.account_status !== "inactive");
-    const pastEmployees = filtered.filter((account) => account.account_status === "inactive");
-    const openPastEmployees = status === "inactive" || (Boolean(search) && pastEmployees.length > 0);
+    const currentAccounts = filtered.filter((account) => !["inactive", "limited"].includes(account.account_status));
+    const pastEmployees = filtered.filter((account) => ["inactive", "limited"].includes(account.account_status));
+    const openPastEmployees = ["inactive", "limited"].includes(status) || (Boolean(search) && pastEmployees.length > 0);
     const currentAccountsMarkup = currentAccounts.length
         ? renderAccountsTable(currentAccounts)
-        : status === "inactive"
+        : ["inactive", "limited"].includes(status)
             ? ""
             : '<p class="accounts-empty-note">No current accounts match this search.</p>';
     const pastEmployeesMarkup = pastEmployees.length
@@ -642,7 +651,7 @@ function renderAccounts() {
             <details class="past-employees jgc-archive"${openPastEmployees ? " open" : ""}>
                 <summary>
                     <span class="jgc-archive__title">Past Employees</span>
-                    <span class="jgc-archive__count">${pastEmployees.length} inactive</span>
+                    <span class="jgc-archive__count">${pastEmployees.length} former employees</span>
                 </summary>
                 <div class="past-employees-body jgc-archive__body">
                     ${renderAccountsTable(pastEmployees)}
@@ -768,6 +777,26 @@ async function approveAccount(id) {
 
 async function reactivateAccount(id) {
     await approveAccount(id);
+}
+
+async function limitAccount(id) {
+    const account = accounts.find((item) => item.id === id);
+    const name = account ? account.display_name || account.email : "this account";
+
+    if (!confirm("Give " + name + " Limited Access? They will only be able to view their own certificates, submitted timesheets, inspections, and reports.")) {
+        return;
+    }
+
+    const updated = await updateAccount(id, {
+        account_status: "limited",
+        deactivated_at: new Date().toISOString(),
+        can_create_digital_pos: false
+    });
+
+    if (updated && typeof clearJgcPendingAccountNotifications === "function") {
+        await clearJgcPendingAccountNotifications(supabaseClient, id);
+        await loadJgcNotifications();
+    }
 }
 
 async function deactivateAccount(id) {

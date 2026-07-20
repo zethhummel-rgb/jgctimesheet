@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="googlebot" content="noindex, nofollow, noarchive" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>JGC Portal - Limited Access</title>
+  <link rel="stylesheet" href="styles.css?v=3" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --limited-bg: #06130f;
+      --limited-panel: #0d1d18;
+      --limited-panel-soft: #10261d;
+      --limited-border: rgba(67, 205, 93, 0.34);
+      --limited-green: #35d452;
+      --limited-text: #f4f7f5;
+      --limited-muted: #b8c5be;
+      --limited-danger: #ff746d;
+      --limited-warning: #f3c65f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 18px 110px;
+      background: var(--limited-bg);
+      color: var(--limited-text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .limited-shell {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+    }
+
+    .limited-hero {
+      padding: 34px 0 22px;
+      text-align: center;
+    }
+
+    .limited-logo {
+      display: block;
+      width: min(300px, 72vw);
+      height: auto;
+      margin: 0 auto 26px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .limited-user {
+      margin: 9px 0 0;
+      color: var(--limited-muted);
+      font-size: 16px;
+    }
+
+    .limited-notice {
+      margin: 0 0 18px;
+      padding: 15px 17px;
+      border-left: 4px solid var(--limited-warning);
+      background: var(--limited-panel-soft);
+      color: var(--limited-text);
+      line-height: 1.45;
+    }
+
+    .limited-notice strong {
+      color: var(--limited-warning);
+    }
+
+    .limited-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--limited-border);
+    }
+
+    .limited-tab,
+    .limited-button {
+      min-height: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 7px;
+      background: #17231f;
+      color: var(--limited-text);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .limited-tab:hover,
+    .limited-tab:focus-visible,
+    .limited-button:hover,
+    .limited-button:focus-visible {
+      border-color: var(--limited-green);
+      outline: none;
+    }
+
+    .limited-tab.active {
+      border-color: var(--limited-green);
+      background: var(--limited-green);
+      color: #041108;
+    }
+
+    .limited-panel {
+      display: none;
+      min-height: 280px;
+      padding: 18px;
+      border: 1px solid var(--limited-border);
+      border-top: 4px solid var(--limited-green);
+      border-radius: 7px;
+      background: var(--limited-panel);
+    }
+
+    .limited-panel.active {
+      display: block;
+    }
+
+    .limited-panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .limited-panel h2 {
+      margin: 0;
+      color: var(--limited-green);
+      font-size: 25px;
+      letter-spacing: 0;
+    }
+
+    .limited-panel-note {
+      margin: 4px 0 0;
+      color: var(--limited-muted);
+      line-height: 1.4;
+    }
+
+    .limited-count {
+      flex: 0 0 auto;
+      min-width: 34px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #174c2a;
+      color: #ffffff;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .limited-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .limited-record {
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 7px;
+      background: #101d18;
+    }
+
+    .limited-record-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .limited-record h3 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 18px;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .limited-record-meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .limited-meta-item {
+      min-width: 0;
+      color: var(--limited-muted);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .limited-meta-item strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--limited-text);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .limited-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 13px;
+    }
+
+    .limited-button {
+      width: auto;
+      min-height: 38px;
+      padding: 8px 13px;
+      background: #118d40;
+    }
+
+    .limited-button.secondary {
+      background: #1a2823;
+    }
+
+    .limited-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: #176d36;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .limited-badge.warning {
+      background: #745811;
+    }
+
+    .limited-badge.danger {
+      background: #8d2823;
+    }
+
+    .limited-empty,
+    .limited-loading,
+    .limited-error {
+      padding: 28px 16px;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 7px;
+      color: var(--limited-muted);
+      text-align: center;
+    }
+
+    .limited-error {
+      border-color: rgba(255, 116, 109, 0.6);
+      color: #ffd4d1;
+    }
+
+    .limited-details {
+      margin-top: 13px;
+      padding-top: 13px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .limited-details summary {
+      color: var(--limited-green);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .limited-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .limited-entry {
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      background: #0a1612;
+      color: var(--limited-muted);
+      line-height: 1.35;
+    }
+
+    .limited-entry strong {
+      display: block;
+      color: var(--limited-text);
+    }
+
+    .limited-modal[hidden] {
+      display: none;
+    }
+
+    .limited-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10020;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.76);
+    }
+
+    .limited-modal-card {
+      width: min(720px, 100%);
+      max-height: min(80vh, 760px);
+      overflow-y: auto;
+      padding: 20px;
+      border: 1px solid var(--limited-border);
+      border-top: 4px solid var(--limited-green);
+      border-radius: 7px;
+      background: var(--limited-panel);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+    }
+
+    .limited-modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .limited-modal-head h2 {
+      margin: 0;
+      color: var(--limited-green);
+      letter-spacing: 0;
+    }
+
+    .limited-modal-close {
+      width: 42px;
+      min-width: 42px;
+      height: 42px;
+      margin: 0;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      background: #1a2823;
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .limited-detail-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0;
+    }
+
+    .limited-detail-list div {
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      background: #0a1612;
+    }
+
+    .limited-detail-list dt {
+      color: var(--limited-muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .limited-detail-list dd {
+      margin: 4px 0 0;
+      color: #ffffff;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 780px) {
+      body {
+        padding: 18px 12px 104px;
+      }
+
+      .limited-hero {
+        padding-top: 24px;
+      }
+
+      .limited-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .limited-record-meta,
+      .limited-entry-grid,
+      .limited-detail-list {
+        grid-template-columns: 1fr;
+      }
+
+      .limited-panel {
+        padding: 14px;
+      }
+
+      .limited-record-head {
+        display: block;
+      }
+
+      .limited-record-head .limited-badge {
+        margin-top: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="limited-shell">
+    <header class="limited-hero">
+      <img class="limited-logo" src="logo.webp" alt="John Gordon Construction" />
+      <h1>Limited Access</h1>
+      <p class="limited-user" id="limitedUser">Checking account access...</p>
+    </header>
+
+    <div class="limited-notice">
+      <strong>Read-only personal access.</strong> You can review your own records below. Scheduling, submissions, editing, and other portal areas are unavailable for this account.
+    </div>
+
+    <nav class="limited-tabs" aria-label="Personal records">
+      <button class="limited-tab" type="button" data-section="certificates">Certificates</button>
+      <button class="limited-tab" type="button" data-section="timesheets">Timesheets</button>
+      <button class="limited-tab" type="button" data-section="inspections">Inspections</button>
+      <button class="limited-tab" type="button" data-section="reports">Reports</button>
+    </nav>
+
+    <section class="limited-panel" id="certificatesPanel" data-panel="certificates">
+      <div class="limited-panel-head">
+        <div>
+          <h2>Certificates</h2>
+          <p class="limited-panel-note">Your saved training and qualification records.</p>
+        </div>
+        <span class="limited-count" id="certificatesCount">0</span>
+      </div>
+      <div id="certificatesContent" class="limited-loading">Open this section to load your certificates.</div>
+    </section>
+
+    <section class="limited-panel" id="timesheetsPanel" data-panel="timesheets">
+      <div class="limited-panel-head">
+        <div>
+          <h2>Timesheets</h2>
+          <p class="limited-panel-note">Your finalized weekly submissions and saved hours.</p>
+        </div>
+        <span class="limited-count" id="timesheetsCount">0</span>
+      </div>
+      <div id="timesheetsContent" class="limited-loading">Open this section to load your timesheets.</div>
+    </section>
+
+    <section class="limited-panel" id="inspectionsPanel" data-panel="inspections">
+      <div class="limited-panel-head">
+        <div>
+          <h2>Inspections</h2>
+          <p class="limited-panel-note">Inspections saved under your employee account.</p>
+        </div>
+        <span class="limited-count" id="inspectionsCount">0</span>
+      </div>
+      <div id="inspectionsContent" class="limited-loading">Open this section to load your inspections.</div>
+    </section>
+
+    <section class="limited-panel" id="reportsPanel" data-panel="reports">
+      <div class="limited-panel-head">
+        <div>
+          <h2>Reports</h2>
+          <p class="limited-panel-note">Reports that you submitted or that directly concern you.</p>
+        </div>
+        <span class="limited-count" id="reportsCount">0</span>
+      </div>
+      <div id="reportsContent" class="limited-loading">Open this section to load your reports.</div>
+    </section>
+  </main>
+
+  <div class="limited-modal" id="limitedModal" hidden>
+    <div class="limited-modal-card" role="dialog" aria-modal="true" aria-labelledby="limitedModalTitle">
+      <div class="limited-modal-head">
+        <h2 id="limitedModalTitle">Record Details</h2>
+        <button class="limited-modal-close" id="limitedModalClose" type="button" aria-label="Close details">X</button>
+      </div>
+      <dl class="limited-detail-list" id="limitedModalContent"></dl>
+    </div>
+  </div>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="common.js?v=30"></script>
+  <script>
+    const supabaseClient = createJgcSupabaseClient();
+    const cachedWorker = requireJgcWorker();
+    const loadedSections = new Set();
+    const recordDetails = new Map();
+    let limitedWorkerKey = normalizeWorkerName(cachedWorker.key);
+    let limitedUserId = "";
+    let limitedDisplayName = cachedWorker.display || cachedWorker.key;
+
+    const sectionLoaders = {
+      certificates: loadLimitedCertificates,
+      timesheets: loadLimitedTimesheets,
+      inspections: loadLimitedInspections,
+      reports: loadLimitedReports
+    };
+
+    document.getElementById("limitedUser").textContent = "Signed in as: " + limitedDisplayName;
+
+    document.querySelectorAll(".limited-tab").forEach(function(button) {
+      button.addEventListener("click", function() {
+        openLimitedSection(button.dataset.section, true);
+      });
+    });
+
+    document.getElementById("limitedModalClose").addEventListener("click", closeLimitedModal);
+    document.getElementById("limitedModal").addEventListener("click", function(event) {
+      if (event.target === event.currentTarget) {
+        closeLimitedModal();
+      }
+    });
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Escape") {
+        closeLimitedModal();
+      }
+    });
+    window.addEventListener("hashchange", function() {
+      openLimitedSection(getRequestedSection(), false);
+    });
+
+    initializeLimitedAccess();
+
+    async function initializeLimitedAccess() {
+      if (!supabaseClient) {
+        showSectionError(getRequestedSection(), "Supabase is not available right now.");
+        return;
+      }
+
+      const userResult = await supabaseClient.auth.getUser();
+      const user = userResult && userResult.data && userResult.data.user;
+      if (!user) {
+        clearJgcSession();
+        window.location.replace("index.html");
+        return;
+      }
+
+      limitedUserId = user.id;
+      const { data: profile, error } = await supabaseClient
+        .from("profiles")
+        .select("worker_key,display_name,role,email,account_status")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error || !profile) {
+        showSectionError(getRequestedSection(), "Your account access could not be verified.");
+        return;
+      }
+
+      if (profile.account_status !== "limited") {
+        const destination = profile.account_status === "approved"
+          ? (isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html?tab=summary" : "home.html")
+          : "index.html";
+        window.location.replace(destination);
+        return;
+      }
+
+      limitedWorkerKey = normalizeWorkerName(profile.worker_key);
+      limitedDisplayName = profile.display_name || profile.worker_key;
+      document.getElementById("limitedUser").textContent = "Signed in as: " + limitedDisplayName;
+      openLimitedSection(getRequestedSection(), false);
+    }
+
+    function getRequestedSection() {
+      const requested = String(window.location.hash || "").replace(/^#/, "").toLowerCase();
+      return sectionLoaders[requested] ? requested : "certificates";
+    }
+
+    function openLimitedSection(section, updateHash) {
+      if (!sectionLoaders[section]) {
+        section = "certificates";
+      }
+
+      document.querySelectorAll(".limited-tab").forEach(function(button) {
+        const active = button.dataset.section === section;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-current", active ? "page" : "false");
+      });
+
+      document.querySelectorAll(".limited-panel").forEach(function(panel) {
+        panel.classList.toggle("active", panel.dataset.panel === section);
+      });
+
+      if (updateHash && window.location.hash !== "#" + section) {
+        history.pushState(null, "", "#" + section);
+      }
+
+      if (limitedUserId && !loadedSections.has(section)) {
+        loadedSections.add(section);
+        sectionLoaders[section]();
+      }
+    }
+
+    function setSectionLoading(section, message) {
+      const content = document.getElementById(section + "Content");
+      content.className = "limited-loading";
+      content.textContent = message || "Loading...";
+    }
+
+    function showSectionError(section, message) {
+      const content = document.getElementById(section + "Content");
+      if (!content) {
+        return;
+      }
+      content.className = "limited-error";
+      content.textContent = message;
+      loadedSections.delete(section);
+    }
+
+    function showSectionEmpty(section, message) {
+      const content = document.getElementById(section + "Content");
+      content.className = "limited-empty";
+      content.textContent = message;
+    }
+
+    function setSectionCount(section, count) {
+      document.getElementById(section + "Count").textContent = String(count || 0);
+    }
+
+    async function loadLimitedCertificates() {
+      setSectionLoading("certificates", "Loading your certificates...");
+      const { data, error } = await supabaseClient
+        .from("certificates")
+        .select("id,certificate_name,expiry_date,notes,file_path,file_name,created_at")
+        .eq("worker_name", limitedWorkerKey)
+        .order("expiry_date", { ascending: true, nullsFirst: false });
+
+      if (error) {
+        showSectionError("certificates", "Your certificates could not be loaded. Try this section again.");
+        return;
+      }
+
+      const records = data || [];
+      setSectionCount("certificates", records.length);
+      if (!records.length) {
+        showSectionEmpty("certificates", "No certificates are saved under your account.");
+        return;
+      }
+
+      document.getElementById("certificatesContent").className = "limited-list";
+      document.getElementById("certificatesContent").innerHTML = records.map(function(record) {
+        const status = getCertificateStatus(record.expiry_date);
+        return `
+          <article class="limited-record">
+            <div class="limited-record-head">
+              <h3>${escapeHtml(record.certificate_name || "Certificate")}</h3>
+              <span class="limited-badge ${status.tone}">${escapeHtml(status.label)}</span>
+            </div>
+            <div class="limited-record-meta">
+              <div class="limited-meta-item"><strong>Expiry</strong>${escapeHtml(record.expiry_date ? formatDisplayDate(record.expiry_date) : "No expiry")}</div>
+              <div class="limited-meta-item"><strong>File</strong>${escapeHtml(record.file_name || "No file name")}</div>
+              <div class="limited-meta-item"><strong>Notes</strong>${escapeHtml(record.notes || "-")}</div>
+            </div>
+            ${record.file_path ? `<div class="limited-actions"><button class="limited-button" type="button" onclick="openLimitedCertificate('${escapeJs(record.id)}')">Open Certificate</button></div>` : ""}
+          </article>
+        `;
+      }).join("");
+
+      records.forEach(function(record) {
+        recordDetails.set("certificate:" + record.id, record);
+      });
+    }
+
+    function getCertificateStatus(expiryDate) {
+      if (!expiryDate) {
+        return { label: "No Expiry", tone: "" };
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expiry = new Date(expiryDate + "T00:00:00");
+      const days = Math.ceil((expiry - today) / 86400000);
+      if (days < 0) {
+        return { label: "Expired", tone: "danger" };
+      }
+      if (days <= 60) {
+        return { label: "Expiring Soon", tone: "warning" };
+      }
+      return { label: "Valid", tone: "" };
+    }
+
+    async function openLimitedCertificate(id) {
+      const record = recordDetails.get("certificate:" + id);
+      if (!record || !record.file_path) {
+        return;
+      }
+
+      const openedWindow = window.open("", "_blank");
+      const { data, error } = await supabaseClient.storage
+        .from("certificates")
+        .createSignedUrl(record.file_path, 300);
+
+      if (error || !data || !data.signedUrl) {
+        if (openedWindow) {
+          openedWindow.close();
+        }
+        alert("The certificate file could not be opened. Please try again.");
+        return;
+      }
+
+      if (openedWindow) {
+        openedWindow.location = data.signedUrl;
+      } else {
+        window.location.href = data.signedUrl;
+      }
+    }
+
+    async function loadLimitedTimesheets() {
+      setSectionLoading("timesheets", "Loading your submitted timesheets...");
+      const { data, error } = await supabaseClient
+        .from("previous_timesheet_weeks")
+        .select("id,week_label,entries,total_hours,submitted_at,note")
+        .eq("worker_name", limitedWorkerKey)
+        .order("submitted_at", { ascending: false });
+
+      if (error) {
+        showSectionError("timesheets", "Your timesheets could not be loaded. Try this section again.");
+        return;
+      }
+
+      const records = data || [];
+      setSectionCount("timesheets", records.length);
+      if (!records.length) {
+        showSectionEmpty("timesheets", "No finalized timesheets are saved under your account.");
+        return;
+      }
+
+      document.getElementById("timesheetsContent").className = "limited-list";
+      document.getElementById("timesheetsContent").innerHTML = records.map(function(record) {
+        const entries = Array.isArray(record.entries) ? record.entries : [];
+        const entriesHtml = entries.map(function(entry) {
+          const job = [entry.jobNumber, entry.jobName].filter(Boolean).join(" - ") || entry.leaveType || "No job listed";
+          const time = entry.entryType === "leave"
+            ? (entry.leaveType || "Leave")
+            : [entry.timeIn, entry.timeOut].filter(Boolean).join(" to ");
+          return `<div class="limited-entry"><strong>${escapeHtml(entry.day || "Day")}</strong>${escapeHtml(job)}<br>${escapeHtml(String(entry.hours || 0))} hrs${time ? " | " + escapeHtml(time) : ""}</div>`;
+        }).join("");
+        return `
+          <article class="limited-record">
+            <div class="limited-record-head">
+              <h3>${escapeHtml(record.week_label || "Submitted Week")}</h3>
+              <span class="limited-badge">${escapeHtml(String(record.total_hours || 0))} hours</span>
+            </div>
+            <div class="limited-record-meta">
+              <div class="limited-meta-item"><strong>Submitted</strong>${escapeHtml(formatDateTime(record.submitted_at))}</div>
+              <div class="limited-meta-item"><strong>Entries</strong>${entries.length}</div>
+              <div class="limited-meta-item"><strong>Note</strong>${escapeHtml(record.note || "-")}</div>
+            </div>
+            <details class="limited-details">
+              <summary>View saved hours</summary>
+              <div class="limited-entry-grid">${entriesHtml || '<div class="limited-empty">No line entries were stored for this week.</div>'}</div>
+            </details>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function loadLimitedInspections() {
+      setSectionLoading("inspections", "Loading your inspections...");
+      const [generalResult, vehicleResult] = await Promise.all([
+        supabaseClient
+          .from("inspection_records")
+          .select("id,inspection_type,inspection_date,title,summary,form_data,equipment_name,equipment_identification,created_at")
+          .eq("worker_name", limitedWorkerKey)
+          .order("inspection_date", { ascending: false }),
+        supabaseClient
+          .from("vehicle_inspection_records")
+          .select("id,inspection_type,inspection_date,status,driver_name,location,vehicle_name,vehicle_license_plate,trailer_1_name,trailer_1_license_plate,trailer_2_name,trailer_2_license_plate,defects_found,major_defects_found,vehicle_status_after_inspection,defect_summary,repair_notes,created_at")
+          .or("driver_employee_key.eq." + limitedWorkerKey + ",created_by.eq." + limitedUserId)
+          .order("inspection_date", { ascending: false })
+      ]);
+
+      if (generalResult.error || vehicleResult.error) {
+        showSectionError("inspections", "Your inspections could not be loaded. Try this section again.");
+        return;
+      }
+
+      const general = (generalResult.data || []).map(function(record) {
+        return {
+          key: "inspection:" + record.id,
+          id: record.id,
+          title: record.title || record.inspection_type || "Inspection",
+          type: record.inspection_type || "Inspection",
+          date: record.inspection_date || record.created_at,
+          asset: [record.equipment_identification, record.equipment_name].filter(Boolean).join(" - ") || "-",
+          status: getInspectionSummaryStatus(record.summary),
+          details: {
+            "Inspection Type": record.inspection_type,
+            Date: record.inspection_date,
+            Title: record.title,
+            Equipment: record.equipment_name,
+            "Equipment ID": record.equipment_identification,
+            Summary: formatDetailValue(record.summary)
+          }
+        };
+      });
+
+      const vehicles = (vehicleResult.data || []).map(function(record) {
+        const asset = [record.vehicle_license_plate, record.vehicle_name].filter(Boolean).join(" - ") || "Vehicle / Trailer";
+        return {
+          key: "vehicle:" + record.id,
+          id: record.id,
+          title: asset,
+          type: record.inspection_type || "Vehicle / Trailer",
+          date: record.inspection_date || record.created_at,
+          asset,
+          status: record.major_defects_found ? "Major Defect" : record.defects_found ? "Defect Reported" : "No Defects",
+          details: {
+            "Inspection Type": record.inspection_type,
+            Date: record.inspection_date,
+            Driver: record.driver_name,
+            Location: record.location,
+            Vehicle: record.vehicle_name,
+            "Vehicle Plate": record.vehicle_license_plate,
+            "Trailer 1": [record.trailer_1_license_plate, record.trailer_1_name].filter(Boolean).join(" - "),
+            "Trailer 2": [record.trailer_2_license_plate, record.trailer_2_name].filter(Boolean).join(" - "),
+            Status: record.vehicle_status_after_inspection || record.status,
+            Defects: formatDetailValue(record.defect_summary),
+            "Repair Notes": record.repair_notes
+          }
+        };
+      });
+
+      const records = general.concat(vehicles).sort(function(a, b) {
+        return new Date(b.date || 0) - new Date(a.date || 0);
+      });
+      setSectionCount("inspections", records.length);
+      if (!records.length) {
+        showSectionEmpty("inspections", "No inspections are saved under your account.");
+        return;
+      }
+
+      records.forEach(function(record) {
+        recordDetails.set(record.key, record);
+      });
+      document.getElementById("inspectionsContent").className = "limited-list";
+      document.getElementById("inspectionsContent").innerHTML = records.map(function(record) {
+        return `
+          <article class="limited-record">
+            <div class="limited-record-head">
+              <h3>${escapeHtml(record.title)}</h3>
+              <span class="limited-badge ${/major|defect reported/i.test(record.status) ? "danger" : ""}">${escapeHtml(record.status)}</span>
+            </div>
+            <div class="limited-record-meta">
+              <div class="limited-meta-item"><strong>Date</strong>${escapeHtml(formatDisplayDate(record.date))}</div>
+              <div class="limited-meta-item"><strong>Type</strong>${escapeHtml(record.type)}</div>
+              <div class="limited-meta-item"><strong>Asset</strong>${escapeHtml(record.asset)}</div>
+            </div>
+            <div class="limited-actions"><button class="limited-button secondary" type="button" onclick="openLimitedDetails('${escapeJs(record.key)}')">View Details</button></div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function getInspectionSummaryStatus(summary) {
+      const text = formatDetailValue(summary).toLowerCase();
+      if (text.includes("major")) {
+        return "Major Defect";
+      }
+      if (text.includes("defect")) {
+        return "Review Details";
+      }
+      return "Completed";
+    }
+
+    async function loadLimitedReports() {
+      setSectionLoading("reports", "Loading your reports...");
+      const resultSet = await Promise.all([
+        supabaseClient.from("daily_site_reports").select("id,report_date,project,weather,crew,work_completed,deliveries,visitors,delays,created_at").eq("worker_name", limitedWorkerKey).order("report_date", { ascending: false }),
+        supabaseClient.from("incident_reports").select("id,incident_type,severity,report_date,incident_time,project,location,people_involved,witnesses,description,immediate_action,injury_details,property_damage_details,environmental_details,follow_up_required,follow_up_notes,created_at").eq("reported_by_worker", limitedWorkerKey).order("report_date", { ascending: false }),
+        supabaseClient.from("accident_reports").select("id,accident_date,accident_time,site_location,injured_worker_display,report_maker_display,job_title,injury_location,incident_description,body_part_affected,nature_extent,corrective_action_prevent,created_at").or("injured_worker.eq." + limitedWorkerKey + ",report_maker_worker.eq." + limitedWorkerKey + ",created_by_worker.eq." + limitedWorkerKey).order("accident_date", { ascending: false }),
+        supabaseClient.from("employee_injury_reports").select("id,employee_display,employee_name,accident_location,accident_date,accident_time,accident_description,bodily_injury,prevention_recommendation,supervisor_name,witnesses,created_at").or("employee_worker.eq." + limitedWorkerKey + ",created_by_worker.eq." + limitedWorkerKey).order("accident_date", { ascending: false }),
+        supabaseClient.from("toolbox_talk_reports").select("id,talk_title,report_date,project,location,presenter_name,discussion_notes,hazards_discussed,corrective_actions,created_at").eq("submitted_by_worker", limitedWorkerKey).order("report_date", { ascending: false })
+      ]);
+
+      const firstError = resultSet.find(function(result) { return result.error; });
+      if (firstError) {
+        showSectionError("reports", "Your reports could not be loaded. Try this section again.");
+        return;
+      }
+
+      const records = [];
+      addReportRecords(records, "Daily Site Report", resultSet[0].data, "report_date", function(row) { return row.project || "Daily Site Report"; });
+      addReportRecords(records, "Incident Report", resultSet[1].data, "report_date", function(row) { return row.incident_type || row.project || "Incident Report"; });
+      addReportRecords(records, "Accident Report", resultSet[2].data, "accident_date", function(row) { return row.site_location || "Accident Report"; });
+      addReportRecords(records, "Employee Injury Report", resultSet[3].data, "accident_date", function(row) { return row.employee_display || row.employee_name || "Employee Injury Report"; });
+      addReportRecords(records, "Toolbox Talk Report", resultSet[4].data, "report_date", function(row) { return row.talk_title || "Toolbox Talk Report"; });
+
+      records.sort(function(a, b) {
+        return new Date(b.date || 0) - new Date(a.date || 0);
+      });
+      setSectionCount("reports", records.length);
+      if (!records.length) {
+        showSectionEmpty("reports", "No reports are saved under your account.");
+        return;
+      }
+
+      records.forEach(function(record) {
+        recordDetails.set(record.key, record);
+      });
+      document.getElementById("reportsContent").className = "limited-list";
+      document.getElementById("reportsContent").innerHTML = records.map(function(record) {
+        return `
+          <article class="limited-record">
+            <div class="limited-record-head">
+              <h3>${escapeHtml(record.title)}</h3>
+              <span class="limited-badge">${escapeHtml(record.type)}</span>
+            </div>
+            <div class="limited-record-meta">
+              <div class="limited-meta-item"><strong>Date</strong>${escapeHtml(formatDisplayDate(record.date))}</div>
+              <div class="limited-meta-item"><strong>Type</strong>${escapeHtml(record.type)}</div>
+              <div class="limited-meta-item"><strong>Saved</strong>${escapeHtml(formatDateTime(record.createdAt))}</div>
+            </div>
+            <div class="limited-actions"><button class="limited-button secondary" type="button" onclick="openLimitedDetails('${escapeJs(record.key)}')">View Details</button></div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function addReportRecords(target, type, rows, dateField, titleGetter) {
+      (rows || []).forEach(function(row) {
+        const key = "report:" + type + ":" + row.id;
+        const details = {};
+        Object.keys(row).forEach(function(field) {
+          if (field !== "id" && field !== "created_at") {
+            details[toDisplayLabel(field)] = formatDetailValue(row[field]);
+          }
+        });
+        target.push({
+          key,
+          type,
+          title: titleGetter(row),
+          date: row[dateField] || row.created_at,
+          createdAt: row.created_at,
+          details
+        });
+      });
+    }
+
+    function openLimitedDetails(key) {
+      const record = recordDetails.get(key);
+      if (!record) {
+        return;
+      }
+      const details = record.details || record;
+      document.getElementById("limitedModalTitle").textContent = record.title || record.type || "Record Details";
+      document.getElementById("limitedModalContent").innerHTML = Object.keys(details).filter(function(label) {
+        return details[label] !== null && details[label] !== undefined && details[label] !== "";
+      }).map(function(label) {
+        return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatDetailValue(details[label]))}</dd></div>`;
+      }).join("") || "<div><dt>Details</dt><dd>No additional details were saved.</dd></div>";
+      document.getElementById("limitedModal").hidden = false;
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLimitedModal() {
+      document.getElementById("limitedModal").hidden = true;
+      document.body.style.overflow = "";
+    }
+
+    function formatDateTime(value) {
+      if (!value) {
+        return "-";
+      }
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    }
+
+    function formatDetailValue(value) {
+      if (value === null || value === undefined || value === "") {
+        return "-";
+      }
+      if (typeof value === "boolean") {
+        return value ? "Yes" : "No";
+      }
+      if (Array.isArray(value)) {
+        return value.map(formatDetailValue).join(", ");
+      }
+      if (typeof value === "object") {
+        return Object.keys(value).map(function(key) {
+          return toDisplayLabel(key) + ": " + formatDetailValue(value[key]);
+        }).join("\n");
+      }
+      return String(value);
+    }
+
+    function toDisplayLabel(value) {
+      return String(value || "")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, function(character) { return character.toUpperCase(); });
+    }
+
+    function escapeJs(value) {
+      return String(value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>

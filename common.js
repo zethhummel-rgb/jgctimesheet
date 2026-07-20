@@ -10,6 +10,11 @@ const JGC_SCRIPT_LOAD_PROMISES = new Map();
 let jgcLoadedNotificationRecords = [];
 const JGC_SUBCONTRACTOR_ROLE = "subcontractor";
 const JGC_SUBCONTRACTOR_HOME_PAGE = "subcontractor.html";
+const JGC_LIMITED_ACCESS_STATUS = "limited";
+const JGC_LIMITED_ACCESS_HOME_PAGE = "limited-access.html";
+const JGC_LIMITED_ACCESS_ALLOWED_PAGES = [
+  "limited-access.html"
+];
 const JGC_SUBCONTRACTOR_ALLOWED_PAGES = [
   "subcontractor.html",
   "acknowledge.html",
@@ -1144,6 +1149,15 @@ function isJgcSubcontractorAllowedPage(page) {
   return JGC_SUBCONTRACTOR_ALLOWED_PAGES.includes(page || "");
 }
 
+function isJgcLimitedAccessSession(worker) {
+  const record = worker || getCurrentWorkerRecord();
+  return record && String(record.status || "").toLowerCase() === JGC_LIMITED_ACCESS_STATUS;
+}
+
+function isJgcLimitedAccessAllowedPage(page) {
+  return JGC_LIMITED_ACCESS_ALLOWED_PAGES.includes(page || "");
+}
+
 function getCurrentJgcPageName() {
   return window.location.pathname.split("/").pop() || "index.html";
 }
@@ -1211,6 +1225,10 @@ function requireJgcWorker() {
     window.location.href = JGC_SUBCONTRACTOR_HOME_PAGE;
   }
 
+  if (isJgcLimitedAccessSession(worker) && !isJgcLimitedAccessAllowedPage(page)) {
+    window.location.href = JGC_LIMITED_ACCESS_HOME_PAGE;
+  }
+
   return worker;
 }
 
@@ -1221,12 +1239,77 @@ function enforceJgcSubcontractorAccess() {
   if (isJgcSubcontractorSession(worker) && !isJgcSubcontractorAllowedPage(page) && page !== "index.html" && page !== "reset-password.html") {
     window.location.href = JGC_SUBCONTRACTOR_HOME_PAGE;
   }
+
+  if (isJgcLimitedAccessSession(worker) && !isJgcLimitedAccessAllowedPage(page) && page !== "index.html" && page !== "reset-password.html") {
+    window.location.href = JGC_LIMITED_ACCESS_HOME_PAGE;
+  }
+}
+
+async function refreshJgcAccountAccess() {
+  const worker = getCurrentWorkerRecord();
+  const page = getCurrentJgcPageName();
+
+  if (!worker.key || isJgcSubcontractorSession(worker) || page === "index.html" || page === "reset-password.html") {
+    return;
+  }
+
+  const client = createJgcSupabaseClient();
+  if (!client) {
+    return;
+  }
+
+  try {
+    const userResult = await client.auth.getUser();
+    const user = userResult && userResult.data && userResult.data.user;
+    if (!user) {
+      return;
+    }
+
+    const { data: profile, error } = await client
+      .from("profiles")
+      .select("email,display_name,worker_key,role,account_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error || !profile) {
+      return;
+    }
+
+    localStorage.setItem("currentWorker", profile.worker_key || worker.key);
+    localStorage.setItem("currentWorkerDisplay", profile.display_name || worker.display || worker.key);
+    localStorage.setItem("currentUserEmail", profile.email || worker.email || "");
+    localStorage.setItem("currentUserRole", profile.role || "worker");
+    localStorage.setItem("currentAccountStatus", profile.account_status || "pending");
+
+    if (profile.account_status === "inactive" || profile.account_status === "pending") {
+      await signOutJgc(client);
+      return;
+    }
+
+    if (profile.account_status === JGC_LIMITED_ACCESS_STATUS && !isJgcLimitedAccessAllowedPage(page)) {
+      window.location.replace(JGC_LIMITED_ACCESS_HOME_PAGE);
+      return;
+    }
+
+    if (profile.account_status === "approved" && page === JGC_LIMITED_ACCESS_HOME_PAGE) {
+      const destination = isAdminWorker(profile.worker_key, profile.role, profile.email)
+        ? "admin.html?tab=summary"
+        : "home.html";
+      window.location.replace(destination);
+    }
+  } catch (error) {
+    console.warn("Account access could not be refreshed.", error);
+  }
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", enforceJgcSubcontractorAccess);
+  document.addEventListener("DOMContentLoaded", function() {
+    enforceJgcSubcontractorAccess();
+    refreshJgcAccountAccess();
+  });
 } else {
   enforceJgcSubcontractorAccess();
+  refreshJgcAccountAccess();
 }
 
 function getJgcSubcontractorEmailPayloadExtras() {
@@ -1488,7 +1571,12 @@ function activateGlobalTopNavigation() {
     return;
   }
 
-  const links = isJgcSubcontractorSession(workerRecord) ? JGC_SUBCONTRACTOR_NAV_LINKS : [
+  const links = isJgcLimitedAccessSession(workerRecord) ? [
+    { label: "Certificates", href: "limited-access.html#certificates" },
+    { label: "Timesheets", href: "limited-access.html#timesheets" },
+    { label: "Inspections", href: "limited-access.html#inspections" },
+    { label: "Reports", href: "limited-access.html#reports" }
+  ] : (isJgcSubcontractorSession(workerRecord) ? JGC_SUBCONTRACTOR_NAV_LINKS : [
     { label: "Timesheets", href: "timesheet.html" },
     { label: "Inspections", href: "inspections.html" },
     { label: "Certificates", href: "certificates.html" },
@@ -1502,7 +1590,7 @@ function activateGlobalTopNavigation() {
     { label: "Policies", href: "policies-announcements.html" },
     { label: "Contacts", href: "contacts.html" },
     { label: "Subs/Suppliers", href: "subcontractors-suppliers.html" }
-  ];
+  ]);
 
   const style = document.createElement("style");
   style.id = "jgcGlobalTopNavStyles";
@@ -1686,7 +1774,9 @@ function activateGlobalTopNavigation() {
 
   nav.querySelector(".jgc-nav-home").addEventListener("click", function() {
     const worker = getCurrentWorkerRecord();
-    window.location.href = isJgcSubcontractorSession(worker)
+    window.location.href = isJgcLimitedAccessSession(worker)
+      ? JGC_LIMITED_ACCESS_HOME_PAGE
+      : isJgcSubcontractorSession(worker)
       ? JGC_SUBCONTRACTOR_HOME_PAGE
       : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
   });
@@ -1726,6 +1816,19 @@ function hideOldNavigationButtons() {
 }
 
 function getJgcMobileNavItems() {
+  if (isJgcLimitedAccessSession()) {
+    return {
+      primary: [
+        { label: "Home", href: "limited-access.html", icon: "home", home: true },
+        { label: "Certificates", href: "limited-access.html#certificates", icon: "award" },
+        { label: "Timesheets", href: "limited-access.html#timesheets", icon: "clock" },
+        { label: "Inspections", href: "limited-access.html#inspections", icon: "shield" },
+        { label: "Reports", href: "limited-access.html#reports", icon: "report" }
+      ],
+      more: []
+    };
+  }
+
   if (isJgcSubcontractorSession()) {
     return {
       primary: [
@@ -2009,7 +2112,9 @@ function activateMobileBottomNavigation() {
   if (homeButton) {
     homeButton.addEventListener("click", function() {
       const worker = getCurrentWorkerRecord();
-      window.location.href = isJgcSubcontractorSession(worker)
+      window.location.href = isJgcLimitedAccessSession(worker)
+        ? JGC_LIMITED_ACCESS_HOME_PAGE
+        : isJgcSubcontractorSession(worker)
         ? JGC_SUBCONTRACTOR_HOME_PAGE
         : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
     });
