@@ -610,7 +610,7 @@ button:hover {
 
 <div class="container jgc-panel">
     <h1 class="jgc-section-title">Today's Inspections</h1>
-    <div class="subtitle">Completed inspections from the last 24 hours</div>
+    <div class="subtitle">Inspections dated today</div>
 
     <div id="inspectionList" class="empty jgc-empty-state">Loading inspections...</div>
     <div id="editPanel" class="edit-panel" hidden></div>
@@ -640,6 +640,13 @@ const pageMode = queryParams.get("recordType") || queryParams.get("type") || "";
 const isPermitsView = String(pageMode).toLowerCase() === "permits";
 const isReportsView = String(pageMode).toLowerCase() === "reports";
 const isVehicleView = String(pageMode).toLowerCase() === "vehicle";
+
+function getTodayDateValue() {
+    const now = new Date();
+    return now.getFullYear() + "-" +
+        String(now.getMonth() + 1).padStart(2, "0") + "-" +
+        String(now.getDate()).padStart(2, "0");
+}
 
 function isPermitInspectionType(type) {
     return String(type || "").toLowerCase().includes("permit");
@@ -677,7 +684,7 @@ function applyInspectionPageCopy() {
       title.textContent = "Vehicle Inspections";
     }
     if (subtitle) {
-      subtitle.textContent = "Vehicle and trailer inspections from the last 24 hours";
+      subtitle.textContent = "Vehicle and trailer inspections dated today";
     }
     if (homeButton) {
       homeButton.textContent = "Inspections";
@@ -695,7 +702,7 @@ function applyInspectionPageCopy() {
       title.textContent = "Today's Reports";
     }
     if (subtitle) {
-      subtitle.textContent = "Completed reports from the last 24 hours";
+      subtitle.textContent = "Reports dated today";
     }
     if (homeButton) {
       homeButton.textContent = "Reports";
@@ -712,7 +719,7 @@ function applyInspectionPageCopy() {
     title.textContent = "Today's Permits";
   }
   if (subtitle) {
-    subtitle.textContent = "Completed permits from the last 24 hours";
+    subtitle.textContent = "Permits dated today";
   }
   if (homeButton) {
     homeButton.textContent = "Permits";
@@ -1180,38 +1187,38 @@ function normalizeReportRecord(source, record) {
     };
 }
 
-async function loadReportRecords(sinceIso) {
+async function loadReportRecords(todayDate) {
     const [jsaResult, dailyResult, toolboxResult, incidentResult, accidentResult, injuryResult] = await Promise.all([
         inspectionSupabaseClient
             .from("inspection_records")
             .select("*")
-            .gte("created_at", sinceIso)
+            .eq("inspection_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("daily_site_reports")
             .select("*")
-            .gte("created_at", sinceIso)
+            .eq("report_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("toolbox_talk_reports")
             .select("*")
             .eq("is_duplicate", false)
-            .gte("created_at", sinceIso)
+            .eq("report_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("incident_reports")
             .select("*")
-            .gte("created_at", sinceIso)
+            .eq("report_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("accident_reports")
             .select("*")
-            .gte("created_at", sinceIso)
+            .eq("accident_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("employee_injury_reports")
             .select("*")
-            .gte("created_at", sinceIso)
+            .eq("accident_date", todayDate)
             .order("created_at", { ascending: false })
     ]);
 
@@ -1266,7 +1273,7 @@ async function loadReportRecords(sinceIso) {
 
 async function loadInspections() {
     const list = document.getElementById("inspectionList");
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const todayDate = getTodayDateValue();
 
     if (!inspectionSupabaseClient) {
         list.className = "empty jgc-empty-state";
@@ -1276,10 +1283,10 @@ async function loadInspections() {
 
     if (isReportsView) {
         try {
-            const reportRecords = await loadReportRecords(twentyFourHoursAgo.toISOString());
+            const reportRecords = await loadReportRecords(todayDate);
             if (!reportRecords.length) {
                 list.className = "empty";
-                list.textContent = "No reports have been saved in the last 24 hours.";
+                list.textContent = "No reports are dated today.";
                 return;
             }
             renderInspectionRows(reportRecords);
@@ -1294,12 +1301,12 @@ async function loadInspections() {
         inspectionSupabaseClient
             .from("inspection_records")
             .select("*")
-            .gte("created_at", twentyFourHoursAgo.toISOString())
+            .eq("inspection_date", todayDate)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
             .from("vehicle_inspection_records")
             .select("*")
-            .gte("created_at", twentyFourHoursAgo.toISOString())
+            .eq("inspection_date", todayDate)
             .order("created_at", { ascending: false })
     ]);
 
@@ -1319,12 +1326,12 @@ async function loadInspections() {
     if (!filteredData.length) {
         list.className = "empty";
         list.textContent = isPermitsView
-            ? "No permits have been saved in the last 24 hours."
+            ? "No permits are dated today."
             : isReportsView
-            ? "No reports have been saved in the last 24 hours."
+            ? "No reports are dated today."
             : isVehicleView
-            ? "No vehicle inspections have been saved in the last 24 hours."
-            : "No inspections have been saved in the last 24 hours.";
+            ? "No vehicle inspections are dated today."
+            : "No inspections are dated today.";
         return;
     }
 
