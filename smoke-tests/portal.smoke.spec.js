@@ -1144,6 +1144,74 @@ test("purchase order list tabs and key controls respond", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "purchase order controls");
 });
 
+test("purchase order job picker searches by job name and number", async ({ page }) => {
+  const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
+  const errors = watchRuntimeErrors(page);
+  const jobs = [
+    {
+      id: "00000000-0000-4000-8000-000000000201",
+      job_number: "25058",
+      job_name: "Amazon Drain Issue #2",
+      active: true
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000202",
+      job_number: "26040",
+      job_name: "Williamstown Fairboard Entrance Sign",
+      active: true
+    }
+  ];
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAuthenticatedPortalState(page, poProfile);
+  await mockPortalServices(page, poProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(jobs)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      registered: true,
+      device_id: "00000000-0000-4000-8000-000000000203",
+      device_status: "active",
+      lease_expires_at: "2027-07-21T12:00:00.000Z",
+      blocks: [{
+        id: "00000000-0000-4000-8000-000000000204",
+        range_start: 39100,
+        range_end: 39109,
+        next_number: 39100,
+        status: "active"
+      }]
+    })
+  }));
+
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#poNewButton")).toBeEnabled();
+  await page.locator("#poNewButton").click();
+  await expect(page.locator("#poFormView")).toBeVisible();
+
+  const search = page.locator("#poJobSearch");
+  const options = page.locator("#poJobOptions");
+  await search.fill("Amazon");
+  await expect(options).toBeVisible();
+  await expect(options.locator("[data-po-job-id]")).toHaveCount(1);
+  await expect(options).toContainText("25058 - Amazon Drain Issue #2");
+  await options.locator("[data-po-job-id]").click();
+  await expect(page.locator("#poJob")).toHaveValue(jobs[0].id);
+  await expect(search).toHaveValue("25058 - Amazon Drain Issue #2");
+
+  await search.fill("26040");
+  await expect(options.locator("[data-po-job-id]")).toHaveCount(1);
+  await expect(options).toContainText("26040 - Williamstown Fairboard Entrance Sign");
+  await options.locator("[data-po-job-id]").click();
+  await expect(page.locator("#poJob")).toHaveValue(jobs[1].id);
+  await expect(search).toHaveValue("26040 - Williamstown Fairboard Entrance Sign");
+  await expectNoRuntimeErrors(errors, "purchase order searchable job picker");
+});
+
 test("purchase order submit feedback closes success and emphasizes failure", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page, "accept");

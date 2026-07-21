@@ -593,11 +593,70 @@
   }
 
   function renderReferenceOptions() {
-    const currentJob = elements.job.value;
-    elements.job.innerHTML = '<option value="">Select job</option>' + state.jobs.map((job) =>
-      `<option value="${escapeText(job.id)}">${escapeText(job.job_number + " - " + job.job_name)}</option>`
-    ).join("");
-    elements.job.value = currentJob;
+    const selectedJob = state.jobs.find((job) => String(job.id) === String(elements.job.value || ""));
+    if (selectedJob) {
+      elements.jobSearch.value = getJobDisplay(selectedJob);
+    }
+    renderJobOptions(elements.jobSearch.value);
+  }
+
+  function getJobDisplay(job) {
+    return [job && job.job_number, job && job.job_name].filter(Boolean).join(" - ");
+  }
+
+  function getMatchingJobs(searchValue) {
+    const terms = String(searchValue || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) {
+      return state.jobs.slice(0, 80);
+    }
+
+    return state.jobs.filter((job) => {
+      const haystack = getJobDisplay(job).toLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    }).slice(0, 80);
+  }
+
+  function renderJobOptions(searchValue) {
+    const matches = getMatchingJobs(searchValue);
+    elements.jobOptions.innerHTML = matches.length
+      ? matches.map((job) => `<button class="po-job-option" type="button" role="option" data-po-job-id="${escapeText(job.id)}">${escapeText(getJobDisplay(job))}</button>`).join("")
+      : '<div class="po-job-empty">No matching listed jobs. Use the manual job fields below.</div>';
+  }
+
+  function openJobOptions() {
+    if (elements.jobSearch.disabled) {
+      return;
+    }
+    renderJobOptions(elements.jobSearch.value);
+    elements.jobOptions.hidden = false;
+    elements.jobSearch.setAttribute("aria-expanded", "true");
+  }
+
+  function closeJobOptions() {
+    elements.jobOptions.hidden = true;
+    elements.jobSearch.setAttribute("aria-expanded", "false");
+  }
+
+  function selectJob(jobId, options) {
+    const settings = options || {};
+    const job = state.jobs.find((item) => String(item.id) === String(jobId || ""));
+    elements.job.value = job ? String(job.id) : "";
+    elements.jobSearch.value = job ? getJobDisplay(job) : "";
+
+    if (job && settings.clearManual !== false) {
+      elements.manualJobNumber.value = "";
+      elements.manualJobName.value = "";
+    }
+
+    closeJobOptions();
+  }
+
+  function handleJobSearchInput() {
+    const selectedJob = state.jobs.find((job) => String(job.id) === String(elements.job.value || ""));
+    if (selectedJob && elements.jobSearch.value.trim() !== getJobDisplay(selectedJob)) {
+      elements.job.value = "";
+    }
+    openJobOptions();
 
   }
 
@@ -712,6 +771,7 @@
       elements.submitButton.hidden = true;
     }
     elements.cancelButton.hidden = !(po && po.id && state.user && (po.creator_profile_id === state.user.id || isAdmin()) && po.workflow_status !== "cancelled" && po.workflow_status !== "closed");
+    closeJobOptions();
   }
 
   async function openForm(id) {
@@ -739,7 +799,7 @@
     elements.numberDisplay.textContent = po.po_number ? formatPoNumber(po.po_number) : "Number assigned on first save";
     elements.orderDate.value = po.order_date || localDateValue();
     renderReferenceOptions();
-    elements.job.value = po.job_id || "";
+    selectJob(po.job_id || "", { clearManual: false });
     elements.manualJobNumber.value = po.job_id ? "" : (po.job_number || "");
     elements.manualJobName.value = po.job_id ? "" : (po.job_name || "");
     elements.supplierName.value = po.supplier_name || "";
@@ -1540,18 +1600,52 @@
     elements.submitButton.addEventListener("click", handleSubmit);
     elements.cancelButton.addEventListener("click", handleCancel);
     elements.pdfButton.addEventListener("click", () => handleViewPdf(state.activeId));
-    elements.job.addEventListener("change", () => {
-      if (elements.job.value) {
-        elements.manualJobNumber.value = "";
-        elements.manualJobName.value = "";
+    elements.jobSearch.addEventListener("focus", openJobOptions);
+    elements.jobSearch.addEventListener("click", openJobOptions);
+    elements.jobSearch.addEventListener("input", handleJobSearchInput);
+    elements.jobSearch.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeJobOptions();
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        openJobOptions();
+        const firstOption = elements.jobOptions.querySelector("[data-po-job-id]");
+        if (firstOption) firstOption.focus();
+        return;
+      }
+
+      if (event.key === "Enter" && !elements.jobOptions.hidden) {
+        const options = Array.from(elements.jobOptions.querySelectorAll("[data-po-job-id]"));
+        const exactValue = elements.jobSearch.value.trim().toLowerCase();
+        const exactOption = options.find((option) => option.textContent.trim().toLowerCase() === exactValue);
+        const option = exactOption || (options.length === 1 ? options[0] : null);
+        if (option) {
+          event.preventDefault();
+          selectJob(option.dataset.poJobId);
+        }
+      }
+    });
+    elements.jobOptions.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-po-job-id]");
+      if (option) {
+        selectJob(option.dataset.poJobId);
+        elements.jobSearch.focus();
       }
     });
     [elements.manualJobNumber, elements.manualJobName].forEach((input) => {
       input.addEventListener("input", () => {
         if (hasManualJobEntry()) {
-          elements.job.value = "";
+          selectJob("", { clearManual: false });
         }
       });
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!elements.jobPicker.contains(event.target)) {
+        closeJobOptions();
+      }
     });
     elements.addItemButton.addEventListener("click", () => addMaterialRow());
     elements.materialList.addEventListener("click", (event) => {
@@ -1649,6 +1743,9 @@
       formStatusBadge: byId("poFormStatusBadge"),
       closeFormButton: byId("poCloseFormButton"),
       orderDate: byId("poOrderDate"),
+      jobPicker: byId("poJobPicker"),
+      jobSearch: byId("poJobSearch"),
+      jobOptions: byId("poJobOptions"),
       job: byId("poJob"),
       manualJobNumber: byId("poManualJobNumber"),
       manualJobName: byId("poManualJobName"),

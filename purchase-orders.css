@@ -457,6 +457,58 @@ body.po-page {
   font-weight: 800;
 }
 
+.po-job-picker {
+  position: relative;
+}
+
+.po-job-search {
+  width: 100%;
+}
+
+.po-job-options {
+  position: absolute;
+  z-index: 180;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(89, 198, 109, 0.62);
+  border-radius: 6px;
+  padding: 5px;
+  background: #10241b;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+}
+
+.po-job-options[hidden] {
+  display: none;
+}
+
+.po-job-option {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 4px;
+  padding: 9px 11px;
+  background: transparent !important;
+  color: #fff;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.po-job-option:hover,
+.po-job-option:focus-visible {
+  background: #174b2d !important;
+}
+
+.po-job-empty {
+  padding: 12px;
+  color: var(--po-muted);
+  font-size: 14px;
+}
+
 .po-section-band {
   border-top: 1px solid var(--po-border);
   padding: 18px 0;
@@ -1033,6 +1085,10 @@ body.po-page {
 
   .po-page textarea {
     min-height: 88px;
+  }
+
+  .po-job-options {
+    max-height: min(310px, 42vh);
   }
 
   .po-list {

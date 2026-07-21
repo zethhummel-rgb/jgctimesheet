@@ -9,7 +9,7 @@
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=5">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=16">
+  <link rel="stylesheet" href="purchase-orders.css?v=17">
 </head>
 <body class="po-page po-employee-page jgc-page">
   <main class="po-shell jgc-page-shell">
@@ -117,8 +117,12 @@
             <input id="poOrderDate" class="jgc-input" type="date" required>
           </div>
           <div class="po-field jgc-field">
-            <label class="jgc-label" for="poJob">Job</label>
-            <select id="poJob" class="jgc-select"></select>
+            <label class="jgc-label" for="poJobSearch">Job</label>
+            <div id="poJobPicker" class="po-job-picker">
+              <input id="poJobSearch" class="jgc-input po-job-search" type="search" role="combobox" aria-autocomplete="list" aria-controls="poJobOptions" aria-expanded="false" autocomplete="off" placeholder="Start typing a job number or name">
+              <input id="poJob" type="hidden">
+              <div id="poJobOptions" class="po-job-options" role="listbox" aria-label="Matching jobs" hidden></div>
+            </div>
           </div>
           <div class="po-field full po-manual-job-fields jgc-field jgc-field--full">
             <span class="po-field-label">Job not on the list?</span>
@@ -185,6 +189,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=30"></script>
   <script src="purchase-orders-pdf.js?v=2"></script>
-  <script src="purchase-orders.js?v=16"></script>
+  <script src="purchase-orders.js?v=17"></script>
 </body>
 </html>
