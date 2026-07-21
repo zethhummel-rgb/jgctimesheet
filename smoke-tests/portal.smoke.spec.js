@@ -874,7 +874,7 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.showTab === "function");
 
-  const tabs = ["summary", "jobDashboard", "timesheets", "inspections", "vacation", "tasks", "reports", "workOrders", "adminTools"];
+  const tabs = ["summary", "jobDashboard", "timesheets", "safetyRecords", "vacation", "tasks", "workOrders", "adminTools"];
   for (const tab of tabs) {
     await page.locator(`#${tab}Tab`).click();
     await expect(page.locator(`#${tab}Section`)).toBeVisible();
@@ -937,13 +937,16 @@ test("admin inspection categories build their tables only when opened", async ({
   await mockPortalServices(page);
   await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.renderInspections === "function");
-  await page.locator("#inspectionsTab").click();
+  await page.locator("#safetyRecordsTab").click();
+  await expect(page.locator("#safetyRecordsSection")).toBeVisible();
   await expect(page.locator("#inspectionsSection")).toBeVisible();
-  await page.waitForFunction(() => adminTabDataLoaded.has("inspections"));
+  await page.waitForFunction(() => adminTabDataLoaded.has("safetyRecords"));
 
   await page.evaluate(() => {
-    adminTabDataLoading.inspections = false;
-    adminTabDataLoaded.add("inspections");
+    adminTabDataLoading.safetyRecords = false;
+    adminTabDataLoaded.add("safetyRecords");
+    safetyRecordsSubtabDataLoaded.add("inspections");
+    safetyRecordsSubtabDataLoaded.add("permits");
     inspections = [
       {
         id: "smoke-aerial",
@@ -960,6 +963,20 @@ test("admin inspection categories build their tables only when opened", async ({
         worker_display_name: "Smoke Inspector",
         equipment_name: "Harness 1",
         created_at: "2026-07-18T12:01:00Z"
+      },
+      {
+        id: "smoke-jsa",
+        inspection_date: "2026-07-18",
+        inspection_type: "JSA",
+        worker_display_name: "Smoke Inspector",
+        created_at: "2026-07-18T12:01:30Z"
+      },
+      {
+        id: "smoke-permit",
+        inspection_date: "2026-07-18",
+        inspection_type: "Hot Work Permit",
+        worker_display_name: "Smoke Inspector",
+        created_at: "2026-07-18T12:01:45Z"
       }
     ];
     vehicleInspections = [{
@@ -970,7 +987,7 @@ test("admin inspection categories build their tables only when opened", async ({
       vehicle_license_plate: "TEST123",
       created_at: "2026-07-18T12:02:00Z"
     }];
-    renderInspections();
+    renderInspections("inspections");
   });
 
   const categories = page.locator("#inspectionsList > .jgc-archive-list > details[data-inspection-category]");
@@ -982,7 +999,57 @@ test("admin inspection categories build their tables only when opened", async ({
   await expect(vehicleCategory.locator("[data-inspection-lazy-body]")).toHaveAttribute("data-loaded", "true");
   await expect(vehicleCategory.locator("table")).toHaveCount(1);
   await expect(page.locator("#inspectionsList table")).toHaveCount(1);
+
+  await page.evaluate(() => switchSafetyRecordsSubtab("permits"));
+  await expect(page.locator("#adminInspectionSectionTitle")).toHaveText("Safety Permits");
+  const permitCategories = page.locator("#inspectionsList > .jgc-archive-list > details[data-inspection-category]");
+  await expect(permitCategories).toHaveCount(1);
+  await expect(permitCategories.first()).toContainText("Hot Work Permits");
+  await expect(page.locator("#inspectionsList")).not.toContainText("JSA");
   await expectNoRuntimeErrors(errors, "admin inspection categories");
+});
+
+test("legacy admin inspection and report links open Safety Records", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  await page.goto("/admin.html?tab=inspections", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#safetyRecordsTab")).toHaveClass(/active/);
+  await expect(page.locator("#inspectionsSection")).toBeVisible();
+  await expect(page.locator('[data-safety-record-tab="inspections"]')).toHaveClass(/active/);
+
+  await page.goto("/admin.html?tab=reports", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#safetyRecordsTab")).toHaveClass(/active/);
+  await expect(page.locator("#reportsSection")).toBeVisible();
+  await expect(page.locator('[data-safety-record-tab="reports"]')).toHaveClass(/active/);
+  await expectNoRuntimeErrors(errors, "legacy Safety Records links");
+});
+
+test("Safety Records loads report tables only when Reports is opened", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const tableRequests = [];
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) {
+      tableRequests.push(match[1]);
+    }
+  });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+
+  await page.locator("#safetyRecordsTab").click();
+  await page.waitForFunction(() => adminTabDataLoaded.has("safetyRecords"));
+  expect(tableRequests).toContain("inspection_records");
+  expect(tableRequests).not.toContain("daily_site_reports");
+  expect(tableRequests).not.toContain("toolbox_talk_reports");
+
+  await page.locator('[data-safety-record-tab="reports"]').click();
+  await page.waitForFunction(() => safetyRecordsSubtabDataLoaded.has("reports"));
+  expect(tableRequests).toContain("daily_site_reports");
+  expect(tableRequests).toContain("toolbox_talk_reports");
+  await expectNoRuntimeErrors(errors, "Safety Records lazy report loading");
 });
 
 test("admin vacation requests build each employee table only when opened", async ({ page }) => {

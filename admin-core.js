@@ -82,9 +82,14 @@ const EQUIPMENT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPI
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
+const SAFETY_RECORDS_STORAGE_KEY = "jgcAdminSafetyRecordsSubtab";
+const SAFETY_RECORDS_SUBTABS = ["inspections", "reports", "permits"];
 const ADMIN_TOOL_TABS = ["employeeProfile", "certificates", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "inspections", "certificates", "vacation", "tasks", "reports", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "safetyRecords", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
 let currentAdminTab = "";
+let activeSafetyRecordsSubtab = "inspections";
+let safetyRecordsSubtabDataLoaded = new Set();
+let safetyRecordsSubtabDataLoading = {};
 
 if (!isAdminWorker(currentWorker, worker.role)) {
     alert("Admin is only available to authorized users.");
@@ -120,12 +125,175 @@ function persistAdminTab(tab) {
 
     const nextUrl = new URL(window.location.href);
     nextUrl.searchParams.set("tab", tab);
+    if (tab === "safetyRecords") {
+        nextUrl.searchParams.set("records", getActiveSafetyRecordsSubtab());
+    } else {
+        nextUrl.searchParams.delete("records");
+    }
     nextUrl.hash = "";
     window.history.replaceState({ adminTab: tab }, "", nextUrl);
 }
 
 function getActiveAdminTab() {
     return ADMIN_ALLOWED_TABS.includes(currentAdminTab) ? currentAdminTab : getRequestedAdminTab();
+}
+
+function normalizeSafetyRecordsSubtab(value) {
+    return SAFETY_RECORDS_SUBTABS.includes(value) ? value : "inspections";
+}
+
+function getActiveSafetyRecordsSubtab() {
+    return normalizeSafetyRecordsSubtab(activeSafetyRecordsSubtab);
+}
+
+function setActiveSafetyRecordsSubtab(subtab, options = {}) {
+    activeSafetyRecordsSubtab = normalizeSafetyRecordsSubtab(subtab);
+
+    if (options.persist === false) {
+        return;
+    }
+
+    localStorage.setItem(SAFETY_RECORDS_STORAGE_KEY, activeSafetyRecordsSubtab);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("tab", "safetyRecords");
+    nextUrl.searchParams.set("records", activeSafetyRecordsSubtab);
+    nextUrl.hash = "";
+    window.history.replaceState({ adminTab: "safetyRecords", safetyRecordsSubtab: activeSafetyRecordsSubtab }, "", nextUrl);
+}
+
+async function loadSafetyRecordsSubtabData(subtab) {
+    const requestedSubtab = normalizeSafetyRecordsSubtab(subtab);
+
+    if (requestedSubtab === "inspections" || requestedSubtab === "permits") {
+        const [inspectionResult, vehicleInspectionResult] = await runAdminQueries([
+            { label: "inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+            { label: "vehicle inspection records", query: () => supabaseClient.from("vehicle_inspection_records").select("*").order("created_at", { ascending: false }) }
+        ]);
+        inspections = inspectionResult.data || [];
+        vehicleInspections = vehicleInspectionResult.data || [];
+        safetyRecordsSubtabDataLoaded.add("inspections");
+        safetyRecordsSubtabDataLoaded.add("permits");
+        return;
+    }
+
+    const [inspectionResult, safetyAcknowledgementResult, dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
+        { label: "report inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+        { label: "report safety acknowledgements", query: () => supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }) },
+        { label: "daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "incident reports", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "accident reports", query: () => supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "accident acknowledgements", query: () => supabaseClient.from("accident_report_acknowledgements").select("*").order("created_at", { ascending: false }) },
+        { label: "employee injury reports", query: () => supabaseClient.from("employee_injury_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "employee injury acknowledgements", query: () => supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }) },
+        { label: "toolbox talks", query: () => supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }) },
+        { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) },
+        { label: "toolbox talk attendance", query: () => supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }) }
+    ]);
+    inspections = inspectionResult.data || [];
+    safetyAcknowledgements = safetyAcknowledgementResult.data || [];
+    dailySiteReports = dailyResult.data || [];
+    incidentReports = incidentResult.data || [];
+    accidentReports = accidentResult.data || [];
+    accidentAcknowledgements = accidentAckResult.data || [];
+    employeeInjuryReports = injuryResult.data || [];
+    employeeInjuryAcknowledgements = injuryAckResult.data || [];
+    toolboxTalks = toolboxTalkResult.data || [];
+    toolboxReports = toolboxReportResult.data || [];
+    toolboxAttendance = toolboxAttendanceResult.data || [];
+    await prepareToolboxTalkUrls();
+    safetyRecordsSubtabDataLoaded.add("reports");
+}
+
+function ensureSafetyRecordsSubtabData(subtab) {
+    const requestedSubtab = normalizeSafetyRecordsSubtab(subtab);
+
+    if (!supabaseClient || safetyRecordsSubtabDataLoaded.has(requestedSubtab)) {
+        return true;
+    }
+
+    if (safetyRecordsSubtabDataLoading[requestedSubtab]) {
+        return false;
+    }
+
+    safetyRecordsSubtabDataLoading[requestedSubtab] = true;
+    loadSafetyRecordsSubtabData(requestedSubtab)
+        .catch((error) => logAdminLoadError("lazy load safety records " + requestedSubtab, error))
+        .finally(() => {
+            safetyRecordsSubtabDataLoaded.add(requestedSubtab);
+            safetyRecordsSubtabDataLoading[requestedSubtab] = false;
+
+            if (getActiveAdminTab() === "safetyRecords" && getActiveSafetyRecordsSubtab() === requestedSubtab) {
+                renderSafetyRecordsPanel(requestedSubtab);
+            }
+        });
+
+    return false;
+}
+
+function renderSafetyRecordsPanel(subtab) {
+    const requestedSubtab = normalizeSafetyRecordsSubtab(subtab);
+    const inspectionSection = document.getElementById("inspectionsSection");
+    const reportsSection = document.getElementById("reportsSection");
+    const inspectionTitle = document.getElementById("adminInspectionSectionTitle");
+
+    if (inspectionSection) {
+        inspectionSection.hidden = requestedSubtab === "reports";
+    }
+
+    if (reportsSection) {
+        reportsSection.hidden = requestedSubtab !== "reports";
+    }
+
+    if (inspectionTitle) {
+        inspectionTitle.textContent = requestedSubtab === "permits" ? "Safety Permits" : "Inspection Reports";
+    }
+
+    if (adminTabDataLoading.safetyRecords && !adminTabDataLoaded.has("safetyRecords")) {
+        if (requestedSubtab !== "reports") {
+            renderInspections(requestedSubtab);
+        }
+        return;
+    }
+
+    if (!ensureSafetyRecordsSubtabData(requestedSubtab)) {
+        if (requestedSubtab === "reports") {
+            const reportPanel = document.querySelector("#reportsSection .admin-report-panels");
+            if (reportPanel) {
+                reportPanel.setAttribute("aria-busy", "true");
+            }
+        } else {
+            renderInspections(requestedSubtab);
+        }
+        return;
+    }
+
+    if (requestedSubtab === "reports") {
+        const reportPanel = document.querySelector("#reportsSection .admin-report-panels");
+        if (reportPanel) {
+            reportPanel.removeAttribute("aria-busy");
+        }
+        renderReports();
+        renderToolboxTalks();
+        return;
+    }
+
+    renderInspections(requestedSubtab);
+}
+
+function switchSafetyRecordsSubtab(subtab, options = {}) {
+    const requestedSubtab = normalizeSafetyRecordsSubtab(subtab);
+    setActiveSafetyRecordsSubtab(requestedSubtab, options);
+    document.querySelectorAll("[data-safety-record-tab]").forEach((button) => {
+        const isActive = button.dataset.safetyRecordTab === requestedSubtab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    closeAdminInspectionView();
+    renderSafetyRecordsPanel(requestedSubtab);
+}
+
+function renderSafetyRecords() {
+    switchSafetyRecordsSubtab(getActiveSafetyRecordsSubtab(), { persist: false });
 }
 
 function ensureAdminTabData(tab) {
@@ -178,13 +346,15 @@ async function loadAdminTabData(tab) {
         return;
     }
 
-    if (tab === "inspections") {
-        const [inspectionResult, vehicleInspectionResult] = await runAdminQueries([
-            { label: "inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
-            { label: "vehicle inspection records", query: () => supabaseClient.from("vehicle_inspection_records").select("*").order("created_at", { ascending: false }) }
-        ]);
-        inspections = inspectionResult.data || [];
-        vehicleInspections = vehicleInspectionResult.data || [];
+    if (tab === "safetyRecords") {
+        const safetySubtab = getActiveSafetyRecordsSubtab();
+        await loadSafetyRecordsSubtabData(safetySubtab);
+        safetyRecordsSubtabDataLoaded.add(safetySubtab);
+        return;
+    }
+
+    if (tab === "inspections" || tab === "reports" || tab === "permits") {
+        await loadSafetyRecordsSubtabData(tab === "reports" ? "reports" : tab === "permits" ? "permits" : "inspections");
         return;
     }
 
@@ -199,35 +369,6 @@ async function loadAdminTabData(tab) {
         certificateNotifications = notificationResult.data || [];
         await prepareCertificateUrls();
         await processCertificateExpiryNotifications();
-        return;
-    }
-
-    if (tab === "reports") {
-        const [inspectionResult, safetyAcknowledgementResult, dailyResult, incidentResult, accidentResult, accidentAckResult, injuryResult, injuryAckResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult] = await runAdminQueries([
-            { label: "report inspection records", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
-            { label: "report safety acknowledgements", query: () => supabaseClient.from("safety_acknowledgements").select("*").order("created_at", { ascending: false }) },
-            { label: "daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "incident reports", query: () => supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "accident reports", query: () => supabaseClient.from("accident_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "accident acknowledgements", query: () => supabaseClient.from("accident_report_acknowledgements").select("*").order("created_at", { ascending: false }) },
-            { label: "employee injury reports", query: () => supabaseClient.from("employee_injury_reports").select("*").order("accident_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "employee injury acknowledgements", query: () => supabaseClient.from("employee_injury_acknowledgements").select("*").order("created_at", { ascending: false }) },
-            { label: "toolbox talks", query: () => supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }) },
-            { label: "toolbox talk reports", query: () => supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }) },
-            { label: "toolbox talk attendance", query: () => supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }) }
-        ]);
-        inspections = inspectionResult.data || [];
-        safetyAcknowledgements = safetyAcknowledgementResult.data || [];
-        dailySiteReports = dailyResult.data || [];
-        incidentReports = incidentResult.data || [];
-        accidentReports = accidentResult.data || [];
-        accidentAcknowledgements = accidentAckResult.data || [];
-        employeeInjuryReports = injuryResult.data || [];
-        employeeInjuryAcknowledgements = injuryAckResult.data || [];
-        toolboxTalks = toolboxTalkResult.data || [];
-        toolboxReports = toolboxReportResult.data || [];
-        toolboxAttendance = toolboxAttendanceResult.data || [];
-        await prepareToolboxTalkUrls();
         return;
     }
 
@@ -353,8 +494,8 @@ function renderActiveAdminTab(tab) {
         renderVacationRequests();
     }
 
-    if (requestedTab === "inspections") {
-        renderInspections();
+    if (requestedTab === "safetyRecords") {
+        renderSafetyRecords();
     }
 
     if (requestedTab === "certificates") {
@@ -383,11 +524,6 @@ function renderActiveAdminTab(tab) {
         renderSubcontractorSuppliers();
     }
 
-    if (requestedTab === "reports") {
-        renderReports();
-        renderToolboxTalks();
-    }
-
     if (requestedTab === "equipment") {
         renderEquipment();
     }
@@ -407,13 +543,35 @@ function renderActiveAdminTab(tab) {
 }
 
 function showTab(tab, options = {}) {
-    const requestedTab = ADMIN_ALLOWED_TABS.includes(tab) ? tab : "summary";
+    const legacySafetySubtabs = {
+        inspections: "inspections",
+        reports: "reports",
+        permits: "permits"
+    };
+    const legacySafetySubtab = legacySafetySubtabs[tab];
+    const normalizedTab = legacySafetySubtab ? "safetyRecords" : tab;
+    const requestedTab = ADMIN_ALLOWED_TABS.includes(normalizedTab) ? normalizedTab : "summary";
+
+    if (legacySafetySubtab) {
+        setActiveSafetyRecordsSubtab(legacySafetySubtab, { persist: false });
+    }
 
     if (options.persist !== false) {
         persistAdminTab(requestedTab);
     } else {
         currentAdminTab = requestedTab;
     }
+
+    if (legacySafetySubtab && options.persist !== false) {
+        setActiveSafetyRecordsSubtab(legacySafetySubtab);
+    }
+
+    ["inspectionsSection", "reportsSection"].forEach((sectionId) => {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.hidden = true;
+        }
+    });
 
     ADMIN_ALLOWED_TABS.forEach((name) => {
         const section = document.getElementById(name + "Section");
@@ -440,7 +598,7 @@ function showTab(tab, options = {}) {
     }
 
     if (requestedTab !== "summary") {
-        markAdminTabViewed(requestedTab);
+        markAdminTabViewed(requestedTab === "safetyRecords" ? getActiveSafetyRecordsSubtab() : requestedTab);
     }
 
     renderActiveAdminTab(requestedTab);
@@ -511,6 +669,11 @@ function getRequestedAdminTab() {
     const params = new URLSearchParams(window.location.search);
     const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
     const stored = localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+    const legacySafetySubtabs = {
+        inspections: "inspections",
+        reports: "reports",
+        permits: "permits"
+    };
     const tabAliases = {
         announcements: "noticePolicy",
         policies: "noticePolicy",
@@ -519,8 +682,19 @@ function getRequestedAdminTab() {
         vendors: "subcontractorsSuppliers"
     };
 
-    const requestedAlias = tabAliases[requested] || requested;
-    const storedAlias = tabAliases[stored] || stored;
+    const requestedSafetySubtab = legacySafetySubtabs[requested];
+    const storedSafetySubtab = legacySafetySubtabs[stored];
+    const querySafetySubtab = params.get("records");
+    const storedPreferredSafetySubtab = localStorage.getItem(SAFETY_RECORDS_STORAGE_KEY);
+    activeSafetyRecordsSubtab = normalizeSafetyRecordsSubtab(
+        requestedSafetySubtab
+        || (SAFETY_RECORDS_SUBTABS.includes(querySafetySubtab) ? querySafetySubtab : "")
+        || storedSafetySubtab
+        || storedPreferredSafetySubtab
+    );
+
+    const requestedAlias = requestedSafetySubtab ? "safetyRecords" : (tabAliases[requested] || requested);
+    const storedAlias = storedSafetySubtab ? "safetyRecords" : (tabAliases[stored] || stored);
 
     if (ADMIN_ALLOWED_TABS.includes(requestedAlias)) {
         return requestedAlias;
@@ -564,11 +738,9 @@ async function safeAdminSetupStep(label, callback) {
 function renderAdminSectionsSafely() {
     [
         ["timesheets", renderTimesheets],
-        ["inspections", renderInspections],
+        ["safety records", renderSafetyRecords],
         ["vacation", renderVacationRequests],
         ["announcements", renderAnnouncements],
-        ["reports", renderReports],
-        ["toolbox talks", renderToolboxTalks],
         ["policies", renderPolicies],
         ["job dashboard options", renderJobDashboardOptions],
         ["job dashboard", renderJobDashboard],
@@ -796,6 +968,8 @@ async function loadAdminData(options = {}) {
 
             initializeAdminSummaryBaselines();
             adminTabDataLoaded = new Set(["summary", "vacation", "adminTools"]);
+            safetyRecordsSubtabDataLoaded = new Set();
+            safetyRecordsSubtabDataLoading = {};
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
             showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -910,6 +1084,8 @@ async function loadAdminData(options = {}) {
         await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
         initializeAdminSummaryBaselines();
         adminTabDataLoaded = new Set(ADMIN_ALLOWED_TABS);
+        safetyRecordsSubtabDataLoaded = new Set(SAFETY_RECORDS_SUBTABS);
+        safetyRecordsSubtabDataLoading = {};
         adminDataLoaded = true;
         renderAdminSectionsSafely();
         showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });

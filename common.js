@@ -55,10 +55,9 @@ const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
   { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
   { key: "timesheets", label: "Timesheets", href: "admin.html?tab=timesheets" },
-  { key: "inspections", label: "Inspections", href: "admin.html?tab=inspections" },
+  { key: "safetyRecords", label: "Safety Records", href: "admin.html?tab=safetyRecords" },
   { key: "vacation", label: "Vacation Requests", href: "admin.html?tab=vacation" },
   { key: "tasks", label: "Tasks", href: "admin.html?tab=tasks" },
-  { key: "reports", label: "Reports", href: "admin.html?tab=reports" },
   { key: "workOrders", label: "Work Orders", href: "admin.html?tab=workOrders" },
   { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html" },
   { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }

@@ -21,10 +21,9 @@
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
     <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
-    <button id="inspectionsTab" class="tab-button" onclick="showTab('inspections')">Inspections</button>
+    <button id="safetyRecordsTab" class="tab-button" onclick="showTab('safetyRecords')">Safety Records</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
     <button id="tasksTab" class="tab-button" onclick="showTab('tasks')">Tasks</button>
-    <button id="reportsTab" class="tab-button" onclick="showTab('reports')">Reports</button>
     <button id="workOrdersTab" class="tab-button" onclick="showTab('workOrders')">Work Orders</button>
     <button id="purchaseOrdersTab" class="tab-button" type="button" onclick="window.location.href='purchase-orders-admin.html'">Purchase Orders</button>
     <button id="adminToolsTab" class="tab-button" onclick="showTab('adminTools')">Admin Tools</button>
@@ -437,8 +436,17 @@
     <div id="sickDaysList" class="small">Loading sick days...</div>
 </div>
 
+<div id="safetyRecordsSection" class="card jgc-panel" hidden>
+    <h2 class="jgc-section-title">Safety Records</h2>
+    <div class="admin-report-tabs jgc-tabs" role="tablist" aria-label="Safety record categories">
+        <button type="button" class="active jgc-tab" data-safety-record-tab="inspections" onclick="switchSafetyRecordsSubtab('inspections')">Inspections</button>
+        <button type="button" class="jgc-tab" data-safety-record-tab="reports" onclick="switchSafetyRecordsSubtab('reports')">Reports</button>
+        <button type="button" class="jgc-tab" data-safety-record-tab="permits" onclick="switchSafetyRecordsSubtab('permits')">Permits</button>
+    </div>
+</div>
+
 <div id="inspectionsSection" class="card jgc-panel" hidden>
-    <h2 class="jgc-section-title">Inspection Reports</h2>
+    <h2 id="adminInspectionSectionTitle" class="jgc-section-title">Inspection Reports</h2>
     <div class="filters jgc-filter-grid">
         <div class="jgc-field">
             <label class="jgc-label">Worker</label>
@@ -1106,7 +1114,7 @@
 <script src="admin-vacation.js?v=2"></script>
 <script src="admin-notices.js?v=1"></script>
 <script src="admin-certificates.js?v=3"></script>
-<script src="admin-inspections.js?v=3"></script>
+<script src="admin-inspections.js?v=4"></script>
 <script src="admin-reports.js?v=2"></script>
 <script src="admin-employee-profile.js?v=1"></script>
 <script src="admin-jobs.js?v=2"></script>
@@ -1114,6 +1122,6 @@
 <script src="admin-equipment.js?v=1"></script>
 <script src="admin-timesheets.js?v=2"></script>
 <script src="admin-summary.js?v=1"></script>
-<script src="admin-core.js?v=2"></script>
+<script src="admin-core.js?v=3"></script>
 </body>
 </html>

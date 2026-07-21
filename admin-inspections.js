@@ -40,8 +40,14 @@ const ADMIN_INSPECTION_CATEGORY_ORDER = [
     "telehandlers",
     "harnesses",
     "equipment",
-    "safety-permits",
     "other"
+];
+
+const ADMIN_PERMIT_CATEGORY_ORDER = [
+    "hot-work-permits",
+    "confined-space-permits",
+    "excavation-permits",
+    "other-permits"
 ];
 
 const ADMIN_INSPECTION_CATEGORY_LABELS = {
@@ -51,8 +57,11 @@ const ADMIN_INSPECTION_CATEGORY_LABELS = {
     telehandlers: "Telehandlers",
     harnesses: "Harnesses",
     equipment: "Equipment",
-    "safety-permits": "Safety / Permits",
-    other: "Other Inspections"
+    other: "Other Inspections",
+    "hot-work-permits": "Hot Work Permits",
+    "confined-space-permits": "Confined Space Permits",
+    "excavation-permits": "Excavation Permits",
+    "other-permits": "Other Permits"
 };
 
 let adminInspectionLazyCategoryRows = new Map();
@@ -72,6 +81,26 @@ function getAdminInspectionCategoryKey(inspection) {
         record.form_data && record.form_data.template_key
     ].filter(Boolean).join(" ").toLowerCase();
 
+    if (["jsa", "job safety analysis", "toolbox", "daily site report", "near miss", "accident", "employee injury"].some((term) => categoryText.includes(term))) {
+        return "report";
+    }
+
+    if (categoryText.includes("hot work")) {
+        return "hot-work-permits";
+    }
+
+    if (categoryText.includes("confined space")) {
+        return "confined-space-permits";
+    }
+
+    if (categoryText.includes("excavation")) {
+        return "excavation-permits";
+    }
+
+    if (categoryText.includes("permit")) {
+        return "other-permits";
+    }
+
     if (categoryText.includes("fork lift") || categoryText.includes("forklift")) {
         return "fork-lifts";
     }
@@ -82,10 +111,6 @@ function getAdminInspectionCategoryKey(inspection) {
 
     if (categoryText.includes("harness")) {
         return "harnesses";
-    }
-
-    if (["jsa", "toolbox", "hot work", "permit"].some((term) => categoryText.includes(term))) {
-        return "safety-permits";
     }
 
     if (["aerial", "scissor", "boom lift", "man lift"].some((term) => categoryText.includes(term))) {
@@ -140,8 +165,11 @@ function loadAdminInspectionCategory(details) {
     body.dataset.loaded = "true";
 }
 
-function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCategories) {
+function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCategories, safetySubtab) {
     const groupedRows = new Map();
+    const categoryOrder = safetySubtab === "permits"
+        ? ADMIN_PERMIT_CATEGORY_ORDER
+        : ADMIN_INSPECTION_CATEGORY_ORDER;
 
     rows.forEach((inspection) => {
         const categoryKey = getAdminInspectionCategoryKey(inspection);
@@ -150,7 +178,7 @@ function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCat
         groupedRows.set(categoryKey, categoryRows);
     });
 
-    const groups = ADMIN_INSPECTION_CATEGORY_ORDER
+    const groups = categoryOrder
         .filter((categoryKey) => groupedRows.has(categoryKey))
         .map((categoryKey) => ({
             key: categoryKey,
@@ -165,7 +193,8 @@ function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCat
 
     return `<div class="jgc-archive-list">${groups.map((group) => {
         const isOpen = openFilteredCategories || openCategoryKeys.has(group.key);
-        const countLabel = group.rows.length + " inspection" + (group.rows.length === 1 ? "" : "s");
+        const recordNoun = safetySubtab === "permits" ? "permit" : "inspection";
+        const countLabel = group.rows.length + " " + recordNoun + (group.rows.length === 1 ? "" : "s");
 
         return `
             <details class="jgc-archive" data-inspection-category="${escapeHtml(group.key)}"${isOpen ? " open" : ""} ontoggle="loadAdminInspectionCategory(this)">
@@ -179,17 +208,22 @@ function renderAdminInspectionCategories(rows, openCategoryKeys, openFilteredCat
     }).join("")}</div>`;
 }
 
-function renderInspections() {
+function renderInspections(safetySubtab) {
     const list = document.getElementById("inspectionsList");
     const workerInput = document.getElementById("inspectionWorkerFilter");
     const typeInput = document.getElementById("inspectionTypeFilter");
+    const activeSubtab = safetySubtab || (typeof getActiveSafetyRecordsSubtab === "function"
+        ? getActiveSafetyRecordsSubtab()
+        : "inspections");
 
     if (!list) {
         return;
     }
 
-    if (adminTabDataLoading.inspections && !adminTabDataLoaded.has("inspections")) {
-        list.textContent = "Loading inspections...";
+    const safetySubtabLoading = typeof safetyRecordsSubtabDataLoading === "object"
+        && Boolean(safetyRecordsSubtabDataLoading[activeSubtab]);
+    if ((adminTabDataLoading.safetyRecords && !adminTabDataLoaded.has("safetyRecords")) || safetySubtabLoading) {
+        list.textContent = activeSubtab === "permits" ? "Loading permits..." : "Loading inspections...";
         return;
     }
 
@@ -233,21 +267,24 @@ function renderInspections() {
     }));
     const inspectionRows = standardInspectionRows.concat(vehicleInspectionRows)
         .sort((a, b) => String(b.saved || b.date || "").localeCompare(String(a.saved || a.date || "")));
-    const filtered = inspectionRows.filter((inspection) => {
+    const allowedCategories = new Set(activeSubtab === "permits"
+        ? ADMIN_PERMIT_CATEGORY_ORDER
+        : ADMIN_INSPECTION_CATEGORY_ORDER);
+    const filtered = inspectionRows.filter((inspection) => allowedCategories.has(getAdminInspectionCategoryKey(inspection))).filter((inspection) => {
         const worker = String(inspection.completedBy || "").toLowerCase();
         const type = [inspection.type, inspection.asset, inspection.source, inspection.details].join(" ").toLowerCase();
         return (!workerFilter || worker.includes(workerFilter)) && (!typeFilter || type.includes(typeFilter));
     });
 
     if (!filtered.length) {
-        list.textContent = "No inspection reports found.";
+        list.textContent = activeSubtab === "permits" ? "No permit records found." : "No inspection reports found.";
         return;
     }
 
     const openCategoryKeys = new Set(Array.from(list.querySelectorAll("details[data-inspection-category][open]"))
         .map((details) => details.dataset.inspectionCategory));
     const filtersActive = Boolean(workerFilter || typeFilter);
-    list.innerHTML = renderAdminInspectionCategories(filtered, openCategoryKeys, filtersActive);
+    list.innerHTML = renderAdminInspectionCategories(filtered, openCategoryKeys, filtersActive, activeSubtab);
 }
 
 function getAdminInspectionRecord(kind, id) {
