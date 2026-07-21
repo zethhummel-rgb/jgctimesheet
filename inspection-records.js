@@ -383,7 +383,7 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
     rows.forEach((row) => {
         if (typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(row, creator)) {
             row.acknowledgement_status = "acknowledged_by_creator";
-            row.acknowledgement_method = "creator_entry";
+            row.acknowledgement_method = "creator_on_behalf";
             row.acknowledged_at = creatorAcknowledgedAt;
             row.acknowledged_by_name = creator.display || creator.key || "";
             row.acknowledgement_note = "Creator entered and confirmed this person during JSA creation.";

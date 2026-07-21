@@ -279,6 +279,22 @@ button:disabled {
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.045);
     padding: 12px;
+    transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.inspection-item.is-pass {
+    border-color: #60a5fa;
+    background: #1d4ed8;
+}
+
+.inspection-item.is-fail {
+    border-color: #ef4444;
+    background: #991b1b;
+}
+
+.inspection-item.is-na {
+    border-color: #9ca3af;
+    background: #4b5563;
 }
 
 .inspection-item-head {
@@ -319,8 +335,8 @@ button:disabled {
 }
 
 .choice-button.is-selected {
-    background: #0e9348;
-    box-shadow: 0 0 0 2px rgba(39, 214, 75, 0.42);
+    background: #1d4ed8;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.55);
 }
 
 .choice-button.choice-f.is-selected {
@@ -934,6 +950,8 @@ function setChecklistResult(index, value) {
     item.result = value;
     const wrapper = document.querySelector('[data-item-index="' + index + '"]');
     if (wrapper) {
+        wrapper.classList.remove("is-pass", "is-fail", "is-na");
+        wrapper.classList.add(value === "P" ? "is-pass" : value === "F" ? "is-fail" : "is-na");
         wrapper.querySelectorAll(".choice-button").forEach((button) => {
             button.classList.toggle("is-selected", button.dataset.choice === value);
         });

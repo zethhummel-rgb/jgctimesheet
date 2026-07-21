@@ -96,6 +96,9 @@
         if (["f", "fail", "uns", "unsatisfactory", "defective"].includes(key)) {
             return key === "defective" ? "is-defective" : "is-fail";
         }
+        if (["n-a", "na", "not-applicable", "not applicable"].includes(key)) {
+            return "is-na";
+        }
         return "";
     }
 
@@ -198,9 +201,12 @@
         });
 
         const selected = buttons.find((item) => item.button.classList.contains("is-selected"));
-        tile.classList.remove("is-pass", "is-okay", "is-fail", "is-defective");
+        tile.classList.remove("is-pass", "is-okay", "is-fail", "is-defective", "is-na");
         if (selected) {
-            tile.classList.add(tileStateClass(selected.label));
+            const stateClass = tileStateClass(selected.label);
+            if (stateClass) {
+                tile.classList.add(stateClass);
+            }
         }
     }
 
