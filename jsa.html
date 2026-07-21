@@ -174,6 +174,29 @@ button:hover {
     flex-wrap: wrap;
 }
 
+.jsa-row-actions {
+    margin-top: 10px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid rgba(57, 200, 72, 0.34);
+}
+
+.jsa-row-actions .jgc-button {
+    background: #303b37;
+}
+
+.jsa-row-actions .jgc-button:hover {
+    background: #3b4944;
+}
+
+.jsa-submit-actions {
+    margin-top: 30px;
+    gap: 12px;
+}
+
+.jsa-submit-actions .jgc-button:first-child {
+    min-width: 170px;
+}
+
 .signoff {
     margin-top: 20px;
 }
@@ -306,6 +329,16 @@ button:hover {
     .actions {
         display: grid;
         grid-template-columns: 1fr;
+    }
+
+    .jsa-row-actions {
+        margin-top: 12px;
+        padding-bottom: 36px;
+    }
+
+    .jsa-submit-actions {
+        margin-top: 34px;
+        gap: 14px;
     }
 
     .crew-picker-grid {
@@ -461,7 +494,7 @@ button:hover {
 </div>
 
 <div class="actions jgc-actions jsa-row-actions">
-    <button class="jgc-button" onclick="addRow()">Add Row</button>
+    <button class="secondary jgc-button jgc-button--secondary" onclick="addRow()">Add Row</button>
 </div>
 
 <div class="actions jgc-actions jsa-submit-actions">

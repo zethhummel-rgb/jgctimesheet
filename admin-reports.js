@@ -129,6 +129,132 @@ function getToolboxReportPeople(report) {
     }));
 }
 
+function getAdminToolboxReportById(reportId) {
+    return toolboxReports.find((report) => String(report.id) === String(reportId)) || null;
+}
+
+function openAdminToolboxReport(reportId, mode) {
+    if (!window.JGCToolboxReports) {
+        alert("The toolbox report viewer is not available. Refresh and try again.");
+        return;
+    }
+    window.JGCToolboxReports.openReport(reportId, mode, "admin");
+}
+
+function getAdminToolboxTalkPdfPath(report) {
+    if (!report) {
+        return "";
+    }
+
+    if (report.talk_file_path) {
+        return String(report.talk_file_path).trim();
+    }
+
+    const talk = toolboxTalks.find((item) => String(item.id) === String(report.talk_id));
+    return talk && talk.file_path ? String(talk.file_path).trim() : "";
+}
+
+function normalizeAdminToolboxTalkPdfPath(path) {
+    let value = String(path || "").trim();
+
+    try {
+        value = decodeURIComponent(value);
+    } catch (_) {
+        // Keep the original value when it is not URI encoded.
+    }
+
+    value = value.replace(/^\/+/, "");
+    return value.startsWith("toolbox-talks/")
+        ? value.slice("toolbox-talks/".length)
+        : value;
+}
+
+async function openAdminToolboxTalkPdf(reportId) {
+    const report = getAdminToolboxReportById(reportId);
+    const path = getAdminToolboxTalkPdfPath(report);
+
+    if (!path) {
+        alert("The original toolbox talk PDF is not attached to this report.");
+        return;
+    }
+
+    if (typeof window.openJgcSignedFile !== "function") {
+        alert("The secure PDF viewer is not available. Refresh the page and try again.");
+        return;
+    }
+
+    const viewer = window.open("", "_blank");
+
+    if (!viewer) {
+        alert("The PDF window was blocked. Allow pop-ups for the portal and try again.");
+        return;
+    }
+
+    try {
+        await window.openJgcSignedFile({
+            client: supabaseClient,
+            bucket: "toolbox-talks",
+            path,
+            viewer,
+            recordTable: "toolbox_talk_reports",
+            recordId: report.id
+        });
+    } catch (error) {
+        viewer.close();
+        alert("The toolbox talk PDF could not be opened. " + (error && error.message ? error.message : "Please try again."));
+    }
+}
+
+async function downloadAdminToolboxTalkPdf(reportId) {
+    const report = getAdminToolboxReportById(reportId);
+    const path = getAdminToolboxTalkPdfPath(report);
+
+    if (!path) {
+        alert("The original toolbox talk PDF is not attached to this report.");
+        return;
+    }
+
+    const objectPath = normalizeAdminToolboxTalkPdfPath(path);
+
+    try {
+        const { data, error } = await supabaseClient.storage
+            .from("toolbox-talks")
+            .createSignedUrl(objectPath, 600, { download: true });
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data || !data.signedUrl) {
+            throw new Error("A secure download link was not returned.");
+        }
+
+        const link = document.createElement("a");
+        link.href = data.signedUrl;
+        link.rel = "noopener";
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    } catch (error) {
+        alert("The toolbox talk PDF could not be downloaded. " + (error && error.message ? error.message : "Please try again."));
+    }
+}
+
+function printAdminToolboxReport(reportId) {
+    if (!window.JGCToolboxReports) return;
+    const report = getAdminToolboxReportById(reportId);
+    window.JGCToolboxReports.printReport(report, report ? getToolboxReportSafetyAcknowledgements(report) : []);
+}
+
+async function emailAdminToolboxReport(reportId) {
+    if (!window.JGCToolboxReports) return;
+    const report = getAdminToolboxReportById(reportId);
+    await window.JGCToolboxReports.emailReport(report, {
+        acknowledgementRows: report ? getToolboxReportSafetyAcknowledgements(report) : []
+    });
+}
+
 function renderToolboxTalkHistory() {
     const list = document.getElementById("toolboxTalkHistoryList");
 
@@ -141,57 +267,57 @@ function renderToolboxTalkHistory() {
         return;
     }
 
-    list.innerHTML = toolboxReports.map((report) => {
-        const people = getToolboxReportPeople(report);
-        const crewCount = people.length || (Array.isArray(report.crew) ? report.crew.length : 0);
+    list.innerHTML = `
+        <div class="table-wrap jgc-table-wrap admin-toolbox-history-wrap">
+            <table class="jgc-table admin-toolbox-history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Talk / Project</th>
+                        <th>Presenter</th>
+                        <th>Attendees</th>
+                        <th>Talk PDF</th>
+                        <th>Completed Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${toolboxReports.map((report) => {
+                        const people = getToolboxReportPeople(report);
+                        const crewCount = people.length || (Array.isArray(report.crew) ? report.crew.length : 0);
+                        const hasTalkPdf = Boolean(getAdminToolboxTalkPdfPath(report));
 
-        return `
-            <details class="admin-collapsible-panel jgc-card" style="margin-bottom:10px;">
-                <summary>
-                    <span>
-                        <strong>${escapeHtml(report.talk_title || "Toolbox Talk")}</strong><br>
-                        <span class="timesheet-worker-meta">${escapeHtml(formatDate(report.report_date))} | ${escapeHtml(report.project || "No project entered")} | Presented by ${escapeHtml(report.presenter_name || "-")}</span>
-                    </span>
-                    <span class="admin-report-count jgc-badge">${escapeHtml(String(crewCount))} attendee${crewCount === 1 ? "" : "s"}</span>
-                </summary>
-                <div>
-                    <div class="table-wrap">
-                        <table>
-                            <tbody>
-                                <tr><th>Talk</th><td>${escapeHtml(report.talk_title || "")}</td></tr>
-                                <tr><th>Date</th><td>${escapeHtml(formatDate(report.report_date))}</td></tr>
-                                <tr><th>Project</th><td>${escapeHtml(report.project || "")}</td></tr>
-                                <tr><th>Location</th><td>${escapeHtml(report.location || "-")}</td></tr>
-                                <tr><th>Presenter</th><td>${escapeHtml(report.presenter_name || "")}</td></tr>
-                                <tr><th>Submitted By</th><td>${escapeHtml(report.submitted_by_name || report.submitted_by_worker || "")}</td></tr>
-                                <tr><th>Saved</th><td>${escapeHtml(formatJsaReportAcknowledgementDate(report.created_at))}</td></tr>
-                                <tr><th>Discussion Notes</th><td>${escapeHtml(report.discussion_notes || "-")}</td></tr>
-                                <tr><th>Hazards Discussed</th><td>${escapeHtml(report.hazards_discussed || "-")}</td></tr>
-                                <tr><th>Corrective Actions</th><td>${escapeHtml(report.corrective_actions || "-")}</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <h4 style="margin:14px 0 8px;">Attendance</h4>
-                    ${people.length ? `
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Name</th><th>Company</th><th>Status</th></tr></thead>
-                                <tbody>
-                                    ${people.map((person) => `
-                                        <tr>
-                                            <td>${escapeHtml(person.name)}</td>
-                                            <td>${escapeHtml(person.company || "-")}</td>
-                                            <td>${escapeHtml(person.status || "Recorded present")}</td>
-                                        </tr>
-                                    `).join("")}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : '<div class="small">No attendance was recorded.</div>'}
-                </div>
-            </details>
-        `;
-    }).join("");
+                        return `
+                            <tr>
+                                <td>${escapeHtml(formatDate(report.report_date))}</td>
+                                <td>
+                                    <strong>${escapeHtml(report.talk_title || "Toolbox Talk")}</strong>
+                                    <span class="admin-toolbox-history-meta">${escapeHtml(report.project || "No project entered")}${report.location ? " | " + escapeHtml(report.location) : ""}</span>
+                                </td>
+                                <td>${escapeHtml(report.presenter_name || "-")}</td>
+                                <td><span class="jgc-badge">${escapeHtml(String(crewCount))} attendee${crewCount === 1 ? "" : "s"}</span></td>
+                                <td>
+                                    ${hasTalkPdf ? `
+                                        <div class="jgc-actions admin-toolbox-history-actions">
+                                            <button type="button" class="jgc-button" onclick="openAdminToolboxTalkPdf('${escapeHtml(report.id)}')">Open PDF</button>
+                                            <button type="button" class="jgc-button jgc-button--secondary" onclick="downloadAdminToolboxTalkPdf('${escapeHtml(report.id)}')">Download</button>
+                                        </div>
+                                    ` : '<span class="small">Not attached</span>'}
+                                </td>
+                                <td>
+                                    <div class="jgc-actions admin-toolbox-history-actions">
+                                        <button type="button" class="jgc-button" onclick="openAdminToolboxReport('${escapeHtml(report.id)}', 'view')">View</button>
+                                        <button type="button" class="jgc-button jgc-button--secondary" onclick="openAdminToolboxReport('${escapeHtml(report.id)}', 'edit')">Edit</button>
+                                        <button type="button" class="jgc-button jgc-button--secondary" onclick="printAdminToolboxReport('${escapeHtml(report.id)}')">Report PDF</button>
+                                        <button type="button" class="jgc-button jgc-button--secondary" onclick="emailAdminToolboxReport('${escapeHtml(report.id)}')">Email</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
 function getAdminJsaReports() {

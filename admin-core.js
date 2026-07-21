@@ -816,7 +816,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("announcements").select("*").eq("is_active", true).order("created_at", { ascending: false }),
         supabaseClient.from("announcement_acknowledgements").select("*").order("read_at", { ascending: false }),
         supabaseClient.from("toolbox_talks").select("*").eq("is_active", true).order("created_at", { ascending: false }),
-        supabaseClient.from("toolbox_talk_reports").select("*").order("created_at", { ascending: false }),
+        supabaseClient.from("toolbox_talk_reports").select("*").eq("is_duplicate", false).order("created_at", { ascending: false }),
         supabaseClient.from("toolbox_talk_attendance").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("incident_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }),

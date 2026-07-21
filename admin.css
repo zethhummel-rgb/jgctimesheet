@@ -3166,6 +3166,52 @@ button.admin-schedule-event-button.admin-event-vacation {
     }
 }
 
+.admin-toolbox-history-table th,
+.admin-toolbox-history-table td {
+    padding: 8px 9px;
+    vertical-align: middle;
+}
+
+.admin-toolbox-history-table th:nth-child(1) {
+    width: 92px;
+}
+
+.admin-toolbox-history-table th:nth-child(4) {
+    width: 92px;
+}
+
+.admin-toolbox-history-table th:nth-child(5),
+.admin-toolbox-history-table th:nth-child(6) {
+    width: 210px;
+}
+
+.admin-toolbox-history-meta {
+    display: block;
+    margin-top: 3px;
+    color: var(--jgc-color-text-muted, #b8c8bd);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.admin-toolbox-history-actions {
+    gap: 5px;
+    margin: 0;
+}
+
+.admin-toolbox-history-actions .jgc-button {
+    width: auto;
+    min-height: 34px;
+    padding: 7px 9px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .admin-toolbox-history-table {
+        min-width: 980px;
+    }
+}
+
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));

@@ -161,6 +161,70 @@ textarea {
     margin-top: 3px;
 }
 
+#toolboxSafetyAckPanel[hidden] {
+    display: none;
+}
+
+.toolbox-qr-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: grid;
+    place-items: center;
+    padding: calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
+    background: rgba(0, 12, 8, .78);
+}
+
+.toolbox-qr-dialog {
+    position: relative;
+    width: min(440px, 100%);
+    max-height: 90vh;
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 24px;
+    color: #f4fff6;
+    background: #0d2419;
+    border: 2px solid #32d455;
+    border-radius: 8px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+    text-align: center;
+}
+
+.toolbox-qr-dialog h2 {
+    margin: 0 44px 8px;
+    color: #32d455;
+}
+
+.toolbox-qr-dialog p {
+    color: #f4fff6;
+}
+
+.toolbox-qr-dialog a {
+    color: #8df5a1;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.toolbox-qr-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.toolbox-qr-wrap canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 14px auto;
+    padding: 8px;
+    background: #ffffff;
+}
+
 .crew-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -231,6 +295,13 @@ button:hover,
     margin-top: 10px;
     font-weight: bold;
     color: #2f6f3c;
+}
+
+.status.error {
+    padding: 12px;
+    color: #fff;
+    background: #8f1d1d;
+    border: 1px solid #ff5a52;
 }
 
 .small {
@@ -364,12 +435,15 @@ th {
         </div>
 
         <div class="actions jgc-actions">
-            <button id="saveToolboxReportButton" type="button" class="jgc-button" onclick="submitToolboxTalkReport()">Save & Email Report</button>
-            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
+            <button id="saveToolboxReportButton" type="button" class="jgc-button" onclick="submitToolboxTalkReport()">Submit Report</button>
+            <button id="editToolboxReportButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="openToolboxReportEdit()" hidden>Edit Report</button>
+            <button id="pdfToolboxReportButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="printLoadedToolboxReport()" hidden>Print / Save PDF</button>
+            <button id="emailToolboxReportButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="emailLoadedToolboxReport()" hidden>Email Report</button>
+            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="leaveToolboxReport()">Reports</button>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         </div>
         <div id="reportStatus" class="status jgc-notice" aria-live="polite"></div>
-        <div id="toolboxSafetyAckPanel" class="small" style="margin-top:10px;"></div>
+        <div id="toolboxSafetyAckPanel" hidden></div>
     </section>
 
     <section id="toolboxTalkLibrarySection" class="card jgc-section">
@@ -378,7 +452,7 @@ th {
         <div id="talkLibrary" class="talk-list">Loading toolbox talks...</div>
     </section>
 
-    <section class="card jgc-section">
+    <section id="toolboxAcknowledgementSection" class="card jgc-section">
         <h2>My Toolbox Talk Acknowledgements</h2>
         <div id="acknowledgementList">Loading acknowledgements...</div>
     </section>
@@ -388,28 +462,240 @@ th {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=30"></script>
 <script src="safety-acknowledgements.js?v=4"></script>
+<script src="toolbox-report-actions.js?v=1"></script>
 <script>
-const TOOLBOX_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 const currentWorker = normalizeWorkerName(worker.key);
 const currentWorkerDisplay = worker.display || worker.key;
+const toolboxReportParams = new URLSearchParams(window.location.search);
+const activeToolboxReportId = String(toolboxReportParams.get("reportId") || "").trim();
+const toolboxReportMode = toolboxReportParams.get("mode") === "edit" ? "edit" : "view";
+const toolboxReportReturn = ["today", "previous", "admin", "reports"].includes(toolboxReportParams.get("return"))
+    ? toolboxReportParams.get("return")
+    : "reports";
 let toolboxTalks = [];
 let toolboxTalkUrls = {};
 let employees = [];
 let selectedTalk = null;
 let acknowledgements = [];
 let toolboxReportSubmitting = false;
+let loadedToolboxReport = null;
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
 
-function setReportStatus(message) {
-    document.getElementById("reportStatus").textContent = message || "";
+function setReportStatus(message, isError = false) {
+    const status = document.getElementById("reportStatus");
+    status.textContent = message || "";
+    status.classList.toggle("error", Boolean(message && isError));
+}
+
+function normalizeToolboxDuplicateValue(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+async function findMatchingToolboxReport(record) {
+    const { data, error } = await supabaseClient
+        .from("toolbox_talk_reports")
+        .select("id,project,presenter_name")
+        .eq("talk_id", record.talk_id)
+        .eq("report_date", record.report_date)
+        .eq("is_duplicate", false);
+
+    if (error) {
+        console.warn("Toolbox duplicate pre-check failed; the database guard will still validate the save.", error);
+        return null;
+    }
+
+    const project = normalizeToolboxDuplicateValue(record.project);
+    const presenter = normalizeToolboxDuplicateValue(record.presenter_name);
+    return (data || []).find((existing) =>
+        existing.id !== record.id
+        && normalizeToolboxDuplicateValue(existing.project) === project
+        && normalizeToolboxDuplicateValue(existing.presenter_name) === presenter
+    ) || null;
+}
+
+function showDuplicateToolboxReportError() {
+    setReportStatus(
+        "This toolbox talk was already submitted for this date, project, and presenter. Open the existing report instead of submitting another copy.",
+        true
+    );
+    document.getElementById("toolboxTalkReportSection").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function isDuplicateToolboxReportError(error) {
+    return Boolean(error && (
+        error.code === "23505"
+        || /toolbox_talk_reports_unique_submission_idx|duplicate key/i.test(String(error.message || ""))
+    ));
 }
 
 function getValue(id) {
     return document.getElementById(id).value.trim();
+}
+
+function getToolboxReportReturnUrl() {
+    if (toolboxReportReturn === "today") return "todays-inspections.html?recordType=reports";
+    if (toolboxReportReturn === "previous") return "previous-inspections.html?recordType=reports";
+    if (toolboxReportReturn === "admin") return "admin.html?tab=reports";
+    return "reports.html";
+}
+
+function leaveToolboxReport() {
+    window.location.href = getToolboxReportReturnUrl();
+}
+
+function openToolboxReportEdit() {
+    if (!activeToolboxReportId || !window.JGCToolboxReports) return;
+    window.JGCToolboxReports.openReport(activeToolboxReportId, "edit", toolboxReportReturn);
+}
+
+function canEditLoadedToolboxReport(report) {
+    const ownsReport = normalizeWorkerName(report && report.submitted_by_worker) === currentWorker;
+    return ownsReport || isAdminWorker(worker.key, worker.role, worker.email);
+}
+
+function setToolboxReportFieldState(readOnly) {
+    [
+        "toolboxTalkSelect",
+        "reportDate",
+        "presenterName",
+        "projectName",
+        "location",
+        "discussionNotes",
+        "hazardsDiscussed",
+        "correctiveActions"
+    ].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) element.disabled = readOnly;
+    });
+
+    // Attendance is historical once a report is submitted. Editing report details
+    // must not alter the original sign-off list or its acknowledgements.
+    document.querySelectorAll(".crew-checkbox").forEach((box) => {
+        box.disabled = Boolean(activeToolboxReportId);
+    });
+    document.getElementById("externalCrewList").disabled = Boolean(activeToolboxReportId) || readOnly;
+}
+
+function addHistoricalToolboxTalk(report) {
+    if (!report || !report.talk_id || toolboxTalks.some((talk) => String(talk.id) === String(report.talk_id))) {
+        return;
+    }
+
+    toolboxTalks.push({
+        id: report.talk_id,
+        title: report.talk_title || "Archived toolbox talk",
+        file_path: report.talk_file_path || "",
+        description: ""
+    });
+    renderTalkSelector();
+}
+
+function populateLoadedToolboxReport(report) {
+    addHistoricalToolboxTalk(report);
+    selectToolboxTalk(report.talk_id || "");
+
+    document.getElementById("reportDate").value = report.report_date || "";
+    const presenterSelect = document.getElementById("presenterName");
+    if (report.presenter_name && !Array.from(presenterSelect.options).some((option) => option.value === report.presenter_name)) {
+        presenterSelect.add(new Option(report.presenter_name, report.presenter_name));
+    }
+    presenterSelect.value = report.presenter_name || "";
+    document.getElementById("projectName").value = report.project || "";
+    document.getElementById("location").value = report.location || "";
+    document.getElementById("discussionNotes").value = report.discussion_notes || "";
+    document.getElementById("hazardsDiscussed").value = report.hazards_discussed || "";
+    document.getElementById("correctiveActions").value = report.corrective_actions || "";
+
+    const crew = Array.isArray(report.crew) ? report.crew : [];
+    const approvedAliases = new Set();
+    document.querySelectorAll(".crew-checkbox").forEach((box) => {
+        approvedAliases.add(normalizeWorkerName(box.value));
+        approvedAliases.add(normalizeWorkerName(box.dataset.display));
+        box.checked = crew.some((person) => {
+            const aliases = [person.workerName, person.displayName, person.name].map(normalizeWorkerName);
+            return aliases.includes(normalizeWorkerName(box.value)) || aliases.includes(normalizeWorkerName(box.dataset.display));
+        });
+    });
+
+    document.getElementById("externalCrewList").value = crew
+        .filter((person) => {
+            if (person.external) return true;
+            return ![person.workerName, person.displayName, person.name]
+                .map(normalizeWorkerName)
+                .some((name) => approvedAliases.has(name));
+        })
+        .map((person) => {
+            const name = person.displayName || person.name || person.workerName || "";
+            return person.company ? name + " - " + person.company : name;
+        })
+        .filter(Boolean)
+        .join("\n");
+}
+
+async function loadSavedToolboxReport() {
+    const { data, error } = await supabaseClient
+        .from("toolbox_talk_reports")
+        .select("*")
+        .eq("id", activeToolboxReportId)
+        .single();
+
+    if (error || !data) {
+        setReportStatus("Toolbox talk report could not be found.");
+        document.getElementById("saveToolboxReportButton").hidden = true;
+        return;
+    }
+
+    loadedToolboxReport = data;
+    populateLoadedToolboxReport(data);
+
+    const canEdit = canEditLoadedToolboxReport(data);
+    const editing = toolboxReportMode === "edit" && canEdit;
+    document.querySelector("#toolboxTalkReportSection h2").textContent = editing
+        ? "Edit Tool Box Talk Report"
+        : "View Tool Box Talk Report";
+    document.getElementById("saveToolboxReportButton").hidden = !editing;
+    document.getElementById("saveToolboxReportButton").textContent = "Save Changes";
+    document.getElementById("editToolboxReportButton").hidden = editing || !canEdit;
+    document.getElementById("pdfToolboxReportButton").hidden = false;
+    document.getElementById("emailToolboxReportButton").hidden = false;
+    document.getElementById("toolboxTalkLibrarySection").hidden = true;
+    document.getElementById("toolboxAcknowledgementSection").hidden = true;
+    setToolboxReportFieldState(!editing);
+    setReportStatus(editing
+        ? "Editing saved report. Attendance and acknowledgements are locked."
+        : "Viewing saved toolbox talk report.");
+}
+
+async function getLoadedToolboxAcknowledgements() {
+    if (!activeToolboxReportId || typeof safetyAckLoadForRecords !== "function") return [];
+    return safetyAckLoadForRecords(supabaseClient, "toolbox_talk", [activeToolboxReportId]);
+}
+
+async function printLoadedToolboxReport() {
+    if (!loadedToolboxReport || !window.JGCToolboxReports) return;
+    const rows = await getLoadedToolboxAcknowledgements();
+    window.JGCToolboxReports.printReport(loadedToolboxReport, rows);
+}
+
+async function emailLoadedToolboxReport() {
+    if (!loadedToolboxReport || !window.JGCToolboxReports) return;
+    const button = document.getElementById("emailToolboxReportButton");
+    button.disabled = true;
+    setReportStatus("Emailing toolbox talk report...");
+    try {
+        const rows = await getLoadedToolboxAcknowledgements();
+        await window.JGCToolboxReports.emailReport(loadedToolboxReport, { acknowledgementRows: rows });
+        setReportStatus("Toolbox talk report emailed.");
+    } catch (error) {
+        console.error("Toolbox talk report email failed", error);
+        setReportStatus("Toolbox talk report could not be emailed.");
+    } finally {
+        button.disabled = false;
+    }
 }
 
 function createPublicReportId() {
@@ -459,13 +745,18 @@ async function loadToolboxData() {
         workerName: normalizeWorkerName(profile.worker_key || profile.display_name || profile.email),
         displayName: profile.display_name || profile.worker_key || profile.email || ""
     })).filter((employee) => employee.workerName);
-    acknowledgements = acknowledgementResult.data || [];
+    acknowledgements = (acknowledgementResult.data || [])
+        .filter((acknowledgement) => !acknowledgement.toolbox_talk_reports?.is_duplicate);
     await prepareToolboxTalkUrls();
     renderTalkSelector();
     renderTalkLibrary();
     renderPresenterOptions();
     renderCrewList();
     renderAcknowledgements();
+
+    if (activeToolboxReportId) {
+        await loadSavedToolboxReport();
+    }
 }
 
 function renderTalkSelector() {
@@ -669,21 +960,52 @@ async function createToolboxSafetyAcknowledgements(savedReport, allCrew) {
         return [];
     }
 
-    return data || [];
+    return data && data.length ? data : rows;
 }
 
-function renderToolboxSafetyAckLink(recordId, rows) {
+function showToolboxSafetyQrAfterSave(recordId, rows) {
+    const panel = document.getElementById("toolboxSafetyAckPanel");
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
 
-    if (!recordId || !token || typeof safetyAckQrUrl !== "function") {
-        return "";
+    if (!panel || !recordId || !token || typeof safetyAckQrUrl !== "function" || typeof safetyAckRenderQr !== "function") {
+        if (panel) {
+            panel.hidden = true;
+            panel.innerHTML = "";
+        }
+        return false;
     }
 
     const url = safetyAckQrUrl("toolbox_talk", recordId, token);
-    return `
-        <strong>QR acknowledgement link:</strong>
-        <a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>
+    const pendingCount = (rows || []).filter((row) =>
+        typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at
+    ).length;
+
+    panel.hidden = false;
+    panel.innerHTML = `
+        <div class="toolbox-qr-backdrop" role="dialog" aria-modal="true" aria-labelledby="toolboxQrTitle" onclick="if (event.target === this) closeToolboxSafetyQr()">
+            <section class="toolbox-qr-dialog">
+                <button type="button" class="secondary toolbox-qr-close" aria-label="Close QR code" title="Close" onclick="closeToolboxSafetyQr()">&times;</button>
+                <h2 id="toolboxQrTitle">Crew QR Sign-On</h2>
+                <p>The toolbox talk was submitted. Have each crew member scan this code to acknowledge it.</p>
+                <p><strong>${pendingCount}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
+                <div id="toolboxSafetyQrWrap" class="toolbox-qr-wrap"></div>
+                <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
+                <button type="button" class="secondary" onclick="closeToolboxSafetyQr()">Close</button>
+            </section>
+        </div>
     `;
+
+    safetyAckRenderQr(document.getElementById("toolboxSafetyQrWrap"), url);
+    const closeButton = panel.querySelector(".toolbox-qr-close");
+    if (closeButton) closeButton.focus();
+    return true;
+}
+
+function closeToolboxSafetyQr() {
+    const panel = document.getElementById("toolboxSafetyAckPanel");
+    if (!panel) return;
+    panel.hidden = true;
+    panel.innerHTML = "";
 }
 
 function buildEmailBody(record) {
@@ -755,32 +1077,21 @@ function buildPdfHtml(record) {
     `;
 }
 
-async function emailToolboxReport(record) {
-    const subject = "Tool Box Talk Report - " + record.talk_title + " - " + record.report_date;
-    const body = buildEmailBody(record);
-
-    await fetch(TOOLBOX_EMAIL_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(withJgcSubcontractorEmailCopy({
-            subject,
-            body,
-            text: body,
-            pdfHtml: buildPdfHtml(record),
-            pdfFileName: makeSafeFileName(subject) + ".pdf"
-        }))
-    });
-}
-
 async function submitToolboxTalkReport() {
     if (toolboxReportSubmitting) {
         return;
     }
 
-    const crew = getSelectedCrew();
-    const externalCrew = getManualExternalCrew();
-    const allCrew = crew.concat(externalCrew);
+    const isExistingReport = Boolean(activeToolboxReportId && loadedToolboxReport);
+    if (isExistingReport && !canEditLoadedToolboxReport(loadedToolboxReport)) {
+        setReportStatus("You do not have permission to edit this toolbox talk report.");
+        return;
+    }
+    const crew = isExistingReport ? [] : getSelectedCrew();
+    const externalCrew = isExistingReport ? [] : getManualExternalCrew();
+    const allCrew = isExistingReport
+        ? (Array.isArray(loadedToolboxReport.crew) ? loadedToolboxReport.crew : [])
+        : crew.concat(externalCrew);
 
     if (!selectedTalk) {
         alert("Select the toolbox talk first.");
@@ -799,7 +1110,7 @@ async function submitToolboxTalkReport() {
     }
 
     const record = {
-        id: createPublicReportId(),
+        id: isExistingReport ? activeToolboxReportId : createPublicReportId(),
         talk_id: selectedTalk.id,
         talk_title: selectedTalk.title,
         talk_file_path: selectedTalk.file_path || "",
@@ -807,8 +1118,8 @@ async function submitToolboxTalkReport() {
         project: getValue("projectName"),
         location: getValue("location"),
         presenter_name: getValue("presenterName"),
-        submitted_by_worker: currentWorker,
-        submitted_by_name: currentWorkerDisplay,
+        submitted_by_worker: isExistingReport ? loadedToolboxReport.submitted_by_worker : currentWorker,
+        submitted_by_name: isExistingReport ? loadedToolboxReport.submitted_by_name : currentWorkerDisplay,
         discussion_notes: getValue("discussionNotes"),
         hazards_discussed: getValue("hazardsDiscussed"),
         corrective_actions: getValue("correctiveActions"),
@@ -823,16 +1134,29 @@ async function submitToolboxTalkReport() {
     try {
         setReportStatus("Saving toolbox talk report...");
 
-        const { error } = await supabaseClient
-            .from("toolbox_talk_reports")
-            .insert(record);
-
-        if (error) {
-            setReportStatus("Toolbox talk report could not be saved.");
+        const matchingReport = await findMatchingToolboxReport(record);
+        if (matchingReport) {
+            showDuplicateToolboxReportError();
             return;
         }
 
-        if (crew.length) {
+        const reportPayload = { ...record };
+        if (isExistingReport) delete reportPayload.id;
+        const reportQuery = isExistingReport
+            ? supabaseClient.from("toolbox_talk_reports").update(reportPayload).eq("id", activeToolboxReportId)
+            : supabaseClient.from("toolbox_talk_reports").insert(reportPayload);
+        const { error } = await reportQuery;
+
+        if (error) {
+            if (isDuplicateToolboxReportError(error)) {
+                showDuplicateToolboxReportError();
+            } else {
+                setReportStatus("Toolbox talk report could not be saved.", true);
+            }
+            return;
+        }
+
+        if (!isExistingReport && crew.length) {
             const attendanceRows = crew.map((person) => ({
                 report_id: record.id,
                 talk_id: selectedTalk.id,
@@ -845,21 +1169,26 @@ async function submitToolboxTalkReport() {
                 .insert(attendanceRows);
 
             if (attendanceError) {
-                setReportStatus("Report saved, but attendance acknowledgements could not be created.");
+                setReportStatus("Report saved, but attendance acknowledgements could not be created.", true);
                 return;
             }
         }
 
-        const safetyRows = await createToolboxSafetyAcknowledgements(record, allCrew);
+        const safetyRows = isExistingReport
+            ? await getLoadedToolboxAcknowledgements()
+            : await createToolboxSafetyAcknowledgements(record, allCrew);
         record.safety_acknowledgements = safetyRows;
 
-        setReportStatus("Emailing toolbox talk report...");
+        setReportStatus(isExistingReport
+            ? "Toolbox talk report changes saved."
+            : "Toolbox talk report saved.");
 
-        try {
-            await emailToolboxReport(record);
-            setReportStatus("Toolbox talk report saved and emailed.");
-        } catch (error) {
-            setReportStatus("Report saved, but email could not be sent.");
+        if (isExistingReport) {
+            loadedToolboxReport = { ...loadedToolboxReport, ...record };
+            window.location.href = window.JGCToolboxReports
+                ? window.JGCToolboxReports.reportUrl(record.id, "view", toolboxReportReturn)
+                : getToolboxReportReturnUrl();
+            return;
         }
 
         document.getElementById("projectName").value = "";
@@ -868,18 +1197,21 @@ async function submitToolboxTalkReport() {
         document.getElementById("hazardsDiscussed").value = "";
         document.getElementById("correctiveActions").value = "";
         document.getElementById("externalCrewList").value = "";
-        document.getElementById("toolboxSafetyAckPanel").innerHTML = renderToolboxSafetyAckLink(record.id, safetyRows);
+        const qrShown = showToolboxSafetyQrAfterSave(record.id, safetyRows);
+        if (!qrShown) {
+            setReportStatus("Report saved, but the crew QR code could not be created. Refresh and try again.", true);
+        }
         document.querySelectorAll(".crew-checkbox").forEach((box) => {
             box.checked = false;
         });
         await loadToolboxData();
     } catch (error) {
         console.error("Toolbox talk report submission failed", error);
-        setReportStatus("Toolbox talk report could not be completed. Please try again.");
+        setReportStatus("Toolbox talk report could not be completed. Please try again.", true);
     } finally {
         toolboxReportSubmitting = false;
         submitButton.disabled = false;
-        submitButton.textContent = "Save & Email Report";
+        submitButton.textContent = isExistingReport ? "Save Changes" : "Submit Report";
     }
 }
 

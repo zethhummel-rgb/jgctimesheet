@@ -627,6 +627,7 @@ button:hover {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=30"></script>
 <script src="safety-acknowledgements.js?v=4"></script>
+<script src="toolbox-report-actions.js?v=1"></script>
 <script src="inspection-records.js?v=9"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
@@ -958,6 +959,10 @@ function renderJsaSignOnCell(record) {
 }
 
 function renderInspectionViewCell(record) {
+    if (isToolboxTalkReportRecord(record)) {
+        return `<button class="sign-on-button jgc-button" type="button" onclick="openToolboxReport('${escapeHtml(record.id)}', 'view')">View</button>`;
+    }
+
     if (record.report_source && !record.supports_inspection_actions) {
         return "-";
     }
@@ -967,6 +972,68 @@ function renderInspectionViewCell(record) {
     }
 
     return `<button class="sign-on-button jgc-button" type="button" onclick="viewInspection('${escapeHtml(record.id)}')">View</button>`;
+}
+
+function isToolboxTalkReportRecord(record) {
+    return Boolean(record && record.report_source === "toolbox_talk_reports");
+}
+
+function getToolboxReportRecord(id) {
+    return inspectionRecords.find((record) => String(record.id) === String(id) && isToolboxTalkReportRecord(record));
+}
+
+function getToolboxReportAcknowledgements(id) {
+    return safetyAcknowledgementRows.filter((row) => String(row.record_id || "") === String(id || ""));
+}
+
+function openToolboxReport(id, mode) {
+    if (!window.JGCToolboxReports) {
+        alert("The toolbox report viewer is not available. Refresh and try again.");
+        return;
+    }
+    window.JGCToolboxReports.openReport(id, mode, "today");
+}
+
+function printToolboxReport(id) {
+    if (!window.JGCToolboxReports) return;
+    window.JGCToolboxReports.printReport(getToolboxReportRecord(id), getToolboxReportAcknowledgements(id));
+}
+
+async function emailToolboxReportFromList(id) {
+    if (!window.JGCToolboxReports) return;
+    await window.JGCToolboxReports.emailReport(getToolboxReportRecord(id), {
+        acknowledgementRows: getToolboxReportAcknowledgements(id)
+    });
+}
+
+function renderInspectionEditCell(record) {
+    if (isToolboxTalkReportRecord(record)) {
+        return `<button class="edit-button jgc-button" onclick="openToolboxReport('${escapeHtml(record.id)}', 'edit')">Edit</button>`;
+    }
+    if ((record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record)) return "-";
+    return `<button class="edit-button jgc-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>`;
+}
+
+function renderInspectionPdfCell(record) {
+    if (isToolboxTalkReportRecord(record)) {
+        return `<button class="download-button jgc-button" onclick="printToolboxReport('${escapeHtml(record.id)}')">Save PDF</button>`;
+    }
+    if (record.report_source && !record.supports_inspection_actions) return "-";
+    return `<button class="download-button jgc-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>`;
+}
+
+function renderInspectionEmailCell(record) {
+    if (isToolboxTalkReportRecord(record)) {
+        return `<button class="email-button jgc-button" onclick="emailToolboxReportFromList('${escapeHtml(record.id)}')">Email</button>`;
+    }
+    if ((record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record)) return "-";
+    return `<button class="email-button jgc-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`;
+}
+
+function renderInspectionDeleteCell(record) {
+    if (isToolboxTalkReportRecord(record)) return "-";
+    if ((record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record)) return "-";
+    return `<button class="delete-button jgc-button jgc-button--danger" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`;
 }
 
 function isVehicleInspectionRecord(record) {
@@ -1069,8 +1136,9 @@ function normalizeReportRecord(source, record) {
             report_date: record.report_date,
             completed_by: record.presenter_name || record.worker_display_name || record.worker_name || "",
             project: record.project || "",
-            location: "",
-            summary: record.talk_title || record.discussion_notes || ""
+            location: record.location || "",
+            summary: record.talk_title || record.discussion_notes || "",
+            supports_toolbox_actions: true
         };
     }
 
@@ -1127,6 +1195,7 @@ async function loadReportRecords(sinceIso) {
         inspectionSupabaseClient
             .from("toolbox_talk_reports")
             .select("*")
+            .eq("is_duplicate", false)
             .gte("created_at", sinceIso)
             .order("created_at", { ascending: false }),
         inspectionSupabaseClient
@@ -1293,10 +1362,10 @@ function renderInspectionRows(filteredData) {
                         <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
                         <td>${buildDetails(record)}</td>
                         <td>${renderInspectionViewCell(record)}</td>
-                        <td>${(record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record) ? "-" : `<button class="edit-button jgc-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>`}</td>
-                        <td>${record.report_source && !record.supports_inspection_actions ? "-" : `<button class="download-button jgc-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>`}</td>
-                        <td>${(record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record) ? "-" : `<button class="email-button jgc-button" onclick="emailSavedInspection('${escapeHtml(record.id)}')">Email</button>`}</td>
-                        <td>${(record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record) ? "-" : `<button class="delete-button jgc-button jgc-button--danger" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`}</td>
+                        <td>${renderInspectionEditCell(record)}</td>
+                        <td>${renderInspectionPdfCell(record)}</td>
+                        <td>${renderInspectionEmailCell(record)}</td>
+                        <td>${renderInspectionDeleteCell(record)}</td>
                     </tr>
                 `).join("")}
             </tbody>

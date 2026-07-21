@@ -420,6 +420,7 @@ async function loadToolboxTalks() {
         supabaseClient
             .from("toolbox_talk_reports")
             .select("*")
+            .eq("is_duplicate", false)
             .order("created_at", { ascending: false }),
         supabaseClient
             .from("toolbox_talk_attendance")
