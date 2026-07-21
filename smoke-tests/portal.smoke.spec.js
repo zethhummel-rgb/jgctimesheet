@@ -104,6 +104,23 @@ async function mockPortalServices(page, profile = fakeProfile) {
       body = accept.includes("application/vnd.pgrst.object")
         ? JSON.stringify(profile)
         : JSON.stringify([profile]);
+    } else if (url.pathname.includes("/rest/v1/work_order_labour_workers")) {
+      body = JSON.stringify([
+        {
+          id: "00000000-0000-4000-8000-000000000010",
+          profile_id: profile.id,
+          display_name: profile.display_name,
+          worker_key: profile.worker_key,
+          approved: true
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000011",
+          profile_id: "00000000-0000-4000-8000-000000000002",
+          display_name: "Steven Leduc",
+          worker_key: "steven leduc",
+          approved: true
+        }
+      ]);
     } else if (url.pathname.startsWith("/rest/v1/rpc/")) {
       body = accept.includes("application/vnd.pgrst.object") ? "{}" : "[]";
     } else if (url.pathname.startsWith("/functions/v1/")) {
@@ -299,9 +316,13 @@ test("toolbox talk report starts with one talk selector and its PDF action", asy
   const librarySection = page.locator("#toolboxTalkLibrarySection");
   const talkSelect = page.locator("#toolboxTalkSelect");
   const pdfButton = page.locator("#selectedTalkPdfButton");
+  const crewList = page.locator("#crewList");
 
   await expect(talkSelect).toBeEnabled();
   await expect(talkSelect.locator("option")).toHaveCount(2);
+  await expect(crewList.locator(".crew-checkbox")).toHaveCount(2);
+  await expect(crewList).toContainText(fakeProfile.display_name);
+  await expect(crewList).toContainText("Steven Leduc");
   await expect(pdfButton).toBeHidden();
   expect(await page.evaluate(() => {
     const report = document.getElementById("toolboxTalkReportSection");

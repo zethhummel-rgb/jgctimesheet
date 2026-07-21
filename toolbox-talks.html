@@ -718,16 +718,16 @@ function makeSafeFileName(name) {
 }
 
 async function loadToolboxData() {
-    const [talkResult, profileResult, acknowledgementResult] = await Promise.all([
+    const [talkResult, workerResult, acknowledgementResult] = await Promise.all([
         supabaseClient
             .from("toolbox_talks")
             .select("*")
             .eq("is_active", true)
             .order("title", { ascending: true }),
         supabaseClient
-            .from("profiles")
-            .select("display_name,worker_key,email,account_status")
-            .eq("account_status", "approved")
+            .from("work_order_labour_workers")
+            .select("id,profile_id,display_name,worker_key,approved")
+            .eq("approved", true)
             .order("display_name", { ascending: true }),
         supabaseClient
             .from("toolbox_talk_attendance")
@@ -737,13 +737,11 @@ async function loadToolboxData() {
     ]);
 
     toolboxTalks = talkResult.data || [];
-    employees = (profileResult.data || []).map((profile) => ({
-        id: profile.id,
-        email: profile.email || "",
-        accountStatus: profile.account_status || "",
+    employees = (workerResult.data || []).map((profile) => ({
+        id: profile.profile_id || profile.id,
         workerKey: profile.worker_key || "",
-        workerName: normalizeWorkerName(profile.worker_key || profile.display_name || profile.email),
-        displayName: profile.display_name || profile.worker_key || profile.email || ""
+        workerName: normalizeWorkerName(profile.worker_key || profile.display_name),
+        displayName: profile.display_name || profile.worker_key || ""
     })).filter((employee) => employee.workerName);
     acknowledgements = (acknowledgementResult.data || [])
         .filter((acknowledgement) => !acknowledgement.toolbox_talk_reports?.is_duplicate);
