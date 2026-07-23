@@ -4761,7 +4761,14 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
 
   Array.from(grouped.values())
     .sort(function(a, b) {
-      return (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName);
+      const firstDayA = a.shifts.Day.concat(a.shifts.Night).reduce(function(earliest, value, index) {
+        return value > 0 ? Math.min(earliest, index % 7) : earliest;
+      }, 7);
+      const firstDayB = b.shifts.Day.concat(b.shifts.Night).reduce(function(earliest, value, index) {
+        return value > 0 ? Math.min(earliest, index % 7) : earliest;
+      }, 7);
+      return firstDayA - firstDayB ||
+        (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName);
     })
     .forEach(function(group) {
       group.notes.forEach(function(entryNote) {
@@ -4826,12 +4833,12 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         .shift-cell { width: 6%; text-align: center; font-weight: bold; }
         .hours-cell { width: 5.5%; text-align: center; }
         .total-cell { background: #e3f2e8; font-weight: bold; }
-        .night-row td { background: #eaf2fb; border-color: #718ca8; }
-        .night-row .total-cell { background: #d6e6f7; }
+        .night-row td { background: #f1f2f1; border-color: #8b928e; }
+        .night-row .total-cell { background: #e5e7e5; }
         .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
         .summary-box { min-width: 105px; border: 1px solid #789080; padding: 6px 9px; font-size: 10px; }
         .summary-box strong { display: block; color: #176f3a; font-size: 14px; margin-top: 2px; }
-        .summary-box.night strong { color: #315f91; }
+        .summary-box.night strong { color: #4f5853; }
         .summary-box.week { background: #123d24; color: #fff; }
         .summary-box.week strong { color: #fff; }
         .note { margin-top: 10px; padding: 8px 10px; border: 1px solid #849087; min-height: 48px; font-size: 9px; }
