@@ -1,4 +1,8 @@
 const ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE = 5;
+const ADMIN_TIMESHEET_RESUBMIT_RECIPIENTS = [
+    "zeth@johngordonconstruction.com",
+    "darlene@johngordonconstruction.com"
+];
 const submittedTimesheetVisibleCounts = {};
 const submittedTimesheetOpenWorkers = new Set();
 let submittedTimesheetFinalPanelOpen = false;
@@ -2314,6 +2318,7 @@ async function resubmitSubmittedTimesheet(id) {
                 "Content-Type": "text/plain;charset=utf-8"
             },
             body: JSON.stringify({
+                to: ADMIN_TIMESHEET_RESUBMIT_RECIPIENTS.join(","),
                 subject,
                 body,
                 text: body,
