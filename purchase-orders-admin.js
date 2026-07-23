@@ -347,7 +347,7 @@
     elements.detailsContent.innerHTML = `
       <div class="po-form-grid jgc-form-grid">
         <div><strong>Date</strong><br>${escapeText(formatDate(order.order_date))}</div>
-        <div><strong>Job</strong><br>${escapeText(order.job_number + " - " + order.job_name)}</div>
+        <div><strong>Job</strong><br>${escapeText([order.job_number, order.job_name].filter(Boolean).join(" - "))}</div>
         <div><strong>Supplier</strong><br>${escapeText(order.supplier_name || "-")}</div>
         <div><strong>Creator</strong><br>${escapeText(order.creator_name)}</div>
         <div><strong>Last Edited By</strong><br>${escapeText(order.last_edited_by_name || "Not edited")}</div>

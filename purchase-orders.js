@@ -668,7 +668,7 @@
     if (elements.job.value) {
       return true;
     }
-    return Boolean(elements.manualJobNumber.value.trim() && elements.manualJobName.value.trim());
+    return Boolean(elements.manualJobName.value.trim());
   }
 
   function addMaterialRow(item) {
@@ -959,7 +959,7 @@
     const settings = options || {};
     const formData = collectFormData();
     if (!formData.order_date || !validateJobEntry()) {
-      throw new Error("Date and either a listed job or both manual job fields are required before the first draft can be saved.");
+      throw new Error("Date and either a listed job or a manual job name are required before the first draft can be saved.");
     }
 
     let record = state.activeId ? getRecord(state.activeId) : null;
@@ -1105,7 +1105,7 @@
     }
     const formData = collectFormData();
     if (!formData.order_date || !validateJobEntry() || !formData.supplier_name || !formData.items.some((item) => item.description)) {
-      throw new Error("Date, a listed job or both manual job fields, supplier, and at least one material description are required.");
+      throw new Error("Date, a listed job or manual job name, supplier, and at least one material description are required.");
     }
 
     const pdfData = Object.assign({}, record.po, formData, {

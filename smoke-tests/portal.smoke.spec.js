@@ -1314,6 +1314,8 @@ test("purchase order submit feedback closes success and emphasizes failure", asy
   }));
   await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_save_manual`, async (route) => {
     const payload = route.request().postDataJSON();
+    expect(payload.p_order.job_number).toBe("");
+    expect(payload.p_order.job_name).toBe("Smoke Test Project");
     savedOrder = Object.assign({}, payload.p_order, { revision: 1 });
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedOrder) });
   });
@@ -1342,7 +1344,6 @@ test("purchase order submit feedback closes success and emphasizes failure", asy
   await expect(page.locator("#poNotice")).toHaveClass(/po-submit-error/);
   await expect(page.locator("#poNotice")).toHaveAttribute("role", "alert");
 
-  await page.locator("#poManualJobNumber").fill("39999");
   await page.locator("#poManualJobName").fill("Smoke Test Project");
   await page.locator("#poSupplierName").fill("Smoke Test Supplier");
   await page.locator('[data-item-field="quantity_ordered"]').fill("1");
