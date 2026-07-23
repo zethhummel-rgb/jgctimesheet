@@ -1183,6 +1183,29 @@
     if (state.activeId === draft.id) closeForm();
   }
 
+  async function reconcileSettledServerDrafts() {
+    const reconciled = [];
+    for (const draft of state.drafts.slice()) {
+      const server = getServerRecord(draft.id);
+      if (!server) {
+        continue;
+      }
+
+      const serverIsSettled = !EDITABLE_STATUSES.has(server.workflow_status);
+      const cancellationAlreadyAccepted = draft.pending_cancel && server.workflow_status === "cancelled";
+      if ((!draft.pending_cancel && serverIsSettled) || cancellationAlreadyAccepted) {
+        await idbDelete(DRAFT_STORE, draft.id);
+        await idbDelete(RECEIPT_STORE, draft.id).catch(() => {});
+        state.drafts = state.drafts.filter((item) => item.id !== draft.id);
+        if (state.activeId === draft.id) {
+          closeForm();
+        }
+        reconciled.push(formatPoNumber(server.po_number));
+      }
+    }
+    return reconciled;
+  }
+
   async function refreshDraftDeviceAuthorization(draft) {
     const context = state.deviceContext;
     const po = draft && draft.po;
@@ -1321,11 +1344,14 @@
     updateSyncBadge();
     const failures = [];
     const discarded = [];
+    const reconciled = [];
     try {
       await loadProfileOnline();
       await loadReferencesOnline();
       await refreshDeviceContext();
+      await loadServerRecords();
       state.drafts = await idbGetAll(DRAFT_STORE);
+      reconciled.push(...await reconcileSettledServerDrafts());
       for (const draft of state.drafts.filter((item) => item.dirty || item.assignment_dirty || item.pending_submit || item.pending_cancel)) {
         try {
           await syncDraft(draft.id);
@@ -1342,9 +1368,10 @@
       state.drafts = await idbGetAll(DRAFT_STORE);
       renderReferenceOptions();
       renderList();
-      if (failures.length || discarded.length) {
+      if (failures.length || discarded.length || (settings.showSuccess && reconciled.length)) {
         const messages = [];
         if (discarded.length) messages.push(discarded.join(", ") + " removed because it was deleted by an admin.");
+        if (reconciled.length) messages.push(reconciled.join(", ") + " updated to match the submitted portal record.");
         if (failures.length) messages.push(failures.join(" | "));
         showNotice(messages.join(" | "), failures.length ? "error" : "");
       } else if (settings.showSuccess) {

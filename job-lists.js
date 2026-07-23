@@ -11,12 +11,16 @@
     lists: [],
     members: [],
     items: [],
+    reminders: [],
     tab: "open",
     online: navigator.onLine,
     channel: null,
     refreshTimer: null,
+    reminderExpiryTimer: null,
     editingItemIds: [],
-    viewerOnly: false
+    editingReminders: [],
+    viewerOnly: false,
+    openJobGroups: new Set()
   };
 
   const elements = {};
@@ -49,18 +53,6 @@
       hour: "numeric",
       minute: "2-digit"
     }).format(date);
-  }
-
-  function toLocalInput(value) {
-    if (!value) {
-      return "";
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return "";
-    }
-    const offset = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
   }
 
   function fromLocalInput(value) {
@@ -128,6 +120,36 @@
       });
   }
 
+  function remindersFor(listId, includeExpired) {
+    const now = Date.now();
+    const reminders = state.reminders
+      .filter(function (reminder) {
+        const reminderTime = new Date(reminder.reminder_at).getTime();
+        return reminder.list_id === listId
+          && !Number.isNaN(reminderTime)
+          && (includeExpired || reminderTime > now);
+      })
+      .sort(function (a, b) {
+        return new Date(a.reminder_at).getTime() - new Date(b.reminder_at).getTime();
+      });
+
+    if (reminders.length || includeExpired) {
+      return reminders;
+    }
+
+    const list = state.lists.find(function (entry) { return entry.id === listId; });
+    const legacyTime = list && new Date(list.reminder_at).getTime();
+    return list && list.reminder_at && !Number.isNaN(legacyTime) && legacyTime > now
+      ? [{
+        id: "legacy:" + list.id,
+        list_id: list.id,
+        reminder_at: list.reminder_at,
+        sent_at: list.reminder_sent_at || null,
+        legacy: true
+      }]
+      : [];
+  }
+
   function canControl(list) {
     if (!list || !state.user) {
       return false;
@@ -147,6 +169,7 @@
       lists: state.lists,
       members: state.members,
       items: state.items,
+      reminders: state.reminders,
       savedAt: new Date().toISOString()
     });
   }
@@ -159,6 +182,7 @@
     state.lists = Array.isArray(cached.lists) ? cached.lists : [];
     state.members = Array.isArray(cached.members) ? cached.members : [];
     state.items = Array.isArray(cached.items) ? cached.items : [];
+    state.reminders = Array.isArray(cached.reminders) ? cached.reminders : [];
   }
 
   function getToggleQueue() {
@@ -231,7 +255,73 @@
       : '<div class="jgc-empty-state">No approved Work Order employees are available.</div>';
   }
 
+  function jobGroupKey(list) {
+    const jobId = String(list.job_id || "").trim();
+    if (jobId) {
+      return "job:" + jobId;
+    }
+    return "manual:" + String(list.job_name || "").trim().toLowerCase()
+      + "|" + String(list.job_number || "").trim().toLowerCase();
+  }
+
+  function rememberOpenJobGroups() {
+    Array.from(elements.cards.querySelectorAll("[data-job-list-job-group]")).forEach(function (group) {
+      const key = group.dataset.jobListJobGroup;
+      if (group.open) {
+        state.openJobGroups.add(key);
+      } else {
+        state.openJobGroups.delete(key);
+      }
+    });
+  }
+
+  function renderNoteCard(list) {
+    const listItems = itemsFor(list.id);
+    const completed = listItems.filter(function (item) { return item.completed; }).length;
+    const percent = listItems.length ? Math.round((completed / listItems.length) * 100) : 0;
+    const controller = canControl(list);
+    const upcomingReminders = remindersFor(list.id);
+    const reminder = upcomingReminders.length
+      ? '<div class="job-list-reminder-list">' + upcomingReminders.map(function (entry) {
+        return '<span class="job-list-reminder-chip"><i data-lucide="bell"></i> '
+          + escapeHtml(formatDateTime(entry.reminder_at)) + "</span>";
+      }).join("") + "</div>"
+      : "";
+    const memberHtml = membersFor(list.id).map(function (member) {
+      return '<span class="job-list-member-chip">' + escapeHtml(member.display_name) + "</span>";
+    }).join("");
+    const itemHtml = listItems.length
+      ? listItems.map(function (item) {
+        return '<li><button class="job-list-check ' + (item.completed ? "is-complete" : "") + '"'
+          + ' type="button" data-job-list-toggle="' + escapeHtml(item.id) + '"'
+          + (list.status === "completed" ? " disabled" : "")
+          + ' aria-label="' + escapeHtml((item.completed ? "Mark incomplete: " : "Mark complete: ") + item.item_text) + '"'
+          + ' aria-pressed="' + (item.completed ? "true" : "false") + '">'
+          + '<span class="job-list-check-box" aria-hidden="true"></span>'
+          + '<span class="job-list-check-text">' + escapeHtml(item.item_text) + "</span>"
+          + "</button></li>";
+      }).join("")
+      : '<li class="job-list-muted">No items added yet.</li>';
+
+    return '<article class="job-list-card ' + (list.status === "completed" ? "is-completed" : "") + '">'
+      + '<div class="job-list-card-header">'
+      + '<div class="job-list-card-title"><h3>' + escapeHtml(list.title) + "</h3></div>"
+      + '<span class="jgc-badge ' + (list.status === "completed" ? "" : "jgc-badge--success") + '">'
+      + escapeHtml(list.status === "completed" ? "Completed" : "Open") + "</span></div>"
+      + '<div class="job-list-card-meta">' + reminder + "<span>Created by " + escapeHtml(list.created_by_name) + "</span></div>"
+      + '<div class="job-list-members">' + memberHtml + "</div>"
+      + '<ul class="job-list-items">' + itemHtml + "</ul>"
+      + '<div class="job-list-progress-line"><strong>' + completed + " of " + listItems.length + " done</strong><span>" + percent + "%</span></div>"
+      + '<div class="job-list-progress"><span style="width:' + percent + '%"></span></div>'
+      + '<div class="job-list-card-footer"><small>Updated ' + escapeHtml(formatDateTime(list.updated_at)) + " by "
+      + escapeHtml(list.last_edited_by_name || list.created_by_name) + "</small>"
+      + '<button class="jgc-button ' + (controller ? "" : "jgc-button--secondary") + '" type="button" data-job-list-open="'
+      + escapeHtml(list.id) + '">' + (controller ? "Manage" : "View") + "</button></div>"
+      + "</article>";
+  }
+
   function renderCards() {
+    rememberOpenJobGroups();
     const query = String(elements.search.value || "").trim().toLowerCase();
     const jobId = elements.jobFilter.value;
     const visible = state.lists.filter(function (list) {
@@ -255,45 +345,49 @@
       return;
     }
 
-    elements.cards.innerHTML = visible.map(function (list) {
-      const listItems = itemsFor(list.id);
-      const completed = listItems.filter(function (item) { return item.completed; }).length;
-      const percent = listItems.length ? Math.round((completed / listItems.length) * 100) : 0;
-      const controller = canControl(list);
-      const reminder = list.reminder_at
-        ? '<span class="job-list-reminder"><i data-lucide="bell"></i> ' + escapeHtml(formatDateTime(list.reminder_at)) + "</span>"
-        : '<span>No reminder</span>';
-      const memberHtml = membersFor(list.id).map(function (member) {
-        return '<span class="job-list-member-chip">' + escapeHtml(member.display_name) + "</span>";
-      }).join("");
-      const itemHtml = listItems.length
-        ? listItems.map(function (item) {
-          return '<li><button class="job-list-check ' + (item.completed ? "is-complete" : "") + '"'
-            + ' type="button" data-job-list-toggle="' + escapeHtml(item.id) + '"'
-            + (list.status === "completed" ? " disabled" : "")
-            + ' aria-pressed="' + (item.completed ? "true" : "false") + '">'
-            + '<span class="job-list-check-box">' + (item.completed ? "X" : "") + "</span>"
-            + '<span class="job-list-check-text">' + escapeHtml(item.item_text) + "</span>"
-            + "</button></li>";
-        }).join("")
-        : '<li class="job-list-muted">No items added yet.</li>';
+    const grouped = new Map();
+    visible.forEach(function (list) {
+      const key = jobGroupKey(list);
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key).push(list);
+    });
 
-      return '<article class="job-list-card ' + (list.status === "completed" ? "is-completed" : "") + '">'
-        + '<div class="job-list-card-header">'
-        + '<div class="job-list-card-title"><h2>' + escapeHtml(list.title) + "</h2>"
-        + "<p>" + escapeHtml(list.job_number + " - " + list.job_name) + "</p></div>"
-        + '<span class="jgc-badge ' + (list.status === "completed" ? "" : "jgc-badge--success") + '">'
-        + escapeHtml(list.status === "completed" ? "Completed" : "Open") + "</span></div>"
-        + '<div class="job-list-card-meta">' + reminder + "<span>Created by " + escapeHtml(list.created_by_name) + "</span></div>"
-        + '<div class="job-list-members">' + memberHtml + "</div>"
-        + '<ul class="job-list-items">' + itemHtml + "</ul>"
-        + '<div class="job-list-progress-line"><strong>' + completed + " of " + listItems.length + " done</strong><span>" + percent + "%</span></div>"
-        + '<div class="job-list-progress"><span style="width:' + percent + '%"></span></div>'
-        + '<div class="job-list-card-footer"><small>Updated ' + escapeHtml(formatDateTime(list.updated_at)) + " by "
-        + escapeHtml(list.last_edited_by_name || list.created_by_name) + "</small>"
-        + '<button class="jgc-button ' + (controller ? "" : "jgc-button--secondary") + '" type="button" data-job-list-open="'
-        + escapeHtml(list.id) + '">' + (controller ? "Manage" : "View") + "</button></div>"
-        + "</article>";
+    const groups = Array.from(grouped.entries()).sort(function (left, right) {
+      const leftList = left[1][0];
+      const rightList = right[1][0];
+      return String(leftList.job_name || "").localeCompare(String(rightList.job_name || ""), undefined, { sensitivity: "base" })
+        || String(leftList.job_number || "").localeCompare(String(rightList.job_number || ""), undefined, { numeric: true });
+    });
+
+    elements.cards.innerHTML = groups.map(function (entry) {
+      const key = entry[0];
+      const lists = entry[1].slice().sort(function (left, right) {
+        return new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime();
+      });
+      const job = lists[0];
+      const jobName = String(job.job_name || "").trim() || "Job name not entered";
+      const jobNumber = String(job.job_number || "").trim();
+      const noteCount = lists.length;
+      const reminderCount = lists.reduce(function (count, list) {
+        return count + remindersFor(list.id).length;
+      }, 0);
+      const shouldOpen = state.openJobGroups.has(key) || Boolean(query || jobId);
+
+      return '<details class="job-list-job-group" data-job-list-job-group="' + escapeHtml(key) + '"'
+        + (shouldOpen ? " open" : "") + ">"
+        + '<summary class="job-list-job-summary">'
+        + '<div class="job-list-job-heading"><h2>' + escapeHtml(jobName) + "</h2>"
+        + (jobNumber ? "<p>Job " + escapeHtml(jobNumber) + "</p>" : "") + "</div>"
+        + '<div class="job-list-job-summary-meta">'
+        + '<span class="jgc-badge jgc-badge--success">' + noteCount + " note" + (noteCount === 1 ? "" : "s") + "</span>"
+        + (reminderCount ? '<span class="job-list-job-reminders"><i data-lucide="bell"></i> ' + reminderCount + "</span>" : "")
+        + '<span class="job-list-job-toggle" aria-hidden="true"></span></div>'
+        + "</summary>"
+        + '<div class="job-list-job-body"><div class="job-list-job-cards">'
+        + lists.map(renderNoteCard).join("")
+        + "</div></div></details>";
     }).join("");
     refreshIcons();
   }
@@ -301,7 +395,8 @@
   function renderItemEditor(items, disabled) {
     state.editingItemIds = (items || []).map(function (item) { return item.id || ""; });
     elements.itemEditor.innerHTML = (items || []).map(function (item, index) {
-      return '<div class="job-list-item-edit-row">'
+      return '<div class="job-list-item-edit-row ' + (item.completed ? "is-complete" : "") + '">'
+        + '<span class="job-list-edit-bullet" aria-hidden="true"></span>'
         + '<input class="jgc-input" data-job-list-item-input="' + index + '" maxlength="240" value="'
         + escapeHtml(item.item_text || "") + '" placeholder="Material or reminder item"' + (disabled ? " disabled" : "") + ">"
         + '<button class="jgc-button jgc-button--danger" type="button" data-job-list-remove-item="' + index + '"'
@@ -312,12 +407,96 @@
 
   function readItemEditor() {
     return Array.from(elements.itemEditor.querySelectorAll("[data-job-list-item-input]")).map(function (input, index) {
+      const id = state.editingItemIds[index] || "";
+      const existing = id ? state.items.find(function (item) { return item.id === id; }) : null;
       return {
-        id: state.editingItemIds[index] || "",
+        id: id,
         item_text: String(input.value || "").trim(),
-        position: index
+        position: index,
+        completed: Boolean(existing && existing.completed)
       };
     });
+  }
+
+  function renderReminderEditor(disabled) {
+    const now = Date.now();
+    state.editingReminders = state.editingReminders
+      .filter(function (reminder) {
+        const reminderTime = new Date(reminder.reminder_at).getTime();
+        return !Number.isNaN(reminderTime) && reminderTime > now;
+      })
+      .sort(function (a, b) {
+        return new Date(a.reminder_at).getTime() - new Date(b.reminder_at).getTime();
+      });
+
+    elements.reminderChips.innerHTML = state.editingReminders.map(function (reminder, index) {
+      return '<span class="job-list-reminder-chip" data-job-list-reminder-chip>'
+        + '<i data-lucide="bell"></i><span>' + escapeHtml(formatDateTime(reminder.reminder_at)) + "</span>"
+        + (disabled ? "" : '<button class="job-list-reminder-remove" type="button"'
+          + ' data-job-list-remove-reminder="' + index + '" aria-label="Remove reminder" title="Remove reminder">X</button>')
+        + "</span>";
+    }).join("");
+    refreshIcons();
+  }
+
+  function scheduleReminderExpiryRefresh() {
+    window.clearTimeout(state.reminderExpiryTimer);
+    const now = Date.now();
+    const futureTimes = state.reminders.concat(state.editingReminders)
+      .map(function (reminder) { return new Date(reminder.reminder_at).getTime(); })
+      .filter(function (reminderTime) {
+        return !Number.isNaN(reminderTime) && reminderTime > now;
+      })
+      .sort(function (a, b) { return a - b; });
+
+    if (!futureTimes.length) {
+      return;
+    }
+
+    const delay = Math.min(futureTimes[0] - now + 1000, 2147483647);
+    state.reminderExpiryTimer = window.setTimeout(function () {
+      if (!elements.modal.hidden) {
+        renderReminderEditor(elements.reminder.disabled);
+      }
+      renderCards();
+      scheduleReminderExpiryRefresh();
+    }, delay);
+  }
+
+  function addReminderFromInput() {
+    const reminderAt = fromLocalInput(elements.reminder.value);
+    if (!reminderAt) {
+      return false;
+    }
+    const reminderTime = new Date(reminderAt).getTime();
+    if (reminderTime <= Date.now()) {
+      showNotice("Choose a reminder time in the future.", "error");
+      return false;
+    }
+    if (state.editingReminders.some(function (reminder) {
+      return new Date(reminder.reminder_at).getTime() === reminderTime;
+    })) {
+      showNotice("That reminder has already been added.", "error");
+      return false;
+    }
+
+    state.editingReminders.push({
+      id: "",
+      list_id: elements.listId.value || "",
+      reminder_at: reminderAt,
+      sent_at: null
+    });
+    elements.reminder.value = "";
+    showNotice("");
+    renderReminderEditor(false);
+    scheduleReminderExpiryRefresh();
+    return true;
+  }
+
+  function removeReminder(index) {
+    state.editingReminders.splice(index, 1);
+    renderReminderEditor(false);
+    scheduleReminderExpiryRefresh();
   }
 
   function openModal(listId) {
@@ -329,7 +508,10 @@
     elements.listId.value = list ? list.id : "";
     elements.title.value = list ? list.title : "";
     elements.job.value = list ? list.job_id || "" : "";
-    elements.reminder.value = list ? toLocalInput(list.reminder_at) : "";
+    elements.reminder.value = "";
+    state.editingReminders = list
+      ? remindersFor(list.id).map(function (reminder) { return Object.assign({}, reminder); })
+      : [];
     elements.modalTitle.textContent = list ? list.title : "New Job Note";
     elements.accessLine.textContent = controller
       ? (list && list.status === "completed"
@@ -342,10 +524,12 @@
       : state.user ? [state.user.id] : [];
     renderMemberSelector(selectedIds, !editable);
     renderItemEditor(list ? itemsFor(list.id) : [{ item_text: "" }], !editable);
+    renderReminderEditor(!editable);
 
     elements.title.disabled = !editable;
     elements.job.disabled = !editable || Boolean(list);
     elements.reminder.disabled = !editable;
+    elements.addReminder.disabled = !editable;
     elements.addItem.hidden = !editable;
     elements.save.hidden = !editable;
     elements.complete.hidden = !controller || !list;
@@ -356,6 +540,7 @@
 
     elements.modal.hidden = false;
     document.body.style.overflow = "hidden";
+    scheduleReminderExpiryRefresh();
     refreshIcons();
   }
 
@@ -454,6 +639,46 @@
     }
   }
 
+  async function syncReminders(list) {
+    const now = Date.now();
+    const existing = state.reminders.filter(function (reminder) {
+      const reminderTime = new Date(reminder.reminder_at).getTime();
+      return reminder.list_id === list.id
+        && !Number.isNaN(reminderTime)
+        && reminderTime > now;
+    });
+    const keptIds = new Set(state.editingReminders.map(function (reminder) {
+      return reminder.id && !String(reminder.id).startsWith("legacy:") ? reminder.id : "";
+    }).filter(Boolean));
+    const toDelete = existing.filter(function (reminder) {
+      return !keptIds.has(reminder.id);
+    });
+    const toInsert = state.editingReminders.filter(function (reminder) {
+      return !reminder.id || String(reminder.id).startsWith("legacy:");
+    });
+
+    if (toDelete.length) {
+      const deleteResult = await state.client.from("job_list_reminders")
+        .delete()
+        .in("id", toDelete.map(function (reminder) { return reminder.id; }));
+      if (deleteResult.error) {
+        throw deleteResult.error;
+      }
+    }
+    if (toInsert.length) {
+      const insertResult = await state.client.from("job_list_reminders").insert(toInsert.map(function (reminder) {
+        return {
+          list_id: list.id,
+          reminder_at: reminder.reminder_at,
+          created_by: state.user.id
+        };
+      }));
+      if (insertResult.error) {
+        throw insertResult.error;
+      }
+    }
+  }
+
   async function saveList(event) {
     event.preventDefault();
     if (!state.online) {
@@ -468,13 +693,11 @@
     }
     const title = String(elements.title.value || "").trim();
     const job = state.jobs.find(function (entry) { return entry.id === elements.job.value; });
-    const reminderAt = fromLocalInput(elements.reminder.value);
     if (!title || !job) {
       showNotice("Enter a note name and select a job.", "error");
       return;
     }
-    if (reminderAt && new Date(reminderAt).getTime() <= Date.now()) {
-      showNotice("Choose a reminder time in the future.", "error");
+    if (elements.reminder.value && !addReminderFromInput()) {
       return;
     }
     if (!readItemEditor().some(function (item) { return item.item_text; })) {
@@ -488,7 +711,7 @@
       let list = existing;
       if (existing) {
         const result = await state.client.from("job_lists")
-          .update({ title: title, reminder_at: reminderAt })
+          .update({ title: title })
           .eq("id", existing.id)
           .select("*")
           .single();
@@ -502,7 +725,6 @@
           job_number: job.job_number,
           job_name: job.job_name,
           title: title,
-          reminder_at: reminderAt,
           created_by: state.user.id
         }).select("*").single();
         if (result.error) {
@@ -513,10 +735,11 @@
 
       await syncMembers(list);
       await syncItems(list);
+      await syncReminders(list);
       await addActivity(list.id, existing ? "list_updated" : "list_created", {
         title: title,
         job_number: job.job_number,
-        reminder_at: reminderAt
+        reminders: state.editingReminders.map(function (reminder) { return reminder.reminder_at; })
       });
       closeModal();
       await refreshData();
@@ -678,7 +901,8 @@
       const results = await Promise.all([
         state.client.from("job_lists").select("*").order("updated_at", { ascending: false }),
         state.client.from("job_list_members").select("*"),
-        state.client.from("job_list_items").select("*").order("position")
+        state.client.from("job_list_items").select("*").order("position"),
+        state.client.from("job_list_reminders").select("*").order("reminder_at")
       ]);
       const errorResult = results.find(function (result) { return result.error; });
       if (errorResult) {
@@ -687,14 +911,17 @@
       state.lists = results[0].data || [];
       state.members = results[1].data || [];
       state.items = results[2].data || [];
+      state.reminders = results[3].data || [];
       saveCache();
       await flushToggleQueue();
       renderCards();
       updateStatusBadges();
+      scheduleReminderExpiryRefresh();
     } catch (error) {
       loadCache();
       renderCards();
       updateStatusBadges();
+      scheduleReminderExpiryRefresh();
       showNotice((error && error.message || "Job Notes could not be refreshed.") + " Showing saved device data.", "error");
     } finally {
       elements.syncButton.disabled = false;
@@ -714,6 +941,7 @@
       .on("postgres_changes", { event: "*", schema: "public", table: "job_lists" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_list_members" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_list_items" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_list_reminders" }, scheduleRefresh)
       .subscribe();
   }
 
@@ -748,6 +976,12 @@
     });
     elements.form.addEventListener("submit", saveList);
     elements.addItem.addEventListener("click", addBlankItem);
+    elements.addReminder.addEventListener("click", addReminderFromInput);
+    elements.reminder.addEventListener("change", function () {
+      if (elements.reminder.value) {
+        addReminderFromInput();
+      }
+    });
     elements.complete.addEventListener("click", setListStatus);
     elements.deleteButton.addEventListener("click", deleteList);
     elements.search.addEventListener("input", renderCards);
@@ -777,6 +1011,12 @@
       const button = event.target.closest("[data-job-list-remove-item]");
       if (button) {
         removeItem(Number(button.dataset.jobListRemoveItem));
+      }
+    });
+    elements.reminderChips.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-job-list-remove-reminder]");
+      if (button) {
+        removeReminder(Number(button.dataset.jobListRemoveReminder));
       }
     });
 
@@ -817,6 +1057,8 @@
     elements.title = byId("jobListTitle");
     elements.job = byId("jobListJob");
     elements.reminder = byId("jobListReminder");
+    elements.addReminder = byId("jobListAddReminder");
+    elements.reminderChips = byId("jobListReminderChips");
     elements.memberGrid = byId("jobListMembers");
     elements.itemEditor = byId("jobListItemEditor");
     elements.addItem = byId("jobListAddItem");
@@ -852,6 +1094,7 @@
     renderIdentity();
     renderReferenceOptions();
     renderCards();
+    scheduleReminderExpiryRefresh();
 
     try {
       if (state.online) {

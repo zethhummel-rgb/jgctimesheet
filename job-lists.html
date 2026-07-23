@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="styles.css?v=3">
   <link rel="stylesheet" href="jgc-design-system.css?v=5">
-  <link rel="stylesheet" href="job-lists.css?v=2">
+  <link rel="stylesheet" href="job-lists.css?v=5">
 </head>
 <body class="jgc-page job-lists-page">
   <main class="jgc-page-shell job-lists-shell">
@@ -68,7 +68,9 @@
           <h2 id="jobListModalTitle">New Job Note</h2>
           <div id="jobListAccessLine" class="job-list-muted"></div>
         </div>
-        <button id="jobListModalClose" class="jgc-button jgc-button--secondary jgc-button--icon" type="button" aria-label="Close" title="Close">X</button>
+        <button id="jobListModalClose" class="jgc-button jgc-button--secondary job-list-modal-close" type="button" aria-label="Back" title="Back">
+          <i data-lucide="chevron-left"></i><span class="job-list-close-label">Back</span>
+        </button>
       </div>
 
       <form id="jobListForm" novalidate>
@@ -86,7 +88,13 @@
           </div>
           <div class="jgc-field jgc-field--full">
             <label class="jgc-label" for="jobListReminder">Reminder</label>
-            <input id="jobListReminder" class="jgc-input" type="datetime-local">
+            <div class="job-list-reminder-input-row">
+              <input id="jobListReminder" class="jgc-input" type="datetime-local">
+              <button id="jobListAddReminder" class="jgc-button jgc-button--secondary" type="button">
+                <i data-lucide="plus"></i> Add Reminder
+              </button>
+            </div>
+            <div id="jobListReminderChips" class="job-list-reminder-chips" aria-live="polite"></div>
             <div class="job-list-help">Only tagged employees receive the Bell and device reminder.</div>
           </div>
         </div>
@@ -124,6 +132,6 @@
   <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=32"></script>
-  <script src="job-lists.js?v=2"></script>
+  <script src="job-lists.js?v=5"></script>
 </body>
 </html>

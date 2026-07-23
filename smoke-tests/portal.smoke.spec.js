@@ -1220,6 +1220,24 @@ test("purchase order list tabs and key controls respond", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "purchase order controls");
 });
 
+test("employee homepage exposes Job Notes on desktop and mobile", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+
+  const quickAccess = page.locator('.feature-card[onclick*="job-lists.html"]');
+  await expect(quickAccess).toBeVisible();
+  await expect(quickAccess).toContainText("Job Notes");
+  await expect(page.locator('.side-link[onclick*="job-lists.html"]')).toContainText("Job Notes");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#jgcMobileMoreButton").click();
+  await expect(page.locator('#jgcMobileMoreSheet a[href="job-lists.html"]')).toBeVisible();
+  await expect(page.locator('#jgcMobileMoreSheet a[href="job-lists.html"]')).toContainText("Job Notes");
+  await expectNoRuntimeErrors(errors, "employee homepage Job Notes navigation");
+});
+
 test("purchase order job picker searches by job name and number", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page);
@@ -1358,6 +1376,140 @@ test("purchase order submit feedback closes success and emphasizes failure", asy
   await expectNoRuntimeErrors(errors, "purchase order submission feedback");
 });
 
+test("purchase order sync reconciles a stale local draft with a submitted server record", async ({ page }) => {
+  const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
+  const errors = watchRuntimeErrors(page);
+  const poId = "00000000-0000-4000-8000-000000000310";
+  const serverOrder = {
+    id: poId,
+    po_number: 31000,
+    creator_profile_id: fakeUser.id,
+    creator_name: "Andre Labrosse",
+    workflow_status: "submitted",
+    email_status: "emailed",
+    revision: 3,
+    order_date: "2026-07-14",
+    job_number: "25169",
+    job_name: "McKay Office Addition",
+    supplier_name: "Emard",
+    receipt_status: "none",
+    receipt_attached: false,
+    created_at: "2026-07-14T12:00:00.000Z",
+    updated_at: "2026-07-15T12:00:00.000Z",
+    submitted_at: "2026-07-14T12:05:00.000Z",
+    email_sent_at: "2026-07-15T12:00:00.000Z"
+  };
+  const staleDraft = {
+    id: poId,
+    po: Object.assign({}, serverOrder, {
+      workflow_status: "draft",
+      email_status: "not_ready",
+      revision: 1,
+      submitted_at: null,
+      email_sent_at: null
+    }),
+    items: [{
+      id: "00000000-0000-4000-8000-000000000311",
+      po_id: poId,
+      quantity_ordered: 4,
+      description: "Smoke test material",
+      sort_order: 0
+    }],
+    dirty: true,
+    assignment_dirty: false,
+    pending_submit: true,
+    pending_cancel: false,
+    updated_local_at: "2026-07-14T12:04:00.000Z"
+  };
+  let saveAttempts = 0;
+
+  await installAuthenticatedPortalState(page, poProfile);
+  await mockPortalServices(page, poProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      registered: true,
+      device_id: "00000000-0000-4000-8000-000000000312",
+      device_status: "active",
+      lease_expires_at: "2027-07-23T12:00:00.000Z",
+      blocks: [{
+        id: "00000000-0000-4000-8000-000000000313",
+        range_start: 31000,
+        range_end: 31499,
+        next_number: 31007,
+        status: "active"
+      }]
+    })
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/digital_purchase_orders**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([serverOrder])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/digital_po_items**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(staleDraft.items)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_save`, (route) => {
+    saveAttempts += 1;
+    return route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "This PO is locked. An admin must reopen it before changes can be made." })
+    });
+  });
+
+  await page.goto("/reset-password.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(async (draft) => {
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open("jgc-digital-purchase-orders", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "key" });
+        if (!db.objectStoreNames.contains("drafts")) db.createObjectStore("drafts", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("receipts")) db.createObjectStore("receipts", { keyPath: "po_id" });
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction("drafts", "readwrite");
+        transaction.objectStore("drafts").put(draft);
+        transaction.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+    });
+  }, staleDraft);
+
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#poSyncBadge")).toContainText("Synced");
+  await page.locator('[data-po-list-tab="submitted"]').click();
+  await expect(page.locator("#poList")).toContainText("PO-31000");
+  await expect(page.locator("#poList")).toContainText("Emailed");
+  await expect.poll(() => saveAttempts).toBe(0);
+  await expect.poll(() => page.evaluate(async (id) => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("jgc-digital-purchase-orders", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction("drafts", "readonly");
+        const getRequest = transaction.objectStore("drafts").get(id);
+        getRequest.onsuccess = () => {
+          db.close();
+          resolve(Boolean(getRequest.result));
+        };
+        getRequest.onerror = () => reject(getRequest.error);
+      };
+    });
+  }, poId)).toBe(false);
+  await expectNoRuntimeErrors(errors, "purchase order stale draft reconciliation");
+});
+
 test("purchase order admin tabs respond", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
@@ -1399,9 +1551,18 @@ test("job notes employee page opens its standalone editor", async ({ page }) => 
   await expect(page.locator("#jobListsNewButton")).toBeVisible();
   await page.locator("#jobListsNewButton").click();
   await expect(page.locator("#jobListsModal")).toBeVisible();
+  await expect(page.locator("#jobListModalClose")).toContainText("Back");
   await expect(page.locator("#jobListMembers")).toContainText("Portal Smoke Test");
   await expect(page.locator("#jobListMembers")).toContainText("Steven Leduc");
   await expect(page.locator("#jobListItemEditor [data-job-list-item-input]")).toHaveCount(1);
+  const reminderInput = page.locator("#jobListReminder");
+  await reminderInput.fill("2030-07-24T06:45");
+  await reminderInput.dispatchEvent("change");
+  await expect(page.locator("[data-job-list-reminder-chip]")).toHaveCount(1);
+  await expect(reminderInput).toHaveValue("");
+  await reminderInput.fill("2030-07-24T15:30");
+  await reminderInput.dispatchEvent("change");
+  await expect(page.locator("[data-job-list-reminder-chip]")).toHaveCount(2);
   await expect(page.locator("#jobListSave")).toBeVisible();
   await page.locator("#jobListSave").scrollIntoViewIfNeeded();
   await expect(page.locator("#jobListSave")).toBeInViewport();
@@ -1409,6 +1570,147 @@ test("job notes employee page opens its standalone editor", async ({ page }) => 
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   await captureJobListScreenshot(page, "job-lists-mobile.png");
   await expectNoRuntimeErrors(errors, "job notes employee page");
+});
+
+test("job notes are organized into collapsed job sections", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const jobs = [
+    {
+      id: "00000000-0000-4000-8000-000000000301",
+      job_number: "25058",
+      job_name: "Amazon Drain Issue #2",
+      active: true
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000302",
+      job_number: "26040",
+      job_name: "Williamstown Fairboard Entrance Sign",
+      active: true
+    }
+  ];
+  const lists = [
+    {
+      id: "00000000-0000-4000-8000-000000000311",
+      job_id: jobs[0].id,
+      job_number: jobs[0].job_number,
+      job_name: jobs[0].job_name,
+      title: "BMR pickup",
+      status: "open",
+      created_by: fakeUser.id,
+      created_by_name: fakeProfile.display_name,
+      last_edited_by_name: fakeProfile.display_name,
+      reminder_at: "2026-07-24T10:45:00.000Z",
+      updated_at: "2026-07-23T12:00:00.000Z",
+      deleted_at: null
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000312",
+      job_id: jobs[0].id,
+      job_number: jobs[0].job_number,
+      job_name: jobs[0].job_name,
+      title: "Return rental tools",
+      status: "open",
+      created_by: fakeUser.id,
+      created_by_name: fakeProfile.display_name,
+      last_edited_by_name: fakeProfile.display_name,
+      reminder_at: null,
+      updated_at: "2026-07-23T11:00:00.000Z",
+      deleted_at: null
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000313",
+      job_id: jobs[1].id,
+      job_number: jobs[1].job_number,
+      job_name: jobs[1].job_name,
+      title: "Sign materials",
+      status: "open",
+      created_by: fakeUser.id,
+      created_by_name: fakeProfile.display_name,
+      last_edited_by_name: fakeProfile.display_name,
+      reminder_at: null,
+      updated_at: "2026-07-23T10:00:00.000Z",
+      deleted_at: null
+    }
+  ];
+  const members = lists.map((list, index) => ({
+    id: `00000000-0000-4000-8000-00000000032${index}`,
+    list_id: list.id,
+    profile_id: fakeUser.id,
+    display_name: fakeProfile.display_name
+  }));
+  const items = lists.map((list, index) => ({
+    id: `00000000-0000-4000-8000-00000000033${index}`,
+    list_id: list.id,
+    item_text: `Item ${index + 1}`,
+    position: 0,
+    completed: false,
+    created_at: "2026-07-23T09:00:00.000Z"
+  }));
+  const reminders = [
+    {
+      id: "00000000-0000-4000-8000-000000000341",
+      list_id: lists[0].id,
+      reminder_at: "2030-07-24T10:45:00.000Z",
+      sent_at: null
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000342",
+      list_id: lists[0].id,
+      reminder_at: "2020-07-24T10:45:00.000Z",
+      sent_at: "2020-07-24T10:45:05.000Z"
+    }
+  ];
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(jobs)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_lists**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(lists)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_members**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(members)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_items**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(items)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_reminders**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(reminders)
+  }));
+  await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
+
+  const groups = page.locator("[data-job-list-job-group]");
+  await expect(groups).toHaveCount(2);
+  const amazonGroup = groups.filter({ hasText: jobs[0].job_name });
+  await expect(amazonGroup.locator("summary")).toContainText("2 notes");
+  await expect(amazonGroup).not.toHaveAttribute("open", "");
+  await expect(amazonGroup.getByRole("heading", { name: "BMR pickup" })).not.toBeVisible();
+
+  await amazonGroup.locator("summary").click();
+  await expect(amazonGroup).toHaveAttribute("open", "");
+  await expect(amazonGroup.getByRole("heading", { name: "BMR pickup" })).toBeVisible();
+  await expect(amazonGroup.getByRole("heading", { name: "Return rental tools" })).toBeVisible();
+  await expect(amazonGroup.locator(".job-list-reminder-chip")).toHaveCount(1);
+  await expect(amazonGroup).toContainText("Jul 24, 2030");
+  await expect(amazonGroup).not.toContainText("Jul 24, 2020");
+  const firstItem = amazonGroup.getByRole("button", { name: "Mark complete: Item 1" });
+  await firstItem.click();
+  await expect(amazonGroup).toHaveAttribute("open", "");
+  await expect(amazonGroup.getByRole("button", { name: "Mark incomplete: Item 1" })).toHaveClass(/is-complete/);
+  await expect(amazonGroup.getByText("Item 1", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  await expect(groups.nth(1).locator("summary")).toContainText(jobs[1].job_name);
+  await expectNoRuntimeErrors(errors, "grouped job notes");
 });
 
 test("job notes admin page keeps management separate", async ({ page }) => {

@@ -9,10 +9,12 @@
     lists: [],
     members: [],
     items: [],
+    reminders: [],
     jobs: [],
     tab: "open",
     channel: null,
     refreshTimer: null,
+    reminderExpiryTimer: null,
     selectedListId: ""
   };
   const elements = {};
@@ -76,6 +78,34 @@
       });
   }
 
+  function remindersFor(listId, includeExpired) {
+    const now = Date.now();
+    const reminders = state.reminders
+      .filter(function (reminder) {
+        const reminderTime = new Date(reminder.reminder_at).getTime();
+        return reminder.list_id === listId
+          && !Number.isNaN(reminderTime)
+          && (includeExpired || reminderTime > now);
+      })
+      .sort(function (a, b) {
+        return new Date(a.reminder_at).getTime() - new Date(b.reminder_at).getTime();
+      });
+    if (reminders.length || includeExpired) {
+      return reminders;
+    }
+
+    const list = state.lists.find(function (entry) { return entry.id === listId; });
+    const legacyTime = list && new Date(list.reminder_at).getTime();
+    return list && list.reminder_at && !Number.isNaN(legacyTime) && legacyTime > now
+      ? [{
+        id: "legacy:" + list.id,
+        list_id: list.id,
+        reminder_at: list.reminder_at,
+        sent_at: list.reminder_sent_at || null
+      }]
+      : [];
+  }
+
   function renderIdentity() {
     const name = state.profile && state.profile.display_name
       || state.worker && state.worker.display
@@ -106,11 +136,15 @@
     elements.openCount.textContent = active.filter(function (list) { return list.status === "open"; }).length;
     elements.completedCount.textContent = active.filter(function (list) { return list.status === "completed"; }).length;
     elements.deletedCount.textContent = state.lists.filter(function (list) { return list.deleted_at; }).length;
-    elements.dueCount.textContent = active.filter(function (list) {
-      return list.status === "open"
-        && list.reminder_at
-        && !list.reminder_sent_at
-        && new Date(list.reminder_at).getTime() <= Date.now();
+    const activeIds = new Set(active.filter(function (list) {
+      return list.status === "open";
+    }).map(function (list) { return list.id; }));
+    elements.dueCount.textContent = state.reminders.filter(function (reminder) {
+      const reminderTime = new Date(reminder.reminder_at).getTime();
+      return activeIds.has(reminder.list_id)
+        && !reminder.sent_at
+        && !Number.isNaN(reminderTime)
+        && reminderTime <= Date.now();
     }).length;
   }
 
@@ -146,8 +180,10 @@
       const listItems = itemsFor(list.id);
       const done = listItems.filter(function (item) { return item.completed; }).length;
       const members = membersFor(list.id);
-      const reminder = list.reminder_at
-        ? formatDateTime(list.reminder_at) + (list.reminder_sent_at ? " (sent)" : "")
+      const upcomingReminders = remindersFor(list.id);
+      const reminder = upcomingReminders.length
+        ? (upcomingReminders.length > 1 ? upcomingReminders.length + " reminders; Next " : "")
+          + formatDateTime(upcomingReminders[0].reminder_at)
         : "-";
       return "<tr>"
         + "<td><strong>" + escapeHtml(list.title) + "</strong><small>Created by " + escapeHtml(list.created_by_name) + "</small></td>"
@@ -168,6 +204,25 @@
     refreshIcons();
   }
 
+  function scheduleReminderExpiryRefresh() {
+    window.clearTimeout(state.reminderExpiryTimer);
+    const now = Date.now();
+    const futureTimes = state.reminders
+      .map(function (reminder) { return new Date(reminder.reminder_at).getTime(); })
+      .filter(function (reminderTime) {
+        return !Number.isNaN(reminderTime) && reminderTime > now;
+      })
+      .sort(function (a, b) { return a - b; });
+    if (!futureTimes.length) {
+      return;
+    }
+
+    state.reminderExpiryTimer = window.setTimeout(function () {
+      renderAll();
+      scheduleReminderExpiryRefresh();
+    }, Math.min(futureTimes[0] - now + 1000, 2147483647));
+  }
+
   async function openDetails(listId) {
     const list = state.lists.find(function (entry) { return entry.id === listId; });
     if (!list) {
@@ -178,6 +233,7 @@
     const listItems = itemsFor(list.id);
     const done = listItems.filter(function (item) { return item.completed; }).length;
     const members = membersFor(list.id);
+    const reminders = remindersFor(list.id);
 
     elements.modalTitle.textContent = list.title;
     elements.modalSubtitle.textContent = list.job_number + " - " + list.job_name;
@@ -188,8 +244,14 @@
       + '<div class="job-list-admin-detail"><strong>Creator</strong><span>' + escapeHtml(list.created_by_name) + "</span></div>"
       + '<div class="job-list-admin-detail"><strong>Last activity</strong><span>' + escapeHtml(formatDateTime(list.updated_at))
       + " by " + escapeHtml(list.last_edited_by_name || list.created_by_name) + "</span></div>"
-      + '<div class="job-list-admin-detail"><strong>Reminder</strong><span>' + escapeHtml(list.reminder_at ? formatDateTime(list.reminder_at) : "None")
-      + (list.reminder_sent_at ? " (sent)" : "") + "</span></div>"
+      + '<div class="job-list-admin-detail"><strong>Reminders</strong><span>'
+      + (reminders.length
+        ? '<span class="job-list-reminder-list">' + reminders.map(function (reminder) {
+          return '<span class="job-list-reminder-chip"><i data-lucide="bell"></i> '
+            + escapeHtml(formatDateTime(reminder.reminder_at)) + "</span>";
+        }).join("") + "</span>"
+        : "None")
+      + "</span></div>"
       + '<div class="job-list-admin-detail"><strong>Tagged employees</strong><span>'
       + escapeHtml(members.map(function (member) { return member.display_name; }).join(", ") || "None") + "</span></div>"
       + "</div>"
@@ -295,7 +357,8 @@
       const results = await Promise.all([
         state.client.from("job_lists").select("*").order("updated_at", { ascending: false }),
         state.client.from("job_list_members").select("*"),
-        state.client.from("job_list_items").select("*").order("position")
+        state.client.from("job_list_items").select("*").order("position"),
+        state.client.from("job_list_reminders").select("*").order("reminder_at")
       ]);
       const failed = results.find(function (result) { return result.error; });
       if (failed) {
@@ -304,7 +367,9 @@
       state.lists = results[0].data || [];
       state.members = results[1].data || [];
       state.items = results[2].data || [];
+      state.reminders = results[3].data || [];
       renderAll();
+      scheduleReminderExpiryRefresh();
     } catch (error) {
       showNotice(error && error.message || "Job Notes could not be loaded.", "error");
     } finally {
@@ -322,6 +387,7 @@
       .on("postgres_changes", { event: "*", schema: "public", table: "job_lists" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_list_members" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_list_items" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_list_reminders" }, scheduleRefresh)
       .subscribe();
   }
 
