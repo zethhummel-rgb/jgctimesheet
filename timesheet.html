@@ -4790,7 +4790,7 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         }
 
         rows.push(`
-          <tr class="${shift === "Night" ? "night-row" : ""}">
+          <tr class="${shift === "Night" ? "night-row" : ""}"${shift === "Night" ? ' style="background-color:#e3e5e4;"' : ""}>
             <td class="job-cell"><strong>${escapeHtml(group.jobName)}</strong>${group.typeLabel ? "<small>" + escapeHtml(group.typeLabel) + "</small>" : ""}</td>
             <td>${escapeHtml(group.jobNumber)}</td>
             <td class="shift-cell">${shift}</td>
@@ -4833,8 +4833,13 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         .shift-cell { width: 6%; text-align: center; font-weight: bold; }
         .hours-cell { width: 5.5%; text-align: center; }
         .total-cell { background: #e3f2e8; font-weight: bold; }
-        .night-row td { background: #f1f2f1; border-color: #8b928e; }
-        .night-row .total-cell { background: #e5e7e5; }
+        .night-row, .night-row td {
+          background-color: #e3e5e4 !important;
+          border-color: #8b928e;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .night-row .total-cell { background-color: #d7dad8 !important; }
         .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
         .summary-box { min-width: 105px; border: 1px solid #789080; padding: 6px 9px; font-size: 10px; }
         .summary-box strong { display: block; color: #176f3a; font-size: 14px; margin-top: 2px; }
