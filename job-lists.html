@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Job Notes</title>
+  <link rel="manifest" href="manifest.json?v=7">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="jgc-design-system.css?v=5">
+  <link rel="stylesheet" href="job-lists.css?v=2">
+</head>
+<body class="jgc-page job-lists-page">
+  <main class="jgc-page-shell job-lists-shell">
+    <header class="jgc-page-header">
+      <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Job Notes</h1>
+      <p id="jobListsCurrentUser"></p>
+    </header>
+
+    <div id="jobListsNotice" class="jgc-notice job-lists-notice" hidden role="status"></div>
+
+    <div class="job-lists-status-row" aria-live="polite">
+      <span id="jobListsNetworkBadge" class="jgc-badge">Checking connection</span>
+      <span id="jobListsSyncBadge" class="jgc-badge jgc-badge--info">Loading</span>
+    </div>
+
+    <div class="jgc-toolbar job-lists-toolbar">
+      <div class="jgc-actions">
+        <button id="jobListsNewButton" class="jgc-button" type="button">
+          <i data-lucide="plus"></i> New Note
+        </button>
+        <button id="jobListsSyncButton" class="jgc-button jgc-button--secondary" type="button">
+          <i data-lucide="refresh-cw"></i> Sync
+        </button>
+      </div>
+    </div>
+
+    <section class="jgc-panel">
+      <div class="jgc-tabs" role="tablist" aria-label="Job note status">
+        <button class="jgc-tab active" type="button" data-job-list-tab="open">Open</button>
+        <button class="jgc-tab" type="button" data-job-list-tab="completed">Completed</button>
+      </div>
+
+      <div class="jgc-filter-grid job-lists-filters">
+        <div class="jgc-field">
+          <label class="jgc-label" for="jobListsSearch">Search</label>
+          <input id="jobListsSearch" class="jgc-input" type="search" placeholder="Note, job, item, or employee">
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="jobListsJobFilter">Job</label>
+          <select id="jobListsJobFilter" class="jgc-select">
+            <option value="">All jobs</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="jobListsCards" class="job-lists-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <div id="jobListsModal" class="jgc-modal" hidden>
+    <section class="jgc-modal__dialog job-list-dialog" role="dialog" aria-modal="true" aria-labelledby="jobListModalTitle">
+      <div class="jgc-modal__header">
+        <div>
+          <h2 id="jobListModalTitle">New Job Note</h2>
+          <div id="jobListAccessLine" class="job-list-muted"></div>
+        </div>
+        <button id="jobListModalClose" class="jgc-button jgc-button--secondary jgc-button--icon" type="button" aria-label="Close" title="Close">X</button>
+      </div>
+
+      <form id="jobListForm" novalidate>
+        <input id="jobListId" type="hidden">
+        <div class="jgc-form-grid">
+          <div class="jgc-field">
+            <label class="jgc-label" for="jobListTitle">Note Name</label>
+            <input id="jobListTitle" class="jgc-input" maxlength="160" placeholder="Example: BMR pickup" required>
+          </div>
+          <div class="jgc-field">
+            <label class="jgc-label" for="jobListJob">Job</label>
+            <select id="jobListJob" class="jgc-select" required>
+              <option value="">Select a job</option>
+            </select>
+          </div>
+          <div class="jgc-field jgc-field--full">
+            <label class="jgc-label" for="jobListReminder">Reminder</label>
+            <input id="jobListReminder" class="jgc-input" type="datetime-local">
+            <div class="job-list-help">Only tagged employees receive the Bell and device reminder.</div>
+          </div>
+        </div>
+
+        <section class="jgc-section">
+          <h3 class="jgc-section-title">Tagged Employees</h3>
+          <div id="jobListMembers" class="job-list-member-grid"></div>
+        </section>
+
+        <section class="jgc-section">
+          <h3 class="jgc-section-title">Items</h3>
+          <div id="jobListItemEditor" class="job-list-item-editor"></div>
+          <button id="jobListAddItem" class="jgc-button jgc-button--secondary" type="button">
+            <i data-lucide="plus"></i> Add Item
+          </button>
+        </section>
+
+        <div id="jobListReadOnlyItems" class="job-list-read-only" hidden></div>
+
+        <div class="jgc-actions job-list-form-actions">
+          <button id="jobListSave" class="jgc-button" type="submit">
+            <i data-lucide="save"></i> Save Note
+          </button>
+          <button id="jobListComplete" class="jgc-button" type="button">
+            <i data-lucide="check-circle"></i> Complete Note
+          </button>
+          <button id="jobListDelete" class="jgc-button jgc-button--danger" type="button">
+            <i data-lucide="trash-2"></i> Delete Note
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="common.js?v=32"></script>
+  <script src="job-lists.js?v=2"></script>
+</body>
+</html>

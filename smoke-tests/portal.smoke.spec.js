@@ -23,6 +23,15 @@ const fakeProfile = {
   account_status: "approved"
 };
 
+async function captureJobListScreenshot(page, fileName) {
+  const directory = process.env.JGC_JOB_LIST_SCREENSHOT_DIR;
+  if (!directory) {
+    return;
+  }
+  fs.mkdirSync(directory, { recursive: true });
+  await page.screenshot({ path: path.join(directory, fileName), fullPage: true });
+}
+
 function base64Url(value) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
 }
@@ -1377,4 +1386,48 @@ test("mobile More menu opens and closes", async ({ page }) => {
   await page.locator("#jgcMobileMoreBackdrop").click({ position: { x: 5, y: 5 } });
   await expect(page.locator("#jgcMobileMoreSheet")).not.toHaveClass(/open/);
   await expectNoRuntimeErrors(errors, "mobile More menu");
+});
+
+test("job notes employee page opens its standalone editor", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#jobListsNewButton")).toBeVisible();
+  await page.locator("#jobListsNewButton").click();
+  await expect(page.locator("#jobListsModal")).toBeVisible();
+  await expect(page.locator("#jobListMembers")).toContainText("Portal Smoke Test");
+  await expect(page.locator("#jobListMembers")).toContainText("Steven Leduc");
+  await expect(page.locator("#jobListItemEditor [data-job-list-item-input]")).toHaveCount(1);
+  await expect(page.locator("#jobListSave")).toBeVisible();
+  await page.locator("#jobListSave").scrollIntoViewIfNeeded();
+  await expect(page.locator("#jobListSave")).toBeInViewport();
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
+  await captureJobListScreenshot(page, "job-lists-mobile.png");
+  await expectNoRuntimeErrors(errors, "job notes employee page");
+});
+
+test("job notes admin page keeps management separate", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/job-lists-admin.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#jobListsAdminRefresh")).toBeVisible();
+  await expect(page.locator("#jobListsAdminRows")).toContainText("No matching job notes found");
+  for (const tab of ["open", "completed", "deleted"]) {
+    const button = page.locator(`[data-job-list-admin-tab="${tab}"]`);
+    await button.click();
+    await expect(button).toHaveClass(/active/);
+  }
+  await expect(page.getByRole("main").getByRole("link", { name: "Admin Tools" })).toBeVisible();
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await captureJobListScreenshot(page, "job-lists-admin-mobile.png");
+  await expectNoRuntimeErrors(errors, "job notes admin page");
 });

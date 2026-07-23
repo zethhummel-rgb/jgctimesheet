@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "630";
+const JGC_RELEASE_ID = "632";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -30,6 +30,8 @@ const JGC_APP_SHELL = [
   "./work-orders.html",
   "./purchase-orders.html",
   "./purchase-orders-admin.html",
+  "./job-lists.html",
+  "./job-lists-admin.html",
   "./diagnostics-admin.html",
   "./permits.html",
   "./confined-space-permit.html",
@@ -54,6 +56,7 @@ const JGC_APP_SHELL = [
   "./styles.css?v=3",
   "./admin.css?v=1",
   "./jgc-design-system.css?v=5",
+  "./job-lists.css?v=2",
   "./permit-design-system.css?v=1",
   "./report-design-system.css?v=1",
   "./timesheet-design-system.css?v=1",
@@ -71,7 +74,9 @@ const JGC_APP_SHELL = [
   "./reset-password-design-system.css?v=1",
   "./login-design-system.css?v=1",
   "./subcontractor-design-system.css?v=1",
-  "./common.js?v=30",
+  "./common.js?v=32",
+  "./job-lists.js?v=2",
+  "./job-lists-admin.js?v=2",
   "./admin-housekeeping.js?v=1",
   "./shared-uploads.css?v=3",
   "./shared-uploads.js?v=3",
@@ -106,7 +111,7 @@ const JGC_APP_SHELL = [
   "./inspection-records.js?v=10",
   "./inspection-mobile.css?v=3",
   "./inspection-mobile.js?v=6",
-  "./manifest.json?v=5",
+  "./manifest.json?v=7",
   "./vendor/supabase-js.min.js?v=1",
   "./vendor/tus.min.js?v=1",
   "./vendor/exceljs.min.js?v=1",

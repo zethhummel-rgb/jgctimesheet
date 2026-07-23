@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Job Notes Admin</title>
+  <link rel="manifest" href="manifest.json?v=7">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="jgc-design-system.css?v=5">
+  <link rel="stylesheet" href="job-lists.css?v=2">
+</head>
+<body class="jgc-page job-lists-page job-lists-admin-page">
+  <main class="jgc-page-shell jgc-page-shell--wide job-lists-shell">
+    <header class="jgc-page-header">
+      <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Job Notes Admin</h1>
+      <p id="jobListsAdminCurrentUser"></p>
+    </header>
+
+    <div id="jobListsAdminNotice" class="jgc-notice job-lists-notice" hidden role="status"></div>
+
+    <div class="jgc-toolbar">
+      <a class="jgc-button jgc-button--secondary" href="admin.html?tab=adminTools">
+        <i data-lucide="wrench"></i> Admin Tools
+      </a>
+      <button id="jobListsAdminRefresh" class="jgc-button" type="button">
+        <i data-lucide="refresh-cw"></i> Refresh
+      </button>
+    </div>
+
+    <section class="job-list-admin-stats" aria-label="Job note totals">
+      <div class="job-list-stat"><strong id="jobListsOpenCount">0</strong><span>Open</span></div>
+      <div class="job-list-stat"><strong id="jobListsCompletedCount">0</strong><span>Completed</span></div>
+      <div class="job-list-stat"><strong id="jobListsDeletedCount">0</strong><span>Deleted</span></div>
+      <div class="job-list-stat"><strong id="jobListsDueCount">0</strong><span>Due reminders</span></div>
+    </section>
+
+    <section class="jgc-panel">
+      <div class="jgc-tabs" role="tablist" aria-label="Admin job note status">
+        <button class="jgc-tab active" type="button" data-job-list-admin-tab="open">Open</button>
+        <button class="jgc-tab" type="button" data-job-list-admin-tab="completed">Completed</button>
+        <button class="jgc-tab" type="button" data-job-list-admin-tab="deleted">Deleted</button>
+      </div>
+
+      <div class="jgc-filter-grid job-lists-filters">
+        <div class="jgc-field">
+          <label class="jgc-label" for="jobListsAdminSearch">Search</label>
+          <input id="jobListsAdminSearch" class="jgc-input" type="search" placeholder="Note, job, item, creator, or employee">
+        </div>
+        <div class="jgc-field">
+          <label class="jgc-label" for="jobListsAdminJob">Job</label>
+          <select id="jobListsAdminJob" class="jgc-select">
+            <option value="">All jobs</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="job-list-admin-table-wrap">
+        <table class="job-list-admin-table">
+          <thead>
+            <tr>
+              <th>Note</th>
+              <th>Job</th>
+              <th>Progress</th>
+              <th>Tagged</th>
+              <th>Reminder</th>
+              <th>Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobListsAdminRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="jobListsAdminModal" class="jgc-modal" hidden>
+    <section class="jgc-modal__dialog job-list-admin-dialog" role="dialog" aria-modal="true" aria-labelledby="jobListsAdminModalTitle">
+      <div class="jgc-modal__header">
+        <div>
+          <h2 id="jobListsAdminModalTitle">Job Note</h2>
+          <div id="jobListsAdminModalSubtitle" class="job-list-muted"></div>
+        </div>
+        <button id="jobListsAdminModalClose" class="jgc-button jgc-button--secondary jgc-button--icon" type="button" aria-label="Close" title="Close">X</button>
+      </div>
+      <div id="jobListsAdminDetails"></div>
+      <div id="jobListsAdminActions" class="jgc-actions job-list-admin-actions"></div>
+    </section>
+  </div>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="common.js?v=32"></script>
+  <script src="job-lists-admin.js?v=2"></script>
+</body>
+</html>
