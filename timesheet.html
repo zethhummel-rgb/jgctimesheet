@@ -4703,42 +4703,83 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
 }
 
 function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
-  const groups = getEntriesByEmailDay(entries);
-  const groupHtml = groups.map(function(group) {
-    const rows = group.groupedEntries.map(function(entryGroup) {
-      return `
-        <tr>
-          <td>${escapeHtml(entryGroup.jobName)}</td>
-          <td>${escapeHtml(entryGroup.jobNumber || "")}</td>
-          <td>${escapeHtml(entryGroup.typeLabel)}</td>
-          <td>${escapeHtml(entryGroup.note)}</td>
-          <td>${entryGroup.tookLunch ? "Yes" : "No"}</td>
-          <td>${entryGroup.nightWork ? "Yes" : "No"}</td>
-          <td>${escapeHtml(getGroupedTimeText(entryGroup))}</td>
-          <td>${getGroupedHoursLabel(entryGroup)}</td>
-        </tr>
-      `;
-    }).join("");
+  const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const dayLabels = dayOrder.map(function(day) {
+    const entry = entries.find(function(item) {
+      return String(item.day || item.day_of_week || "") === day;
+    });
+    const date = entry ? getDateForEntry(entry) : null;
+    return day.slice(0, 3) + (date ? "<small>" + escapeHtml(date.toLocaleDateString("en-CA", { month: "short", day: "numeric" })) + "</small>" : "");
+  });
+  const grouped = new Map();
 
-    return `
-      <h2>${escapeHtml(group.heading)}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Job Name</th>
-            <th>Job #</th>
-            <th>Type</th>
-            <th>Note</th>
-            <th>Lunch</th>
-            <th>Night Work</th>
-            <th>Time</th>
-            <th>Hours</th>
+  entries.forEach(function(entry) {
+    const jobName = String(entry.jobName || entry.job_name || "Unassigned").trim() || "Unassigned";
+    const jobNumber = String(entry.jobNumber || entry.job_number || "").trim();
+    const typeLabel = getEntryTypeLabel(entry);
+    const groupKey = [jobNumber.toLowerCase(), jobName.toLowerCase(), typeLabel.toLowerCase()].join("|");
+
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
+        jobName,
+        jobNumber,
+        typeLabel,
+        notes: new Set(),
+        shifts: {
+          Day: Array(7).fill(0),
+          Night: Array(7).fill(0)
+        }
+      });
+    }
+
+    const group = grouped.get(groupKey);
+    const dayIndex = dayOrder.indexOf(String(entry.day || entry.day_of_week || ""));
+    const shift = entry.nightWork || entry.night_work ? "Night" : "Day";
+    const entryNote = String(entry.note || entry.leaveNote || entry.leave_note || "").trim();
+
+    if (dayIndex >= 0) {
+      group.shifts[shift][dayIndex] += Number(entry.hours || 0);
+    }
+    if (entryNote) {
+      group.notes.add(entryNote);
+    }
+  });
+
+  let dayHours = 0;
+  let nightHours = 0;
+  const rows = [];
+
+  Array.from(grouped.values())
+    .sort(function(a, b) {
+      return (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName);
+    })
+    .forEach(function(group) {
+      ["Day", "Night"].forEach(function(shift) {
+        const hours = group.shifts[shift];
+        const rowTotal = hours.reduce(function(sum, value) { return sum + value; }, 0);
+
+        if (rowTotal <= 0) {
+          return;
+        }
+
+        if (shift === "Night") {
+          nightHours += rowTotal;
+        } else {
+          dayHours += rowTotal;
+        }
+
+        rows.push(`
+          <tr class="${shift === "Night" ? "night-row" : ""}">
+            <td class="job-cell"><strong>${escapeHtml(group.jobName)}</strong>${group.typeLabel ? "<small>" + escapeHtml(group.typeLabel) + "</small>" : ""}</td>
+            <td>${escapeHtml(group.jobNumber)}</td>
+            <td class="shift-cell">${shift}</td>
+            ${hours.map(function(value) { return "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>"; }).join("")}
+            <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
+            <td class="notes-cell">${escapeHtml(Array.from(group.notes).join("; "))}</td>
           </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-  }).join("");
+        `);
+      });
+    });
 
   return `
     <!doctype html>
@@ -4746,25 +4787,63 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
     <head>
       <meta charset="UTF-8">
       <style>
-        body { font-family: Arial, sans-serif; color: #1f2a24; }
-        h1 { color: #2f6f3c; margin-bottom: 4px; }
-        h2 { margin-top: 22px; margin-bottom: 8px; color: #2f6f3c; }
-        .meta { margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        th, td { border: 1px solid #999; padding: 6px; font-size: 11px; text-align: left; }
-        th { background: #e6ece6; }
-        .total { margin-top: 18px; font-size: 14px; font-weight: bold; }
-        .note { margin-top: 12px; padding: 8px; border: 1px solid #999; }
+        @page { size: Letter landscape; margin: 0.35in; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #17231d; }
+        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #178b45; padding-bottom: 8px; margin-bottom: 12px; }
+        h1 { color: #176f3a; font-size: 22px; margin: 0 0 3px; }
+        .subtitle { color: #526158; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .meta { text-align: right; font-size: 11px; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #849087; padding: 5px 4px; font-size: 9px; vertical-align: middle; }
+        th { background: #123d24; color: #fff; text-align: center; }
+        th small, td small { display: block; font-size: 7px; font-weight: normal; margin-top: 2px; }
+        .job-cell { width: 18%; }
+        .job-cell small { color: #526158; }
+        .shift-cell { width: 6%; text-align: center; font-weight: bold; }
+        .hours-cell { width: 5.5%; text-align: center; }
+        .total-cell { background: #e3f2e8; font-weight: bold; }
+        .notes-cell { width: 15%; }
+        .night-row td { background: #eaf2fb; border-color: #718ca8; }
+        .night-row .total-cell { background: #d6e6f7; }
+        .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+        .summary-box { min-width: 105px; border: 1px solid #789080; padding: 6px 9px; font-size: 10px; }
+        .summary-box strong { display: block; color: #176f3a; font-size: 14px; margin-top: 2px; }
+        .summary-box.night strong { color: #315f91; }
+        .summary-box.week { background: #123d24; color: #fff; }
+        .summary-box.week strong { color: #fff; }
+        .note { margin-top: 10px; padding: 7px; border: 1px solid #849087; font-size: 9px; }
       </style>
     </head>
     <body>
-      <h1>John Gordon Construction Timesheet</h1>
-      <div class="meta">
-        <div><b>Worker:</b> ${escapeHtml(getDisplayWorkerName())}</div>
-        <div><b>Week:</b> ${escapeHtml(weekLabel)}</div>
+      <div class="header">
+        <div>
+          <h1>John Gordon Construction</h1>
+          <div class="subtitle">Weekly Employee Timesheet</div>
+        </div>
+        <div class="meta">
+          <div><b>Employee:</b> ${escapeHtml(getDisplayWorkerName())}</div>
+          <div><b>Week:</b> ${escapeHtml(weekLabel)}</div>
+        </div>
       </div>
-      ${groupHtml}
-      <div class="total">Total Hours: ${totalHours.toFixed(2)}</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="job-cell">Job Name</th>
+            <th>Job #</th>
+            <th class="shift-cell">Shift</th>
+            ${dayLabels.map(function(label) { return "<th class=\"hours-cell\">" + label + "</th>"; }).join("")}
+            <th class="hours-cell">Total</th>
+            <th class="notes-cell">Notes</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
+      <div class="summary">
+        <div class="summary-box">Day Hours<strong>${dayHours.toFixed(2)}</strong></div>
+        <div class="summary-box night">Night Hours<strong>${nightHours.toFixed(2)}</strong></div>
+        <div class="summary-box week">Weekly Total<strong>${totalHours.toFixed(2)}</strong></div>
+      </div>
       ${note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(note) + '</div>' : ''}
     </body>
     </html>

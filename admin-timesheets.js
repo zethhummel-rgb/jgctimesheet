@@ -2107,36 +2107,80 @@ function buildAdminTimesheetEmailBody(week, totalHours) {
 }
 
 function buildAdminTimesheetPdfHtml(week, totalHours) {
-    const groups = getTimesheetEntriesByEmailDay(Array.isArray(week.entries) ? week.entries : []);
-    const groupHtml = groups.map((group) => {
-        const rows = group.entries.map((entry) => {
-            const timeIn = String(getTimesheetEntryValue(entry, "timeIn", "time_in", "")).slice(0, 5);
-            const timeOut = String(getTimesheetEntryValue(entry, "timeOut", "time_out", "")).slice(0, 5);
+    const entries = Array.isArray(week.entries) ? week.entries : [];
+    const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const dayLabels = dayOrder.map((day) => {
+        const entry = entries.find((item) => getTimesheetEntryValue(item, "day", "day_of_week", "") === day);
+        const date = entry ? getTimesheetEntryDate(entry) : null;
+        return day.slice(0, 3) + (date ? "<small>" + escapeHtml(formatTimesheetPdfDate(date).replace(", " + date.getFullYear(), "")) + "</small>" : "");
+    });
+    const grouped = new Map();
 
-            return `
-                <tr>
-                    <td>${escapeHtml(getTimesheetEntryValue(entry, "jobName", "job_name", ""))}</td>
-                    <td>${escapeHtml(getTimesheetEntryValue(entry, "jobNumber", "job_number", ""))}</td>
-                    <td>${escapeHtml(getAdminTimesheetEntryLabel(entry))}</td>
-                    <td>${escapeHtml(getAdminTimesheetLeaveNote(entry))}</td>
-                    <td>${getTimesheetEntryValue(entry, "tookLunch", "took_lunch", false) ? "Yes" : "No"}</td>
-                    <td>${getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Yes" : "No"}</td>
-                    <td>${getAdminTimesheetEntryType(entry) === "work" || getAdminTimesheetLeaveType(entry) === "half_day" ? escapeHtml(timeIn) + "-" + escapeHtml(timeOut) : ""}</td>
-                    <td>${Number(getTimesheetEntryValue(entry, "hours", "hours", 0)).toFixed(2)}</td>
-                </tr>
-            `;
-        }).join("");
+    entries.forEach((entry) => {
+        const jobName = String(getTimesheetEntryValue(entry, "jobName", "job_name", "Unassigned")).trim() || "Unassigned";
+        const jobNumber = String(getTimesheetEntryValue(entry, "jobNumber", "job_number", "")).trim();
+        const typeLabel = getAdminTimesheetEntryLabel(entry);
+        const groupKey = [jobNumber.toLowerCase(), jobName.toLowerCase(), typeLabel.toLowerCase()].join("|");
 
-        return `
-            <h2>${escapeHtml(group.heading)}</h2>
-            <table>
-                <thead>
-                    <tr><th>Job Name</th><th>Job #</th><th>Type</th><th>Note</th><th>Lunch</th><th>Night Work</th><th>Time</th><th>Hours</th></tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        `;
-    }).join("");
+        if (!grouped.has(groupKey)) {
+            grouped.set(groupKey, {
+                jobName,
+                jobNumber,
+                typeLabel,
+                notes: new Set(),
+                shifts: {
+                    Day: Array(7).fill(0),
+                    Night: Array(7).fill(0)
+                }
+            });
+        }
+
+        const group = grouped.get(groupKey);
+        const dayIndex = dayOrder.indexOf(getTimesheetEntryValue(entry, "day", "day_of_week", ""));
+        const shift = getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Night" : "Day";
+        const entryNote = String(getAdminTimesheetLeaveNote(entry) || "").trim();
+
+        if (dayIndex >= 0) {
+            group.shifts[shift][dayIndex] += Number(getTimesheetEntryValue(entry, "hours", "hours", 0));
+        }
+        if (entryNote) {
+            group.notes.add(entryNote);
+        }
+    });
+
+    let dayHours = 0;
+    let nightHours = 0;
+    const rows = [];
+
+    Array.from(grouped.values())
+        .sort((a, b) => (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName))
+        .forEach((group) => {
+            ["Day", "Night"].forEach((shift) => {
+                const hours = group.shifts[shift];
+                const rowTotal = hours.reduce((sum, value) => sum + value, 0);
+
+                if (rowTotal <= 0) {
+                    return;
+                }
+
+                if (shift === "Night") {
+                    nightHours += rowTotal;
+                } else {
+                    dayHours += rowTotal;
+                }
+
+                rows.push(`
+                    <tr class="${shift === "Night" ? "night-row" : ""}">
+                        <td class="job-cell"><strong>${escapeHtml(group.jobName)}</strong>${group.typeLabel ? "<small>" + escapeHtml(group.typeLabel) + "</small>" : ""}</td>
+                        <td>${escapeHtml(group.jobNumber)}</td>
+                        <td class="shift-cell">${shift}</td>
+                        ${hours.map((value) => "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>").join("")}
+                        <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
+                        <td class="notes-cell">${escapeHtml(Array.from(group.notes).join("; "))}</td>
+                    </tr>
+                `);
+            });
+        });
 
     return `
         <!doctype html>
@@ -2144,25 +2188,63 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
         <head>
             <meta charset="UTF-8">
             <style>
-                body { font-family: Arial, sans-serif; color: #1f2a24; }
-                h1 { color: #2f6f3c; margin-bottom: 4px; }
-                h2 { margin-top: 22px; margin-bottom: 8px; color: #2f6f3c; }
-                .meta { margin-bottom: 14px; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-                th, td { border: 1px solid #999; padding: 6px; font-size: 11px; text-align: left; }
-                th { background: #e6ece6; }
-                .total { margin-top: 18px; font-size: 14px; font-weight: bold; }
-                .note { margin-top: 12px; padding: 8px; border: 1px solid #999; }
+                @page { size: Letter landscape; margin: 0.35in; }
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: Arial, sans-serif; color: #17231d; }
+                .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #178b45; padding-bottom: 8px; margin-bottom: 12px; }
+                h1 { color: #176f3a; font-size: 22px; margin: 0 0 3px; }
+                .subtitle { color: #526158; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+                .meta { text-align: right; font-size: 11px; line-height: 1.5; }
+                table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                th, td { border: 1px solid #849087; padding: 5px 4px; font-size: 9px; vertical-align: middle; }
+                th { background: #123d24; color: #fff; text-align: center; }
+                th small, td small { display: block; font-size: 7px; font-weight: normal; margin-top: 2px; }
+                .job-cell { width: 18%; }
+                .job-cell small { color: #526158; }
+                .shift-cell { width: 6%; text-align: center; font-weight: bold; }
+                .hours-cell { width: 5.5%; text-align: center; }
+                .total-cell { background: #e3f2e8; font-weight: bold; }
+                .notes-cell { width: 15%; }
+                .night-row td { background: #eaf2fb; border-color: #718ca8; }
+                .night-row .total-cell { background: #d6e6f7; }
+                .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+                .summary-box { min-width: 105px; border: 1px solid #789080; padding: 6px 9px; font-size: 10px; }
+                .summary-box strong { display: block; color: #176f3a; font-size: 14px; margin-top: 2px; }
+                .summary-box.night strong { color: #315f91; }
+                .summary-box.week { background: #123d24; color: #fff; }
+                .summary-box.week strong { color: #fff; }
+                .note { margin-top: 10px; padding: 7px; border: 1px solid #849087; font-size: 9px; }
             </style>
         </head>
         <body>
-            <h1>John Gordon Construction Timesheet</h1>
-            <div class="meta">
-                <div><b>Worker:</b> ${escapeHtml(week.worker_name || "")}</div>
-                <div><b>Week:</b> ${escapeHtml(week.week_label || "")}</div>
+            <div class="header">
+                <div>
+                    <h1>John Gordon Construction</h1>
+                    <div class="subtitle">Weekly Employee Timesheet</div>
+                </div>
+                <div class="meta">
+                    <div><b>Employee:</b> ${escapeHtml(week.worker_name || "")}</div>
+                    <div><b>Week:</b> ${escapeHtml(week.week_label || "")}</div>
+                </div>
             </div>
-            ${groupHtml}
-            <div class="total">Total Hours: ${totalHours.toFixed(2)}</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="job-cell">Job Name</th>
+                        <th>Job #</th>
+                        <th class="shift-cell">Shift</th>
+                        ${dayLabels.map((label) => "<th class=\"hours-cell\">" + label + "</th>").join("")}
+                        <th class="hours-cell">Total</th>
+                        <th class="notes-cell">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>${rows.join("")}</tbody>
+            </table>
+            <div class="summary">
+                <div class="summary-box">Day Hours<strong>${dayHours.toFixed(2)}</strong></div>
+                <div class="summary-box night">Night Hours<strong>${nightHours.toFixed(2)}</strong></div>
+                <div class="summary-box week">Weekly Total<strong>${totalHours.toFixed(2)}</strong></div>
+            </div>
             ${week.note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(week.note) + '</div>' : ''}
         </body>
         </html>
