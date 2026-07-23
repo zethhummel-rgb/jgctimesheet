@@ -4646,7 +4646,16 @@ async function emailEntries() {
     return;
   }
 
-  const note = "";
+  const noteResponse = prompt(
+    "Add a note for this weekly timesheet before submitting.\n\nLeave it blank if there is nothing to add.",
+    ""
+  );
+
+  if (noteResponse === null) {
+    return;
+  }
+
+  const note = noteResponse.trim();
   const confirmed = confirm("This submission is final. Submit this timesheet now?");
 
   if (!confirmed) {
@@ -4748,12 +4757,17 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
   let dayHours = 0;
   let nightHours = 0;
   const rows = [];
+  const entryNotes = new Set();
 
   Array.from(grouped.values())
     .sort(function(a, b) {
       return (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName);
     })
     .forEach(function(group) {
+      group.notes.forEach(function(entryNote) {
+        entryNotes.add(entryNote);
+      });
+
       ["Day", "Night"].forEach(function(shift) {
         const hours = group.shifts[shift];
         const rowTotal = hours.reduce(function(sum, value) { return sum + value; }, 0);
@@ -4775,11 +4789,20 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
             <td class="shift-cell">${shift}</td>
             ${hours.map(function(value) { return "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>"; }).join("")}
             <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
-            <td class="notes-cell">${escapeHtml(Array.from(group.notes).join("; "))}</td>
           </tr>
         `);
       });
     });
+  const noteLines = [];
+
+  if (note) {
+    noteLines.push(note);
+  }
+  entryNotes.forEach(function(entryNote) {
+    if (!noteLines.some(function(existingNote) { return existingNote.toLowerCase() === entryNote.toLowerCase(); })) {
+      noteLines.push(entryNote);
+    }
+  });
 
   return `
     <!doctype html>
@@ -4803,7 +4826,6 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         .shift-cell { width: 6%; text-align: center; font-weight: bold; }
         .hours-cell { width: 5.5%; text-align: center; }
         .total-cell { background: #e3f2e8; font-weight: bold; }
-        .notes-cell { width: 15%; }
         .night-row td { background: #eaf2fb; border-color: #718ca8; }
         .night-row .total-cell { background: #d6e6f7; }
         .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
@@ -4812,7 +4834,9 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         .summary-box.night strong { color: #315f91; }
         .summary-box.week { background: #123d24; color: #fff; }
         .summary-box.week strong { color: #fff; }
-        .note { margin-top: 10px; padding: 7px; border: 1px solid #849087; font-size: 9px; }
+        .note { margin-top: 10px; padding: 8px 10px; border: 1px solid #849087; min-height: 48px; font-size: 9px; }
+        .note-title { color: #176f3a; font-size: 10px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        .note-empty { color: #6b756f; }
       </style>
     </head>
     <body>
@@ -4834,7 +4858,6 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
             <th class="shift-cell">Shift</th>
             ${dayLabels.map(function(label) { return "<th class=\"hours-cell\">" + label + "</th>"; }).join("")}
             <th class="hours-cell">Total</th>
-            <th class="notes-cell">Notes</th>
           </tr>
         </thead>
         <tbody>${rows.join("")}</tbody>
@@ -4844,7 +4867,10 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         <div class="summary-box night">Night Hours<strong>${nightHours.toFixed(2)}</strong></div>
         <div class="summary-box week">Weekly Total<strong>${totalHours.toFixed(2)}</strong></div>
       </div>
-      ${note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(note) + '</div>' : ''}
+      <div class="note">
+        <div class="note-title">Notes</div>
+        ${noteLines.length ? noteLines.map(function(noteLine) { return "<div>" + escapeHtml(noteLine) + "</div>"; }).join("") : '<div class="note-empty">No notes provided.</div>'}
+      </div>
     </body>
     </html>
   `;

@@ -2151,10 +2151,15 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
     let dayHours = 0;
     let nightHours = 0;
     const rows = [];
+    const entryNotes = new Set();
 
     Array.from(grouped.values())
         .sort((a, b) => (a.jobNumber + " " + a.jobName).localeCompare(b.jobNumber + " " + b.jobName))
         .forEach((group) => {
+            group.notes.forEach((entryNote) => {
+                entryNotes.add(entryNote);
+            });
+
             ["Day", "Night"].forEach((shift) => {
                 const hours = group.shifts[shift];
                 const rowTotal = hours.reduce((sum, value) => sum + value, 0);
@@ -2176,11 +2181,20 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                         <td class="shift-cell">${shift}</td>
                         ${hours.map((value) => "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>").join("")}
                         <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
-                        <td class="notes-cell">${escapeHtml(Array.from(group.notes).join("; "))}</td>
                     </tr>
                 `);
             });
         });
+    const noteLines = [];
+
+    if (week.note) {
+        noteLines.push(String(week.note).trim());
+    }
+    entryNotes.forEach((entryNote) => {
+        if (!noteLines.some((existingNote) => existingNote.toLowerCase() === entryNote.toLowerCase())) {
+            noteLines.push(entryNote);
+        }
+    });
 
     return `
         <!doctype html>
@@ -2204,7 +2218,6 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                 .shift-cell { width: 6%; text-align: center; font-weight: bold; }
                 .hours-cell { width: 5.5%; text-align: center; }
                 .total-cell { background: #e3f2e8; font-weight: bold; }
-                .notes-cell { width: 15%; }
                 .night-row td { background: #eaf2fb; border-color: #718ca8; }
                 .night-row .total-cell { background: #d6e6f7; }
                 .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
@@ -2213,7 +2226,9 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                 .summary-box.night strong { color: #315f91; }
                 .summary-box.week { background: #123d24; color: #fff; }
                 .summary-box.week strong { color: #fff; }
-                .note { margin-top: 10px; padding: 7px; border: 1px solid #849087; font-size: 9px; }
+                .note { margin-top: 10px; padding: 8px 10px; border: 1px solid #849087; min-height: 48px; font-size: 9px; }
+                .note-title { color: #176f3a; font-size: 10px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+                .note-empty { color: #6b756f; }
             </style>
         </head>
         <body>
@@ -2235,7 +2250,6 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                         <th class="shift-cell">Shift</th>
                         ${dayLabels.map((label) => "<th class=\"hours-cell\">" + label + "</th>").join("")}
                         <th class="hours-cell">Total</th>
-                        <th class="notes-cell">Notes</th>
                     </tr>
                 </thead>
                 <tbody>${rows.join("")}</tbody>
@@ -2245,7 +2259,10 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                 <div class="summary-box night">Night Hours<strong>${nightHours.toFixed(2)}</strong></div>
                 <div class="summary-box week">Weekly Total<strong>${totalHours.toFixed(2)}</strong></div>
             </div>
-            ${week.note ? '<div class="note"><b>Note:</b><br>' + escapeHtml(week.note) + '</div>' : ''}
+            <div class="note">
+                <div class="note-title">Notes</div>
+                ${noteLines.length ? noteLines.map((noteLine) => "<div>" + escapeHtml(noteLine) + "</div>").join("") : '<div class="note-empty">No notes provided.</div>'}
+            </div>
         </body>
         </html>
     `;
