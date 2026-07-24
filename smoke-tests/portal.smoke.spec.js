@@ -1606,6 +1606,124 @@ test("job notes desktop editor remains a full-page writing workspace", async ({ 
   await expectNoRuntimeErrors(errors, "job notes desktop editor");
 });
 
+test("job note checkpoints autosave once and Save & Close returns to the notes list", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const job = {
+    id: "00000000-0000-4000-8000-000000000351",
+    job_number: "26040",
+    job_name: "Williamstown Fairboard Entrance Sign",
+    active: true
+  };
+  const listId = "00000000-0000-4000-8000-000000000352";
+  const savedLists = [];
+  const savedMembers = [];
+  const savedItems = [];
+  let listCreateCount = 0;
+  let listUpdateCount = 0;
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([job])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_lists**`, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      listCreateCount += 1;
+      const payload = request.postDataJSON();
+      const saved = Object.assign({}, payload, {
+        id: listId,
+        status: "open",
+        created_by_name: fakeProfile.display_name,
+        last_edited_by_name: fakeProfile.display_name,
+        reminder_at: null,
+        updated_at: "2026-07-23T12:00:00.000Z",
+        deleted_at: null
+      });
+      savedLists.splice(0, savedLists.length, saved);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(saved) });
+      return;
+    }
+    if (request.method() === "PATCH") {
+      listUpdateCount += 1;
+      Object.assign(savedLists[0], request.postDataJSON(), {
+        updated_at: "2026-07-23T12:05:00.000Z"
+      });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedLists[0]) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedLists) });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_members**`, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const payload = request.postDataJSON();
+      const rows = (Array.isArray(payload) ? payload : [payload]).map((member, index) => Object.assign({}, member, {
+        id: `00000000-0000-4000-8000-00000000036${index}`,
+        display_name: member.profile_id === fakeUser.id ? fakeProfile.display_name : "Steven Leduc"
+      }));
+      savedMembers.splice(0, savedMembers.length, ...rows);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rows) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedMembers) });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_items**`, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const payload = request.postDataJSON();
+      const rows = (Array.isArray(payload) ? payload : [payload]).map((item, index) => Object.assign({}, item, {
+        id: `00000000-0000-4000-8000-00000000037${index}`,
+        completed: false,
+        created_at: "2026-07-23T12:01:00.000Z"
+      }));
+      savedItems.splice(0, savedItems.length, ...rows);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(rows) });
+      return;
+    }
+    if (request.method() === "PATCH") {
+      Object.assign(savedItems[0], request.postDataJSON());
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([savedItems[0]]) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(savedItems) });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_reminders**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: "[]"
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_activity**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: "[]"
+  }));
+
+  await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
+  await page.locator("#jobListsNewButton").click();
+  await page.locator("#jobListTitle").fill("Jobsite materials");
+  await page.locator("#jobListJob").selectOption(job.id);
+  await expect(page.locator("#jobListAutosaveStatus")).toHaveText("Saved");
+  expect(listCreateCount).toBe(1);
+
+  await page.locator('[data-job-list-item-input="0"]').fill("Plywood");
+  await page.locator("#jobListAddItem").click();
+  await expect(page.locator("#jobListAutosaveStatus")).toHaveText("Saved");
+  expect(listCreateCount).toBe(1);
+  expect(savedItems).toHaveLength(1);
+
+  await page.locator("#jobListSave").click();
+  await expect(page.locator("#jobListsModal")).toBeHidden();
+  await expect(page.locator("#jobListsNotice")).toContainText("Job note updated.");
+  await expect(page.locator("[data-job-list-job-group]")).toContainText(job.job_name);
+  await expect(page.locator("[data-job-list-job-group]")).toContainText("Jobsite materials");
+  expect(listCreateCount).toBe(1);
+  expect(listUpdateCount).toBeGreaterThan(0);
+  await expectNoRuntimeErrors(errors, "job note checkpoint autosave");
+});
+
 test("job notes are organized into collapsed job sections", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const jobs = [

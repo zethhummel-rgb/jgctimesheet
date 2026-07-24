@@ -19,6 +19,9 @@
     reminderExpiryTimer: null,
     editingItemIds: [],
     editingReminders: [],
+    autosavePromise: null,
+    autosaveQueued: false,
+    autosaveRevision: 0,
     viewerOnly: false,
     editorEditable: false,
     editorCanToggle: false,
@@ -83,6 +86,56 @@
       localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
       console.warn("Job Notes cache could not be saved.", error);
+    }
+  }
+
+  function setAutosaveStatus(message, status) {
+    if (!elements.autosaveStatus) {
+      return;
+    }
+    elements.autosaveStatus.textContent = message || "Changes save at each step";
+    elements.autosaveStatus.classList.toggle("is-saving", status === "saving");
+    elements.autosaveStatus.classList.toggle("is-saved", status === "saved");
+    elements.autosaveStatus.classList.toggle("is-error", status === "error");
+  }
+
+  function editorDraftKey(listId) {
+    return cacheKey("editorDraft:" + (listId || "new"));
+  }
+
+  function captureEditorDraft() {
+    return {
+      title: String(elements.title.value || "").trim(),
+      jobId: elements.job.value || "",
+      memberIds: Array.from(elements.memberGrid.querySelectorAll('input[type="checkbox"]:checked')).map(function (input) {
+        return input.value;
+      }),
+      items: readItemEditor(),
+      reminders: state.editingReminders.map(function (reminder) {
+        return Object.assign({}, reminder);
+      }),
+      savedAt: new Date().toISOString()
+    };
+  }
+
+  function storeEditorDraft(snapshot, listId) {
+    saveJson(editorDraftKey(listId == null ? elements.listId.value : listId), snapshot || captureEditorDraft());
+  }
+
+  function clearEditorDraft(listId) {
+    try {
+      localStorage.removeItem(editorDraftKey(listId));
+    } catch (error) {
+      console.warn("Job Note editor draft could not be cleared.", error);
+    }
+  }
+
+  function upsertStateRow(rows, row) {
+    const index = rows.findIndex(function (entry) { return entry.id === row.id; });
+    if (index >= 0) {
+      rows[index] = row;
+    } else {
+      rows.push(row);
     }
   }
 
@@ -499,7 +552,7 @@
     }, delay);
   }
 
-  function addReminderFromInput() {
+  function addReminderFromInput(saveAfter) {
     const reminderAt = fromLocalInput(elements.reminder.value);
     if (!reminderAt) {
       return false;
@@ -526,6 +579,9 @@
     showNotice("");
     renderReminderEditor(false);
     scheduleReminderExpiryRefresh();
+    if (saveAfter !== false) {
+      queueCheckpointSave();
+    }
     return true;
   }
 
@@ -533,6 +589,7 @@
     state.editingReminders.splice(index, 1);
     renderReminderEditor(false);
     scheduleReminderExpiryRefresh();
+    queueCheckpointSave();
   }
 
   function openModal(listId) {
@@ -544,24 +601,34 @@
     state.editorCanToggle = Boolean((list && list.status === "open") || (!list && editable));
     elements.form.reset();
     elements.listId.value = list ? list.id : "";
-    elements.title.value = list ? list.title : "";
-    elements.job.value = list ? list.job_id || "" : "";
+    const savedDraft = readJson(editorDraftKey(list ? list.id : ""), null);
+    elements.title.value = savedDraft && editable ? savedDraft.title || "" : list ? list.title : "";
+    elements.job.value = savedDraft && editable ? savedDraft.jobId || "" : list ? list.job_id || "" : "";
     elements.reminder.value = "";
-    state.editingReminders = list
+    state.editingReminders = savedDraft && editable && Array.isArray(savedDraft.reminders)
+      ? savedDraft.reminders.map(function (reminder) { return Object.assign({}, reminder); })
+      : list
       ? remindersFor(list.id).map(function (reminder) { return Object.assign({}, reminder); })
       : [];
-    elements.modalTitle.textContent = list ? list.title : "New Job Note";
+    elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
     elements.accessLine.textContent = controller
       ? (list && list.status === "completed"
         ? "Reopen this completed note before changing it."
         : "Tagged employees can edit this note and its reminder.")
       : "You can view and check items. Tagged employees manage the note.";
 
-    const selectedIds = list
+    const selectedIds = savedDraft && editable && Array.isArray(savedDraft.memberIds)
+      ? savedDraft.memberIds
+      : list
       ? membersFor(list.id).map(function (member) { return member.profile_id; })
       : state.user ? [state.user.id] : [];
     renderMemberSelector(selectedIds, !editable);
-    renderItemEditor(list ? itemsFor(list.id) : [{ item_text: "" }], !editable);
+    renderItemEditor(
+      savedDraft && editable && Array.isArray(savedDraft.items) && savedDraft.items.length
+        ? savedDraft.items
+        : list ? itemsFor(list.id) : [{ item_text: "" }],
+      !editable
+    );
     renderReminderEditor(!editable);
     elements.options.open = false;
 
@@ -579,6 +646,10 @@
 
     elements.modal.hidden = false;
     document.body.style.overflow = "hidden";
+    setAutosaveStatus(
+      savedDraft && editable ? "Saved device draft restored" : "Changes save at each step",
+      savedDraft && editable ? "saved" : ""
+    );
     scheduleReminderExpiryRefresh();
     refreshIcons();
     window.setTimeout(function () {
@@ -594,6 +665,7 @@
     document.body.style.overflow = "";
     state.editorEditable = false;
     state.editorCanToggle = false;
+    setAutosaveStatus("Changes save at each step", "");
   }
 
   async function addActivity(listId, action, details) {
@@ -612,10 +684,8 @@
     }
   }
 
-  async function syncMembers(list) {
-    const checked = new Set(Array.from(elements.memberGrid.querySelectorAll("input:checked")).map(function (input) {
-      return input.value;
-    }));
+  async function syncMembers(list, selectedIds) {
+    const checked = new Set(selectedIds || []);
     checked.add(list.created_by);
     const existing = membersFor(list.id);
     const existingIds = new Set(existing.map(function (member) { return member.profile_id; }));
@@ -627,10 +697,13 @@
     if (toAdd.length) {
       const addResult = await state.client.from("job_list_members").insert(toAdd.map(function (profileId) {
         return { list_id: list.id, profile_id: profileId, added_by: state.user.id };
-      }));
+      })).select("*");
       if (addResult.error) {
         throw addResult.error;
       }
+      (addResult.data || []).forEach(function (member) {
+        upsertStateRow(state.members, member);
+      });
     }
     if (toRemove.length) {
       const removeResult = await state.client.from("job_list_members")
@@ -639,12 +712,14 @@
       if (removeResult.error) {
         throw removeResult.error;
       }
+      const removedIds = new Set(toRemove.map(function (member) { return member.id; }));
+      state.members = state.members.filter(function (member) { return !removedIds.has(member.id); });
     }
   }
 
-  async function syncItems(list) {
-    const edited = readItemEditor().filter(function (item) { return item.item_text; });
-    if (!edited.length) {
+  async function syncItems(list, editorItems, requireItem) {
+    const edited = (editorItems || []).filter(function (item) { return item.item_text; });
+    if (requireItem && !edited.length) {
       throw new Error("Add at least one item.");
     }
     const existing = itemsFor(list.id);
@@ -660,6 +735,11 @@
           .eq("id", item.id);
         if (result.error) {
           throw result.error;
+        }
+        const savedItem = state.items.find(function (entry) { return entry.id === item.id; });
+        if (savedItem) {
+          savedItem.item_text = item.item_text;
+          savedItem.position = item.position;
         }
       }
     }
@@ -687,6 +767,19 @@
           if (toggleResult.error) {
             throw toggleResult.error;
           }
+          const toggled = Array.isArray(toggleResult.data) ? toggleResult.data[0] : toggleResult.data;
+          if (toggled) {
+            Object.assign(inserted, toggled);
+          } else {
+            inserted.completed = true;
+          }
+        }
+        upsertStateRow(state.items, inserted);
+        const currentInput = elements.itemEditor.querySelector(
+          '[data-job-list-item-input="' + Number(inserted.position) + '"]'
+        );
+        if (desired && currentInput && String(currentInput.value || "").trim() === desired.item_text) {
+          state.editingItemIds[Number(inserted.position)] = inserted.id;
         }
       }
     }
@@ -697,24 +790,27 @@
       if (result.error) {
         throw result.error;
       }
+      const deletedIds = new Set(toDelete.map(function (item) { return item.id; }));
+      state.items = state.items.filter(function (item) { return !deletedIds.has(item.id); });
     }
   }
 
-  async function syncReminders(list) {
+  async function syncReminders(list, editorReminders) {
     const now = Date.now();
+    const desiredReminders = editorReminders || [];
     const existing = state.reminders.filter(function (reminder) {
       const reminderTime = new Date(reminder.reminder_at).getTime();
       return reminder.list_id === list.id
         && !Number.isNaN(reminderTime)
         && reminderTime > now;
     });
-    const keptIds = new Set(state.editingReminders.map(function (reminder) {
+    const keptIds = new Set(desiredReminders.map(function (reminder) {
       return reminder.id && !String(reminder.id).startsWith("legacy:") ? reminder.id : "";
     }).filter(Boolean));
     const toDelete = existing.filter(function (reminder) {
       return !keptIds.has(reminder.id);
     });
-    const toInsert = state.editingReminders.filter(function (reminder) {
+    const toInsert = desiredReminders.filter(function (reminder) {
       return !reminder.id || String(reminder.id).startsWith("legacy:");
     });
 
@@ -725,6 +821,8 @@
       if (deleteResult.error) {
         throw deleteResult.error;
       }
+      const deletedIds = new Set(toDelete.map(function (reminder) { return reminder.id; }));
+      state.reminders = state.reminders.filter(function (reminder) { return !deletedIds.has(reminder.id); });
     }
     if (toInsert.length) {
       const insertResult = await state.client.from("job_list_reminders").insert(toInsert.map(function (reminder) {
@@ -733,46 +831,75 @@
           reminder_at: reminder.reminder_at,
           created_by: state.user.id
         };
-      }));
+      })).select("*");
       if (insertResult.error) {
         throw insertResult.error;
       }
+      (insertResult.data || []).forEach(function (reminder) {
+        upsertStateRow(state.reminders, reminder);
+        const current = state.editingReminders.find(function (entry) {
+          return new Date(entry.reminder_at).getTime() === new Date(reminder.reminder_at).getTime();
+        });
+        if (current) {
+          Object.assign(current, reminder);
+        }
+      });
     }
   }
 
-  async function saveList(event) {
-    event.preventDefault();
-    if (!state.online) {
-      showNotice("Connect to the internet to create or edit a note. Item checkmarks still work offline.", "error");
-      return;
-    }
-    const listId = elements.listId.value;
-    const existing = listId ? state.lists.find(function (list) { return list.id === listId; }) : null;
+  async function persistEditor(options) {
+    const settings = options || {};
+    const snapshot = settings.snapshot || captureEditorDraft();
+    const revision = settings.revision == null ? state.autosaveRevision : settings.revision;
+    const manual = Boolean(settings.manual);
+    const closeAfter = Boolean(settings.closeAfter);
+    const originalListId = elements.listId.value;
+    const existing = originalListId
+      ? state.lists.find(function (list) { return list.id === originalListId; })
+      : null;
+    const job = state.jobs.find(function (entry) { return entry.id === snapshot.jobId; });
+
+    storeEditorDraft(snapshot, originalListId);
+
     if (existing && !canControl(existing)) {
-      showNotice("Only tagged employees and admins can edit this note.", "error");
-      return;
+      const message = "Only tagged employees and admins can edit this note.";
+      setAutosaveStatus(message, "error");
+      if (manual) {
+        showNotice(message, "error");
+      }
+      return false;
     }
-    const title = String(elements.title.value || "").trim();
-    const job = state.jobs.find(function (entry) { return entry.id === elements.job.value; });
-    if (!title || !job) {
-      showNotice("Enter a note name and select a job.", "error");
-      return;
+    if (!snapshot.title || !job) {
+      const message = "Add a note name and choose a job to sync";
+      setAutosaveStatus(message, "");
+      if (manual) {
+        showNotice("Enter a note name and select a job.", "error");
+      }
+      return false;
     }
-    if (elements.reminder.value && !addReminderFromInput()) {
-      return;
-    }
-    if (!readItemEditor().some(function (item) { return item.item_text; })) {
+    if (manual && !snapshot.items.some(function (item) { return item.item_text; })) {
+      setAutosaveStatus("Add at least one checklist line", "error");
       showNotice("Add at least one item.", "error");
-      return;
+      return false;
+    }
+    if (!state.online) {
+      setAutosaveStatus("Saved on this device - waiting for internet", "saved");
+      if (manual) {
+        showNotice("This draft is saved on this device. Connect to the internet before closing it.", "error");
+      }
+      return false;
     }
 
-    elements.save.disabled = true;
-    showNotice("");
+    setAutosaveStatus("Saving...", "saving");
+    if (manual) {
+      showNotice("");
+    }
+
     try {
       let list = existing;
       if (existing) {
         const result = await state.client.from("job_lists")
-          .update({ title: title })
+          .update({ title: snapshot.title })
           .eq("id", existing.id)
           .select("*")
           .single();
@@ -785,31 +912,116 @@
           job_id: job.id,
           job_number: job.job_number,
           job_name: job.job_name,
-          title: title,
+          title: snapshot.title,
           created_by: state.user.id
         }).select("*").single();
         if (result.error) {
           throw result.error;
         }
         list = result.data;
+        elements.listId.value = list.id;
+        clearEditorDraft("");
+        storeEditorDraft(snapshot, list.id);
       }
 
-      await syncMembers(list);
-      await syncItems(list);
-      await syncReminders(list);
-      await addActivity(list.id, existing ? "list_updated" : "list_created", {
-        title: title,
-        job_number: job.job_number,
-        reminders: state.editingReminders.map(function (reminder) { return reminder.reminder_at; })
-      });
-      closeModal();
-      await refreshData();
-      showNotice(existing ? "Job note updated." : "Job note created.");
+      upsertStateRow(state.lists, list);
+      await syncMembers(list, snapshot.memberIds);
+      await syncItems(list, snapshot.items, manual);
+      await syncReminders(list, snapshot.reminders);
+
+      if (!existing || manual) {
+        await addActivity(list.id, existing ? "list_updated" : "list_created", {
+          title: snapshot.title,
+          job_number: job.job_number,
+          reminders: snapshot.reminders.map(function (reminder) { return reminder.reminder_at; })
+        });
+      }
+
+      if (revision === state.autosaveRevision) {
+        clearEditorDraft(list.id);
+      }
+      saveCache();
+      renderCards();
+      scheduleReminderExpiryRefresh();
+      setAutosaveStatus("Saved", "saved");
+
+      if (closeAfter) {
+        closeModal();
+        showNotice(existing ? "Job note updated." : "Job note created.");
+      }
+      return true;
     } catch (error) {
-      showNotice(error && error.message || "The job note could not be saved.", "error");
+      storeEditorDraft(snapshot, elements.listId.value || originalListId);
+      const message = error && error.message || "The job note could not be saved.";
+      setAutosaveStatus("Not synced - use Save & Close to retry", "error");
+      if (manual) {
+        showNotice(message, "error");
+      } else {
+        console.warn("Job Note checkpoint save failed.", error);
+      }
+      return false;
+    }
+  }
+
+  function queueCheckpointSave() {
+    if (!state.editorEditable || elements.modal.hidden) {
+      return Promise.resolve(false);
+    }
+    state.autosaveRevision += 1;
+    storeEditorDraft(captureEditorDraft(), elements.listId.value);
+
+    if (state.autosavePromise) {
+      state.autosaveQueued = true;
+      setAutosaveStatus("Saving...", "saving");
+      return state.autosavePromise;
+    }
+
+    state.autosavePromise = (async function () {
+      let saved = false;
+      do {
+        state.autosaveQueued = false;
+        const revision = state.autosaveRevision;
+        const snapshot = captureEditorDraft();
+        saved = await persistEditor({ snapshot: snapshot, revision: revision });
+      } while (state.autosaveQueued && state.editorEditable && !elements.modal.hidden);
+      return saved;
+    })().finally(function () {
+      state.autosavePromise = null;
+    });
+
+    return state.autosavePromise;
+  }
+
+  async function saveList(event) {
+    event.preventDefault();
+    if (elements.reminder.value && !addReminderFromInput(false)) {
+      return;
+    }
+    if (state.autosavePromise) {
+      await state.autosavePromise;
+    }
+
+    state.autosaveRevision += 1;
+    elements.save.disabled = true;
+    const snapshot = captureEditorDraft();
+    storeEditorDraft(snapshot, elements.listId.value);
+    try {
+      await persistEditor({
+        snapshot: snapshot,
+        revision: state.autosaveRevision,
+        manual: true,
+        closeAfter: true
+      });
     } finally {
       elements.save.disabled = false;
     }
+  }
+
+  async function closeEditor() {
+    if (state.editorEditable) {
+      await queueCheckpointSave();
+    }
+    closeModal();
   }
 
   async function setListStatus() {
@@ -1010,6 +1222,7 @@
     const items = readItemEditor();
     items.push({ item_text: "", completed: false });
     renderItemEditor(items, false);
+    queueCheckpointSave();
     const inputs = elements.itemEditor.querySelectorAll("[data-job-list-item-input]");
     if (inputs.length) {
       inputs[inputs.length - 1].focus();
@@ -1024,12 +1237,14 @@
       items.splice(index, 1);
     }
     renderItemEditor(items, false);
+    queueCheckpointSave();
   }
 
   function insertBlankItemAfter(index) {
     const items = readItemEditor();
     items.splice(index + 1, 0, { item_text: "", completed: false });
     renderItemEditor(items, false);
+    queueCheckpointSave();
     const next = elements.itemEditor.querySelector('[data-job-list-item-input="' + (index + 1) + '"]');
     if (next) {
       next.focus();
@@ -1050,6 +1265,7 @@
       item.completed = !item.completed;
     }
     renderItemEditor(items, !state.editorEditable);
+    queueCheckpointSave();
     const input = elements.itemEditor.querySelector('[data-job-list-item-input="' + index + '"]');
     if (input && state.editorEditable) {
       input.focus();
@@ -1074,6 +1290,7 @@
       const items = readItemEditor();
       items.splice(index, 1);
       renderItemEditor(items, false);
+      queueCheckpointSave();
       const previous = elements.itemEditor.querySelector('[data-job-list-item-input="' + focusIndex + '"]');
       if (previous) {
         previous.focus();
@@ -1085,10 +1302,10 @@
   function bindEvents() {
     elements.newButton.addEventListener("click", function () { openModal(""); });
     elements.syncButton.addEventListener("click", refreshData);
-    elements.closeButton.addEventListener("click", closeModal);
+    elements.closeButton.addEventListener("click", closeEditor);
     elements.modal.addEventListener("click", function (event) {
       if (event.target === elements.modal) {
-        closeModal();
+        closeEditor();
       }
     });
     elements.form.addEventListener("submit", saveList);
@@ -1139,9 +1356,24 @@
         autoSizeItemInput(event.target);
       }
     });
-    elements.memberGrid.addEventListener("change", renderOptionsSummary);
+    elements.itemEditor.addEventListener("focusout", function (event) {
+      if (event.target.matches("[data-job-list-item-input]")) {
+        queueCheckpointSave();
+      }
+    });
+    elements.memberGrid.addEventListener("change", function () {
+      renderOptionsSummary();
+      queueCheckpointSave();
+    });
     elements.title.addEventListener("input", function () {
       elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
+    });
+    elements.title.addEventListener("blur", queueCheckpointSave);
+    elements.job.addEventListener("change", queueCheckpointSave);
+    elements.options.addEventListener("toggle", function () {
+      if (elements.options.open) {
+        queueCheckpointSave();
+      }
     });
     elements.reminderChips.addEventListener("click", function (event) {
       const button = event.target.closest("[data-job-list-remove-reminder]");
@@ -1163,7 +1395,7 @@
     });
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && !elements.modal.hidden) {
-        closeModal();
+        closeEditor();
       }
     });
   }
@@ -1194,6 +1426,7 @@
     elements.memberGrid = byId("jobListMembers");
     elements.itemEditor = byId("jobListItemEditor");
     elements.addItem = byId("jobListAddItem");
+    elements.autosaveStatus = byId("jobListAutosaveStatus");
     elements.save = byId("jobListSave");
     elements.complete = byId("jobListComplete");
     elements.deleteButton = byId("jobListDelete");

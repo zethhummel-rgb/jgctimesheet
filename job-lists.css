@@ -685,11 +685,31 @@
   position: sticky;
   bottom: 0;
   z-index: 4;
+  align-items: center;
   justify-content: flex-end;
   margin-top: auto;
   padding: var(--jgc-space-3) 0 calc(var(--jgc-space-3) + env(safe-area-inset-bottom, 0px));
   background: rgba(7, 21, 15, 0.97);
   box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.job-list-autosave-status {
+  margin-right: auto;
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
+.job-list-autosave-status.is-saving {
+  color: var(--jgc-color-warning);
+}
+
+.job-list-autosave-status.is-saved {
+  color: var(--jgc-color-brand-400);
+}
+
+.job-list-autosave-status.is-error {
+  color: #ffaaa4;
 }
 
 .job-list-read-only {
@@ -1023,6 +1043,12 @@
 
   .job-list-note-toolbar #jobListSave {
     grid-column: 1 / -1;
+  }
+
+  .job-list-autosave-status {
+    grid-column: 1 / -1;
+    margin-right: 0;
+    text-align: center;
   }
 
 }
