@@ -60,6 +60,21 @@
     }).format(date);
   }
 
+  function formatDate(value) {
+    if (!value) {
+      return "";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return new Intl.DateTimeFormat("en-CA", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    }).format(date);
+  }
+
   function fromLocalInput(value) {
     if (!value) {
       return null;
@@ -355,18 +370,25 @@
     const preview = previewItem
       ? previewItem.item_text
       : "No checklist items yet";
-    const statusLabel = list.status === "completed" ? "Completed" : "Open";
+    const creatorName = String(list.created_by_name || list.last_edited_by_name || "Unknown").trim();
+    const createdDate = formatDate(list.created_at || list.updated_at);
+    const canDelete = canControl(list);
 
-    return '<button class="job-list-note-row ' + (list.status === "completed" ? "is-completed" : "") + '"'
-      + ' type="button" data-job-list-open="' + escapeHtml(list.id) + '"'
-      + ' aria-label="Open note: ' + escapeHtml(list.title) + '">'
+    return '<article class="job-list-note-row ' + (list.status === "completed" ? "is-completed" : "") + '">'
       + '<span class="job-list-note-copy"><strong>' + escapeHtml(list.title) + "</strong>"
-      + '<span class="job-list-note-preview">' + escapeHtml(preview) + "</span></span>"
-      + '<span class="job-list-note-row-meta">'
-      + '<span class="jgc-badge ' + (list.status === "completed" ? "" : "jgc-badge--success") + '">'
-      + escapeHtml(statusLabel) + "</span>"
-      + '<i data-lucide="chevron-right" aria-hidden="true"></i></span>'
-      + "</button>";
+      + '<span class="job-list-note-preview">' + escapeHtml(preview) + "</span>"
+      + '<span class="job-list-note-details">Created by ' + escapeHtml(creatorName)
+      + (createdDate ? " &bull; " + escapeHtml(createdDate) : "") + "</span></span>"
+      + '<span class="job-list-note-actions">'
+      + '<button class="jgc-button job-list-note-open" type="button" data-job-list-open="' + escapeHtml(list.id) + '"'
+      + ' aria-label="Open note: ' + escapeHtml(list.title) + '">Open</button>'
+      + (canDelete
+        ? '<button class="jgc-button jgc-button--danger job-list-note-delete" type="button"'
+          + ' data-job-list-delete="' + escapeHtml(list.id) + '"'
+          + ' aria-label="Delete note: ' + escapeHtml(list.title) + '" title="Delete note">'
+          + '<i data-lucide="trash-2" aria-hidden="true"></i><span>Delete</span></button>'
+        : "")
+      + "</span></article>";
   }
 
   function renderCards() {
@@ -1016,8 +1038,9 @@
     showNotice(nextStatus === "completed" ? "Job note completed." : "Job note reopened.");
   }
 
-  async function deleteList() {
-    const list = state.lists.find(function (entry) { return entry.id === elements.listId.value; });
+  async function deleteList(listId) {
+    const targetListId = listId || elements.listId.value;
+    const list = state.lists.find(function (entry) { return entry.id === targetListId; });
     if (!list || !canControl(list) || !state.online) {
       showNotice("Connect to the internet to delete this note.", "error");
       return;
@@ -1033,7 +1056,9 @@
       return;
     }
     await addActivity(list.id, "list_deleted");
-    closeModal();
+    if (elements.listId.value === list.id) {
+      closeModal();
+    }
     await refreshData();
     showNotice("Job note deleted.");
   }
@@ -1307,9 +1332,12 @@
 
     elements.cards.addEventListener("click", function (event) {
       const toggle = event.target.closest("[data-job-list-toggle]");
+      const deleteButton = event.target.closest("[data-job-list-delete]");
       const open = event.target.closest("[data-job-list-open]");
       if (toggle) {
         toggleItem(toggle.dataset.jobListToggle);
+      } else if (deleteButton) {
+        deleteList(deleteButton.dataset.jobListDelete);
       } else if (open) {
         openModal(open.dataset.jobListOpen);
       }

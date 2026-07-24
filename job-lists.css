@@ -337,7 +337,7 @@
 
 .job-list-note-row {
   width: 100%;
-  min-height: 62px;
+  min-height: 76px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -355,13 +355,12 @@
   border-bottom: 0;
 }
 
-.job-list-note-row:hover,
-.job-list-note-row:focus-visible {
+.job-list-note-row:hover {
   background: var(--jgc-color-surface-soft);
 }
 
 .job-list-note-copy,
-.job-list-note-row-meta {
+.job-list-note-actions {
   min-width: 0;
   display: flex;
   align-items: center;
@@ -391,18 +390,33 @@
   font-size: var(--jgc-font-size-sm);
 }
 
+.job-list-note-details {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .job-list-note-row.is-completed .job-list-note-copy strong {
   color: var(--jgc-color-text-muted);
 }
 
-.job-list-note-row-meta {
+.job-list-note-actions {
   gap: var(--jgc-space-2);
 }
 
-.job-list-note-row-meta svg {
-  width: 18px;
-  height: 18px;
-  color: var(--jgc-color-text-muted);
+.job-list-note-actions .jgc-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: var(--jgc-font-size-sm);
+}
+
+.job-list-note-actions .jgc-button svg {
+  width: 15px;
+  height: 15px;
 }
 
 .job-list-card {
@@ -966,7 +980,7 @@
   }
 
   .job-list-note-row {
-    min-height: 58px;
+    min-height: 74px;
     padding: 9px 10px;
   }
 
@@ -974,9 +988,14 @@
     font-size: 17px;
   }
 
-  .job-list-note-row-meta .jgc-badge {
-    padding: 3px 7px;
-    font-size: 11px;
+  .job-list-note-actions {
+    gap: 6px;
+  }
+
+  .job-list-note-actions .jgc-button {
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 12px;
   }
 
   .job-lists-filters {

@@ -1861,6 +1861,7 @@ test("job notes use compact Jobs folders and note rows", async ({ page }) => {
       created_by: fakeUser.id,
       created_by_name: fakeProfile.display_name,
       last_edited_by_name: fakeProfile.display_name,
+      created_at: "2026-07-23T12:00:00.000Z",
       reminder_at: "2026-07-24T10:45:00.000Z",
       updated_at: "2026-07-23T12:00:00.000Z",
       deleted_at: null
@@ -1875,6 +1876,7 @@ test("job notes use compact Jobs folders and note rows", async ({ page }) => {
       created_by: fakeUser.id,
       created_by_name: fakeProfile.display_name,
       last_edited_by_name: fakeProfile.display_name,
+      created_at: "2026-07-23T11:00:00.000Z",
       reminder_at: null,
       updated_at: "2026-07-23T11:00:00.000Z",
       deleted_at: null
@@ -1889,6 +1891,7 @@ test("job notes use compact Jobs folders and note rows", async ({ page }) => {
       created_by: fakeUser.id,
       created_by_name: fakeProfile.display_name,
       last_edited_by_name: fakeProfile.display_name,
+      created_at: "2026-07-23T10:00:00.000Z",
       reminder_at: null,
       updated_at: "2026-07-23T10:00:00.000Z",
       deleted_at: null
@@ -1963,14 +1966,17 @@ test("job notes use compact Jobs folders and note rows", async ({ page }) => {
   await amazonGroup.locator("summary").click();
   await expect(amazonGroup).toHaveAttribute("open", "");
   await expect(amazonGroup.locator(".job-list-note-row")).toHaveCount(2);
-  await expect(amazonGroup.getByRole("button", { name: "Open note: BMR pickup" })).toContainText("Item 1");
-  await expect(amazonGroup).not.toContainText("Created by");
+  const bmrRow = amazonGroup.locator(".job-list-note-row").filter({ hasText: "BMR pickup" });
+  await expect(bmrRow).toContainText("Item 1");
+  await expect(bmrRow.getByRole("button", { name: "Open note: BMR pickup" })).toHaveText("Open");
+  await expect(amazonGroup).toContainText("Created by Portal Smoke Test");
+  await expect(amazonGroup.getByRole("button", { name: "Delete note: BMR pickup" })).toBeVisible();
   await expect(amazonGroup).not.toContainText("Updated");
   await expect(amazonGroup.locator(".job-list-progress")).toHaveCount(0);
   const summaryBox = await amazonGroup.locator("summary").boundingBox();
   const noteRowBox = await amazonGroup.locator(".job-list-note-row").first().boundingBox();
   expect(summaryBox.height).toBeLessThanOrEqual(70);
-  expect(noteRowBox.height).toBeLessThanOrEqual(80);
+  expect(noteRowBox.height).toBeLessThanOrEqual(100);
   await amazonGroup.getByRole("button", { name: "Open note: BMR pickup" }).click();
   await expect(page.locator("#jobListsModal")).toBeVisible();
   await expect(page.locator("#jobListModalTitle")).toHaveText("BMR pickup");
