@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="styles.css?v=3">
   <link rel="stylesheet" href="jgc-design-system.css?v=5">
-  <link rel="stylesheet" href="job-lists.css?v=5">
+  <link rel="stylesheet" href="job-lists.css?v=6">
 </head>
 <body class="jgc-page job-lists-page">
   <main class="jgc-page-shell job-lists-shell">
@@ -61,60 +61,69 @@
     </section>
   </main>
 
-  <div id="jobListsModal" class="jgc-modal" hidden>
-    <section class="jgc-modal__dialog job-list-dialog" role="dialog" aria-modal="true" aria-labelledby="jobListModalTitle">
-      <div class="jgc-modal__header">
+  <div id="jobListsModal" class="jgc-modal job-list-editor-modal" hidden>
+    <section class="jgc-modal__dialog job-list-dialog job-list-note-editor" role="dialog" aria-modal="true" aria-labelledby="jobListModalTitle">
+      <div class="jgc-modal__header job-list-note-header">
+        <button id="jobListModalClose" class="jgc-button jgc-button--secondary job-list-modal-close" type="button" aria-label="Back to Job Notes" title="Back to Job Notes">
+          <i data-lucide="chevron-left"></i><span class="job-list-close-label">Notes</span>
+        </button>
         <div>
           <h2 id="jobListModalTitle">New Job Note</h2>
           <div id="jobListAccessLine" class="job-list-muted"></div>
         </div>
-        <button id="jobListModalClose" class="jgc-button jgc-button--secondary job-list-modal-close" type="button" aria-label="Back" title="Back">
-          <i data-lucide="chevron-left"></i><span class="job-list-close-label">Back</span>
-        </button>
       </div>
 
-      <form id="jobListForm" novalidate>
+      <form id="jobListForm" class="job-list-note-form" novalidate>
         <input id="jobListId" type="hidden">
-        <div class="jgc-form-grid">
-          <div class="jgc-field">
-            <label class="jgc-label" for="jobListTitle">Note Name</label>
-            <input id="jobListTitle" class="jgc-input" maxlength="160" placeholder="Example: BMR pickup" required>
-          </div>
-          <div class="jgc-field">
+
+        <div class="job-list-note-heading">
+          <label class="job-list-sr-only" for="jobListTitle">Note Name</label>
+          <input id="jobListTitle" class="jgc-input job-list-title-input" maxlength="160" placeholder="Note name" required>
+          <div class="job-list-job-field">
             <label class="jgc-label" for="jobListJob">Job</label>
             <select id="jobListJob" class="jgc-select" required>
               <option value="">Select a job</option>
             </select>
           </div>
-          <div class="jgc-field jgc-field--full">
-            <label class="jgc-label" for="jobListReminder">Reminder</label>
-            <div class="job-list-reminder-input-row">
-              <input id="jobListReminder" class="jgc-input" type="datetime-local">
-              <button id="jobListAddReminder" class="jgc-button jgc-button--secondary" type="button">
-                <i data-lucide="plus"></i> Add Reminder
-              </button>
-            </div>
-            <div id="jobListReminderChips" class="job-list-reminder-chips" aria-live="polite"></div>
-            <div class="job-list-help">Only tagged employees receive the Bell and device reminder.</div>
-          </div>
         </div>
 
-        <section class="jgc-section">
-          <h3 class="jgc-section-title">Tagged Employees</h3>
-          <div id="jobListMembers" class="job-list-member-grid"></div>
-        </section>
+        <details id="jobListOptions" class="job-list-note-options">
+          <summary>
+            <span><i data-lucide="users"></i> People and reminders</span>
+            <span id="jobListOptionsSummary" class="job-list-options-summary"></span>
+          </summary>
+          <div class="job-list-note-options-body">
+            <section class="job-list-note-option-section">
+              <h3 class="jgc-section-title">Reminders</h3>
+              <div class="job-list-reminder-input-row">
+                <input id="jobListReminder" class="jgc-input" type="datetime-local" aria-label="Reminder date and time">
+                <button id="jobListAddReminder" class="jgc-button jgc-button--secondary" type="button">
+                  <i data-lucide="plus"></i> Add Reminder
+                </button>
+              </div>
+              <div id="jobListReminderChips" class="job-list-reminder-chips" aria-live="polite"></div>
+              <div class="job-list-help">Only tagged employees receive the Bell and device reminder.</div>
+            </section>
 
-        <section class="jgc-section">
-          <h3 class="jgc-section-title">Items</h3>
+            <section class="job-list-note-option-section">
+              <h3 class="jgc-section-title">Tagged Employees</h3>
+              <div id="jobListMembers" class="job-list-member-grid"></div>
+            </section>
+          </div>
+        </details>
+
+        <section class="job-list-note-page" aria-labelledby="jobListLinesTitle">
+          <h3 id="jobListLinesTitle" class="job-list-sr-only">Note checklist</h3>
           <div id="jobListItemEditor" class="job-list-item-editor"></div>
-          <button id="jobListAddItem" class="jgc-button jgc-button--secondary" type="button">
-            <i data-lucide="plus"></i> Add Item
+          <button id="jobListAddItem" class="job-list-add-line" type="button">
+            <span class="job-list-add-line-icon" aria-hidden="true">+</span>
+            <span>Add another line</span>
           </button>
         </section>
 
         <div id="jobListReadOnlyItems" class="job-list-read-only" hidden></div>
 
-        <div class="jgc-actions job-list-form-actions">
+        <div class="jgc-actions job-list-form-actions job-list-note-toolbar">
           <button id="jobListSave" class="jgc-button" type="submit">
             <i data-lucide="save"></i> Save Note
           </button>
@@ -132,6 +141,6 @@
   <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=32"></script>
-  <script src="job-lists.js?v=5"></script>
+  <script src="job-lists.js?v=6"></script>
 </body>
 </html>

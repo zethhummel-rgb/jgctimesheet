@@ -1551,11 +1551,24 @@ test("job notes employee page opens its standalone editor", async ({ page }) => 
   await expect(page.locator("#jobListsNewButton")).toBeVisible();
   await page.locator("#jobListsNewButton").click();
   await expect(page.locator("#jobListsModal")).toBeVisible();
-  await expect(page.locator("#jobListModalClose")).toContainText("Back");
+  await expect(page.locator("#jobListModalClose")).toContainText("Notes");
+  await expect(page.locator("#jobListComplete")).toBeHidden();
+  await expect(page.locator("#jobListDelete")).toBeHidden();
   await expect(page.locator("#jobListMembers")).toContainText("Portal Smoke Test");
   await expect(page.locator("#jobListMembers")).toContainText("Steven Leduc");
   await expect(page.locator("#jobListItemEditor [data-job-list-item-input]")).toHaveCount(1);
+  const editorBox = await page.locator(".job-list-note-editor").boundingBox();
+  expect(editorBox.height).toBeGreaterThanOrEqual(840);
+  const firstLine = page.locator('[data-job-list-item-input="0"]');
+  await firstLine.fill("2x4 lumber");
+  await firstLine.press("Enter");
+  await expect(page.locator("#jobListItemEditor [data-job-list-item-input]")).toHaveCount(2);
+  await expect(page.locator('[data-job-list-item-input="1"]')).toBeFocused();
+  await page.locator('[data-job-list-edit-toggle="0"]').click();
+  await expect(page.locator(".job-list-item-edit-row").first()).toHaveClass(/is-complete/);
+  await expect(firstLine).toHaveCSS("text-decoration-line", "line-through");
   const reminderInput = page.locator("#jobListReminder");
+  await page.locator("#jobListOptions > summary").click();
   await reminderInput.fill("2030-07-24T06:45");
   await reminderInput.dispatchEvent("change");
   await expect(page.locator("[data-job-list-reminder-chip]")).toHaveCount(1);
@@ -1570,6 +1583,27 @@ test("job notes employee page opens its standalone editor", async ({ page }) => 
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   await captureJobListScreenshot(page, "job-lists-mobile.png");
   await expectNoRuntimeErrors(errors, "job notes employee page");
+});
+
+test("job notes desktop editor remains a full-page writing workspace", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
+
+  await page.locator("#jobListsNewButton").click();
+  const editor = page.locator(".job-list-note-editor");
+  await expect(editor).toBeVisible();
+  const box = await editor.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(1439);
+  expect(box.height).toBeGreaterThanOrEqual(899);
+  await expect(page.locator(".job-list-note-page")).toBeVisible();
+  await expect(page.locator("#jobListTitle")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(page.locator('[data-job-list-item-input="0"]')).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(page.locator('[data-job-list-edit-toggle="0"]')).toHaveAttribute("aria-pressed", "false");
+  await captureJobListScreenshot(page, "job-lists-editor-desktop.png");
+  await expectNoRuntimeErrors(errors, "job notes desktop editor");
 });
 
 test("job notes are organized into collapsed job sections", async ({ page }) => {

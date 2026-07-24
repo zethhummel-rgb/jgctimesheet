@@ -20,6 +20,8 @@
     editingItemIds: [],
     editingReminders: [],
     viewerOnly: false,
+    editorEditable: false,
+    editorCanToggle: false,
     openJobGroups: new Set()
   };
 
@@ -253,6 +255,25 @@
           + "</label>";
       }).join("")
       : '<div class="jgc-empty-state">No approved Work Order employees are available.</div>';
+    renderOptionsSummary();
+  }
+
+  function renderOptionsSummary() {
+    if (!elements.optionsSummary) {
+      return;
+    }
+    const tagged = elements.memberGrid
+      ? elements.memberGrid.querySelectorAll('input[type="checkbox"]:checked').length
+      : 0;
+    const reminders = state.editingReminders.length;
+    const parts = [];
+    if (tagged) {
+      parts.push(tagged + " tagged");
+    }
+    if (reminders) {
+      parts.push(reminders + " reminder" + (reminders === 1 ? "" : "s"));
+    }
+    elements.optionsSummary.textContent = parts.join(" | ");
   }
 
   function jobGroupKey(list) {
@@ -395,27 +416,41 @@
   function renderItemEditor(items, disabled) {
     state.editingItemIds = (items || []).map(function (item) { return item.id || ""; });
     elements.itemEditor.innerHTML = (items || []).map(function (item, index) {
-      return '<div class="job-list-item-edit-row ' + (item.completed ? "is-complete" : "") + '">'
-        + '<span class="job-list-edit-bullet" aria-hidden="true"></span>'
-        + '<input class="jgc-input" data-job-list-item-input="' + index + '" maxlength="240" value="'
-        + escapeHtml(item.item_text || "") + '" placeholder="Material or reminder item"' + (disabled ? " disabled" : "") + ">"
+      return '<div class="job-list-item-edit-row ' + (item.completed ? "is-complete" : "") + '"'
+        + ' data-job-list-item-completed="' + (item.completed ? "true" : "false") + '">'
+        + '<button class="job-list-edit-bullet" type="button" data-job-list-edit-toggle="' + index + '"'
+        + (state.editorCanToggle ? "" : " disabled")
+        + ' aria-label="' + escapeHtml(item.completed ? "Mark line incomplete" : "Mark line complete") + '"'
+        + ' aria-pressed="' + (item.completed ? "true" : "false") + '"></button>'
+        + '<textarea class="job-list-line-input" data-job-list-item-input="' + index + '" maxlength="240" rows="1"'
+        + ' placeholder="' + (index ? "Add another item" : "Start typing") + '"'
+        + (disabled ? " disabled" : "") + ">" + escapeHtml(item.item_text || "") + "</textarea>"
         + '<button class="jgc-button jgc-button--danger" type="button" data-job-list-remove-item="' + index + '"'
         + (disabled ? " hidden" : "") + ' aria-label="Remove item" title="Remove item">X</button>'
         + "</div>";
     }).join("");
+    elements.itemEditor.querySelectorAll("[data-job-list-item-input]").forEach(autoSizeItemInput);
   }
 
   function readItemEditor() {
     return Array.from(elements.itemEditor.querySelectorAll("[data-job-list-item-input]")).map(function (input, index) {
       const id = state.editingItemIds[index] || "";
-      const existing = id ? state.items.find(function (item) { return item.id === id; }) : null;
+      const row = input.closest(".job-list-item-edit-row");
       return {
         id: id,
         item_text: String(input.value || "").trim(),
         position: index,
-        completed: Boolean(existing && existing.completed)
+        completed: Boolean(row && row.dataset.jobListItemCompleted === "true")
       };
     });
+  }
+
+  function autoSizeItemInput(input) {
+    if (!input) {
+      return;
+    }
+    input.style.height = "auto";
+    input.style.height = Math.min(Math.max(input.scrollHeight, 46), 180) + "px";
   }
 
   function renderReminderEditor(disabled) {
@@ -436,6 +471,7 @@
           + ' data-job-list-remove-reminder="' + index + '" aria-label="Remove reminder" title="Remove reminder">X</button>')
         + "</span>";
     }).join("");
+    renderOptionsSummary();
     refreshIcons();
   }
 
@@ -504,6 +540,8 @@
     const controller = !list || canControl(list);
     const editable = controller && (!list || list.status === "open");
     state.viewerOnly = !controller;
+    state.editorEditable = editable;
+    state.editorCanToggle = Boolean((list && list.status === "open") || (!list && editable));
     elements.form.reset();
     elements.listId.value = list ? list.id : "";
     elements.title.value = list ? list.title : "";
@@ -525,6 +563,7 @@
     renderMemberSelector(selectedIds, !editable);
     renderItemEditor(list ? itemsFor(list.id) : [{ item_text: "" }], !editable);
     renderReminderEditor(!editable);
+    elements.options.open = false;
 
     elements.title.disabled = !editable;
     elements.job.disabled = !editable || Boolean(list);
@@ -542,11 +581,19 @@
     document.body.style.overflow = "hidden";
     scheduleReminderExpiryRefresh();
     refreshIcons();
+    window.setTimeout(function () {
+      const firstField = list ? elements.itemEditor.querySelector("[data-job-list-item-input]") : elements.title;
+      if (firstField && editable) {
+        firstField.focus();
+      }
+    }, 0);
   }
 
   function closeModal() {
     elements.modal.hidden = true;
     document.body.style.overflow = "";
+    state.editorEditable = false;
+    state.editorCanToggle = false;
   }
 
   async function addActivity(listId, action, details) {
@@ -624,9 +671,23 @@
           position: item.position,
           created_by: state.user.id
         };
-      }));
+      })).select("*");
       if (result.error) {
         throw result.error;
+      }
+      for (const inserted of result.data || []) {
+        const desired = toInsert.find(function (item) {
+          return Number(item.position) === Number(inserted.position);
+        });
+        if (desired && desired.completed) {
+          const toggleResult = await state.client.rpc("toggle_job_list_item", {
+            p_item_id: inserted.id,
+            p_completed: true
+          });
+          if (toggleResult.error) {
+            throw toggleResult.error;
+          }
+        }
       }
     }
     if (toDelete.length) {
@@ -947,7 +1008,7 @@
 
   function addBlankItem() {
     const items = readItemEditor();
-    items.push({ item_text: "" });
+    items.push({ item_text: "", completed: false });
     renderItemEditor(items, false);
     const inputs = elements.itemEditor.querySelectorAll("[data-job-list-item-input]");
     if (inputs.length) {
@@ -963,6 +1024,62 @@
       items.splice(index, 1);
     }
     renderItemEditor(items, false);
+  }
+
+  function insertBlankItemAfter(index) {
+    const items = readItemEditor();
+    items.splice(index + 1, 0, { item_text: "", completed: false });
+    renderItemEditor(items, false);
+    const next = elements.itemEditor.querySelector('[data-job-list-item-input="' + (index + 1) + '"]');
+    if (next) {
+      next.focus();
+    }
+  }
+
+  async function toggleEditorItem(index) {
+    const items = readItemEditor();
+    const item = items[index];
+    if (!item || !state.editorCanToggle) {
+      return;
+    }
+    if (item.id) {
+      await toggleItem(item.id);
+      const current = state.items.find(function (entry) { return entry.id === item.id; });
+      item.completed = Boolean(current && current.completed);
+    } else {
+      item.completed = !item.completed;
+    }
+    renderItemEditor(items, !state.editorEditable);
+    const input = elements.itemEditor.querySelector('[data-job-list-item-input="' + index + '"]');
+    if (input && state.editorEditable) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  }
+
+  function handleItemEditorKeydown(event) {
+    const input = event.target.closest("[data-job-list-item-input]");
+    if (!input || input.disabled) {
+      return;
+    }
+    const index = Number(input.dataset.jobListItemInput);
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      insertBlankItemAfter(index);
+      return;
+    }
+    if (event.key === "Backspace" && !input.value && readItemEditor().length > 1) {
+      event.preventDefault();
+      const focusIndex = Math.max(0, index - 1);
+      const items = readItemEditor();
+      items.splice(index, 1);
+      renderItemEditor(items, false);
+      const previous = elements.itemEditor.querySelector('[data-job-list-item-input="' + focusIndex + '"]');
+      if (previous) {
+        previous.focus();
+        previous.setSelectionRange(previous.value.length, previous.value.length);
+      }
+    }
   }
 
   function bindEvents() {
@@ -1008,10 +1125,23 @@
     });
 
     elements.itemEditor.addEventListener("click", function (event) {
-      const button = event.target.closest("[data-job-list-remove-item]");
-      if (button) {
-        removeItem(Number(button.dataset.jobListRemoveItem));
+      const removeButton = event.target.closest("[data-job-list-remove-item]");
+      const toggleButton = event.target.closest("[data-job-list-edit-toggle]");
+      if (removeButton) {
+        removeItem(Number(removeButton.dataset.jobListRemoveItem));
+      } else if (toggleButton) {
+        toggleEditorItem(Number(toggleButton.dataset.jobListEditToggle));
       }
+    });
+    elements.itemEditor.addEventListener("keydown", handleItemEditorKeydown);
+    elements.itemEditor.addEventListener("input", function (event) {
+      if (event.target.matches("[data-job-list-item-input]")) {
+        autoSizeItemInput(event.target);
+      }
+    });
+    elements.memberGrid.addEventListener("change", renderOptionsSummary);
+    elements.title.addEventListener("input", function () {
+      elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
     });
     elements.reminderChips.addEventListener("click", function (event) {
       const button = event.target.closest("[data-job-list-remove-reminder]");
@@ -1052,6 +1182,8 @@
     elements.closeButton = byId("jobListModalClose");
     elements.modalTitle = byId("jobListModalTitle");
     elements.accessLine = byId("jobListAccessLine");
+    elements.options = byId("jobListOptions");
+    elements.optionsSummary = byId("jobListOptionsSummary");
     elements.form = byId("jobListForm");
     elements.listId = byId("jobListId");
     elements.title = byId("jobListTitle");
