@@ -351,47 +351,22 @@
 
   function renderNoteCard(list) {
     const listItems = itemsFor(list.id);
-    const completed = listItems.filter(function (item) { return item.completed; }).length;
-    const percent = listItems.length ? Math.round((completed / listItems.length) * 100) : 0;
-    const controller = canControl(list);
-    const upcomingReminders = remindersFor(list.id);
-    const reminder = upcomingReminders.length
-      ? '<div class="job-list-reminder-list">' + upcomingReminders.map(function (entry) {
-        return '<span class="job-list-reminder-chip"><i data-lucide="bell"></i> '
-          + escapeHtml(formatDateTime(entry.reminder_at)) + "</span>";
-      }).join("") + "</div>"
-      : "";
-    const memberHtml = membersFor(list.id).map(function (member) {
-      return '<span class="job-list-member-chip">' + escapeHtml(member.display_name) + "</span>";
-    }).join("");
-    const itemHtml = listItems.length
-      ? listItems.map(function (item) {
-        return '<li><button class="job-list-check ' + (item.completed ? "is-complete" : "") + '"'
-          + ' type="button" data-job-list-toggle="' + escapeHtml(item.id) + '"'
-          + (list.status === "completed" ? " disabled" : "")
-          + ' aria-label="' + escapeHtml((item.completed ? "Mark incomplete: " : "Mark complete: ") + item.item_text) + '"'
-          + ' aria-pressed="' + (item.completed ? "true" : "false") + '">'
-          + '<span class="job-list-check-box" aria-hidden="true"></span>'
-          + '<span class="job-list-check-text">' + escapeHtml(item.item_text) + "</span>"
-          + "</button></li>";
-      }).join("")
-      : '<li class="job-list-muted">No items added yet.</li>';
+    const previewItem = listItems.find(function (item) { return !item.completed; }) || listItems[0];
+    const preview = previewItem
+      ? previewItem.item_text
+      : "No checklist items yet";
+    const statusLabel = list.status === "completed" ? "Completed" : "Open";
 
-    return '<article class="job-list-card ' + (list.status === "completed" ? "is-completed" : "") + '">'
-      + '<div class="job-list-card-header">'
-      + '<div class="job-list-card-title"><h3>' + escapeHtml(list.title) + "</h3></div>"
+    return '<button class="job-list-note-row ' + (list.status === "completed" ? "is-completed" : "") + '"'
+      + ' type="button" data-job-list-open="' + escapeHtml(list.id) + '"'
+      + ' aria-label="Open note: ' + escapeHtml(list.title) + '">'
+      + '<span class="job-list-note-copy"><strong>' + escapeHtml(list.title) + "</strong>"
+      + '<span class="job-list-note-preview">' + escapeHtml(preview) + "</span></span>"
+      + '<span class="job-list-note-row-meta">'
       + '<span class="jgc-badge ' + (list.status === "completed" ? "" : "jgc-badge--success") + '">'
-      + escapeHtml(list.status === "completed" ? "Completed" : "Open") + "</span></div>"
-      + '<div class="job-list-card-meta">' + reminder + "<span>Created by " + escapeHtml(list.created_by_name) + "</span></div>"
-      + '<div class="job-list-members">' + memberHtml + "</div>"
-      + '<ul class="job-list-items">' + itemHtml + "</ul>"
-      + '<div class="job-list-progress-line"><strong>' + completed + " of " + listItems.length + " done</strong><span>" + percent + "%</span></div>"
-      + '<div class="job-list-progress"><span style="width:' + percent + '%"></span></div>'
-      + '<div class="job-list-card-footer"><small>Updated ' + escapeHtml(formatDateTime(list.updated_at)) + " by "
-      + escapeHtml(list.last_edited_by_name || list.created_by_name) + "</small>"
-      + '<button class="jgc-button ' + (controller ? "" : "jgc-button--secondary") + '" type="button" data-job-list-open="'
-      + escapeHtml(list.id) + '">' + (controller ? "Manage" : "View") + "</button></div>"
-      + "</article>";
+      + escapeHtml(statusLabel) + "</span>"
+      + '<i data-lucide="chevron-right" aria-hidden="true"></i></span>'
+      + "</button>";
   }
 
   function renderCards() {
@@ -435,7 +410,7 @@
         || String(leftList.job_number || "").localeCompare(String(rightList.job_number || ""), undefined, { numeric: true });
     });
 
-    elements.cards.innerHTML = groups.map(function (entry) {
+    const groupHtml = groups.map(function (entry) {
       const key = entry[0];
       const lists = entry[1].slice().sort(function (left, right) {
         return new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime();
@@ -444,9 +419,6 @@
       const jobName = String(job.job_name || "").trim() || "Job name not entered";
       const jobNumber = String(job.job_number || "").trim();
       const noteCount = lists.length;
-      const reminderCount = lists.reduce(function (count, list) {
-        return count + remindersFor(list.id).length;
-      }, 0);
       const shouldOpen = state.openJobGroups.has(key) || Boolean(query || jobId);
 
       return '<details class="job-list-job-group" data-job-list-job-group="' + escapeHtml(key) + '"'
@@ -456,13 +428,15 @@
         + (jobNumber ? "<p>Job " + escapeHtml(jobNumber) + "</p>" : "") + "</div>"
         + '<div class="job-list-job-summary-meta">'
         + '<span class="jgc-badge jgc-badge--success">' + noteCount + " note" + (noteCount === 1 ? "" : "s") + "</span>"
-        + (reminderCount ? '<span class="job-list-job-reminders"><i data-lucide="bell"></i> ' + reminderCount + "</span>" : "")
         + '<span class="job-list-job-toggle" aria-hidden="true"></span></div>'
         + "</summary>"
         + '<div class="job-list-job-body"><div class="job-list-job-cards">'
         + lists.map(renderNoteCard).join("")
         + "</div></div></details>";
     }).join("");
+    elements.cards.innerHTML = '<section class="job-list-browser" aria-labelledby="jobListBrowserTitle">'
+      + '<h2 id="jobListBrowserTitle" class="job-list-browser-title">Jobs</h2>'
+      + '<div class="job-list-job-directory">' + groupHtml + "</div></section>";
     refreshIcons();
   }
 

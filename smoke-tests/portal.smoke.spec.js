@@ -1724,8 +1724,9 @@ test("job note checkpoints autosave once and Save & Close returns to the notes l
   await expectNoRuntimeErrors(errors, "job note checkpoint autosave");
 });
 
-test("job notes are organized into collapsed job sections", async ({ page }) => {
+test("job notes use compact Jobs folders and note rows", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   const jobs = [
     {
       id: "00000000-0000-4000-8000-000000000301",
@@ -1844,25 +1845,33 @@ test("job notes are organized into collapsed job sections", async ({ page }) => 
 
   const groups = page.locator("[data-job-list-job-group]");
   await expect(groups).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();
   const amazonGroup = groups.filter({ hasText: jobs[0].job_name });
   await expect(amazonGroup.locator("summary")).toContainText("2 notes");
   await expect(amazonGroup).not.toHaveAttribute("open", "");
-  await expect(amazonGroup.getByRole("heading", { name: "BMR pickup" })).not.toBeVisible();
+  await expect(amazonGroup.getByRole("button", { name: "Open note: BMR pickup" })).not.toBeVisible();
 
   await amazonGroup.locator("summary").click();
   await expect(amazonGroup).toHaveAttribute("open", "");
-  await expect(amazonGroup.getByRole("heading", { name: "BMR pickup" })).toBeVisible();
-  await expect(amazonGroup.getByRole("heading", { name: "Return rental tools" })).toBeVisible();
-  await expect(amazonGroup.locator(".job-list-reminder-chip")).toHaveCount(1);
-  await expect(amazonGroup).toContainText("Jul 24, 2030");
-  await expect(amazonGroup).not.toContainText("Jul 24, 2020");
-  const firstItem = amazonGroup.getByRole("button", { name: "Mark complete: Item 1" });
-  await firstItem.click();
-  await expect(amazonGroup).toHaveAttribute("open", "");
-  await expect(amazonGroup.getByRole("button", { name: "Mark incomplete: Item 1" })).toHaveClass(/is-complete/);
-  await expect(amazonGroup.getByText("Item 1", { exact: true })).toHaveCSS("text-decoration-line", "line-through");
+  await expect(amazonGroup.locator(".job-list-note-row")).toHaveCount(2);
+  await expect(amazonGroup.getByRole("button", { name: "Open note: BMR pickup" })).toContainText("Item 1");
+  await expect(amazonGroup).not.toContainText("Created by");
+  await expect(amazonGroup).not.toContainText("Updated");
+  await expect(amazonGroup.locator(".job-list-progress")).toHaveCount(0);
+  const summaryBox = await amazonGroup.locator("summary").boundingBox();
+  const noteRowBox = await amazonGroup.locator(".job-list-note-row").first().boundingBox();
+  expect(summaryBox.height).toBeLessThanOrEqual(70);
+  expect(noteRowBox.height).toBeLessThanOrEqual(80);
+  await amazonGroup.getByRole("button", { name: "Open note: BMR pickup" }).click();
+  await expect(page.locator("#jobListsModal")).toBeVisible();
+  await expect(page.locator("#jobListModalTitle")).toHaveText("BMR pickup");
+  await expect(page.locator("#jobListItemEditor")).toContainText("Item 1");
+  await page.locator("#jobListModalClose").click();
   await expect(groups.nth(1).locator("summary")).toContainText(jobs[1].job_name);
-  await expectNoRuntimeErrors(errors, "grouped job notes");
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
+  await captureJobListScreenshot(page, "job-lists-compact-browser.png");
+  await expectNoRuntimeErrors(errors, "compact grouped job notes");
 });
 
 test("job notes admin page keeps management separate", async ({ page }) => {
