@@ -415,7 +415,9 @@
         throw result.error;
       }
       await refreshDeviceContext();
-      showNotice("This device is awaiting an admin number block.", "warning");
+      showNotice(result.data && result.data.status === "pending"
+        ? "This device is awaiting an admin number block."
+        : "This PO device is registered and ready to refresh.", result.data && result.data.status === "pending" ? "warning" : "success");
     } catch (error) {
       showNotice(error.message || "Device registration failed.", "error");
     } finally {

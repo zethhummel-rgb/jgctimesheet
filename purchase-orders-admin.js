@@ -134,6 +134,27 @@
     return state.profiles.find((profile) => profile.id === id) || null;
   }
 
+  function poDeviceLimit(profile) {
+    return String(profile && profile.role || "").toLowerCase() === "admin" ? 2 : 1;
+  }
+
+  function hasActiveBlock(blocks) {
+    return blocks.some((block) => block.status === "active");
+  }
+
+  function hasDeviceSlot(blocks) {
+    return blocks.some((block) => block.status === "active" || block.status === "exhausted");
+  }
+
+  function activeDeviceSlotCount(profileId) {
+    return state.devices.filter((device) => {
+      if (device.profile_id !== profileId || device.status !== "active") {
+        return false;
+      }
+      return hasDeviceSlot(state.blocks.filter((block) => block.device_id === device.id));
+    }).length;
+  }
+
   function renderSummary() {
     const failed = state.orders.filter((order) => order.email_status === "failed" || order.receipt_status === "cleanup_failed").length;
     const pendingDevices = state.devices.filter((device) => device.status === "pending").length;
@@ -267,11 +288,20 @@
     elements.devicesBody.innerHTML = state.devices.map((device) => {
       const profile = getProfile(device.profile_id);
       const blocks = state.blocks.filter((block) => block.device_id === device.id);
-      const remaining = blocks.reduce((total, block) => total + Math.max(Number(block.range_end) - Number(block.next_number) + 1, 0), 0);
+      const remaining = blocks
+        .filter((block) => block.status === "active")
+        .reduce((total, block) => total + Math.max(Number(block.range_end) - Number(block.next_number) + 1, 0), 0);
       const blockText = blocks.length
         ? blocks.map((block) => `${formatPoNumber(block.range_start)} to ${formatPoNumber(block.range_end)} (${label(block.status)})`).join("<br>")
         : "No block assigned";
-      const canAssign = device.status !== "revoked" && profile && profile.can_create_digital_pos && profile.account_status === "approved";
+      const isEligible = device.status !== "revoked" && profile && profile.can_create_digital_pos && profile.account_status === "approved";
+      const deviceHasActiveBlock = hasActiveBlock(blocks);
+      const deviceHasSlot = hasDeviceSlot(blocks);
+      const deviceLimitReached = profile && !deviceHasSlot && activeDeviceSlotCount(device.profile_id) >= poDeviceLimit(profile);
+      const canAssign = isEligible && !deviceHasActiveBlock && !deviceLimitReached;
+      const assignmentNote = deviceHasActiveBlock
+        ? '<span class="po-device-note">Block already assigned</span>'
+        : (deviceLimitReached ? `<span class="po-device-note">${poDeviceLimit(profile)} active device limit reached</span>` : "");
       return `
         <tr>
           <td data-label="Employee">${escapeText(profile ? profile.display_name : device.profile_id)}<br><span style="color:#b9c9bd;">${escapeText(profile && profile.email || "")}</span></td>
@@ -283,8 +313,9 @@
           <td data-label="Actions">
             <div class="po-inline-actions jgc-inline-actions">
               ${canAssign ? `<button class="jgc-button" type="button" data-assign-block="${escapeText(device.id)}"><i data-lucide="plus"></i> Add Block #</button>` : ""}
+              ${assignmentNote}
               ${device.status === "active" ? `<button class="secondary jgc-button jgc-button--secondary" type="button" data-renew-device="${escapeText(device.id)}"><i data-lucide="refresh-cw"></i> Renew</button>` : ""}
-              ${device.status === "revoked" ? `<button class="jgc-button" type="button" data-unrevoke-device="${escapeText(device.id)}"><i data-lucide="rotate-ccw"></i> Unrevoke</button>` : ""}
+              ${device.status === "revoked" && blocks.length ? `<button class="jgc-button" type="button" data-unrevoke-device="${escapeText(device.id)}"><i data-lucide="rotate-ccw"></i> Unrevoke</button>` : ""}
               ${device.status !== "revoked" ? `<button class="danger jgc-button jgc-button--danger" type="button" data-revoke-device="${escapeText(device.id)}"><i data-lucide="ban"></i> Revoke</button>` : ""}
             </div>
           </td>

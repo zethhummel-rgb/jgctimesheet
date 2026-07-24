@@ -134,6 +134,12 @@ body.po-page {
   flex-wrap: wrap;
 }
 
+.po-device-note {
+  color: var(--po-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .po-status-row {
   justify-content: center;
   margin: 14px 0;
