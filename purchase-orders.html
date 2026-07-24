@@ -9,7 +9,7 @@
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=17">
+  <link rel="stylesheet" href="purchase-orders.css?v=18">
 </head>
 <body class="po-page po-employee-page jgc-page">
   <main class="po-shell jgc-page-shell">
@@ -147,6 +147,20 @@
           </div>
         </div>
 
+        <section id="poJobNotesPanel" class="po-job-notes-panel po-section-band jgc-section" hidden>
+          <button id="poJobNotesToggle" class="po-job-notes-toggle" type="button" aria-expanded="false" aria-controls="poJobNotesBody">
+            <span>
+              <strong>Job Notes</strong>
+              <small id="poJobNotesSummary">Select a job to view its open notes.</small>
+            </span>
+            <i data-lucide="chevron-down" aria-hidden="true"></i>
+          </button>
+          <div id="poJobNotesBody" class="po-job-notes-body" hidden>
+            <p id="poJobNotesStatus" class="po-job-notes-status"></p>
+            <div id="poJobNotesList" class="po-job-notes-list"></div>
+          </div>
+        </section>
+
         <section class="po-section-band jgc-section">
           <div class="po-section-heading">
             <h3 class="jgc-section-title">Materials</h3>
@@ -189,6 +203,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=32"></script>
   <script src="purchase-orders-pdf.js?v=2"></script>
-  <script src="purchase-orders.js?v=19"></script>
+  <script src="purchase-orders.js?v=20"></script>
 </body>
 </html>

@@ -519,6 +519,130 @@ body.po-page {
   padding: 18px 0;
 }
 
+.po-job-notes-panel[hidden],
+.po-job-notes-body[hidden] {
+  display: none;
+}
+
+.po-job-notes-panel {
+  padding-bottom: 4px;
+}
+
+.po-job-notes-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 12px !important;
+  background: #10241b !important;
+  color: var(--po-text) !important;
+  text-align: left;
+}
+
+.po-job-notes-toggle > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.po-job-notes-toggle strong {
+  color: var(--po-green);
+  font-size: 17px;
+}
+
+.po-job-notes-toggle small {
+  overflow-wrap: anywhere;
+  color: var(--po-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.po-job-notes-toggle svg {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+
+.po-job-notes-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.po-job-notes-body {
+  padding: 10px 2px 0;
+}
+
+.po-job-notes-status {
+  margin: 0 0 5px;
+  color: var(--po-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.po-job-note-group {
+  padding: 10px 0 4px;
+}
+
+.po-job-note-group + .po-job-note-group {
+  border-top: 1px solid var(--po-border);
+}
+
+.po-job-note-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+
+.po-job-note-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 14px;
+}
+
+.po-job-note-heading span {
+  flex: 0 0 auto;
+  color: var(--po-muted);
+  font-size: 12px;
+}
+
+.po-job-note-items {
+  display: grid;
+}
+
+.po-job-note-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-top: 1px solid rgba(107, 217, 121, 0.14);
+  padding: 6px 0;
+}
+
+.po-job-note-item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--po-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.po-job-note-item button {
+  min-width: 108px;
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.po-job-note-item button:disabled {
+  cursor: default;
+  opacity: 0.66;
+}
+
 .po-section-heading {
   display: flex;
   align-items: center;
@@ -1136,6 +1260,23 @@ body.po-page {
     margin-top: 14px;
   }
 
+  .po-job-notes-toggle {
+    min-height: 54px;
+    padding: 9px 10px !important;
+  }
+
+  .po-job-notes-body {
+    padding-top: 8px;
+  }
+
+  .po-job-note-item {
+    gap: 8px;
+  }
+
+  .po-job-note-item button {
+    min-width: 102px;
+  }
+
   .po-material-tile {
     grid-template-columns: 74px minmax(0, 1fr) 40px;
     gap: 8px;
@@ -1379,5 +1520,14 @@ body.po-page {
 
   .po-material-tile {
     grid-template-columns: 68px minmax(0, 1fr) 40px;
+  }
+
+  .po-job-note-item {
+    grid-template-columns: 1fr;
+    padding: 9px 0;
+  }
+
+  .po-job-note-item button {
+    width: 100%;
   }
 }

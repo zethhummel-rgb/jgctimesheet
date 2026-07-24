@@ -1306,6 +1306,115 @@ test("purchase order job picker searches by job name and number", async ({ page 
   await expectNoRuntimeErrors(errors, "purchase order searchable job picker");
 });
 
+test("purchase order Job Notes transfer material and equipment items one at a time", async ({ page }) => {
+  const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
+  const errors = watchRuntimeErrors(page);
+  const job = {
+    id: "00000000-0000-4000-8000-000000000211",
+    job_number: "25148",
+    job_name: "St Marys Centre Wall Panels",
+    active: true
+  };
+  const jobList = {
+    id: "00000000-0000-4000-8000-000000000212",
+    job_id: job.id,
+    job_number: job.job_number,
+    job_name: job.job_name,
+    title: "Counter pickup",
+    status: "open",
+    updated_at: "2026-07-23T13:00:00.000Z"
+  };
+  const noteItems = [
+    {
+      id: "00000000-0000-4000-8000-000000000213",
+      list_id: jobList.id,
+      item_text: "Twelve sheets of drywall",
+      position: 0,
+      completed: false,
+      updated_at: "2026-07-23T13:01:00.000Z"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000214",
+      list_id: jobList.id,
+      item_text: "Scissor lift",
+      position: 1,
+      completed: false,
+      updated_at: "2026-07-23T13:02:00.000Z"
+    }
+  ];
+  const jobNoteMethods = [];
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAuthenticatedPortalState(page, poProfile);
+  await mockPortalServices(page, poProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([job])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_lists**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([jobList])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_items**`, (route) => {
+    jobNoteMethods.push(route.request().method());
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(noteItems)
+    });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      registered: true,
+      device_id: "00000000-0000-4000-8000-000000000215",
+      device_status: "active",
+      lease_expires_at: "2027-07-23T12:00:00.000Z",
+      blocks: [{
+        id: "00000000-0000-4000-8000-000000000216",
+        range_start: 39200,
+        range_end: 39209,
+        next_number: 39200,
+        status: "active"
+      }]
+    })
+  }));
+
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#poNewButton")).toBeEnabled();
+  await page.locator("#poNewButton").click();
+  await page.locator("#poJobSearch").fill("25148");
+  await page.locator("#poJobOptions [data-po-job-id]").click();
+
+  await expect(page.locator("#poJobNotesPanel")).toBeVisible();
+  await expect(page.locator("#poJobNotesSummary")).toContainText("1 open note");
+  await expect(page.locator("#poJobNotesSummary")).toContainText("2 unchecked items");
+  await page.locator("#poJobNotesToggle").click();
+  await expect(page.locator("#poJobNotesBody")).toBeVisible();
+  await expect(page.locator(".po-job-note-item")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: /add all/i })).toHaveCount(0);
+
+  const drywallItem = page.locator(".po-job-note-item").filter({ hasText: "Twelve sheets of drywall" });
+  const equipmentItem = page.locator(".po-job-note-item").filter({ hasText: "Scissor lift" });
+  await drywallItem.getByRole("button", { name: "Add to PO" }).click();
+  await expect(page.locator('[data-item-field="description"]').first()).toHaveValue("Twelve sheets of drywall");
+  await expect(drywallItem.getByRole("button", { name: "On PO" })).toBeDisabled();
+
+  await equipmentItem.getByRole("button", { name: "Add to PO" }).click();
+  await expect(page.locator(".po-material-tile")).toHaveCount(2);
+  await expect(page.locator('[data-item-field="description"]').nth(1)).toHaveValue("Scissor lift");
+  await expect(equipmentItem.getByRole("button", { name: "On PO" })).toBeDisabled();
+
+  await page.locator(".po-material-tile").first().locator("[data-remove-item]").click();
+  await expect(drywallItem.getByRole("button", { name: "Add to PO" })).toBeEnabled();
+  await expect(equipmentItem.getByRole("button", { name: "On PO" })).toBeDisabled();
+  expect(jobNoteMethods.every((method) => method === "GET" || method === "HEAD")).toBe(true);
+  await expectNoRuntimeErrors(errors, "purchase order Job Notes transfer");
+});
+
 test("purchase order submit feedback closes success and emphasizes failure", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page, "accept");

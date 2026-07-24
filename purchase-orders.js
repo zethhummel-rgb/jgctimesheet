@@ -19,6 +19,15 @@
     deviceContext: null,
     jobs: [],
     workers: [],
+    jobNotes: {
+      lists: [],
+      items: [],
+      cached_at: ""
+    },
+    jobNotesLoading: false,
+    jobNotesError: "",
+    jobNotesExpanded: false,
+    jobNotesMatchKey: "",
     serverRecords: [],
     drafts: [],
     activeId: "",
@@ -27,6 +36,7 @@
     pendingReceipt: null,
     receiptPreviewUrl: "",
     syncing: false,
+    formLocked: false,
     initialized: false
   };
 
@@ -278,6 +288,16 @@
     state.profile = await getMeta(cacheKeyForUser("profile"), null);
     state.jobs = await getMeta("cache:jobs", []);
     state.workers = await getMeta("cache:po-workers", []);
+    const cachedJobNotes = await getMeta(cacheKeyForUser("po_job_notes"), {
+      lists: [],
+      items: [],
+      cached_at: ""
+    });
+    state.jobNotes = cachedJobNotes
+      && Array.isArray(cachedJobNotes.lists)
+      && Array.isArray(cachedJobNotes.items)
+      ? cachedJobNotes
+      : { lists: [], items: [], cached_at: "" };
     state.deviceContext = await getMeta(cacheKeyForUser("device_context"), null);
     state.serverRecords = await getMeta(cacheKeyForUser("server_records"), []);
     state.drafts = await idbGetAll(DRAFT_STORE);
@@ -321,9 +341,21 @@
   }
 
   async function loadReferencesOnline() {
+    state.jobNotesLoading = true;
+    state.jobNotesError = "";
+    renderJobNotesPanel();
     const results = await Promise.all([
       state.client.from("jobs").select("id,job_number,job_name,active").eq("active", true).order("job_number"),
-      state.client.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name")
+      state.client.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name"),
+      state.client.from("job_lists")
+        .select("id,job_id,job_number,job_name,title,status,updated_at")
+        .eq("status", "open")
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false }),
+      state.client.from("job_list_items")
+        .select("id,list_id,item_text,position,completed,updated_at")
+        .eq("completed", false)
+        .order("position")
     ]);
 
     if (!results[0].error) {
@@ -334,6 +366,21 @@
       state.workers = (results[1].data || []).filter((worker) => worker.profile_id);
       await setMeta("cache:po-workers", state.workers);
     }
+    if (!results[2].error && !results[3].error) {
+      const lists = results[2].data || [];
+      const visibleListIds = new Set(lists.map((list) => String(list.id)));
+      state.jobNotes = {
+        lists,
+        items: (results[3].data || []).filter((item) => visibleListIds.has(String(item.list_id))),
+        cached_at: new Date().toISOString()
+      };
+      await setMeta(cacheKeyForUser("po_job_notes"), state.jobNotes);
+    } else {
+      const errors = [results[2].error, results[3].error].filter(Boolean);
+      state.jobNotesError = errors.map((error) => error.message || "Job Notes could not be loaded.").join(" ");
+    }
+    state.jobNotesLoading = false;
+    renderJobNotesPanel();
   }
 
   async function refreshDeviceContext() {
@@ -649,6 +696,7 @@
     }
 
     closeJobOptions();
+    renderJobNotesPanel();
   }
 
   function handleJobSearchInput() {
@@ -657,7 +705,7 @@
       elements.job.value = "";
     }
     openJobOptions();
-
+    renderJobNotesPanel();
   }
 
   function hasManualJobEntry() {
@@ -671,11 +719,270 @@
     return Boolean(elements.manualJobName.value.trim());
   }
 
+  function normalizeJobReference(value) {
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function getCurrentPoJobReference() {
+    const selectedJob = state.jobs.find((job) => String(job.id) === String(elements.job.value || ""));
+    if (selectedJob) {
+      return {
+        key: "id:" + String(selectedJob.id),
+        id: String(selectedJob.id),
+        number: normalizeJobReference(selectedJob.job_number),
+        name: normalizeJobReference(selectedJob.job_name),
+        label: getJobDisplay(selectedJob)
+      };
+    }
+
+    const number = normalizeJobReference(elements.manualJobNumber.value);
+    const name = normalizeJobReference(elements.manualJobName.value);
+    if (!number && !name) {
+      return null;
+    }
+
+    return {
+      key: number ? "number:" + number : "name:" + name,
+      id: "",
+      number,
+      name,
+      label: [elements.manualJobNumber.value.trim(), elements.manualJobName.value.trim()].filter(Boolean).join(" - ")
+    };
+  }
+
+  function getMatchingJobNotes() {
+    const reference = getCurrentPoJobReference();
+    if (!reference) {
+      return { reference: null, lists: [], itemsByList: new Map(), itemCount: 0, ambiguous: false };
+    }
+
+    const openLists = ((state.jobNotes && state.jobNotes.lists) || []).filter((list) => {
+      return !list.status || list.status === "open";
+    });
+    let lists = [];
+    let ambiguous = false;
+
+    if (reference.id) {
+      lists = openLists.filter((list) => {
+        const listJobId = String(list.job_id || "");
+        if (listJobId) {
+          return listJobId === reference.id;
+        }
+        return reference.number && normalizeJobReference(list.job_number) === reference.number;
+      });
+    } else if (reference.number) {
+      lists = openLists.filter((list) => normalizeJobReference(list.job_number) === reference.number);
+    } else if (reference.name) {
+      const namedLists = openLists.filter((list) => normalizeJobReference(list.job_name) === reference.name);
+      const distinctJobs = new Set(namedLists.map((list) => {
+        return normalizeJobReference(list.job_number) || String(list.job_id || "") || reference.name;
+      }));
+      ambiguous = distinctJobs.size > 1;
+      lists = ambiguous ? [] : namedLists;
+    }
+
+    const listIds = new Set(lists.map((list) => String(list.id)));
+    const itemsByList = new Map();
+    ((state.jobNotes && state.jobNotes.items) || []).forEach((item) => {
+      if (item.completed || !listIds.has(String(item.list_id))) {
+        return;
+      }
+      const key = String(item.list_id);
+      if (!itemsByList.has(key)) {
+        itemsByList.set(key, []);
+      }
+      itemsByList.get(key).push(item);
+    });
+    itemsByList.forEach((items) => {
+      items.sort((a, b) => Number(a.position || 0) - Number(b.position || 0));
+    });
+
+    const itemCount = Array.from(itemsByList.values()).reduce((total, items) => total + items.length, 0);
+    return { reference, lists, itemsByList, itemCount, ambiguous };
+  }
+
+  function getAddedJobNoteState() {
+    const sourceIds = new Set();
+    const descriptions = new Set();
+    if (!elements.materialList) {
+      return { sourceIds, descriptions };
+    }
+
+    elements.materialList.querySelectorAll(".po-material-tile").forEach((row) => {
+      if (row.dataset.jobNoteItemId) {
+        sourceIds.add(String(row.dataset.jobNoteItemId));
+      }
+      const description = row.querySelector('[data-item-field="description"]');
+      const normalized = normalizeJobReference(description && description.value);
+      if (normalized) {
+        descriptions.add(normalized);
+      }
+    });
+    return { sourceIds, descriptions };
+  }
+
+  function formatJobNotesCacheTime(value) {
+    if (!value) {
+      return "";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Toronto",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function renderJobNotesPanel() {
+    if (!elements.jobNotesPanel || !elements.jobNotesSummary || !elements.jobNotesList) {
+      return;
+    }
+
+    const match = getMatchingJobNotes();
+    if (!match.reference) {
+      state.jobNotesMatchKey = "";
+      state.jobNotesExpanded = false;
+      elements.jobNotesPanel.hidden = true;
+      return;
+    }
+
+    if (state.jobNotesMatchKey !== match.reference.key) {
+      state.jobNotesMatchKey = match.reference.key;
+      state.jobNotesExpanded = false;
+    }
+
+    elements.jobNotesPanel.hidden = false;
+    elements.jobNotesToggle.setAttribute("aria-expanded", String(state.jobNotesExpanded));
+    elements.jobNotesBody.hidden = !state.jobNotesExpanded;
+    elements.jobNotesStatus.textContent = "";
+
+    if (state.jobNotesLoading) {
+      elements.jobNotesSummary.textContent = "Loading notes for " + (match.reference.label || "this job") + "...";
+    } else if (match.ambiguous) {
+      elements.jobNotesSummary.textContent = "More than one job has this name. Enter its job number to match notes.";
+    } else if (!match.lists.length) {
+      elements.jobNotesSummary.textContent = "No open Job Notes found for " + (match.reference.label || "this job") + ".";
+    } else {
+      const listLabel = match.lists.length + " open note" + (match.lists.length === 1 ? "" : "s");
+      const itemLabel = match.itemCount + " unchecked item" + (match.itemCount === 1 ? "" : "s");
+      elements.jobNotesSummary.textContent = listLabel + " | " + itemLabel;
+    }
+
+    if (match.ambiguous) {
+      elements.jobNotesStatus.textContent = "Use the manual job number so the correct job notes can be shown.";
+      elements.jobNotesList.innerHTML = "";
+      updateIcons();
+      return;
+    }
+
+    const hasCachedNotes = Boolean((state.jobNotes.lists || []).length || (state.jobNotes.items || []).length);
+    if (state.jobNotesError && hasCachedNotes) {
+      elements.jobNotesStatus.textContent = "Live Job Notes could not be refreshed. Showing the saved copy.";
+    } else if (state.jobNotesError) {
+      elements.jobNotesStatus.textContent = "Job Notes could not be loaded. The PO can still be completed.";
+    } else if (!navigator.onLine && hasCachedNotes) {
+      const cachedAt = formatJobNotesCacheTime(state.jobNotes.cached_at);
+      elements.jobNotesStatus.textContent = "Offline copy" + (cachedAt ? " saved " + cachedAt : "") + ".";
+    } else if (!navigator.onLine) {
+      elements.jobNotesStatus.textContent = "Connect once to load Job Notes for offline use.";
+    } else if (match.lists.length && !match.itemCount) {
+      elements.jobNotesStatus.textContent = "Every item on these notes has already been checked off.";
+    } else {
+      elements.jobNotesStatus.textContent = "Add only the material or equipment entries needed on this PO.";
+    }
+
+    const added = getAddedJobNoteState();
+    elements.jobNotesList.innerHTML = match.lists.map((list) => {
+      const items = match.itemsByList.get(String(list.id)) || [];
+      if (!items.length) {
+        return "";
+      }
+      return `
+        <section class="po-job-note-group" aria-label="${escapeText(list.title || "Job note")}">
+          <div class="po-job-note-heading">
+            <strong>${escapeText(list.title || "Untitled note")}</strong>
+            <span>${items.length} item${items.length === 1 ? "" : "s"}</span>
+          </div>
+          <div class="po-job-note-items">
+            ${items.map((item) => {
+              const alreadyAdded = added.sourceIds.has(String(item.id))
+                || added.descriptions.has(normalizeJobReference(item.item_text));
+              const disabled = alreadyAdded || state.formLocked;
+              return `
+                <div class="po-job-note-item">
+                  <span>${escapeText(item.item_text || "")}</span>
+                  <button class="${alreadyAdded ? "secondary jgc-button jgc-button--secondary" : "jgc-button"}" type="button"
+                    data-po-job-note-add="${escapeText(item.id)}" ${disabled ? "disabled" : ""}>
+                    <i data-lucide="${alreadyAdded ? "check" : "plus"}"></i>
+                    ${alreadyAdded ? "On PO" : "Add to PO"}
+                  </button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
+    updateIcons();
+  }
+
+  function addJobNoteItemToPo(itemId) {
+    if (state.formLocked) {
+      return;
+    }
+    const item = ((state.jobNotes && state.jobNotes.items) || []).find((candidate) => String(candidate.id) === String(itemId));
+    if (!item || !String(item.item_text || "").trim()) {
+      return;
+    }
+
+    const normalizedDescription = normalizeJobReference(item.item_text);
+    const rows = Array.from(elements.materialList.querySelectorAll(".po-material-tile"));
+    const existing = rows.find((row) => {
+      const description = row.querySelector('[data-item-field="description"]');
+      return String(row.dataset.jobNoteItemId || "") === String(item.id)
+        || normalizeJobReference(description && description.value) === normalizedDescription;
+    });
+    if (existing) {
+      existing.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      renderJobNotesPanel();
+      return;
+    }
+
+    let targetRow = rows.find((row) => {
+      const quantity = row.querySelector('[data-item-field="quantity_ordered"]');
+      const description = row.querySelector('[data-item-field="description"]');
+      return !String(quantity && quantity.value || "").trim() && !String(description && description.value || "").trim();
+    });
+
+    if (targetRow) {
+      targetRow.dataset.jobNoteItemId = String(item.id);
+      targetRow.querySelector('[data-item-field="description"]').value = item.item_text;
+    } else {
+      addMaterialRow({
+        description: item.item_text,
+        source_job_list_item_id: item.id
+      });
+      targetRow = elements.materialList.lastElementChild;
+    }
+
+    const quantityInput = targetRow && targetRow.querySelector('[data-item-field="quantity_ordered"]');
+    if (quantityInput) {
+      quantityInput.focus({ preventScroll: true });
+    }
+    renderJobNotesPanel();
+  }
+
   function addMaterialRow(item) {
     const isBlankRow = !item || Object.keys(item).length === 0;
     const row = document.createElement("div");
     row.className = "po-material-tile jgc-card";
     row.dataset.itemId = item && item.id ? item.id : crypto.randomUUID();
+    row.dataset.jobNoteItemId = item && item.source_job_list_item_id ? item.source_job_list_item_id : "";
     row.innerHTML = `
       <div>
         <label class="jgc-label">Qty Ordered</label>
@@ -708,6 +1015,15 @@
         description: value("description")
       };
     }).filter((item) => item.description || item.quantity_ordered);
+  }
+
+  function collectJobNoteLinks() {
+    return Array.from(elements.materialList.querySelectorAll(".po-material-tile")).map((row) => {
+      return {
+        material_item_id: row.dataset.itemId || "",
+        job_list_item_id: row.dataset.jobNoteItemId || ""
+      };
+    }).filter((link) => link.material_item_id && link.job_list_item_id);
   }
 
   function getRecord(id) {
@@ -750,6 +1066,7 @@
   }
 
   function setFormLocked(locked, po) {
+    state.formLocked = Boolean(locked);
     const editableInputs = elements.form.querySelectorAll("input:not(#poId):not(#poRevision), select, textarea");
     editableInputs.forEach((input) => { input.disabled = locked; });
     elements.addItemButton.disabled = locked;
@@ -772,6 +1089,7 @@
     }
     elements.cancelButton.hidden = !(po && po.id && state.user && (po.creator_profile_id === state.user.id || isAdmin()) && po.workflow_status !== "cancelled" && po.workflow_status !== "closed");
     closeJobOptions();
+    renderJobNotesPanel();
   }
 
   async function openForm(id) {
@@ -806,7 +1124,12 @@
     elements.notes.value = po.notes || "";
     elements.materialList.innerHTML = "";
     const items = record && record.items && record.items.length ? record.items : [{}];
-    items.forEach(addMaterialRow);
+    const jobNoteLinks = new Map(((record && record.job_note_links) || []).map((link) => {
+      return [String(link.material_item_id), String(link.job_list_item_id)];
+    }));
+    items.forEach((item) => addMaterialRow(Object.assign({}, item, {
+      source_job_list_item_id: jobNoteLinks.get(String(item.id)) || ""
+    })));
     elements.receiptInput.value = "";
     await renderReceiptPreview(po.id);
 
@@ -815,6 +1138,7 @@
     elements.formStatusBadge.className = badgeClass(currentStatus === "failed" || currentStatus === "cancelled" ? "danger" : (currentStatus === "pending_sync" || currentStatus === "offline_draft" ? "warning" : "green"));
     const locked = Boolean(po.id && !EDITABLE_STATUSES.has(po.workflow_status) && !isPendingHandoff(po) && !canEditPendingSubmission(po));
     setFormLocked(locked, po);
+    renderJobNotesPanel();
 
     elements.listView.hidden = true;
     elements.formView.hidden = false;
@@ -826,7 +1150,11 @@
   function closeForm() {
     state.activeId = "";
     state.pendingReceipt = null;
+    state.jobNotesExpanded = false;
+    state.jobNotesMatchKey = "";
+    state.formLocked = false;
     clearReceiptPreview();
+    elements.jobNotesPanel.hidden = true;
     elements.formView.hidden = true;
     elements.listView.hidden = false;
     renderList();
@@ -925,6 +1253,7 @@
       id: po.id,
       po,
       items: [],
+      job_note_links: [],
       dirty: false,
       assignment_dirty: false,
       desired_assigned_profile_id: null,
@@ -1008,6 +1337,7 @@
       id: po.id,
       po,
       items: formData.items,
+      job_note_links: collectJobNoteLinks(),
       dirty: true,
       assignment_dirty: false,
       desired_assigned_profile_id: null,
@@ -1666,6 +1996,8 @@
       input.addEventListener("input", () => {
         if (hasManualJobEntry()) {
           selectJob("", { clearManual: false });
+        } else {
+          renderJobNotesPanel();
         }
       });
     });
@@ -1675,6 +2007,16 @@
       }
     });
     elements.addItemButton.addEventListener("click", () => addMaterialRow());
+    elements.jobNotesToggle.addEventListener("click", () => {
+      state.jobNotesExpanded = !state.jobNotesExpanded;
+      renderJobNotesPanel();
+    });
+    elements.jobNotesList.addEventListener("click", (event) => {
+      const addButton = event.target.closest("[data-po-job-note-add]");
+      if (addButton) {
+        addJobNoteItemToPo(addButton.dataset.poJobNoteAdd);
+      }
+    });
     elements.materialList.addEventListener("click", (event) => {
       const button = event.target.closest("[data-remove-item]");
       if (!button) {
@@ -1683,9 +2025,26 @@
       const rows = elements.materialList.querySelectorAll(".po-material-tile");
       if (rows.length === 1) {
         rows[0].querySelectorAll("input").forEach((input) => { input.value = ""; });
+        rows[0].dataset.jobNoteItemId = "";
       } else {
         button.closest(".po-material-tile").remove();
       }
+      renderJobNotesPanel();
+    });
+    elements.materialList.addEventListener("input", (event) => {
+      const row = event.target.closest(".po-material-tile");
+      if (!row || !row.dataset.jobNoteItemId) {
+        return;
+      }
+      const description = row.querySelector('[data-item-field="description"]');
+      const sourceItem = ((state.jobNotes && state.jobNotes.items) || []).find((item) => {
+        return String(item.id) === String(row.dataset.jobNoteItemId);
+      });
+      if (!sourceItem
+        || normalizeJobReference(description && description.value) !== normalizeJobReference(sourceItem.item_text)) {
+        row.dataset.jobNoteItemId = "";
+      }
+      renderJobNotesPanel();
     });
     elements.receiptInput.addEventListener("change", handleReceiptChange);
     elements.search.addEventListener("input", renderList);
@@ -1726,12 +2085,14 @@
     });
     window.addEventListener("online", () => {
       updateNetworkBadge();
+      renderJobNotesPanel();
       syncAll();
     });
     window.addEventListener("offline", () => {
       updateNetworkBadge();
       updateSyncBadge();
       renderDeviceState();
+      renderJobNotesPanel();
     });
     window.addEventListener("focus", () => {
       if (navigator.onLine && state.initialized) {
@@ -1778,6 +2139,12 @@
       manualJobName: byId("poManualJobName"),
       supplierName: byId("poSupplierName"),
       notes: byId("poNotes"),
+      jobNotesPanel: byId("poJobNotesPanel"),
+      jobNotesToggle: byId("poJobNotesToggle"),
+      jobNotesSummary: byId("poJobNotesSummary"),
+      jobNotesBody: byId("poJobNotesBody"),
+      jobNotesStatus: byId("poJobNotesStatus"),
+      jobNotesList: byId("poJobNotesList"),
       addItemButton: byId("poAddItemButton"),
       materialList: byId("poMaterialList"),
       receiptInput: byId("poReceiptInput"),
@@ -1815,6 +2182,7 @@
       renderIdentity();
       renderReferenceOptions();
       renderDeviceState();
+      renderJobNotesPanel();
       renderList();
       updateSyncBadge();
 
