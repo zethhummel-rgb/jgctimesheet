@@ -906,10 +906,21 @@ function renderJobDashboard() {
     `;
 }
 
+let jobsManagementTab = "active";
+
+function isActiveManagementJob(job) {
+    return Boolean(job) && job.active !== false;
+}
+
+function setJobsManagementTab(tab) {
+    jobsManagementTab = tab === "inactive" ? "inactive" : "active";
+    renderJobsManagement();
+}
+
 function getJobsSummary() {
     const totalJobs = jobs.length;
-    const activeJobs = jobs.filter((job) => Boolean(job.active)).length;
-    const inactiveJobs = totalJobs - activeJobs;
+    const activeJobs = jobs.filter(isActiveManagementJob).length;
+    const inactiveJobs = jobs.filter((job) => !isActiveManagementJob(job)).length;
     const lastImport = jobs.reduce((latest, job) => {
         const updated = job.updated_at ? new Date(job.updated_at).getTime() : 0;
         return updated > latest ? updated : latest;
@@ -955,7 +966,13 @@ function renderJobsManagement() {
         return;
     }
 
-    const rows = jobs.map((job) => `
+    const activeJobs = jobs.filter(isActiveManagementJob);
+    const inactiveJobs = jobs.filter((job) => !isActiveManagementJob(job));
+    const visibleJobs = (jobsManagementTab === "inactive" ? inactiveJobs : activeJobs)
+        .slice()
+        .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+    const currentLabel = jobsManagementTab === "inactive" ? "inactive" : "active";
+    const rows = visibleJobs.map((job) => `
         <tr>
             <td>${escapeHtml(job.job_number || "")}</td>
             <td>${escapeHtml(job.job_name || "")}</td>
@@ -973,12 +990,23 @@ function renderJobsManagement() {
     `).join("");
 
     list.innerHTML = `
+        <div class="jgc-tabs jobs-management-tabs" role="tablist" aria-label="Job status">
+            <button class="jgc-tab ${jobsManagementTab === "active" ? "active" : ""}" type="button" role="tab" aria-selected="${jobsManagementTab === "active"}" onclick="setJobsManagementTab('active')">
+                Active Jobs <span class="jobs-management-tab-count">${activeJobs.length}</span>
+            </button>
+            <button class="jgc-tab ${jobsManagementTab === "inactive" ? "active" : ""}" type="button" role="tab" aria-selected="${jobsManagementTab === "inactive"}" onclick="setJobsManagementTab('inactive')">
+                Inactive Jobs <span class="jobs-management-tab-count">${inactiveJobs.length}</span>
+            </button>
+        </div>
+        <div class="small jobs-management-tab-help">${jobsManagementTab === "active"
+            ? "Active jobs are available in the portal's job selectors."
+            : "Inactive jobs are retained for records but hidden from active job selectors."}</div>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr><th>Job Number</th><th>Job Name</th><th>Contract / T&M</th><th>Project Manager</th><th>Documents</th><th>Status</th><th>Updated</th></tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${rows || `<tr><td colspan="7" class="small">No ${currentLabel} jobs found.</td></tr>`}</tbody>
             </table>
         </div>
     `;

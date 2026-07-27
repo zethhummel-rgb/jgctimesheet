@@ -2734,6 +2734,27 @@ button.admin-schedule-event-button.admin-event-vacation {
     accent-color: #32dc55;
 }
 
+.jobs-management-tabs {
+    margin-bottom: 10px;
+}
+
+.jobs-management-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    margin-left: 4px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.22);
+    font-size: 12px;
+}
+
+.jobs-management-tab-help {
+    margin: 0 0 10px;
+}
+
 .job-info-grid,
 .job-dashboard-metrics {
     display: grid;
