@@ -353,7 +353,7 @@
         .is("deleted_at", null)
         .order("updated_at", { ascending: false }),
       state.client.from("job_list_items")
-        .select("id,list_id,item_text,position,completed,updated_at")
+        .select("id,list_id,item_text,quantity,position,completed,updated_at")
         .eq("completed", false)
         .order("position")
     ]);
@@ -917,7 +917,7 @@
               const disabled = alreadyAdded || state.formLocked;
               return `
                 <div class="po-job-note-item">
-                  <span>${escapeText(item.item_text || "")}</span>
+                  <span class="po-job-note-item-copy">${escapeText(item.item_text || "")}${item.quantity !== null && item.quantity !== undefined && String(item.quantity) !== "" ? `<span class="po-job-note-quantity">Qty ${escapeText(item.quantity)}</span>` : ""}</span>
                   <button class="${alreadyAdded ? "secondary jgc-button jgc-button--secondary" : "jgc-button"}" type="button"
                     data-po-job-note-add="${escapeText(item.id)}" ${disabled ? "disabled" : ""}>
                     <i data-lucide="${alreadyAdded ? "check" : "plus"}"></i>
@@ -964,9 +964,11 @@
     if (targetRow) {
       targetRow.dataset.jobNoteItemId = String(item.id);
       targetRow.querySelector('[data-item-field="description"]').value = item.item_text;
+      targetRow.querySelector('[data-item-field="quantity_ordered"]').value = item.quantity !== null && item.quantity !== undefined ? item.quantity : "";
     } else {
       addMaterialRow({
         description: item.item_text,
+        quantity_ordered: item.quantity,
         source_job_list_item_id: item.id
       });
       targetRow = elements.materialList.lastElementChild;

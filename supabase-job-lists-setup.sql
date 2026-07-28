@@ -46,6 +46,7 @@ create table if not exists public.job_list_items (
   id uuid primary key default gen_random_uuid(),
   list_id uuid not null references public.job_lists(id) on delete cascade,
   item_text text not null,
+  quantity numeric check (quantity is null or quantity >= 0),
   position integer not null default 0,
   completed boolean not null default false,
   completed_at timestamptz,

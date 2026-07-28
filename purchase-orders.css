@@ -629,6 +629,27 @@ body.po-page {
   padding: 6px 0;
 }
 
+.po-job-note-item-copy {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.po-job-note-quantity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 7px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-pill);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .po-job-note-item > span {
   min-width: 0;
   overflow-wrap: anywhere;

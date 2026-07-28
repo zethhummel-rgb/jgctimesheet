@@ -665,10 +665,37 @@
 .job-list-item-edit-row {
   min-height: 58px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 44px;
+  grid-template-columns: 42px 72px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid var(--jgc-color-border-soft);
+}
+
+.job-list-item-quantity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+}
+
+.jgc-theme .job-list-item-quantity input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 4px 5px;
+  color: var(--jgc-color-text) !important;
+  background: var(--jgc-color-surface-raised) !important;
+  border: 1px solid var(--jgc-color-input-border) !important;
+  border-radius: var(--jgc-radius-sm);
+  font: inherit;
+  text-align: center;
+}
+
+.jgc-theme .job-list-item-edit-row.is-complete .job-list-item-quantity {
+  opacity: 0.65;
 }
 
 .job-list-edit-bullet {
@@ -1079,7 +1106,7 @@
   }
 
   .job-list-item-edit-row {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    grid-template-columns: 42px 68px minmax(0, 1fr) 42px;
   }
 
   .job-list-line-input {

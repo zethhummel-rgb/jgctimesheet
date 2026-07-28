@@ -471,6 +471,10 @@
         + (state.editorCanToggle ? "" : " disabled")
         + ' aria-label="' + escapeHtml(item.completed ? "Mark line incomplete" : "Mark line complete") + '"'
         + ' aria-pressed="' + (item.completed ? "true" : "false") + '"></button>'
+        + '<label class="job-list-item-quantity"><span>Qty</span>'
+        + '<input data-job-list-item-quantity="' + index + '" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off"'
+        + ' placeholder="-" aria-label="Quantity for line ' + (index + 1) + '"'
+        + (disabled ? " disabled" : "") + ' value="' + escapeHtml(item.quantity !== null && item.quantity !== undefined ? item.quantity : "") + '"></label>'
         + '<textarea class="job-list-line-input" data-job-list-item-input="' + index + '" maxlength="240" rows="1"'
         + ' placeholder="' + (index ? "Add another item" : "Start typing") + '"'
         + (disabled ? " disabled" : "") + ">" + escapeHtml(item.item_text || "") + "</textarea>"
@@ -488,6 +492,11 @@
       return {
         id: id,
         item_text: String(input.value || "").trim(),
+        quantity: (function () {
+          const quantityInput = elements.itemEditor.querySelector('[data-job-list-item-quantity="' + index + '"]');
+          const raw = String(quantityInput && quantityInput.value || "").trim();
+          return raw ? raw : null;
+        }()),
         position: index,
         completed: Boolean(row && row.dataset.jobListItemCompleted === "true")
       };
@@ -727,7 +736,7 @@
     if (toUpdate.length) {
       for (const item of toUpdate) {
         const result = await state.client.from("job_list_items")
-          .update({ item_text: item.item_text, position: item.position })
+          .update({ item_text: item.item_text, quantity: item.quantity, position: item.position })
           .eq("id", item.id);
         if (result.error) {
           throw result.error;
@@ -735,6 +744,7 @@
         const savedItem = state.items.find(function (entry) { return entry.id === item.id; });
         if (savedItem) {
           savedItem.item_text = item.item_text;
+          savedItem.quantity = item.quantity;
           savedItem.position = item.position;
         }
       }
@@ -744,6 +754,7 @@
         return {
           list_id: list.id,
           item_text: item.item_text,
+          quantity: item.quantity,
           position: item.position,
           created_by: state.user.id
         };
