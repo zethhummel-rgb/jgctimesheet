@@ -1329,6 +1329,7 @@ test("purchase order Job Notes transfer material and equipment items one at a ti
       id: "00000000-0000-4000-8000-000000000213",
       list_id: jobList.id,
       item_text: "Twelve sheets of drywall",
+      quantity: 45,
       position: 0,
       completed: false,
       updated_at: "2026-07-23T13:01:00.000Z"
@@ -1401,6 +1402,7 @@ test("purchase order Job Notes transfer material and equipment items one at a ti
   const equipmentItem = page.locator(".po-job-note-item").filter({ hasText: "Scissor lift" });
   await drywallItem.getByRole("button", { name: "Add to PO" }).click();
   await expect(page.locator('[data-item-field="description"]').first()).toHaveValue("Twelve sheets of drywall");
+  await expect(page.locator('[data-item-field="quantity_ordered"]').first()).toHaveValue("45");
   await expect(drywallItem.getByRole("button", { name: "On PO" })).toBeDisabled();
 
   await equipmentItem.getByRole("button", { name: "Add to PO" }).click();
@@ -1987,6 +1989,121 @@ test("job notes use compact Jobs folders and note rows", async ({ page }) => {
   expect(horizontalOverflow).toBeLessThanOrEqual(1);
   await captureJobListScreenshot(page, "job-lists-compact-browser.png");
   await expectNoRuntimeErrors(errors, "compact grouped job notes");
+});
+
+test("job note completes when every item is checked and reopens when one is unchecked", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const job = {
+    id: "00000000-0000-4000-8000-000000000401",
+    job_number: "26040",
+    job_name: "Williamstown Fairboard Entrance Sign",
+    active: true
+  };
+  const list = {
+    id: "00000000-0000-4000-8000-000000000402",
+    job_id: job.id,
+    job_number: job.job_number,
+    job_name: job.job_name,
+    title: "Pickup materials",
+    status: "open",
+    created_by: fakeUser.id,
+    created_by_name: fakeProfile.display_name,
+    last_edited_by_name: fakeProfile.display_name,
+    created_at: "2026-07-29T10:00:00.000Z",
+    updated_at: "2026-07-29T10:00:00.000Z",
+    deleted_at: null
+  };
+  const members = [{
+    id: "00000000-0000-4000-8000-000000000403",
+    list_id: list.id,
+    profile_id: fakeUser.id,
+    display_name: fakeProfile.display_name
+  }];
+  const items = [
+    {
+      id: "00000000-0000-4000-8000-000000000404",
+      list_id: list.id,
+      item_text: "Plywood",
+      position: 0,
+      completed: true,
+      created_at: "2026-07-29T10:01:00.000Z"
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000405",
+      list_id: list.id,
+      item_text: "Fasteners",
+      position: 1,
+      completed: false,
+      created_at: "2026-07-29T10:02:00.000Z"
+    }
+  ];
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([job])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_lists**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([list])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_members**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(members)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_items**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(items)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_reminders**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: "[]"
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/job_list_activity**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: "[]"
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/toggle_job_list_item`, async (route) => {
+    const payload = route.request().postDataJSON();
+    const item = items.find((entry) => entry.id === payload.p_item_id);
+    item.completed = Boolean(payload.p_completed);
+    list.status = items.length && items.every((entry) => entry.completed) ? "completed" : "open";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(item)
+    });
+  });
+
+  await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
+  const openGroup = page.locator("[data-job-list-job-group]");
+  await openGroup.locator("summary").click();
+  await openGroup.getByRole("button", { name: "Open note: Pickup materials" }).click();
+  await page.getByRole("button", { name: "Mark line complete" }).click();
+  await expect(page.locator("#jobListsModal")).toBeHidden();
+  await expect(page.locator("#jobListsNotice")).toContainText("Job note completed.");
+  await expect(page.locator("#jobListsCards")).toContainText("No open job notes found.");
+
+  await page.locator('[data-job-list-tab="completed"]').click();
+  const completedGroup = page.locator("[data-job-list-job-group]");
+  if (!(await completedGroup.evaluate((group) => group.open))) {
+    await completedGroup.locator("summary").click();
+  }
+  await completedGroup.getByRole("button", { name: "Open note: Pickup materials" }).click();
+  await page.getByRole("button", { name: "Mark line incomplete" }).first().click();
+  await expect(page.locator("#jobListsModal")).toBeHidden();
+  await expect(page.locator("#jobListsNotice")).toContainText("Job note reopened.");
+
+  await page.locator('[data-job-list-tab="open"]').click();
+  await expect(page.locator("[data-job-list-job-group]")).toContainText("Pickup materials");
+  await expectNoRuntimeErrors(errors, "automatic job note completion");
 });
 
 test("job notes admin page keeps management separate", async ({ page }) => {

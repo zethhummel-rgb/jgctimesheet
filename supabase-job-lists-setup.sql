@@ -541,6 +541,7 @@ declare
   v_item public.job_list_items%rowtype;
   v_list public.job_lists%rowtype;
   v_name text;
+  v_next_status text;
 begin
   if not private.jgc_has_full_portal_access() then
     raise exception 'Approved portal access is required.';
@@ -556,14 +557,15 @@ begin
     select *
     into v_list
     from public.job_lists l
-    where l.id = v_item.list_id;
+    where l.id = v_item.list_id
+    for update;
   end if;
 
   if v_item.id is null or v_list.id is null or v_list.deleted_at is not null then
     raise exception 'This note item is no longer available.';
   end if;
 
-  if v_list.status <> 'open' then
+  if v_list.status <> 'open' and coalesce(p_completed, false) then
     raise exception 'Reopen this completed list before changing its items.';
   end if;
 
@@ -585,6 +587,40 @@ begin
       v_name,
       jsonb_build_object('item_text', v_item.item_text, 'completed', v_item.completed)
     );
+
+  select case
+    when exists (
+      select 1
+      from public.job_list_items i
+      where i.list_id = v_item.list_id
+    )
+    and not exists (
+      select 1
+      from public.job_list_items i
+      where i.list_id = v_item.list_id
+        and not i.completed
+    )
+    then 'completed'
+    else 'open'
+  end
+  into v_next_status;
+
+  if v_list.status is distinct from v_next_status then
+    update public.job_lists
+    set status = v_next_status
+    where id = v_item.list_id;
+
+    insert into public.job_list_activity
+      (list_id, action, actor_profile_id, actor_name, details)
+    values
+      (
+        v_item.list_id,
+        case when v_next_status = 'completed' then 'list_completed' else 'list_reopened' end,
+        (select auth.uid()),
+        v_name,
+        jsonb_build_object('automatic', true, 'source', 'checklist')
+      );
+  end if;
 
   return v_item;
 end;

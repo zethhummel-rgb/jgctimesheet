@@ -190,6 +190,22 @@
       });
   }
 
+  function applyChecklistStatus(list) {
+    if (!list) {
+      return false;
+    }
+    const listItems = itemsFor(list.id);
+    const nextStatus = listItems.length && listItems.every(function (item) {
+      return Boolean(item.completed);
+    }) ? "completed" : "open";
+    if (list.status === nextStatus) {
+      return false;
+    }
+    list.status = nextStatus;
+    list.updated_at = new Date().toISOString();
+    return true;
+  }
+
   function remindersFor(listId, includeExpired) {
     const now = Date.now();
     const reminders = state.reminders
@@ -603,7 +619,7 @@
     const editable = controller && (!list || list.status === "open");
     state.viewerOnly = !controller;
     state.editorEditable = editable;
-    state.editorCanToggle = Boolean((list && list.status === "open") || (!list && editable));
+    state.editorCanToggle = Boolean((list && controller) || (!list && editable));
     elements.form.reset();
     elements.listId.value = list ? list.id : "";
     const savedDraft = readJson(editorDraftKey(list ? list.id : ""), null);
@@ -618,7 +634,7 @@
     elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
     elements.accessLine.textContent = controller
       ? (list && list.status === "completed"
-        ? "Reopen this completed note before changing it."
+        ? "Uncheck an item to reopen this note, or use Reopen Note for full editing."
         : "Tagged employees can edit this note and its reminder.")
       : "You can view and check items. Tagged employees manage the note.";
 
@@ -1077,26 +1093,35 @@
   async function toggleItem(itemId) {
     const item = state.items.find(function (entry) { return entry.id === itemId; });
     if (!item) {
-      return;
+      return false;
     }
     const list = state.lists.find(function (entry) { return entry.id === item.list_id; });
-    if (!list || list.status !== "open") {
+    if (!list || (list.status !== "open" && !item.completed)) {
       showNotice("Reopen this completed note before changing its items.", "error");
-      return;
+      return false;
     }
+    const previousListStatus = list.status;
     const completed = !item.completed;
     item.completed = completed;
     item.completed_at = completed ? new Date().toISOString() : null;
     item.completed_by_name = completed
       ? state.profile && state.profile.display_name || state.worker.display || ""
       : "";
+    applyChecklistStatus(list);
+    const statusChanged = list.status !== previousListStatus;
     renderCards();
     saveCache();
 
     if (!state.online) {
       enqueueToggle(item.id, completed);
       updateStatusBadges();
-      return;
+      if (statusChanged) {
+        closeModal();
+        showNotice(list.status === "completed"
+          ? "All items are checked. Job note completed and waiting to sync."
+          : "Job note reopened and waiting to sync.");
+      }
+      return statusChanged;
     }
 
     const result = await state.client.rpc("toggle_job_list_item", {
@@ -1105,14 +1130,25 @@
     });
     if (result.error) {
       item.completed = !completed;
+      list.status = previousListStatus;
       renderCards();
       saveCache();
       showNotice(result.error.message || "The item could not be updated.", "error");
-      return;
+      return false;
     }
-    Object.assign(item, result.data || {});
+    const savedItem = Array.isArray(result.data) ? result.data[0] : result.data;
+    Object.assign(item, savedItem || {});
+    applyChecklistStatus(list);
     saveCache();
     renderCards();
+    if (statusChanged) {
+      closeModal();
+      await refreshData();
+      showNotice(list.status === "completed"
+        ? "All items are checked. Job note completed."
+        : "Job note reopened.");
+    }
+    return statusChanged;
   }
 
   async function flushToggleQueue() {
@@ -1132,9 +1168,21 @@
       });
       if (result.error) {
         remaining.push(entry);
+      } else {
+        const item = state.items.find(function (candidate) {
+          return candidate.id === entry.itemId;
+        });
+        const savedItem = Array.isArray(result.data) ? result.data[0] : result.data;
+        if (item) {
+          Object.assign(item, savedItem || { completed: entry.completed });
+          applyChecklistStatus(state.lists.find(function (list) {
+            return list.id === item.list_id;
+          }));
+        }
       }
     }
     setToggleQueue(remaining);
+    saveCache();
     updateStatusBadges();
     if (remaining.length) {
       showNotice(remaining.length + " offline change" + (remaining.length === 1 ? "" : "s") + " could not sync yet.", "error");
@@ -1268,7 +1316,10 @@
       return;
     }
     if (item.id) {
-      await toggleItem(item.id);
+      const statusChanged = await toggleItem(item.id);
+      if (statusChanged) {
+        return;
+      }
       const current = state.items.find(function (entry) { return entry.id === item.id; });
       item.completed = Boolean(current && current.completed);
     } else {
