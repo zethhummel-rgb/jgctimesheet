@@ -1343,7 +1343,7 @@ function normalizeWorkOrderJobNumber(jobNumber) {
   return String(jobNumber || "").trim().replace(/\s+/g, "");
 }
 
-function makeWorkOrderNumberForJob(jobNumber) {
+function makeWorkOrderNumberForJob(jobNumber, records) {
   const normalizedJobNumber = normalizeWorkOrderJobNumber(jobNumber);
 
   if (!normalizedJobNumber) {
@@ -1351,7 +1351,7 @@ function makeWorkOrderNumberForJob(jobNumber) {
   }
 
   const prefix = "WO" + normalizedJobNumber + "-";
-  const nextNumber = workOrders.reduce((max, wo) => {
+  const nextNumber = (records || workOrders).reduce((max, wo) => {
     const woNumber = String(wo.wo_number || "");
 
     if (!woNumber.startsWith(prefix)) {
@@ -1365,12 +1365,45 @@ function makeWorkOrderNumberForJob(jobNumber) {
   return prefix + String(nextNumber).padStart(3, "0");
 }
 
-function updateWorkOrderNumberForSelectedJob() {
+async function getNextWorkOrderNumberForJob(jobNumber) {
+  const normalizedJobNumber = normalizeWorkOrderJobNumber(jobNumber);
+
+  if (!normalizedJobNumber || !supabaseClient || navigator.onLine === false) {
+    return makeWorkOrderNumberForJob(normalizedJobNumber);
+  }
+
+  const prefix = "WO" + normalizedJobNumber + "-";
+  const result = await supabaseClient
+    .from("work_orders")
+    .select("wo_number")
+    .like("wo_number", prefix + "%");
+
+  if (result.error) {
+    return makeWorkOrderNumberForJob(normalizedJobNumber);
+  }
+
+  return makeWorkOrderNumberForJob(normalizedJobNumber, result.data || []);
+}
+
+let workOrderNumberRequestId = 0;
+async function updateWorkOrderNumberForSelectedJob() {
   if (editingWorkOrderId) {
     return;
   }
 
-  document.getElementById("woNumber").value = makeWorkOrderNumberForJob(document.getElementById("woJobNumber").value);
+  const requestId = ++workOrderNumberRequestId;
+  const field = document.getElementById("woNumber");
+  const jobNumber = document.getElementById("woJobNumber").value;
+  field.value = "";
+  field.placeholder = "Generating WO number...";
+  const nextNumber = await getNextWorkOrderNumberForJob(jobNumber);
+
+  if (requestId !== workOrderNumberRequestId || editingWorkOrderId) {
+    return;
+  }
+
+  field.value = nextNumber;
+  field.placeholder = "Select a job to generate";
 }
 
 function getJobOptionLabel(job) {
@@ -2745,39 +2778,51 @@ async function saveWorkOrder(options) {
     updated_at: new Date().toISOString()
   };
 
-  let result;
-  if (editingWorkOrderId) {
-    result = await supabaseClient
-      .from("work_orders")
-      .update(values)
-      .eq("id", editingWorkOrderId)
-      .select()
-      .single();
-  } else {
-    result = await supabaseClient
-      .from("work_orders")
-      .insert(values)
-      .select()
-      .single();
-  }
-
-  if (result.error && String(result.error.message || "").toLowerCase().includes("notes")) {
-    delete values.notes;
-
+  const saveRecord = async function () {
     if (editingWorkOrderId) {
-      result = await supabaseClient
+      return supabaseClient
         .from("work_orders")
         .update(values)
         .eq("id", editingWorkOrderId)
         .select()
         .single();
-    } else {
-      result = await supabaseClient
+    }
+
+    let insertResult;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      insertResult = await supabaseClient
         .from("work_orders")
         .insert(values)
         .select()
         .single();
+
+      const isDuplicateNumber = insertResult.error && (
+        String(insertResult.error.code || "") === "23505" ||
+        /work_orders_wo_number_key|duplicate key/i.test(String(insertResult.error.message || ""))
+      );
+      if (!isDuplicateNumber) {
+        return insertResult;
+      }
+
+      const replacementNumber = await getNextWorkOrderNumberForJob(jobNumber);
+      if (!replacementNumber || replacementNumber === values.wo_number) {
+        return insertResult;
+      }
+
+      values.wo_number = replacementNumber;
+      document.getElementById("woNumber").value = replacementNumber;
+      setFormStatus("That WO number was just used. Assigning the next available number...");
     }
+
+    return insertResult;
+  };
+
+  let result = await saveRecord();
+
+  if (result.error && String(result.error.message || "").toLowerCase().includes("notes")) {
+    delete values.notes;
+
+    result = await saveRecord();
 
     if (!result.error) {
       setFormStatus("Work Order saved, but Notes were not saved because the Supabase notes column has not been added yet. Run supabase-work-orders-notes-setup.sql.", true);
