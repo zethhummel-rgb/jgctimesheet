@@ -37,3 +37,5 @@ Individual `?v=` values identify revisions of specific assets. Every page refere
 A new service worker now activates only after every app-shell file downloads successfully. If a deployed file is missing, the new worker fails installation and the previously working worker remains active.
 
 Old cache cleanup is limited to caches beginning with `jgc-portal-v`, so unrelated browser caches on the same origin are not removed.
+
+GitHub publishing connection last verified: July 29, 2026.
