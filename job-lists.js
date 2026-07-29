@@ -25,6 +25,7 @@
     viewerOnly: false,
     editorEditable: false,
     editorCanToggle: false,
+    pendingCompletionOnClose: null,
     openJobGroups: new Set()
   };
 
@@ -617,6 +618,7 @@
     const list = listId ? state.lists.find(function (entry) { return entry.id === listId; }) : null;
     const controller = !list || canControl(list);
     const editable = controller && (!list || list.status === "open");
+    state.pendingCompletionOnClose = null;
     state.viewerOnly = !controller;
     state.editorEditable = editable;
     state.editorCanToggle = Boolean((list && controller) || (!list && editable));
@@ -682,11 +684,24 @@
   }
 
   function closeModal() {
+    const pendingCompletion = state.pendingCompletionOnClose;
+    state.pendingCompletionOnClose = null;
     elements.modal.hidden = true;
     document.body.style.overflow = "";
     state.editorEditable = false;
     state.editorCanToggle = false;
     setAutosaveStatus("Changes save at each step", "");
+    if (pendingCompletion) {
+      renderCards();
+      showNotice(pendingCompletion.offline
+        ? "All items are checked. Job note completed and waiting to sync."
+        : "All items are checked. Job note completed.");
+      if (!pendingCompletion.offline) {
+        refreshData().catch(function (error) {
+          showNotice(error && error.message || "The completed note could not be refreshed.", "error");
+        });
+      }
+    }
   }
 
   async function addActivity(listId, action, details) {
@@ -1109,17 +1124,23 @@
       : "";
     applyChecklistStatus(list);
     const statusChanged = list.status !== previousListStatus;
-    renderCards();
+    if (!statusChanged || list.status !== "completed") {
+      renderCards();
+    }
     saveCache();
 
     if (!state.online) {
       enqueueToggle(item.id, completed);
       updateStatusBadges();
       if (statusChanged) {
-        closeModal();
-        showNotice(list.status === "completed"
-          ? "All items are checked. Job note completed and waiting to sync."
-          : "Job note reopened and waiting to sync.");
+        if (list.status === "completed") {
+          state.pendingCompletionOnClose = { offline: true };
+          setAutosaveStatus("All items checked. Close this note to move it to Completed.", "saved");
+        } else {
+          state.pendingCompletionOnClose = null;
+          closeModal();
+          showNotice("Job note reopened and waiting to sync.");
+        }
       }
       return statusChanged;
     }
@@ -1140,13 +1161,19 @@
     Object.assign(item, savedItem || {});
     applyChecklistStatus(list);
     saveCache();
-    renderCards();
+    if (!statusChanged || list.status !== "completed") {
+      renderCards();
+    }
     if (statusChanged) {
-      closeModal();
-      await refreshData();
-      showNotice(list.status === "completed"
-        ? "All items are checked. Job note completed."
-        : "Job note reopened.");
+      if (list.status === "completed") {
+        state.pendingCompletionOnClose = { offline: false };
+        setAutosaveStatus("All items checked. Close this note to move it to Completed.", "saved");
+      } else {
+        state.pendingCompletionOnClose = null;
+        closeModal();
+        await refreshData();
+        showNotice("Job note reopened.");
+      }
     }
     return statusChanged;
   }
@@ -1317,11 +1344,16 @@
     }
     if (item.id) {
       const statusChanged = await toggleItem(item.id);
-      if (statusChanged) {
+      if (statusChanged && !state.pendingCompletionOnClose) {
         return;
       }
       const current = state.items.find(function (entry) { return entry.id === item.id; });
       item.completed = Boolean(current && current.completed);
+      if (statusChanged) {
+        renderItemEditor(items, !state.editorEditable);
+        setAutosaveStatus("All items checked. Close this note to move it to Completed.", "saved");
+        return;
+      }
     } else {
       item.completed = !item.completed;
     }

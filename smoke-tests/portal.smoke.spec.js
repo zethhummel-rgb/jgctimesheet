@@ -2087,6 +2087,9 @@ test("job note completes when every item is checked and reopens when one is unch
   await openGroup.locator("summary").click();
   await openGroup.getByRole("button", { name: "Open note: Pickup materials" }).click();
   await page.getByRole("button", { name: "Mark line complete" }).click();
+  await expect(page.locator("#jobListsModal")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mark line incomplete" })).toHaveCount(2);
+  await page.locator("#jobListModalClose").click();
   await expect(page.locator("#jobListsModal")).toBeHidden();
   await expect(page.locator("#jobListsNotice")).toContainText("Job note completed.");
   await expect(page.locator("#jobListsCards")).toContainText("No open job notes found.");
