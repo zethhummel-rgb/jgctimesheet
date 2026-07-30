@@ -892,6 +892,28 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin tabs");
 });
 
+test("admin calendar loads approved employees on summary startup", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const tableRequests = [];
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) {
+      tableRequests.push(match[1]);
+    }
+  });
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => adminDataLoaded === true);
+  await page.evaluate(() => openAdminScheduleModal("2026-08-10"));
+
+  expect(tableRequests).toContain("work_order_labour_workers");
+  await expect(page.locator("#adminScheduleEmployees")).toContainText(fakeProfile.display_name);
+  await expect(page.locator("#adminScheduleEmployees")).toContainText("Steven Leduc");
+  await expectNoRuntimeErrors(errors, "admin calendar employee loading");
+});
+
 test("admin tool data loads only after its tool is opened", async ({ page }) => {
   test.setTimeout(45_000);
   const errors = watchRuntimeErrors(page);

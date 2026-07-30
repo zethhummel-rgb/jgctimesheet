@@ -942,15 +942,17 @@ async function loadAdminData(options = {}) {
                 { label: "vacation requests", query: () => supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }) },
                 { label: "schedule events", query: () => supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }) },
                 { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
+                { label: "approved work order workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
                 { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
             ]);
 
-            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, subcontractorActivityResult] = adminDataResults;
+            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, workOrderWorkerResult, subcontractorActivityResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
             vacationRequests = vacationResult.data || [];
             scheduleEvents = scheduleResult.data || [];
             accounts = accountResult.data || [];
+            workOrderLabourWorkers = workOrderWorkerResult.data || [];
             subcontractorActivity = subcontractorActivityResult.data || [];
 
             if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
