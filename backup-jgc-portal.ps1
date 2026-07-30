@@ -734,6 +734,7 @@ try {
     "profiles", "timesheet_entries", "previous_timesheet_weeks", "jobs", "work_orders",
     "work_order_labour", "work_order_purchase_orders", "work_order_equipment", "work_order_rentals",
     "work_order_materials", "work_order_misc_invoices", "work_order_travel", "work_order_labour_workers",
+    "employee_feature_access",
     "inspection_records", "certificates", "certificate_expiry_notifications", "vacation_requests",
     "announcements", "announcement_acknowledgements", "toolbox_talks", "toolbox_talk_reports",
     "toolbox_talk_attendance", "daily_site_reports", "incident_reports", "accident_reports",

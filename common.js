@@ -1548,8 +1548,8 @@ function markJgcAdminHeaderElements(page) {
   const title = page === "purchase-orders-admin.html"
     ? document.querySelector(".po-shell > h1")
     : document.querySelector("body > h1, .hero h1, .top-actions h1, .jgc-page-header h1");
-  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #diagnosticsCurrentUser, #workerName");
-  const brandRegion = document.querySelector(".logo-wrap, .po-brand, .diagnostics-brand, .hero, .top-actions .brand");
+  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #diagnosticsCurrentUser, #employeeAccessCurrentUser, #workerName");
+  const brandRegion = document.querySelector(".logo-wrap, .po-brand, .diagnostics-brand, .employee-access-page .jgc-brand, .hero, .top-actions .brand");
   const existingHeader = title && title.closest(".hero, .top-actions");
 
   if (title) {

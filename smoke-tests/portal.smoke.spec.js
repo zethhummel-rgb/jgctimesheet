@@ -22,6 +22,18 @@ const fakeProfile = {
   role: "admin",
   account_status: "approved"
 };
+const fakeWorkerIds = [
+  "00000000-0000-4000-8000-000000000010",
+  "00000000-0000-4000-8000-000000000011"
+];
+const employeeFeatureKeys = [
+  "work_orders",
+  "schedule",
+  "jsa",
+  "toolbox_talks",
+  "job_notes",
+  "tasks"
+];
 
 async function captureJobListScreenshot(page, fileName) {
   const directory = process.env.JGC_JOB_LIST_SCREENSHOT_DIR;
@@ -116,20 +128,29 @@ async function mockPortalServices(page, profile = fakeProfile) {
     } else if (url.pathname.includes("/rest/v1/work_order_labour_workers")) {
       body = JSON.stringify([
         {
-          id: "00000000-0000-4000-8000-000000000010",
+          id: fakeWorkerIds[0],
           profile_id: profile.id,
           display_name: profile.display_name,
           worker_key: profile.worker_key,
           approved: true
         },
         {
-          id: "00000000-0000-4000-8000-000000000011",
+          id: fakeWorkerIds[1],
           profile_id: "00000000-0000-4000-8000-000000000002",
           display_name: "Steven Leduc",
           worker_key: "steven leduc",
           approved: true
         }
       ]);
+    } else if (url.pathname.includes("/rest/v1/employee_feature_access")) {
+      body = JSON.stringify(fakeWorkerIds.flatMap((workerId) =>
+        employeeFeatureKeys.map((featureKey) => ({
+          worker_id: workerId,
+          feature_key: featureKey,
+          enabled: true,
+          updated_at: "2026-07-30T12:00:00.000Z"
+        }))
+      ));
     } else if (url.pathname.startsWith("/rest/v1/rpc/")) {
       body = accept.includes("application/vnd.pgrst.object") ? "{}" : "[]";
     } else if (url.pathname.startsWith("/functions/v1/")) {
@@ -478,6 +499,15 @@ test("JSA approved employee selection immediately adds the crew member", async (
     body: JSON.stringify([
       { id: "1", display_name: "Andre Labrosse", worker_key: "andre labrosse", approved: true },
       { id: "2", display_name: "Steven Leduc", worker_key: "steven leduc", approved: true }
+    ])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/employee_feature_access**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-1/2" },
+    body: JSON.stringify([
+      { worker_id: "1", feature_key: "jsa", enabled: true },
+      { worker_id: "2", feature_key: "jsa", enabled: true }
     ])
   }));
   await installAuthenticatedPortalState(page);
@@ -909,6 +939,7 @@ test("admin calendar loads approved employees on summary startup", async ({ page
   await page.evaluate(() => openAdminScheduleModal("2026-08-10"));
 
   expect(tableRequests).toContain("work_order_labour_workers");
+  expect(tableRequests).toContain("employee_feature_access");
   await expect(page.locator("#adminScheduleEmployees")).toContainText(fakeProfile.display_name);
   await expect(page.locator("#adminScheduleEmployees")).toContainText("Steven Leduc");
   await expectNoRuntimeErrors(errors, "admin calendar employee loading");
@@ -1192,7 +1223,23 @@ test("employee directories defer Supabase data until their sections are opened",
   await page.locator("#taskFormDetails > summary").click();
   await expect.poll(() => tableRequests.includes("jobs")).toBe(true);
   await expect.poll(() => tableRequests.includes("work_order_labour_workers")).toBe(true);
+  await expect.poll(() => tableRequests.includes("employee_feature_access")).toBe(true);
   await expectNoRuntimeErrors(errors, "employee directory lazy loading");
+});
+
+test("employee page access is a standalone admin tool with all selector permissions", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/employee-access-admin.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("h1")).toHaveText("Employee Page Access");
+  await expect(page.locator("#employeeAccessRows tr")).toHaveCount(2);
+  await expect(page.locator("#employeeAccessHeader th")).toHaveCount(8);
+  await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(12);
+  await expect(page.locator("#employeeAccessRows")).toContainText(fakeProfile.display_name);
+  await expect(page.locator("#employeeAccessRows")).toContainText("Steven Leduc");
+  await expectNoRuntimeErrors(errors, "employee page access admin tool");
 });
 
 test("employee submitted work orders load only after their tab is clicked", async ({ page }) => {

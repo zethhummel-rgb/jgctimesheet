@@ -99,6 +99,10 @@
             <strong>Accounts</strong>
             <span>Approve accounts, update access, and assign employee, supervisor, or admin account types.</span>
         </button>
+        <button type="button" class="admin-tool-card" onclick="window.location.href='employee-access-admin.html'">
+            <strong>Employee Page Access</strong>
+            <span>Choose which approved employees appear in Work Orders, schedules, JSA, Toolbox Talks, Job Notes, and Tasks.</span>
+        </button>
         <button type="button" class="admin-tool-card" onclick="window.location.href='notification-settings.html'">
             <strong>Notification Settings</strong>
             <span>Choose which notifications go to employees, supervisors, and admins.</span>
@@ -874,27 +878,6 @@
         <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
         <button class="jgc-button" type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
     </div>
-    <details class="sub-card admin-collapsible-panel jgc-card" style="margin-top:14px;">
-        <summary>
-            <span>Approved WO Labour Workers</span>
-            <span id="woLabourWorkerCountBadge" class="timesheet-worker-count">0</span>
-        </summary>
-        <div>
-            <div class="small" style="margin-bottom:10px;">Checked workers appear in the Work Order labour picker. You can add manual names here without creating portal accounts.</div>
-            <div class="filters jgc-filter-grid">
-                <div class="jgc-field">
-                    <label>Add Worker Name</label>
-                    <input id="woLabourWorkerName" class="jgc-input" placeholder="Worker name">
-                </div>
-            </div>
-            <div class="actions jgc-actions" style="margin-top:10px;">
-                <button class="jgc-button" type="button" onclick="addWorkOrderLabourWorker()">Add Worker</button>
-                <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadWorkOrderLabourWorkers()">Refresh Workers</button>
-            </div>
-            <div id="workOrderLabourWorkerStatus" class="small" style="margin-top:10px;"></div>
-            <div id="workOrderLabourWorkerList" class="small" style="margin-top:12px;">Loading WO labour workers...</div>
-        </div>
-    </details>
     <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
     <div class="admin-wo-management jgc-section">
         <div class="wo-management-tabs jgc-tabs" role="tablist" aria-label="Admin Work Order Management Views">
@@ -1110,6 +1093,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="common.js?v=32"></script>
+<script src="employee-feature-access.js?v=1"></script>
 <script src="admin-housekeeping.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=4"></script>
 <script src="toolbox-report-actions.js?v=1"></script>

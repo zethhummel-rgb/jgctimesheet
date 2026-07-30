@@ -1823,6 +1823,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="vendor/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest';"></script>
 <script src="common.js?v=32"></script>
+<script src="employee-feature-access.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=4"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -3140,7 +3141,7 @@ function resetHomeScheduleForm() {
 
 async function loadHomeScheduleFormData() {
   const [workerResult, profileResult, jobsResult, equipmentResult] = await Promise.all([
-    supabaseClient.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name", { ascending: true }),
+    JGCEmployeeFeatureAccess.loadWorkersForFeature(supabaseClient, "schedule"),
     supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
     supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
     supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })

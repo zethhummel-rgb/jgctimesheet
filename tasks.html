@@ -575,6 +575,7 @@ body.embedded-task-page {
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
+<script src="employee-feature-access.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -1359,11 +1360,7 @@ async function loadProfiles() {
       .select("id,email,display_name,worker_key,account_status,role")
       .eq("account_status", "approved")
       .order("display_name", { ascending: true }),
-    supabaseClient
-      .from("work_order_labour_workers")
-      .select("id,profile_id,display_name,worker_key,approved")
-      .eq("approved", true)
-      .order("display_name", { ascending: true })
+    JGCEmployeeFeatureAccess.loadWorkersForFeature(supabaseClient, "tasks")
   ]);
 
   if (profileResult.error) {

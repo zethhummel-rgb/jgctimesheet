@@ -1,0 +1,128 @@
+.employee-access-toolbar {
+  justify-content: space-between;
+}
+
+.employee-access-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.employee-access-intro h2,
+.employee-access-intro p {
+  margin: 0;
+}
+
+.employee-access-intro p {
+  margin-top: 6px;
+  color: var(--jgc-text-muted, #b9c8c1);
+}
+
+.employee-access-counts {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.employee-access-counts span {
+  display: grid;
+  min-width: 92px;
+  padding: 10px 12px;
+  border: 1px solid var(--jgc-border, #2e5a45);
+  background: var(--jgc-surface-2, #10271d);
+}
+
+.employee-access-counts strong {
+  font-size: 1.35rem;
+}
+
+.employee-access-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.employee-access-search {
+  margin-top: 18px;
+  max-width: 520px;
+}
+
+.employee-access-table-wrap {
+  margin-top: 16px;
+}
+
+.employee-access-table th:not(:first-child),
+.employee-access-table td:not(:first-child) {
+  text-align: center;
+}
+
+.employee-access-person {
+  min-width: 210px;
+}
+
+.employee-access-person strong,
+.employee-access-person small {
+  display: block;
+}
+
+.employee-access-person small {
+  margin-top: 3px;
+  color: var(--jgc-text-muted, #b9c8c1);
+}
+
+.employee-access-edit {
+  margin-top: 8px;
+}
+
+.employee-access-check {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: #35d45c;
+}
+
+.employee-access-row.is-inactive {
+  opacity: 0.72;
+}
+
+.employee-access-feature-head {
+  min-width: 116px;
+}
+
+.employee-access-feature-head span {
+  display: block;
+}
+
+.employee-access-feature-head small {
+  display: block;
+  margin-top: 4px;
+  color: var(--jgc-text-muted, #b9c8c1);
+  font-weight: 400;
+}
+
+@media (max-width: 760px) {
+  .employee-access-intro,
+  .employee-access-add {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .employee-access-counts {
+    width: 100%;
+  }
+
+  .employee-access-counts span {
+    flex: 1 1 0;
+  }
+
+  .employee-access-add .jgc-button {
+    width: 100%;
+  }
+
+  .employee-access-table-wrap {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+}

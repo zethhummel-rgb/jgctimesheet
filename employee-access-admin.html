@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Employee Page Access</title>
+  <link rel="manifest" href="manifest.json?v=7">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="jgc-design-system.css?v=5">
+  <link rel="stylesheet" href="employee-access-admin.css?v=1">
+</head>
+<body class="jgc-page employee-access-page">
+  <main class="jgc-page-shell jgc-page-shell--wide">
+    <header class="jgc-page-header">
+      <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Employee Page Access</h1>
+      <p id="employeeAccessCurrentUser"></p>
+    </header>
+
+    <div id="employeeAccessNotice" class="jgc-notice" hidden role="status"></div>
+
+    <div class="jgc-toolbar employee-access-toolbar">
+      <a class="jgc-button jgc-button--secondary" href="admin.html?tab=adminTools">
+        <i data-lucide="wrench"></i> Admin Tools
+      </a>
+      <button id="employeeAccessRefresh" class="jgc-button" type="button">
+        <i data-lucide="refresh-cw"></i> Refresh
+      </button>
+    </div>
+
+    <section class="jgc-panel employee-access-intro">
+      <div>
+        <h2>Approved Employee Directory</h2>
+        <p>Choose where each active employee appears. Turning off Active hides the employee everywhere while preserving the page choices below.</p>
+      </div>
+      <div class="employee-access-counts">
+        <span><strong id="employeeAccessActiveCount">0</strong> active</span>
+        <span><strong id="employeeAccessTotalCount">0</strong> total</span>
+      </div>
+    </section>
+
+    <section class="jgc-panel">
+      <div class="employee-access-add">
+        <div class="jgc-field">
+          <label class="jgc-label" for="employeeAccessNewName">Add a manual employee name</label>
+          <input id="employeeAccessNewName" class="jgc-input" placeholder="Employee name">
+        </div>
+        <button id="employeeAccessAdd" class="jgc-button" type="button">
+          <i data-lucide="user-plus"></i> Add Employee
+        </button>
+      </div>
+
+      <div class="jgc-field employee-access-search">
+        <label class="jgc-label" for="employeeAccessSearch">Search</label>
+        <input id="employeeAccessSearch" class="jgc-input" type="search" placeholder="Employee name or email">
+      </div>
+
+      <div class="jgc-table-wrap employee-access-table-wrap">
+        <table class="jgc-table employee-access-table">
+          <thead>
+            <tr id="employeeAccessHeader">
+              <th>Employee</th>
+              <th>Active</th>
+            </tr>
+          </thead>
+          <tbody id="employeeAccessRows">
+            <tr><td colspan="8" class="jgc-empty-state">Loading employees...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="common.js?v=32"></script>
+  <script src="employee-feature-access.js?v=1"></script>
+  <script src="employee-access-admin.js?v=1"></script>
+</body>
+</html>

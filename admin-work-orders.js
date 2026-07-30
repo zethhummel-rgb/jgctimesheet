@@ -334,192 +334,6 @@ async function moveAdminWorkOrderToDraft(id) {
     renderPortalSummary();
 }
 
-function setWorkOrderLabourWorkerStatus(message) {
-    const status = document.getElementById("workOrderLabourWorkerStatus");
-    if (status) {
-        status.textContent = message || "";
-    }
-}
-
-function getWorkOrderLabourWorkerKey(name) {
-    const normalized = normalizeWorkerName(name);
-    return normalized || String(name || "").trim().toLowerCase();
-}
-
-function renderWorkOrderLabourWorkers() {
-    const list = document.getElementById("workOrderLabourWorkerList");
-    const countBadge = document.getElementById("woLabourWorkerCountBadge");
-
-    if (!list) {
-        return;
-    }
-
-    const sorted = [...workOrderLabourWorkers].sort((a, b) =>
-        String(a.display_name || "").localeCompare(String(b.display_name || ""))
-    );
-    const approvedCount = sorted.filter((workerRow) => workerRow.approved).length;
-    if (countBadge) {
-        countBadge.textContent = `${approvedCount}/${sorted.length}`;
-    }
-
-    if (!sorted.length) {
-        list.innerHTML = `
-            <div>No WO labour workers found.</div>
-            <div class="small">Add names manually or approve portal accounts to build this list.</div>
-        `;
-        return;
-    }
-
-    list.innerHTML = `
-        <div class="small" style="margin-bottom:8px;">${approvedCount} approved of ${sorted.length} total WO labour workers.</div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Approved</th>
-                        <th>Name</th>
-                        <th>Source</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sorted.map((workerRow) => `
-                        <tr>
-                            <td>
-                                <input
-                                    type="checkbox"
-                                    style="width:auto;"
-                                    ${workerRow.approved ? "checked" : ""}
-                                    onchange="toggleWorkOrderLabourWorker('${escapeHtml(workerRow.id)}', this.checked)"
-                                >
-                            </td>
-                            <td>${escapeHtml(workerRow.display_name || "")}</td>
-                            <td>${workerRow.profile_id ? "Portal account" : "Manual WO name"}</td>
-                            <td>
-                                <button type="button" class="secondary" onclick="editWorkOrderLabourWorker('${escapeHtml(workerRow.id)}')">Edit</button>
-                            </td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-async function loadWorkOrderLabourWorkers() {
-    const { data, error } = await supabaseClient
-        .from("work_order_labour_workers")
-        .select("*")
-        .order("display_name", { ascending: true });
-
-    if (error) {
-        setWorkOrderLabourWorkerStatus("WO labour workers could not be loaded: " + error.message);
-        return;
-    }
-
-    workOrderLabourWorkers = data || [];
-    renderWorkOrderLabourWorkers();
-    setWorkOrderLabourWorkerStatus("WO labour workers refreshed.");
-}
-
-async function addWorkOrderLabourWorker() {
-    const input = document.getElementById("woLabourWorkerName");
-    const displayName = (input?.value || "").trim();
-
-    if (!displayName) {
-        setWorkOrderLabourWorkerStatus("Enter a worker name first.");
-        return;
-    }
-
-    const workerKey = getWorkOrderLabourWorkerKey(displayName);
-    const { error } = await supabaseClient
-        .from("work_order_labour_workers")
-        .upsert({
-            display_name: displayName,
-            worker_key: workerKey,
-            approved: true,
-            updated_at: new Date().toISOString()
-        }, { onConflict: "worker_key" });
-
-    if (error) {
-        setWorkOrderLabourWorkerStatus("Worker could not be saved: " + error.message);
-        return;
-    }
-
-    input.value = "";
-    setWorkOrderLabourWorkerStatus(displayName + " is approved for WO labour.");
-    await loadWorkOrderLabourWorkers();
-}
-
-async function toggleWorkOrderLabourWorker(id, approved) {
-    const { error } = await supabaseClient
-        .from("work_order_labour_workers")
-        .update({
-            approved,
-            updated_at: new Date().toISOString()
-        })
-        .eq("id", id);
-
-    if (error) {
-        setWorkOrderLabourWorkerStatus("Worker approval could not be updated: " + error.message);
-        await loadWorkOrderLabourWorkers();
-        return;
-    }
-
-    workOrderLabourWorkers = workOrderLabourWorkers.map((workerRow) =>
-        workerRow.id === id ? { ...workerRow, approved } : workerRow
-    );
-    renderWorkOrderLabourWorkers();
-    setWorkOrderLabourWorkerStatus("WO labour worker approval updated.");
-}
-
-async function editWorkOrderLabourWorker(id) {
-    const workerRow = workOrderLabourWorkers.find((item) => item.id === id);
-
-    if (!workerRow) {
-        alert("WO labour worker could not be found.");
-        return;
-    }
-
-    const nextName = prompt("Update WO labour worker name:", workerRow.display_name || "");
-
-    if (nextName === null) {
-        return;
-    }
-
-    const displayName = nextName.trim();
-
-    if (!displayName) {
-        alert("Worker name cannot be blank.");
-        return;
-    }
-
-    const updatePayload = {
-        display_name: displayName,
-        updated_at: new Date().toISOString()
-    };
-
-    if (!workerRow.profile_id) {
-        updatePayload.worker_key = getWorkOrderLabourWorkerKey(displayName);
-    }
-
-    const { error } = await supabaseClient
-        .from("work_order_labour_workers")
-        .update(updatePayload)
-        .eq("id", id);
-
-    if (error) {
-        setWorkOrderLabourWorkerStatus("Worker name could not be updated: " + error.message);
-        return;
-    }
-
-    workOrderLabourWorkers = workOrderLabourWorkers.map((item) =>
-        item.id === id ? { ...item, ...updatePayload } : item
-    );
-    renderWorkOrderLabourWorkers();
-    setWorkOrderLabourWorkerStatus("WO labour worker name updated.");
-}
-
 async function deleteAdminWorkOrder(id) {
     const wo = workOrders.find((item) => item.id === id);
 
@@ -578,13 +392,12 @@ async function deleteAdminWorkOrder(id) {
 }
 
 async function loadAdminWorkOrders() {
-    const [workOrderResult, labourResult, poResult, equipmentResult, travelResult, workerResult, digitalPoLinkResult] = await Promise.all([
+    const [workOrderResult, labourResult, poResult, equipmentResult, travelResult, digitalPoLinkResult] = await Promise.all([
         supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }),
         supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }),
         supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("work_order_equipment").select("*"),
         supabaseClient.from("work_order_travel").select("*"),
-        supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }),
         supabaseClient.from("digital_po_work_order_links").select("work_order_id,po_id")
     ]);
 
@@ -593,7 +406,6 @@ async function loadAdminWorkOrders() {
     workOrderPurchaseOrders = poResult.data || [];
     workOrderEquipmentRows = equipmentResult.data || [];
     workOrderTravelRows = travelResult.data || [];
-    workOrderLabourWorkers = workerResult.data || [];
     adminWorkOrderDigitalPoCounts = {};
 
     if (!digitalPoLinkResult.error) {
@@ -616,7 +428,6 @@ async function loadAdminWorkOrders() {
         }
     }
     renderAdminWorkOrders();
-    renderWorkOrderLabourWorkers();
     renderJobDashboard();
     renderEmployeeProfile();
     renderPortalSummary();

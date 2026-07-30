@@ -1226,10 +1226,7 @@
         .select("id,job_number,job_name,active")
         .eq("active", true)
         .order("job_number"),
-      state.client.from("work_order_labour_workers")
-        .select("id,profile_id,display_name,worker_key,approved")
-        .eq("approved", true)
-        .order("display_name")
+      window.JGCEmployeeFeatureAccess.loadWorkersForFeature(state.client, "job_notes")
     ]);
     if (results[0].error) {
       throw results[0].error;

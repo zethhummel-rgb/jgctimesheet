@@ -239,11 +239,18 @@ as $$
 declare
   v_worker public.work_order_labour_workers%rowtype;
 begin
-  select *
+  select w.*
   into v_worker
   from public.work_order_labour_workers w
   where w.profile_id = new.created_by
     and w.approved = true
+    and exists (
+      select 1
+      from public.employee_feature_access feature_access
+      where feature_access.worker_id = w.id
+        and feature_access.feature_key = 'job_notes'
+        and feature_access.enabled = true
+    )
   order by w.updated_at desc
   limit 1;
 
@@ -276,16 +283,23 @@ as $$
 declare
   v_worker public.work_order_labour_workers%rowtype;
 begin
-  select *
+  select w.*
   into v_worker
   from public.work_order_labour_workers w
   where w.profile_id = new.profile_id
     and w.approved = true
+    and exists (
+      select 1
+      from public.employee_feature_access feature_access
+      where feature_access.worker_id = w.id
+        and feature_access.feature_key = 'job_notes'
+        and feature_access.enabled = true
+    )
   order by w.updated_at desc
   limit 1;
 
   if v_worker.profile_id is null then
-    raise exception 'Only approved Work Order employees can be added to a job note.';
+    raise exception 'This employee is not approved for Job Notes.';
   end if;
 
   new.display_name := v_worker.display_name;

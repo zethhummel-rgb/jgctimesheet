@@ -31,6 +31,7 @@ let adminWorkOrderDigitalPoCounts = {};
 let workOrderEquipmentRows = [];
 let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
+let employeeFeatureAccessRows = [];
 let adminWorkOrderManagementView = "active";
 let jobDashboardRecordReturnFocus = null;
 let equipmentItems = [];
@@ -534,7 +535,6 @@ function renderActiveAdminTab(tab) {
 
     if (requestedTab === "workOrders") {
         renderAdminWorkOrders();
-        renderWorkOrderLabourWorkers();
     }
 
     if (requestedTab === "backups") {
@@ -746,7 +746,6 @@ function renderAdminSectionsSafely() {
         ["job dashboard", renderJobDashboard],
         ["jobs management", renderJobsManagement],
         ["work orders", renderAdminWorkOrders],
-        ["work order labour workers", renderWorkOrderLabourWorkers],
         ["equipment", renderEquipment],
         ["contacts", renderContacts],
         ["subcontractors suppliers", renderSubcontractorSuppliers],
@@ -943,16 +942,18 @@ async function loadAdminData(options = {}) {
                 { label: "schedule events", query: () => supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }) },
                 { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
                 { label: "approved work order workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
+                { label: "employee page access", query: () => supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled") },
                 { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
             ]);
 
-            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, workOrderWorkerResult, subcontractorActivityResult] = adminDataResults;
+            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, workOrderWorkerResult, employeeFeatureAccessResult, subcontractorActivityResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
             vacationRequests = vacationResult.data || [];
             scheduleEvents = scheduleResult.data || [];
             accounts = accountResult.data || [];
             workOrderLabourWorkers = workOrderWorkerResult.data || [];
+            employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
             subcontractorActivity = subcontractorActivityResult.data || [];
 
             if ((!accounts.length && accountResult.error) || (accountResult.error && String(accountResult.error.message || "").toLowerCase().includes("column"))) {
@@ -1009,6 +1010,7 @@ async function loadAdminData(options = {}) {
         supabaseClient.from("work_order_equipment").select("*"),
         supabaseClient.from("work_order_travel").select("*"),
         supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }),
+        supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled"),
         supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true }),
         supabaseClient.from("equipment_expiry_notifications").select("*").order("created_at", { ascending: false }),
         supabaseClient.from("equipment_maintenance_logs").select("*").order("scheduled_date", { ascending: false }).order("created_at", { ascending: false }),
@@ -1028,7 +1030,7 @@ async function loadAdminData(options = {}) {
         return { data: [], error };
     })));
 
-        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, digitalPurchaseOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
+        const [timesheetResult, liveTimesheetResult, inspectionResult, vehicleInspectionResult, certificateResult, certificateNotificationResult, vacationResult, scheduleResult, accountResult, announcementResult, announcementAcknowledgementResult, toolboxTalkResult, toolboxReportResult, toolboxAttendanceResult, dailySiteReportResult, incidentReportResult, accidentReportResult, accidentAcknowledgementResult, employeeInjuryReportResult, employeeInjuryAcknowledgementResult, policyResult, jobsResult, workOrderResult, digitalPurchaseOrderResult, workOrderLabourResult, workOrderPoResult, workOrderEquipmentResult, workOrderTravelResult, workOrderWorkerResult, employeeFeatureAccessResult, equipmentResult, equipmentNotificationResult, equipmentMaintenanceResult, contactResult, subcontractorSupplierResult, subcontractorSupplierContactResult, safetyAcknowledgementResult, subcontractorActivityResult] = adminDataResults;
 
         timesheets = timesheetResult.data || [];
     liveTimesheetEntries = liveTimesheetResult.data || [];
@@ -1071,6 +1073,7 @@ async function loadAdminData(options = {}) {
     workOrderEquipmentRows = workOrderEquipmentResult.data || [];
     workOrderTravelRows = workOrderTravelResult.data || [];
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
+    employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
     equipmentItems = equipmentResult.data || [];
         equipmentNotifications = equipmentNotificationResult.data || [];
         equipmentMaintenanceLogs = equipmentMaintenanceResult.data || [];

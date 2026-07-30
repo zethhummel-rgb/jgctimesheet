@@ -1494,8 +1494,15 @@ async function pullAdminScheduleGoogleUpdates() {
 }
 
 function getAdminScheduleApprovedAccounts() {
-    return (workOrderLabourWorkers || [])
-        .filter((workerRow) => workerRow.approved)
+    const scheduleWorkers = window.JGCEmployeeFeatureAccess
+        ? window.JGCEmployeeFeatureAccess.filterWorkers(
+            workOrderLabourWorkers,
+            employeeFeatureAccessRows,
+            "schedule"
+        )
+        : (workOrderLabourWorkers || []).filter((workerRow) => workerRow.approved);
+
+    return scheduleWorkers
         .map((workerRow) => {
             const workerAliases = [
                 workerRow.worker_key,
