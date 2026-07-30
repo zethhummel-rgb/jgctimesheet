@@ -124,7 +124,17 @@ async function mockPortalServices(page, profile = fakeProfile) {
     } else if (url.pathname.includes("/rest/v1/profiles")) {
       body = accept.includes("application/vnd.pgrst.object")
         ? JSON.stringify(profile)
-        : JSON.stringify([profile]);
+        : JSON.stringify([
+          profile,
+          {
+            id: "00000000-0000-4000-8000-000000000002",
+            email: "steven@example.com",
+            display_name: "Steven Leduc",
+            worker_key: "steven leduc",
+            role: "employee",
+            account_status: "approved"
+          }
+        ]);
     } else if (url.pathname.includes("/rest/v1/work_order_labour_workers")) {
       body = JSON.stringify([
         {
@@ -1235,8 +1245,9 @@ test("employee page access is a standalone admin tool with all selector permissi
 
   await expect(page.locator("h1")).toHaveText("Employee Page Access");
   await expect(page.locator("#employeeAccessRows tr")).toHaveCount(2);
-  await expect(page.locator("#employeeAccessHeader th")).toHaveCount(8);
+  await expect(page.locator("#employeeAccessHeader th")).toHaveCount(7);
   await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(12);
+  await expect(page.locator("#employeeAccessRows input[data-worker-active]")).toHaveCount(0);
   await expect(page.locator("#employeeAccessRows")).toContainText(fakeProfile.display_name);
   await expect(page.locator("#employeeAccessRows")).toContainText("Steven Leduc");
   await expectNoRuntimeErrors(errors, "employee page access admin tool");

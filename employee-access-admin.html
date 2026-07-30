@@ -34,11 +34,11 @@
     <section class="jgc-panel employee-access-intro">
       <div>
         <h2>Approved Employee Directory</h2>
-        <p>Choose where each active employee appears. Turning off Active hides the employee everywhere while preserving the page choices below.</p>
+        <p>Approved portal accounts appear here automatically. Deactivated, limited, and pending accounts are hidden automatically while their page choices are preserved.</p>
       </div>
       <div class="employee-access-counts">
-        <span><strong id="employeeAccessActiveCount">0</strong> active</span>
-        <span><strong id="employeeAccessTotalCount">0</strong> total</span>
+        <span><strong id="employeeAccessAccountCount">0</strong> accounts</span>
+        <span><strong id="employeeAccessManualCount">0</strong> manual</span>
       </div>
     </section>
 
@@ -63,11 +63,10 @@
           <thead>
             <tr id="employeeAccessHeader">
               <th>Employee</th>
-              <th>Active</th>
             </tr>
           </thead>
           <tbody id="employeeAccessRows">
-            <tr><td colspan="8" class="jgc-empty-state">Loading employees...</td></tr>
+            <tr><td colspan="7" class="jgc-empty-state">Loading employees...</td></tr>
           </tbody>
         </table>
       </div>
@@ -78,6 +77,6 @@
   <script src="vendor/lucide.min.js"></script>
   <script src="common.js?v=32"></script>
   <script src="employee-feature-access.js?v=1"></script>
-  <script src="employee-access-admin.js?v=1"></script>
+  <script src="employee-access-admin.js?v=2"></script>
 </body>
 </html>

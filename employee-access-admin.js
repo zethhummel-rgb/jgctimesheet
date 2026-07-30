@@ -50,6 +50,14 @@
     }) || {};
   }
 
+  function isEligibleWorker(worker) {
+    const profile = profileForWorker(worker);
+    if (worker.profile_id) {
+      return profile.account_status === "approved";
+    }
+    return worker.approved !== false;
+  }
+
   function accessEnabled(workerId, featureKey) {
     const row = state.accessRows.find(function (accessRow) {
       return accessRow.worker_id === workerId && accessRow.feature_key === featureKey;
@@ -58,7 +66,7 @@
   }
 
   function renderHeader() {
-    elements.header.innerHTML = "<th>Employee</th><th>Active</th>"
+    elements.header.innerHTML = "<th>Employee</th>"
       + featureApi.FEATURES.map(function (feature) {
         return '<th class="employee-access-feature-head"><span>' + escapeHtml(feature.label)
           + '</span><small>' + escapeHtml(feature.description) + "</small></th>";
@@ -67,7 +75,8 @@
 
   function renderRows() {
     const query = String(elements.search.value || "").trim().toLowerCase();
-    const workers = state.workers.filter(function (worker) {
+    const eligibleWorkers = state.workers.filter(isEligibleWorker);
+    const workers = eligibleWorkers.filter(function (worker) {
       const profile = profileForWorker(worker);
       return !query || [
         worker.display_name,
@@ -76,26 +85,28 @@
       ].join(" ").toLowerCase().includes(query);
     });
 
-    elements.activeCount.textContent = state.workers.filter(function (worker) {
-      return worker.approved;
+    elements.accountCount.textContent = eligibleWorkers.filter(function (worker) {
+      return Boolean(worker.profile_id);
     }).length;
-    elements.totalCount.textContent = state.workers.length;
+    elements.manualCount.textContent = eligibleWorkers.filter(function (worker) {
+      return !worker.profile_id;
+    }).length;
 
     if (!workers.length) {
-      elements.rows.innerHTML = '<tr><td colspan="8" class="jgc-empty-state">No matching employees found.</td></tr>';
+      elements.rows.innerHTML = '<tr><td colspan="7" class="jgc-empty-state">No matching employees found.</td></tr>';
       return;
     }
 
     elements.rows.innerHTML = workers.map(function (worker) {
       const profile = profileForWorker(worker);
       const source = worker.profile_id ? (profile.email || "Portal account") : "Manual employee";
-      return '<tr class="employee-access-row' + (worker.approved ? "" : " is-inactive") + '">'
+      const editButton = worker.profile_id ? "" :
+        '<button class="jgc-button jgc-button--secondary employee-access-edit" type="button" data-edit-worker="'
+        + escapeHtml(worker.id) + '">Edit Name</button>';
+      return '<tr class="employee-access-row">'
         + '<td class="employee-access-person"><strong>' + escapeHtml(worker.display_name || worker.worker_key || "Employee")
         + '</strong><small>' + escapeHtml(source) + '</small>'
-        + '<button class="jgc-button jgc-button--secondary employee-access-edit" type="button" data-edit-worker="'
-        + escapeHtml(worker.id) + '">Edit Name</button></td>'
-        + '<td><input class="employee-access-check" type="checkbox" aria-label="Active employee" data-worker-active="'
-        + escapeHtml(worker.id) + '"' + (worker.approved ? " checked" : "") + "></td>"
+        + editButton + "</td>"
         + featureApi.FEATURES.map(function (feature) {
           return '<td><input class="employee-access-check" type="checkbox" aria-label="'
             + escapeHtml(feature.label) + '" data-worker-feature="' + escapeHtml(worker.id)
@@ -128,28 +139,6 @@
     if (message) {
       showNotice(message);
     }
-  }
-
-  async function updateWorkerActive(workerId, approved) {
-    const result = await state.client
-      .from("work_order_labour_workers")
-      .update({
-        approved: approved,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", workerId);
-
-    if (result.error) {
-      await refreshData();
-      showNotice("Employee status could not be updated: " + result.error.message, "error");
-      return;
-    }
-
-    state.workers = state.workers.map(function (worker) {
-      return worker.id === workerId ? Object.assign({}, worker, { approved: approved }) : worker;
-    });
-    renderRows();
-    showNotice(approved ? "Employee activated." : "Employee moved to inactive.");
   }
 
   async function updateFeature(workerId, featureKey, enabled) {
@@ -262,11 +251,6 @@
     });
     elements.search.addEventListener("input", renderRows);
     elements.rows.addEventListener("change", function (event) {
-      const activeInput = event.target.closest("[data-worker-active]");
-      if (activeInput) {
-        updateWorkerActive(activeInput.dataset.workerActive, activeInput.checked);
-        return;
-      }
       const featureInput = event.target.closest("[data-worker-feature]");
       if (featureInput) {
         updateFeature(
@@ -297,8 +281,8 @@
     elements.search = byId("employeeAccessSearch");
     elements.header = byId("employeeAccessHeader");
     elements.rows = byId("employeeAccessRows");
-    elements.activeCount = byId("employeeAccessActiveCount");
-    elements.totalCount = byId("employeeAccessTotalCount");
+    elements.accountCount = byId("employeeAccessAccountCount");
+    elements.manualCount = byId("employeeAccessManualCount");
 
     renderHeader();
     bindEvents();
