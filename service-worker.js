@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const JGC_RELEASE_ID = "656";
+=======
+const JGC_RELEASE_ID = "654";
+>>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -106,9 +110,13 @@ const JGC_APP_SHELL = [
   "./purchase-orders.js?v=22",
   "./purchase-orders-admin.js?v=13",
   "./work-order-digital-pos.js?v=3",
+<<<<<<< HEAD
   "./safety-signature-pad.css?v=1",
   "./safety-signature-pad.js?v=1",
   "./safety-acknowledgements.js?v=6",
+=======
+  "./safety-acknowledgements.js?v=4",
+>>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
   "./field-calculator.css?v=14",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",

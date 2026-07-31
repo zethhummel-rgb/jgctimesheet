@@ -379,7 +379,24 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
         creator,
         attendees
     });
+<<<<<<< HEAD
     const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows, options);
+=======
+    const creator = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : getCurrentWorker();
+    const creatorAcknowledgedAt = new Date().toISOString();
+
+    rows.forEach((row) => {
+        if (typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(row, creator)) {
+            row.acknowledgement_status = "acknowledged_by_creator";
+            row.acknowledgement_method = "creator_on_behalf";
+            row.acknowledged_at = creatorAcknowledgedAt;
+            row.acknowledged_by_name = creator.display || creator.key || "";
+            row.acknowledgement_note = "Creator entered and confirmed this person during JSA creation.";
+        }
+    });
+
+    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
+>>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 
     if (error) {
         console.warn("JSA acknowledgement rows could not be created.", error);
