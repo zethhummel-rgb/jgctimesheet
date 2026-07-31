@@ -402,9 +402,7 @@ test("toolbox talk report starts with one talk selector and its PDF action", asy
 
   const qrDialog = page.locator(".toolbox-qr-backdrop");
   await expect(qrDialog).toBeVisible();
-  await expect(qrDialog).toContainText("Crew Signatures");
-  await expect(qrDialog.getByRole("button", { name: "Sign" })).toBeVisible();
-  await qrDialog.getByText("Sign on another phone").click();
+  await expect(qrDialog).toContainText("Crew QR Sign-On");
   await expect(qrDialog.locator('canvas[aria-label="Acknowledgement QR code"]')).toBeVisible();
   await expect(qrDialog.getByRole("button", { name: "Close QR code" })).toBeVisible();
   expect(savedSafetyRows.length).toBeGreaterThan(0);

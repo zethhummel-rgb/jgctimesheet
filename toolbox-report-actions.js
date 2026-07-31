@@ -87,26 +87,21 @@
             </tr>
         `).join("");
         const acknowledgements = getAcknowledgements(record, acknowledgementRows);
-        const acknowledgementTable = typeof global.safetyAckBuildTableHtml === "function"
-            ? global.safetyAckBuildTableHtml(acknowledgements)
-            : "";
         const acknowledgementHtml = acknowledgements.length ? `
             <h3>Digital Acknowledgements</h3>
-            ${acknowledgementTable || `
-                <table>
-                    <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Acknowledged</th></tr></thead>
-                    <tbody>
-                        ${acknowledgements.map((row) => `
-                            <tr>
-                                <td>${escapeHtml(getAcknowledgementName(row))}</td>
-                                <td>${escapeHtml(row.attendee_company || row.company || "")}</td>
-                                <td>${escapeHtml(row.acknowledgement_status || (row.acknowledged_at ? "Acknowledged" : "Pending"))}</td>
-                                <td>${escapeHtml(formatDateTime(row.acknowledged_at))}</td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-            `}
+            <table>
+                <thead><tr><th>Name</th><th>Company</th><th>Status</th><th>Acknowledged</th></tr></thead>
+                <tbody>
+                    ${acknowledgements.map((row) => `
+                        <tr>
+                            <td>${escapeHtml(getAcknowledgementName(row))}</td>
+                            <td>${escapeHtml(row.attendee_company || row.company || "")}</td>
+                            <td>${escapeHtml(row.acknowledgement_status || (row.acknowledged_at ? "Acknowledged" : "Pending"))}</td>
+                            <td>${escapeHtml(formatDateTime(row.acknowledged_at))}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
         ` : "";
 
         return `<!doctype html>
@@ -123,8 +118,6 @@
                     table { width: 100%; border-collapse: collapse; margin-top: 12px; }
                     th, td { border: 1px solid #555; padding: 7px; font-size: 12px; text-align: left; vertical-align: top; }
                     th { background: #e8ece8; }
-                    .safety-signature-preview { display: block; width: 130px; height: 44px; }
-                    .small { font-size: 10px; }
                     .label { width: 30%; font-weight: bold; }
                     .section { min-height: 55px; white-space: pre-wrap; }
                 </style>
