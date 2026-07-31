@@ -255,6 +255,88 @@ async function emailAdminToolboxReport(reportId) {
     });
 }
 
+function normalizeAdminReportGroupLabel(value, fallbackLabel) {
+    const label = String(value || "").replace(/\s+/g, " ").trim();
+    return label || fallbackLabel;
+}
+
+function getAdminReportFormField(report, labels) {
+    const wantedLabels = new Set((labels || []).map((label) =>
+        String(label || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    ));
+    const fields = report && report.form_data && Array.isArray(report.form_data.fields)
+        ? report.form_data.fields
+        : [];
+    const match = fields.find((field) => wantedLabels.has(
+        String(field && field.label || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    ));
+
+    return match ? String(match.value || "").trim() : "";
+}
+
+function getAdminReportJobGroupLabel(report) {
+    const jobNumber = String(
+        report && (report.job_number || report.project_number) ||
+        getAdminReportFormField(report, ["Job Number", "Project Number"])
+    ).trim();
+    const jobName = String(
+        report && (report.project || report.project_name || report.job_name || report.job) ||
+        getAdminReportFormField(report, ["Project / Job", "Project Job", "Project", "Job", "Job Name"])
+    ).trim();
+
+    if (jobNumber && jobName && !jobName.toLowerCase().includes(jobNumber.toLowerCase())) {
+        return `${jobNumber} - ${jobName}`;
+    }
+
+    return normalizeAdminReportGroupLabel(jobName || jobNumber, "Job not specified");
+}
+
+function groupAdminReportRecords(records, labelGetter, fallbackLabel) {
+    const groups = new Map();
+
+    (records || []).forEach((record) => {
+        const label = normalizeAdminReportGroupLabel(labelGetter(record), fallbackLabel);
+        const key = label.toLocaleLowerCase();
+
+        if (!groups.has(key)) {
+            groups.set(key, { label, records: [] });
+        }
+
+        groups.get(key).records.push(record);
+    });
+
+    return Array.from(groups.values()).sort((left, right) => {
+        const leftIsFallback = left.label === fallbackLabel;
+        const rightIsFallback = right.label === fallbackLabel;
+
+        if (leftIsFallback !== rightIsFallback) {
+            return leftIsFallback ? 1 : -1;
+        }
+
+        return left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: "base" });
+    });
+}
+
+function renderAdminReportGroups(records, labelGetter, fallbackLabel, tableRenderer) {
+    const groups = groupAdminReportRecords(records, labelGetter, fallbackLabel);
+
+    return `
+        <div class="admin-report-group-list">
+            ${groups.map((group, groupIndex) => `
+                <details class="admin-collapsible-panel admin-report-group"${groupIndex === 0 ? " open" : ""}>
+                    <summary>
+                        <span class="admin-report-group-title">${escapeHtml(group.label)}</span>
+                        <span class="jgc-badge admin-report-group-count">${escapeHtml(String(group.records.length))} record${group.records.length === 1 ? "" : "s"}</span>
+                    </summary>
+                    <div class="admin-report-group-content">
+                        ${tableRenderer(group.records)}
+                    </div>
+                </details>
+            `).join("")}
+        </div>
+    `;
+}
+
 function renderToolboxTalkHistory() {
     const list = document.getElementById("toolboxTalkHistoryList");
 
@@ -267,7 +349,11 @@ function renderToolboxTalkHistory() {
         return;
     }
 
-    list.innerHTML = `
+    list.innerHTML = renderAdminReportGroups(
+        toolboxReports,
+        (report) => report.talk_title,
+        "Talk name not specified",
+        (reports) => `
         <div class="table-wrap jgc-table-wrap admin-toolbox-history-wrap">
             <table class="jgc-table admin-toolbox-history-table">
                 <thead>
@@ -281,7 +367,7 @@ function renderToolboxTalkHistory() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${toolboxReports.map((report) => {
+                    ${reports.map((report) => {
                         const people = getToolboxReportPeople(report);
                         const crewCount = people.length || (Array.isArray(report.crew) ? report.crew.length : 0);
                         const hasTalkPdf = Boolean(getAdminToolboxTalkPdfPath(report));
@@ -317,7 +403,8 @@ function renderToolboxTalkHistory() {
                 </tbody>
             </table>
         </div>
-    `;
+        `
+    );
 }
 
 function getAdminJsaReports() {
@@ -541,6 +628,148 @@ function initializeAdminReportSubtabs() {
     switchAdminReportSubtab(activeAdminReportSubtab || "daily");
 }
 
+function renderDailySiteReportsTable(reports) {
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Project</th><th>Submitted By</th><th>Saved</th><th>Actions</th></tr></thead>
+                <tbody>
+                    ${reports.map((report) => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(report.report_date))}</td>
+                            <td>${escapeHtml(report.project || "")}</td>
+                            <td>${escapeHtml(report.worker_display_name || report.worker_name || "")}</td>
+                            <td>${escapeHtml(formatDate(report.created_at))}</td>
+                            <td>
+                                <div class="jgc-actions jgc-actions--compact">
+                                    <button type="button" class="jgc-button" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'view')">View</button>
+                                    <button type="button" class="jgc-button jgc-button--secondary" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'edit')">Edit</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderAdminJsaReportsTable(reports) {
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Completed By</th><th>Acknowledgements</th><th>Saved</th><th>Actions</th></tr></thead>
+                <tbody>
+                    ${reports.map((inspection) => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
+                            <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name || "")}</td>
+                            <td>${renderJsaReportAcknowledgements(inspection)}</td>
+                            <td>${escapeHtml(formatDate(inspection.created_at))}</td>
+                            <td><button type="button" class="jgc-button" onclick="openAdminJsaReport('${escapeHtml(inspection.id)}')">View</button></td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderAdminNearMissReportsTable(reports) {
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Type</th><th>Severity</th><th>Project</th><th>Location</th><th>Reported By</th><th>Saved</th></tr></thead>
+                <tbody>
+                    ${reports.map((report) => `
+                        <tr>
+                            <td>${escapeHtml(formatDate(report.report_date))}</td>
+                            <td>${escapeHtml(report.incident_type || "")}</td>
+                            <td>${escapeHtml(report.severity || "")}</td>
+                            <td>${escapeHtml(report.project || "")}</td>
+                            <td>${escapeHtml(report.location || "")}</td>
+                            <td>${escapeHtml(report.reported_by_name || report.reported_by_worker || "")}</td>
+                            <td>${escapeHtml(formatDate(report.created_at))}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getAdminAccidentEmployeeLabel(report) {
+    return normalizeAdminReportGroupLabel(
+        report && (report.injured_worker_display || report.injured_worker || report.employee_name),
+        "Employee not specified"
+    );
+}
+
+function renderAdminAccidentReportsTable(reports) {
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Injured Employee</th><th>Location</th><th>Report Maker</th><th>Acknowledgement</th><th>Saved</th></tr></thead>
+                <tbody>
+                    ${reports.map((report) => {
+                        const acks = accidentAcknowledgements.filter((ack) => String(ack.accident_report_id) === String(report.id));
+                        const ackStatus = acks.length
+                            ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
+                            : "-";
+
+                        return `
+                            <tr>
+                                <td>${escapeHtml(formatDate(report.accident_date))}</td>
+                                <td>${escapeHtml(report.injured_worker_display || report.injured_worker || "")}</td>
+                                <td>${escapeHtml(report.site_location || "")}</td>
+                                <td>${escapeHtml(report.report_maker_display || report.report_maker_worker || "")}</td>
+                                <td>${ackStatus}</td>
+                                <td>${escapeHtml(formatDate(report.created_at))}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getAdminInjuryEmployeeLabel(report) {
+    return normalizeAdminReportGroupLabel(
+        report && (report.employee_name || report.employee_display || report.employee_worker),
+        "Employee not specified"
+    );
+}
+
+function renderAdminEmployeeInjuryReportsTable(reports) {
+    return `
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Employee</th><th>Location</th><th>Supervisor</th><th>Acknowledgement</th><th>Saved</th></tr></thead>
+                <tbody>
+                    ${reports.map((report) => {
+                        const acks = employeeInjuryAcknowledgements.filter((ack) => String(ack.employee_injury_report_id) === String(report.id));
+                        const ackStatus = acks.length
+                            ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
+                            : "-";
+
+                        return `
+                            <tr>
+                                <td>${escapeHtml(formatDate(report.accident_date))}</td>
+                                <td>${escapeHtml(report.employee_name || report.employee_display || "")}</td>
+                                <td>${escapeHtml(report.accident_location || "")}</td>
+                                <td>${escapeHtml(report.supervisor_name || "")}</td>
+                                <td>${ackStatus}</td>
+                                <td>${escapeHtml(formatDate(report.created_at))}</td>
+                            </tr>
+                        `;
+                    }).join("")}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderReports() {
     const dailyList = document.getElementById("dailySiteReportsList");
     const jsaList = document.getElementById("jsaReportsList");
@@ -553,161 +782,33 @@ function renderReports() {
     renderToolboxTalkHistory();
 
     if (dailyList) {
-        if (!dailySiteReports.length) {
-            dailyList.textContent = "No daily site reports found.";
-        } else {
-            dailyList.innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Project</th><th>Submitted By</th><th>Saved</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody>
-                            ${dailySiteReports.slice(0, 50).map((report) => `
-                                <tr>
-                                    <td>${escapeHtml(formatDate(report.report_date))}</td>
-                                    <td>${escapeHtml(report.project || "")}</td>
-                                    <td>${escapeHtml(report.worker_display_name || report.worker_name || "")}</td>
-                                    <td>${escapeHtml(formatDate(report.created_at))}</td>
-                                    <td>
-                                        <div class="jgc-actions jgc-actions--compact">
-                                            <button type="button" class="jgc-button" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'view')">View</button>
-                                            <button type="button" class="jgc-button jgc-button--secondary" onclick="openDailySiteReport('${escapeHtml(report.id)}', 'edit')">Edit</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        dailyList.innerHTML = dailySiteReports.length
+            ? renderAdminReportGroups(dailySiteReports.slice(0, 50), getAdminReportJobGroupLabel, "Job not specified", renderDailySiteReportsTable)
+            : "No daily site reports found.";
     }
 
     if (jsaList) {
-        if (!jsaReports.length) {
-            jsaList.textContent = "No JSA reports found.";
-        } else {
-            jsaList.innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Completed By</th><th>Acknowledgements</th><th>Saved</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody>
-                            ${jsaReports.slice(0, 50).map((inspection) => `
-                                <tr>
-                                    <td>${escapeHtml(formatDate(inspection.inspection_date))}</td>
-                                    <td>${escapeHtml(inspection.worker_display_name || inspection.worker_name || "")}</td>
-                                    <td>${renderJsaReportAcknowledgements(inspection)}</td>
-                                    <td>${escapeHtml(formatDate(inspection.created_at))}</td>
-                                    <td><button type="button" class="jgc-button" onclick="openAdminJsaReport('${escapeHtml(inspection.id)}')">View</button></td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        jsaList.innerHTML = jsaReports.length
+            ? renderAdminReportGroups(jsaReports.slice(0, 50), getAdminReportJobGroupLabel, "Job not specified", renderAdminJsaReportsTable)
+            : "No JSA reports found.";
     }
 
     if (incidentList) {
-        if (!incidentReports.length) {
-            incidentList.textContent = "No incident or near miss reports found.";
-        } else {
-            incidentList.innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Type</th><th>Severity</th><th>Project</th><th>Location</th><th>Reported By</th><th>Saved</th></tr>
-                        </thead>
-                        <tbody>
-                            ${incidentReports.slice(0, 50).map((report) => `
-                                <tr>
-                                    <td>${escapeHtml(formatDate(report.report_date))}</td>
-                                    <td>${escapeHtml(report.incident_type || "")}</td>
-                                    <td>${escapeHtml(report.severity || "")}</td>
-                                    <td>${escapeHtml(report.project || "")}</td>
-                                    <td>${escapeHtml(report.location || "")}</td>
-                                    <td>${escapeHtml(report.reported_by_name || report.reported_by_worker || "")}</td>
-                                    <td>${escapeHtml(formatDate(report.created_at))}</td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        incidentList.innerHTML = incidentReports.length
+            ? renderAdminReportGroups(incidentReports.slice(0, 50), getAdminReportJobGroupLabel, "Job not specified", renderAdminNearMissReportsTable)
+            : "No incident or near miss reports found.";
     }
 
     if (accidentList) {
-        if (!accidentReports.length) {
-            accidentList.textContent = "No accident reports found.";
-        } else {
-            accidentList.innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Injured Employee</th><th>Location</th><th>Report Maker</th><th>Acknowledgement</th><th>Saved</th></tr>
-                        </thead>
-                        <tbody>
-                            ${accidentReports.slice(0, 50).map((report) => {
-                                const acks = accidentAcknowledgements.filter((ack) => ack.accident_report_id === report.id);
-                                const ackStatus = acks.length
-                                    ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
-                                    : "-";
-
-                                return `
-                                    <tr>
-                                        <td>${escapeHtml(formatDate(report.accident_date))}</td>
-                                        <td>${escapeHtml(report.injured_worker_display || report.injured_worker || "")}</td>
-                                        <td>${escapeHtml(report.site_location || "")}</td>
-                                        <td>${escapeHtml(report.report_maker_display || report.report_maker_worker || "")}</td>
-                                        <td>${ackStatus}</td>
-                                        <td>${escapeHtml(formatDate(report.created_at))}</td>
-                                    </tr>
-                                `;
-                            }).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        accidentList.innerHTML = accidentReports.length
+            ? renderAdminReportGroups(accidentReports.slice(0, 50), getAdminAccidentEmployeeLabel, "Employee not specified", renderAdminAccidentReportsTable)
+            : "No accident reports found.";
     }
 
     if (employeeInjuryList) {
-        if (!employeeInjuryReports.length) {
-            employeeInjuryList.textContent = "No employee injury reports found.";
-        } else {
-            employeeInjuryList.innerHTML = `
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Employee</th><th>Location</th><th>Supervisor</th><th>Acknowledgement</th><th>Saved</th></tr>
-                        </thead>
-                        <tbody>
-                            ${employeeInjuryReports.slice(0, 50).map((report) => {
-                                const acks = employeeInjuryAcknowledgements.filter((ack) => ack.employee_injury_report_id === report.id);
-                                const ackStatus = acks.length
-                                    ? acks.map((ack) => escapeHtml(ack.worker_display_name || ack.worker_name || "") + ": " + escapeHtml(ack.acknowledged_at ? "Acknowledged " + formatDate(ack.acknowledged_at) : "Pending")).join("<br>")
-                                    : "-";
-
-                                return `
-                                    <tr>
-                                        <td>${escapeHtml(formatDate(report.accident_date))}</td>
-                                        <td>${escapeHtml(report.employee_name || report.employee_display || "")}</td>
-                                        <td>${escapeHtml(report.accident_location || "")}</td>
-                                        <td>${escapeHtml(report.supervisor_name || "")}</td>
-                                        <td>${ackStatus}</td>
-                                        <td>${escapeHtml(formatDate(report.created_at))}</td>
-                                    </tr>
-                                `;
-                            }).join("")}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        employeeInjuryList.innerHTML = employeeInjuryReports.length
+            ? renderAdminReportGroups(employeeInjuryReports.slice(0, 50), getAdminInjuryEmployeeLabel, "Employee not specified", renderAdminEmployeeInjuryReportsTable)
+            : "No employee injury reports found.";
     }
 
     initializeAdminReportSubtabs();

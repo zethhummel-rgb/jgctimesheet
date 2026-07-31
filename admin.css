@@ -228,6 +228,38 @@ textarea {
     margin-top: 0;
 }
 
+.admin-report-group-list {
+    display: grid;
+    gap: 8px;
+}
+
+.admin-report-group {
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.admin-report-group summary {
+    min-height: 46px;
+}
+
+.admin-report-group-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.admin-report-group-count {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.admin-report-group-content {
+    min-width: 0;
+}
+
+.admin-report-group-content .table-wrap {
+    margin-top: 2px;
+}
+
 .admin-jsa-report-view {
     margin-top: 16px;
     padding: 16px;
