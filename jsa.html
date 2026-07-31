@@ -314,39 +314,6 @@ button:hover {
     font-weight: 600;
 }
 
-.jsa-ack-choice-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin: 18px 0;
-}
-
-.jsa-ack-choice {
-    min-height: 94px;
-    padding: 14px;
-    border: 1px solid #8dac91;
-    border-radius: 6px;
-    background: #eef4ec;
-    color: #123d22;
-    text-align: left;
-}
-
-.jsa-ack-choice strong,
-.jsa-ack-choice span {
-    display: block;
-}
-
-.jsa-ack-choice strong {
-    margin-bottom: 6px;
-    font-size: 1.05rem;
-}
-
-.jsa-ack-choice span {
-    color: #405a47;
-    font-size: 0.88rem;
-    font-weight: 500;
-}
-
 @media(max-width: 768px) {
     body {
         padding: 10px;
@@ -354,10 +321,6 @@ button:hover {
 
     .logo-wrap {
         max-width: 260px;
-    }
-
-    .jsa-ack-choice-grid {
-        grid-template-columns: 1fr;
     }
 
     .grid {
@@ -551,8 +514,8 @@ button:hover {
 <script src="common.js?v=32"></script>
 <script src="employee-feature-access.js?v=2"></script>
 <script src="safety-signature-pad.js?v=1"></script>
-<script src="safety-acknowledgements.js?v=6"></script>
-<script src="inspection-records.js?v=11"></script>
+<script src="safety-acknowledgements.js?v=5"></script>
+<script src="inspection-records.js?v=10"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
@@ -561,7 +524,6 @@ const selectedCrewMembers = new Map();
 const manualCrewMembers = new Map();
 let jsaPostSaveRecord = null;
 let jsaPostSaveRows = [];
-let jsaPostSaveMode = "choices";
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -812,118 +774,32 @@ function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
 
     jsaPostSaveRecord = savedRecord;
     jsaPostSaveRows = rows;
-    jsaPostSaveMode = "choices";
-    renderJsaAcknowledgementChoices();
+    const pendingCount = rows.filter((row) => typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at).length;
+    const qrUrl = safetyAckQrUrl("jsa", savedRecord.id, token);
 
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    return true;
-}
-
-function getJsaPendingCount() {
-    return jsaPostSaveRows.filter((row) => typeof safetyAckIsAcknowledged === "function"
-        ? !safetyAckIsAcknowledged(row)
-        : !row.acknowledged_at).length;
-}
-
-function renderJsaAcknowledgementChoices() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (!panel || !jsaPostSaveRecord) {
-        return;
-    }
-
-    jsaPostSaveMode = "choices";
     panel.hidden = false;
     panel.innerHTML = `
-        <h2>Collect JSA Acknowledgements</h2>
-        <p>The JSA is saved. Choose how the crew will acknowledge it.</p>
-        <p><strong>${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining.</p>
-        <div class="jsa-ack-choice-grid">
-            <button type="button" class="jsa-ack-choice" onclick="openJsaQrAcknowledgement()">
-                <strong>QR Code</strong>
-                <span>Show a QR code and notify matched employees in their accounts.</span>
-            </button>
-            <button type="button" class="jsa-ack-choice" onclick="openJsaEmployeeSignatures()">
-                <strong>Employee Signature</strong>
-                <span>Pass this device to employees. No account prompts are sent.</span>
-            </button>
-            <button type="button" class="jsa-ack-choice" onclick="openJsaCreatorSignOff()">
-                <strong>Creator Sign Off</strong>
-                <span>The JSA creator signs on this device. No account prompts are sent.</span>
-            </button>
-        </div>
+        <h2>Crew Signatures</h2>
+        <p>Pass this device to each attendee and tap <strong>Sign</strong>. Anyone using their own phone can scan the QR code.</p>
+        <p><strong>${escapeJsaHtml(String(pendingCount))}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
+        ${typeof safetyAckSharedRosterHtml === "function" ? safetyAckSharedRosterHtml(rows, "signJsaAttendeeOnDevice") : ""}
+        <details>
+            <summary>Sign on another phone</summary>
+            <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
+            <p><a href="${escapeJsaHtml(qrUrl)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
+        </details>
         <div class="actions">
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish Later</button>
-        </div>
-    `;
-}
-
-async function openJsaQrAcknowledgement() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(jsaPostSaveRows) : "";
-
-    if (!panel || !jsaPostSaveRecord || !token || typeof safetyAckQrUrl !== "function") {
-        return;
-    }
-
-    jsaPostSaveMode = "qr";
-    if (typeof safetyAckNotifyPendingRows === "function") {
-        await safetyAckNotifyPendingRows(inspectionSupabaseClient, jsaPostSaveRows);
-    }
-
-    const qrUrl = safetyAckQrUrl("jsa", jsaPostSaveRecord.id, token);
-    panel.innerHTML = `
-        <h2>QR Code</h2>
-        <p>Employees can scan this code to review and sign. Matched employees have also been prompted in their accounts.</p>
-        <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
-        <p><a href="${escapeJsaHtml(qrUrl)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
-        <div class="actions">
-            <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
+            <button type="button" onclick="window.location.href='todays-inspections.html?recordType=reports'">Today's Reports</button>
+            <button type="button" class="secondary" onclick="closeJsaPostSaveQr()">Close</button>
         </div>
     `;
 
     if (typeof safetyAckRenderQr === "function") {
         safetyAckRenderQr(document.getElementById("jsaPostSaveQrWrap"), qrUrl);
     }
-}
 
-function openJsaEmployeeSignatures() {
-    const panel = document.getElementById("jsaPostSaveQrPanel");
-
-    if (!panel) {
-        return;
-    }
-
-    jsaPostSaveMode = "employees";
-    panel.innerHTML = `
-        <h2>Employee Signatures</h2>
-        <p>Pass this device to each employee and tap <strong>Sign</strong>. This option does not prompt anyone in their account.</p>
-        <p><strong>${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining.</p>
-        ${typeof safetyAckSharedRosterHtml === "function" ? safetyAckSharedRosterHtml(jsaPostSaveRows, "signJsaAttendeeOnDevice") : ""}
-        <div class="actions">
-            <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
-        </div>
-    `;
-}
-
-async function openJsaCreatorSignOff() {
-    const worker = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : {};
-    const row = jsaPostSaveRows.find((item) => typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(item, worker));
-
-    if (!row) {
-        alert("The creator could not be matched to this JSA. Use Employee Signature instead.");
-        return;
-    }
-
-    if (typeof safetyAckIsAcknowledged === "function" && safetyAckIsAcknowledged(row)) {
-        alert("The creator has already signed this JSA.");
-        return;
-    }
-
-    jsaPostSaveMode = "creator";
-    await signJsaAttendeeOnDevice(row.id);
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
 }
 
 async function signJsaAttendeeOnDevice(acknowledgementId) {
@@ -954,24 +830,8 @@ async function signJsaAttendeeOnDevice(acknowledgementId) {
 
     if (result.ok) {
         jsaPostSaveRows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaPostSaveRecord.id);
-        if (jsaPostSaveMode === "creator") {
-            const panel = document.getElementById("jsaPostSaveQrPanel");
-            panel.innerHTML = `
-                <h2>Creator Signed</h2>
-                <p>The creator's signature was saved. No employee account prompts were sent.</p>
-                <div class="actions">
-                    <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Other Options</button>
-                    <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
-                </div>
-            `;
-        } else {
-            openJsaEmployeeSignatures();
-        }
+        showJsaSafetyQrAfterSave(jsaPostSaveRecord, jsaPostSaveRows);
     }
-}
-
-function finishJsaAcknowledgements() {
-    window.location.href = "todays-inspections.html?recordType=reports";
 }
 
 function closeJsaPostSaveQr() {
@@ -984,7 +844,6 @@ function closeJsaPostSaveQr() {
 
     jsaPostSaveRecord = null;
     jsaPostSaveRows = [];
-    jsaPostSaveMode = "choices";
 }
 
 function handleInspectionSave(type) {

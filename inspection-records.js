@@ -334,7 +334,7 @@ function buildInspectionEmail(type, fields, rows) {
     return lines.join("\n");
 }
 
-async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
+async function createJsaSafetyAcknowledgements(savedRecord, fields) {
     if (
         !savedRecord ||
         getInspectionRecordTypeKey(savedRecord.inspection_type) !== "jsa" ||
@@ -348,11 +348,9 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
     }
 
     const manualAttendees = safetyAckParseManualAttendees(getInspectionFieldValue(fields, /Crew Sign Off/i), "");
-    const creator = getCurrentWorker();
-    const creatorName = creator && (creator.display || creator.name || creator.key || creator.email);
 
-    if (creatorName) {
-        manualAttendees.push({ name: creatorName, company: "John Gordon Construction" });
+    if (!manualAttendees.length) {
+        return [];
     }
 
     const profiles = await safetyAckLoadApprovedProfiles(inspectionSupabaseClient);
@@ -376,10 +374,10 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
         jobNumber: formJobContext.jobNumber || "",
         jobName: formJobContext.jobName || "",
         qrToken: token,
-        creator,
+        creator: getCurrentWorker(),
         attendees
     });
-    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows, options);
+    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
 
     if (error) {
         console.warn("JSA acknowledgement rows could not be created.", error);
@@ -765,7 +763,7 @@ function getInspectionReturnPage() {
 
 async function finishInspectionSave(savedRecord, fields) {
     const safetyRows = typeof createJsaSafetyAcknowledgements === "function"
-        ? await createJsaSafetyAcknowledgements(savedRecord, fields, { notifyPending: false })
+        ? await createJsaSafetyAcknowledgements(savedRecord, fields)
         : [];
     savedRecord.safety_acknowledgements = safetyRows;
 
@@ -775,7 +773,7 @@ async function finishInspectionSave(savedRecord, fields) {
     }
 
     if (typeof showJsaSafetyQrAfterSave === "function" && showJsaSafetyQrAfterSave(savedRecord, safetyRows)) {
-        setInspectionSaveStatus("JSA saved. Choose how to collect acknowledgements below.");
+        setInspectionSaveStatus("Inspection saved. QR code ready for crew sign-on.");
         return;
     }
 

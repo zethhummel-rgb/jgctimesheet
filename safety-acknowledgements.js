@@ -238,12 +238,10 @@ function safetyAckBuildRowsForRecord(config) {
     }));
 }
 
-async function safetyAckSaveRows(client, rows, options) {
+async function safetyAckSaveRows(client, rows) {
     if (!client || !rows || !rows.length) {
         return { data: [], error: null };
     }
-
-    const settings = options || {};
 
     const isPublicCreator = typeof isJgcSubcontractorSession === "function" && isJgcSubcontractorSession();
 
@@ -267,7 +265,7 @@ async function safetyAckSaveRows(client, rows, options) {
         .upsert(rows, { onConflict: "record_type,record_id,attendee_key" })
         .select("*");
 
-    if (!result.error && settings.notifyPending !== false) {
+    if (!result.error) {
         await safetyAckNotifyPendingRows(client, result.data || rows);
     }
 
