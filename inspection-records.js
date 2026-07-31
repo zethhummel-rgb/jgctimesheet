@@ -775,7 +775,9 @@ async function finishInspectionSave(savedRecord, fields) {
     }
 
     if (typeof showJsaSafetyQrAfterSave === "function" && showJsaSafetyQrAfterSave(savedRecord, safetyRows)) {
-        setInspectionSaveStatus("JSA saved. Choose how to collect acknowledgements below.");
+        setInspectionSaveStatus(typeof getJsaAfterSaveStatus === "function"
+            ? getJsaAfterSaveStatus()
+            : "JSA saved. Choose how to collect acknowledgements below.");
         return;
     }
 

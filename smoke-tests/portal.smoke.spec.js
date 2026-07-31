@@ -402,7 +402,9 @@ test("toolbox talk report starts with one talk selector and its PDF action", asy
 
   const qrDialog = page.locator(".toolbox-qr-backdrop");
   await expect(qrDialog).toBeVisible();
-  await expect(qrDialog).toContainText("Crew QR Sign-On");
+  await expect(qrDialog).toContainText("Crew Signatures");
+  await expect(qrDialog.getByRole("button", { name: "Sign" })).toBeVisible();
+  await qrDialog.getByText("Sign on another phone").click();
   await expect(qrDialog.locator('canvas[aria-label="Acknowledgement QR code"]')).toBeVisible();
   await expect(qrDialog.getByRole("button", { name: "Close QR code" })).toBeVisible();
   expect(savedSafetyRows.length).toBeGreaterThan(0);
@@ -545,6 +547,14 @@ test("JSA approved employee selection immediately adds the crew member", async (
   await expect(select.locator("option")).toHaveCount(3);
   await expect(approvedPicker.getByRole("button", { name: "Add Employee" })).toHaveCount(0);
   await expect(page.locator(".jsa-row-actions").getByRole("button", { name: "Add Row" })).toBeVisible();
+  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /QR Code/ })).toBeVisible();
+  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ })).toBeVisible();
+  await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Creator Sign Off/ })).toBeVisible();
+  await page.locator(".jsa-submit-actions").getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(page.locator("#jsaAcknowledgementChoiceStatus")).toHaveClass(/is-error/);
+  await page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ }).click();
+  await expect(page.locator("#jsaChoiceEmployees")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#jsaAcknowledgementChoiceStatus")).not.toHaveClass(/is-error/);
   await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Submit", exact: true })).toBeVisible();
   await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Reports", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);

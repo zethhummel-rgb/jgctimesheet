@@ -198,6 +198,44 @@ button:hover {
     min-width: 170px;
 }
 
+.jsa-signoff-choice-section {
+    margin-top: 28px;
+    padding: 18px;
+    border: 1px solid rgba(57, 200, 72, 0.45);
+    border-radius: 6px;
+    background: rgba(8, 38, 24, 0.45);
+}
+
+.jsa-signoff-choice-section h2 {
+    margin: 0 0 6px;
+    color: #39c848;
+}
+
+.jsa-signoff-choice-section > p {
+    margin: 0;
+}
+
+.jsa-pre-submit-choice[aria-pressed="true"] {
+    border-color: #39c848;
+    background: #dcefdc;
+    box-shadow: 0 0 0 2px rgba(57, 200, 72, 0.24);
+}
+
+.jsa-choice-status {
+    min-height: 24px;
+    margin-top: 10px;
+    font-weight: 700;
+}
+
+.jsa-choice-status.is-error {
+    padding: 12px;
+    border: 2px solid #d22a22;
+    border-radius: 5px;
+    background: #4a1111;
+    color: #ffffff;
+    font-size: 1rem;
+}
+
 .signoff {
     margin-top: 20px;
 }
@@ -535,8 +573,28 @@ button:hover {
     <button class="secondary jgc-button jgc-button--secondary" onclick="addRow()">Add Row</button>
 </div>
 
+<section id="jsaSignoffChoiceSection" class="jsa-signoff-choice-section jgc-section" aria-labelledby="jsaSignoffChoiceTitle">
+    <h2 id="jsaSignoffChoiceTitle">JSA Sign Off</h2>
+    <p>After discussing the JSA, choose how acknowledgements will be collected. Submitting saves the JSA, then immediately opens the selected sign-off method.</p>
+    <div class="jsa-ack-choice-grid" role="group" aria-label="JSA acknowledgement method">
+        <button id="jsaChoiceQr" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('qr')">
+            <strong>QR Code</strong>
+            <span>Show a QR code and notify matched employees in their accounts.</span>
+        </button>
+        <button id="jsaChoiceEmployees" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('employees')">
+            <strong>Employee Signature</strong>
+            <span>Pass this device to employees. No account prompts are sent.</span>
+        </button>
+        <button id="jsaChoiceCreator" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('creator')">
+            <strong>Creator Sign Off</strong>
+            <span>The JSA creator signs on this device. No account prompts are sent.</span>
+        </button>
+    </div>
+    <div id="jsaAcknowledgementChoiceStatus" class="jsa-choice-status" aria-live="polite">Choose one sign-off method before submitting.</div>
+</section>
+
 <div class="actions jgc-actions jsa-submit-actions">
-    <button class="jgc-button" onclick="handleInspectionSave('JSA')">Submit</button>
+    <button id="jsaSubmitButton" class="jgc-button" onclick="handleInspectionSave('JSA')">Submit</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
@@ -562,6 +620,7 @@ const manualCrewMembers = new Map();
 let jsaPostSaveRecord = null;
 let jsaPostSaveRows = [];
 let jsaPostSaveMode = "choices";
+let jsaRequestedAcknowledgementMode = "";
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -801,6 +860,47 @@ function removeRow(button) {
     button.closest("tr").remove();
 }
 
+function selectJsaAcknowledgementMode(mode) {
+    const allowedModes = ["qr", "employees", "creator"];
+    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
+    const labels = {
+        qr: "QR Code",
+        employees: "Employee Signature",
+        creator: "Creator Sign Off"
+    };
+
+    if (!allowedModes.includes(mode)) {
+        return;
+    }
+
+    jsaRequestedAcknowledgementMode = mode;
+    document.querySelectorAll(".jsa-pre-submit-choice").forEach((button) => {
+        const isSelected = button.id === "jsaChoice" + (mode === "qr" ? "Qr" : mode === "employees" ? "Employees" : "Creator");
+        button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    });
+
+    if (status) {
+        status.classList.remove("is-error");
+        status.textContent = labels[mode] + " selected. Submit the JSA when the discussion is complete.";
+    }
+}
+
+function openRequestedJsaAcknowledgementMode() {
+    if (jsaRequestedAcknowledgementMode === "qr") {
+        void openJsaQrAcknowledgement();
+    } else if (jsaRequestedAcknowledgementMode === "employees") {
+        openJsaEmployeeSignatures();
+    } else if (jsaRequestedAcknowledgementMode === "creator") {
+        void openJsaCreatorSignOff();
+    } else {
+        renderJsaAcknowledgementChoices();
+    }
+}
+
+function getJsaAfterSaveStatus() {
+    return "JSA saved. Complete the selected acknowledgement step below before finishing.";
+}
+
 function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     const rows = Array.isArray(safetyRows) ? safetyRows : [];
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
@@ -813,7 +913,8 @@ function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     jsaPostSaveRecord = savedRecord;
     jsaPostSaveRows = rows;
     jsaPostSaveMode = "choices";
-    renderJsaAcknowledgementChoices();
+    panel.hidden = false;
+    openRequestedJsaAcknowledgementMode();
 
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
     return true;
@@ -985,11 +1086,26 @@ function closeJsaPostSaveQr() {
     jsaPostSaveRecord = null;
     jsaPostSaveRows = [];
     jsaPostSaveMode = "choices";
+    jsaRequestedAcknowledgementMode = "";
 }
 
 function handleInspectionSave(type) {
+    const choiceSection = document.getElementById("jsaSignoffChoiceSection");
+    const choiceStatus = document.getElementById("jsaAcknowledgementChoiceStatus");
+
     if (typeof saveInspection !== "function") {
         alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
+        return;
+    }
+
+    if (!jsaRequestedAcknowledgementMode) {
+        if (choiceStatus) {
+            choiceStatus.textContent = "Choose QR Code, Employee Signature, or Creator Sign Off before submitting this JSA.";
+            choiceStatus.classList.add("is-error");
+        }
+        if (choiceSection) {
+            choiceSection.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
         return;
     }
 
