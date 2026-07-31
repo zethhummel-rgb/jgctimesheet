@@ -548,42 +548,17 @@ function printAdminJsaReport(reportId) {
         return;
     }
 
-    const printWindow = window.open("", "_blank", "width=920,height=980");
-
-    if (!printWindow) {
-        alert("Popup blocked. Allow popups for this portal, then try again.");
+    if (!window.JgcJsaPdf || typeof window.JgcJsaPdf.download !== "function") {
+        alert("The JSA PDF generator is not available. Refresh the page and try again.");
         return;
     }
 
-    printWindow.document.write(`
-        <!doctype html>
-        <html>
-        <head>
-            <title>${escapeHtml(report.title || "Job Safety Analysis")}</title>
-            <style>
-                @page { size: letter; margin: 14mm; }
-                * { box-sizing: border-box; }
-                body { margin: 0; color: #17221b; font: 13px Arial, sans-serif; }
-                h3, h4 { color: #174f28; }
-                .small { color: #526158; }
-                .admin-jsa-report-meta, .admin-jsa-report-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-                .admin-jsa-report-meta > div, .admin-jsa-report-fields > div { border: 1px solid #b9c6bc; padding: 8px; }
-                strong, span { display: block; }
-                table { width: 100%; margin-top: 8px; border-collapse: collapse; }
-                th, td { border: 1px solid #aeb8b1; padding: 7px; text-align: left; vertical-align: top; }
-                th { background: #e7f3e9; }
-                .admin-jsa-report-value { white-space: pre-wrap; }
-            </style>
-        </head>
-        <body>
-            <h1>${escapeHtml(report.title || "Job Safety Analysis")}</h1>
-            ${renderAdminJsaReportBody(report)}
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    window.setTimeout(() => printWindow.print(), 250);
+    try {
+        window.JgcJsaPdf.download(report, { acknowledgements: getJsaReportAcknowledgements(report) });
+    } catch (error) {
+        console.error("JSA PDF generation failed", error);
+        alert(error && error.message ? error.message : "The JSA PDF could not be created.");
+    }
 }
 
 function setAdminReportSubtabCount(tab, count) {

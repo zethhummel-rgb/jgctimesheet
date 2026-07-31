@@ -765,7 +765,13 @@ test("admins can open the complete saved JSA from Reports", async ({ page }) => 
   await expect(viewer).toContainText("Exposed screws");
   await expect(viewer).toContainText("Remove screws completely");
   await expect(viewer).toContainText("Steven Leduc");
-  await expect(viewer.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
+  const pdfButton = viewer.getByRole("button", { name: "Print / Save PDF" });
+  await expect(pdfButton).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    pdfButton.click()
+  ]);
+  expect(download.suggestedFilename()).toBe("jsa-2026-07-20.pdf");
   await viewer.getByRole("button", { name: "Close" }).click();
   await expect(viewer).toBeHidden();
   await expectNoRuntimeErrors(errors, "admin JSA viewer");

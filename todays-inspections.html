@@ -805,7 +805,8 @@ button:hover {
 <script src="safety-acknowledgements.js?v=7"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="inspection-records.js?v=11"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.umd.min.js?v=1"></script>
+<script src="jsa-pdf.js?v=1"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 const worker = getCurrentWorker();
@@ -2694,93 +2695,7 @@ function drawJsaAcknowledgements(doc, record, margin, y, usable) {
 }
 
 function downloadJsaPdf(record) {
-    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "letter", orientation: "landscape" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 10;
-    let y = 10;
-
-    const contractor = findFieldValue(record, /^Contractor$/i) || "John Gordon Construction";
-    const project = findFieldValue(record, /Project/i);
-    const location = findFieldValue(record, /Location/i);
-    const date = findFieldValue(record, /^Date$/i) || record.inspection_date || "";
-    const supervisor = findFieldValue(record, /Contractor Supervisor/i);
-    const reviewedBy = findFieldValue(record, /Reviewed By/i);
-    const page = findFieldValue(record, /^Page$/i);
-    const of = findFieldValue(record, /^Of$/i);
-    const crew = findFieldValue(record, /Crew Sign Off/i);
-    const checklist = findCheckedLabels(record, [
-        "Lockout / Tag Out",
-        "Hot Work",
-        "Confined Space",
-        "Elevated Work",
-        "Excavation",
-        "Crane / Hoisting / Rigging",
-        "Other"
-    ]);
-    const jsaRows = getJsaRows(record);
-
-    doc.setLineWidth(0.2);
-    doc.setDrawColor(40, 40, 40);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text("John Gordon Construction- Job Safety Analysis Form", pageWidth / 2, y, { align: "center" });
-    y += 6;
-    doc.setFontSize(11);
-    doc.text("Must be filled out Daily", pageWidth / 2, y, { align: "center" });
-    y += 7;
-
-    const usable = pageWidth - margin * 2;
-    const topW = usable / 4;
-    drawBoxText(doc, `Contractor:\n${contractor}`, margin, y, topW, 16, { bold: true });
-    drawBoxText(doc, `Project/Job:\n${project}`, margin + topW, y, topW, 16, { bold: true });
-    drawBoxText(doc, `Location:\n${location}`, margin + topW * 2, y, topW, 16, { bold: true });
-    drawBoxText(doc, `Date:\n${date}`, margin + topW * 3, y, topW, 16, { bold: true });
-    y += 16;
-
-    const checklistText = checklist.map((item) => `${item.checked ? "[X]" : "[ ]"} ${item.label}`).join("   ");
-    drawBoxText(doc, checklistText, margin, y, topW * 2, 22, { fontSize: 7 });
-    drawBoxText(doc, `Contractor Supervisor:\n${supervisor}`, margin + topW * 2, y, topW, 22, { bold: true });
-    drawBoxText(doc, `Reviewed By:\n${reviewedBy}\nPage: ${page || ""} of ${of || ""}`, margin + topW * 3, y, topW, 22, { bold: true });
-    y += 22;
-
-    drawBoxText(doc, `Crew Sign Off: All Individuals- Print and sign\n${crew}`, margin, y, usable, 18, { bold: true });
-    y += 18;
-
-    const col1 = 78;
-    const col2 = 88;
-    const col3 = usable - col1 - col2;
-    const headerFill = [230, 236, 230];
-    drawBoxText(doc, "Sequence of Basic Job Steps", margin, y, col1, 12, { bold: true, fill: headerFill });
-    drawBoxText(doc, "Potential Hazards", margin + col1, y, col2, 12, { bold: true, fill: headerFill });
-    drawBoxText(doc, "Required Action or Procedure", margin + col1 + col2, y, col3, 12, { bold: true, fill: headerFill });
-    y += 12;
-
-    const rowsToDraw = jsaRows.length ? jsaRows : Array.from({ length: 7 }, () => ({ step: "", hazard: "", action: "" }));
-
-    rowsToDraw.forEach((row) => {
-        if (y > 185) {
-            doc.addPage();
-            y = 12;
-            drawBoxText(doc, "Sequence of Basic Job Steps", margin, y, col1, 12, { bold: true, fill: headerFill });
-            drawBoxText(doc, "Potential Hazards", margin + col1, y, col2, 12, { bold: true, fill: headerFill });
-            drawBoxText(doc, "Required Action or Procedure", margin + col1 + col2, y, col3, 12, { bold: true, fill: headerFill });
-            y += 12;
-        }
-
-        const stepLines = doc.splitTextToSize(row.step, col1 - 4).length;
-        const hazardLines = doc.splitTextToSize(row.hazard, col2 - 4).length;
-        const actionLines = doc.splitTextToSize(row.action, col3 - 4).length;
-        const rowHeight = Math.max(16, Math.min(34, Math.max(stepLines, hazardLines, actionLines) * 5 + 6));
-
-        drawBoxText(doc, row.step, margin, y, col1, rowHeight, { fontSize: 8, maxLines: 5 });
-        drawBoxText(doc, row.hazard, margin + col1, y, col2, rowHeight, { fontSize: 8, maxLines: 5 });
-        drawBoxText(doc, row.action, margin + col1 + col2, y, col3, rowHeight, { fontSize: 8, maxLines: 5 });
-        y += rowHeight;
-    });
-
-    y = drawJsaAcknowledgements(doc, record, margin, y, usable);
-
-    doc.save(`jsa-${record.inspection_date || "inspection"}.pdf`);
+    window.JgcJsaPdf.download(record, { acknowledgements: getJsaAcknowledgements(record) });
 }
 
 function getAerialInspectionRows(record) {
