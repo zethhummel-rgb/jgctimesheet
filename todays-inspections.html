@@ -2233,7 +2233,7 @@ function renderSafetyRecordReadOnlyDetails(record) {
                 <h4>Work Categories</h4>
                 <div class="jsa-work-types">
                     ${workTypes.map((item) => `
-                        <div class="jsa-work-type${item.checked ? " is-checked" : "}">
+                        <div class="jsa-work-type${item.checked ? " is-checked" : ""}">
                             ${item.checked ? "Checked" : "Not selected"} - ${escapeHtml(item.label)}
                         </div>
                     `).join("")}
