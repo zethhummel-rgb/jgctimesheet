@@ -596,6 +596,7 @@ button:hover {
     }
 }
 </style>
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
 </head>
 
 <body class="inspection-history-page jgc-page">
@@ -626,12 +627,8 @@ button:hover {
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
-<<<<<<< HEAD
 <script src="safety-signature-pad.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=6"></script>
-=======
-<script src="safety-acknowledgements.js?v=4"></script>
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="inspection-records.js?v=11"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -2074,18 +2071,15 @@ function openJsaSignOn(id) {
         ${renderSafetyRecordReadOnlyDetails(record)}
         <h3>Current Acknowledgements</h3>
         ${renderSafetyAcknowledgementManager(record)}
-        ${alreadySigned ? '<div class="ack-status">You are already signed onto this JSA.</div>' : shouldOfferSelfSignOn ? `
-            <label class="ack-checkbox">
-                <input id="jsaSignOnConfirm" type="checkbox">
-                <span>I confirm I reviewed and understood this ${escapeHtml(recordLabel)} and had the opportunity to ask questions.</span>
-            </label>
-        ` : '<div class="ack-status">Creator/admin view. Use the QR code or Mark on site for crew acknowledgements.</div>'}
+        ${alreadySigned ? '<div class="ack-status">You are already signed onto this safety record.</div>' : shouldOfferSelfSignOn ? `
+            <div class="ack-status">Sign below to confirm you reviewed and understood this ${escapeHtml(recordLabel)} and had the opportunity to ask questions.</div>
+        ` : '<div class="ack-status">Creator/admin view. Crew can sign on this device below or scan the QR code.</div>'}
         ${qrUrl ? `
             <h3>QR Sign-On</h3>
             <div id="safetyAckQrWrap" class="small"></div>
         ` : ""}
         <div class="actions">
-            ${shouldOfferSelfSignOn ? `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Acknowledge</button>` : ""}
+            ${shouldOfferSelfSignOn ? `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Sign Acknowledgement</button>` : ""}
             <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
         </div>
         <div id="jsaSignOnStatus" class="ack-status"></div>
@@ -2110,7 +2104,7 @@ function renderSafetyAcknowledgementManager(record) {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Company</th><th>Status</th><th>Method</th><th>Time</th>${canManage ? "<th>Creator Action</th>" : ""}</tr>
+                    <tr><th>Name</th><th>Company</th><th>Status</th><th>Method</th><th>Time</th><th>Signature</th>${canManage ? "<th>Action</th>" : ""}</tr>
                 </thead>
                 <tbody>
                     ${rows.map((row) => {
@@ -2122,7 +2116,8 @@ function renderSafetyAcknowledgementManager(record) {
                                 <td>${escapeHtml(typeof safetyAckStatusLabel === "function" ? safetyAckStatusLabel(row) : row.acknowledgement_status || "Pending")}</td>
                                 <td>${escapeHtml(typeof safetyAckMethodLabel === "function" ? safetyAckMethodLabel(row) : row.acknowledgement_method || "-")}</td>
                                 <td>${escapeHtml(formatAcknowledgementDate(row.acknowledged_at))}</td>
-                                ${canManage ? `<td>${acknowledged ? "-" : `<button type="button" class="secondary" onclick="markSafetyAckOnBehalf('${escapeHtml(row.id)}', '${escapeHtml(record.id)}')">Mark on site</button>`}</td>` : ""}
+                                <td>${typeof safetyAckSignatureSvg === "function" ? safetyAckSignatureSvg(row) : ""}</td>
+                                ${canManage ? `<td>${acknowledged ? "-" : `<button type="button" class="secondary" onclick="signSafetyAckOnDevice('${escapeHtml(row.id)}', '${escapeHtml(record.id)}')">Sign on this device</button>`}</td>` : ""}
                             </tr>
                         `;
                     }).join("")}
@@ -2132,29 +2127,40 @@ function renderSafetyAcknowledgementManager(record) {
     `;
 }
 
-async function markSafetyAckOnBehalf(ackId, recordId) {
+async function signSafetyAckOnDevice(ackId, recordId) {
     const record = inspectionRecords.find((item) => item.id === recordId);
 
     if (!record || !currentWorkerCanManageSafetyAcknowledgements(record)) {
-        alert("Only the creator or an admin can mark someone acknowledged on site.");
+        alert("Only the creator or an admin can open the shared-device signature list.");
         return;
     }
 
-    const note = prompt("Reason/note for marking this person acknowledged on site:", "Acknowledged verbally during the safety review.");
-
-    if (note === null) {
-        return;
-    }
-
+    const rows = getJsaAcknowledgements(record);
+    const row = rows.find((item) => String(item.id) === String(ackId));
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
     const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
         ? "toolbox_talk"
         : "jsa";
-    const result = typeof safetyAckMarkOnBehalf === "function"
-        ? await safetyAckMarkOnBehalf(inspectionSupabaseClient, ackId, note, { recordId, recordType })
-        : { ok: false };
+
+    if (!row || !token || typeof safetyAckOpenSignature !== "function") {
+        alert("This attendee could not be opened for signing.");
+        return;
+    }
+
+    const result = await safetyAckOpenSignature(inspectionSupabaseClient, {
+        recordType,
+        recordId,
+        recordLabel: record.report_type || record.inspection_type || "Safety Record",
+        qrToken: token,
+        acknowledgementId: row.id,
+        attendeeName: row.attendee_name || getAcknowledgementName(row),
+        company: row.attendee_company || row.company || "",
+        email: row.matched_employee_email || row.email || "",
+        source: "shared_device"
+    });
 
     if (!result.ok) {
-        alert(result.message || "Acknowledgement could not be saved.");
+        if (!result.cancelled) alert(result.message || "Signature could not be saved.");
         return;
     }
 
@@ -2163,15 +2169,9 @@ async function markSafetyAckOnBehalf(ackId, recordId) {
 }
 
 async function confirmJsaSignOn(id) {
-    const checkbox = document.getElementById("jsaSignOnConfirm");
     const status = document.getElementById("jsaSignOnStatus");
     const current = getPortalWorkerRecord();
     const record = inspectionRecords.find((item) => item.id === id);
-
-    if (!checkbox || !checkbox.checked) {
-        alert("Check the acknowledgement box before signing on.");
-        return;
-    }
 
     if (!current.key || !record) {
         window.location.href = "index.html";
@@ -2185,18 +2185,26 @@ async function confirmJsaSignOn(id) {
     const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
         ? "toolbox_talk"
         : "jsa";
-    const result = typeof safetyAckSubmitCurrentWorker === "function"
-        ? await safetyAckSubmitCurrentWorker(inspectionSupabaseClient, {
-            recordType,
-            recordId: record.id,
-            recordTitle: record.report_type || record.inspection_type || "",
-            recordDate: record.report_date || record.inspection_date || null,
-            project: record.project || findFieldValue(record, /Project|Job/i),
-            location: record.location || findFieldValue(record, /Location/i),
-            qrToken: typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(getJsaAcknowledgements(record)) : "",
-            creator: current
-        })
-        : { ok: false, message: "Acknowledgement could not be saved." };
+    const rows = getJsaAcknowledgements(record);
+    const currentAck = rows.find((row) => safetyAckRowMatchesWorker(row, current));
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
+
+    if (!currentAck || !token || typeof safetyAckOpenSignature !== "function") {
+        alert("Your attendee record could not be matched. Ask the creator or an admin to check the crew list.");
+        return;
+    }
+
+    const result = await safetyAckOpenSignature(inspectionSupabaseClient, {
+        recordType,
+        recordId: record.id,
+        recordLabel: record.report_type || record.inspection_type || "Safety Record",
+        qrToken: token,
+        acknowledgementId: currentAck.id,
+        attendeeName: currentAck.attendee_name || current.display || current.key,
+        company: currentAck.attendee_company || current.company || "",
+        email: currentAck.matched_employee_email || current.email || "",
+        source: "user_portal"
+    });
 
     if (!result.ok) {
         if (status) {
@@ -2365,11 +2373,33 @@ function drawJsaAcknowledgementHeader(doc, margin, y, usable) {
     const headerFill = [230, 236, 230];
     drawBoxText(doc, "Digital JSA Acknowledgements", margin, y, usable, 9, { bold: true, fill: headerFill, maxLines: 1 });
     y += 9;
-    drawBoxText(doc, "Name", margin, y, usable * 0.36, 8, { bold: true, fill: headerFill, maxLines: 1 });
-    drawBoxText(doc, "Company", margin + usable * 0.36, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
-    drawBoxText(doc, "Acknowledged", margin + usable * 0.60, y, usable * 0.24, 8, { bold: true, fill: headerFill, maxLines: 1 });
-    drawBoxText(doc, "Email", margin + usable * 0.84, y, usable * 0.16, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Name", margin, y, usable * 0.25, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Company", margin + usable * 0.25, y, usable * 0.17, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Acknowledged", margin + usable * 0.42, y, usable * 0.16, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Signature", margin + usable * 0.58, y, usable * 0.28, 8, { bold: true, fill: headerFill, maxLines: 1 });
+    drawBoxText(doc, "Email", margin + usable * 0.86, y, usable * 0.14, 8, { bold: true, fill: headerFill, maxLines: 1 });
     return y + 8;
+}
+
+function drawJsaSignature(doc, acknowledgement, x, y, width, height) {
+    const strokes = typeof safetyAckSignatureStrokes === "function" ? safetyAckSignatureStrokes(acknowledgement) : [];
+
+    if (!strokes.length) return;
+
+    doc.setDrawColor(20, 20, 20);
+    doc.setLineWidth(0.35);
+    strokes.forEach((stroke) => {
+        for (let index = 1; index < stroke.length; index += 1) {
+            const from = stroke[index - 1];
+            const to = stroke[index];
+            doc.line(
+                x + 1 + from[0] * (width - 2),
+                y + 1 + from[1] * (height - 4),
+                x + 1 + to[0] * (width - 2),
+                y + 1 + to[1] * (height - 4)
+            );
+        }
+    });
 }
 
 function drawJsaAcknowledgements(doc, record, margin, y, usable) {
@@ -2399,12 +2429,16 @@ function drawJsaAcknowledgements(doc, record, margin, y, usable) {
         const company = ack.attendee_company || ack.company || "";
         const date = formatAcknowledgementDate(ack.acknowledged_at);
         const email = ack.matched_employee_email || ack.email || "";
-        const rowHeight = 9;
+        const rowHeight = 14;
+        const signatureX = margin + usable * 0.58;
+        const signatureWidth = usable * 0.28;
 
-        drawBoxText(doc, name, margin, y, usable * 0.36, rowHeight, { fontSize: 7, maxLines: 2 });
-        drawBoxText(doc, company, margin + usable * 0.36, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
-        drawBoxText(doc, date, margin + usable * 0.60, y, usable * 0.24, rowHeight, { fontSize: 7, maxLines: 2 });
-        drawBoxText(doc, email, margin + usable * 0.84, y, usable * 0.16, rowHeight, { fontSize: 6, maxLines: 2 });
+        drawBoxText(doc, name, margin, y, usable * 0.25, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, company, margin + usable * 0.25, y, usable * 0.17, rowHeight, { fontSize: 7, maxLines: 2 });
+        drawBoxText(doc, date, margin + usable * 0.42, y, usable * 0.16, rowHeight, { fontSize: 6, maxLines: 2 });
+        drawBoxText(doc, "", signatureX, y, signatureWidth, rowHeight, { fontSize: 6, maxLines: 1 });
+        drawJsaSignature(doc, ack, signatureX, y, signatureWidth, rowHeight);
+        drawBoxText(doc, email, margin + usable * 0.86, y, usable * 0.14, rowHeight, { fontSize: 6, maxLines: 2 });
         y += rowHeight;
     });
 

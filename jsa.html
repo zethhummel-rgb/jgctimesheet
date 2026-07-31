@@ -8,6 +8,7 @@
 <title>JGC Job Safety Analysis</title>
 <link rel="stylesheet" href="styles.css?v=3">
 <link rel="stylesheet" href="report-design-system.css?v=1">
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
 
 <style>
 body {
@@ -549,26 +550,18 @@ button:hover {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
 <script src="employee-feature-access.js?v=2"></script>
-<<<<<<< HEAD
 <script src="safety-signature-pad.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=6"></script>
 <script src="inspection-records.js?v=11"></script>
-=======
-<script src="safety-acknowledgements.js?v=4"></script>
-<script src="inspection-records.js?v=10"></script>
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
 let approvedCrewWorkers = [];
 const selectedCrewMembers = new Map();
 const manualCrewMembers = new Map();
-<<<<<<< HEAD
 let jsaPostSaveRecord = null;
 let jsaPostSaveRows = [];
 let jsaPostSaveMode = "choices";
-=======
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -810,25 +803,17 @@ function removeRow(button) {
 
 function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     const rows = Array.isArray(safetyRows) ? safetyRows : [];
-    const hasManualOrExternal = getManualCrewLines().length > 0 || rows.some((row) =>
-        row && (row.attendee_type !== "employee" || !row.matched_employee_email)
-    );
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
     const panel = document.getElementById("jsaPostSaveQrPanel");
 
-    if (!savedRecord || !savedRecord.id || !rows.length || !hasManualOrExternal || !token || !panel || typeof safetyAckQrUrl !== "function") {
+    if (!savedRecord || !savedRecord.id || !rows.length || !token || !panel || typeof safetyAckQrUrl !== "function") {
         return false;
     }
 
-<<<<<<< HEAD
     jsaPostSaveRecord = savedRecord;
     jsaPostSaveRows = rows;
     jsaPostSaveMode = "choices";
     renderJsaAcknowledgementChoices();
-=======
-    const pendingCount = rows.filter((row) => typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at).length;
-    const qrUrl = safetyAckQrUrl("jsa", savedRecord.id, token);
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
     return true;
@@ -850,7 +835,6 @@ function renderJsaAcknowledgementChoices() {
     jsaPostSaveMode = "choices";
     panel.hidden = false;
     panel.innerHTML = `
-<<<<<<< HEAD
         <h2>Collect JSA Acknowledgements</h2>
         <p>The JSA is saved. Choose how the crew will acknowledge it.</p>
         <p><strong>${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining.</p>
@@ -896,15 +880,6 @@ async function openJsaQrAcknowledgement() {
         <div class="actions">
             <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
             <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
-=======
-        <h2>Crew QR Sign-On</h2>
-        <p>This JSA was saved. Have subcontractors or manually-entered crew scan this QR code now to acknowledge the JSA.</p>
-        <p><strong>${escapeJsaHtml(String(pendingCount))}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
-        <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
-        <div class="actions">
-            <button type="button" onclick="window.location.href='todays-inspections.html?recordType=reports'">Today's Reports</button>
-            <button type="button" class="secondary" onclick="closeJsaPostSaveQr()">Close QR</button>
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
         </div>
     `;
 
@@ -951,7 +926,6 @@ async function openJsaCreatorSignOff() {
     await signJsaAttendeeOnDevice(row.id);
 }
 
-<<<<<<< HEAD
 async function signJsaAttendeeOnDevice(acknowledgementId) {
     const row = jsaPostSaveRows.find((item) => item && item.id === acknowledgementId);
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(jsaPostSaveRows) : "";
@@ -1000,8 +974,6 @@ function finishJsaAcknowledgements() {
     window.location.href = "todays-inspections.html?recordType=reports";
 }
 
-=======
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 function closeJsaPostSaveQr() {
     const panel = document.getElementById("jsaPostSaveQrPanel");
 
@@ -1009,13 +981,10 @@ function closeJsaPostSaveQr() {
         panel.hidden = true;
         panel.innerHTML = "";
     }
-<<<<<<< HEAD
 
     jsaPostSaveRecord = null;
     jsaPostSaveRows = [];
     jsaPostSaveMode = "choices";
-=======
->>>>>>> parent of 1b66012 (Add signed safety acknowledgements)
 }
 
 function handleInspectionSave(type) {
