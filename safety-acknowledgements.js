@@ -17,7 +17,9 @@ const SAFETY_ACK_METHOD_LABELS = {
     creator_on_behalf: "Creator On Behalf",
     qr_external: "QR External",
     late_user_portal: "Late User Portal",
-    late_qr_external: "Late QR External"
+    late_qr_external: "Late QR External",
+    shared_device: "Shared Device",
+    late_shared_device: "Late Shared Device"
 };
 
 function safetyAckEscapeHtml(value) {
@@ -434,6 +436,83 @@ function safetyAckIsSameDate(recordDate) {
     return String(recordDate).slice(0, 10) === new Date().toISOString().slice(0, 10);
 }
 
+async function safetyAckSubmitSignature(client, config) {
+    const settings = config || {};
+    const signature = settings.signature || {};
+
+    if (!client || !settings.recordType || !settings.recordId || !settings.qrToken) {
+        return { ok: false, message: "Signature could not be saved." };
+    }
+
+    const { data, error } = await client.rpc("submit_public_safety_signature", {
+        p_record_type: settings.recordType,
+        p_record_id: settings.recordId,
+        p_qr_token: settings.qrToken,
+        p_acknowledgement_id: settings.acknowledgementId || null,
+        p_attendee_name: signature.printedName || settings.attendeeName || "",
+        p_company: settings.company || "",
+        p_email: settings.email || "",
+        p_note: settings.note || "",
+        p_unmatched: Boolean(settings.unmatched),
+        p_signature_strokes: signature.strokes || [],
+        p_signature_width: Number(signature.width || 0),
+        p_signature_height: Number(signature.height || 0),
+        p_signature_source: settings.source || "shared_device"
+    });
+
+    if (error) {
+        console.error("Safety signature could not be saved.", error);
+        return { ok: false, message: error.message || "Signature could not be saved.", error };
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (!result || result.success !== true) {
+        return { ok: false, message: result && result.message ? result.message : "Signature could not be saved." };
+    }
+
+    if (settings.acknowledgementId) {
+        await safetyAckClearPortalNotifications(client, {
+            id: settings.acknowledgementId,
+            record_type: settings.recordType,
+            record_id: settings.recordId
+        }, settings);
+    }
+
+    return {
+        ok: true,
+        message: result.message || "Signature saved.",
+        acknowledgementId: result.acknowledgement_id || settings.acknowledgementId || null
+    };
+}
+
+function safetyAckOpenSignature(client, config) {
+    const settings = config || {};
+
+    if (!window.JGCSafetySignature || typeof window.JGCSafetySignature.open !== "function") {
+        return Promise.resolve({ ok: false, message: "The signature pad is not available. Refresh the page and try again." });
+    }
+
+    return new Promise((resolve) => {
+        let submitted = false;
+        window.JGCSafetySignature.open({
+            attendeeName: settings.attendeeName || "",
+            recordLabel: settings.recordLabel || "Safety acknowledgement",
+            onSubmit: async (signature) => {
+                const result = await safetyAckSubmitSignature(client, { ...settings, signature });
+                if (result.ok) {
+                    submitted = true;
+                    if (typeof settings.onSaved === "function") {
+                        await settings.onSaved(result);
+                    }
+                }
+                return result;
+            },
+            onClose: (result) => resolve(submitted ? (result || { ok: true }) : { ok: false, cancelled: true })
+        });
+    });
+}
+
 async function safetyAckSubmitCurrentWorker(client, config) {
     const settings = config || {};
     const worker = safetyAckGetCurrentWorker();
@@ -565,6 +644,34 @@ function safetyAckMethodLabel(row) {
     return SAFETY_ACK_METHOD_LABELS[method] || method || "-";
 }
 
+function safetyAckSignatureStrokes(row) {
+    const strokes = row && row.signature_strokes;
+
+    if (!Array.isArray(strokes)) {
+        return [];
+    }
+
+    return strokes.map((stroke) => Array.isArray(stroke)
+        ? stroke.filter((point) => Array.isArray(point) && point.length >= 2 && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])))
+            .map((point) => [Math.max(0, Math.min(1, Number(point[0]))), Math.max(0, Math.min(1, Number(point[1])))])
+        : []).filter((stroke) => stroke.length >= 2);
+}
+
+function safetyAckSignatureSvg(row) {
+    const strokes = safetyAckSignatureStrokes(row);
+
+    if (!strokes.length) {
+        return "";
+    }
+
+    const lines = strokes.map((stroke) => {
+        const points = stroke.map((point) => `${(point[0] * 300).toFixed(1)},${(point[1] * 100).toFixed(1)}`).join(" ");
+        return `<polyline points="${points}" fill="none" stroke="#111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />`;
+    }).join("");
+
+    return `<svg class="safety-signature-preview" viewBox="0 0 300 100" role="img" aria-label="Signature for ${safetyAckEscapeHtml(row.signature_signed_name || row.attendee_name || "attendee")}">${lines}</svg>`;
+}
+
 function safetyAckSummary(rows) {
     const activeRows = (rows || []).filter((row) => row && row.acknowledgement_status !== "removed" && !row.removed_at);
     const acknowledged = activeRows.filter(safetyAckIsAcknowledged).length;
@@ -578,6 +685,32 @@ function safetyAckSummary(rows) {
         late,
         unmatched
     };
+}
+
+function safetyAckSharedRosterHtml(rows, handlerName) {
+    const activeRows = (rows || []).filter((row) => row && !row.removed_at);
+
+    if (!activeRows.length) {
+        return '<div class="small">No attendees were added.</div>';
+    }
+
+    return `<div class="safety-shared-roster">
+        ${activeRows.map((row) => {
+            const acknowledged = safetyAckIsAcknowledged(row);
+            const signature = safetyAckSignatureSvg(row);
+            return `<div class="safety-shared-person ${acknowledged ? "is-signed" : "is-pending"}">
+                <div class="safety-shared-person-copy">
+                    <strong>${safetyAckEscapeHtml(row.attendee_name || "Attendee")}</strong>
+                    ${row.attendee_company ? `<span>${safetyAckEscapeHtml(row.attendee_company)}</span>` : ""}
+                    <span>${safetyAckEscapeHtml(acknowledged ? "Signed " + safetyAckFormatDateTime(row.signature_signed_at || row.acknowledged_at) : "Waiting for signature")}</span>
+                </div>
+                ${signature || ""}
+                ${acknowledged
+                    ? '<span class="safety-shared-status">Signed</span>'
+                    : `<button type="button" onclick="${handlerName}('${safetyAckEscapeHtml(row.id || "")}')">Sign</button>`}
+            </div>`;
+        }).join("")}
+    </div>`;
 }
 
 function safetyAckBuildTableHtml(rows) {
@@ -598,6 +731,7 @@ function safetyAckBuildTableHtml(rows) {
                     <th>Method</th>
                     <th>Acknowledged At</th>
                     <th>Acknowledged By</th>
+                    <th>Signature</th>
                     <th>Note</th>
                 </tr>
             </thead>
@@ -611,6 +745,10 @@ function safetyAckBuildTableHtml(rows) {
                         <td>${safetyAckEscapeHtml(safetyAckMethodLabel(row))}</td>
                         <td>${safetyAckEscapeHtml(safetyAckFormatDateTime(row.acknowledged_at))}</td>
                         <td>${safetyAckEscapeHtml(row.acknowledged_by_name || "")}</td>
+                        <td>
+                            ${safetyAckSignatureSvg(row) || "-"}
+                            ${row.signature_signed_name ? `<div class="small">${safetyAckEscapeHtml(row.signature_signed_name)}<br>${safetyAckEscapeHtml(safetyAckFormatDateTime(row.signature_signed_at))}</div>` : ""}
+                        </td>
                         <td>${safetyAckEscapeHtml(row.acknowledgement_note || "")}</td>
                     </tr>
                 `).join("")}
@@ -628,6 +766,7 @@ function safetyAckTextLines(rows) {
         safetyAckMethodLabel(row),
         safetyAckFormatDateTime(row.acknowledged_at),
         row.acknowledged_by_name || "",
+        row.signature_signed_name ? `Signed by ${row.signature_signed_name} ${safetyAckFormatDateTime(row.signature_signed_at)}` : "",
         row.acknowledgement_note || ""
     ].filter(Boolean).join(" | "));
 }

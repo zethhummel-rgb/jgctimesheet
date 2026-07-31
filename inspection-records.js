@@ -377,19 +377,6 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
         creator: getCurrentWorker(),
         attendees
     });
-    const creator = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : getCurrentWorker();
-    const creatorAcknowledgedAt = new Date().toISOString();
-
-    rows.forEach((row) => {
-        if (typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(row, creator)) {
-            row.acknowledgement_status = "acknowledged_by_creator";
-            row.acknowledgement_method = "creator_on_behalf";
-            row.acknowledged_at = creatorAcknowledgedAt;
-            row.acknowledged_by_name = creator.display || creator.key || "";
-            row.acknowledgement_note = "Creator entered and confirmed this person during JSA creation.";
-        }
-    });
-
     const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
 
     if (error) {

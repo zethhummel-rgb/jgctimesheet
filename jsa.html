@@ -8,6 +8,7 @@
 <title>JGC Job Safety Analysis</title>
 <link rel="stylesheet" href="styles.css?v=3">
 <link rel="stylesheet" href="report-design-system.css?v=1">
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
 
 <style>
 body {
@@ -512,7 +513,8 @@ button:hover {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
 <script src="employee-feature-access.js?v=2"></script>
-<script src="safety-acknowledgements.js?v=4"></script>
+<script src="safety-signature-pad.js?v=1"></script>
+<script src="safety-acknowledgements.js?v=5"></script>
 <script src="inspection-records.js?v=10"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
@@ -520,6 +522,8 @@ const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || cur
 let approvedCrewWorkers = [];
 const selectedCrewMembers = new Map();
 const manualCrewMembers = new Map();
+let jsaPostSaveRecord = null;
+let jsaPostSaveRows = [];
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -761,28 +765,32 @@ function removeRow(button) {
 
 function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     const rows = Array.isArray(safetyRows) ? safetyRows : [];
-    const hasManualOrExternal = getManualCrewLines().length > 0 || rows.some((row) =>
-        row && (row.attendee_type !== "employee" || !row.matched_employee_email)
-    );
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
     const panel = document.getElementById("jsaPostSaveQrPanel");
 
-    if (!savedRecord || !savedRecord.id || !rows.length || !hasManualOrExternal || !token || !panel || typeof safetyAckQrUrl !== "function") {
+    if (!savedRecord || !savedRecord.id || !rows.length || !token || !panel || typeof safetyAckQrUrl !== "function") {
         return false;
     }
 
+    jsaPostSaveRecord = savedRecord;
+    jsaPostSaveRows = rows;
     const pendingCount = rows.filter((row) => typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at).length;
     const qrUrl = safetyAckQrUrl("jsa", savedRecord.id, token);
 
     panel.hidden = false;
     panel.innerHTML = `
-        <h2>Crew QR Sign-On</h2>
-        <p>This JSA was saved. Have subcontractors or manually-entered crew scan this QR code now to acknowledge the JSA.</p>
+        <h2>Crew Signatures</h2>
+        <p>Pass this device to each attendee and tap <strong>Sign</strong>. Anyone using their own phone can scan the QR code.</p>
         <p><strong>${escapeJsaHtml(String(pendingCount))}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
-        <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
+        ${typeof safetyAckSharedRosterHtml === "function" ? safetyAckSharedRosterHtml(rows, "signJsaAttendeeOnDevice") : ""}
+        <details>
+            <summary>Sign on another phone</summary>
+            <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
+            <p><a href="${escapeJsaHtml(qrUrl)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
+        </details>
         <div class="actions">
             <button type="button" onclick="window.location.href='todays-inspections.html?recordType=reports'">Today's Reports</button>
-            <button type="button" class="secondary" onclick="closeJsaPostSaveQr()">Close QR</button>
+            <button type="button" class="secondary" onclick="closeJsaPostSaveQr()">Close</button>
         </div>
     `;
 
@@ -794,6 +802,38 @@ function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     return true;
 }
 
+async function signJsaAttendeeOnDevice(acknowledgementId) {
+    const row = jsaPostSaveRows.find((item) => item && item.id === acknowledgementId);
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(jsaPostSaveRows) : "";
+
+    if (!row || !jsaPostSaveRecord || !token || typeof safetyAckOpenSignature !== "function") {
+        alert("This attendee could not be opened. Refresh the page and try again.");
+        return;
+    }
+
+    const result = await safetyAckOpenSignature(inspectionSupabaseClient, {
+        recordType: "jsa",
+        recordId: jsaPostSaveRecord.id,
+        recordLabel: "JSA acknowledgement",
+        qrToken: token,
+        acknowledgementId: row.id,
+        attendeeName: row.attendee_name || "",
+        company: row.attendee_company || "",
+        email: row.matched_employee_email || "",
+        source: "shared_device"
+    });
+
+    if (!result.ok && !result.cancelled) {
+        alert(result.message || "Signature could not be saved.");
+        return;
+    }
+
+    if (result.ok) {
+        jsaPostSaveRows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaPostSaveRecord.id);
+        showJsaSafetyQrAfterSave(jsaPostSaveRecord, jsaPostSaveRows);
+    }
+}
+
 function closeJsaPostSaveQr() {
     const panel = document.getElementById("jsaPostSaveQrPanel");
 
@@ -801,6 +841,9 @@ function closeJsaPostSaveQr() {
         panel.hidden = true;
         panel.innerHTML = "";
     }
+
+    jsaPostSaveRecord = null;
+    jsaPostSaveRows = [];
 }
 
 function handleInspectionSave(type) {
