@@ -393,6 +393,167 @@ button:hover {
     color: #c9f7d1;
 }
 
+.jsa-report-view {
+    margin-top: 14px;
+    overflow: hidden;
+    color: #17231d;
+    background: #f8faf8;
+    border: 1px solid #8aa092;
+    border-top: 4px solid #148c42;
+    border-radius: 4px;
+}
+
+.jsa-report-header {
+    padding: 18px 20px 14px;
+    text-align: center;
+    border-bottom: 2px solid #148c42;
+}
+
+.jsa-report-header h3 {
+    margin: 0;
+    color: #0d6e34 !important;
+    font-size: 22px;
+    text-shadow: none !important;
+}
+
+.jsa-report-header p {
+    margin: 4px 0 0;
+    color: #44534a !important;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: none !important;
+}
+
+.jsa-report-meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid #9dac9f;
+}
+
+.jsa-report-meta-item {
+    min-height: 58px;
+    padding: 10px 12px;
+    border-right: 1px solid #9dac9f;
+    border-bottom: 1px solid #9dac9f;
+}
+
+.jsa-report-meta-item:nth-child(4n) {
+    border-right: 0;
+}
+
+.jsa-report-label {
+    display: block;
+    margin-bottom: 4px;
+    color: #526259;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.jsa-report-value {
+    display: block;
+    color: #17231d;
+    font-size: 14px;
+    font-weight: bold;
+    white-space: pre-wrap;
+}
+
+.jsa-report-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid #b8c4bb;
+}
+
+.jsa-report-section:last-child {
+    border-bottom: 0;
+}
+
+.jsa-report-section h4 {
+    margin: 0 0 10px;
+    color: #0d6e34;
+    font-size: 15px;
+}
+
+.jsa-work-types {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.jsa-work-type {
+    padding: 7px 9px;
+    color: #526259;
+    background: #edf1ee;
+    border: 1px solid #c5cec7;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.jsa-work-type.is-checked {
+    color: #0b552b;
+    background: #d9f1df;
+    border-color: #72ad80;
+}
+
+.jsa-crew-names {
+    margin: 0;
+    color: #17231d;
+    line-height: 1.55;
+    white-space: pre-wrap;
+}
+
+.jsa-report-table-wrap {
+    overflow-x: auto;
+}
+
+.jsa-report-table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+}
+
+.jsa-report-table th,
+.jsa-report-table td {
+    padding: 10px;
+    color: #17231d !important;
+    background: #ffffff !important;
+    border: 1px solid #91a096;
+    text-align: left;
+    vertical-align: top;
+    text-shadow: none !important;
+}
+
+.jsa-report-table th {
+    color: #ffffff !important;
+    background: #124f2a !important;
+}
+
+.jsa-view-context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 18px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: #132a24;
+    border: 1px solid rgba(195, 230, 202, 0.32);
+    border-radius: 4px;
+}
+
+.jsa-qr-details {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border: 1px solid rgba(46, 230, 79, 0.38);
+    border-radius: 4px;
+}
+
+.jsa-qr-details summary {
+    color: #f4fff7;
+    cursor: pointer;
+    font-weight: bold;
+}
+
 .ack-list {
     margin: 10px 0 0;
     padding-left: 18px;
@@ -581,6 +742,19 @@ button:hover {
 
     .edit-grid {
         grid-template-columns: 1fr;
+    }
+
+    .jsa-report-meta,
+    .jsa-work-types {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .jsa-report-meta-item:nth-child(4n) {
+        border-right: 1px solid #9dac9f;
+    }
+
+    .jsa-report-meta-item:nth-child(2n) {
+        border-right: 0;
     }
 
     .inspection-sheet {
@@ -1991,35 +2165,37 @@ function cancelInspectionEdit() {
 }
 
 function renderSafetyRecordReadOnlyDetails(record) {
-    const fields = getRecordFields(record).filter((field) => field.value);
-    const rows = getRecordRows(record).filter((row) => (row.cells || []).some((cell) => String(cell || "").trim()));
-    const fieldHtml = fields.length
-        ? `
-            <div class="edit-grid">
-                ${fields.map((field) => `
-                    <div class="edit-field">
-                        <label>${escapeHtml(field.label)}</label>
-                        <input type="text" value="${escapeHtml(field.value)}" disabled>
-                    </div>
-                `).join("")}
-            </div>
-        `
-        : '<div class="small">No form details were saved for this record.</div>';
+    const contractor = findFieldValue(record, /^Contractor$/i) || "John Gordon Construction";
+    const project = record.project || findFieldValue(record, /Project\s*\/\s*Job|Project|Job/i);
+    const location = record.location || findFieldValue(record, /^Location$/i);
+    const date = record.report_date || findFieldValue(record, /^Date$/i) || record.inspection_date || "";
+    const supervisor = findFieldValue(record, /Contractor Supervisor/i);
+    const reviewedBy = findFieldValue(record, /Reviewed By/i);
+    const crew = findFieldValue(record, /Crew Sign Off/i);
+    const workTypes = findCheckedLabels(record, [
+        "Lockout / Tag Out",
+        "Hot Work",
+        "Confined Space",
+        "Elevated Work",
+        "Excavation",
+        "Crane / Hoisting / Rigging",
+        "Other"
+    ]);
+    const rows = getJsaRows(record);
     const rowHtml = rows.length
         ? `
-            <div class="table-wrap">
-                <table>
+            <div class="jsa-report-table-wrap">
+                <table class="jsa-report-table">
                     <thead>
-                        <tr><th>Job Step</th><th>Potential Hazard</th><th>Required Action</th></tr>
+                        <tr><th>Sequence of Basic Job Steps</th><th>Potential Hazards</th><th>Required Action or Procedure</th></tr>
                     </thead>
                     <tbody>
                         ${rows.map((row) => {
-                            const cells = row.cells || [];
                             return `
                                 <tr>
-                                    <td>${escapeHtml(cells[0] || "")}</td>
-                                    <td>${escapeHtml(cells[1] || "")}</td>
-                                    <td>${escapeHtml(cells[2] || "")}</td>
+                                    <td>${escapeHtml(row.step)}</td>
+                                    <td>${escapeHtml(row.hazard)}</td>
+                                    <td>${escapeHtml(row.action)}</td>
                                 </tr>
                             `;
                         }).join("")}
@@ -2027,12 +2203,50 @@ function renderSafetyRecordReadOnlyDetails(record) {
                 </table>
             </div>
         `
-        : "";
+        : '<div class="small" style="color:#526259 !important;text-shadow:none !important;">No job steps were saved for this JSA.</div>';
+
+    const metaItems = [
+        ["Contractor", contractor],
+        ["Project / Job", project],
+        ["Location", location],
+        ["Date", formatDate(date)],
+        ["Contractor Supervisor", supervisor],
+        ["Reviewed By", reviewedBy]
+    ];
 
     return `
-        <h3>JSA Details</h3>
-        ${fieldHtml}
-        ${rowHtml}
+        <section class="jsa-report-view" aria-label="Job Safety Analysis report">
+            <header class="jsa-report-header">
+                <h3>John Gordon Construction - Job Safety Analysis</h3>
+                <p>Must be filled out daily</p>
+            </header>
+            <div class="jsa-report-meta">
+                ${metaItems.map(([label, value]) => `
+                    <div class="jsa-report-meta-item">
+                        <span class="jsa-report-label">${escapeHtml(label)}</span>
+                        <span class="jsa-report-value">${escapeHtml(value || "-")}</span>
+                    </div>
+                `).join("")}
+            </div>
+            <div class="jsa-report-section">
+                <h4>Work Categories</h4>
+                <div class="jsa-work-types">
+                    ${workTypes.map((item) => `
+                        <div class="jsa-work-type${item.checked ? " is-checked" : "}">
+                            ${item.checked ? "Checked" : "Not selected"} - ${escapeHtml(item.label)}
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+            <div class="jsa-report-section">
+                <h4>Crew Sign Off (Print Names)</h4>
+                <p class="jsa-crew-names">${escapeHtml(crew || "No crew names were saved.")}</p>
+            </div>
+            <div class="jsa-report-section">
+                <h4>Job Steps, Hazards and Required Actions</h4>
+                ${rowHtml}
+            </div>
+        </section>
     `;
 }
 
@@ -2067,24 +2281,10 @@ function openJsaSignOn(id) {
 
     panel.hidden = false;
     panel.innerHTML = `
-        <h2>${escapeHtml(recordLabel)} Acknowledgement</h2>
-        <div class="edit-grid">
-            <div class="edit-field">
-                <label>Date</label>
-                <input type="text" value="${escapeHtml(formatDate(record.report_date || record.inspection_date))}" disabled>
-            </div>
-            <div class="edit-field">
-                <label>Signing On As</label>
-                <input type="text" value="${escapeHtml(current.display || current.key)}" disabled>
-            </div>
-            <div class="edit-field">
-                <label>Project</label>
-                <input type="text" value="${escapeHtml(record.project || findFieldValue(record, /Project|Job/i))}" disabled>
-            </div>
-            <div class="edit-field">
-                <label>Location</label>
-                <input type="text" value="${escapeHtml(record.location || findFieldValue(record, /Location/i))}" disabled>
-            </div>
+        <h2>${escapeHtml(recordLabel)}</h2>
+        <div class="jsa-view-context">
+            <span><strong>Viewing as:</strong> ${escapeHtml(current.display || current.key)}</span>
+            <span><strong>Saved:</strong> ${escapeHtml(formatDate(record.report_date || record.inspection_date))}</span>
         </div>
         <div class="ack-status">
             ${escapeHtml(String(summary.acknowledged))} acknowledged / ${escapeHtml(String(summary.total))} total
@@ -2098,8 +2298,10 @@ function openJsaSignOn(id) {
             <div class="ack-status">${currentAck ? "After reviewing this record, choose how you want to acknowledge it." : "You were not on the original crew list. After reviewing this record, add yourself using your account or your signature."}</div>
         ` : '<div class="ack-status">Creator/admin view. Crew can sign on this device below or scan the QR code.</div>'}
         ${qrUrl ? `
-            <h3>QR Sign-On</h3>
-            <div id="safetyAckQrWrap" class="small"></div>
+            <details class="jsa-qr-details">
+                <summary>Show QR Sign-On</summary>
+                <div id="safetyAckQrWrap" class="small"></div>
+            </details>
         ` : ""}
         <div class="actions">
             ${shouldOfferSelfSignOn ? `

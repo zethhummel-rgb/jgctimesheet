@@ -1060,6 +1060,11 @@ test("approved employees can add themselves to an existing JSA", async ({ page }
   const row = page.locator("tbody tr").filter({ hasText: "JSA" });
   await row.getByRole("button", { name: "View", exact: true }).click();
   const panel = page.locator("#editPanel");
+  await expect(panel.locator(".jsa-report-view")).toBeVisible();
+  await expect(panel.locator(".jsa-report-header")).toContainText("Job Safety Analysis");
+  await expect(panel.locator(".jsa-report-table")).toContainText("Review site");
+  await expect(panel.locator('.jsa-report-view input:disabled')).toHaveCount(0);
+  await expect(panel).not.toContainText("textarea");
   await expect(panel).toContainText("You were not on the original crew list");
   await expect(panel.getByRole("button", { name: "Acknowledge with Account", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Sign on This Device", exact: true })).toBeVisible();
