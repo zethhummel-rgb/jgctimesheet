@@ -178,6 +178,7 @@ button:disabled {
 }
 </style>
 <link rel="stylesheet" href="acknowledgement-design-system.css?v=1">
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
 </head>
 <body class="acknowledgement-page jgc-page">
 <div class="logo-wrap jgc-brand">
@@ -224,7 +225,8 @@ button:disabled {
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
-<script src="safety-acknowledgements.js?v=4"></script>
+<script src="safety-acknowledgements.js?v=6"></script>
+<script src="safety-signature-pad.js?v=1"></script>
 <script>
 const client = createJgcSupabaseClient();
 const params = new URLSearchParams(window.location.search);
@@ -336,31 +338,34 @@ async function submitAcknowledgement() {
         return;
     }
 
-    button.disabled = true;
-    setStatus("Saving acknowledgement...", false);
-
-    const { data, error } = await client.rpc("submit_public_safety_acknowledgement", {
-        p_record_type: recordType,
-        p_record_id: recordId,
-        p_qr_token: qrToken,
-        p_acknowledgement_id: isNotListed ? null : selected.id,
-        p_attendee_name: isNotListed ? fullName : selected.attendee_name,
-        p_company: company,
-        p_email: email,
-        p_note: note,
-        p_unmatched: isNotListed
+    setStatus("Sign below to finish the acknowledgement.", false);
+    const result = await safetyAckOpenSignature(client, {
+        recordType,
+        recordId,
+        qrToken,
+        acknowledgementId: isNotListed ? null : selected.id,
+        attendeeName: isNotListed ? fullName : selected.attendee_name,
+        company,
+        email,
+        note,
+        unmatched: isNotListed,
+        source: "qr",
+        recordLabel: `${publicRecord.record_title || (recordType === "toolbox_talk" ? "Toolbox Talk" : "JSA")} - ${publicRecord.project || ""}`
     });
 
-    const result = Array.isArray(data) ? data[0] : null;
-
-    if (error || !result || !result.success) {
-        setStatus(result && result.message ? result.message : "Acknowledgement could not be saved.", true);
-        button.disabled = false;
+    if (result.cancelled) {
+        setStatus("Signature cancelled. Nothing was submitted.", false);
         return;
     }
 
-    setStatus(result.message || "Acknowledgement saved.", false);
-    button.textContent = "Acknowledgement Saved";
+    if (!result.ok) {
+        setStatus(result.message || "Acknowledgement could not be saved.", true);
+        return;
+    }
+
+    button.disabled = true;
+    setStatus(result.message || "Signature saved.", false);
+    button.textContent = "Signature Saved";
 }
 
 loadAcknowledgement();

@@ -334,7 +334,7 @@ function buildInspectionEmail(type, fields, rows) {
     return lines.join("\n");
 }
 
-async function createJsaSafetyAcknowledgements(savedRecord, fields) {
+async function createJsaSafetyAcknowledgements(savedRecord, fields, options) {
     if (
         !savedRecord ||
         getInspectionRecordTypeKey(savedRecord.inspection_type) !== "jsa" ||
@@ -348,9 +348,11 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
     }
 
     const manualAttendees = safetyAckParseManualAttendees(getInspectionFieldValue(fields, /Crew Sign Off/i), "");
+    const creator = getCurrentWorker();
+    const creatorName = creator && (creator.display || creator.name || creator.key || creator.email);
 
-    if (!manualAttendees.length) {
-        return [];
+    if (creatorName) {
+        manualAttendees.push({ name: creatorName, company: "John Gordon Construction" });
     }
 
     const profiles = await safetyAckLoadApprovedProfiles(inspectionSupabaseClient);
@@ -374,23 +376,10 @@ async function createJsaSafetyAcknowledgements(savedRecord, fields) {
         jobNumber: formJobContext.jobNumber || "",
         jobName: formJobContext.jobName || "",
         qrToken: token,
-        creator: getCurrentWorker(),
+        creator,
         attendees
     });
-    const creator = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : getCurrentWorker();
-    const creatorAcknowledgedAt = new Date().toISOString();
-
-    rows.forEach((row) => {
-        if (typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(row, creator)) {
-            row.acknowledgement_status = "acknowledged_by_creator";
-            row.acknowledgement_method = "creator_on_behalf";
-            row.acknowledged_at = creatorAcknowledgedAt;
-            row.acknowledged_by_name = creator.display || creator.key || "";
-            row.acknowledgement_note = "Creator entered and confirmed this person during JSA creation.";
-        }
-    });
-
-    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows);
+    const { data, error } = await safetyAckSaveRows(inspectionSupabaseClient, rows, options);
 
     if (error) {
         console.warn("JSA acknowledgement rows could not be created.", error);
@@ -776,7 +765,7 @@ function getInspectionReturnPage() {
 
 async function finishInspectionSave(savedRecord, fields) {
     const safetyRows = typeof createJsaSafetyAcknowledgements === "function"
-        ? await createJsaSafetyAcknowledgements(savedRecord, fields)
+        ? await createJsaSafetyAcknowledgements(savedRecord, fields, { notifyPending: false })
         : [];
     savedRecord.safety_acknowledgements = safetyRows;
 
@@ -786,7 +775,7 @@ async function finishInspectionSave(savedRecord, fields) {
     }
 
     if (typeof showJsaSafetyQrAfterSave === "function" && showJsaSafetyQrAfterSave(savedRecord, safetyRows)) {
-        setInspectionSaveStatus("Inspection saved. QR code ready for crew sign-on.");
+        setInspectionSaveStatus("JSA saved. Choose how to collect acknowledgements below.");
         return;
     }
 

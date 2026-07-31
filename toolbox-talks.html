@@ -360,6 +360,7 @@ th {
     }
 }
 </style>
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
 </head>
 
 <body class="report-family-page report-form-page jgc-page">
@@ -462,7 +463,8 @@ th {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
 <script src="employee-feature-access.js?v=2"></script>
-<script src="safety-acknowledgements.js?v=4"></script>
+<script src="safety-signature-pad.js?v=1"></script>
+<script src="safety-acknowledgements.js?v=6"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -482,6 +484,8 @@ let selectedTalk = null;
 let acknowledgements = [];
 let toolboxReportSubmitting = false;
 let loadedToolboxReport = null;
+let toolboxPostSaveRecordId = "";
+let toolboxPostSaveRows = [];
 
 document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
 document.getElementById("reportDate").value = new Date().toISOString().slice(0, 10);
@@ -970,6 +974,8 @@ function showToolboxSafetyQrAfterSave(recordId, rows) {
         return false;
     }
 
+    toolboxPostSaveRecordId = recordId;
+    toolboxPostSaveRows = Array.isArray(rows) ? rows : [];
     const url = safetyAckQrUrl("toolbox_talk", recordId, token);
     const pendingCount = (rows || []).filter((row) =>
         typeof safetyAckIsAcknowledged === "function" ? !safetyAckIsAcknowledged(row) : !row.acknowledged_at
@@ -980,11 +986,18 @@ function showToolboxSafetyQrAfterSave(recordId, rows) {
         <div class="toolbox-qr-backdrop" role="dialog" aria-modal="true" aria-labelledby="toolboxQrTitle" onclick="if (event.target === this) closeToolboxSafetyQr()">
             <section class="toolbox-qr-dialog">
                 <button type="button" class="secondary toolbox-qr-close" aria-label="Close QR code" title="Close" onclick="closeToolboxSafetyQr()">&times;</button>
-                <h2 id="toolboxQrTitle">Crew QR Sign-On</h2>
-                <p>The toolbox talk was submitted. Have each crew member scan this code to acknowledge it.</p>
+                <h2 id="toolboxQrTitle">Crew Signatures</h2>
+                <p>The toolbox talk was submitted. Each attendee can sign below on this device.</p>
                 <p><strong>${pendingCount}</strong> pending acknowledgement${pendingCount === 1 ? "" : "s"}.</p>
-                <div id="toolboxSafetyQrWrap" class="toolbox-qr-wrap"></div>
-                <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
+                ${typeof safetyAckSharedRosterHtml === "function"
+                    ? safetyAckSharedRosterHtml(toolboxPostSaveRows, "signToolboxAttendeeOnDevice")
+                    : ""}
+                <details>
+                    <summary>Sign on another phone</summary>
+                    <p>Scan the QR code to sign on a personal phone.</p>
+                    <div id="toolboxSafetyQrWrap" class="toolbox-qr-wrap"></div>
+                    <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
+                </details>
                 <button type="button" class="secondary" onclick="closeToolboxSafetyQr()">Close</button>
             </section>
         </div>
@@ -996,11 +1009,43 @@ function showToolboxSafetyQrAfterSave(recordId, rows) {
     return true;
 }
 
+async function signToolboxAttendeeOnDevice(acknowledgementId) {
+    const row = toolboxPostSaveRows.find((item) => String(item.id) === String(acknowledgementId));
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(toolboxPostSaveRows) : "";
+
+    if (!row || !toolboxPostSaveRecordId || !token || typeof safetyAckOpenSignature !== "function") {
+        alert("This attendee could not be opened for signing.");
+        return;
+    }
+
+    const result = await safetyAckOpenSignature(supabaseClient, {
+        recordType: "toolbox_talk",
+        recordId: toolboxPostSaveRecordId,
+        recordLabel: row.record_title || "Toolbox Talk",
+        qrToken: token,
+        acknowledgementId: row.id,
+        attendeeName: row.attendee_name || "",
+        company: row.attendee_company || "",
+        email: row.matched_employee_email || "",
+        source: "shared_device"
+    });
+
+    if (!result.ok) {
+        if (!result.cancelled) alert(result.message || "Signature could not be saved.");
+        return;
+    }
+
+    toolboxPostSaveRows = await safetyAckLoadForRecords(supabaseClient, "toolbox_talk", toolboxPostSaveRecordId);
+    showToolboxSafetyQrAfterSave(toolboxPostSaveRecordId, toolboxPostSaveRows);
+}
+
 function closeToolboxSafetyQr() {
     const panel = document.getElementById("toolboxSafetyAckPanel");
     if (!panel) return;
     panel.hidden = true;
     panel.innerHTML = "";
+    toolboxPostSaveRecordId = "";
+    toolboxPostSaveRows = [];
 }
 
 function buildEmailBody(record) {
@@ -1235,7 +1280,7 @@ function renderAcknowledgements() {
                                 <td>${escapeHtml(formatDisplayDate(report.report_date))}</td>
                                 <td>${escapeHtml(report.project || "")}</td>
                                 <td>${acknowledged ? "Acknowledged " + escapeHtml(formatDisplayDate(ack.acknowledged_at)) : "Needs acknowledgement"}</td>
-                                <td>${acknowledged ? "-" : "<button type='button' onclick='acknowledgeAttendance(\"" + escapeHtml(ack.id) + "\")'>Acknowledge Present</button>"}</td>
+                                <td>${acknowledged ? "-" : "<button type='button' onclick='acknowledgeAttendance(\"" + escapeHtml(ack.id) + "\")'>Sign Present</button>"}</td>
                             </tr>
                         `;
                     }).join("")}
@@ -1246,23 +1291,48 @@ function renderAcknowledgements() {
 }
 
 async function acknowledgeAttendance(id) {
-    if (!confirm("Acknowledge you were present for this toolbox talk?")) {
+    const attendance = acknowledgements.find((item) => String(item.id) === String(id));
+    const report = attendance && attendance.toolbox_talk_reports;
+
+    if (!attendance || !report || typeof safetyAckOpenSignature !== "function") {
+        alert("This toolbox talk acknowledgement could not be opened.");
+        return;
+    }
+
+    const rows = await safetyAckLoadForRecords(supabaseClient, "toolbox_talk", report.id);
+    const current = { key: currentWorker, display: currentWorkerDisplay, email: worker.email || "" };
+    const row = rows.find((item) => safetyAckRowMatchesWorker(item, current));
+    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
+
+    if (!row || !token) {
+        alert("Your attendance record could not be matched. Ask the presenter or an admin to check the crew list.");
+        return;
+    }
+
+    const result = await safetyAckOpenSignature(supabaseClient, {
+        recordType: "toolbox_talk",
+        recordId: report.id,
+        recordLabel: report.talk_title || "Toolbox Talk",
+        qrToken: token,
+        acknowledgementId: row.id,
+        attendeeName: row.attendee_name || currentWorkerDisplay,
+        company: row.attendee_company || "John Gordon Construction",
+        email: row.matched_employee_email || worker.email || "",
+        source: "user_portal"
+    });
+
+    if (!result.ok) {
+        if (!result.cancelled) alert(result.message || "Signature could not be saved.");
         return;
     }
 
     const { error } = await supabaseClient
         .from("toolbox_talk_attendance")
-        .update({
-            acknowledged_at: new Date().toISOString(),
-            acknowledgement_name: currentWorkerDisplay
-        })
+        .update({ acknowledged_at: new Date().toISOString(), acknowledgement_name: currentWorkerDisplay })
         .eq("id", id)
         .eq("worker_name", currentWorker);
 
-    if (error) {
-        alert("Acknowledgement could not be saved.");
-        return;
-    }
+    if (error) console.warn("Legacy toolbox attendance status could not be synchronized.", error);
 
     await loadToolboxData();
 }
