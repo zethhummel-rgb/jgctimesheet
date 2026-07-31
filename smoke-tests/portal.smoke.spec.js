@@ -910,6 +910,82 @@ test("today's toolbox talk reports expose their report actions", async ({ page }
   await expectNoRuntimeErrors(errors, "today toolbox report actions");
 });
 
+test("today's inspection management actions are limited to creators and admins", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const employeeProfile = {
+    ...fakeProfile,
+    display_name: "Portal Employee",
+    worker_key: "portal employee",
+    role: "employee"
+  };
+
+  await mockPortalServices(page, employeeProfile);
+  await installAuthenticatedPortalState(page, employeeProfile);
+  await page.goto("/todays-inspections.html", { waitUntil: "domcontentloaded" });
+
+  const otherWorkerActions = await page.evaluate(() => {
+    const record = {
+      id: "inspection-other-worker",
+      inspection_type: "Aerial Lifts",
+      worker_name: "other worker",
+      worker_display_name: "Other Worker"
+    };
+    return {
+      canManage: currentWorkerCanManageInspection(record),
+      view: renderInspectionViewCell(record),
+      edit: renderInspectionEditCell(record),
+      pdf: renderInspectionPdfCell(record),
+      email: renderInspectionEmailCell(record),
+      remove: renderInspectionDeleteCell(record)
+    };
+  });
+
+  expect(otherWorkerActions.canManage).toBe(false);
+  expect(otherWorkerActions.view).toContain(">View<");
+  expect(otherWorkerActions.pdf).toContain("Save PDF");
+  expect(otherWorkerActions.email).toContain(">Email<");
+  expect(otherWorkerActions.edit).toBe("-");
+  expect(otherWorkerActions.remove).toBe("-");
+
+  const creatorActions = await page.evaluate(() => {
+    const record = {
+      id: "inspection-current-worker",
+      inspection_type: "Aerial Lifts",
+      worker_name: "portal employee",
+      worker_display_name: "Portal Employee"
+    };
+    return {
+      canManage: currentWorkerCanManageInspection(record),
+      edit: renderInspectionEditCell(record),
+      remove: renderInspectionDeleteCell(record)
+    };
+  });
+
+  expect(creatorActions.canManage).toBe(true);
+  expect(creatorActions.edit).toContain(">Edit<");
+  expect(creatorActions.remove).toContain(">Delete<");
+
+  const adminActions = await page.evaluate(() => {
+    localStorage.setItem("currentUserRole", "admin");
+    const record = {
+      id: "inspection-admin-managed",
+      inspection_type: "Aerial Lifts",
+      worker_name: "other worker",
+      worker_display_name: "Other Worker"
+    };
+    return {
+      canManage: currentWorkerCanManageInspection(record),
+      edit: renderInspectionEditCell(record),
+      remove: renderInspectionDeleteCell(record)
+    };
+  });
+
+  expect(adminActions.canManage).toBe(true);
+  expect(adminActions.edit).toContain(">Edit<");
+  expect(adminActions.remove).toContain(">Delete<");
+  await expectNoRuntimeErrors(errors, "today inspection action permissions");
+});
+
 test("approved employees can add themselves to an existing JSA", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const now = new Date();

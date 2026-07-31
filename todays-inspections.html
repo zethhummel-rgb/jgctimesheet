@@ -883,6 +883,10 @@ function currentWorkerHasJsaAcknowledgement(record) {
 }
 
 function currentWorkerCanManageSafetyAcknowledgements(record) {
+    return currentWorkerCanManageInspection(record);
+}
+
+function currentWorkerCanManageInspection(record) {
     const current = getPortalWorkerRecord();
 
     if (typeof isAdminWorker === "function" && isAdminWorker(current.key, current.role, current.email)) {
@@ -899,9 +903,14 @@ function currentWorkerCanManageSafetyAcknowledgements(record) {
         record && record.worker_display_name,
         record && record.submitted_by_worker,
         record && record.submitted_by_name,
+        record && record.submitted_by_email,
         record && record.created_by_name,
+        record && record.created_by_email,
         record && record.report_maker_worker,
-        record && record.report_maker_display
+        record && record.report_maker_display,
+        record && record.reported_by_worker,
+        record && record.reported_by_name,
+        record && record.driver_name
     ].map(normalizeAcknowledgementValue).filter(Boolean);
 
     return creatorAliases.some((alias) => currentAliases.includes(alias));
@@ -1000,6 +1009,13 @@ function openToolboxReport(id, mode) {
         alert("The toolbox report viewer is not available. Refresh and try again.");
         return;
     }
+
+    const record = getToolboxReportRecord(id);
+    if (mode === "edit" && (!record || !currentWorkerCanManageInspection(record))) {
+        alert("Only the creator or an admin can edit this report.");
+        return;
+    }
+
     window.JGCToolboxReports.openReport(id, mode, "today");
 }
 
@@ -1016,6 +1032,7 @@ async function emailToolboxReportFromList(id) {
 }
 
 function renderInspectionEditCell(record) {
+    if (!currentWorkerCanManageInspection(record)) return "-";
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="edit-button jgc-button" onclick="openToolboxReport('${escapeHtml(record.id)}', 'edit')">Edit</button>`;
     }
@@ -1040,6 +1057,7 @@ function renderInspectionEmailCell(record) {
 }
 
 function renderInspectionDeleteCell(record) {
+    if (!currentWorkerCanManageInspection(record)) return "-";
     if (isToolboxTalkReportRecord(record)) return "-";
     if ((record.report_source && !record.supports_inspection_actions) || isVehicleInspectionRecord(record)) return "-";
     return `<button class="delete-button jgc-button jgc-button--danger" onclick="deleteInspection('${escapeHtml(record.id)}')">Delete</button>`;
@@ -1696,7 +1714,7 @@ function viewInspection(id) {
         ` : '<div class="small">No checklist answers were saved for this inspection.</div>'}
         <div class="actions">
             <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
-            <button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>
+            ${currentWorkerCanManageInspection(record) ? `<button class="edit-button" onclick="editInspection('${escapeHtml(record.id)}')">Edit</button>` : ""}
             <button class="download-button" onclick="downloadInspectionPdf('${escapeHtml(record.id)}')">Save PDF</button>
         </div>
     `;
@@ -1925,6 +1943,11 @@ function editInspection(id) {
 
     if (!record) {
         alert("This inspection could not be found.");
+        return;
+    }
+
+    if (!currentWorkerCanManageInspection(record)) {
+        alert("Only the creator or an admin can edit this inspection.");
         return;
     }
 
@@ -2249,6 +2272,11 @@ async function saveInspectionEdit(id) {
 
     if (!record) {
         alert("This inspection could not be found.");
+        return;
+    }
+
+    if (!currentWorkerCanManageInspection(record)) {
+        alert("Only the creator or an admin can save changes to this inspection.");
         return;
     }
 
@@ -3243,6 +3271,13 @@ function emailSavedInspection(id) {
 }
 
 async function deleteInspection(id) {
+    const record = inspectionRecords.find((item) => item.id === id);
+
+    if (!record || !currentWorkerCanManageInspection(record)) {
+        alert("Only the creator or an admin can delete this inspection.");
+        return;
+    }
+
     if (!confirm("Delete this inspection?")) {
         return;
     }
