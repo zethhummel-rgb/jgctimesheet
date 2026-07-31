@@ -26,6 +26,7 @@ const fakeWorkerIds = [
   "00000000-0000-4000-8000-000000000010",
   "00000000-0000-4000-8000-000000000011"
 ];
+const fakeManualWorkerId = "00000000-0000-4000-8000-000000000012";
 const employeeFeatureKeys = [
   "work_orders",
   "schedule",
@@ -136,7 +137,7 @@ async function mockPortalServices(page, profile = fakeProfile) {
           }
         ]);
     } else if (url.pathname.includes("/rest/v1/work_order_labour_workers")) {
-      body = JSON.stringify([
+      const workers = [
         {
           id: fakeWorkerIds[0],
           profile_id: profile.id,
@@ -151,9 +152,22 @@ async function mockPortalServices(page, profile = fakeProfile) {
           worker_key: "steven leduc",
           approved: true
         }
-      ]);
+      ];
+      if (page.url().includes("employee-access-admin.html")) {
+        workers.push({
+          id: fakeManualWorkerId,
+          profile_id: null,
+          display_name: "Temporary Worker",
+          worker_key: "temporary worker",
+          approved: true
+        });
+      }
+      body = JSON.stringify(workers);
     } else if (url.pathname.includes("/rest/v1/employee_feature_access")) {
-      body = JSON.stringify(fakeWorkerIds.flatMap((workerId) =>
+      const accessWorkerIds = page.url().includes("employee-access-admin.html")
+        ? fakeWorkerIds.concat(fakeManualWorkerId)
+        : fakeWorkerIds;
+      body = JSON.stringify(accessWorkerIds.flatMap((workerId) =>
         employeeFeatureKeys.map((featureKey) => ({
           worker_id: workerId,
           feature_key: featureKey,
@@ -1244,12 +1258,18 @@ test("employee page access is a standalone admin tool with all selector permissi
   await page.goto("/employee-access-admin.html", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("h1")).toHaveText("Employee Page Access");
-  await expect(page.locator("#employeeAccessRows tr")).toHaveCount(2);
+  await expect(page.locator("#employeeAccessRows tr")).toHaveCount(3);
   await expect(page.locator("#employeeAccessHeader th")).toHaveCount(7);
-  await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(12);
+  await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(18);
   await expect(page.locator("#employeeAccessRows input[data-worker-active]")).toHaveCount(0);
   await expect(page.locator("#employeeAccessRows")).toContainText(fakeProfile.display_name);
   await expect(page.locator("#employeeAccessRows")).toContainText("Steven Leduc");
+  const manualRow = page.locator("#employeeAccessRows tr", { hasText: "Temporary Worker" });
+  const manualWorkOrders = manualRow.locator('[data-feature-key="work_orders"]');
+  await expect(manualWorkOrders).toBeDisabled();
+  await expect(manualWorkOrders).not.toBeChecked();
+  await expect(manualRow).toContainText("Account required");
+  await expect(manualRow.locator('[data-feature-key="schedule"]')).toBeEnabled();
   await expectNoRuntimeErrors(errors, "employee page access admin tool");
 });
 

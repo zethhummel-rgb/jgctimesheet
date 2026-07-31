@@ -83,6 +83,24 @@
   accent-color: #35d45c;
 }
 
+.employee-access-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.employee-access-unavailable {
+  color: var(--jgc-text-muted, #b9c8c1);
+}
+
+.employee-access-requirement {
+  display: block;
+  margin-top: 5px;
+  color: var(--jgc-text-muted, #b9c8c1);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .employee-access-row.is-inactive {
   opacity: 0.72;
 }

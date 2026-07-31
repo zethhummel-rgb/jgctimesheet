@@ -14,10 +14,26 @@
     return feature.key;
   }));
 
+  const PORTAL_ACCOUNT_REQUIRED_FEATURES = Object.freeze([
+    "work_orders"
+  ]);
+
+  function isWorkerEligibleForFeature(worker, featureKey) {
+    if (!worker || worker.approved === false) {
+      return false;
+    }
+
+    if (PORTAL_ACCOUNT_REQUIRED_FEATURES.includes(featureKey) && !worker.profile_id) {
+      return false;
+    }
+
+    return true;
+  }
+
   function filterWorkers(workers, accessRows, featureKey, options) {
     const source = Array.isArray(workers) ? workers : [];
     const approved = source.filter(function (worker) {
-      return worker && worker.approved !== false;
+      return isWorkerEligibleForFeature(worker, featureKey);
     });
     const settings = options || {};
 
@@ -92,6 +108,8 @@
   global.JGCEmployeeFeatureAccess = Object.freeze({
     FEATURES: FEATURES,
     FEATURE_KEYS: FEATURE_KEYS,
+    PORTAL_ACCOUNT_REQUIRED_FEATURES: PORTAL_ACCOUNT_REQUIRED_FEATURES,
+    isWorkerEligibleForFeature: isWorkerEligibleForFeature,
     filterWorkers: filterWorkers,
     loadWorkersForFeature: loadWorkersForFeature
   });

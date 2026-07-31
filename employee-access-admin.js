@@ -58,9 +58,17 @@
     return worker.approved !== false;
   }
 
-  function accessEnabled(workerId, featureKey) {
+  function featureEligible(worker, featureKey) {
+    return featureApi.isWorkerEligibleForFeature(worker, featureKey);
+  }
+
+  function accessEnabled(worker, featureKey) {
+    if (!featureEligible(worker, featureKey)) {
+      return false;
+    }
+
     const row = state.accessRows.find(function (accessRow) {
-      return accessRow.worker_id === workerId && accessRow.feature_key === featureKey;
+      return accessRow.worker_id === worker.id && accessRow.feature_key === featureKey;
     });
     return row ? row.enabled !== false : true;
   }
@@ -108,10 +116,14 @@
         + '</strong><small>' + escapeHtml(source) + '</small>'
         + editButton + "</td>"
         + featureApi.FEATURES.map(function (feature) {
-          return '<td><input class="employee-access-check" type="checkbox" aria-label="'
+          const eligible = featureEligible(worker, feature.key);
+          const requirement = eligible ? "" : '<small class="employee-access-requirement">Account required</small>';
+          return '<td class="' + (eligible ? "" : "employee-access-unavailable") + '"><input class="employee-access-check" type="checkbox" aria-label="'
             + escapeHtml(feature.label) + '" data-worker-feature="' + escapeHtml(worker.id)
             + '" data-feature-key="' + escapeHtml(feature.key) + '"'
-            + (accessEnabled(worker.id, feature.key) ? " checked" : "") + "></td>";
+            + (accessEnabled(worker, feature.key) ? " checked" : "")
+            + (eligible ? "" : ' disabled title="A portal account is required for Work Orders."')
+            + ">" + requirement + "</td>";
         }).join("")
         + "</tr>";
     }).join("");
@@ -142,6 +154,15 @@
   }
 
   async function updateFeature(workerId, featureKey, enabled) {
+    const worker = state.workers.find(function (row) {
+      return row.id === workerId;
+    });
+    if (enabled && !featureEligible(worker, featureKey)) {
+      renderRows();
+      showNotice("A portal account is required before this employee can be selected on Work Orders.", "error");
+      return;
+    }
+
     const result = await state.client
       .from("employee_feature_access")
       .upsert({
