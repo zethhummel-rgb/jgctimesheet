@@ -550,12 +550,20 @@ test("JSA approved employee selection immediately adds the crew member", async (
   await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /QR Code/ })).toBeVisible();
   await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ })).toBeVisible();
   await expect(page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Creator Sign Off/ })).toBeVisible();
-  await page.locator(".jsa-submit-actions").getByRole("button", { name: "Submit", exact: true }).click();
-  await expect(page.locator("#jsaAcknowledgementChoiceStatus")).toHaveClass(/is-error/);
+  const submitButton = page.locator("#jsaSubmitButton");
+  await expect(submitButton).toBeHidden();
+  await page.evaluate(() => {
+    window.saveInspection = async () => {};
+  });
   await page.locator("#jsaSignoffChoiceSection").getByRole("button", { name: /Employee Signature/ }).click();
   await expect(page.locator("#jsaChoiceEmployees")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#jsaAcknowledgementChoiceStatus")).not.toHaveClass(/is-error/);
-  await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Submit", exact: true })).toBeVisible();
+  await expect(submitButton).toBeHidden();
+  await page.evaluate(() => {
+    window.unlockJsaFinalSubmit("Sign-off complete. Review the JSA, then press Submit.");
+  });
+  await expect(submitButton).toBeVisible();
+  await expect(submitButton).toBeEnabled();
   await expect(page.locator(".jsa-submit-actions").getByRole("button", { name: "Reports", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
   const rowActionsBox = await page.locator(".jsa-row-actions").boundingBox();

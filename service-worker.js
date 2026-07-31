@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "658";
+const JGC_RELEASE_ID = "659";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [

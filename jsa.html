@@ -198,6 +198,10 @@ button:hover {
     min-width: 170px;
 }
 
+.jsa-submit-actions #jsaSubmitButton[hidden] {
+    display: none !important;
+}
+
 .jsa-signoff-choice-section {
     margin-top: 28px;
     padding: 18px;
@@ -575,32 +579,33 @@ button:hover {
 
 <section id="jsaSignoffChoiceSection" class="jsa-signoff-choice-section jgc-section" aria-labelledby="jsaSignoffChoiceTitle">
     <h2 id="jsaSignoffChoiceTitle">JSA Sign Off</h2>
-    <p>After discussing the JSA, choose how acknowledgements will be collected. Submitting saves the JSA, then immediately opens the selected sign-off method.</p>
+    <p>After discussing the JSA, choose how acknowledgements will be collected. The selected sign-off panel will open, and Submit will appear after sign-off is complete.</p>
     <div class="jsa-ack-choice-grid" role="group" aria-label="JSA acknowledgement method">
-        <button id="jsaChoiceQr" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('qr')">
+        <button id="jsaChoiceQr" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('qr')">
             <strong>QR Code</strong>
             <span>Show a QR code and notify matched employees in their accounts.</span>
         </button>
-        <button id="jsaChoiceEmployees" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('employees')">
+        <button id="jsaChoiceEmployees" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('employees')">
             <strong>Employee Signature</strong>
             <span>Pass this device to employees. No account prompts are sent.</span>
         </button>
-        <button id="jsaChoiceCreator" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="selectJsaAcknowledgementMode('creator')">
+        <button id="jsaChoiceCreator" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('creator')">
             <strong>Creator Sign Off</strong>
             <span>The JSA creator signs on this device. No account prompts are sent.</span>
         </button>
     </div>
-    <div id="jsaAcknowledgementChoiceStatus" class="jsa-choice-status" aria-live="polite">Choose one sign-off method before submitting.</div>
+    <div id="jsaAcknowledgementChoiceStatus" class="jsa-choice-status" aria-live="polite">Choose one sign-off method to continue.</div>
 </section>
 
+<div id="inspectionSaveStatus" class="subtitle jgc-notice" aria-live="polite"></div>
+<div id="jsaPostSaveQrPanel" class="post-save-qr jgc-notice" hidden></div>
+
 <div class="actions jgc-actions jsa-submit-actions">
-    <button id="jsaSubmitButton" class="jgc-button" onclick="handleInspectionSave('JSA')">Submit</button>
+    <button id="jsaSubmitButton" class="jgc-button" onclick="finalizeJsaSubmission()" hidden>Submit</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
     <button class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
 </div>
-<div id="inspectionSaveStatus" class="subtitle jgc-notice" aria-live="polite"></div>
-<div id="jsaPostSaveQrPanel" class="post-save-qr jgc-notice" hidden></div>
 
 </div>
 </main>
@@ -621,6 +626,8 @@ let jsaPostSaveRecord = null;
 let jsaPostSaveRows = [];
 let jsaPostSaveMode = "choices";
 let jsaRequestedAcknowledgementMode = "";
+let jsaAcknowledgementComplete = false;
+let jsaQrRefreshTimer = null;
 
 if (!currentWorker) {
     window.location.href = "index.html";
@@ -881,7 +888,75 @@ function selectJsaAcknowledgementMode(mode) {
 
     if (status) {
         status.classList.remove("is-error");
-        status.textContent = labels[mode] + " selected. Submit the JSA when the discussion is complete.";
+        status.textContent = labels[mode] + " selected. Preparing the sign-off panel...";
+    }
+}
+
+function setJsaChoiceButtonsDisabled(disabled) {
+    document.querySelectorAll(".jsa-pre-submit-choice").forEach((button) => {
+        button.disabled = Boolean(disabled);
+    });
+}
+
+function hideJsaFinalSubmit() {
+    const submitButton = document.getElementById("jsaSubmitButton");
+    jsaAcknowledgementComplete = false;
+
+    if (submitButton) {
+        submitButton.hidden = true;
+        submitButton.disabled = true;
+    }
+}
+
+function unlockJsaFinalSubmit(message) {
+    const submitButton = document.getElementById("jsaSubmitButton");
+    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
+    jsaAcknowledgementComplete = true;
+
+    if (submitButton) {
+        submitButton.hidden = false;
+        submitButton.disabled = false;
+    }
+
+    if (status) {
+        status.classList.remove("is-error");
+        status.textContent = message || "Sign-off complete. You can now submit the JSA.";
+    }
+}
+
+function stopJsaQrRefresh() {
+    if (jsaQrRefreshTimer) {
+        window.clearInterval(jsaQrRefreshTimer);
+        jsaQrRefreshTimer = null;
+    }
+}
+
+async function beginJsaAcknowledgementMode(mode) {
+    const status = document.getElementById("jsaAcknowledgementChoiceStatus");
+
+    selectJsaAcknowledgementMode(mode);
+    hideJsaFinalSubmit();
+    stopJsaQrRefresh();
+
+    if (jsaPostSaveRecord) {
+        openRequestedJsaAcknowledgementMode();
+        return;
+    }
+
+    if (!inspectionSupabaseClient || navigator.onLine === false) {
+        if (status) {
+            status.textContent = "Connect to the internet before starting JSA sign-off.";
+            status.classList.add("is-error");
+        }
+        return;
+    }
+
+    setJsaChoiceButtonsDisabled(true);
+    syncCrewSignOffField();
+    await saveInspection("JSA");
+
+    if (!jsaPostSaveRecord) {
+        setJsaChoiceButtonsDisabled(false);
     }
 }
 
@@ -914,6 +989,7 @@ function showJsaSafetyQrAfterSave(savedRecord, safetyRows) {
     jsaPostSaveRows = rows;
     jsaPostSaveMode = "choices";
     panel.hidden = false;
+    setJsaChoiceButtonsDisabled(false);
     openRequestedJsaAcknowledgementMode();
 
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -926,6 +1002,56 @@ function getJsaPendingCount() {
         : !row.acknowledged_at).length;
 }
 
+function isJsaRequestedSignoffComplete() {
+    if (!jsaPostSaveRows.length) {
+        return false;
+    }
+
+    if (jsaRequestedAcknowledgementMode === "creator") {
+        const worker = typeof safetyAckGetCurrentWorker === "function" ? safetyAckGetCurrentWorker() : {};
+        const creatorRow = jsaPostSaveRows.find((item) => typeof safetyAckRowMatchesWorker === "function" && safetyAckRowMatchesWorker(item, worker));
+        return Boolean(creatorRow && (typeof safetyAckIsAcknowledged === "function"
+            ? safetyAckIsAcknowledged(creatorRow)
+            : creatorRow.acknowledged_at));
+    }
+
+    return getJsaPendingCount() === 0;
+}
+
+function updateJsaFinalSubmitState() {
+    if (isJsaRequestedSignoffComplete()) {
+        stopJsaQrRefresh();
+        unlockJsaFinalSubmit("Sign-off complete. Review the JSA, then press Submit.");
+        return true;
+    }
+
+    hideJsaFinalSubmit();
+    return false;
+}
+
+async function refreshJsaAcknowledgementsForSubmission() {
+    if (!jsaPostSaveRecord || typeof safetyAckLoadForRecords !== "function") {
+        return false;
+    }
+
+    try {
+        jsaPostSaveRows = await safetyAckLoadForRecords(inspectionSupabaseClient, "jsa", jsaPostSaveRecord.id);
+        const complete = updateJsaFinalSubmitState();
+
+        if (!complete && jsaPostSaveMode === "qr") {
+            const remaining = document.getElementById("jsaQrRemaining");
+            if (remaining) {
+                remaining.textContent = String(getJsaPendingCount());
+            }
+        }
+
+        return complete;
+    } catch (error) {
+        console.warn("JSA acknowledgements could not be refreshed.", error);
+        return false;
+    }
+}
+
 function renderJsaAcknowledgementChoices() {
     const panel = document.getElementById("jsaPostSaveQrPanel");
 
@@ -934,6 +1060,8 @@ function renderJsaAcknowledgementChoices() {
     }
 
     jsaPostSaveMode = "choices";
+    stopJsaQrRefresh();
+    hideJsaFinalSubmit();
     panel.hidden = false;
     panel.innerHTML = `
         <h2>Collect JSA Acknowledgements</h2>
@@ -953,9 +1081,6 @@ function renderJsaAcknowledgementChoices() {
                 <span>The JSA creator signs on this device. No account prompts are sent.</span>
             </button>
         </div>
-        <div class="actions">
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish Later</button>
-        </div>
     `;
 }
 
@@ -968,6 +1093,7 @@ async function openJsaQrAcknowledgement() {
     }
 
     jsaPostSaveMode = "qr";
+    hideJsaFinalSubmit();
     if (typeof safetyAckNotifyPendingRows === "function") {
         await safetyAckNotifyPendingRows(inspectionSupabaseClient, jsaPostSaveRows);
     }
@@ -976,17 +1102,24 @@ async function openJsaQrAcknowledgement() {
     panel.innerHTML = `
         <h2>QR Code</h2>
         <p>Employees can scan this code to review and sign. Matched employees have also been prompted in their accounts.</p>
+        <p><strong id="jsaQrRemaining">${escapeJsaHtml(String(getJsaPendingCount()))}</strong> acknowledgement${getJsaPendingCount() === 1 ? "" : "s"} remaining. Submit will appear when sign-off is complete.</p>
         <div id="jsaPostSaveQrWrap" class="qr-wrap"></div>
         <p><a href="${escapeJsaHtml(qrUrl)}" target="_blank" rel="noopener">Open acknowledgement link</a></p>
         <div class="actions">
             <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
+            <button type="button" onclick="refreshJsaAcknowledgementsForSubmission()">Check Signatures</button>
         </div>
     `;
 
     if (typeof safetyAckRenderQr === "function") {
         safetyAckRenderQr(document.getElementById("jsaPostSaveQrWrap"), qrUrl);
     }
+
+    void refreshJsaAcknowledgementsForSubmission();
+    stopJsaQrRefresh();
+    jsaQrRefreshTimer = window.setInterval(() => {
+        void refreshJsaAcknowledgementsForSubmission();
+    }, 4000);
 }
 
 function openJsaEmployeeSignatures() {
@@ -997,6 +1130,8 @@ function openJsaEmployeeSignatures() {
     }
 
     jsaPostSaveMode = "employees";
+    stopJsaQrRefresh();
+    updateJsaFinalSubmitState();
     panel.innerHTML = `
         <h2>Employee Signatures</h2>
         <p>Pass this device to each employee and tap <strong>Sign</strong>. This option does not prompt anyone in their account.</p>
@@ -1004,7 +1139,6 @@ function openJsaEmployeeSignatures() {
         ${typeof safetyAckSharedRosterHtml === "function" ? safetyAckSharedRosterHtml(jsaPostSaveRows, "signJsaAttendeeOnDevice") : ""}
         <div class="actions">
             <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Back</button>
-            <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
         </div>
     `;
 }
@@ -1019,7 +1153,7 @@ async function openJsaCreatorSignOff() {
     }
 
     if (typeof safetyAckIsAcknowledged === "function" && safetyAckIsAcknowledged(row)) {
-        alert("The creator has already signed this JSA.");
+        unlockJsaFinalSubmit("Creator sign-off complete. Review the JSA, then press Submit.");
         return;
     }
 
@@ -1062,16 +1196,34 @@ async function signJsaAttendeeOnDevice(acknowledgementId) {
                 <p>The creator's signature was saved. No employee account prompts were sent.</p>
                 <div class="actions">
                     <button type="button" class="secondary" onclick="renderJsaAcknowledgementChoices()">Other Options</button>
-                    <button type="button" onclick="finishJsaAcknowledgements()">Finish</button>
                 </div>
             `;
+            unlockJsaFinalSubmit("Creator sign-off complete. Review the JSA, then press Submit.");
         } else {
+            updateJsaFinalSubmitState();
             openJsaEmployeeSignatures();
         }
     }
 }
 
-function finishJsaAcknowledgements() {
+function finalizeJsaSubmission() {
+    const choiceSection = document.getElementById("jsaSignoffChoiceSection");
+    const choiceStatus = document.getElementById("jsaAcknowledgementChoiceStatus");
+
+    if (!jsaPostSaveRecord || !jsaAcknowledgementComplete || !isJsaRequestedSignoffComplete()) {
+        hideJsaFinalSubmit();
+        if (choiceStatus) {
+            choiceStatus.textContent = "Complete the selected sign-off method before submitting this JSA.";
+            choiceStatus.classList.add("is-error");
+        }
+        if (choiceSection) {
+            choiceSection.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        return;
+    }
+
+    stopJsaQrRefresh();
+    setInspectionSaveStatus("JSA submitted.");
     window.location.href = "todays-inspections.html?recordType=reports";
 }
 
@@ -1083,34 +1235,12 @@ function closeJsaPostSaveQr() {
         panel.innerHTML = "";
     }
 
+    stopJsaQrRefresh();
+    hideJsaFinalSubmit();
     jsaPostSaveRecord = null;
     jsaPostSaveRows = [];
     jsaPostSaveMode = "choices";
     jsaRequestedAcknowledgementMode = "";
-}
-
-function handleInspectionSave(type) {
-    const choiceSection = document.getElementById("jsaSignoffChoiceSection");
-    const choiceStatus = document.getElementById("jsaAcknowledgementChoiceStatus");
-
-    if (typeof saveInspection !== "function") {
-        alert("The inspection save file did not load. Upload inspection-records.js to the same folder as this page, then refresh.");
-        return;
-    }
-
-    if (!jsaRequestedAcknowledgementMode) {
-        if (choiceStatus) {
-            choiceStatus.textContent = "Choose QR Code, Employee Signature, or Creator Sign Off before submitting this JSA.";
-            choiceStatus.classList.add("is-error");
-        }
-        if (choiceSection) {
-            choiceSection.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        return;
-    }
-
-    syncCrewSignOffField();
-    saveInspection(type);
 }
 
 async function signOut() {
