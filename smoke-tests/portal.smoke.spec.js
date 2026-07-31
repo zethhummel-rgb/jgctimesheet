@@ -902,6 +902,96 @@ test("today's toolbox talk reports expose their report actions", async ({ page }
   await expectNoRuntimeErrors(errors, "today toolbox report actions");
 });
 
+test("approved employees can add themselves to an existing JSA", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const now = new Date();
+  const reportId = "00000000-0000-4000-8000-000000000125";
+  const acknowledgementId = "00000000-0000-4000-8000-000000000126";
+  const report = {
+    id: reportId,
+    worker_name: "andre labrosse",
+    worker_display_name: "Andre Labrosse",
+    inspection_type: "JSA",
+    inspection_date: now.toISOString().slice(0, 10),
+    title: "JSA - Late arrival smoke test",
+    form_data: {
+      fields: [
+        { label: "Project / Job", value: "26040 - Smoke Test Project" },
+        { label: "Location", value: "Smoke Test Site" },
+        { label: "Contractor Supervisor", value: "Andre Labrosse" },
+        { label: "Crew Sign Off (Print Names)", value: "Andre Labrosse" }
+      ],
+      rows: [{ cells: ["Review site", "Moving equipment", "Maintain awareness"], table: 1 }]
+    },
+    created_at: now.toISOString()
+  };
+  let acknowledgementRows = [];
+  let acknowledgementPayload = null;
+
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/inspection_records**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+    body: JSON.stringify([report])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/safety_acknowledgements**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*", "Content-Range": `0-${Math.max(0, acknowledgementRows.length - 1)}/${acknowledgementRows.length}` },
+    body: JSON.stringify(acknowledgementRows)
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/submit_current_user_safety_acknowledgement`, async (route) => {
+    acknowledgementPayload = route.request().postDataJSON();
+    acknowledgementRows = [{
+      id: acknowledgementId,
+      record_type: "jsa",
+      record_id: reportId,
+      attendee_name: fakeProfile.display_name,
+      attendee_key: fakeProfile.worker_key,
+      attendee_type: "employee",
+      matched_employee_id: fakeProfile.id,
+      matched_employee_email: fakeProfile.email,
+      acknowledgement_status: "late_acknowledgement",
+      acknowledgement_method: "late_user_portal",
+      acknowledged_at: now.toISOString(),
+      is_late: true,
+      removed_at: null
+    }];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify([{
+        success: true,
+        message: "Acknowledgement saved.",
+        acknowledgement_id: acknowledgementId,
+        already_acknowledged: false
+      }])
+    });
+  });
+  await installAuthenticatedPortalState(page);
+  await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "domcontentloaded" });
+
+  const row = page.locator("tbody tr").filter({ hasText: "JSA" });
+  await row.getByRole("button", { name: "View", exact: true }).click();
+  const panel = page.locator("#editPanel");
+  await expect(panel).toContainText("You were not on the original crew list");
+  await expect(panel.getByRole("button", { name: "Acknowledge with Account", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Sign on This Device", exact: true })).toBeVisible();
+
+  await panel.getByRole("button", { name: "Acknowledge with Account", exact: true }).click();
+  await expect.poll(() => acknowledgementPayload).not.toBeNull();
+  expect(acknowledgementPayload).toMatchObject({
+    p_record_type: "jsa",
+    p_record_id: reportId,
+    p_mode: "account"
+  });
+  await expect(panel).toContainText("You are already signed onto this safety record.");
+  await expect(panel).toContainText(fakeProfile.display_name);
+  await expectNoRuntimeErrors(errors, "late employee JSA acknowledgement");
+});
+
 test("login controls work without throwing", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);

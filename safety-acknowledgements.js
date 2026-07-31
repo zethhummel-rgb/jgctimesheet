@@ -501,7 +501,9 @@ function safetyAckOpenSignature(client, config) {
             attendeeName: settings.attendeeName || "",
             recordLabel: settings.recordLabel || "Safety acknowledgement",
             onSubmit: async (signature) => {
-                const result = await safetyAckSubmitSignature(client, { ...settings, signature });
+                const result = typeof settings.submitHandler === "function"
+                    ? await settings.submitHandler(signature)
+                    : await safetyAckSubmitSignature(client, { ...settings, signature });
                 if (result.ok) {
                     submitted = true;
                     if (typeof settings.onSaved === "function") {
@@ -513,6 +515,48 @@ function safetyAckOpenSignature(client, config) {
             onClose: (result) => resolve(submitted ? (result || { ok: true }) : { ok: false, cancelled: true })
         });
     });
+}
+
+async function safetyAckSubmitCurrentUser(client, config) {
+    const settings = config || {};
+    const signature = settings.signature || null;
+    const mode = settings.mode === "signature" ? "signature" : "account";
+
+    if (!client || !settings.recordType || !settings.recordId) {
+        return { ok: false, message: "Acknowledgement could not be saved." };
+    }
+
+    const { data, error } = await client.rpc("submit_current_user_safety_acknowledgement", {
+        p_record_type: settings.recordType,
+        p_record_id: settings.recordId,
+        p_mode: mode,
+        p_signature_strokes: signature ? signature.strokes || [] : null,
+        p_signature_width: signature ? Number(signature.width || 0) : null,
+        p_signature_height: signature ? Number(signature.height || 0) : null
+    });
+
+    if (error) {
+        return {
+            ok: false,
+            message: error.message || "Acknowledgement could not be saved.",
+            error
+        };
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result || result.success !== true) {
+        return {
+            ok: false,
+            message: result && result.message ? result.message : "Acknowledgement could not be saved."
+        };
+    }
+
+    return {
+        ok: true,
+        message: result.message || "Acknowledgement saved.",
+        acknowledgementId: result.acknowledgement_id || null,
+        alreadyAcknowledged: result.already_acknowledged === true
+    };
 }
 
 async function safetyAckSubmitCurrentWorker(client, config) {

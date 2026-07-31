@@ -628,7 +628,7 @@ button:hover {
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=32"></script>
 <script src="safety-signature-pad.js?v=1"></script>
-<script src="safety-acknowledgements.js?v=6"></script>
+<script src="safety-acknowledgements.js?v=7"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="inspection-records.js?v=11"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -2033,7 +2033,7 @@ function openJsaSignOn(id) {
         ? (typeof safetyAckIsAcknowledged === "function" ? safetyAckIsAcknowledged(currentAck) : Boolean(currentAck.acknowledged_at))
         : currentWorkerHasJsaAcknowledgement(record);
     const canManageAcknowledgements = currentWorkerCanManageSafetyAcknowledgements(record);
-    const shouldOfferSelfSignOn = !alreadySigned && (!canManageAcknowledgements || currentAck);
+    const shouldOfferSelfSignOn = !alreadySigned;
     const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(ackRows) : "";
     const qrUrl = token && typeof safetyAckQrUrl === "function"
         ? safetyAckQrUrl(recordType, record.id, token)
@@ -2072,14 +2072,17 @@ function openJsaSignOn(id) {
         <h3>Current Acknowledgements</h3>
         ${renderSafetyAcknowledgementManager(record)}
         ${alreadySigned ? '<div class="ack-status">You are already signed onto this safety record.</div>' : shouldOfferSelfSignOn ? `
-            <div class="ack-status">Sign below to confirm you reviewed and understood this ${escapeHtml(recordLabel)} and had the opportunity to ask questions.</div>
+            <div class="ack-status">${currentAck ? "After reviewing this record, choose how you want to acknowledge it." : "You were not on the original crew list. After reviewing this record, add yourself using your account or your signature."}</div>
         ` : '<div class="ack-status">Creator/admin view. Crew can sign on this device below or scan the QR code.</div>'}
         ${qrUrl ? `
             <h3>QR Sign-On</h3>
             <div id="safetyAckQrWrap" class="small"></div>
         ` : ""}
         <div class="actions">
-            ${shouldOfferSelfSignOn ? `<button onclick="confirmJsaSignOn('${escapeHtml(record.id)}')">Sign Acknowledgement</button>` : ""}
+            ${shouldOfferSelfSignOn ? `
+                <button onclick="confirmJsaSignOn('${escapeHtml(record.id)}', 'account')">Acknowledge with Account</button>
+                <button class="secondary" onclick="confirmJsaSignOn('${escapeHtml(record.id)}', 'signature')">Sign on This Device</button>
+            ` : ""}
             <button class="secondary" onclick="cancelInspectionEdit()">Close</button>
         </div>
         <div id="jsaSignOnStatus" class="ack-status"></div>
@@ -2168,7 +2171,7 @@ async function signSafetyAckOnDevice(ackId, recordId) {
     openJsaSignOn(recordId);
 }
 
-async function confirmJsaSignOn(id) {
+async function confirmJsaSignOn(id, mode) {
     const status = document.getElementById("jsaSignOnStatus");
     const current = getPortalWorkerRecord();
     const record = inspectionRecords.find((item) => item.id === id);
@@ -2185,28 +2188,43 @@ async function confirmJsaSignOn(id) {
     const recordType = String(record.report_type || record.inspection_type || "").toLowerCase() === "toolbox talk"
         ? "toolbox_talk"
         : "jsa";
-    const rows = getJsaAcknowledgements(record);
-    const currentAck = rows.find((row) => safetyAckRowMatchesWorker(row, current));
-    const token = typeof safetyAckGetRecordToken === "function" ? safetyAckGetRecordToken(rows) : "";
-
-    if (!currentAck || !token || typeof safetyAckOpenSignature !== "function") {
-        alert("Your attendee record could not be matched. Ask the creator or an admin to check the crew list.");
+    if (typeof safetyAckSubmitCurrentUser !== "function") {
+        alert("The acknowledgement service is not available. Refresh the page and try again.");
         return;
     }
 
-    const result = await safetyAckOpenSignature(inspectionSupabaseClient, {
-        recordType,
-        recordId: record.id,
-        recordLabel: record.report_type || record.inspection_type || "Safety Record",
-        qrToken: token,
-        acknowledgementId: currentAck.id,
-        attendeeName: currentAck.attendee_name || current.display || current.key,
-        company: currentAck.attendee_company || current.company || "",
-        email: currentAck.matched_employee_email || current.email || "",
-        source: "user_portal"
-    });
+    let result;
+    if (mode === "signature") {
+        if (typeof safetyAckOpenSignature !== "function") {
+            alert("The signature pad is not available. Refresh the page and try again.");
+            return;
+        }
+
+        result = await safetyAckOpenSignature(inspectionSupabaseClient, {
+            recordType,
+            recordId: record.id,
+            recordLabel: record.report_type || record.inspection_type || "Safety Record",
+            attendeeName: current.display || current.key,
+            submitHandler: (signature) => safetyAckSubmitCurrentUser(inspectionSupabaseClient, {
+                recordType,
+                recordId: record.id,
+                mode: "signature",
+                signature
+            })
+        });
+    } else {
+        result = await safetyAckSubmitCurrentUser(inspectionSupabaseClient, {
+            recordType,
+            recordId: record.id,
+            mode: "account"
+        });
+    }
 
     if (!result.ok) {
+        if (result.cancelled) {
+            if (status) status.textContent = "";
+            return;
+        }
         if (status) {
             status.textContent = result.message || "";
         }
@@ -2215,7 +2233,7 @@ async function confirmJsaSignOn(id) {
     }
 
     if (typeof recordJgcSubcontractorActivity === "function") {
-        recordJgcSubcontractorActivity("jsa_acknowledgement");
+        recordJgcSubcontractorActivity(recordType === "toolbox_talk" ? "toolbox_talk_acknowledgement" : "jsa_acknowledgement");
     }
 
     if (status) {
