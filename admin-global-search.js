@@ -153,15 +153,15 @@
 
   const state = {
     initialized: false,
-    ready: false,
-    loadingPromise: null,
     records: {},
     index: [],
     results: [],
     timer: null,
     client: null,
     profile: null,
-    isAdmin: false
+    isAdmin: false,
+    loadedDatasets: new Set(),
+    loadingGroups: {}
   };
 
   function escapeText(value) {
@@ -505,8 +505,40 @@
     return paths[config.dataset] || "home.html";
   }
 
-  function buildIndex() {
-    const index = state.isAdmin ? [] : EMPLOYEE_NAVIGATION_ITEMS.map((item) => ({
+  function getDatasetDefinitions() {
+    return state.isAdmin ? SEARCH_DATASETS : EMPLOYEE_SEARCH_DATASETS;
+  }
+
+  function getCollectionGroup(config) {
+    return config.group || getGroup({ category: config.category });
+  }
+
+  function getAvailableGroups() {
+    const datasetKeys = new Set(getDatasetDefinitions().map((definition) => definition.key));
+    const groups = new Set(state.isAdmin ? [] : ["Portal Navigation"]);
+
+    SEARCH_COLLECTIONS.forEach((config) => {
+      if (datasetKeys.has(config.dataset)) groups.add(getCollectionGroup(config));
+    });
+
+    const ordered = GROUP_ORDER.filter((groupName) => groups.has(groupName));
+    groups.forEach((groupName) => {
+      if (!ordered.includes(groupName)) ordered.push(groupName);
+    });
+    return ordered;
+  }
+
+  function getGroupDatasetDefinitions(groupName) {
+    const groupDatasetKeys = new Set(
+      SEARCH_COLLECTIONS
+        .filter((config) => getCollectionGroup(config) === groupName)
+        .map((config) => config.dataset)
+    );
+    return getDatasetDefinitions().filter((definition) => groupDatasetKeys.has(definition.key));
+  }
+
+  function buildGroupIndex(groupName) {
+    const index = !state.isAdmin && groupName === "Portal Navigation" ? EMPLOYEE_NAVIGATION_ITEMS.map((item) => ({
       group: "Portal Navigation",
       category: "Page",
       title: item.title,
@@ -517,9 +549,12 @@
       href: item.href,
       searchText: normalizeText(["page navigation portal", item.title, item.detail, item.keywords].join(" ")),
       sortDate: ""
-    }));
+    })) : [];
+
+    const allowedDatasetKeys = new Set(getDatasetDefinitions().map((definition) => definition.key));
 
     SEARCH_COLLECTIONS.forEach((config) => {
+      if (!allowedDatasetKeys.has(config.dataset) || getCollectionGroup(config) !== groupName) return;
       (state.records[config.dataset] || []).forEach((record) => {
         const title = typeof config.title === "function" ? config.title(record) : getValue(record, config.titleKeys);
         const detail = joinDetails(record, config.detailKeys);
@@ -545,17 +580,20 @@
     return index;
   }
 
-  async function loadAllSearchData(forceReload) {
-    if (state.ready && !forceReload) return;
-    if (state.loadingPromise) return state.loadingPromise;
+  async function loadSearchGroupData(groupName, forceReload) {
+    if (groupName === "Portal Navigation") return;
+    if (state.loadingGroups[groupName]) return state.loadingGroups[groupName];
 
-    state.loadingPromise = (async function() {
+    const definitions = getGroupDatasetDefinitions(groupName);
+    const needsLoading = definitions.filter((definition) => forceReload || !state.loadedDatasets.has(definition.key));
+    if (!needsLoading.length) return;
+
+    state.loadingGroups[groupName] = (async function() {
       state.client = state.client || (typeof global.createJgcSupabaseClient === "function" ? global.createJgcSupabaseClient() : null);
       if (!state.client) throw new Error("Portal data connection is unavailable.");
-      const profile = await verifyPortalAccess(state.client);
-      const datasets = state.isAdmin ? SEARCH_DATASETS : EMPLOYEE_SEARCH_DATASETS;
+      const profile = state.profile || await verifyPortalAccess(state.client);
 
-      const results = await Promise.all(datasets.map(async (definition) => {
+      const results = await Promise.all(needsLoading.map(async (definition) => {
         try {
           if (!state.isAdmin) {
             return { key: definition.key, rows: await loadEmployeeDataset(state.client, definition, profile) };
@@ -569,15 +607,15 @@
         }
       }));
 
-      state.records = {};
-      results.forEach((result) => { state.records[result.key] = result.rows; });
-      state.index = buildIndex();
-      state.ready = true;
+      results.forEach((result) => {
+        state.records[result.key] = result.rows;
+        state.loadedDatasets.add(result.key);
+      });
     })().finally(() => {
-      state.loadingPromise = null;
+      delete state.loadingGroups[groupName];
     });
 
-    return state.loadingPromise;
+    return state.loadingGroups[groupName];
   }
 
   function getElements() {
@@ -593,62 +631,71 @@
     };
   }
 
-  function renderResults(matches, totalCount) {
+  function renderGroupHeaders() {
     const elements = getElements();
     if (!elements.status || !elements.results) return;
 
-    state.results = matches;
-    elements.status.textContent = totalCount
-      ? totalCount + " relevant result" + (totalCount === 1 ? "" : "s") + (totalCount > matches.length ? " - showing the first " + matches.length : "")
-      : "No records found.";
-
-    if (!matches.length) {
-      elements.results.innerHTML = state.isAdmin
-        ? '<div class="jgc-admin-search-empty">Try a job number, employee, date, WO, PO, report, or equipment name.</div>'
-        : '<div class="jgc-admin-search-empty">Try a page name, job number, date, task, certificate, supplier, or equipment name.</div>';
-      return;
-    }
-
-    const groups = new Map();
-    matches.forEach((item, index) => {
-      const groupName = item.group || getGroup(item);
-      if (!groups.has(groupName)) groups.set(groupName, []);
-      groups.get(groupName).push({ item, index });
-    });
-
-    const orderedGroups = GROUP_ORDER.filter((name) => groups.has(name));
-    Array.from(groups.keys()).forEach((name) => {
-      if (!orderedGroups.includes(name)) orderedGroups.push(name);
-    });
-
-    elements.results.innerHTML = orderedGroups.map((groupName, groupIndex) => {
-      const rows = groups.get(groupName);
+    state.results = [];
+    const groups = getAvailableGroups();
+    elements.results.innerHTML = groups.map((groupName, groupIndex) => {
       const resultsId = "jgcAdminSearchGroupResults" + groupIndex;
       return `
-        <section class="jgc-admin-search-group">
-          <button type="button" class="jgc-admin-search-group-header" data-jgc-admin-search-group-toggle aria-expanded="false" aria-controls="${resultsId}">
+        <section class="jgc-admin-search-group" data-jgc-admin-search-group="${escapeText(groupName)}">
+          <button type="button" class="jgc-admin-search-group-header" data-jgc-admin-search-group-toggle data-jgc-admin-search-group-name="${escapeText(groupName)}" aria-expanded="false" aria-controls="${resultsId}">
             <span class="jgc-admin-search-group-title">${escapeText(groupName)}</span>
-            <span class="jgc-admin-search-group-count">${rows.length}</span>
+            <span class="jgc-admin-search-group-count" hidden></span>
             <span class="jgc-admin-search-group-chevron" aria-hidden="true">&#9656;</span>
           </button>
-          <div id="${resultsId}" class="jgc-admin-search-group-results" hidden>
-            ${rows.map(({ item, index }) => `
-              <article class="jgc-admin-search-result">
-                <div class="jgc-admin-search-result-copy">
-                  <div class="jgc-admin-search-result-category">${escapeText(item.category)}</div>
-                  <div class="jgc-admin-search-result-title">${escapeText(item.title)}</div>
-                  ${item.detail ? `<div class="jgc-admin-search-result-detail">${escapeText(item.detail)}</div>` : ""}
-                </div>
-                <button type="button" data-jgc-admin-search-result="${index}">Open</button>
-              </article>
-            `).join("")}
-          </div>
+          <div id="${resultsId}" class="jgc-admin-search-group-results" hidden></div>
         </section>
       `;
     }).join("");
   }
 
-  function toggleResultGroup(button) {
+  function getQueryMatches(index) {
+    const elements = getElements();
+    const currentQuery = normalizeText(elements.input && elements.input.value.trim());
+    const terms = currentQuery.split(" ").filter(Boolean);
+    return index
+      .filter((item) => terms.every((term) => item.searchText.includes(term)))
+      .map((item) => {
+        const title = normalizeText(item.title);
+        const category = normalizeText(item.category);
+        const score = title.includes(currentQuery) ? 0 : (category.includes(currentQuery) ? 1 : 2);
+        return Object.assign({ score }, item);
+      })
+      .sort((a, b) => a.score - b.score || String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
+  }
+
+  function renderGroupResults(button, matches, totalCount) {
+    const group = button.closest(".jgc-admin-search-group");
+    const groupResults = group && group.querySelector(".jgc-admin-search-group-results");
+    const count = group && group.querySelector(".jgc-admin-search-group-count");
+    if (!groupResults) return;
+
+    state.results = matches;
+    if (count) {
+      count.textContent = String(totalCount);
+      count.hidden = false;
+    }
+    if (!matches.length) {
+      groupResults.innerHTML = '<div class="jgc-admin-search-empty">No matching records in this category.</div>';
+      return;
+    }
+
+    groupResults.innerHTML = matches.map((item, index) => `
+      <article class="jgc-admin-search-result">
+        <div class="jgc-admin-search-result-copy">
+          <div class="jgc-admin-search-result-category">${escapeText(item.category)}</div>
+          <div class="jgc-admin-search-result-title">${escapeText(item.title)}</div>
+          ${item.detail ? `<div class="jgc-admin-search-result-detail">${escapeText(item.detail)}</div>` : ""}
+        </div>
+        <button type="button" data-jgc-admin-search-result="${index}">Open</button>
+      </article>
+    `).join("");
+  }
+
+  async function toggleResultGroup(button) {
     const elements = getElements();
     if (!elements.results || !button) return;
     const group = button.closest(".jgc-admin-search-group");
@@ -666,14 +713,43 @@
     if (shouldOpen) {
       button.setAttribute("aria-expanded", "true");
       groupResults.hidden = false;
+      const groupName = button.getAttribute("data-jgc-admin-search-group-name") || "Other";
+      groupResults.innerHTML = '<div class="jgc-admin-search-empty">Loading this category...</div>';
+      button.setAttribute("aria-busy", "true");
+      elements.status.textContent = "Searching " + groupName + "...";
+
+      try {
+        await loadSearchGroupData(groupName, false);
+        if (!button.isConnected || button.getAttribute("aria-expanded") !== "true") return;
+        state.index = buildGroupIndex(groupName);
+        const matches = getQueryMatches(state.index);
+        renderGroupResults(button, matches.slice(0, 100), matches.length);
+        elements.status.textContent = matches.length
+          ? matches.length + " result" + (matches.length === 1 ? "" : "s") + " in " + groupName + (matches.length > 100 ? " - showing the first 100" : "")
+          : "No matching records in " + groupName + ".";
+      } catch (error) {
+        console.error("Portal search category could not load.", error);
+        groupResults.innerHTML = '<div class="jgc-admin-search-empty">This category could not be loaded. Please try again.</div>';
+        elements.status.textContent = error && error.message ? error.message : "This category could not be loaded. Please try again.";
+      } finally {
+        button.removeAttribute("aria-busy");
+      }
     }
   }
 
   async function runSearch(forceReload) {
+    clearTimeout(state.timer);
     const elements = getElements();
     if (!elements.input || !elements.status || !elements.submit) return;
     const query = elements.input.value.trim();
     const normalizedQuery = normalizeText(query);
+
+    if (forceReload) {
+      state.records = {};
+      state.index = [];
+      state.results = [];
+      state.loadedDatasets.clear();
+    }
 
     if (normalizedQuery.length < 2) {
       state.results = [];
@@ -684,33 +760,8 @@
       return;
     }
 
-    elements.status.textContent = forceReload || !state.ready
-      ? (state.isAdmin ? "Loading all portal records for search..." : "Loading pages, jobs, and your records...")
-      : "Searching...";
-    elements.submit.disabled = true;
-    if (elements.refresh) elements.refresh.disabled = true;
-
-    try {
-      await loadAllSearchData(Boolean(forceReload));
-      const currentQuery = normalizeText(elements.input.value.trim());
-      const terms = currentQuery.split(" ").filter(Boolean);
-      const matches = state.index
-        .filter((item) => terms.every((term) => item.searchText.includes(term)))
-        .map((item) => {
-          const title = normalizeText(item.title);
-          const category = normalizeText(item.category);
-          const score = title.includes(currentQuery) ? 0 : (category.includes(currentQuery) ? 1 : 2);
-          return Object.assign({ score }, item);
-        })
-        .sort((a, b) => a.score - b.score || String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
-      renderResults(matches.slice(0, 100), matches.length);
-    } catch (error) {
-      console.error("Portal search could not load.", error);
-      elements.status.textContent = error && error.message ? error.message : "Search could not load portal records. Please try again.";
-    } finally {
-      elements.submit.disabled = false;
-      if (elements.refresh) elements.refresh.disabled = false;
-    }
+    renderGroupHeaders();
+    elements.status.textContent = (forceReload ? "Search data refreshed. " : "") + "Choose a category to search for \"" + query + "\".";
   }
 
   function scheduleSearch() {
