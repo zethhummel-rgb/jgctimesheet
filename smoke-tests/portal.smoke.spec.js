@@ -294,6 +294,57 @@ test("service worker installs and controls the portal", async ({ browser }) => {
   }
 });
 
+test("notification push control stays in the lower-right action row", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+
+  const bell = page.locator("#jgcNotificationButton");
+  await expect(bell).toBeVisible();
+  await bell.click();
+
+  const footer = page.locator(".jgc-notification-panel-footer");
+  const actions = footer.locator(".jgc-notification-footer-actions");
+  const clearButton = actions.locator("[data-notification-clear-all]");
+  const pushButton = actions.locator("#jgcPushToggleButton");
+  await expect(actions).toBeVisible();
+  await expect(clearButton).toBeVisible();
+  await expect(pushButton).toBeVisible();
+
+  await pushButton.evaluate((button) => {
+    button.dataset.pushEnabled = "false";
+    button.textContent = "Enable Push";
+    button.disabled = false;
+  });
+  const enableBox = await pushButton.boundingBox();
+
+  await pushButton.evaluate((button) => {
+    button.dataset.pushEnabled = "true";
+    button.textContent = "Disable Push";
+  });
+  const disableBox = await pushButton.boundingBox();
+  const actionPositions = await actions.evaluate((row) => {
+    const clear = row.querySelector("[data-notification-clear-all]").getBoundingClientRect();
+    const push = row.querySelector("#jgcPushToggleButton").getBoundingClientRect();
+    const bounds = row.getBoundingClientRect();
+    return {
+      clearLeft: clear.left,
+      pushLeft: push.left,
+      pushRight: push.right,
+      rowRight: bounds.right
+    };
+  });
+
+  expect(enableBox).not.toBeNull();
+  expect(disableBox).not.toBeNull();
+  expect(disableBox.width).toBeLessThan(enableBox.width);
+  expect(disableBox.height).toBeLessThan(enableBox.height);
+  expect(actionPositions.pushLeft).toBeGreaterThan(actionPositions.clearLeft);
+  expect(Math.abs(actionPositions.rowRight - actionPositions.pushRight)).toBeLessThanOrEqual(1);
+  await expectNoRuntimeErrors(errors, "notification footer actions");
+});
+
 test("signed storage links preserve nested object paths", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);

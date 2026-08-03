@@ -4577,9 +4577,7 @@ function injectJgcNotificationBellStyles() {
       width: 100%;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding-bottom: 8px;
+      padding-bottom: 2px;
     }
 
     .jgc-notification-push-status {
@@ -4587,6 +4585,35 @@ function injectJgcNotificationBellStyles() {
       color: rgba(255, 255, 255, 0.72);
       font-size: 12px;
       line-height: 1.35;
+    }
+
+    .jgc-notification-footer-notes {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .jgc-notification-footer-notes .jgc-notification-empty {
+      padding: 8px 0;
+      text-align: left;
+    }
+
+    .jgc-notification-footer-actions {
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 2px;
+    }
+
+    #jgcPushToggleButton[data-push-enabled="true"] {
+      padding: 4px 7px !important;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 10px;
+      line-height: 1.1;
+      opacity: 0.78;
     }
 
     .jgc-notification-panel-footer button:disabled {
@@ -4912,11 +4939,15 @@ function activateJgcNotificationBell() {
       <div class="jgc-notification-panel-footer">
         <div class="jgc-notification-push-row">
           <span id="jgcPushStatus" class="jgc-notification-push-status">Checking push notifications...</span>
+        </div>
+        <div class="jgc-notification-footer-notes">
+          <span id="jgcPushLastResult" class="jgc-notification-empty">No push check yet.</span>
+          <span class="jgc-notification-empty">Opened items clear automatically.</span>
+        </div>
+        <div class="jgc-notification-footer-actions">
+          <button type="button" data-notification-clear-all>Clear All</button>
           <button id="jgcPushToggleButton" type="button" data-push-enabled="false">Enable Push</button>
         </div>
-        <span id="jgcPushLastResult" class="jgc-notification-empty">No push check yet.</span>
-        <span class="jgc-notification-empty">Opened items clear automatically.</span>
-        <button type="button" data-notification-clear-all>Clear All</button>
       </div>
     </section>
   `;
