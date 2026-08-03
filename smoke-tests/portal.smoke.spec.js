@@ -1239,8 +1239,9 @@ test("admin spyglass searches lazy portal data from any page", async ({ page }) 
   await expectNoRuntimeErrors(errors, "admin global spyglass search");
 });
 
-test("employee accounts do not receive the admin spyglass", async ({ page }) => {
+test("employee spyglass searches navigation, jobs, and only the employee's records", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
+  const requestedTables = new Set();
   const employeeProfile = {
     ...fakeProfile,
     email: "employee-search-smoke@example.com",
@@ -1249,13 +1250,78 @@ test("employee accounts do not receive the admin spyglass", async ({ page }) => 
     role: "worker"
   };
 
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) requestedTables.add(match[1]);
+  });
+
   await installAuthenticatedPortalState(page, employeeProfile);
   await mockPortalServices(page, employeeProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([
+      { id: "employee-job-one", job_number: "205", job_name: "North Warehouse", active: true }
+    ])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/timesheet_entries**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([
+      {
+        id: "employee-own-entry",
+        worker_name: employeeProfile.worker_key,
+        week_start: "2026-08-02",
+        day_of_week: "Monday",
+        job_number: "205",
+        job_name: "North Warehouse",
+        leave_note: "Private scaffold note"
+      },
+      {
+        id: "other-employee-entry",
+        worker_name: "another employee",
+        week_start: "2026-08-02",
+        day_of_week: "Tuesday",
+        job_number: "999",
+        job_name: "Other employee secret project",
+        leave_note: "Other employee secret note"
+      }
+    ])
+  }));
   await page.goto("/home.html", { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => window.JGCAdminGlobalSearch && document.getElementById("jgcAdminGlobalSearchButton"));
 
-  await expect(page.locator("#jgcAdminGlobalSearchButton")).toHaveCount(0);
-  await expectNoRuntimeErrors(errors, "employee admin search exclusion");
+  await page.locator("#jgcAdminGlobalSearchButton").click();
+  await expect(page.locator("#jgcAdminGlobalSearchPanel")).toBeVisible();
+  await expect(page.locator("#jgcAdminGlobalSearchTitle")).toHaveText("Find Pages, Jobs, and Your Records");
+
+  await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+  await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("205 - North Warehouse");
+  expect(requestedTables).toContain("jobs");
+  expect(requestedTables).toContain("timesheet_entries");
+  expect(requestedTables).not.toContain("daily_site_reports");
+  expect(requestedTables).not.toContain("employee_injury_reports");
+
+  await page.locator("#jgcAdminGlobalSearchInput").fill("private scaffold");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+  await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("North Warehouse");
+
+  await page.locator("#jgcAdminGlobalSearchInput").fill("other employee secret");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+  await expect(page.locator("#jgcAdminGlobalSearchStatus")).toContainText("No records found");
+
+  await page.locator("#jgcAdminGlobalSearchInput").fill("forklift");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+  await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("Forklift Inspection");
+
+  await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+  await page.locator(".jgc-admin-search-result").filter({ hasText: "205 - North Warehouse" }).getByRole("button", { name: "Open" }).click();
+  await expect(page).toHaveURL(/jobs\.html\?search=205/);
+  await expect(page.locator("#jobSearch")).toHaveValue("205");
+
+  await expectNoRuntimeErrors(errors, "employee global spyglass search");
 });
 
 test("admin calendar loads approved employees on summary startup", async ({ page }) => {

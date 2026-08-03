@@ -49,7 +49,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "5";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
-const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "1";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "2";
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
@@ -3030,7 +3030,7 @@ function shouldActivateJgcNotificationBell() {
 
 function shouldActivateJgcAdminGlobalSearch() {
   const worker = getCurrentWorkerRecord();
-  return shouldActivateJgcNotificationBell() && worker && worker.status === "approved" && isAdminWorker(worker.key, worker.role, worker.email);
+  return shouldActivateJgcNotificationBell() && worker && worker.status === "approved";
 }
 
 function loadJgcAdminGlobalSearchStyles() {
@@ -3055,7 +3055,7 @@ function activateJgcAdminGlobalSearch() {
     "admin-global-search.js?v=" + JGC_ADMIN_GLOBAL_SEARCH_VERSION,
     "JGCAdminGlobalSearch"
   ).then((search) => search.init()).catch((error) => {
-    console.warn("Admin portal search could not start.", error);
+    console.warn("Portal search could not start.", error);
   });
 }
 

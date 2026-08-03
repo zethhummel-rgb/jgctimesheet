@@ -42,6 +42,60 @@
     { key: "tasks", table: "tasks" }
   ];
 
+  const EMPLOYEE_SEARCH_DATASETS = [
+    { key: "submittedTimesheets", table: "previous_timesheet_weeks", access: "worker_name" },
+    { key: "liveTimesheets", table: "timesheet_entries", access: "worker_name" },
+    { key: "inspections", table: "inspection_records", access: "worker_name" },
+    { key: "vehicleInspections", table: "vehicle_inspection_records", access: "vehicle_worker" },
+    { key: "certificates", table: "certificates", access: "worker_name" },
+    { key: "vacations", table: "vacation_requests", access: "vacation_worker" },
+    { key: "schedule", table: "schedule_events", access: "employee_filter" },
+    { key: "announcements", table: "announcements", activeOnly: true, access: "announcement_filter" },
+    { key: "policies", table: "policies", activeOnly: true, access: "shared" },
+    { key: "jobs", table: "jobs", access: "shared" },
+    { key: "workOrders", table: "work_orders", access: "created_by" },
+    { key: "purchaseOrders", table: "digital_purchase_orders", limit: 2000, access: "purchase_order" },
+    { key: "equipment", table: "equipment_vehicles", activeOnly: true, access: "shared" },
+    { key: "contacts", table: "contacts", activeOnly: true, access: "shared" },
+    { key: "subcontractors", table: "subcontractors_suppliers", activeOnly: true, access: "shared" },
+    { key: "tasks", table: "tasks", access: "task_filter" }
+  ];
+
+  const EMPLOYEE_NAVIGATION_ITEMS = [
+    { title: "Home", detail: "Employee portal home", href: "home.html", keywords: "dashboard start main" },
+    { title: "Timesheets", detail: "Enter time and review previous weeks", href: "timesheet.html", keywords: "hours time payroll" },
+    { title: "Inspections", detail: "Start or review equipment and vehicle inspections", href: "inspections.html", keywords: "aerial lift forklift telehandler harness vehicle safety" },
+    { title: "Certificates", detail: "View and upload your training certificates", href: "certificates.html", keywords: "training expiry ticket" },
+    { title: "Vacation", detail: "Submit and review vacation requests", href: "vacation-request.html", keywords: "holiday leave time off" },
+    { title: "Job Lookup", detail: "Find job numbers, names, types, and documents", href: "jobs.html", keywords: "jobs project site contract tm documents" },
+    { title: "Equipment", detail: "Equipment and vehicle directory", href: "equipment-vehicles.html", keywords: "truck trailer unit plate" },
+    { title: "Work Orders", detail: "Create and review work orders", href: "work-orders.html", keywords: "wo labour customer" },
+    { title: "Purchase Orders", detail: "Create and review purchase orders", href: "purchase-orders.html", keywords: "po supplier materials" },
+    { title: "Job Notes", detail: "Job lists, notes, and follow-ups", href: "job-lists.html", keywords: "notes list project" },
+    { title: "Schedule", detail: "View your schedule", href: "schedule.html", keywords: "calendar event appointment" },
+    { title: "Tasks", detail: "View assignments and follow-ups", href: "tasks.html", keywords: "assignment todo follow up" },
+    { title: "Permits", detail: "Start or review permit forms", href: "permits.html", keywords: "hot work confined space excavation" },
+    { title: "Reports", detail: "Start or review reports", href: "reports.html", keywords: "daily site jsa toolbox incident accident injury" },
+    { title: "Policies / Announcements", detail: "Company policies and notices", href: "policies-announcements.html", keywords: "policy notice announcement pdf" },
+    { title: "Contacts", detail: "Company contact directory", href: "contacts.html", keywords: "phone email directory" },
+    { title: "Subcontractors / Suppliers", detail: "Supplier and subcontractor directory", href: "subcontractors-suppliers.html", keywords: "vendor rental company phone email" },
+    { title: "Field Calculator", detail: "Construction field calculator", href: "field-calculator.html", keywords: "calculate conversion measurement" },
+    { title: "Aerial Lift Inspection", detail: "Open the aerial lift inspection form", href: "aerial-lifts.html", keywords: "boom scissor lift" },
+    { title: "Forklift Inspection", detail: "Open the forklift inspection form", href: "forklift.html", keywords: "fork lift" },
+    { title: "Telehandler Inspection", detail: "Open the telehandler inspection form", href: "tele-handler.html", keywords: "tele handler zoom boom" },
+    { title: "Harness Inspection", detail: "Open the harness inspection form", href: "harness.html", keywords: "fall protection" },
+    { title: "Vehicle Inspection", detail: "Open the vehicle and trailer inspection form", href: "vehicle-inspection.html", keywords: "truck trailer circle check" },
+    { title: "Hot Work Permit", detail: "Open the hot work permit form", href: "hot-work-permit.html", keywords: "welding cutting grinding torch" },
+    { title: "Confined Space Permit", detail: "Open the confined space permit form", href: "confined-space-permit.html", keywords: "entry attendant atmosphere" },
+    { title: "Excavation Permit", detail: "Open the excavation permit form", href: "excavation-permit.html", keywords: "dig trench locate" },
+    { title: "Daily Site Report", detail: "Open the daily site report form", href: "daily-site-report.html", keywords: "project notes weather crew delivery" },
+    { title: "JSA", detail: "Open the Job Safety Analysis form", href: "jsa.html", keywords: "job safety analysis hazard control" },
+    { title: "Toolbox Talk", detail: "Open the toolbox talk form", href: "toolbox-talks.html", keywords: "safety meeting" },
+    { title: "Incident Report", detail: "Open the incident and near-miss report form", href: "incident-report.html", keywords: "near miss property damage environmental" },
+    { title: "Accident Report", detail: "Open the supervisor accident report form", href: "accident-report.html", keywords: "investigation corrective action" },
+    { title: "Employee Injury Report", detail: "Open the employee injury statement form", href: "employee-injury-report.html", keywords: "injury statement witness" }
+  ];
+
   const SEARCH_COLLECTIONS = [
     { dataset: "submittedTimesheets", category: "Submitted Timesheet", tab: "timesheets", action: "submitted_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["week_label", "total_hours", "note"], dateKeys: ["submitted_at", "week_start", "created_at"], extraSearch: getSubmittedTimesheetDates },
     { dataset: "liveTimesheets", category: "Live Timesheet", tab: "timesheets", action: "live_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["day_of_week", "job_name", "job_number", "hours"], dateKeys: ["week_start", "created_at"], extraSearch: (record) => getTimesheetEntryDate(record.week_start, record.day_of_week) },
@@ -84,6 +138,7 @@
   ];
 
   const GROUP_ORDER = [
+    "Portal Navigation",
     "Time & Attendance",
     "Jobs & Work Orders",
     "Purchase Orders",
@@ -104,7 +159,9 @@
     index: [],
     results: [],
     timer: null,
-    client: null
+    client: null,
+    profile: null,
+    isAdmin: false
   };
 
   function escapeText(value) {
@@ -123,6 +180,45 @@
       .replace(/[^a-z0-9]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function normalizeIdentity(value) {
+    if (typeof global.normalizeWorkerName === "function") {
+      return global.normalizeWorkerName(value);
+    }
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function getEmployeeIdentity(profile) {
+    const worker = typeof global.getCurrentWorkerRecord === "function" ? global.getCurrentWorkerRecord() : {};
+    const rawAliases = [
+      profile && profile.worker_key,
+      profile && profile.display_name,
+      worker && worker.key,
+      worker && worker.display
+    ].filter(Boolean);
+    const aliases = Array.from(new Set(rawAliases.concat(rawAliases.map(normalizeIdentity)).filter(Boolean)));
+
+    return {
+      profileId: String(profile && profile.id || ""),
+      aliases,
+      aliasSet: new Set(aliases.map(normalizeIdentity).filter(Boolean)),
+      emailSet: new Set([profile && profile.email, worker && worker.email].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean))
+    };
+  }
+
+  function matchesEmployeeAlias(value, identity) {
+    return identity.aliasSet.has(normalizeIdentity(value));
+  }
+
+  function includesEmployeeAlias(values, identity) {
+    const list = Array.isArray(values) ? values : (values ? [values] : []);
+    return list.some((value) => matchesEmployeeAlias(value, identity));
+  }
+
+  function includesEmployeeEmail(values, identity) {
+    const list = Array.isArray(values) ? values : (values ? [values] : []);
+    return list.some((value) => identity.emailSet.has(String(value || "").trim().toLowerCase()));
   }
 
   function formatLocalDate(date) {
@@ -262,10 +358,101 @@
     return true;
   }
 
-  async function verifyAdminAccess(client) {
+  function employeeRecordAllowed(definition, record, identity) {
+    if (!record) return false;
+
+    if (definition.access === "shared") return true;
+    if (definition.access === "worker_name") return matchesEmployeeAlias(record.worker_name, identity);
+    if (definition.access === "vacation_worker") {
+      return matchesEmployeeAlias(record.worker_name, identity) || matchesEmployeeAlias(record.worker_display_name, identity);
+    }
+    if (definition.access === "vehicle_worker") {
+      return String(record.created_by || "") === identity.profileId
+        || matchesEmployeeAlias(record.driver_employee_key, identity)
+        || matchesEmployeeAlias(record.driver_name, identity)
+        || matchesEmployeeAlias(record.created_by_name, identity);
+    }
+    if (definition.access === "created_by") {
+      return String(record.created_by || "") === identity.profileId || matchesEmployeeAlias(record.created_by_name, identity);
+    }
+    if (definition.access === "purchase_order") {
+      return [record.creator_profile_id, record.assigned_profile_id, record.submitted_by_profile_id]
+        .some((value) => String(value || "") === identity.profileId);
+    }
+    if (definition.access === "task_filter") {
+      return String(record.assigned_to || "") === identity.profileId
+        || String(record.created_by || "") === identity.profileId
+        || (Array.isArray(record.assigned_to_ids) && record.assigned_to_ids.some((value) => String(value || "") === identity.profileId));
+    }
+    if (definition.access === "employee_filter") {
+      return includesEmployeeAlias(record.employee_keys, identity)
+        || includesEmployeeAlias(record.employee_names, identity)
+        || includesEmployeeEmail(record.employee_emails, identity);
+    }
+    if (definition.access === "announcement_filter") {
+      const targetName = String(record.target_worker_name || "").trim();
+      const targetEmail = String(record.target_worker_email || "").trim();
+      return (!targetName && !targetEmail)
+        || matchesEmployeeAlias(targetName, identity)
+        || includesEmployeeEmail(targetEmail, identity);
+    }
+    return false;
+  }
+
+  function dedupeRows(rows) {
+    const seen = new Set();
+    return (rows || []).filter((record) => {
+      const key = String(record && record.id || JSON.stringify(record));
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async function loadEmployeeDataset(client, definition, profile) {
+    const identity = getEmployeeIdentity(profile);
+    const limit = definition.limit || 1000;
+    let results = [];
+
+    if (definition.access === "worker_name") {
+      results = [await client.from(definition.table).select("*").in("worker_name", identity.aliases).limit(limit)];
+    } else if (definition.access === "vacation_worker") {
+      results = await Promise.all([
+        client.from(definition.table).select("*").in("worker_name", identity.aliases).limit(limit),
+        client.from(definition.table).select("*").in("worker_display_name", identity.aliases).limit(limit)
+      ]);
+    } else if (definition.access === "vehicle_worker") {
+      results = await Promise.all([
+        client.from(definition.table).select("*").eq("created_by", identity.profileId).limit(limit),
+        client.from(definition.table).select("*").in("driver_employee_key", identity.aliases).limit(limit)
+      ]);
+    } else if (definition.access === "created_by") {
+      results = await Promise.all([
+        client.from(definition.table).select("*").eq("created_by", identity.profileId).limit(limit),
+        client.from(definition.table).select("*").in("created_by_name", identity.aliases).limit(limit)
+      ]);
+    } else if (definition.access === "purchase_order") {
+      results = [await client
+        .from(definition.table)
+        .select("*")
+        .or("creator_profile_id.eq." + identity.profileId + ",assigned_profile_id.eq." + identity.profileId + ",submitted_by_profile_id.eq." + identity.profileId)
+        .limit(limit)];
+    } else {
+      results = [await client.from(definition.table).select("*").limit(limit)];
+    }
+
+    const failed = results.find((result) => result && result.error);
+    if (failed) throw failed.error;
+
+    return dedupeRows(results.flatMap((result) => result && result.data || []))
+      .filter((record) => includeDatasetRecord(definition, record))
+      .filter((record) => employeeRecordAllowed(definition, record, identity));
+  }
+
+  async function verifyPortalAccess(client) {
     const userResult = await client.auth.getUser();
     const user = userResult && userResult.data && userResult.data.user;
-    if (userResult.error || !user) throw new Error("A signed-in admin account is required.");
+    if (userResult.error || !user) throw new Error("A signed-in portal account is required.");
 
     const profileResult = await client
       .from("profiles")
@@ -277,19 +464,60 @@
     const isKnownAdmin = profile && typeof global.isAdminWorker === "function" && global.isAdminWorker(profile.worker_key, profile.role, profile.email);
     const isAdmin = profile && profile.account_status === "approved" && (isAdminRole || isKnownAdmin);
 
-    if (profileResult.error || !isAdmin) {
-      throw new Error("Admin search access could not be confirmed.");
+    if (profileResult.error || !profile || profile.account_status !== "approved") {
+      throw new Error("Portal search access could not be confirmed.");
     }
+
+    state.profile = profile;
+    state.isAdmin = Boolean(isAdmin);
 
     localStorage.setItem("currentWorker", profile.worker_key || "");
     localStorage.setItem("currentWorkerDisplay", profile.display_name || profile.worker_key || "");
     localStorage.setItem("currentUserEmail", profile.email || "");
     localStorage.setItem("currentUserRole", profile.role || "worker");
     localStorage.setItem("currentAccountStatus", profile.account_status || "pending");
+    return profile;
+  }
+
+  function getEmployeeResultHref(config, record) {
+    const paths = {
+      submittedTimesheets: "timesheet.html",
+      liveTimesheets: "timesheet.html",
+      inspections: "previous-inspections.html",
+      vehicleInspections: "previous-inspections.html",
+      certificates: "certificates.html",
+      vacations: "vacation-request.html",
+      schedule: "schedule.html",
+      announcements: "policies-announcements.html",
+      policies: "policies-announcements.html",
+      workOrders: "work-orders.html",
+      purchaseOrders: "purchase-orders.html",
+      equipment: "equipment-vehicles.html",
+      contacts: "contacts.html",
+      subcontractors: "subcontractors-suppliers.html",
+      tasks: "tasks.html"
+    };
+
+    if (config.dataset === "jobs") {
+      const query = getValue(record, ["job_number", "job_name"]);
+      return "jobs.html" + (query ? "?search=" + encodeURIComponent(query) : "");
+    }
+    return paths[config.dataset] || "home.html";
   }
 
   function buildIndex() {
-    const index = [];
+    const index = state.isAdmin ? [] : EMPLOYEE_NAVIGATION_ITEMS.map((item) => ({
+      group: "Portal Navigation",
+      category: "Page",
+      title: item.title,
+      detail: item.detail,
+      tab: "",
+      action: "",
+      recordId: "",
+      href: item.href,
+      searchText: normalizeText(["page navigation portal", item.title, item.detail, item.keywords].join(" ")),
+      sortDate: ""
+    }));
 
     SEARCH_COLLECTIONS.forEach((config) => {
       (state.records[config.dataset] || []).forEach((record) => {
@@ -307,6 +535,7 @@
           tab: config.tab,
           action: config.action || "",
           recordId: record && record.id ? String(record.id) : "",
+          href: state.isAdmin ? "" : getEmployeeResultHref(config, record),
           searchText: normalizeText(values.join(" ")),
           sortDate: getValue(record, config.dateKeys || ["updated_at", "created_at"])
         });
@@ -323,18 +552,19 @@
     state.loadingPromise = (async function() {
       state.client = state.client || (typeof global.createJgcSupabaseClient === "function" ? global.createJgcSupabaseClient() : null);
       if (!state.client) throw new Error("Portal data connection is unavailable.");
-      await verifyAdminAccess(state.client);
+      const profile = await verifyPortalAccess(state.client);
+      const datasets = state.isAdmin ? SEARCH_DATASETS : EMPLOYEE_SEARCH_DATASETS;
 
-      const results = await Promise.all(SEARCH_DATASETS.map(async (definition) => {
+      const results = await Promise.all(datasets.map(async (definition) => {
         try {
-          const result = await state.client.from(definition.table).select("*").limit(definition.limit || 1000);
-          if (result.error) {
-            console.warn("Admin search could not load " + definition.table + ".", result.error);
-            return { key: definition.key, rows: [] };
+          if (!state.isAdmin) {
+            return { key: definition.key, rows: await loadEmployeeDataset(state.client, definition, profile) };
           }
+          const result = await state.client.from(definition.table).select("*").limit(definition.limit || 1000);
+          if (result.error) throw result.error;
           return { key: definition.key, rows: (result.data || []).filter((record) => includeDatasetRecord(definition, record)) };
         } catch (error) {
-          console.warn("Admin search could not load " + definition.table + ".", error);
+          console.warn("Portal search could not load " + definition.table + ".", error);
           return { key: definition.key, rows: [] };
         }
       }));
@@ -373,7 +603,9 @@
       : "No records found.";
 
     if (!matches.length) {
-      elements.results.innerHTML = '<div class="jgc-admin-search-empty">Try a job number, employee, date, WO, PO, report, or equipment name.</div>';
+      elements.results.innerHTML = state.isAdmin
+        ? '<div class="jgc-admin-search-empty">Try a job number, employee, date, WO, PO, report, or equipment name.</div>'
+        : '<div class="jgc-admin-search-empty">Try a page name, job number, date, task, certificate, supplier, or equipment name.</div>';
       return;
     }
 
@@ -423,11 +655,15 @@
     if (normalizedQuery.length < 2) {
       state.results = [];
       elements.results.innerHTML = "";
-      elements.status.textContent = query ? "Enter at least 2 characters." : "Type at least 2 characters to search all portal records.";
+      elements.status.textContent = query
+        ? "Enter at least 2 characters."
+        : (state.isAdmin ? "Type at least 2 characters to search all portal records." : "Type at least 2 characters to search pages, jobs, and your records.");
       return;
     }
 
-    elements.status.textContent = forceReload || !state.ready ? "Loading all portal records for search..." : "Searching...";
+    elements.status.textContent = forceReload || !state.ready
+      ? (state.isAdmin ? "Loading all portal records for search..." : "Loading pages, jobs, and your records...")
+      : "Searching...";
     elements.submit.disabled = true;
     if (elements.refresh) elements.refresh.disabled = true;
 
@@ -446,7 +682,7 @@
         .sort((a, b) => a.score - b.score || String(b.sortDate || "").localeCompare(String(a.sortDate || "")));
       renderResults(matches.slice(0, 100), matches.length);
     } catch (error) {
-      console.error("Admin portal search could not load.", error);
+      console.error("Portal search could not load.", error);
       elements.status.textContent = error && error.message ? error.message : "Search could not load portal records. Please try again.";
     } finally {
       elements.submit.disabled = false;
@@ -531,6 +767,11 @@
     if (!result) return;
     close();
 
+    if (!state.isAdmin) {
+      global.location.href = result.href || "home.html";
+      return;
+    }
+
     if (result.action === "digital_purchase_order" && result.recordId) {
       global.location.href = "purchase-orders-admin.html?po=" + encodeURIComponent(result.recordId);
       return;
@@ -567,14 +808,16 @@
   function init() {
     if (state.initialized || document.getElementById("jgcAdminGlobalSearch")) return;
     const worker = typeof global.getCurrentWorkerRecord === "function" ? global.getCurrentWorkerRecord() : null;
-    if (!worker || typeof global.isAdminWorker !== "function" || !global.isAdminWorker(worker.key, worker.role, worker.email)) return;
+    if (!worker || worker.status !== "approved") return;
+
+    state.isAdmin = typeof global.isAdminWorker === "function" && global.isAdminWorker(worker.key, worker.role, worker.email);
 
     state.initialized = true;
     const wrapper = document.createElement("div");
     wrapper.id = "jgcAdminGlobalSearch";
     wrapper.className = "jgc-admin-global-search";
     wrapper.innerHTML = `
-      <button id="jgcAdminGlobalSearchButton" class="jgc-admin-search-button" type="button" aria-label="Search all portal records" aria-expanded="false">
+      <button id="jgcAdminGlobalSearchButton" class="jgc-admin-search-button" type="button" aria-label="${state.isAdmin ? "Search all portal records" : "Search the employee portal"}" aria-expanded="false">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7"></circle>
           <path d="m20 20-3.6-3.6"></path>
@@ -583,8 +826,8 @@
       <section id="jgcAdminGlobalSearchPanel" class="jgc-admin-search-panel" role="dialog" aria-modal="false" aria-labelledby="jgcAdminGlobalSearchTitle" hidden>
         <header class="jgc-admin-search-header">
           <div>
-            <span class="jgc-admin-search-eyebrow">Admin Search</span>
-            <strong id="jgcAdminGlobalSearchTitle">Search the Entire Portal</strong>
+            <span class="jgc-admin-search-eyebrow">${state.isAdmin ? "Admin Search" : "Employee Search"}</span>
+            <strong id="jgcAdminGlobalSearchTitle">${state.isAdmin ? "Search the Entire Portal" : "Find Pages, Jobs, and Your Records"}</strong>
           </div>
           <div class="jgc-admin-search-header-actions">
             <button id="jgcAdminGlobalSearchRefresh" type="button">Refresh Data</button>
@@ -592,10 +835,10 @@
           </div>
         </header>
         <div class="jgc-admin-search-form">
-          <input id="jgcAdminGlobalSearchInput" type="search" autocomplete="off" placeholder="Search dates, employees, jobs, WO or PO numbers..." aria-label="Search all portal records">
+          <input id="jgcAdminGlobalSearchInput" type="search" autocomplete="off" placeholder="${state.isAdmin ? "Search dates, employees, jobs, WO or PO numbers..." : "Search pages, job numbers, tasks, certificates..."}" aria-label="${state.isAdmin ? "Search all portal records" : "Search pages, jobs, and your records"}">
           <button id="jgcAdminGlobalSearchSubmit" type="button">Search</button>
         </div>
-        <div id="jgcAdminGlobalSearchStatus" class="jgc-admin-search-status">Type at least 2 characters to search all portal records.</div>
+        <div id="jgcAdminGlobalSearchStatus" class="jgc-admin-search-status">${state.isAdmin ? "Type at least 2 characters to search all portal records." : "Type at least 2 characters to search pages, jobs, and your records."}</div>
         <div id="jgcAdminGlobalSearchResults" class="jgc-admin-search-results"></div>
       </section>
     `;
