@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="jobs-design-system.css?v=2">
   <link rel="stylesheet" href="schedule-design-system.css?v=1">
 
-<link rel="stylesheet" href="admin.css?v=4">
+<link rel="stylesheet" href="admin.css?v=5">
 </head>
 
 <body>
@@ -450,10 +450,19 @@
 
 <div id="safetyRecordsSection" class="card jgc-panel" hidden>
     <h2 class="jgc-section-title">Safety Records</h2>
-    <div class="admin-report-tabs jgc-tabs" role="tablist" aria-label="Safety record categories">
-        <button type="button" class="active jgc-tab" data-safety-record-tab="inspections" onclick="switchSafetyRecordsSubtab('inspections')">Inspections</button>
-        <button type="button" class="jgc-tab" data-safety-record-tab="reports" onclick="switchSafetyRecordsSubtab('reports')">Reports</button>
-        <button type="button" class="jgc-tab" data-safety-record-tab="permits" onclick="switchSafetyRecordsSubtab('permits')">Permits</button>
+    <div class="admin-safety-record-tiles" role="tablist" aria-label="Safety record categories">
+        <button type="button" class="admin-safety-record-tile active" role="tab" aria-selected="true" aria-controls="inspectionsSection" data-safety-record-tab="inspections" onclick="switchSafetyRecordsSubtab('inspections')">
+            <strong>Inspections</strong>
+            <span>Review employee and equipment inspection records</span>
+        </button>
+        <button type="button" class="admin-safety-record-tile" role="tab" aria-selected="false" aria-controls="reportsSection" data-safety-record-tab="reports" onclick="switchSafetyRecordsSubtab('reports')">
+            <strong>Reports</strong>
+            <span>Review site, safety, incident, and toolbox reports</span>
+        </button>
+        <button type="button" class="admin-safety-record-tile" role="tab" aria-selected="false" aria-controls="inspectionsSection" data-safety-record-tab="permits" onclick="switchSafetyRecordsSubtab('permits')">
+            <strong>Permits</strong>
+            <span>Review completed safety permits</span>
+        </button>
     </div>
 </div>
 

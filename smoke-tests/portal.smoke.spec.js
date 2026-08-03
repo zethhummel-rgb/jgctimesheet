@@ -1565,6 +1565,24 @@ test("admin inspection categories build their tables only when opened", async ({
   await page.locator("#safetyRecordsTab").click();
   await expect(page.locator("#safetyRecordsSection")).toBeVisible();
   await expect(page.locator("#inspectionsSection")).toBeVisible();
+  const safetyRecordTiles = page.locator("#safetyRecordsSection .admin-safety-record-tile");
+  await expect(safetyRecordTiles).toHaveCount(3);
+  await expect(safetyRecordTiles.nth(0)).toContainText("Review employee and equipment inspection records");
+  await expect(safetyRecordTiles.nth(1)).toContainText("Review site, safety, incident, and toolbox reports");
+  await expect(safetyRecordTiles.nth(2)).toContainText("Review completed safety permits");
+  await expect(safetyRecordTiles.nth(0)).toHaveAttribute("aria-selected", "true");
+  const safetyTileAppearance = await page.evaluate(() => {
+    const grid = document.querySelector(".admin-safety-record-tiles");
+    const tile = document.querySelector(".admin-safety-record-tile");
+    return {
+      gridDisplay: getComputedStyle(grid).display,
+      minHeight: getComputedStyle(tile).minHeight,
+      boxShadow: getComputedStyle(tile).boxShadow
+    };
+  });
+  expect(safetyTileAppearance.gridDisplay).toBe("grid");
+  expect(safetyTileAppearance.minHeight).toBe("96px");
+  expect(safetyTileAppearance.boxShadow).toContain("inset");
   await page.waitForFunction(() => adminTabDataLoaded.has("safetyRecords"));
 
   await page.evaluate(() => {

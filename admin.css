@@ -216,6 +216,60 @@ textarea {
     background: rgba(255, 255, 255, 0.22);
 }
 
+.admin-safety-record-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 8px 0 14px;
+}
+
+.admin-safety-record-tile {
+    width: 100%;
+    min-width: 0;
+    min-height: 96px;
+    padding: 18px;
+    color: #ffffff;
+    background: #168a3d;
+    border: 1px solid rgba(57, 200, 72, 0.62);
+    border-radius: 8px;
+    box-shadow: inset 0 -5px 0 rgba(57, 200, 72, 0.52), 0 14px 30px rgba(0, 0, 0, 0.22);
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-safety-record-tile strong {
+    display: block;
+    margin: 0 0 8px;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.admin-safety-record-tile span {
+    display: block;
+    color: #e6f6e9;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.admin-safety-record-tile:hover,
+.admin-safety-record-tile:focus-visible {
+    transform: translateY(-2px);
+    background: #1a9844;
+    border-color: #4ee06e;
+    box-shadow: inset 0 -5px 0 rgba(78, 224, 110, 0.72), 0 16px 32px rgba(0, 0, 0, 0.26);
+}
+
+.admin-safety-record-tile.active,
+.admin-safety-record-tile[aria-selected="true"] {
+    background: #1da84a;
+    border-color: #5bea78;
+    box-shadow: inset 0 -5px 0 #39c848, 0 0 0 2px rgba(91, 234, 120, 0.24), 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
 .admin-report-panel {
     margin-top: 10px;
 }
@@ -3538,5 +3592,14 @@ button.admin-schedule-event-button.admin-event-vacation {
 
     .admin-report-tabs button {
         flex: 0 0 auto;
+    }
+
+    .admin-safety-record-tiles {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-safety-record-tile {
+        min-height: 78px;
+        padding: 15px;
     }
 }
