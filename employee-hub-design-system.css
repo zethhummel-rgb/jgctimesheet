@@ -1,0 +1,67 @@
+/* Shared typography for the employee-facing Permits, Reports, and Inspections hubs. */
+.jgc-employee-hub {
+  font-family: Arial, sans-serif;
+}
+
+.jgc-employee-hub .jgc-page-title {
+  margin: 0 0 6px;
+  color: #2f6f3c;
+  font-size: clamp(28px, 4vw, 32px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.jgc-employee-hub .subtitle {
+  margin-bottom: 18px;
+  color: #1f2a24;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.jgc-employee-hub .report-card h2,
+.jgc-employee-hub .permit-card strong,
+.jgc-employee-hub .inspection-card strong {
+  display: block;
+  margin: 0 0 8px;
+  color: #0b5e3b;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.jgc-employee-hub .report-card p,
+.jgc-employee-hub .permit-card span,
+.jgc-employee-hub .inspection-card span {
+  display: block;
+  margin: 0;
+  color: #405a47;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.jgc-theme.jgc-employee-hub .jgc-page-title,
+.jgc-theme.jgc-employee-hub .subtitle {
+  color: #f5f7f3 !important;
+}
+
+.jgc-theme.jgc-employee-hub .report-card h2,
+.jgc-theme.jgc-employee-hub .permit-card strong,
+.jgc-theme.jgc-employee-hub .inspection-card strong {
+  color: #ffffff !important;
+  text-shadow: none;
+}
+
+.jgc-theme.jgc-employee-hub .report-card p,
+.jgc-theme.jgc-employee-hub .permit-card span,
+.jgc-theme.jgc-employee-hub .inspection-card span {
+  color: #e6f6e9 !important;
+}
+
+@media (max-width: 640px) {
+  .jgc-employee-hub .jgc-page-title {
+    font-size: 28px;
+  }
+}
