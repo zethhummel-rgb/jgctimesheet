@@ -643,6 +643,31 @@ test("vacation request date is locked to today's Toronto date", async ({ page })
   await expectNoRuntimeErrors(errors, "locked vacation request date");
 });
 
+test("admin timesheets do not auto-add approved vacation", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  let vacationRequestReads = 0;
+  let timesheetEntryWrites = 0;
+
+  page.on("request", (request) => {
+    if (request.url().includes("/rest/v1/vacation_requests") && request.method() === "GET") {
+      vacationRequestReads += 1;
+    }
+    if (request.url().includes("/rest/v1/timesheet_entries") && request.method() === "POST") {
+      timesheetEntryWrites += 1;
+    }
+  });
+
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#submitStatus")).toContainText("Loaded", { timeout: 10000 });
+
+  await expect.poll(() => page.evaluate(() => shouldAutoAddApprovedVacationToTimesheet())).toBe(false);
+  await expect.poll(() => vacationRequestReads).toBe(0);
+  expect(timesheetEntryWrites).toBe(0);
+  await expectNoRuntimeErrors(errors, "admin vacation timesheet exclusion");
+});
+
 test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const reportId = "00000000-0000-4000-8000-000000000099";
