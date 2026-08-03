@@ -1200,6 +1200,64 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await expectNoRuntimeErrors(errors, "searchable job dashboard selector");
 });
 
+test("admin spyglass searches lazy portal data from any page", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const requestedTables = new Set();
+
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) requestedTables.add(match[1]);
+  });
+
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([
+      { id: "global-job-one", job_number: "101", job_name: "Main Street Office", active: true },
+      { id: "global-job-two", job_number: "205", job_name: "North Warehouse", active: true }
+    ])
+  }));
+
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.JGCAdminGlobalSearch && document.getElementById("jgcAdminGlobalSearchButton"));
+  await page.locator("#jgcAdminGlobalSearchButton").click();
+  await expect(page.locator("#jgcAdminGlobalSearchPanel")).toBeVisible();
+  await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
+  await page.locator("#jgcAdminGlobalSearchSubmit").click();
+
+  await expect(page.locator("#jgcAdminGlobalSearchStatus")).toContainText("1 relevant result");
+  await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("205 - North Warehouse");
+  expect(requestedTables).toContain("previous_timesheet_weeks");
+  expect(requestedTables).toContain("daily_site_reports");
+  expect(requestedTables).toContain("subcontractors_suppliers");
+  expect(requestedTables).toContain("tasks");
+
+  await page.locator("[data-jgc-admin-search-result]").click();
+  await expect(page).toHaveURL(/admin\.html\?tab=jobDashboard/);
+  await expectNoRuntimeErrors(errors, "admin global spyglass search");
+});
+
+test("employee accounts do not receive the admin spyglass", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const employeeProfile = {
+    ...fakeProfile,
+    email: "employee-search-smoke@example.com",
+    display_name: "Employee Search Smoke",
+    worker_key: "employee search smoke",
+    role: "worker"
+  };
+
+  await installAuthenticatedPortalState(page, employeeProfile);
+  await mockPortalServices(page, employeeProfile);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+
+  await expect(page.locator("#jgcAdminGlobalSearchButton")).toHaveCount(0);
+  await expectNoRuntimeErrors(errors, "employee admin search exclusion");
+});
+
 test("admin calendar loads approved employees on summary startup", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const tableRequests = [];

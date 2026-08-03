@@ -49,6 +49,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "5";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "1";
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
@@ -1391,6 +1392,10 @@ async function refreshJgcAccountAccess() {
         ? "admin.html?tab=summary"
         : "home.html";
       window.location.replace(destination);
+    }
+
+    if (profile.account_status === "approved" && page !== JGC_LIMITED_ACCESS_HOME_PAGE) {
+      activateJgcAdminGlobalSearch();
     }
   } catch (error) {
     console.warn("Account access could not be refreshed.", error);
@@ -3021,6 +3026,37 @@ function shouldActivateJgcNotificationBell() {
   const page = getCurrentJgcPageName();
   const worker = getCurrentWorkerRecord();
   return getJgcNotificationPages().includes(page) && worker && worker.key && !isJgcSubcontractorSession(worker);
+}
+
+function shouldActivateJgcAdminGlobalSearch() {
+  const worker = getCurrentWorkerRecord();
+  return shouldActivateJgcNotificationBell() && worker && worker.status === "approved" && isAdminWorker(worker.key, worker.role, worker.email);
+}
+
+function loadJgcAdminGlobalSearchStyles() {
+  if (document.querySelector('link[data-jgc-admin-global-search="true"]')) {
+    return;
+  }
+
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "admin-global-search.css?v=" + JGC_ADMIN_GLOBAL_SEARCH_VERSION;
+  stylesheet.setAttribute("data-jgc-admin-global-search", "true");
+  document.head.appendChild(stylesheet);
+}
+
+function activateJgcAdminGlobalSearch() {
+  if (!shouldActivateJgcAdminGlobalSearch()) {
+    return;
+  }
+
+  loadJgcAdminGlobalSearchStyles();
+  loadJgcScriptOnce(
+    "admin-global-search.js?v=" + JGC_ADMIN_GLOBAL_SEARCH_VERSION,
+    "JGCAdminGlobalSearch"
+  ).then((search) => search.init()).catch((error) => {
+    console.warn("Admin portal search could not start.", error);
+  });
 }
 
 function formatJgcNotificationTime(value) {
@@ -4889,6 +4925,9 @@ function activateJgcNotificationBell() {
 
   document.getElementById("jgcNotificationButton").addEventListener("click", function(event) {
     event.stopPropagation();
+    if (globalThis.JGCAdminGlobalSearch && typeof globalThis.JGCAdminGlobalSearch.close === "function") {
+      globalThis.JGCAdminGlobalSearch.close();
+    }
     toggleJgcNotificationPanel();
   });
 
@@ -5192,6 +5231,7 @@ function activateJgcEnhancements() {
   activateMobileBottomNavigation();
   activateJgcPwaRefresh();
   activateJgcNotificationBell();
+  activateJgcAdminGlobalSearch();
   activateJgcContactsFeature();
   activateJgcPoliciesFeature();
   activatePoliciesAnnouncementsTile();

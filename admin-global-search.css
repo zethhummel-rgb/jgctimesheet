@@ -1,0 +1,316 @@
+.jgc-admin-global-search {
+  position: fixed;
+  top: 0;
+  right: 154px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  z-index: 10060;
+  font-family: Arial, sans-serif;
+}
+
+.jgc-admin-search-button {
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+}
+
+.jgc-admin-search-button:hover,
+.jgc-admin-search-button:focus-visible,
+.jgc-admin-search-button[aria-expanded="true"] {
+  background: rgba(46, 230, 79, 0.2);
+  border-color: rgba(46, 230, 79, 0.65);
+}
+
+.jgc-admin-search-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jgc-admin-search-panel {
+  position: fixed;
+  top: 62px;
+  right: 16px;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 88px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(64, 220, 78, 0.48);
+  border-top: 4px solid #2ee64f;
+  border-radius: 10px;
+  background: rgba(7, 26, 22, 0.99);
+  color: #ffffff;
+  box-shadow: 0 26px 64px rgba(0, 0, 0, 0.62);
+}
+
+.jgc-admin-search-panel[hidden] {
+  display: none;
+}
+
+.jgc-admin-search-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.jgc-admin-search-header > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.jgc-admin-search-eyebrow {
+  color: #2ee64f;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.jgc-admin-search-header strong {
+  color: #ffffff;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.jgc-admin-search-header-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.jgc-admin-search-header button,
+.jgc-admin-search-form button,
+.jgc-admin-search-result button {
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: #159447;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.jgc-admin-search-header button {
+  padding: 8px 10px !important;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.jgc-admin-search-form {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 14px 16px 8px;
+}
+
+.jgc-admin-search-form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #7f927f;
+  border-radius: 6px;
+  background: #f6faf5;
+  color: #102018;
+  font-size: 16px;
+}
+
+.jgc-admin-search-form input:focus {
+  outline: 3px solid rgba(46, 230, 79, 0.22);
+  border-color: #2ee64f;
+}
+
+.jgc-admin-search-form button {
+  min-height: 46px !important;
+  padding: 10px 18px !important;
+}
+
+.jgc-admin-search-form button:disabled,
+.jgc-admin-search-header button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.jgc-admin-search-status {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 4px 16px 10px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.jgc-admin-search-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 12px 14px;
+}
+
+.jgc-admin-search-group {
+  margin: 0 0 11px;
+  overflow: hidden;
+  border: 1px solid rgba(64, 220, 78, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.jgc-admin-search-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 11px;
+  background: rgba(34, 144, 65, 0.25);
+}
+
+.jgc-admin-search-group-header h3 {
+  margin: 0;
+  color: #2ee64f;
+  font-size: 14px;
+}
+
+.jgc-admin-search-group-header span {
+  min-width: 26px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #2ee64f;
+  color: #092313;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.jgc-admin-search-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.jgc-admin-search-result:first-child {
+  border-top: 0;
+}
+
+.jgc-admin-search-result-copy {
+  min-width: 0;
+}
+
+.jgc-admin-search-result-category {
+  color: #2ee64f;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.jgc-admin-search-result-title {
+  margin-top: 2px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.jgc-admin-search-result-detail {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.jgc-admin-search-result button {
+  padding: 8px 12px !important;
+  font-size: 12px;
+}
+
+.jgc-admin-search-empty {
+  padding: 20px 12px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 780px) {
+  .jgc-admin-global-search {
+    top: 0;
+    right: 132px;
+    height: 50px;
+  }
+
+  .jgc-admin-search-button {
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .jgc-admin-search-panel {
+    top: 56px;
+    right: 10px;
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 76px);
+  }
+
+  .jgc-admin-search-header {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .jgc-admin-search-header strong {
+    font-size: 17px;
+  }
+
+  .jgc-admin-search-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .jgc-admin-search-form {
+    grid-template-columns: 1fr;
+    padding: 12px 12px 7px;
+  }
+
+  .jgc-admin-search-status {
+    padding: 4px 12px 8px;
+  }
+
+  .jgc-admin-search-results {
+    padding: 0 8px 10px;
+  }
+
+  .jgc-admin-search-result {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .jgc-admin-search-result button {
+    width: 100% !important;
+  }
+}
