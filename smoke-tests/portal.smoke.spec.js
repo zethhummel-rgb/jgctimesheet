@@ -1808,6 +1808,19 @@ test("employee directories defer Supabase data until their sections are opened",
   await expectNoRuntimeErrors(errors, "employee directory lazy loading");
 });
 
+test("embedded admin tasks hide the duplicate portal spyglass", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  await page.goto("/tasks.html?embedded=1&admin=1", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#jgcAdminGlobalSearch", { state: "attached" });
+
+  await expect(page.locator("#taskFormDetails > summary")).toBeVisible();
+  await expect(page.locator("#jgcAdminGlobalSearch")).toBeHidden();
+  await expectNoRuntimeErrors(errors, "embedded admin tasks portal search");
+});
+
 test("employee page access is a standalone admin tool with all selector permissions", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
