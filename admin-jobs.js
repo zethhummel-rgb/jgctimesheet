@@ -378,20 +378,12 @@ function getSelectedDashboardJob() {
 }
 
 function shouldShowJobOnDashboard(job) {
-    if (!job) {
-        return false;
-    }
-
-    if (job.active !== false) {
-        return true;
-    }
-
-    return Boolean(job.removed_from_import_at);
+    return Boolean(job);
 }
 
 function getArchivedDashboardJobs() {
     return jobs
-        .filter((job) => job.active === false && shouldShowJobOnDashboard(job))
+        .filter((job) => job && job.active === false)
         .sort((a, b) => String(b.removed_from_import_at || "").localeCompare(String(a.removed_from_import_at || "")));
 }
 
