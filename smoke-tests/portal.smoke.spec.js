@@ -1177,7 +1177,7 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
     { id: "job-one", job_number: "101", job_name: "Main Street Office", active: true },
     { id: "job-two", job_number: "205", job_name: "North Warehouse", active: true },
     { id: "job-three", job_number: "330", job_name: "Riverside Apartments", active: true },
-    { id: "job-four", job_number: "410", job_name: "Closed Community Centre", active: false }
+    { id: "job-four", job_number: "050", job_name: "Closed Community Centre", active: false }
   ];
 
   page.on("request", (request) => {
@@ -1207,8 +1207,22 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await search.click();
   await expect(page.locator("#jobDashboardOptions")).toBeHidden();
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(0);
+  await search.fill("e");
+  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(4);
+  await expect.poll(() => page.locator("#jobDashboardOptions .job-dashboard-option").allTextContents()).toEqual([
+    "101 - Main Street Office",
+    "205 - North Warehouse",
+    "330 - Riverside Apartments",
+    "050 - Closed Community Centre"
+  ]);
+  const groupedOptionColors = await page.evaluate(() => ({
+    active: getComputedStyle(document.querySelector(".job-dashboard-option--active")).backgroundColor,
+    inactive: getComputedStyle(document.querySelector(".job-dashboard-option--inactive")).backgroundColor
+  }));
+  expect(groupedOptionColors.active).not.toBe(groupedOptionColors.inactive);
   await search.fill("warehouse");
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
+  await expect(page.getByRole("option", { name: "205 - North Warehouse" })).toHaveClass(/job-dashboard-option--active/);
   await expect.poll(() => page.locator("#jobDashboardSection").evaluate((element) => getComputedStyle(element).overflowY)).toBe("visible");
   await expect.poll(() => page.locator("#jobDashboardOptions").evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
   await page.getByRole("option", { name: "205 - North Warehouse" }).click();
@@ -1222,8 +1236,9 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await search.click();
   await search.fill("closed community");
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
-  await page.getByRole("option", { name: "410 - Closed Community Centre" }).click();
-  await expect(page.locator("#jobDashboardSelect")).toHaveValue("410");
+  await expect(page.getByRole("option", { name: "050 - Closed Community Centre" })).toHaveClass(/job-dashboard-option--inactive/);
+  await page.getByRole("option", { name: "050 - Closed Community Centre" }).click();
+  await expect(page.locator("#jobDashboardSelect")).toHaveValue("050");
   await expect(page.locator("#jobDashboardContent .job-status-pill")).toHaveText("Inactive");
 
   await page.locator("#jobDashboardSection").getByRole("button", { name: "Refresh Jobs" }).click();

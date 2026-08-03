@@ -241,7 +241,14 @@ function renderJobDashboardOptions() {
 function getSortedDashboardJobs() {
     return jobs
         .filter((job) => shouldShowJobOnDashboard(job))
-        .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+        .sort((a, b) => {
+            const statusDifference = Number(a.active === false) - Number(b.active === false);
+            if (statusDifference) {
+                return statusDifference;
+            }
+
+            return String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true });
+        });
 }
 
 function getJobDashboardDisplay(job) {
@@ -280,7 +287,7 @@ function renderJobDashboardMatches(searchValue) {
 
     const matches = getMatchingDashboardJobs(searchValue);
     options.innerHTML = matches.length
-        ? matches.map((job) => `<button class="job-dashboard-option" type="button" role="option" data-job-dashboard-value="${escapeHtml(getJobDashboardValue(job))}" onclick="selectJobDashboardOption(this.dataset.jobDashboardValue)">${escapeHtml(getJobDashboardDisplay(job))}</button>`).join("")
+        ? matches.map((job) => `<button class="job-dashboard-option ${job.active === false ? "job-dashboard-option--inactive" : "job-dashboard-option--active"}" type="button" role="option" data-job-dashboard-value="${escapeHtml(getJobDashboardValue(job))}" onclick="selectJobDashboardOption(this.dataset.jobDashboardValue)">${escapeHtml(getJobDashboardDisplay(job))}</button>`).join("")
         : '<div class="job-dashboard-empty">No matching jobs found.</div>';
 }
 

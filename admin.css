@@ -1744,15 +1744,29 @@ button:hover,
     border: 0;
     border-radius: 4px;
     padding: 9px 11px;
-    background: transparent !important;
     color: #ffffff;
     line-height: 1.25;
     text-align: left;
 }
 
-.job-dashboard-option:hover,
-.job-dashboard-option:focus-visible {
-    background: #174b2d !important;
+body.jgc-theme #jobDashboardSection .job-dashboard-option--active {
+    border: 1px solid #39c848 !important;
+    background: #168a3d !important;
+}
+
+body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive {
+    border: 1px solid #87918c !important;
+    background: #5b6460 !important;
+}
+
+body.jgc-theme #jobDashboardSection .job-dashboard-option--active:hover,
+body.jgc-theme #jobDashboardSection .job-dashboard-option--active:focus-visible {
+    background: #1da84a !important;
+}
+
+body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive:hover,
+body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive:focus-visible {
+    background: #6f7874 !important;
 }
 
 .job-dashboard-empty {
