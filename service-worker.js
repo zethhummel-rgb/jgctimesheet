@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "667";
+const JGC_RELEASE_ID = "668";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -118,7 +118,7 @@ const JGC_APP_SHELL = [
   "./inspection-records.js?v=11",
   "./inspection-mobile.css?v=3",
   "./inspection-mobile.js?v=6",
-  "./employee-hub-design-system.css?v=1",
+  "./employee-hub-design-system.css?v=2",
   "./manifest.json?v=7",
   "./vendor/supabase-js.min.js?v=1",
   "./vendor/tus.min.js?v=1",
