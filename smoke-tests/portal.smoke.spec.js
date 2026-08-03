@@ -1990,6 +1990,31 @@ test("embedded admin tasks hide the duplicate portal spyglass", async ({ page })
   await expectNoRuntimeErrors(errors, "embedded admin tasks portal search");
 });
 
+test("purchase order pages keep the portal spyglass circular", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  for (const path of ["/purchase-orders.html", "/purchase-orders-admin.html"]) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.JGCAdminGlobalSearch && document.getElementById("jgcAdminGlobalSearchButton"));
+
+    const shape = await page.locator("#jgcAdminGlobalSearchButton").evaluate((button) => {
+      const bounds = button.getBoundingClientRect();
+      return {
+        width: bounds.width,
+        height: bounds.height,
+        radius: Number.parseFloat(getComputedStyle(button).borderTopLeftRadius)
+      };
+    });
+
+    expect(Math.abs(shape.width - shape.height)).toBeLessThanOrEqual(1);
+    expect(shape.radius).toBeGreaterThanOrEqual((Math.min(shape.width, shape.height) / 2) - 1);
+  }
+
+  await expectNoRuntimeErrors(errors, "purchase order portal search button shape");
+});
+
 test("work order auto-submit recovers stale claims and bounds email delivery", async () => {
   const source = fs.readFileSync(
     path.join(portalRoot, "supabase", "functions", "auto-submit-work-orders", "index.ts"),
