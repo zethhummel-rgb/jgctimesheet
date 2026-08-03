@@ -2356,23 +2356,10 @@ function getCurrentUserAliases() {
   const aliases = [
     currentUser,
     currentUserDisplay,
+    email,
     normalizeWorkerName(currentUser),
     normalizeWorkerName(currentUserDisplay)
   ];
-
-  const currentUserText = normalizeWorkerName(currentUser);
-  const displayText = normalizeWorkerName(currentUserDisplay);
-
-  if (
-    email === "zethhummel@gmail.com" ||
-    email.includes("zeth") ||
-    currentUserText.includes("zeth") ||
-    displayText.includes("zeth") ||
-    currentUserText === "test account" ||
-    displayText === "test account"
-  ) {
-    aliases.push("zeth hummel");
-  }
 
   return Array.from(new Set(aliases.filter(Boolean)));
 }

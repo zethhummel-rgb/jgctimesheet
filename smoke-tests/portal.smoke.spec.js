@@ -758,6 +758,111 @@ test("admin timesheets do not auto-add approved vacation", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin vacation timesheet exclusion");
 });
 
+test("test account stays isolated from Zeth timesheets and vacation requests", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const testProfile = {
+    ...fakeProfile,
+    email: "zethhummel@gmail.com",
+    display_name: "Test Account",
+    worker_key: "test account",
+    role: "worker"
+  };
+  let timesheetEntryWrites = 0;
+  const weekStart = (() => {
+    const date = new Date();
+    date.setDate(date.getDate() - date.getDay());
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  })();
+
+  await installAuthenticatedPortalState(page, testProfile);
+  await mockPortalServices(page, testProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/timesheet_entries**`, async (route) => {
+    if (route.request().method() === "POST") {
+      timesheetEntryWrites += 1;
+      await route.fulfill({ status: 201, contentType: "application/json", body: "[]" });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "00000000-0000-4000-8000-000000000301",
+          worker_name: "test account",
+          week_start: weekStart,
+          week_end: weekStart,
+          job_name: "Test Job",
+          job_number: "TEST-1",
+          day_of_week: "Monday",
+          time_in: "07:00:00",
+          time_out: "15:30:00",
+          hours: 8,
+          took_lunch: true,
+          night_work: false,
+          entry_type: "work",
+          leave_type: "",
+          leave_note: ""
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000302",
+          worker_name: "zeth hummel",
+          week_start: weekStart,
+          week_end: weekStart,
+          job_name: "Vacation",
+          job_number: "Vacation",
+          day_of_week: "Tuesday",
+          time_in: "00:00:00",
+          time_out: "00:00:00",
+          hours: 0.01,
+          took_lunch: false,
+          night_work: false,
+          entry_type: "vacation",
+          leave_type: "paid",
+          leave_note: "Vacation"
+        }
+      ])
+    });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/vacation_requests**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([{
+      id: "00000000-0000-4000-8000-000000000303",
+      worker_name: "zeth hummel",
+      worker_display_name: "Zeth Hummel",
+      start_date: "2026-08-04",
+      end_date: "2026-08-07",
+      total_days: 4,
+      request_type: "Vacation",
+      form_data: {},
+      status: "approved"
+    }])
+  }));
+
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#submitStatus")).toContainText("Loaded", { timeout: 10000 });
+
+  const identity = await page.evaluate(() => ({
+    timesheetAliases: getCurrentUserAliases().map(normalizeWorkerName),
+    sharedAliases: getJgcWorkerAliases(getCurrentWorkerRecord()),
+    visibleWorkers: loadTimesheets().map((entry) => normalizeWorkerName(entry.user)),
+    matchesZethVacation: isVacationRequestForCurrentUser({
+      worker_name: "zeth hummel",
+      worker_display_name: "Zeth Hummel"
+    })
+  }));
+
+  expect(identity.timesheetAliases).toContain("test account");
+  expect(identity.timesheetAliases).toContain("zethhummel@gmail.com");
+  expect(identity.timesheetAliases).not.toContain("zeth hummel");
+  expect(identity.sharedAliases).not.toContain("zeth hummel");
+  expect(identity.visibleWorkers).toEqual(["test account"]);
+  expect(identity.matchesZethVacation).toBe(false);
+  expect(timesheetEntryWrites).toBe(0);
+  await expectNoRuntimeErrors(errors, "test account timesheet isolation");
+});
+
 test("admin can submit a complete employee timesheet week", async ({ page }) => {
   const errors = watchRuntimeErrors(page, "accept");
   const now = new Date();

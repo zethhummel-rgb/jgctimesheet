@@ -3881,17 +3881,6 @@ function getJgcWorkerAliases(worker) {
     email
   ];
 
-  if (
-    email === "zethhummel@gmail.com" ||
-    email.includes("zeth") ||
-    normalizeWorkerName(record.key).includes("zeth") ||
-    normalizeWorkerName(record.display).includes("zeth") ||
-    normalizeWorkerName(record.key) === "test account" ||
-    normalizeWorkerName(record.display) === "test account"
-  ) {
-    aliases.push("zeth hummel");
-  }
-
   return Array.from(new Set(aliases.map(normalizeWorkerName).filter(Boolean)));
 }
 
