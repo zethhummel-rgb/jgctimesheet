@@ -1821,6 +1821,26 @@ test("embedded admin tasks hide the duplicate portal spyglass", async ({ page })
   await expectNoRuntimeErrors(errors, "embedded admin tasks portal search");
 });
 
+test("work order auto-submit recovers stale claims and bounds email delivery", async () => {
+  const source = fs.readFileSync(
+    path.join(portalRoot, "supabase", "functions", "auto-submit-work-orders", "index.ts"),
+    "utf8"
+  );
+  const workOrderPage = fs.readFileSync(path.join(portalRoot, "work-orders.html"), "utf8");
+
+  expect(source).toContain("AbortSignal.timeout(WORK_ORDER_EMAIL_TIMEOUT_MS)");
+  expect(source).toContain("recoverStaleWorkOrderClaims");
+  expect(source).toContain('requestBody?.work_order_id');
+  expect(source).toContain('workOrderQuery.eq("id", targetWorkOrderId)');
+  expect(source).toContain('.eq("locked", true)');
+  expect(source).toContain('.is("submitted_at", null)');
+  expect(source).toContain("jgc-work-order-submit-${bundle.wo.id}");
+  expect(source).toContain("deferred_for_next_run");
+  expect(source).toContain('.in("status", ["draft", "ready_for_submission"])');
+  expect(workOrderPage).toContain("signal: AbortSignal.timeout(60_000)");
+  expect(workOrderPage).toContain('idempotencyKey: "jgc-work-order-submit-" + id');
+});
+
 test("employee page access is a standalone admin tool with all selector permissions", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);

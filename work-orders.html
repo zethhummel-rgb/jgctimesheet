@@ -3301,7 +3301,10 @@ async function finalizeWorkOrder(id, options) {
     return false;
   }
 
-  const emailSent = await emailWorkOrderPdf(id, { silent: settings.silent });
+  const emailSent = await emailWorkOrderPdf(id, {
+    silent: settings.silent,
+    idempotencyKey: "jgc-work-order-submit-" + id
+  });
 
   if (!emailSent) {
     await supabaseClient
@@ -4106,6 +4109,7 @@ async function emailWorkOrderPdf(id, options) {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
+      signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({
         to: WORK_ORDER_EMAIL_RECIPIENTS.join(","),
         subject,
@@ -4113,7 +4117,8 @@ async function emailWorkOrderPdf(id, options) {
         text: body,
         pdfHtml,
         pdfFileName: fileName,
-        source: "work_order"
+        source: "work_order",
+        idempotencyKey: settings.idempotencyKey || ""
       })
     });
     if (!settings.silent) {

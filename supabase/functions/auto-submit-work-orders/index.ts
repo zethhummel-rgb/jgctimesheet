@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
 const TZ = "America/Toronto";
 const WORK_ORDER_EMAIL_SCRIPT_URL = Deno.env.get("WORK_ORDER_EMAIL_SCRIPT_URL") ||
@@ -8,7 +8,10 @@ const WORK_ORDER_EMAIL_RECIPIENTS = (Deno.env.get("WORK_ORDER_EMAIL_RECIPIENTS")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
-const MAX_PER_RUN = Number(Deno.env.get("WORK_ORDER_AUTO_SUBMIT_LIMIT") || 25);
+const MAX_PER_RUN = Number(Deno.env.get("WORK_ORDER_AUTO_SUBMIT_LIMIT") || 10);
+const WORK_ORDER_EMAIL_TIMEOUT_MS = Number(Deno.env.get("WORK_ORDER_EMAIL_TIMEOUT_MS") || 60_000);
+const WORK_ORDER_STALE_LOCK_MINUTES = Number(Deno.env.get("WORK_ORDER_STALE_LOCK_MINUTES") || 10);
+const WORK_ORDER_RUN_BUDGET_MS = Number(Deno.env.get("WORK_ORDER_RUN_BUDGET_MS") || 120_000);
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 type WorkOrder = Record<string, any>;
@@ -510,6 +513,7 @@ async function sendWorkOrderEmail(bundle: WorkOrderBundle) {
   const response = await fetch(WORK_ORDER_EMAIL_SCRIPT_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
+    signal: AbortSignal.timeout(WORK_ORDER_EMAIL_TIMEOUT_MS),
     body: JSON.stringify({
       to: WORK_ORDER_EMAIL_RECIPIENTS.join(","),
       subject,
@@ -518,6 +522,7 @@ async function sendWorkOrderEmail(bundle: WorkOrderBundle) {
       pdfHtml,
       pdfFileName: safeFileName(subject) + ".pdf",
       source: "work_order_auto_submit",
+      idempotencyKey: `jgc-work-order-submit-${bundle.wo.id}`,
     }),
   });
 
@@ -525,6 +530,37 @@ async function sendWorkOrderEmail(bundle: WorkOrderBundle) {
     const text = await response.text().catch(() => "");
     throw new Error(`Email script failed with ${response.status}. ${text}`.trim());
   }
+}
+
+async function recoverStaleWorkOrderClaims(db: any, now: Date, targetWorkOrderId = "") {
+  const staleBefore = new Date(now.getTime() - WORK_ORDER_STALE_LOCK_MINUTES * 60_000).toISOString();
+  const recoveredAt = now.toISOString();
+  let recoveryQuery = db
+    .from("work_orders")
+    .update({
+      locked: false,
+      updated_at: recoveredAt,
+    })
+    .in("status", ["draft", "ready_for_submission"])
+    .eq("locked", true)
+    .is("submitted_at", null)
+    .lt("updated_at", staleBefore);
+
+  if (targetWorkOrderId) {
+    recoveryQuery = recoveryQuery.eq("id", targetWorkOrderId);
+  }
+
+  const { data, error } = await recoveryQuery.select("id,wo_number");
+
+  if (error) {
+    throw new Error(`Stale work order claims could not be recovered: ${error.message}`);
+  }
+
+  if (data?.length) {
+    console.warn("Recovered stale work order submission claims.", data.map((row: WorkOrder) => row.wo_number));
+  }
+
+  return data || [];
 }
 
 async function processWorkOrder(db: any, wo: WorkOrder, now: Date) {
@@ -565,7 +601,7 @@ async function processWorkOrder(db: any, wo: WorkOrder, now: Date) {
       updated_at: now.toISOString(),
     })
     .eq("id", wo.id)
-    .eq("status", "ready_for_submission")
+    .in("status", ["draft", "ready_for_submission"])
     .or("locked.is.false,locked.is.null")
     .select("id");
 
@@ -625,13 +661,37 @@ Deno.serve(async (req) => {
 
   const db = createClient(supabaseUrl, serviceRoleKey);
   const now = new Date();
-  const { data: workOrders, error } = await db
+  const runStartedAt = Date.now();
+  const requestBody = await req.json().catch(() => ({}));
+  const targetWorkOrderId = String(requestBody?.work_order_id || "").trim();
+
+  if (targetWorkOrderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetWorkOrderId)) {
+    return Response.json({ success: false, error: "work_order_id must be a valid UUID." }, { status: 400 });
+  }
+
+  let recoveredClaims: WorkOrder[] = [];
+
+  try {
+    recoveredClaims = await recoverStaleWorkOrderClaims(db, now, targetWorkOrderId);
+  } catch (error) {
+    return Response.json({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }, { status: 500 });
+  }
+
+  let workOrderQuery = db
     .from("work_orders")
     .select("*")
     .eq("status", "ready_for_submission")
     .or("locked.is.false,locked.is.null")
-    .order("work_order_date", { ascending: true })
-    .limit(MAX_PER_RUN);
+    .order("work_order_date", { ascending: true });
+
+  if (targetWorkOrderId) {
+    workOrderQuery = workOrderQuery.eq("id", targetWorkOrderId);
+  }
+
+  const { data: workOrders, error } = await workOrderQuery.limit(targetWorkOrderId ? 1 : MAX_PER_RUN);
 
   if (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
@@ -639,23 +699,35 @@ Deno.serve(async (req) => {
 
   const results: Record<string, any>[] = [];
   const failures: Record<string, any>[] = [];
+  const deferred: Record<string, any>[] = [];
 
   for (const wo of (workOrders || []) as WorkOrder[]) {
+    const remainingBudget = WORK_ORDER_RUN_BUDGET_MS - (Date.now() - runStartedAt);
+    if (remainingBudget < WORK_ORDER_EMAIL_TIMEOUT_MS + 10_000) {
+      deferred.push({ id: wo.id, wo_number: wo.wo_number, status: "deferred_for_next_run" });
+      continue;
+    }
+
     try {
       results.push(await processWorkOrder(db, wo, now));
     } catch (error) {
-      failures.push({
+      const failure = {
         id: wo.id,
         wo_number: wo.wo_number,
         error: error instanceof Error ? error.message : String(error),
-      });
+      };
+      failures.push(failure);
+      console.error("Work order auto-submission failed.", failure);
     }
   }
 
   return Response.json({
     success: failures.length === 0,
+    target_work_order_id: targetWorkOrderId || null,
     checked: (workOrders || []).length,
+    recovered_claims: recoveredClaims.map((wo) => ({ id: wo.id, wo_number: wo.wo_number })),
     results,
     failures,
+    deferred,
   }, { status: failures.length ? 207 : 200 });
 });
