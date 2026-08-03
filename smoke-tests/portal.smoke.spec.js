@@ -1369,6 +1369,49 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin tabs");
 });
 
+test("summary search categories start collapsed and open one at a time", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([{ id: "summary-search-job", job_number: "205", job_name: "North Warehouse", active: true }])
+  }));
+  await page.route(`${supabaseOrigin}/rest/v1/timesheet_entries**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([{
+      id: "summary-search-time",
+      worker_name: fakeProfile.worker_key,
+      week_start: "2026-08-02",
+      day_of_week: "Monday",
+      job_number: "205",
+      job_name: "North Warehouse",
+      hours: 8
+    }])
+  }));
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.searchAdminEverything === "function");
+
+  await page.locator("#adminGlobalSearchInput").fill("warehouse");
+  await page.locator("#adminGlobalSearchButton").click();
+  await expect(page.locator("#adminGlobalSearchStatus")).toContainText("2 relevant results");
+
+  const summaryGroups = page.locator("#adminGlobalSearchResults .admin-global-search-group");
+  await expect(summaryGroups).toHaveCount(2);
+  await expect(summaryGroups.locator(".admin-global-search-group-results:visible")).toHaveCount(0);
+  const summaryTimeGroup = summaryGroups.filter({ hasText: "Time & Attendance" });
+  const summaryJobsGroup = summaryGroups.filter({ hasText: "Jobs & Work Orders" });
+  await summaryTimeGroup.locator(".admin-global-search-group-header").click();
+  await expect(summaryTimeGroup.locator(".admin-global-search-group-results")).toBeVisible();
+  await expect(summaryJobsGroup.locator(".admin-global-search-group-results")).toBeHidden();
+  await summaryJobsGroup.locator(".admin-global-search-group-header").click();
+  await expect(summaryTimeGroup.locator(".admin-global-search-group-results")).toBeHidden();
+  await expect(summaryJobsGroup.locator(".admin-global-search-group-results")).toBeVisible();
+  await expectNoRuntimeErrors(errors, "summary search category accordions");
+});
+
 test("admin job dashboard selector filters and selects jobs", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const requestedTables = new Set();
@@ -1466,6 +1509,19 @@ test("admin spyglass searches lazy portal data from any page", async ({ page }) 
       { id: "global-job-two", job_number: "205", job_name: "North Warehouse", active: true }
     ])
   }));
+  await page.route(`${supabaseOrigin}/rest/v1/timesheet_entries**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([{
+      id: "global-search-time",
+      worker_name: fakeProfile.worker_key,
+      week_start: "2026-08-02",
+      day_of_week: "Monday",
+      job_number: "205",
+      job_name: "North Warehouse",
+      hours: 8
+    }])
+  }));
 
   await page.goto("/home.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.JGCAdminGlobalSearch && document.getElementById("jgcAdminGlobalSearchButton"));
@@ -1474,14 +1530,25 @@ test("admin spyglass searches lazy portal data from any page", async ({ page }) 
   await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
   await page.locator("#jgcAdminGlobalSearchSubmit").click();
 
-  await expect(page.locator("#jgcAdminGlobalSearchStatus")).toContainText("1 relevant result");
+  await expect(page.locator("#jgcAdminGlobalSearchStatus")).toContainText("2 relevant results");
   await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("205 - North Warehouse");
+  const spyglassGroups = page.locator("#jgcAdminGlobalSearchResults .jgc-admin-search-group");
+  await expect(spyglassGroups).toHaveCount(2);
+  await expect(spyglassGroups.locator(".jgc-admin-search-group-results:visible")).toHaveCount(0);
+  const spyglassTimeGroup = spyglassGroups.filter({ hasText: "Time & Attendance" });
+  const spyglassJobsGroup = spyglassGroups.filter({ hasText: "Jobs & Work Orders" });
+  await spyglassTimeGroup.locator(".jgc-admin-search-group-header").click();
+  await expect(spyglassTimeGroup.locator(".jgc-admin-search-group-results")).toBeVisible();
+  await expect(spyglassJobsGroup.locator(".jgc-admin-search-group-results")).toBeHidden();
+  await spyglassJobsGroup.locator(".jgc-admin-search-group-header").click();
+  await expect(spyglassTimeGroup.locator(".jgc-admin-search-group-results")).toBeHidden();
+  await expect(spyglassJobsGroup.locator(".jgc-admin-search-group-results")).toBeVisible();
   expect(requestedTables).toContain("previous_timesheet_weeks");
   expect(requestedTables).toContain("daily_site_reports");
   expect(requestedTables).toContain("subcontractors_suppliers");
   expect(requestedTables).toContain("tasks");
 
-  await page.locator("[data-jgc-admin-search-result]").click();
+  await spyglassJobsGroup.locator("[data-jgc-admin-search-result]").click();
   await expect(page).toHaveURL(/admin\.html\?tab=jobDashboard/);
   await expectNoRuntimeErrors(errors, "admin global spyglass search");
 });
@@ -1545,6 +1612,16 @@ test("employee spyglass searches navigation, jobs, and only the employee's recor
   await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
   await page.locator("#jgcAdminGlobalSearchSubmit").click();
   await expect(page.locator("#jgcAdminGlobalSearchResults")).toContainText("205 - North Warehouse");
+  const employeeGroups = page.locator("#jgcAdminGlobalSearchResults .jgc-admin-search-group");
+  await expect(employeeGroups).toHaveCount(2);
+  await expect(employeeGroups.locator(".jgc-admin-search-group-results:visible")).toHaveCount(0);
+  const employeeTimeGroup = employeeGroups.filter({ hasText: "Time & Attendance" });
+  const employeeJobsGroup = employeeGroups.filter({ hasText: "Jobs & Work Orders" });
+  await employeeTimeGroup.locator(".jgc-admin-search-group-header").click();
+  await expect(employeeTimeGroup.locator(".jgc-admin-search-group-results")).toBeVisible();
+  await employeeJobsGroup.locator(".jgc-admin-search-group-header").click();
+  await expect(employeeTimeGroup.locator(".jgc-admin-search-group-results")).toBeHidden();
+  await expect(employeeJobsGroup.locator(".jgc-admin-search-group-results")).toBeVisible();
   expect(requestedTables).toContain("jobs");
   expect(requestedTables).toContain("timesheet_entries");
   expect(requestedTables).not.toContain("daily_site_reports");
@@ -1564,7 +1641,9 @@ test("employee spyglass searches navigation, jobs, and only the employee's recor
 
   await page.locator("#jgcAdminGlobalSearchInput").fill("warehouse");
   await page.locator("#jgcAdminGlobalSearchSubmit").click();
-  await page.locator(".jgc-admin-search-result").filter({ hasText: "205 - North Warehouse" }).getByRole("button", { name: "Open" }).click();
+  const finalJobsGroup = page.locator("#jgcAdminGlobalSearchResults .jgc-admin-search-group").filter({ hasText: "Jobs & Work Orders" });
+  await finalJobsGroup.locator(".jgc-admin-search-group-header").click();
+  await finalJobsGroup.locator(".jgc-admin-search-result").filter({ hasText: "205 - North Warehouse" }).getByRole("button", { name: "Open" }).click();
   await expect(page).toHaveURL(/jobs\.html\?search=205/);
   await expect(page.locator("#jobSearch")).toHaveValue("205");
 

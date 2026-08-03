@@ -621,15 +621,17 @@
       if (!orderedGroups.includes(name)) orderedGroups.push(name);
     });
 
-    elements.results.innerHTML = orderedGroups.map((groupName) => {
+    elements.results.innerHTML = orderedGroups.map((groupName, groupIndex) => {
       const rows = groups.get(groupName);
+      const resultsId = "jgcAdminSearchGroupResults" + groupIndex;
       return `
         <section class="jgc-admin-search-group">
-          <div class="jgc-admin-search-group-header">
-            <h3>${escapeText(groupName)}</h3>
-            <span>${rows.length}</span>
-          </div>
-          <div class="jgc-admin-search-group-results">
+          <button type="button" class="jgc-admin-search-group-header" data-jgc-admin-search-group-toggle aria-expanded="false" aria-controls="${resultsId}">
+            <span class="jgc-admin-search-group-title">${escapeText(groupName)}</span>
+            <span class="jgc-admin-search-group-count">${rows.length}</span>
+            <span class="jgc-admin-search-group-chevron" aria-hidden="true">&#9656;</span>
+          </button>
+          <div id="${resultsId}" class="jgc-admin-search-group-results" hidden>
             ${rows.map(({ item, index }) => `
               <article class="jgc-admin-search-result">
                 <div class="jgc-admin-search-result-copy">
@@ -644,6 +646,27 @@
         </section>
       `;
     }).join("");
+  }
+
+  function toggleResultGroup(button) {
+    const elements = getElements();
+    if (!elements.results || !button) return;
+    const group = button.closest(".jgc-admin-search-group");
+    const groupResults = group && group.querySelector(".jgc-admin-search-group-results");
+    if (!group || !groupResults) return;
+    const shouldOpen = button.getAttribute("aria-expanded") !== "true";
+
+    elements.results.querySelectorAll("[data-jgc-admin-search-group-toggle]").forEach((otherButton) => {
+      otherButton.setAttribute("aria-expanded", "false");
+      const otherGroup = otherButton.closest(".jgc-admin-search-group");
+      const otherResults = otherGroup && otherGroup.querySelector(".jgc-admin-search-group-results");
+      if (otherResults) otherResults.hidden = true;
+    });
+
+    if (shouldOpen) {
+      button.setAttribute("aria-expanded", "true");
+      groupResults.hidden = false;
+    }
   }
 
   async function runSearch(forceReload) {
@@ -862,6 +885,11 @@
       if (event.key === "Escape") close();
     });
     elements.results.addEventListener("click", (event) => {
+      const groupButton = event.target.closest("[data-jgc-admin-search-group-toggle]");
+      if (groupButton) {
+        toggleResultGroup(groupButton);
+        return;
+      }
       const button = event.target.closest("[data-jgc-admin-search-result]");
       if (button) openResult(button.getAttribute("data-jgc-admin-search-result"));
     });

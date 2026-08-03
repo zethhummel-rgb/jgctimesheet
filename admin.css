@@ -1119,19 +1119,32 @@ button:hover,
 }
 
 .admin-global-search-group-header {
-    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     padding: 9px 12px;
+    border: 0;
+    border-radius: 0;
     background: #123d24;
     color: #ffffff;
+    text-align: left;
+    cursor: pointer;
 }
 
-.admin-global-search-group-header h3 {
-    margin: 0;
+.admin-global-search-group-header:hover,
+.admin-global-search-group-header[aria-expanded="true"] {
+    background: #18522f;
+}
+
+.admin-global-search-group-title {
     color: #ffffff;
     font-size: 14px;
+    font-weight: 900;
 }
 
 .admin-global-search-group-count {
@@ -1145,10 +1158,25 @@ button:hover,
     text-align: center;
 }
 
+.admin-global-search-group-chevron {
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1;
+    transition: transform 140ms ease;
+}
+
+.admin-global-search-group-header[aria-expanded="true"] .admin-global-search-group-chevron {
+    transform: rotate(90deg);
+}
+
 .admin-global-search-group-results {
     display: grid;
     gap: 6px;
     padding: 7px;
+}
+
+.admin-global-search-group-results[hidden] {
+    display: none;
 }
 
 .admin-global-search-group .admin-global-search-result {

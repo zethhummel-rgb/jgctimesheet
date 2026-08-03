@@ -632,8 +632,9 @@ function renderAdminGlobalSearchGroupedResults(items, statusText, preferredOrder
     adminGlobalSearchResults = [];
     status.textContent = statusText || (items.length ? items.length + " result" + (items.length === 1 ? "" : "s") : "No records found.");
 
-    container.innerHTML = orderedNames.map((groupName) => {
+    container.innerHTML = orderedNames.map((groupName, groupIndex) => {
         const groupItems = groups.get(groupName);
+        const resultsId = "adminGlobalSearchGroupResults" + groupIndex;
         const rows = groupItems.map((item) => {
             const resultIndex = adminGlobalSearchResults.push(item) - 1;
             return `
@@ -650,14 +651,35 @@ function renderAdminGlobalSearchGroupedResults(items, statusText, preferredOrder
 
         return `
             <section class="admin-global-search-group">
-                <div class="admin-global-search-group-header">
-                    <h3>${escapeHtml(groupName)}</h3>
+                <button type="button" class="admin-global-search-group-header" aria-expanded="false" aria-controls="${resultsId}" onclick="toggleAdminGlobalSearchGroup(this)">
+                    <span class="admin-global-search-group-title">${escapeHtml(groupName)}</span>
                     <span class="admin-global-search-group-count">${groupItems.length}</span>
-                </div>
-                <div class="admin-global-search-group-results">${rows}</div>
+                    <span class="admin-global-search-group-chevron" aria-hidden="true">&#9656;</span>
+                </button>
+                <div id="${resultsId}" class="admin-global-search-group-results" hidden>${rows}</div>
             </section>
         `;
     }).join("");
+}
+
+function toggleAdminGlobalSearchGroup(button) {
+    const container = document.getElementById("adminGlobalSearchResults");
+    const group = button && button.closest(".admin-global-search-group");
+    const groupResults = group && group.querySelector(".admin-global-search-group-results");
+    if (!container || !group || !groupResults) return;
+    const shouldOpen = button.getAttribute("aria-expanded") !== "true";
+
+    container.querySelectorAll(".admin-global-search-group-header").forEach((otherButton) => {
+        otherButton.setAttribute("aria-expanded", "false");
+        const otherGroup = otherButton.closest(".admin-global-search-group");
+        const otherResults = otherGroup && otherGroup.querySelector(".admin-global-search-group-results");
+        if (otherResults) otherResults.hidden = true;
+    });
+
+    if (shouldOpen) {
+        button.setAttribute("aria-expanded", "true");
+        groupResults.hidden = false;
+    }
 }
 
 function renderAdminGlobalSearchResults(query) {
