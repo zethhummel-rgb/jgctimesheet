@@ -1941,6 +1941,19 @@ test("employee home sidebar does not include an Admin shortcut", async ({ page }
   await expectNoRuntimeErrors(errors, "employee home admin shortcut removal");
 });
 
+test("employee certificates page omits the obsolete bottom action panel", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  await page.goto("/certificates.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("main > section.card")).toHaveCount(2);
+  await expect(page.locator("#toggleUpload")).toBeVisible();
+  await expect(page.locator(".certificate-page-actions")).toHaveCount(0);
+  await expectNoRuntimeErrors(errors, "employee certificates obsolete action panel");
+});
+
 test("purchase order job picker searches by job name and number", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page);

@@ -362,16 +362,14 @@
       box-shadow: none;
     }
 
-    .certificates-page .actions.jgc-table-actions,
-    .certificates-page .certificate-page-actions.jgc-actions {
+    .certificates-page .actions.jgc-table-actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
 
     .certificates-page .actions.jgc-table-actions button,
-    .certificates-page .actions.jgc-table-actions a,
-    .certificates-page .certificate-page-actions.jgc-actions button {
+    .certificates-page .actions.jgc-table-actions a {
       width: auto;
       margin: 0;
     }
@@ -512,10 +510,6 @@
   </div>
 </section>
 
-<section class="card jgc-panel certificate-page-actions jgc-actions">
-  <button type="button" class="jgc-button" onclick="window.location.href='home.html'">Home</button>
-  <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
-</section>
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
