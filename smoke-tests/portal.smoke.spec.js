@@ -1209,6 +1209,8 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(0);
   await search.fill("warehouse");
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
+  await expect.poll(() => page.locator("#jobDashboardSection").evaluate((element) => getComputedStyle(element).overflowY)).toBe("visible");
+  await expect.poll(() => page.locator("#jobDashboardOptions").evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
   await page.getByRole("option", { name: "205 - North Warehouse" }).click();
 
   await expect(search).toHaveValue("205 - North Warehouse");

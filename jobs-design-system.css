@@ -43,9 +43,13 @@
   box-sizing: border-box;
 }
 
-#jobDashboardSection.jgc-job-admin,
 #jobsSection.jgc-job-admin {
   overflow-x: hidden;
+}
+
+#jobDashboardSection.jgc-job-admin {
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 #jobsSection.jgc-job-admin input,
