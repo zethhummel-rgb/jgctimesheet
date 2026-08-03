@@ -1170,6 +1170,36 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin tabs");
 });
 
+test("admin job dashboard selector filters and selects jobs", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.goto("/admin.html?tab=jobDashboard", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderJobDashboardOptions === "function");
+
+  await page.evaluate(() => {
+    jobs = [
+      { id: "job-one", job_number: "101", job_name: "Main Street Office", active: true },
+      { id: "job-two", job_number: "205", job_name: "North Warehouse", active: true },
+      { id: "job-three", job_number: "330", job_name: "Riverside Apartments", active: true }
+    ];
+    renderJobDashboardOptions();
+    renderJobDashboard();
+  });
+
+  const search = page.locator("#jobDashboardSearch");
+  await search.click();
+  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(3);
+  await search.fill("warehouse");
+  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
+  await page.getByRole("option", { name: "205 - North Warehouse" }).click();
+
+  await expect(search).toHaveValue("205 - North Warehouse");
+  await expect(page.locator("#jobDashboardSelect")).toHaveValue("205");
+  await expect(page.locator("#jobDashboardOptions")).toBeHidden();
+  await expectNoRuntimeErrors(errors, "searchable job dashboard selector");
+});
+
 test("admin calendar loads approved employees on summary startup", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const tableRequests = [];

@@ -1703,9 +1703,62 @@ button:hover,
     margin-bottom: 14px;
 }
 
-.job-dashboard-controls select {
+.job-dashboard-controls select,
+.job-dashboard-controls input {
     background: #f6faf5;
     color: #102018;
+}
+
+.job-dashboard-picker {
+    position: relative;
+}
+
+.job-dashboard-search {
+    width: 100%;
+}
+
+.job-dashboard-options {
+    position: absolute;
+    z-index: 180;
+    top: calc(100% + 5px);
+    right: 0;
+    left: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid rgba(89, 198, 109, 0.62);
+    border-radius: 6px;
+    padding: 5px;
+    background: #10241b;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+}
+
+.job-dashboard-options[hidden] {
+    display: none;
+}
+
+.job-dashboard-option {
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    border: 0;
+    border-radius: 4px;
+    padding: 9px 11px;
+    background: transparent !important;
+    color: #ffffff;
+    line-height: 1.25;
+    text-align: left;
+}
+
+.job-dashboard-option:hover,
+.job-dashboard-option:focus-visible {
+    background: #174b2d !important;
+}
+
+.job-dashboard-empty {
+    padding: 12px;
+    color: #dbe8dc;
+    font-size: 14px;
 }
 
 .admin-schedule-summary {
@@ -3041,6 +3094,10 @@ button.admin-schedule-event-button.admin-event-vacation {
 
     .job-dashboard-record-grid {
         grid-template-columns: 1fr;
+    }
+
+    .job-dashboard-options {
+        max-height: min(310px, 42vh);
     }
 }
 

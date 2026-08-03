@@ -217,31 +217,164 @@ function isJobImportSheet(sheetName) {
 
 function renderJobDashboardOptions() {
     const select = document.getElementById("jobDashboardSelect");
+    const search = document.getElementById("jobDashboardSearch");
 
-    if (!select) {
+    if (!select || !search) {
         return;
     }
 
     const currentValue = select.value;
-    const sorted = jobs
+    const sorted = getSortedDashboardJobs();
+    const selectedJob = sorted.find((job) => getJobDashboardValue(job) === currentValue) || sorted[0] || null;
+
+    select.value = selectedJob ? getJobDashboardValue(selectedJob) : "";
+    search.value = selectedJob ? getJobDashboardDisplay(selectedJob) : "";
+    renderJobDashboardMatches("");
+}
+
+function getSortedDashboardJobs() {
+    return jobs
         .filter((job) => shouldShowJobOnDashboard(job))
         .sort((a, b) => String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true }));
+}
 
-    select.innerHTML = sorted.length
-        ? sorted.map((job) => `<option value="${escapeHtml(job.job_number || job.id)}">${escapeHtml([job.job_number, job.job_name].filter(Boolean).join(" - "))}</option>`).join("")
-        : '<option value="">No jobs found</option>';
+function getJobDashboardDisplay(job) {
+    return [job && job.job_number, job && job.job_name].filter(Boolean).join(" - ");
+}
 
-    if (currentValue && sorted.some((job) => (job.job_number || job.id) === currentValue)) {
-        select.value = currentValue;
+function getJobDashboardValue(job) {
+    return String(job && (job.job_number || job.id) || "");
+}
+
+function getMatchingDashboardJobs(searchValue) {
+    const terms = String(searchValue || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const sorted = getSortedDashboardJobs();
+
+    if (!terms.length) {
+        return sorted.slice(0, 100);
+    }
+
+    return sorted.filter((job) => {
+        const haystack = getJobDashboardDisplay(job).toLowerCase();
+        return terms.every((term) => haystack.includes(term));
+    }).slice(0, 100);
+}
+
+function renderJobDashboardMatches(searchValue) {
+    const options = document.getElementById("jobDashboardOptions");
+
+    if (!options) {
+        return;
+    }
+
+    const matches = getMatchingDashboardJobs(searchValue);
+    options.innerHTML = matches.length
+        ? matches.map((job) => `<button class="job-dashboard-option" type="button" role="option" data-job-dashboard-value="${escapeHtml(getJobDashboardValue(job))}" onclick="selectJobDashboardOption(this.dataset.jobDashboardValue)">${escapeHtml(getJobDashboardDisplay(job))}</button>`).join("")
+        : '<div class="job-dashboard-empty">No matching jobs found.</div>';
+}
+
+function openJobDashboardOptions(showAllWhenSelected) {
+    const search = document.getElementById("jobDashboardSearch");
+    const options = document.getElementById("jobDashboardOptions");
+
+    if (!search || !options) {
+        return;
+    }
+
+    const selectedJob = getSelectedDashboardJob();
+    const selectedDisplay = selectedJob ? getJobDashboardDisplay(selectedJob) : "";
+    const searchValue = showAllWhenSelected && search.value === selectedDisplay ? "" : search.value;
+    renderJobDashboardMatches(searchValue);
+    options.hidden = false;
+    search.setAttribute("aria-expanded", "true");
+}
+
+function closeJobDashboardOptions() {
+    const search = document.getElementById("jobDashboardSearch");
+    const options = document.getElementById("jobDashboardOptions");
+
+    if (options) {
+        options.hidden = true;
+    }
+    if (search) {
+        search.setAttribute("aria-expanded", "false");
     }
 }
+
+function selectJobDashboardOption(value) {
+    const select = document.getElementById("jobDashboardSelect");
+    const search = document.getElementById("jobDashboardSearch");
+    const job = getSortedDashboardJobs().find((item) => getJobDashboardValue(item) === String(value || ""));
+
+    if (!select || !search || !job) {
+        return;
+    }
+
+    select.value = getJobDashboardValue(job);
+    search.value = getJobDashboardDisplay(job);
+    closeJobDashboardOptions();
+    renderJobDashboard();
+}
+
+function handleJobDashboardSearchInput() {
+    const search = document.getElementById("jobDashboardSearch");
+    const select = document.getElementById("jobDashboardSelect");
+
+    if (!search || !select) {
+        return;
+    }
+
+    const exactValue = search.value.trim().toLowerCase();
+    const exactJob = getSortedDashboardJobs().find((job) => getJobDashboardDisplay(job).toLowerCase() === exactValue);
+    select.value = exactJob ? getJobDashboardValue(exactJob) : "";
+    openJobDashboardOptions();
+}
+
+function handleJobDashboardSearchKeydown(event) {
+    const options = document.getElementById("jobDashboardOptions");
+
+    if (event.key === "Escape") {
+        closeJobDashboardOptions();
+        return;
+    }
+
+    if (event.key === "ArrowDown") {
+        event.preventDefault();
+        openJobDashboardOptions(true);
+        const firstOption = options && options.querySelector("[data-job-dashboard-value]");
+        if (firstOption) {
+            firstOption.focus();
+        }
+        return;
+    }
+
+    if (event.key === "Enter" && options && !options.hidden) {
+        const matches = Array.from(options.querySelectorAll("[data-job-dashboard-value]"));
+        const search = document.getElementById("jobDashboardSearch");
+        const exactValue = search ? search.value.trim().toLowerCase() : "";
+        const exactOption = matches.find((option) => option.textContent.trim().toLowerCase() === exactValue);
+        const option = exactOption || (matches.length === 1 ? matches[0] : null);
+
+        if (option) {
+            event.preventDefault();
+            selectJobDashboardOption(option.dataset.jobDashboardValue);
+        }
+    }
+}
+
+document.addEventListener("pointerdown", function(event) {
+    const picker = document.getElementById("jobDashboardPicker");
+    if (picker && !picker.contains(event.target)) {
+        closeJobDashboardOptions();
+    }
+});
 
 function getSelectedDashboardJob() {
     const select = document.getElementById("jobDashboardSelect");
     const selectedValue = select ? select.value : "";
     const availableJobs = jobs.filter((job) => shouldShowJobOnDashboard(job));
 
-    return availableJobs.find((job) => (job.job_number || job.id) === selectedValue) || availableJobs[0] || null;
+    return availableJobs.find((job) => getJobDashboardValue(job) === selectedValue) || availableJobs[0] || null;
 }
 
 function shouldShowJobOnDashboard(job) {
@@ -714,7 +847,11 @@ async function saveJobDashboardInfo(jobId) {
     renderJobDashboardOptions();
     const select = document.getElementById("jobDashboardSelect");
     if (select) {
-        select.value = data.job_number || data.id;
+        select.value = getJobDashboardValue(data);
+    }
+    const search = document.getElementById("jobDashboardSearch");
+    if (search) {
+        search.value = getJobDashboardDisplay(data);
     }
     renderJobDashboard();
 }
