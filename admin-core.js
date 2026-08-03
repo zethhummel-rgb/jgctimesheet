@@ -34,6 +34,8 @@ let workOrderLabourWorkers = [];
 let employeeFeatureAccessRows = [];
 let adminWorkOrderManagementView = "active";
 let jobDashboardRecordReturnFocus = null;
+let jobDashboardContentLoaded = false;
+let jobDashboardContentLoading = null;
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
@@ -328,6 +330,49 @@ function ensureAdminTabData(tab) {
     return false;
 }
 
+async function loadJobDashboardContentData() {
+    const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, digitalPoResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
+        { label: "job dashboard submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
+        { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
+        { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "job dashboard work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
+        { label: "job dashboard digital purchase orders", query: () => supabaseClient.from("digital_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false }).limit(2000) },
+        { label: "job dashboard labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
+        { label: "job dashboard purchase orders", query: () => supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }) },
+        { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
+        { label: "job dashboard travel", query: () => supabaseClient.from("work_order_travel").select("*") }
+    ]);
+    timesheets = submittedResult.data || [];
+    liveTimesheetEntries = liveResult.data || [];
+    inspections = inspectionResult.data || [];
+    dailySiteReports = dailyResult.data || [];
+    workOrders = workOrderResult.data || [];
+    digitalPurchaseOrders = digitalPoResult.data || [];
+    workOrderLabourRows = labourResult.data || [];
+    workOrderPurchaseOrders = poResult.data || [];
+    workOrderEquipmentRows = equipmentResult.data || [];
+    workOrderTravelRows = travelResult.data || [];
+}
+
+function ensureJobDashboardContentData() {
+    if (jobDashboardContentLoaded) {
+        return Promise.resolve();
+    }
+
+    if (!jobDashboardContentLoading) {
+        jobDashboardContentLoading = loadJobDashboardContentData()
+            .then(() => {
+                jobDashboardContentLoaded = true;
+            })
+            .finally(() => {
+                jobDashboardContentLoading = null;
+            });
+    }
+
+    return jobDashboardContentLoading;
+}
+
 async function loadAdminTabData(tab) {
     if (tab === "summary" || tab === "vacation" || tab === "adminTools") {
         return;
@@ -405,28 +450,6 @@ async function loadAdminTabData(tab) {
     }
 
     if (tab === "jobDashboard") {
-        const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, digitalPoResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
-            { label: "job dashboard submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
-            { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
-            { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "job dashboard work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
-            { label: "job dashboard digital purchase orders", query: () => supabaseClient.from("digital_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false }).limit(2000) },
-            { label: "job dashboard labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
-            { label: "job dashboard purchase orders", query: () => supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }) },
-            { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
-            { label: "job dashboard travel", query: () => supabaseClient.from("work_order_travel").select("*") }
-        ]);
-        timesheets = submittedResult.data || [];
-        liveTimesheetEntries = liveResult.data || [];
-        inspections = inspectionResult.data || [];
-        dailySiteReports = dailyResult.data || [];
-        workOrders = workOrderResult.data || [];
-        digitalPurchaseOrders = digitalPoResult.data || [];
-        workOrderLabourRows = labourResult.data || [];
-        workOrderPurchaseOrders = poResult.data || [];
-        workOrderEquipmentRows = equipmentResult.data || [];
-        workOrderTravelRows = travelResult.data || [];
         return;
     }
 
@@ -941,17 +964,19 @@ async function loadAdminData(options = {}) {
                 { label: "vacation requests", query: () => supabaseClient.from("vacation_requests").select("*").order("created_at", { ascending: false }) },
                 { label: "schedule events", query: () => supabaseClient.from("schedule_events").select("*").order("event_date", { ascending: true }).order("start_time", { ascending: true }) },
                 { label: "profiles", query: () => supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status,created_at,approved_at,deactivated_at,phone,emergency_contact,address,position,department,hire_date,employment_type,supervisor,employee_id,avatar_path,last_login_at,last_portal_activity").order("display_name", { ascending: true }) },
+                { label: "jobs", query: () => supabaseClient.from("jobs").select("*").order("job_number", { ascending: true }) },
                 { label: "approved work order workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
                 { label: "employee page access", query: () => supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled") },
                 { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
             ]);
 
-            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, workOrderWorkerResult, employeeFeatureAccessResult, subcontractorActivityResult] = adminDataResults;
+            const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, employeeFeatureAccessResult, subcontractorActivityResult] = adminDataResults;
 
             liveTimesheetEntries = liveTimesheetResult.data || [];
             vacationRequests = vacationResult.data || [];
             scheduleEvents = scheduleResult.data || [];
             accounts = accountResult.data || [];
+            jobs = jobsResult.data || [];
             workOrderLabourWorkers = workOrderWorkerResult.data || [];
             employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
             subcontractorActivity = subcontractorActivityResult.data || [];
@@ -970,7 +995,9 @@ async function loadAdminData(options = {}) {
             }
 
             initializeAdminSummaryBaselines();
-            adminTabDataLoaded = new Set(["summary", "vacation", "adminTools"]);
+            jobDashboardContentLoaded = false;
+            jobDashboardContentLoading = null;
+            adminTabDataLoaded = new Set(["summary", "vacation", "adminTools", "jobDashboard"]);
             safetyRecordsSubtabDataLoaded = new Set();
             safetyRecordsSubtabDataLoading = {};
             adminDataLoaded = true;
@@ -1072,6 +1099,8 @@ async function loadAdminData(options = {}) {
     workOrderPurchaseOrders = workOrderPoResult.data || [];
     workOrderEquipmentRows = workOrderEquipmentResult.data || [];
     workOrderTravelRows = workOrderTravelResult.data || [];
+    jobDashboardContentLoaded = true;
+    jobDashboardContentLoading = null;
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
     employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
     equipmentItems = equipmentResult.data || [];

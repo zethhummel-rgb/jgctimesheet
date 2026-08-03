@@ -1172,25 +1172,41 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
 
 test("admin job dashboard selector filters and selects jobs", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
-  await installAuthenticatedPortalState(page);
-  await mockPortalServices(page);
-  await page.goto("/admin.html?tab=jobDashboard", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof window.renderJobDashboardOptions === "function");
+  const requestedTables = new Set();
+  const dashboardJobs = [
+    { id: "job-one", job_number: "101", job_name: "Main Street Office", active: true },
+    { id: "job-two", job_number: "205", job_name: "North Warehouse", active: true },
+    { id: "job-three", job_number: "330", job_name: "Riverside Apartments", active: true },
+    { id: "job-four", job_number: "410", job_name: "Closed Community Centre", active: false }
+  ];
 
-  await page.evaluate(() => {
-    jobs = [
-      { id: "job-one", job_number: "101", job_name: "Main Street Office", active: true },
-      { id: "job-two", job_number: "205", job_name: "North Warehouse", active: true },
-      { id: "job-three", job_number: "330", job_name: "Riverside Apartments", active: true },
-      { id: "job-four", job_number: "410", job_name: "Closed Community Centre", active: false }
-    ];
-    renderJobDashboardOptions();
-    renderJobDashboard();
+  page.on("request", (request) => {
+    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
+    if (match) requestedTables.add(match[1]);
   });
 
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(dashboardJobs)
+  }));
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderJobDashboardOptions === "function");
+  await expect.poll(() => requestedTables.has("jobs")).toBe(true);
+  await expect.poll(() => page.evaluate(() => jobs.length)).toBe(4);
+  expect(requestedTables.has("work_orders")).toBe(false);
+
+  await page.locator("#jobDashboardTab").click();
+
   const search = page.locator("#jobDashboardSearch");
+  await expect(search).toHaveValue("");
+  await expect(page.locator("#jobDashboardSelect")).toHaveValue("");
+  await expect(page.locator("#jobDashboardContent")).toContainText("Start typing a job number or name");
   await search.click();
-  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(4);
+  await expect(page.locator("#jobDashboardOptions")).toBeHidden();
+  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(0);
   await search.fill("warehouse");
   await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
   await page.getByRole("option", { name: "205 - North Warehouse" }).click();
@@ -1198,6 +1214,8 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await expect(search).toHaveValue("205 - North Warehouse");
   await expect(page.locator("#jobDashboardSelect")).toHaveValue("205");
   await expect(page.locator("#jobDashboardOptions")).toBeHidden();
+  await expect.poll(() => requestedTables.has("work_orders")).toBe(true);
+  await expect(page.locator("#jobDashboardContent .job-status-pill")).toHaveText("Active");
 
   await search.click();
   await search.fill("closed community");
@@ -1205,6 +1223,11 @@ test("admin job dashboard selector filters and selects jobs", async ({ page }) =
   await page.getByRole("option", { name: "410 - Closed Community Centre" }).click();
   await expect(page.locator("#jobDashboardSelect")).toHaveValue("410");
   await expect(page.locator("#jobDashboardContent .job-status-pill")).toHaveText("Inactive");
+
+  await page.locator("#jobDashboardSection").getByRole("button", { name: "Refresh Jobs" }).click();
+  await expect(search).toHaveValue("");
+  await expect(page.locator("#jobDashboardSelect")).toHaveValue("");
+  await expect(page.locator("#jobDashboardContent")).toContainText("Start typing a job number or name");
   await expectNoRuntimeErrors(errors, "searchable job dashboard selector");
 });
 
@@ -1355,7 +1378,7 @@ test("admin calendar loads approved employees on summary startup", async ({ page
   await expectNoRuntimeErrors(errors, "admin calendar employee loading");
 });
 
-test("admin tool data loads only after its tool is opened", async ({ page }) => {
+test("admin tools stay lazy while the job search list preloads", async ({ page }) => {
   test.setTimeout(45_000);
   const errors = watchRuntimeErrors(page);
   const tableRequests = [];
@@ -1369,7 +1392,6 @@ test("admin tool data loads only after its tool is opened", async ({ page }) => 
   const tools = [
     ["employeeProfile", "previous_timesheet_weeks"],
     ["certificates", "certificates"],
-    ["jobs", "jobs"],
     ["equipment", "equipment_vehicles"],
     ["contacts", "contacts"],
     ["subcontractorsSuppliers", "subcontractors_suppliers"],
@@ -1378,6 +1400,11 @@ test("admin tool data loads only after its tool is opened", async ({ page }) => 
 
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page);
+
+  await page.goto("/admin.html?tab=adminTools", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => adminDataLoaded === true);
+  expect(tableRequests, "job list was not preloaded").toContain("jobs");
+  expect(tableRequests, "job details loaded before a job was selected").not.toContain("work_orders");
 
   for (const [tab, table] of tools) {
     tableRequests.length = 0;

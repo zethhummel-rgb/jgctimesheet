@@ -225,11 +225,17 @@ function renderJobDashboardOptions() {
 
     const currentValue = select.value;
     const sorted = getSortedDashboardJobs();
-    const selectedJob = sorted.find((job) => getJobDashboardValue(job) === currentValue) || sorted[0] || null;
+    const selectedJob = currentValue
+        ? sorted.find((job) => getJobDashboardValue(job) === currentValue) || null
+        : null;
 
     select.value = selectedJob ? getJobDashboardValue(selectedJob) : "";
-    search.value = selectedJob ? getJobDashboardDisplay(selectedJob) : "";
-    renderJobDashboardMatches("");
+    if (selectedJob) {
+        search.value = getJobDashboardDisplay(selectedJob);
+    } else if (currentValue) {
+        search.value = "";
+    }
+    renderJobDashboardMatches(search.value);
 }
 
 function getSortedDashboardJobs() {
@@ -251,7 +257,7 @@ function getMatchingDashboardJobs(searchValue) {
     const sorted = getSortedDashboardJobs();
 
     if (!terms.length) {
-        return sorted.slice(0, 100);
+        return [];
     }
 
     return sorted.filter((job) => {
@@ -267,13 +273,18 @@ function renderJobDashboardMatches(searchValue) {
         return;
     }
 
+    if (!String(searchValue || "").trim()) {
+        options.innerHTML = "";
+        return;
+    }
+
     const matches = getMatchingDashboardJobs(searchValue);
     options.innerHTML = matches.length
         ? matches.map((job) => `<button class="job-dashboard-option" type="button" role="option" data-job-dashboard-value="${escapeHtml(getJobDashboardValue(job))}" onclick="selectJobDashboardOption(this.dataset.jobDashboardValue)">${escapeHtml(getJobDashboardDisplay(job))}</button>`).join("")
         : '<div class="job-dashboard-empty">No matching jobs found.</div>';
 }
 
-function openJobDashboardOptions(showAllWhenSelected) {
+function openJobDashboardOptions() {
     const search = document.getElementById("jobDashboardSearch");
     const options = document.getElementById("jobDashboardOptions");
 
@@ -281,10 +292,14 @@ function openJobDashboardOptions(showAllWhenSelected) {
         return;
     }
 
-    const selectedJob = getSelectedDashboardJob();
-    const selectedDisplay = selectedJob ? getJobDashboardDisplay(selectedJob) : "";
-    const searchValue = showAllWhenSelected && search.value === selectedDisplay ? "" : search.value;
+    const searchValue = search.value;
     renderJobDashboardMatches(searchValue);
+
+    if (!searchValue.trim()) {
+        closeJobDashboardOptions();
+        return;
+    }
+
     options.hidden = false;
     search.setAttribute("aria-expanded", "true");
 }
@@ -301,7 +316,7 @@ function closeJobDashboardOptions() {
     }
 }
 
-function selectJobDashboardOption(value) {
+async function selectJobDashboardOption(value) {
     const select = document.getElementById("jobDashboardSelect");
     const search = document.getElementById("jobDashboardSearch");
     const job = getSortedDashboardJobs().find((item) => getJobDashboardValue(item) === String(value || ""));
@@ -313,6 +328,27 @@ function selectJobDashboardOption(value) {
     select.value = getJobDashboardValue(job);
     search.value = getJobDashboardDisplay(job);
     closeJobDashboardOptions();
+
+    if (typeof jobDashboardContentLoaded !== "undefined" && !jobDashboardContentLoaded) {
+        const container = document.getElementById("jobDashboardContent");
+        if (container) {
+            container.textContent = "Loading job details...";
+        }
+
+        try {
+            await ensureJobDashboardContentData();
+        } catch (error) {
+            if (container) {
+                container.textContent = "Job details could not be loaded. Please try again.";
+            }
+            return;
+        }
+
+        if (select.value !== getJobDashboardValue(job)) {
+            return;
+        }
+    }
+
     renderJobDashboard();
 }
 
@@ -324,9 +360,8 @@ function handleJobDashboardSearchInput() {
         return;
     }
 
-    const exactValue = search.value.trim().toLowerCase();
-    const exactJob = getSortedDashboardJobs().find((job) => getJobDashboardDisplay(job).toLowerCase() === exactValue);
-    select.value = exactJob ? getJobDashboardValue(exactJob) : "";
+    select.value = "";
+    renderJobDashboard();
     openJobDashboardOptions();
 }
 
@@ -340,7 +375,7 @@ function handleJobDashboardSearchKeydown(event) {
 
     if (event.key === "ArrowDown") {
         event.preventDefault();
-        openJobDashboardOptions(true);
+        openJobDashboardOptions();
         const firstOption = options && options.querySelector("[data-job-dashboard-value]");
         if (firstOption) {
             firstOption.focus();
@@ -374,7 +409,7 @@ function getSelectedDashboardJob() {
     const selectedValue = select ? select.value : "";
     const availableJobs = jobs.filter((job) => shouldShowJobOnDashboard(job));
 
-    return availableJobs.find((job) => getJobDashboardValue(job) === selectedValue) || availableJobs[0] || null;
+    return availableJobs.find((job) => getJobDashboardValue(job) === selectedValue) || null;
 }
 
 function shouldShowJobOnDashboard(job) {
@@ -857,7 +892,14 @@ function renderJobDashboard() {
     }
 
     if (!job) {
-        container.textContent = "Import jobs to build the dashboard.";
+        container.textContent = jobs.length
+            ? "Start typing a job number or name above, then choose a match to view its dashboard."
+            : "No jobs are available yet.";
+        return;
+    }
+
+    if (typeof jobDashboardContentLoaded !== "undefined" && !jobDashboardContentLoaded) {
+        container.textContent = "Loading job details...";
         return;
     }
 
@@ -1212,6 +1254,15 @@ async function loadJobsManagement() {
     }
 
     jobs = data || [];
+    const dashboardSelect = document.getElementById("jobDashboardSelect");
+    const dashboardSearch = document.getElementById("jobDashboardSearch");
+    if (dashboardSelect) {
+        dashboardSelect.value = "";
+    }
+    if (dashboardSearch) {
+        dashboardSearch.value = "";
+    }
+    closeJobDashboardOptions();
     renderJobDashboardOptions();
     renderJobDashboard();
     renderJobsManagement();
