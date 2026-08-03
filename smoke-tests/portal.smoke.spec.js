@@ -345,6 +345,45 @@ test("notification push control stays in the lower-right action row", async ({ p
   await expectNoRuntimeErrors(errors, "notification footer actions");
 });
 
+test("installed employee home keeps its exposed top margin dark", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await page.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      if (query !== "(display-mode: standalone)") {
+        return nativeMatchMedia(query);
+      }
+
+      return {
+        matches: true,
+        media: query,
+        onchange: null,
+        addListener() {},
+        removeListener() {},
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() { return false; }
+      };
+    };
+  });
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("body")).toHaveClass(/jgc-standalone-pwa/);
+  const canvas = await page.evaluate(() => {
+    const shell = document.querySelector(".app-shell").getBoundingClientRect();
+    return {
+      rootBackground: getComputedStyle(document.documentElement).backgroundColor,
+      shellTop: shell.top
+    };
+  });
+
+  expect(canvas.shellTop).toBeGreaterThan(0);
+  expect(canvas.rootBackground).toBe("rgb(7, 16, 15)");
+  await expectNoRuntimeErrors(errors, "installed employee home top margin");
+});
+
 test("signed storage links preserve nested object paths", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await mockPortalServices(page);

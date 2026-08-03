@@ -5012,7 +5012,7 @@ function activateJgcPwaRefresh() {
   style.id = "jgcPwaRefreshStyles";
   style.textContent = `
     html.jgc-pwa-pull-enabled {
-      background: #ffffff;
+      background: #07100f;
       overscroll-behavior-y: contain;
     }
 
