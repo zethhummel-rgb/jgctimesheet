@@ -668,6 +668,115 @@ test("admin timesheets do not auto-add approved vacation", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "admin vacation timesheet exclusion");
 });
 
+test("admin can submit a complete employee timesheet week", async ({ page }) => {
+  const errors = watchRuntimeErrors(page, "accept");
+  const now = new Date();
+  const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+  const dateValue = (date) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+  const weekStart = dateValue(weekStartDate);
+  const weekEnd = weekEndDate.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  let liveRows = weekdays.map((day, index) => ({
+    id: `00000000-0000-4000-8000-0000000001${String(index).padStart(2, "0")}`,
+    worker_name: "Steven Leduc",
+    week_start: weekStart,
+    week_end: weekEnd,
+    job_name: "Smoke Test Job",
+    job_number: "26001",
+    day_of_week: day,
+    time_in: "07:00:00",
+    time_out: "15:30:00",
+    hours: 8,
+    took_lunch: true,
+    night_work: false,
+    entry_type: "work",
+    leave_type: "",
+    leave_note: "",
+    created_at: new Date().toISOString()
+  }));
+  liveRows.push(...weekdays.slice(0, 4).map((day, index) => ({
+    ...liveRows[index],
+    id: `00000000-0000-4000-8000-0000000002${String(index).padStart(2, "0")}`,
+    worker_name: fakeProfile.display_name
+  })));
+  let archivePayload = null;
+  let deletedLiveWeek = false;
+  let emailPayload = null;
+
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/timesheet_entries**`, async (route) => {
+    if (route.request().method() === "DELETE") {
+      deletedLiveWeek = true;
+      liveRows = liveRows.filter((row) => row.worker_name !== "Steven Leduc");
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Range": `0-${Math.max(0, liveRows.length - 1)}/${liveRows.length}` },
+      body: JSON.stringify(liveRows)
+    });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/previous_timesheet_weeks**`, async (route) => {
+    if (route.request().method() === "POST") {
+      const payload = route.request().postDataJSON();
+      archivePayload = Array.isArray(payload) ? payload[0] : payload;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/1" },
+        body: JSON.stringify({
+          id: "00000000-0000-4000-8000-000000000300",
+          submitted_at: new Date().toISOString(),
+          ...archivePayload
+        })
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*", "Content-Range": "0-0/0" },
+      body: "[]"
+    });
+  });
+  await page.route("https://script.google.com/**", async (route) => {
+    emailPayload = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#timesheetsSection")).toBeVisible({ timeout: 10000 });
+  await page.locator("#timesheetWorkerFilter").fill("Steven");
+  const submitButton = page.locator('button[data-worker="Steven Leduc"][data-week-start="' + weekStart + '"]');
+  await expect(submitButton).toBeVisible();
+  await expect(page.locator('button[data-worker="' + fakeProfile.display_name + '"]')).toHaveCount(0);
+
+  await submitButton.click();
+  await expect.poll(() => archivePayload).not.toBeNull();
+  await expect.poll(() => deletedLiveWeek).toBe(true);
+  await expect.poll(() => emailPayload).not.toBeNull();
+
+  expect(archivePayload.worker_name).toBe("Steven Leduc");
+  expect(archivePayload.entries).toHaveLength(5);
+  expect(archivePayload.entries.map((entry) => entry.day)).toEqual(weekdays);
+  expect(archivePayload.total_hours).toBe(40);
+  expect(emailPayload.source).toBe("admin_submit");
+  expect(emailPayload.to).toContain("steven@example.com");
+  await expect(submitButton).toHaveCount(0);
+  await expectNoRuntimeErrors(errors, "admin complete timesheet submission");
+});
+
 test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const reportId = "00000000-0000-4000-8000-000000000099";

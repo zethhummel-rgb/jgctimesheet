@@ -1060,6 +1060,226 @@ function formatAdminLiveTimesheetWeekLabel(weekStart) {
     return "Week of " + formatTimesheetPdfDate(startDate) + " to " + formatTimesheetPdfDate(endDate);
 }
 
+function getAdminLiveTimesheetWeekLabel(weekStart) {
+    const startDate = makeLocalDate(weekStart);
+
+    if (!weekStart || Number.isNaN(startDate.getTime())) {
+        return weekStart || "Week not set";
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    return formatTimesheetPdfDate(startDate) + " to " + formatTimesheetPdfDate(endDate);
+}
+
+function getAdminLiveTimesheetWeekRows(worker, weekStart) {
+    const workerKey = normalizeWorkerName(worker);
+
+    return liveTimesheetEntries.filter((entry) => {
+        return normalizeWorkerName(entry.worker_name) === workerKey && String(entry.week_start || "") === String(weekStart || "");
+    });
+}
+
+function getAdminLiveTimesheetMissingWeekdays(entries) {
+    const requiredDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    const coveredDays = new Set((entries || []).map((entry) => entry.day_of_week).filter(Boolean));
+    return requiredDays.filter((day) => !coveredDays.has(day));
+}
+
+function getSubmittedTimesheetWeekStart(week) {
+    const entries = week && Array.isArray(week.entries) ? week.entries : [];
+    const firstEntry = entries.find((entry) => getTimesheetEntryValue(entry, "weekStartValue", "week_start", ""));
+    return firstEntry ? String(getTimesheetEntryValue(firstEntry, "weekStartValue", "week_start", "")) : "";
+}
+
+function isAdminLiveTimesheetWeekSubmitted(worker, weekStart) {
+    const workerKey = normalizeWorkerName(worker);
+    const weekLabel = getAdminLiveTimesheetWeekLabel(weekStart);
+
+    return timesheets.some((week) => {
+        if (normalizeWorkerName(week.worker_name) !== workerKey) {
+            return false;
+        }
+
+        const submittedWeekStart = getSubmittedTimesheetWeekStart(week);
+        return submittedWeekStart
+            ? submittedWeekStart === weekStart
+            : String(week.week_label || "") === weekLabel;
+    });
+}
+
+function canAdminSubmitLiveTimesheetWeek(worker, weekStart) {
+    const entries = getAdminLiveTimesheetWeekRows(worker, weekStart);
+    return Boolean(entries.length) &&
+        !getAdminLiveTimesheetMissingWeekdays(entries).length &&
+        !isAdminLiveTimesheetWeekSubmitted(worker, weekStart);
+}
+
+function renderAdminLiveTimesheetSubmitButton(worker, weekStart) {
+    if (!canAdminSubmitLiveTimesheetWeek(worker, weekStart)) {
+        return "";
+    }
+
+    return `
+        <button type="button" data-worker="${escapeHtml(worker)}" data-week-start="${escapeHtml(weekStart)}" onclick="submitAdminLiveTimesheetWeek(this)">
+            Submit Timesheet
+        </button>
+    `;
+}
+
+function convertAdminLiveEntryForArchive(entry) {
+    const startDate = makeLocalDate(entry.week_start);
+
+    return {
+        id: entry.id,
+        user: entry.worker_name,
+        weekStartValue: entry.week_start,
+        weekStart: Number.isNaN(startDate.getTime()) ? entry.week_start : formatTimesheetPdfDate(startDate),
+        weekEnd: entry.week_end,
+        jobName: entry.job_name,
+        jobNumber: entry.job_number,
+        day: entry.day_of_week,
+        timeIn: entry.time_in ? String(entry.time_in).slice(0, 5) : "00:00",
+        timeOut: entry.time_out ? String(entry.time_out).slice(0, 5) : "00:00",
+        hours: Number(entry.hours || 0),
+        tookLunch: Boolean(entry.took_lunch),
+        nightWork: Boolean(entry.night_work),
+        entryType: entry.entry_type || "",
+        leaveType: entry.leave_type || "",
+        leaveNote: entry.leave_note || entry.admin_entry_note || ""
+    };
+}
+
+function getAdminTimesheetSubmissionRecipients(worker) {
+    const recipients = ADMIN_TIMESHEET_RESUBMIT_RECIPIENTS.slice();
+    const workerKey = normalizeWorkerName(worker);
+    const account = accounts.find((item) => [item.worker_key, item.display_name, item.email]
+        .map(normalizeWorkerName)
+        .includes(workerKey));
+    const employeeEmail = String(account && account.email || "").trim().toLowerCase();
+
+    if (employeeEmail && !recipients.some((email) => email.toLowerCase() === employeeEmail)) {
+        recipients.push(employeeEmail);
+    }
+
+    return recipients;
+}
+
+async function submitAdminLiveTimesheetWeek(button) {
+    const worker = button && button.dataset.worker || "";
+    const weekStart = button && button.dataset.weekStart || "";
+    const liveEntries = getAdminLiveTimesheetWeekRows(worker, weekStart);
+    const missingWeekdays = getAdminLiveTimesheetMissingWeekdays(liveEntries);
+
+    if (!worker || !weekStart || !liveEntries.length) {
+        alert("This live timesheet could not be found. Refresh the entries and try again.");
+        return;
+    }
+
+    if (missingWeekdays.length) {
+        alert("This timesheet is not ready to submit. Missing: " + missingWeekdays.join(", ") + ".");
+        renderTimesheets();
+        return;
+    }
+
+    if (isAdminLiveTimesheetWeekSubmitted(worker, weekStart)) {
+        alert("This timesheet has already been submitted.");
+        renderTimesheets();
+        return;
+    }
+
+    const noteResponse = prompt(
+        "Add a note for " + worker + "'s weekly timesheet before submitting.\n\nLeave it blank if there is nothing to add.",
+        ""
+    );
+
+    if (noteResponse === null || !confirm("Submit this completed timesheet for " + worker + "?")) {
+        return;
+    }
+
+    const originalButtonText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Submitting...";
+
+    const entries = liveEntries.map(convertAdminLiveEntryForArchive);
+    const weekLabel = getAdminLiveTimesheetWeekLabel(weekStart);
+    const totalHours = entries.reduce((total, entry) => total + Number(entry.hours || 0), 0);
+    const note = noteResponse.trim();
+    const archivePayload = {
+        worker_name: worker,
+        week_label: weekLabel,
+        entries,
+        total_hours: totalHours,
+        note
+    };
+
+    try {
+        const { data: savedWeek, error: insertError } = await supabaseClient
+            .from("previous_timesheet_weeks")
+            .insert(archivePayload)
+            .select("*")
+            .single();
+
+        if (insertError) {
+            throw insertError;
+        }
+
+        const { error: deleteError } = await supabaseClient
+            .from("timesheet_entries")
+            .delete()
+            .eq("worker_name", worker)
+            .eq("week_start", weekStart);
+
+        const archivedWeek = Object.assign({
+            submitted_at: new Date().toISOString()
+        }, archivePayload, savedWeek || {});
+        timesheets = [archivedWeek].concat(timesheets);
+        liveTimesheetEntries = liveTimesheetEntries.filter((entry) => {
+            return !(normalizeWorkerName(entry.worker_name) === normalizeWorkerName(worker) && String(entry.week_start || "") === weekStart);
+        });
+        renderTimesheets();
+
+        const subject = "Timesheet - " + worker + " - " + weekLabel;
+        const body = buildAdminTimesheetEmailBody(archivedWeek, totalHours);
+        const pdfHtml = buildAdminTimesheetPdfHtml(archivedWeek, totalHours);
+
+        try {
+            await fetch(TIMESHEET_EMAIL_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8"
+                },
+                body: JSON.stringify({
+                    to: getAdminTimesheetSubmissionRecipients(worker).join(","),
+                    subject,
+                    body,
+                    text: body,
+                    pdfHtml,
+                    pdfFileName: "timesheet-" + makeSafeEmailFileName(worker + "-" + weekLabel) + ".pdf",
+                    worker,
+                    weekLabel,
+                    source: "admin_submit"
+                })
+            });
+        } catch (emailError) {
+            alert("The timesheet was submitted, but the email could not be sent.");
+            return;
+        }
+
+        if (deleteError) {
+            alert("The timesheet was submitted, but its live entries could not be cleared. Refresh the page before making changes.");
+            return;
+        }
+
+        alert("Timesheet submitted for " + worker + ".");
+    } catch (error) {
+        alert("This timesheet could not be submitted. Please refresh and try again.");
+        button.disabled = false;
+        button.textContent = originalButtonText;
+    }
+}
+
 function getAdminLiveGroupedKey(row) {
     return [
         row.weekStart || "",
@@ -1217,8 +1437,11 @@ function renderLiveTimesheetEntries(filter) {
                             const days = getTimesheetDayNames().filter((day) => weekRows.some((row) => row.day === day));
 
                             return `
-                                <div style="margin:14px 0 6px;font-weight:bold;color:#27d447;">
-                                    ${escapeHtml(formatAdminLiveTimesheetWeekLabel(weekStart))} - ${weekTotal.toFixed(2)} hrs
+                                <div style="margin:14px 0 6px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                                    <div style="font-weight:bold;color:#27d447;">
+                                        ${escapeHtml(formatAdminLiveTimesheetWeekLabel(weekStart))} - ${weekTotal.toFixed(2)} hrs
+                                    </div>
+                                    ${renderAdminLiveTimesheetSubmitButton(worker, weekStart)}
                                 </div>
                                 ${days.map((day) => {
                                     const dayRows = weekRows.filter((row) => row.day === day);
