@@ -1928,6 +1928,19 @@ test("employee homepage exposes Job Notes on desktop and mobile", async ({ page 
   await expectNoRuntimeErrors(errors, "employee homepage Job Notes navigation");
 });
 
+test("employee home sidebar does not include an Admin shortcut", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator(".sidebar .side-nav")).toBeVisible();
+  await expect(page.locator("#sideAdminButton")).toHaveCount(0);
+  await expect(page.locator(".sidebar").getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
+  await expectNoRuntimeErrors(errors, "employee home admin shortcut removal");
+});
+
 test("purchase order job picker searches by job name and number", async ({ page }) => {
   const poProfile = Object.assign({}, fakeProfile, { can_create_digital_pos: true });
   const errors = watchRuntimeErrors(page);

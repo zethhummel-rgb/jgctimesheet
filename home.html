@@ -339,11 +339,6 @@
       gap: 8px;
     }
 
-    .side-admin-wrap {
-      margin-top: auto;
-      padding-top: 18px;
-    }
-
     .side-link,
     .bottom-link {
       border: 0;
@@ -395,14 +390,6 @@
     .side-link:hover,
     .side-link.active {
       background: linear-gradient(90deg, rgba(32, 147, 57, 0.88), rgba(15, 91, 39, 0.82));
-    }
-
-    .admin-side-link {
-      opacity: 0.72;
-    }
-
-    .admin-side-link:hover {
-      opacity: 1;
     }
 
     .quick-info {
@@ -1523,9 +1510,6 @@
         <button id="policiesAnnouncementsSideLink" type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i><span class="side-label">Policies / Announcements</span></button>
       </nav>
 
-      <div class="side-admin-wrap">
-        <button id="sideAdminButton" type="button" class="side-link admin-side-link" onclick="goTo('admin.html')" hidden><i data-lucide="settings"></i><span class="side-label">Admin</span></button>
-      </div>
     </aside>
 
     <main class="content home-dashboard-content">
@@ -1858,10 +1842,6 @@ const greeting = getGreeting();
 document.getElementById("greetingText").innerText = "Signed in as";
 document.getElementById("dashboardGreetingText").innerText = greeting;
 document.getElementById("dashboardUserName").innerText = currentWorkerDisplay;
-
-if (isAdmin) {
-  document.getElementById("sideAdminButton").hidden = false;
-}
 
 setCurrentDate();
 loadMyProfile();
