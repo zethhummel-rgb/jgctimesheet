@@ -18,6 +18,7 @@ type WorkOrder = Record<string, any>;
 type WorkOrderBundle = {
   wo: WorkOrder;
   pos: Record<string, any>[];
+  digitalPos: Record<string, any>[];
   labour: Record<string, any>[];
   equipment: Record<string, any>[];
   rentals: Record<string, any>[];
@@ -244,7 +245,7 @@ async function loadTimesheetEntriesForWorkOrderDate(db: any, weekStart: string, 
 
 async function loadBundle(db: any, wo: WorkOrder): Promise<WorkOrderBundle> {
   const id = wo.id;
-  const [pos, labour, equipment, rentals, materials, misc, travel] = await Promise.all([
+  const [pos, labour, equipment, rentals, materials, misc, travel, digitalPoLinks] = await Promise.all([
     db.from("work_order_purchase_orders").select("*").eq("work_order_id", id).order("sort_order", { ascending: true }),
     db.from("work_order_labour").select("*").eq("work_order_id", id).order("employee_name", { ascending: true }),
     db.from("work_order_equipment").select("*").eq("work_order_id", id),
@@ -252,9 +253,10 @@ async function loadBundle(db: any, wo: WorkOrder): Promise<WorkOrderBundle> {
     db.from("work_order_materials").select("*").eq("work_order_id", id),
     db.from("work_order_misc_invoices").select("*").eq("work_order_id", id),
     db.from("work_order_travel").select("*").eq("work_order_id", id),
+    db.from("digital_po_work_order_links").select("po_id").eq("work_order_id", id),
   ]);
 
-  const errors = [pos, labour, equipment, rentals, materials, misc, travel]
+  const errors = [pos, labour, equipment, rentals, materials, misc, travel, digitalPoLinks]
     .map((result) => result.error)
     .filter(Boolean);
 
@@ -262,9 +264,37 @@ async function loadBundle(db: any, wo: WorkOrder): Promise<WorkOrderBundle> {
     throw new Error(errors.map((error) => error.message).join("; "));
   }
 
+  const digitalPoIds = (digitalPoLinks.data || []).map((link: Record<string, any>) => link.po_id).filter(Boolean);
+  let digitalPos: Record<string, any>[] = [];
+
+  if (digitalPoIds.length) {
+    const [digitalPoResult, digitalPoItemResult] = await Promise.all([
+      db
+        .from("digital_purchase_orders")
+        .select("id,po_number,supplier_name,order_date,workflow_status,email_status")
+        .in("id", digitalPoIds)
+        .order("po_number", { ascending: true }),
+      db.from("digital_po_items").select("po_id").in("po_id", digitalPoIds),
+    ]);
+
+    if (digitalPoResult.error || digitalPoItemResult.error) {
+      throw new Error((digitalPoResult.error || digitalPoItemResult.error).message);
+    }
+
+    const materialCounts = (digitalPoItemResult.data || []).reduce((counts: Record<string, number>, item: Record<string, any>) => {
+      counts[item.po_id] = Number(counts[item.po_id] || 0) + 1;
+      return counts;
+    }, {});
+    digitalPos = (digitalPoResult.data || []).map((po: Record<string, any>) => ({
+      ...po,
+      material_count: Number(materialCounts[po.id] || 0),
+    }));
+  }
+
   return {
     wo,
     pos: pos.data || [],
+    digitalPos,
     labour: labour.data || [],
     equipment: equipment.data || [],
     rentals: rentals.data || [],
@@ -392,8 +422,13 @@ function getStatusLabel(status: unknown) {
   return String(status || "draft").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function formatDigitalPoNumber(value: unknown) {
+  const number = String(value || "").replace(/^PO-/i, "");
+  return number ? "PO-" + number : "";
+}
+
 function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
-  const { wo, pos, labour, equipment, rentals, materials, misc, travel } = bundle;
+  const { wo, pos, digitalPos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
 
   return `<!DOCTYPE html>
@@ -447,6 +482,13 @@ function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
   </table>
 
   ${buildOptionalPdfSection("Purchase Orders", pos, ["PO Number", "Company", "Notes"], (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}
+  ${buildOptionalPdfSection("Digital Purchase Orders", digitalPos, ["Digital PO", "Supplier", "PO Date", "Materials", "Status"], (row) => [
+    formatDigitalPoNumber(row.po_number),
+    row.supplier_name || "",
+    row.order_date || "",
+    String(row.material_count || 0),
+    getStatusLabel(row.workflow_status),
+  ])}
   ${buildOptionalPdfSection("Materials Used From Shop", materials, ["Shop", "Material Description", "Quantity"], (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}
   ${buildOptionalPdfSection("Misc. Invoices and Sub Contractors", misc, ["Name"], (row) => [row.invoice_name || ""])}
   ${buildOptionalPdfSection("Travelling", travel, ["Vehicle", "Identification #", "Total KM", "Trailer", "Trailer ID #"], (row) => [
@@ -481,7 +523,7 @@ function buildWorkOrderPdfHtml(bundle: WorkOrderBundle) {
 }
 
 function buildWorkOrderEmailBody(bundle: WorkOrderBundle) {
-  const { wo, labour, equipment, rentals, materials, misc, travel } = bundle;
+  const { wo, digitalPos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
 
   return [
@@ -494,6 +536,7 @@ function buildWorkOrderEmailBody(bundle: WorkOrderBundle) {
     "Job: " + [wo.job_number, wo.job_name].filter(Boolean).join(" - "),
     "Status: " + getStatusLabel(wo.status),
     "Labour Hours: " + totalLabour.toFixed(2),
+    "Digital PO Rows: " + digitalPos.length,
     "Equipment Rows: " + equipment.length,
     "Rental Rows: " + rentals.length,
     "Material Rows: " + materials.length,

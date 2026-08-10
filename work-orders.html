@@ -1048,6 +1048,7 @@ let currentWorkOrderSubmitInFlight = false;
 const workOrderFinalizeLocks = new Set();
 const workOrderSubmitLocks = new Set();
 let digitalPoCounts = {};
+let digitalPoPdfRows = {};
 const WORK_ORDER_LOCAL_DRAFT_PREFIX = "jgcWorkOrderLocalDraftV1:";
 let workOrderLocalDraftTimer = 0;
 let restoringLocalWorkOrderDraft = false;
@@ -3731,6 +3732,33 @@ async function loadDigitalPoCountsForWorkOrders(workOrderIds, append) {
   }
 }
 
+function formatDigitalPoNumber(value) {
+  const number = String(value || "").replace(/^PO-/i, "");
+  return number ? "PO-" + number : "";
+}
+
+async function loadDigitalPoPdfRowsForWorkOrder(workOrder) {
+  if (!workOrder || !workOrder.id || !workOrder.job_id || !workOrder.work_order_date) {
+    return [];
+  }
+
+  const result = await supabaseClient.rpc("digital_po_work_order_options", {
+    p_job_id: workOrder.job_id,
+    p_order_date: workOrder.work_order_date,
+    p_work_order_id: workOrder.id
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const linkedRows = (result.data || [])
+    .filter((row) => String(row.linked_work_order_id || "") === String(workOrder.id))
+    .sort((a, b) => Number(a.po_number || 0) - Number(b.po_number || 0));
+  digitalPoPdfRows[workOrder.id] = linkedRows;
+  return linkedRows;
+}
+
 async function loadWorkOrderRelatedData(workOrderRows, append = false) {
   const workOrderIds = (workOrderRows || []).map((workOrder) => workOrder.id).filter(Boolean);
 
@@ -3861,6 +3889,7 @@ function getWorkOrderBundle(id) {
   return {
     wo,
     pos: purchaseOrders.filter((row) => row.work_order_id === id).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)),
+    digitalPos: digitalPoPdfRows[id] || [],
     labour: labourRows.filter((row) => row.work_order_id === id),
     equipment: workOrderEquipmentRows.filter((row) => row.work_order_id === id),
     rentals: rentalRows.filter((row) => row.work_order_id === id),
@@ -3921,7 +3950,7 @@ function buildWorkOrderPdfHtml(id) {
     return "";
   }
 
-  const { wo, pos, labour, equipment, rentals, materials, misc, travel } = bundle;
+  const { wo, pos, digitalPos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
 
   return `<!DOCTYPE html>
@@ -3976,6 +4005,14 @@ function buildWorkOrderPdfHtml(id) {
 
   ${buildOptionalPdfSection("Paper / Manual Purchase Orders", pos, ["PO Number", "Company", "Notes"], (row) => [row.po_number || "", row.company_name || "", row.notes || ""])}
 
+  ${buildOptionalPdfSection("Digital Purchase Orders", digitalPos, ["Digital PO", "Supplier", "PO Date", "Materials", "Status"], (row) => [
+      formatDigitalPoNumber(row.po_number),
+      row.supplier_name || "",
+      row.order_date || "",
+      String(row.material_count || 0),
+      getStatusLabel(row.workflow_status)
+    ])}
+
   ${buildOptionalPdfSection("Materials Used From Shop", materials, ["Shop", "Material Description", "Quantity"], (row) => [row.purchased_from || "", row.material_description || "", String(row.quantity || "")])}
 
   ${buildOptionalPdfSection("Misc. Invoices and Sub Contractors", misc, ["Name"], (row) => [row.invoice_name || ""])}
@@ -4021,7 +4058,7 @@ function buildWorkOrderEmailBody(id) {
     return "";
   }
 
-  const { wo, labour, equipment, rentals, materials, misc, travel } = bundle;
+  const { wo, digitalPos, labour, equipment, rentals, materials, misc, travel } = bundle;
   const totalLabour = labour.reduce((total, row) => total + Number(row.hours || 0), 0);
 
   return [
@@ -4034,6 +4071,7 @@ function buildWorkOrderEmailBody(id) {
     "Job: " + [wo.job_number, wo.job_name].filter(Boolean).join(" - "),
     "Status: " + getStatusLabel(wo.status),
     "Labour Hours: " + totalLabour.toFixed(2),
+    "Digital PO Rows: " + digitalPos.length,
     "Equipment Rows: " + equipment.length,
     "Rental Rows: " + rentals.length,
     "Material Rows: " + materials.length,
@@ -4063,7 +4101,7 @@ function emailCurrentWorkOrderPdf() {
   emailWorkOrderPdf(editingWorkOrderId);
 }
 
-function downloadWorkOrderPdf(id) {
+async function downloadWorkOrderPdf(id) {
   const bundle = getWorkOrderBundle(id);
 
   if (!bundle) {
@@ -4078,19 +4116,36 @@ function downloadWorkOrderPdf(id) {
     return;
   }
 
-  pdfWindow.document.write(buildWorkOrderPdfHtml(id));
-  pdfWindow.document.close();
-  pdfWindow.focus();
-  setTimeout(() => pdfWindow.print(), 300);
+  try {
+    await loadDigitalPoPdfRowsForWorkOrder(bundle.wo);
+    pdfWindow.document.write(buildWorkOrderPdfHtml(id));
+    pdfWindow.document.close();
+    pdfWindow.focus();
+    setTimeout(() => pdfWindow.print(), 300);
+  } catch (error) {
+    pdfWindow.close();
+    alert("The linked Digital POs could not be loaded, so the PDF was not created. Please refresh and try again.");
+  }
 }
 
 async function emailWorkOrderPdf(id, options) {
   const settings = options || {};
-  const bundle = getWorkOrderBundle(id);
+  let bundle = getWorkOrderBundle(id);
 
   if (!bundle) {
     if (!settings.silent) {
       alert("Work Order could not be found.");
+    }
+    return false;
+  }
+
+  try {
+    await loadDigitalPoPdfRowsForWorkOrder(bundle.wo);
+    bundle = getWorkOrderBundle(id);
+  } catch (error) {
+    if (!settings.silent) {
+      setFormStatus("The linked Digital POs could not be loaded, so the Work Order was not emailed.", true);
+      alert("The linked Digital POs could not be loaded. Refresh and try again before submitting this Work Order.");
     }
     return false;
   }

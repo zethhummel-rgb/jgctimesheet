@@ -2160,8 +2160,71 @@ test("work order auto-submit recovers stale claims and bounds email delivery", a
   expect(source).toContain("jgc-work-order-submit-${bundle.wo.id}");
   expect(source).toContain("deferred_for_next_run");
   expect(source).toContain('.in("status", ["draft", "ready_for_submission"])');
+  expect(source).toContain('from("digital_po_work_order_links")');
+  expect(source).toContain('from("digital_purchase_orders")');
+  expect(source).toContain('from("digital_po_items")');
+  expect(source).toContain('buildOptionalPdfSection("Digital Purchase Orders", digitalPos');
   expect(workOrderPage).toContain("signal: AbortSignal.timeout(60_000)");
   expect(workOrderPage).toContain('idempotencyKey: "jgc-work-order-submit-" + id');
+  expect(workOrderPage).toContain('rpc("digital_po_work_order_options"');
+  expect(workOrderPage).toContain('await loadDigitalPoPdfRowsForWorkOrder(bundle.wo)');
+  expect(workOrderPage).toContain('buildOptionalPdfSection("Digital Purchase Orders", digitalPos');
+});
+
+test("work order PDF includes only the digital POs linked to that work order", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const workOrderId = "00000000-0000-4000-8000-000000000410";
+  const jobId = "00000000-0000-4000-8000-000000000411";
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_work_order_options`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([
+      {
+        id: "00000000-0000-4000-8000-000000000412",
+        po_number: 31013,
+        supplier_name: "Emard",
+        order_date: "2026-08-06",
+        material_count: 3,
+        workflow_status: "submitted",
+        linked_work_order_id: workOrderId
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000413",
+        po_number: 31014,
+        supplier_name: "Not Linked Supplier",
+        order_date: "2026-08-06",
+        material_count: 1,
+        workflow_status: "submitted",
+        linked_work_order_id: null
+      }
+    ])
+  }));
+
+  await page.goto("/work-orders.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.loadDigitalPoPdfRowsForWorkOrder === "function");
+  const pdfHtml = await page.evaluate(async ({ workOrderId, jobId }) => {
+    workOrders = [{
+      id: workOrderId,
+      wo_number: "WO25169-018",
+      work_order_date: "2026-08-06",
+      job_id: jobId,
+      job_number: "25169",
+      job_name: "McKay Office Addition",
+      description_of_work: "Smoke test"
+    }];
+    await loadDigitalPoPdfRowsForWorkOrder(workOrders[0]);
+    return buildWorkOrderPdfHtml(workOrderId);
+  }, { workOrderId, jobId });
+
+  expect(pdfHtml).toContain("Digital Purchase Orders");
+  expect(pdfHtml).toContain("PO-31013");
+  expect(pdfHtml).toContain("Emard");
+  expect(pdfHtml).toContain(">3<");
+  expect(pdfHtml).not.toContain("PO-31014");
+  expect(pdfHtml).not.toContain("Not Linked Supplier");
+  await expectNoRuntimeErrors(errors, "linked digital PO PDF output");
 });
 
 test("employee page access is a standalone admin tool with all selector permissions", async ({ page }) => {
