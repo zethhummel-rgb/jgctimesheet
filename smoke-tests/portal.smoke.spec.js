@@ -972,6 +972,55 @@ test("admin can submit a complete employee timesheet week", async ({ page }) => 
   await expectNoRuntimeErrors(errors, "admin complete timesheet submission");
 });
 
+test("employee and admin timesheet PDFs use the readable portrait layout", async ({ page }) => {
+  const employeeSource = fs.readFileSync(path.join(portalRoot, "timesheet.html"), "utf8");
+  const adminSource = fs.readFileSync(path.join(portalRoot, "admin-timesheets.js"), "utf8");
+  const expectedLayoutRules = [
+    "@page { size: Letter portrait; margin: 0.45in; }",
+    "h1, .employee-name",
+    "font-size: 26px",
+    ".job-number-col { width: 8.8%; }",
+    "grid-template-columns: repeat(3, minmax(0, 1fr))",
+    '<col class="job-number-col">'
+  ];
+
+  for (const source of [employeeSource, adminSource]) {
+    for (const expectedRule of expectedLayoutRules) {
+      expect(source).toContain(expectedRule);
+    }
+  }
+
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => typeof buildTimesheetPdfHtml)).toBe("function");
+
+  const pdfHtml = await page.evaluate(() => buildTimesheetPdfHtml([
+    {
+      jobName: "McKay Office Addition",
+      jobNumber: "25169",
+      day: "Monday",
+      date: "2026-08-03",
+      hours: 8,
+      nightWork: false
+    },
+    {
+      jobName: "Whip JGC",
+      jobNumber: "26074",
+      day: "Friday",
+      date: "2026-08-07",
+      hours: 8.5,
+      nightWork: false
+    }
+  ], "Aug 2, 2026 to Aug 8, 2026", 16.5, "Portrait layout smoke test"));
+
+  expect(pdfHtml).toContain("Letter portrait");
+  expect(pdfHtml).toContain('<div class="employee-name">Portal Smoke Test</div>');
+  expect(pdfHtml).toContain('<col class="job-number-col">');
+  expect(pdfHtml).toContain("McKay Office Addition");
+  expect(pdfHtml).toContain("16.50");
+});
+
 test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   const reportId = "00000000-0000-4000-8000-000000000099";

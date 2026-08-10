@@ -4787,7 +4787,7 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
         rows.push(`
           <tr class="${shift === "Night" ? "night-row" : ""}"${shift === "Night" ? ' style="background-color:#e3e5e4;"' : ""}>
             <td class="job-cell"><strong>${escapeHtml(group.jobName)}</strong>${group.typeLabel ? "<small>" + escapeHtml(group.typeLabel) + "</small>" : ""}</td>
-            <td>${escapeHtml(group.jobNumber)}</td>
+            <td class="job-number-cell">${escapeHtml(group.jobNumber)}</td>
             <td class="shift-cell">${shift}</td>
             ${hours.map(function(value) { return "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>"; }).join("")}
             <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
@@ -4812,21 +4812,29 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
     <head>
       <meta charset="UTF-8">
       <style>
-        @page { size: Letter landscape; margin: 0.35in; }
+        @page { size: Letter portrait; margin: 0.45in; }
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: Arial, sans-serif; color: #17231d; }
-        .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #178b45; padding-bottom: 8px; margin-bottom: 12px; }
-        h1 { color: #176f3a; font-size: 22px; margin: 0 0 3px; }
-        .subtitle { color: #526158; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-        .meta { text-align: right; font-size: 11px; line-height: 1.5; }
+        body { margin: 0; font-family: Arial, sans-serif; color: #17231d; font-size: 13px; }
+        .header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 18px; border-bottom: 3px solid #178b45; padding-bottom: 10px; margin-bottom: 16px; }
+        h1, .employee-name { color: #176f3a; font-size: 26px; line-height: 1.08; margin: 0 0 5px; font-weight: bold; }
+        .subtitle, .employee-label { color: #526158; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .employee-meta { text-align: right; }
+        .week { color: #526158; font-size: 13px; margin-top: 7px; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th, td { border: 1px solid #849087; padding: 5px 4px; font-size: 9px; vertical-align: middle; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+        th, td { border: 1px solid #718078; padding: 8px 5px; font-size: 12.5px; line-height: 1.2; vertical-align: middle; }
         th { background: #123d24; color: #fff; text-align: center; }
-        th small, td small { display: block; font-size: 7px; font-weight: normal; margin-top: 2px; }
-        .job-cell { width: 18%; }
+        th small { display: block; font-size: 10px; font-weight: normal; margin-top: 2px; }
+        td small { display: block; font-size: 11px; line-height: 1.15; font-weight: normal; margin-top: 3px; }
         .job-cell small { color: #526158; }
-        .shift-cell { width: 6%; text-align: center; font-weight: bold; }
-        .hours-cell { width: 5.5%; text-align: center; }
+        .job-number-cell, .shift-cell, .hours-cell { text-align: center; }
+        .job-number-cell, .shift-cell { font-weight: bold; }
+        .job-col { width: 26.6%; }
+        .job-number-col { width: 8.8%; }
+        .shift-col { width: 7%; }
+        .day-col { width: 7%; }
+        .total-col { width: 8.6%; }
         .total-cell { background: #e3f2e8; font-weight: bold; }
         .night-row, .night-row td {
           background-color: #e3e5e4 !important;
@@ -4835,14 +4843,14 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
           print-color-adjust: exact;
         }
         .night-row .total-cell { background-color: #d7dad8 !important; }
-        .summary { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-        .summary-box { min-width: 105px; border: 1px solid #789080; padding: 6px 9px; font-size: 10px; }
-        .summary-box strong { display: block; color: #176f3a; font-size: 14px; margin-top: 2px; }
-        .summary-box.night strong { color: #4f5853; }
-        .summary-box.week { background: #123d24; color: #fff; }
-        .summary-box.week strong { color: #fff; }
-        .note { margin-top: 10px; padding: 8px 10px; border: 1px solid #849087; min-height: 48px; font-size: 9px; }
-        .note-title { color: #176f3a; font-size: 10px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; break-inside: avoid; page-break-inside: avoid; }
+        .summary-box { min-width: 0; border: 1px solid #718078; border-radius: 4px; padding: 10px 12px; background: #123d24; color: #fff; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .summary-box strong { display: block; color: #fff; font-size: 24px; line-height: 1; margin-top: 7px; }
+        .summary-box.night { background: #f1f3f2; color: #17231d; }
+        .summary-box.night strong { color: #17231d; }
+        .summary-box.week { background: #176f3a; }
+        .note { margin-top: 14px; padding: 11px 12px; border: 1px solid #718078; border-radius: 4px; min-height: 82px; font-size: 13.5px; break-inside: avoid; page-break-inside: avoid; }
+        .note-title { color: #176f3a; font-size: 12px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
         .note-empty { color: #6b756f; }
       </style>
     </head>
@@ -4852,16 +4860,24 @@ function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
           <h1>John Gordon Construction</h1>
           <div class="subtitle">Weekly Employee Timesheet</div>
         </div>
-        <div class="meta">
-          <div><b>Employee:</b> ${escapeHtml(getDisplayWorkerName())}</div>
-          <div><b>Week:</b> ${escapeHtml(weekLabel)}</div>
+        <div class="employee-meta">
+          <div class="employee-name">${escapeHtml(getDisplayWorkerName())}</div>
+          <div class="employee-label">Employee</div>
+          <div class="week"><b>Week:</b> ${escapeHtml(weekLabel)}</div>
         </div>
       </div>
       <table>
+        <colgroup>
+          <col class="job-col">
+          <col class="job-number-col">
+          <col class="shift-col">
+          ${dayOrder.map(function() { return '<col class="day-col">'; }).join("")}
+          <col class="total-col">
+        </colgroup>
         <thead>
           <tr>
             <th class="job-cell">Job Name</th>
-            <th>Job #</th>
+            <th class="job-number-cell">Job #</th>
             <th class="shift-cell">Shift</th>
             ${dayLabels.map(function(label) { return "<th class=\"hours-cell\">" + label + "</th>"; }).join("")}
             <th class="hours-cell">Total</th>
