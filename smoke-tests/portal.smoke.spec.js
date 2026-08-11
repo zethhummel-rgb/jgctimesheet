@@ -159,7 +159,15 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
       if (options.includeExcludedAccountingSubmission) {
         accountingEntries.push({ id: "00000000-0000-4000-8000-000000000054", submission_id: "00000000-0000-4000-8000-000000000033", profile_id: profile.id, worker_name: profile.display_name, work_date: "2026-08-05", day_of_week: "Wednesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 7, original_hours: 7, is_current: true });
       }
-      body = JSON.stringify(accountingEntries);
+      if (options.accountingUnmatchedEntry) {
+        accountingEntries.push({ id: "00000000-0000-4000-8000-000000000055", submission_id: "00000000-0000-4000-8000-000000000031", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-06", day_of_week: "Thursday", entry_type: "work", source_job_number: "", source_job_name: "BGIS Ottawa Courthouse", job_id: null, job_match_status: "unmatched", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true });
+      }
+      if (request.method() === "PATCH") {
+        const payload = JSON.parse(request.postData() || "{}");
+        body = JSON.stringify(Object.assign({}, accountingEntries.find((entry) => entry.id === "00000000-0000-4000-8000-000000000055") || accountingEntries[0], payload));
+      } else {
+        body = JSON.stringify(accountingEntries);
+      }
     } else if (url.pathname.includes("/rest/v1/timesheet_entries") && page.url().includes("accounting-admin.html")) {
       body = JSON.stringify(options.accountingLiveEntries || []);
     } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
@@ -2385,6 +2393,33 @@ test("Accounting blocks final lock and can fill a missing employee week", async 
   });
   await expect(page.locator("#accountingNotice")).toContainText("submitted to timesheet history and Accounting");
   await expectNoRuntimeErrors(errors, "Accounting missing timesheet auto-fill");
+});
+
+test("Accounting job exceptions use a typable job picker", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, {
+    accountingEnabled: false,
+    accountingUnmatchedEntry: true
+  });
+
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  const jobInput = page.locator("#accountingJobExceptions [data-entry-job-input]");
+  await expect(jobInput).toHaveCount(1);
+  await expect(jobInput).toHaveAttribute("list", "accountingJobChoices");
+  await expect(page.locator("#accountingJobChoices option").nth(1)).toHaveAttribute("value", "25169 - McKay Office Addition");
+  await jobInput.fill("McKay");
+  await expect(jobInput).toHaveValue("McKay");
+  await jobInput.fill("25169");
+
+  const requestPromise = page.waitForRequest((request) => request.method() === "PATCH" && request.url().includes("/rest/v1/accounting_time_entries"));
+  await page.locator("#accountingJobExceptions [data-match-entry]").click();
+  const request = await requestPromise;
+  expect(request.postDataJSON()).toMatchObject({
+    job_id: "00000000-0000-4000-8000-000000000061",
+    job_match_status: "manual"
+  });
+  await expectNoRuntimeErrors(errors, "Accounting typable job picker");
 });
 
 test("Accounting employee inclusion does not remove approved admin page access", async ({ page }) => {

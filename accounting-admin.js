@@ -4,6 +4,7 @@
   const PAY_DATE_ANCHOR = "2026-08-20";
   const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"];
   const REQUIRED_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const SPECIAL_JOB_LABEL = "Special / no job required";
   const state = {
     client: null,
     user: null,
@@ -464,16 +465,28 @@
     }).join("");
   }
 
-  function jobOptions(selectedId) {
+  function jobPickerValue(job) {
+    return `${job.job_number} - ${job.job_name}`;
+  }
+
+  function jobOptions() {
     const active = state.jobs.filter((job) => job.active);
     const inactive = state.jobs.filter((job) => !job.active);
-    function options(jobs) {
-      return jobs.map((job) => `<option value="${escapeText(job.id)}"${job.id === selectedId ? " selected" : ""}>${escapeText(job.job_number)} - ${escapeText(job.job_name)}</option>`).join("");
+    function options(jobs, status) {
+      return jobs.map((job) => `<option value="${escapeText(jobPickerValue(job))}" label="${escapeText(status)}"></option>`).join("");
     }
-    return `<option value="">Choose a job</option>
-      <option value="special">Special / no job required</option>
-      <optgroup label="Active Jobs">${options(active)}</optgroup>
-      <optgroup label="Inactive Jobs">${options(inactive)}</optgroup>`;
+    return `<option value="${SPECIAL_JOB_LABEL}" label="Reviewed special entry"></option>
+      ${options(active, "Active job")}
+      ${options(inactive, "Inactive job")}`;
+  }
+
+  function resolveJobPickerValue(value) {
+    const search = normalized(value);
+    if (!search) return null;
+    const matches = state.jobs.filter((job) => {
+      return [jobPickerValue(job), job.job_number, job.job_name].some((candidate) => normalized(candidate) === search);
+    });
+    return matches.length === 1 ? matches[0] : null;
   }
 
   function renderJobExceptions(validation) {
@@ -490,14 +503,14 @@
       <td>${escapeText(entry.source_job_number || "-")}<br><small>${escapeText(entry.source_job_name || "No job name")}</small></td>
       <td class="accounting-number">${hours(entry.payable_hours)}</td>
       <td><div class="accounting-job-controls">
-        <select class="jgc-select accounting-job-select" data-entry-job-select="${escapeText(entry.id)}"${locked ? " disabled" : ""}>${jobOptions("")}</select>
+        <input class="jgc-input accounting-job-input" type="text" list="accountingJobChoices" placeholder="Type job number or job name" aria-label="Choose a job for ${escapeText(employeeName(entry.profile_id, entry.worker_name))}" data-entry-job-input="${escapeText(entry.id)}"${locked ? " disabled" : ""}>
         <button class="jgc-button" type="button" data-match-entry="${escapeText(entry.id)}"${locked ? " disabled" : ""}>Apply</button>
       </div></td>
     </tr>`).join("");
     elements.jobExceptions.innerHTML = `<div class="accounting-table-wrap"><table class="accounting-table">
       <thead><tr><th>Employee</th><th>Date</th><th>Submitted Job</th><th>Hours</th><th>Accounting Match</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>`;
+    </table></div><datalist id="accountingJobChoices">${jobOptions()}</datalist>`;
   }
 
   function renderRates() {
@@ -662,13 +675,18 @@
   }
 
   async function matchEntry(entryId) {
-    const select = elements.jobExceptions.querySelector(`[data-entry-job-select="${CSS.escape(entryId)}"]`);
-    const selected = select ? select.value : "";
+    const input = elements.jobExceptions.querySelector(`[data-entry-job-input="${CSS.escape(entryId)}"]`);
+    const selected = input ? input.value.trim() : "";
     if (!selected) {
-      showNotice("Choose a job or Special / no job required.", "warning");
+      showNotice("Start typing a job number or job name, then choose a matching job.", "warning");
       return;
     }
-    const job = selected === "special" ? null : state.jobs.find((item) => item.id === selected);
+    const isSpecial = normalized(selected) === normalized(SPECIAL_JOB_LABEL);
+    const job = isSpecial ? null : resolveJobPickerValue(selected);
+    if (!isSpecial && !job) {
+      showNotice("Keep typing and choose one of the matching jobs from the list.", "warning");
+      return;
+    }
     const payload = {
       job_id: job ? job.id : null,
       job_match_status: job ? "manual" : "not_applicable",
