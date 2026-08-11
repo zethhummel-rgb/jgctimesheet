@@ -867,6 +867,7 @@
 
   function captureElements() {
     Object.assign(elements, {
+      page: byId("accountingPage"),
       currentUser: byId("accountingCurrentUser"),
       notice: byId("accountingNotice"),
       previousPeriod: byId("accountingPreviousPeriod"),
@@ -918,6 +919,25 @@
         return;
       }
       state.profile = profileResult.data;
+      let accountingAllowed = false;
+      try {
+        accountingAllowed = typeof hasJgcAccountingAccess === "function"
+          && await hasJgcAccountingAccess(state.client, state.user.id, state.profile);
+      } catch (accessError) {
+        console.warn("Accounting access could not be verified.", accessError);
+        window.alert("Accounting access could not be verified. Please try again.");
+        window.location.href = "admin.html?tab=summary";
+        return;
+      }
+      if (!accountingAllowed) {
+        window.alert("Your account does not have Accounting access.");
+        window.location.href = "admin.html?tab=summary";
+        return;
+      }
+      if (typeof setJgcAccountingNavigationAccess === "function") {
+        setJgcAccountingNavigationAccess(true);
+      }
+      elements.page.hidden = false;
       elements.currentUser.textContent = "Signed in as: " + state.profile.display_name;
       await loadData();
     } catch (error) {

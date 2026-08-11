@@ -33,7 +33,8 @@ const employeeFeatureKeys = [
   "jsa",
   "toolbox_talks",
   "job_notes",
-  "tasks"
+  "tasks",
+  "accounting"
 ];
 
 async function captureJobListScreenshot(page, fileName) {
@@ -109,8 +110,9 @@ async function installAuthenticatedPortalState(page, profile = fakeProfile) {
   }, { authSession: session, profile, ref: projectRef });
 }
 
-async function mockPortalServices(page, profile = fakeProfile) {
+async function mockPortalServices(page, profile = fakeProfile, options = {}) {
   const session = createFakeSession();
+  const accountingEnabled = options.accountingEnabled !== false;
 
   await page.route(`${supabaseOrigin}/**`, async (route) => {
     const request = route.request();
@@ -208,19 +210,30 @@ async function mockPortalServices(page, profile = fakeProfile) {
           approved: true
         });
       }
-      body = JSON.stringify(workers);
+      body = url.searchParams.has("profile_id") || accept.includes("application/vnd.pgrst.object")
+        ? JSON.stringify(workers[0] || null)
+        : JSON.stringify(workers);
     } else if (url.pathname.includes("/rest/v1/employee_feature_access")) {
       const accessWorkerIds = page.url().includes("employee-access-admin.html")
         ? fakeWorkerIds.concat(fakeManualWorkerId)
         : fakeWorkerIds;
-      body = JSON.stringify(accessWorkerIds.flatMap((workerId) =>
+      const accessRows = accessWorkerIds.flatMap((workerId) =>
         employeeFeatureKeys.map((featureKey) => ({
           worker_id: workerId,
           feature_key: featureKey,
-          enabled: true,
+          enabled: featureKey !== "accounting" || workerId !== fakeWorkerIds[0] || accountingEnabled,
           updated_at: "2026-07-30T12:00:00.000Z"
         }))
-      ));
+      );
+      const requestedFeature = decodeURIComponent(url.searchParams.get("feature_key") || "");
+      const requestedWorker = decodeURIComponent(url.searchParams.get("worker_id") || "");
+      const matchingAccess = accessRows.find((row) =>
+        (!requestedFeature || requestedFeature.includes(row.feature_key))
+        && (!requestedWorker || requestedWorker.includes(row.worker_id))
+      );
+      body = (requestedFeature && requestedWorker) || accept.includes("application/vnd.pgrst.object")
+        ? JSON.stringify(matchingAccess || null)
+        : JSON.stringify(accessRows);
     } else if (url.pathname.startsWith("/rest/v1/rpc/")) {
       body = accept.includes("application/vnd.pgrst.object") ? "{}" : "[]";
     } else if (url.pathname.startsWith("/functions/v1/")) {
@@ -2263,6 +2276,27 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
 });
 
+test("Accounting navigation and page are blocked when employee access is disabled", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
+  page.on("dialog", async (dialog) => {
+    try {
+      await dialog.dismiss();
+    } catch (_) {
+      // A simultaneous navigation guard may have already closed the dialog.
+    }
+  });
+
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-accounting-access", "disabled");
+  await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveCount(0);
+
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/admin\.html\?tab=summary/);
+  await expectNoRuntimeErrors(errors, "disabled Accounting page access");
+});
+
 test("work order auto-submit recovers stale claims and bounds email delivery", async () => {
   const source = fs.readFileSync(
     path.join(portalRoot, "supabase", "functions", "auto-submit-work-orders", "index.ts"),
@@ -2354,8 +2388,8 @@ test("employee page access is a standalone admin tool with all selector permissi
 
   await expect(page.locator("h1")).toHaveText("Employee Page Access");
   await expect(page.locator("#employeeAccessRows tr")).toHaveCount(3);
-  await expect(page.locator("#employeeAccessHeader th")).toHaveCount(7);
-  await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(18);
+  await expect(page.locator("#employeeAccessHeader th")).toHaveCount(8);
+  await expect(page.locator("#employeeAccessRows input[data-worker-feature]")).toHaveCount(21);
   await expect(page.locator("#employeeAccessRows input[data-worker-active]")).toHaveCount(0);
   await expect(page.locator("#employeeAccessRows")).toContainText(fakeProfile.display_name);
   await expect(page.locator("#employeeAccessRows")).toContainText("Steven Leduc");
@@ -2365,6 +2399,13 @@ test("employee page access is a standalone admin tool with all selector permissi
   await expect(manualWorkOrders).not.toBeChecked();
   await expect(manualRow).toContainText("Account required");
   await expect(manualRow.locator('[data-feature-key="schedule"]')).toBeEnabled();
+  await expect(manualRow.locator('[data-feature-key="accounting"]')).toBeDisabled();
+  const adminRow = page.locator("#employeeAccessRows tr", { hasText: fakeProfile.display_name });
+  await expect(adminRow.locator('[data-feature-key="accounting"]')).toBeEnabled();
+  await expect(adminRow.locator('[data-feature-key="accounting"]')).toBeChecked();
+  const employeeRow = page.locator("#employeeAccessRows tr", { hasText: "Steven Leduc" });
+  await expect(employeeRow.locator('[data-feature-key="accounting"]')).toBeDisabled();
+  await expect(employeeRow).toContainText("Admin account required");
   await expectNoRuntimeErrors(errors, "employee page access admin tool");
 });
 

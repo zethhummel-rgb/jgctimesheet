@@ -7,7 +7,8 @@
     { key: "jsa", label: "JSA", description: "Approved employee sign-off selector" },
     { key: "toolbox_talks", label: "Toolbox Talks", description: "Presenter and crew selectors" },
     { key: "job_notes", label: "Job Notes", description: "Employees who can be tagged on shared notes" },
-    { key: "tasks", label: "Tasks", description: "Task assignment selector" }
+    { key: "tasks", label: "Tasks", description: "Task assignment selector" },
+    { key: "accounting", label: "Accounting", description: "Admin payroll review and Excel exports" }
   ]);
 
   const FEATURE_KEYS = Object.freeze(FEATURES.map(function (feature) {
@@ -15,16 +16,25 @@
   }));
 
   const PORTAL_ACCOUNT_REQUIRED_FEATURES = Object.freeze([
-    "work_orders"
+    "work_orders",
+    "accounting"
   ]);
 
-  function isWorkerEligibleForFeature(worker, featureKey) {
+  function isWorkerEligibleForFeature(worker, featureKey, profile) {
     if (!worker || worker.approved === false) {
       return false;
     }
 
     if (PORTAL_ACCOUNT_REQUIRED_FEATURES.includes(featureKey) && !worker.profile_id) {
       return false;
+    }
+
+    if (featureKey === "accounting") {
+      return Boolean(
+        profile
+        && String(profile.role || "").toLowerCase() === "admin"
+        && String(profile.account_status || "").toLowerCase() === "approved"
+      );
     }
 
     return true;

@@ -59,7 +59,7 @@
   }
 
   function featureEligible(worker, featureKey) {
-    return featureApi.isWorkerEligibleForFeature(worker, featureKey);
+    return featureApi.isWorkerEligibleForFeature(worker, featureKey, profileForWorker(worker));
   }
 
   function accessEnabled(worker, featureKey) {
@@ -70,7 +70,7 @@
     const row = state.accessRows.find(function (accessRow) {
       return accessRow.worker_id === worker.id && accessRow.feature_key === featureKey;
     });
-    return row ? row.enabled !== false : true;
+    return row ? row.enabled !== false : featureKey !== "accounting";
   }
 
   function renderHeader() {
@@ -101,7 +101,8 @@
     }).length;
 
     if (!workers.length) {
-      elements.rows.innerHTML = '<tr><td colspan="7" class="jgc-empty-state">No matching employees found.</td></tr>';
+      elements.rows.innerHTML = '<tr><td colspan="' + (featureApi.FEATURES.length + 1)
+        + '" class="jgc-empty-state">No matching employees found.</td></tr>';
       return;
     }
 
@@ -117,12 +118,18 @@
         + editButton + "</td>"
         + featureApi.FEATURES.map(function (feature) {
           const eligible = featureEligible(worker, feature.key);
-          const requirement = eligible ? "" : '<small class="employee-access-requirement">Account required</small>';
+          const accountingFeature = feature.key === "accounting";
+          const requirementText = accountingFeature ? "Admin account required" : "Account required";
+          const unavailableTitle = accountingFeature
+            ? "An approved admin account is required for Accounting."
+            : "A portal account is required for Work Orders.";
+          const requirement = eligible ? "" : '<small class="employee-access-requirement">'
+            + requirementText + "</small>";
           return '<td class="' + (eligible ? "" : "employee-access-unavailable") + '"><input class="employee-access-check" type="checkbox" aria-label="'
             + escapeHtml(feature.label) + '" data-worker-feature="' + escapeHtml(worker.id)
             + '" data-feature-key="' + escapeHtml(feature.key) + '"'
             + (accessEnabled(worker, feature.key) ? " checked" : "")
-            + (eligible ? "" : ' disabled title="A portal account is required for Work Orders."')
+            + (eligible ? "" : ' disabled title="' + unavailableTitle + '"')
             + ">" + requirement + "</td>";
         }).join("")
         + "</tr>";
@@ -159,7 +166,12 @@
     });
     if (enabled && !featureEligible(worker, featureKey)) {
       renderRows();
-      showNotice("A portal account is required before this employee can be selected on Work Orders.", "error");
+      showNotice(
+        featureKey === "accounting"
+          ? "An approved admin account is required before Accounting can be enabled."
+          : "A portal account is required before this employee can be selected on Work Orders.",
+        "error"
+      );
       return;
     }
 

@@ -64,6 +64,7 @@ const JGC_ADMIN_NAV_ITEMS = [
   { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html", standalone: true },
   { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }
 ];
+let JGC_ACCOUNTING_ACCESS_ALLOWED = null;
 const JGC_ADMIN_TOOL_SECTIONS = new Set([
   "employeeProfile",
   "certificates",
@@ -1395,6 +1396,21 @@ async function refreshJgcAccountAccess() {
       window.location.replace(destination);
     }
 
+    let accountingAllowed = false;
+    if (profile.account_status === "approved" && String(profile.role || "").toLowerCase() === "admin") {
+      try {
+        accountingAllowed = await hasJgcAccountingAccess(client, user.id, profile);
+      } catch (accountingError) {
+        console.warn("Accounting access could not be confirmed.", accountingError);
+      }
+    }
+    setJgcAccountingNavigationAccess(accountingAllowed);
+
+    if (page === "accounting-admin.html" && !accountingAllowed) {
+      window.location.replace("admin.html?tab=summary");
+      return;
+    }
+
     if (profile.account_status === "approved" && page !== JGC_LIMITED_ACCESS_HOME_PAGE) {
       activateJgcAdminGlobalSearch();
     }
@@ -1522,11 +1538,102 @@ function getJgcAdminNavigationSection(page, adminNav) {
     : "summary";
 }
 
+async function hasJgcAccountingAccess(client, profileId, profile) {
+  const role = String(profile && profile.role || "").toLowerCase();
+  const status = String(profile && profile.account_status || "").toLowerCase();
+  if (!client || !profileId || role !== "admin" || status !== "approved") {
+    return false;
+  }
+
+  const workerResult = await client
+    .from("work_order_labour_workers")
+    .select("id")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (workerResult.error) {
+    throw workerResult.error;
+  }
+  if (!workerResult.data) {
+    return false;
+  }
+
+  const accessResult = await client
+    .from("employee_feature_access")
+    .select("enabled")
+    .eq("worker_id", workerResult.data.id)
+    .eq("feature_key", "accounting")
+    .maybeSingle();
+  if (accessResult.error) {
+    throw accessResult.error;
+  }
+
+  return Boolean(accessResult.data && accessResult.data.enabled === true);
+}
+
+async function refreshJgcAccountingNavigationForCurrentUser() {
+  const worker = getCurrentWorkerRecord();
+  const page = getCurrentJgcPageName();
+  if (!isAdminWorker(worker.key, worker.role, worker.email) || String(worker.status || "").toLowerCase() !== "approved") {
+    setJgcAccountingNavigationAccess(false);
+    return;
+  }
+
+  const client = createJgcSupabaseClient();
+  if (!client) {
+    setJgcAccountingNavigationAccess(false);
+    return;
+  }
+
+  try {
+    const userResult = await client.auth.getUser();
+    const user = userResult && userResult.data && userResult.data.user;
+    const allowed = Boolean(user) && await hasJgcAccountingAccess(client, user.id, {
+      role: worker.role,
+      account_status: worker.status
+    });
+    setJgcAccountingNavigationAccess(allowed);
+    if (page === "accounting-admin.html" && !allowed) {
+      window.location.replace("admin.html?tab=summary");
+    }
+  } catch (error) {
+    console.warn("Accounting navigation access could not be verified.", error);
+    setJgcAccountingNavigationAccess(false);
+    if (page === "accounting-admin.html") {
+      window.location.replace("admin.html?tab=summary");
+    }
+  }
+}
+
+function setJgcAccountingNavigationAccess(allowed) {
+  const nextValue = allowed === true;
+  if (JGC_ACCOUNTING_ACCESS_ALLOWED === nextValue) {
+    return;
+  }
+
+  JGC_ACCOUNTING_ACCESS_ALLOWED = nextValue;
+  document.documentElement.setAttribute(
+    "data-jgc-accounting-access",
+    nextValue ? "enabled" : "disabled"
+  );
+  if (!document.body) {
+    return;
+  }
+
+  const page = getCurrentJgcPageName();
+  document.querySelectorAll("[data-jgc-admin-nav]").forEach(function(adminNav) {
+    renderJgcAdminNavigation(adminNav, page);
+  });
+}
+
 function renderJgcAdminNavigation(adminNav, page) {
   const activeSection = getJgcAdminNavigationSection(page, adminNav);
   adminNav.replaceChildren();
 
   JGC_ADMIN_NAV_ITEMS.forEach(function(item) {
+    if (item.key === "accounting" && JGC_ACCOUNTING_ACCESS_ALLOWED === false) {
+      return;
+    }
+
     const link = document.createElement("a");
     link.id = item.key + "Tab";
     link.className = "tab-button jgc-admin-nav__item";
@@ -1613,6 +1720,7 @@ function activateJgcDesignSystemHooks() {
   adminNav.setAttribute("data-jgc-admin-nav", "true");
   adminNav.setAttribute("aria-label", "Admin navigation");
   renderJgcAdminNavigation(adminNav, page);
+  refreshJgcAccountingNavigationForCurrentUser();
   markJgcAdminHeaderElements(page);
 
   let lastVisibleAdminSection = "";
