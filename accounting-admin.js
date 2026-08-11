@@ -16,7 +16,6 @@
     submissions: [],
     entries: [],
     jobs: [],
-    inputs: [],
     exports: [],
     template: null,
     loading: false
@@ -218,10 +217,6 @@
     }).sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
   }
 
-  function currentInput(profileId) {
-    return state.inputs.find((input) => input.profile_id === profileId) || null;
-  }
-
   function getValidation() {
     const submissions = selectedSubmissions();
     const entries = selectedEntries();
@@ -401,31 +396,6 @@
     }).join("")}</div>`;
   }
 
-  function renderInputs() {
-    const locked = state.period && state.period.status === "locked";
-    const employees = reviewEmployees().filter((employee) => employee.profileId);
-    if (!employees.length) {
-      elements.inputs.innerHTML = '<div class="accounting-empty">Inputs will appear after submitted timesheets are available.</div>';
-      elements.saveInputs.disabled = true;
-      return;
-    }
-    elements.saveInputs.disabled = Boolean(locked);
-    const disabled = locked ? " disabled" : "";
-    elements.inputs.innerHTML = `${locked ? '<div class="accounting-locked-note">This pay period is locked. The exact final workbook remains available in Export History.</div>' : ""}
-      <div class="accounting-input-grid">${employees.map((employee) => {
-        const input = currentInput(employee.profileId) || {};
-        return `<div class="accounting-input-row" data-input-profile="${escapeText(employee.profileId)}">
-          <strong>${escapeText(employee.name)}</strong>
-          <label class="accounting-stat-control"><input data-input-stat type="checkbox"${input.stat_selected ? " checked" : ""}${disabled}> Stat Pay</label>
-          <div class="accounting-input-cell"><label>Stat Hours</label><input class="jgc-input" data-input-stat-hours type="number" min="0" max="40" step="0.25" value="${escapeText(input.stat_hours || 0)}"${disabled}></div>
-          <div class="accounting-input-cell"><label>Adjustment</label><input class="jgc-input" data-input-adjustment type="number" step="0.01" value="${escapeText(input.adjustment || 0)}"${disabled}></div>
-          <div class="accounting-input-cell"><label>VP</label><input class="jgc-input" data-input-vp type="number" step="0.01" value="${escapeText(input.vacation_pay || 0)}"${disabled}></div>
-          <div class="accounting-input-cell"><label>Other</label><input class="jgc-input" data-input-other type="number" step="0.01" value="${escapeText(input.other_amount || 0)}"${disabled}></div>
-          <div class="accounting-input-cell"><label>Accounting Note</label><input class="jgc-input" data-input-note type="text" maxlength="2000" value="${escapeText(input.note || "")}"${disabled}></div>
-        </div>`;
-      }).join("")}</div>`;
-  }
-
   function renderTemplate() {
     if (!state.template) {
       elements.templateStatus.innerHTML = '<strong>Workbook template missing</strong><br>Upload the approved biweekly .xlsx file before exporting.';
@@ -463,7 +433,6 @@
     renderEmployeeReview(validation);
     renderJobExceptions(validation);
     renderRates();
-    renderInputs();
     renderTemplate();
     renderExportHistory();
     updateIcons();
@@ -494,14 +463,12 @@
       state.period = requireResult(periodResult, "Pay period") || null;
       state.template = requireResult(templateResult, "Workbook template") || null;
       if (state.period) {
-        const [inputsResult, exportsResult] = await Promise.all([
-          state.client.from("accounting_period_employee_inputs").select("*").eq("pay_period_id", state.period.id),
-          state.client.from("accounting_exports").select("id,pay_period_id,file_name,file_sha256,is_final,exported_by,exported_at").eq("pay_period_id", state.period.id).order("exported_at", { ascending: false })
-        ]);
-        state.inputs = requireResult(inputsResult, "Accounting inputs") || [];
+        const exportsResult = await state.client.from("accounting_exports")
+          .select("id,pay_period_id,file_name,file_sha256,is_final,exported_by,exported_at")
+          .eq("pay_period_id", state.period.id)
+          .order("exported_at", { ascending: false });
         state.exports = requireResult(exportsResult, "Export history") || [];
       } else {
-        state.inputs = [];
         state.exports = [];
       }
       renderAll();
@@ -533,41 +500,6 @@
     }
     state.period = requireResult(result, "Create pay period");
     return state.period;
-  }
-
-  function collectInputRows() {
-    return Array.from(elements.inputs.querySelectorAll("[data-input-profile]")).map((row) => ({
-      pay_period_id: state.period.id,
-      profile_id: row.dataset.inputProfile,
-      stat_selected: Boolean(row.querySelector("[data-input-stat]").checked),
-      stat_hours: number(row.querySelector("[data-input-stat-hours]").value),
-      adjustment: number(row.querySelector("[data-input-adjustment]").value),
-      vacation_pay: number(row.querySelector("[data-input-vp]").value),
-      other_amount: number(row.querySelector("[data-input-other]").value),
-      note: row.querySelector("[data-input-note]").value.trim(),
-      updated_by: state.user.id,
-      updated_at: new Date().toISOString()
-    }));
-  }
-
-  async function saveInputs(options) {
-    const quiet = options && options.quiet;
-    if (state.period && state.period.status === "locked") {
-      if (!quiet) showNotice("This pay period is locked.", "warning");
-      return true;
-    }
-    await ensurePeriod();
-    const rows = collectInputRows();
-    if (rows.length) {
-      const result = await state.client.from("accounting_period_employee_inputs").upsert(rows, { onConflict: "pay_period_id,profile_id" });
-      requireResult(result, "Save Accounting inputs");
-      state.inputs = rows;
-    }
-    if (!quiet) {
-      showNotice("Accounting inputs saved.");
-      renderInputs();
-    }
-    return true;
   }
 
   async function saveEmployeeSetting(profileId) {
@@ -717,17 +649,6 @@
     const validation = getValidation();
     const jobsById = new Map(state.jobs.map((job) => [job.id, job]));
     const employees = reviewEmployees().filter((employee) => employee.profileId);
-    const inputs = {};
-    state.inputs.forEach((input) => {
-      inputs[input.profile_id] = {
-        statSelected: Boolean(input.stat_selected),
-        statHours: number(input.stat_hours),
-        adjustment: number(input.adjustment),
-        vacationPay: number(input.vacation_pay),
-        otherAmount: number(input.other_amount),
-        note: input.note || ""
-      };
-    });
     const entries = validation.entries.map((entry) => {
       const job = entry.job_id ? jobsById.get(entry.job_id) : null;
       return {
@@ -758,7 +679,7 @@
       entries,
       jobs: state.jobs,
       rates: state.rates,
-      inputs,
+      inputs: {},
       submissions: validation.submissions
     };
   }
@@ -773,10 +694,10 @@
       showNotice("Final export is blocked until these items are resolved: " + validation.blockFinal.join(", ") + ".", "error");
       return;
     }
-    if (isFinal && !window.confirm("Download the final workbook and lock this pay period? Inputs cannot be changed after locking.")) return;
+    if (isFinal && !window.confirm("Download the final workbook and lock this pay period? Accounting adjustments can still be made in the downloaded Excel file.")) return;
     setLoading(true);
     try {
-      await saveInputs({ quiet: true });
+      await ensurePeriod();
       const templateResult = await state.client.from("accounting_workbook_templates")
         .select("file_base64")
         .eq("id", state.template.id)
@@ -837,7 +758,6 @@
       state.payDate = elements.payDate.value;
       loadData();
     });
-    elements.saveInputs.addEventListener("click", () => saveInputs().catch((error) => showNotice(error.message, "error")));
     elements.uploadTemplate.addEventListener("click", () => uploadTemplate().catch((error) => showNotice(error.message, "error")));
     elements.downloadDraft.addEventListener("click", () => exportWorkbook(false));
     elements.downloadFinal.addEventListener("click", () => exportWorkbook(true));
@@ -883,8 +803,6 @@
       jobCount: byId("accountingJobCount"),
       jobExceptions: byId("accountingJobExceptions"),
       rates: byId("accountingRates"),
-      inputs: byId("accountingInputs"),
-      saveInputs: byId("accountingSaveInputs"),
       templateStatus: byId("accountingTemplateStatus"),
       templateFile: byId("accountingTemplateFile"),
       uploadTemplate: byId("accountingUploadTemplate"),

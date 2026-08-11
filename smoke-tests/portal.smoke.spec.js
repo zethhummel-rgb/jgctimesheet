@@ -2253,6 +2253,9 @@ test("purchase order pages keep the portal spyglass circular", async ({ page }) 
 });
 
 test("Accounting is a standalone admin page with captured biweekly review", async ({ page }) => {
+  const accountingSource = fs.readFileSync(path.join(portalRoot, "accounting-admin.js"), "utf8");
+  expect(accountingSource).not.toContain("accounting_period_employee_inputs");
+  expect(accountingSource).toContain("inputs: {}");
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page);
@@ -2271,6 +2274,9 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expect(page.locator("#accountingEmployeeReview details")).toHaveCount(1);
   await expect(page.locator("#accountingEmployeeReview details")).not.toHaveAttribute("open", "");
   await expect(page.locator("#accountingJobExceptions")).toContainText("All work entries are matched");
+  await expect(page.getByRole("heading", { name: "Accounting Inputs" })).toHaveCount(0);
+  await expect(page.locator("#accountingSaveInputs")).toHaveCount(0);
+  await expect(page.locator(".accounting-export-help")).toContainText("completed in Excel after download");
   await expect(page.locator("#accountingTemplateStatus")).toContainText("Approved template ready");
   await expect(page.locator("#accountingDownloadFinal")).toBeEnabled();
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");

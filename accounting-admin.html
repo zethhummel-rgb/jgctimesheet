@@ -88,17 +88,6 @@
       <div id="accountingRates"></div>
     </section>
 
-    <section class="accounting-panel jgc-panel" aria-labelledby="accountingInputsTitle">
-      <div class="accounting-section-heading">
-        <div>
-          <h2 id="accountingInputsTitle" class="jgc-section-title">Accounting Inputs</h2>
-          <p>Accounting chooses statutory pay and enters Adjustment, VP, and Other. Overtime remains available for manual allocation in Excel.</p>
-        </div>
-        <button id="accountingSaveInputs" class="jgc-button" type="button"><i data-lucide="save"></i> Save Inputs</button>
-      </div>
-      <div id="accountingInputs"></div>
-    </section>
-
     <section class="accounting-panel jgc-panel" aria-labelledby="accountingExportTitle">
       <div class="accounting-section-heading">
         <div>
@@ -118,7 +107,7 @@
         <button id="accountingDownloadDraft" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="download"></i> Download Draft Excel</button>
         <button id="accountingDownloadFinal" class="jgc-button" type="button"><i data-lucide="lock"></i> Download Final &amp; Lock Period</button>
       </div>
-      <p class="accounting-export-help">Final export is blocked until rates and job exceptions are resolved. Missing submissions remain visible as a warning for Accounting to review.</p>
+      <p class="accounting-export-help">Final export is blocked until rates and job exceptions are resolved. Stat pay, adjustments, VP, other amounts, notes, and overtime allocation are completed in Excel after download.</p>
       <div id="accountingExportHistory"></div>
     </section>
   </main>
@@ -128,6 +117,6 @@
   <script src="vendor/exceljs.min.js?v=1"></script>
   <script src="common.js?v=39"></script>
   <script src="accounting-workbook.js?v=1"></script>
-  <script src="accounting-admin.js?v=2"></script>
+  <script src="accounting-admin.js?v=3"></script>
 </body>
 </html>
