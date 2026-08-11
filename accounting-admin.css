@@ -199,6 +199,166 @@
   margin-bottom: 3px;
 }
 
+.accounting-missing-trigger {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.accounting-missing-trigger:hover,
+.accounting-missing-trigger:focus-visible {
+  border-color: #e4b43a;
+  outline: 2px solid rgba(228, 180, 58, 0.42);
+  outline-offset: 2px;
+}
+
+.accounting-missing-panel {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid #8c7224;
+  border-radius: 9px;
+  background: #181b11;
+}
+
+.accounting-missing-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 14px;
+  cursor: pointer;
+  list-style: none;
+  background: #2d2814;
+}
+
+.accounting-missing-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accounting-missing-panel > summary > span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.accounting-missing-panel > summary strong {
+  color: #ffffff;
+  font-size: 1.05rem;
+}
+
+.accounting-missing-panel > summary small {
+  color: #e5d7ad;
+  line-height: 1.35;
+}
+
+.accounting-missing-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.accounting-missing-card {
+  padding: 14px;
+  border: 1px solid #355544;
+  border-radius: 8px;
+  background: #0d2019;
+}
+
+.accounting-missing-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accounting-missing-card-heading strong,
+.accounting-missing-card-heading span {
+  display: block;
+}
+
+.accounting-missing-card-heading strong {
+  font-size: 1.05rem;
+}
+
+.accounting-missing-card-heading div > span {
+  margin-top: 3px;
+  color: #c1d0c4;
+}
+
+.accounting-weekdays {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(82px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.accounting-weekday {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid #496052;
+  border-radius: 7px;
+  background: #17251f;
+  cursor: pointer;
+}
+
+.accounting-weekday.is-complete {
+  border-color: #278747;
+  background: #11311f;
+  cursor: default;
+}
+
+.accounting-weekday.is-missing {
+  border-color: #b38e2e;
+  background: #2c2817;
+}
+
+.accounting-weekday input {
+  grid-row: 1 / 3;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.accounting-weekday span {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.accounting-weekday small {
+  color: #bfd0c2;
+}
+
+.accounting-leave-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.accounting-leave-controls[hidden] {
+  display: none;
+}
+
+.accounting-leave-controls .jgc-field {
+  margin: 0;
+}
+
+.accounting-missing-help {
+  margin: 12px 0;
+  color: #c2d0c5;
+  line-height: 1.4;
+}
+
+.accounting-submit-missing {
+  width: 100%;
+}
+
 .accounting-employee-review {
   display: grid;
   gap: 8px;
@@ -479,8 +639,13 @@
 
   .accounting-rate-form,
   .accounting-input-row,
-  .accounting-file-row {
+  .accounting-file-row,
+  .accounting-leave-controls {
     grid-template-columns: 1fr;
+  }
+
+  .accounting-weekdays {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .accounting-rate-form > *,
@@ -504,5 +669,15 @@
   .accounting-period-dates,
   .accounting-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .accounting-weekdays {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .accounting-missing-panel > summary,
+  .accounting-missing-card-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

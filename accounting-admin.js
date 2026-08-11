@@ -3,6 +3,7 @@
 
   const PAY_DATE_ANCHOR = "2026-08-20";
   const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"];
+  const REQUIRED_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const state = {
     client: null,
     user: null,
@@ -16,10 +17,12 @@
     rates: [],
     submissions: [],
     entries: [],
+    liveEntries: [],
     jobs: [],
     exports: [],
     template: null,
-    loading: false
+    loading: false,
+    missingPanelOpen: false
   };
   const elements = {};
 
@@ -225,6 +228,10 @@
       .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
   }
 
+  function liveWeekEntries(profileId, weekStart) {
+    return state.liveEntries.filter((entry) => entry.profile_id === profileId && isoDate(entry.week_start) === isoDate(weekStart));
+  }
+
   function getValidation() {
     const submissions = selectedSubmissions();
     const entries = selectedEntries();
@@ -234,7 +241,15 @@
     expected.forEach((profile) => {
       [state.periodDates.weekOneStart, state.periodDates.weekTwoStart].forEach((weekStart) => {
         if (!submissionKeys.has(`${profile.id}|${weekStart}`)) {
-          missing.push({ profile, weekStart });
+          const liveEntries = liveWeekEntries(profile.id, weekStart);
+          const coveredDays = new Set(liveEntries.map((entry) => entry.day_of_week).filter(Boolean));
+          missing.push({
+            profile,
+            weekStart,
+            liveEntries,
+            coveredDays: REQUIRED_WEEKDAYS.filter((day) => coveredDays.has(day)),
+            missingDays: REQUIRED_WEEKDAYS.filter((day) => !coveredDays.has(day))
+          });
         }
       });
     });
@@ -244,18 +259,15 @@
     const missingRateEntries = workEntries.filter((entry) => !rateFor(entry.profile_id, entry.work_date));
     const missingRateProfiles = Array.from(new Set(missingRateEntries.map((entry) => entry.profile_id))).filter(Boolean);
     const discrepancies = submissions.filter((submission) => {
-      const ignoredPlaceholderHours = entries
-        .filter((entry) => entry.submission_id === submission.id
-          && entry.entry_type !== "work"
-          && Math.abs(number(entry.original_hours) - 0.01) < 0.001)
+      const capturedWorkHours = entries
+        .filter((entry) => entry.submission_id === submission.id && entry.entry_type === "work")
         .reduce((sum, entry) => sum + number(entry.original_hours), 0);
-      const storedWorkHours = number(submission.source_total_hours) - ignoredPlaceholderHours;
-      return Math.abs(storedWorkHours - number(submission.normalized_work_hours)) > 0.011;
+      return Math.abs(capturedWorkHours - number(submission.normalized_work_hours)) > 0.011;
     });
     const leaveEntries = entries.filter((entry) => entry.entry_type !== "work");
     const blockFinal = [];
     if (!state.template) blockFinal.push("approved workbook template");
-    if (!workEntries.length) blockFinal.push("submitted work hours");
+    if (missing.length) blockFinal.push(`${missing.length} missing weekly submission${missing.length === 1 ? "" : "s"}`);
     if (unknownOwners.length) blockFinal.push(`${unknownOwners.length} unmatched employee owner${unknownOwners.length === 1 ? "" : "s"}`);
     if (unmatched.length) blockFinal.push(`${unmatched.length} job exception${unmatched.length === 1 ? "" : "s"}`);
     if (missingRateProfiles.length) blockFinal.push(`${missingRateProfiles.length} missing employee rate${missingRateProfiles.length === 1 ? "" : "s"}`);
@@ -289,16 +301,16 @@
   function renderValidation(validation) {
     const cards = [];
     if (!validation.blockFinal.length) {
-      cards.push('<div class="accounting-validation-card"><strong>Final export checks passed</strong>Rates and job matches are ready. Review any missing submissions before locking the period.</div>');
+      cards.push('<div class="accounting-validation-card"><strong>Final export checks passed</strong>Both weeks are submitted for every Accounting employee, and rates and job matches are ready.</div>');
     } else {
       cards.push(`<div class="accounting-validation-card danger"><strong>Final export blocked</strong>Resolve: ${escapeText(validation.blockFinal.join(", "))}.</div>`);
     }
     if (validation.missing.length) {
       const missingText = validation.missing.map((item) => `${item.profile.display_name} (${formatDate(item.weekStart, false)} week)`).join(", ");
-      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.missing.length} expected submission${validation.missing.length === 1 ? "" : "s"} missing</strong>${escapeText(missingText)}. This is a review warning and does not automatically block a final export.</div>`);
+      cards.push(`<button type="button" class="accounting-validation-card accounting-missing-trigger warning" data-open-missing-submissions><strong>${validation.missing.length} expected submission${validation.missing.length === 1 ? "" : "s"} missing</strong>${escapeText(missingText)}. Final &amp; Lock stays disabled until these weeks are submitted. Click to review or auto-fill Vacation / Holiday.</button>`);
     }
     if (validation.discrepancies.length) {
-      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.discrepancies.length} stored-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The normalized work entries do not match the stored weekly total after leave placeholders are removed. Review these submissions during the historical comparison.</div>`);
+      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.discrepancies.length} captured work-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The captured work rows do not match the normalized work total. Review these submissions during the historical comparison.</div>`);
     }
     if (validation.leaveEntries.length) {
       const counts = validation.leaveEntries.reduce((result, entry) => {
@@ -308,6 +320,104 @@
       cards.push(`<div class="accounting-validation-card"><strong>Leave reference</strong>${escapeText(Object.entries(counts).map(([key, count]) => `${label(key)}: ${count}`).join(" | "))}. Leave placeholders are never counted as 0.01 paid hours.</div>`);
     }
     elements.validation.innerHTML = cards.join("");
+  }
+
+  function renderMissingSubmissions(validation) {
+    if (!validation.missing.length) {
+      elements.missingPanel.hidden = true;
+      elements.missingPanel.open = false;
+      elements.missingList.innerHTML = "";
+      state.missingPanelOpen = false;
+      return;
+    }
+
+    elements.missingPanel.hidden = false;
+    elements.missingCount.textContent = `${validation.missing.length} missing`;
+    elements.missingPanel.open = state.missingPanelOpen;
+    elements.missingList.innerHTML = validation.missing.map((item) => {
+      const key = `${item.profile.id}-${item.weekStart}`;
+      const needsFill = item.missingDays.length > 0;
+      const weekdayControls = REQUIRED_WEEKDAYS.map((day) => {
+        const isCovered = item.coveredDays.includes(day);
+        const shortDay = day.slice(0, 3);
+        return `<label class="accounting-weekday ${isCovered ? "is-complete" : "is-missing"}">
+          <input type="checkbox" ${isCovered ? "checked disabled" : "checked data-fill-day"} value="${escapeText(day)}">
+          <span>${escapeText(shortDay)}</span>
+          <small>${isCovered ? "Entered" : "Fill"}</small>
+        </label>`;
+      }).join("");
+      return `<article class="accounting-missing-card" data-missing-card data-profile-id="${escapeText(item.profile.id)}" data-week-start="${escapeText(item.weekStart)}">
+        <div class="accounting-missing-card-heading">
+          <div><strong>${escapeText(item.profile.display_name)}</strong><span>Week of ${escapeText(formatDate(item.weekStart))}</span></div>
+          <span class="jgc-badge ${needsFill ? "jgc-badge--warning" : "jgc-badge--info"}">${needsFill ? `${item.missingDays.length} day${item.missingDays.length === 1 ? "" : "s"} missing` : "Ready to submit"}</span>
+        </div>
+        <div class="accounting-weekdays" aria-label="Weekday coverage for ${escapeText(item.profile.display_name)}">${weekdayControls}</div>
+        <div class="accounting-leave-controls" ${needsFill ? "" : "hidden"}>
+          <div class="jgc-field">
+            <label class="jgc-label" for="missingType-${escapeText(key)}">Fill Missing Days As</label>
+            <select id="missingType-${escapeText(key)}" class="jgc-select" data-leave-mode>
+              <option value="vacation_paid">Vacation - Paid</option>
+              <option value="vacation_unpaid">Vacation - Unpaid</option>
+              <option value="civic_holiday">Civic Holiday</option>
+            </select>
+          </div>
+          <div class="jgc-field">
+            <label class="jgc-label" for="missingNote-${escapeText(key)}">Accounting Note (optional)</label>
+            <input id="missingNote-${escapeText(key)}" class="jgc-input" type="text" maxlength="500" data-leave-note placeholder="Example: Christmas shutdown">
+          </div>
+        </div>
+        <p class="accounting-missing-help">${needsFill ? "Selected days will be added to the employee's real timesheet, then the completed week will be submitted into employee history and Accounting." : "All weekdays already have entries. Accounting can submit the completed week without adding leave."}</p>
+        <button class="jgc-button accounting-submit-missing" type="button" data-submit-missing-timesheet>${needsFill ? "Auto Fill Selected Days & Submit Week" : "Submit Completed Week"}</button>
+      </article>`;
+    }).join("");
+  }
+
+  async function submitMissingTimesheet(button) {
+    const card = button.closest("[data-missing-card]");
+    if (!card) return;
+
+    const profileId = card.dataset.profileId || "";
+    const weekStart = card.dataset.weekStart || "";
+    const employee = profileById(profileId);
+    const fillInputs = Array.from(card.querySelectorAll("[data-fill-day]"));
+    const selectedDays = fillInputs.filter((input) => input.checked).map((input) => input.value);
+    if (fillInputs.length && selectedDays.length !== fillInputs.length) {
+      showNotice("A week cannot be submitted until Monday through Friday are covered. Enter the missing work first, or select every remaining day as Vacation / Holiday.", "warning");
+      return;
+    }
+
+    const mode = card.querySelector("[data-leave-mode]")?.value || "vacation_paid";
+    const entryType = mode === "civic_holiday" ? "civic_holiday" : "vacation";
+    const leaveType = mode === "vacation_unpaid" ? "unpaid" : (mode === "vacation_paid" ? "paid" : "");
+    const leaveLabel = entryType === "civic_holiday" ? "Civic Holiday" : `${label(leaveType)} Vacation`;
+    const note = card.querySelector("[data-leave-note]")?.value.trim() || "";
+    const actionText = selectedDays.length
+      ? `add ${leaveLabel} to ${selectedDays.join(", ")} and submit the week`
+      : "submit this completed week";
+    if (!window.confirm(`This will ${actionText} for ${employee ? employee.display_name : "this employee"}. Continue?`)) return;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Submitting...";
+    showNotice(`Submitting ${employee ? employee.display_name : "employee"}'s timesheet week...`);
+    try {
+      const result = await state.client.rpc("accounting_autofill_leave_timesheet", {
+        p_profile_id: profileId,
+        p_week_start: weekStart,
+        p_days: selectedDays,
+        p_entry_type: entryType,
+        p_leave_type: leaveType,
+        p_note: note
+      });
+      requireResult(result, "Submit employee timesheet");
+      state.missingPanelOpen = true;
+      await loadData();
+      showNotice(`${employee ? employee.display_name : "Employee"}'s week was submitted to timesheet history and Accounting.`);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = originalText;
+      showNotice(error.message || "The timesheet week could not be submitted.", "error");
+    }
   }
 
   function renderEmployeeReview(validation) {
@@ -445,6 +555,7 @@
     const validation = getValidation();
     renderMetrics(validation);
     renderValidation(validation);
+    renderMissingSubmissions(validation);
     renderEmployeeReview(validation);
     renderJobExceptions(validation);
     renderRates();
@@ -459,13 +570,14 @@
     state.periodDates = periodDates(state.payDate);
     try {
       const dates = state.periodDates;
-      const [profilesResult, workersResult, accessResult, ratesResult, submissionsResult, entriesResult, jobsResult, periodResult, templateResult] = await Promise.all([
+      const [profilesResult, workersResult, accessResult, ratesResult, submissionsResult, entriesResult, liveEntriesResult, jobsResult, periodResult, templateResult] = await Promise.all([
         state.client.from("profiles").select("id,display_name,worker_key,role,account_status").order("display_name"),
         state.client.from("work_order_labour_workers").select("id,profile_id,approved"),
         state.client.from("employee_feature_access").select("worker_id,feature_key,enabled").eq("feature_key", "accounting"),
         state.client.from("accounting_employee_rates").select("*").order("effective_from", { ascending: false }),
         state.client.from("accounting_timesheet_submissions").select("*").in("week_start", [dates.weekOneStart, dates.weekTwoStart]).order("submitted_at"),
         state.client.from("accounting_time_entries").select("*").gte("work_date", dates.weekOneStart).lte("work_date", dates.weekTwoEnd).eq("is_current", true).order("work_date"),
+        state.client.from("timesheet_entries").select("id,profile_id,worker_name,week_start,day_of_week,entry_type,hours").in("week_start", [dates.weekOneStart, dates.weekTwoStart]).order("week_start").order("day_of_week"),
         state.client.from("jobs").select("id,job_number,job_name,active").order("active", { ascending: false }).order("job_number"),
         state.client.from("accounting_pay_periods").select("*").eq("pay_date", state.payDate).maybeSingle(),
         state.client.from("accounting_workbook_templates").select("id,file_name,file_sha256,is_active,uploaded_by,created_at,updated_at").eq("is_active", true).limit(1).maybeSingle()
@@ -476,6 +588,7 @@
       state.rates = requireResult(ratesResult, "Employee rates") || [];
       state.submissions = requireResult(submissionsResult, "Submitted timesheets") || [];
       state.entries = requireResult(entriesResult, "Accounting time entries") || [];
+      state.liveEntries = requireResult(liveEntriesResult, "Live timesheet entries") || [];
       state.jobs = requireResult(jobsResult, "Jobs") || [];
       state.period = requireResult(periodResult, "Pay period") || null;
       state.template = requireResult(templateResult, "Workbook template") || null;
@@ -763,6 +876,18 @@
     elements.downloadFinal.addEventListener("click", () => exportWorkbook(true));
 
     document.addEventListener("click", (event) => {
+      const missingTrigger = event.target.closest("[data-open-missing-submissions]");
+      if (missingTrigger) {
+        state.missingPanelOpen = true;
+        elements.missingPanel.open = true;
+        elements.missingPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      const missingSubmit = event.target.closest("[data-submit-missing-timesheet]");
+      if (missingSubmit) {
+        submitMissingTimesheet(missingSubmit).catch((error) => showNotice(error.message, "error"));
+        return;
+      }
       const matchButton = event.target.closest("[data-match-entry]");
       if (matchButton) {
         matchEntry(matchButton.dataset.matchEntry).catch((error) => showNotice(error.message, "error"));
@@ -777,6 +902,9 @@
       if (downloadButton) {
         redownloadExport(downloadButton.dataset.redownloadExport).catch((error) => showNotice(error.message, "error"));
       }
+    });
+    elements.missingPanel.addEventListener("toggle", () => {
+      state.missingPanelOpen = elements.missingPanel.open;
     });
   }
 
@@ -794,6 +922,9 @@
       periodDates: byId("accountingPeriodDates"),
       metrics: byId("accountingMetrics"),
       validation: byId("accountingValidation"),
+      missingPanel: byId("accountingMissingPanel"),
+      missingCount: byId("accountingMissingCount"),
+      missingList: byId("accountingMissingList"),
       employeeReview: byId("accountingEmployeeReview"),
       jobCount: byId("accountingJobCount"),
       jobExceptions: byId("accountingJobExceptions"),

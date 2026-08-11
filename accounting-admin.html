@@ -9,7 +9,7 @@
   <title>JGC Portal - Accounting</title>
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="accounting-admin.css?v=2">
+  <link rel="stylesheet" href="accounting-admin.css?v=3">
 </head>
 <body class="accounting-page jgc-page">
   <nav class="accounting-admin-tabs" data-jgc-admin-nav="true" aria-label="Admin navigation">
@@ -64,6 +64,16 @@
       </div>
       <div id="accountingMetrics" class="accounting-metrics"></div>
       <div id="accountingValidation" class="accounting-validation"></div>
+      <details id="accountingMissingPanel" class="accounting-missing-panel" hidden>
+        <summary>
+          <span>
+            <strong>Resolve Missing Timesheets</strong>
+            <small>Review live weekdays, fill only the remaining days as Vacation or Civic Holiday, and submit the completed week.</small>
+          </span>
+          <span id="accountingMissingCount" class="jgc-badge jgc-badge--warning">0 missing</span>
+        </summary>
+        <div id="accountingMissingList" class="accounting-missing-list"></div>
+      </details>
       <div id="accountingEmployeeReview" class="accounting-employee-review"></div>
     </section>
 
@@ -107,7 +117,7 @@
         <button id="accountingDownloadDraft" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="download"></i> Download Draft Excel</button>
         <button id="accountingDownloadFinal" class="jgc-button" type="button"><i data-lucide="lock"></i> Download Final &amp; Lock Period</button>
       </div>
-      <p class="accounting-export-help">Final export is blocked until rates and job exceptions are resolved. Stat pay, adjustments, VP, other amounts, notes, and overtime allocation are completed in Excel after download.</p>
+      <p class="accounting-export-help">Final export is blocked until both weekly timesheets are submitted for every Accounting employee and rates and job exceptions are resolved. Stat pay, adjustments, VP, other amounts, notes, and overtime allocation are completed in Excel after download.</p>
       <div id="accountingExportHistory"></div>
     </section>
   </main>
@@ -117,6 +127,6 @@
   <script src="vendor/exceljs.min.js?v=1"></script>
   <script src="common.js?v=39"></script>
   <script src="accounting-workbook.js?v=1"></script>
-  <script src="accounting-admin.js?v=4"></script>
+  <script src="accounting-admin.js?v=5"></script>
 </body>
 </html>

@@ -142,8 +142,10 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
     } else if (url.pathname.includes("/rest/v1/accounting_timesheet_submissions")) {
       const accountingSubmissions = [
         { id: "00000000-0000-4000-8000-000000000031", source_week_id: "00000000-0000-4000-8000-000000000041", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-02", submitted_at: "2026-08-10T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 },
-        { id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8.01, normalized_work_hours: 8 }
       ];
+      if (!options.missingAccountingSecondWeek) {
+        accountingSubmissions.push({ id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8.01, normalized_work_hours: 8 });
+      }
       if (options.includeExcludedAccountingSubmission) {
         accountingSubmissions.push({ id: "00000000-0000-4000-8000-000000000033", source_week_id: "00000000-0000-4000-8000-000000000043", profile_id: profile.id, worker_name: profile.display_name, week_start: "2026-08-02", submitted_at: "2026-08-10T13:00:00Z", source_revision: 1, source_total_hours: 7, normalized_work_hours: 7 });
       }
@@ -158,6 +160,8 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
         accountingEntries.push({ id: "00000000-0000-4000-8000-000000000054", submission_id: "00000000-0000-4000-8000-000000000033", profile_id: profile.id, worker_name: profile.display_name, work_date: "2026-08-05", day_of_week: "Wednesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 7, original_hours: 7, is_current: true });
       }
       body = JSON.stringify(accountingEntries);
+    } else if (url.pathname.includes("/rest/v1/timesheet_entries") && page.url().includes("accounting-admin.html")) {
+      body = JSON.stringify(options.accountingLiveEntries || []);
     } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
       body = "null";
     } else if (url.pathname.includes("/rest/v1/accounting_workbook_templates")) {
@@ -243,6 +247,13 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
       body = (requestedFeature && requestedWorker) || accept.includes("application/vnd.pgrst.object")
         ? JSON.stringify(matchingAccess || null)
         : JSON.stringify(accessRows);
+    } else if (url.pathname.includes("/rest/v1/rpc/accounting_autofill_leave_timesheet")) {
+      body = JSON.stringify({
+        source_week_id: "00000000-0000-4000-8000-000000000099",
+        profile_id: "00000000-0000-4000-8000-000000000002",
+        worker_name: "Steven Leduc",
+        week_start: "2026-08-09"
+      });
     } else if (url.pathname.startsWith("/rest/v1/rpc/")) {
       body = accept.includes("application/vnd.pgrst.object") ? "{}" : "[]";
     } else if (url.pathname.startsWith("/functions/v1/")) {
@@ -2271,6 +2282,14 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
     path.join(portalRoot, "supabase", "migrations", "20260811143339_approve_shop_accounting_entries.sql"),
     "utf8"
   );
+  const autoFillMigration = fs.readFileSync(
+    path.join(portalRoot, "supabase", "migrations", "20260811160404_accounting_autofill_leave_timesheets.sql"),
+    "utf8"
+  );
+  const autoFillRlsMigration = fs.readFileSync(
+    path.join(portalRoot, "supabase", "migrations", "20260811161307_enforce_accounting_autofill_rls.sql"),
+    "utf8"
+  );
   expect(accountingSource).not.toContain("accounting_period_employee_inputs");
   expect(accountingSource).not.toContain("accounting_employee_settings");
   expect(accountingSource).not.toContain("data-save-setting");
@@ -2282,6 +2301,12 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   expect(shopMigration).toContain("accounting_time_entries_approve_shop");
   expect(shopMigration).toContain("Automatically approved: Shop");
   expect(shopMigration).toContain("'^shop([[:space:]]|$)'");
+  expect(autoFillMigration).toContain("security definer");
+  expect(autoFillMigration).toContain("private.jgc_has_accounting_access()");
+  expect(autoFillMigration).toContain("revoke all on function public.accounting_autofill_leave_timesheet");
+  expect(autoFillMigration).toContain("The week is still missing");
+  expect(autoFillRlsMigration).toContain("security invoker");
+  expect(autoFillRlsMigration).toContain("existing RLS policies");
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
@@ -2317,6 +2342,49 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expect(page.locator("#accountingTemplateStatus")).toContainText("Approved template ready");
   await expect(page.locator("#accountingDownloadFinal")).toBeEnabled();
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
+});
+
+test("Accounting blocks final lock and can fill a missing employee week", async ({ page }) => {
+  const errors = watchRuntimeErrors(page, "accept");
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, {
+    accountingEnabled: false,
+    missingAccountingSecondWeek: true,
+    accountingLiveEntries: [{
+      id: "00000000-0000-4000-8000-000000000081",
+      profile_id: "00000000-0000-4000-8000-000000000002",
+      worker_name: "Steven Leduc",
+      week_start: "2026-08-09",
+      day_of_week: "Monday",
+      entry_type: "work",
+      hours: 8
+    }]
+  });
+
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#accountingDownloadFinal")).toBeDisabled();
+  await expect(page.locator("#accountingValidation")).toContainText("1 expected submission missing");
+  await page.locator("[data-open-missing-submissions]").click();
+  await expect(page.locator("#accountingMissingPanel")).toHaveAttribute("open", "");
+  await expect(page.locator("#accountingMissingList")).toContainText("Steven Leduc");
+  await expect(page.locator("#accountingMissingList .accounting-weekday.is-complete")).toHaveCount(1);
+  await expect(page.locator("#accountingMissingList [data-fill-day]")).toHaveCount(4);
+  await page.locator("#accountingMissingList [data-leave-mode]").selectOption("civic_holiday");
+  await page.locator("#accountingMissingList [data-leave-note]").fill("Christmas shutdown");
+
+  const requestPromise = page.waitForRequest((request) => request.url().includes("/rest/v1/rpc/accounting_autofill_leave_timesheet"));
+  await page.locator("#accountingMissingList [data-submit-missing-timesheet]").click();
+  const request = await requestPromise;
+  expect(request.postDataJSON()).toMatchObject({
+    p_profile_id: "00000000-0000-4000-8000-000000000002",
+    p_week_start: "2026-08-09",
+    p_days: ["Tuesday", "Wednesday", "Thursday", "Friday"],
+    p_entry_type: "civic_holiday",
+    p_leave_type: "",
+    p_note: "Christmas shutdown"
+  });
+  await expect(page.locator("#accountingNotice")).toContainText("submitted to timesheet history and Accounting");
+  await expectNoRuntimeErrors(errors, "Accounting missing timesheet auto-fill");
 });
 
 test("Accounting employee inclusion does not remove approved admin page access", async ({ page }) => {
