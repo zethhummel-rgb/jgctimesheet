@@ -2255,8 +2255,15 @@ test("purchase order pages keep the portal spyglass circular", async ({ page }) 
 
 test("Accounting is a standalone admin page with captured biweekly review", async ({ page }) => {
   const accountingSource = fs.readFileSync(path.join(portalRoot, "accounting-admin.js"), "utf8");
+  const shopMigration = fs.readFileSync(
+    path.join(portalRoot, "supabase", "migrations", "20260811143339_approve_shop_accounting_entries.sql"),
+    "utf8"
+  );
   expect(accountingSource).not.toContain("accounting_period_employee_inputs");
   expect(accountingSource).toContain("inputs: {}");
+  expect(shopMigration).toContain("accounting_time_entries_approve_shop");
+  expect(shopMigration).toContain("Automatically approved: Shop");
+  expect(shopMigration).toContain("'^shop([[:space:]]|$)'");
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page);
