@@ -56,11 +56,12 @@ const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
   { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
   { key: "timesheets", label: "Timesheets", href: "admin.html?tab=timesheets" },
+  { key: "accounting", label: "Accounting", href: "accounting-admin.html", standalone: true },
   { key: "safetyRecords", label: "Safety Records", href: "admin.html?tab=safetyRecords" },
   { key: "vacation", label: "Vacation Requests", href: "admin.html?tab=vacation" },
   { key: "tasks", label: "Tasks", href: "admin.html?tab=tasks" },
   { key: "workOrders", label: "Work Orders", href: "admin.html?tab=workOrders" },
-  { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html" },
+  { key: "purchaseOrders", label: "Purchase Orders", href: "purchase-orders-admin.html", standalone: true },
   { key: "adminTools", label: "Admin Tools", href: "admin.html?tab=adminTools" }
 ];
 const JGC_ADMIN_TOOL_SECTIONS = new Set([
@@ -1485,6 +1486,10 @@ function isJgcAdminPageName(page) {
 }
 
 function getJgcAdminNavigationSection(page, adminNav) {
+  if (page === "accounting-admin.html") {
+    return "accounting";
+  }
+
   if (page === "purchase-orders-admin.html") {
     return "purchaseOrders";
   }
@@ -1534,7 +1539,7 @@ function renderJgcAdminNavigation(adminNav, page) {
       link.setAttribute("aria-current", "page");
     }
 
-    if (page === "admin.html" && item.key !== "purchaseOrders") {
+    if (page === "admin.html" && !item.standalone) {
       link.addEventListener("click", function(event) {
         if (typeof window.showTab !== "function") {
           return;
@@ -1553,7 +1558,7 @@ function markJgcAdminHeaderElements(page) {
   const title = page === "purchase-orders-admin.html"
     ? document.querySelector(".po-shell > h1")
     : document.querySelector("body > h1, .hero h1, .top-actions h1, .jgc-page-header h1");
-  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #diagnosticsCurrentUser, #employeeAccessCurrentUser, #workerName");
+  const userLine = document.querySelector("#currentUser, #poAdminCurrentUser, #accountingCurrentUser, #diagnosticsCurrentUser, #employeeAccessCurrentUser, #workerName");
   const brandRegion = document.querySelector(".logo-wrap, .po-brand, .diagnostics-brand, .employee-access-page .jgc-brand, .hero, .top-actions .brand");
   const existingHeader = title && title.closest(".hero, .top-actions");
 

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow, noarchive">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b5e3b">
+  <title>JGC Portal - Accounting</title>
+  <link rel="manifest" href="manifest.json?v=7">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="accounting-admin.css?v=1">
+</head>
+<body class="accounting-page jgc-page">
+  <nav class="accounting-admin-tabs" data-jgc-admin-nav="true" aria-label="Admin navigation">
+    <a class="tab-button" href="admin.html?tab=summary">Summary</a>
+    <a class="tab-button" href="admin.html?tab=jobDashboard">Job Dashboard</a>
+    <a class="tab-button" href="admin.html?tab=timesheets">Timesheets</a>
+    <a class="tab-button active" aria-current="page" href="accounting-admin.html">Accounting</a>
+    <a class="tab-button" href="admin.html?tab=safetyRecords">Safety Records</a>
+    <a class="tab-button" href="admin.html?tab=vacation">Vacation Requests</a>
+    <a class="tab-button" href="admin.html?tab=tasks">Tasks</a>
+    <a class="tab-button" href="admin.html?tab=workOrders">Work Orders</a>
+    <a class="tab-button" href="purchase-orders-admin.html">Purchase Orders</a>
+    <a class="tab-button" href="admin.html?tab=adminTools">Admin Tools</a>
+  </nav>
+
+  <main class="accounting-shell jgc-page-shell jgc-page-shell--wide">
+    <header class="jgc-page-header accounting-header">
+      <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+      <h1>Accounting</h1>
+      <p id="accountingCurrentUser" class="accounting-user-line"></p>
+    </header>
+
+    <div id="accountingNotice" class="accounting-notice jgc-notice" hidden role="status" aria-live="polite"></div>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingPeriodTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingPeriodTitle" class="jgc-section-title">Biweekly Pay Period</h2>
+          <p>Select the Thursday pay date. The two Saturday-ending work weeks are filled automatically.</p>
+        </div>
+        <span id="accountingPeriodStatus" class="jgc-badge jgc-badge--info">Draft</span>
+      </div>
+      <div class="accounting-period-toolbar jgc-toolbar">
+        <button id="accountingPreviousPeriod" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="chevron-left"></i> Previous</button>
+        <div class="jgc-field accounting-pay-date-field">
+          <label class="jgc-label" for="accountingPayDate">Pay Date</label>
+          <input id="accountingPayDate" class="jgc-input" type="date">
+        </div>
+        <button id="accountingNextPeriod" class="jgc-button jgc-button--secondary" type="button">Next <i data-lucide="chevron-right"></i></button>
+        <button id="accountingCurrentPeriod" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="calendar-days"></i> Current</button>
+        <button id="accountingRefresh" class="jgc-button" type="button"><i data-lucide="refresh-cw"></i> Refresh</button>
+      </div>
+      <div id="accountingPeriodDates" class="accounting-period-dates"></div>
+    </section>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingReviewTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingReviewTitle" class="jgc-section-title">Submission Review</h2>
+          <p>Submitted hours are copied into a permanent Accounting ledger. Employee timesheet history can still use its normal two-month display.</p>
+        </div>
+      </div>
+      <div id="accountingMetrics" class="accounting-metrics"></div>
+      <div id="accountingValidation" class="accounting-validation"></div>
+      <div id="accountingEmployeeReview" class="accounting-employee-review"></div>
+    </section>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingJobTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingJobTitle" class="jgc-section-title">Job Matching</h2>
+          <p>Exact job numbers match automatically against the complete active and inactive job list. Resolve only the exceptions below.</p>
+        </div>
+        <span id="accountingJobCount" class="jgc-badge jgc-badge--info">0 exceptions</span>
+      </div>
+      <div id="accountingJobExceptions"></div>
+    </section>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingRatesTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingRatesTitle" class="jgc-section-title">Employee Rates</h2>
+          <p>Rates are effective-dated and append-only. A new rate never rewrites an older payroll period.</p>
+        </div>
+      </div>
+      <div id="accountingRates"></div>
+    </section>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingInputsTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingInputsTitle" class="jgc-section-title">Accounting Inputs</h2>
+          <p>Accounting chooses statutory pay and enters Adjustment, VP, and Other. Overtime remains available for manual allocation in Excel.</p>
+        </div>
+        <button id="accountingSaveInputs" class="jgc-button" type="button"><i data-lucide="save"></i> Save Inputs</button>
+      </div>
+      <div id="accountingInputs"></div>
+    </section>
+
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingExportTitle">
+      <div class="accounting-section-heading">
+        <div>
+          <h2 id="accountingExportTitle" class="jgc-section-title">Excel Export</h2>
+          <p>The approved biweekly workbook stays private. Exports are generated in this browser and downloaded directly to the selected folder.</p>
+        </div>
+      </div>
+      <div id="accountingTemplateStatus" class="accounting-template-status"></div>
+      <div class="accounting-template-upload jgc-field">
+        <label class="jgc-label" for="accountingTemplateFile">Replace Workbook Template (administrators only)</label>
+        <div class="accounting-file-row">
+          <input id="accountingTemplateFile" class="jgc-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          <button id="accountingUploadTemplate" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="upload"></i> Upload Template</button>
+        </div>
+      </div>
+      <div class="accounting-export-actions jgc-actions">
+        <button id="accountingDownloadDraft" class="jgc-button jgc-button--secondary" type="button"><i data-lucide="download"></i> Download Draft Excel</button>
+        <button id="accountingDownloadFinal" class="jgc-button" type="button"><i data-lucide="lock"></i> Download Final &amp; Lock Period</button>
+      </div>
+      <p class="accounting-export-help">Final export is blocked until rates and job exceptions are resolved. Missing submissions remain visible as a warning for Accounting to review.</p>
+      <div id="accountingExportHistory"></div>
+    </section>
+  </main>
+
+  <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
+  <script src="vendor/lucide.min.js"></script>
+  <script src="vendor/exceljs.min.js?v=1"></script>
+  <script src="common.js?v=38"></script>
+  <script src="accounting-workbook.js?v=1"></script>
+  <script src="accounting-admin.js?v=1"></script>
+</body>
+</html>

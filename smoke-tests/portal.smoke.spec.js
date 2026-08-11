@@ -122,6 +122,52 @@ async function mockPortalServices(page, profile = fakeProfile) {
       body = JSON.stringify(fakeUser);
     } else if (url.pathname.startsWith("/auth/v1/token")) {
       body = JSON.stringify(session);
+    } else if (url.pathname.includes("/rest/v1/accounting_employee_settings")) {
+      body = JSON.stringify([
+        { profile_id: fakeProfile.id, include_in_payroll: false },
+        { profile_id: "00000000-0000-4000-8000-000000000002", include_in_payroll: true }
+      ]);
+    } else if (url.pathname.includes("/rest/v1/accounting_employee_rates")) {
+      body = JSON.stringify([{
+        id: "00000000-0000-4000-8000-000000000020",
+        profile_id: "00000000-0000-4000-8000-000000000002",
+        pay_type: "hourly",
+        regular_rate: 30,
+        overtime_multiplier: 1.5,
+        night_premium: 3,
+        effective_from: "2026-07-01"
+      }]);
+    } else if (url.pathname.includes("/rest/v1/accounting_timesheet_submissions")) {
+      body = JSON.stringify([
+        { id: "00000000-0000-4000-8000-000000000031", source_week_id: "00000000-0000-4000-8000-000000000041", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-02", submitted_at: "2026-08-10T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 },
+        { id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 }
+      ]);
+    } else if (url.pathname.includes("/rest/v1/accounting_time_entries")) {
+      body = JSON.stringify([
+        { id: "00000000-0000-4000-8000-000000000051", submission_id: "00000000-0000-4000-8000-000000000031", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-04", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
+        { id: "00000000-0000-4000-8000-000000000052", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-11", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true }
+      ]);
+    } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
+      body = "null";
+    } else if (url.pathname.includes("/rest/v1/accounting_workbook_templates")) {
+      body = JSON.stringify({
+        id: "biweekly-v1",
+        file_name: "Copy of Aug 20 Simple - Biweekly.xlsx",
+        file_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        is_active: true,
+        uploaded_by: fakeProfile.id,
+        created_at: "2026-08-11T12:00:00Z",
+        updated_at: "2026-08-11T12:00:00Z"
+      });
+    } else if (url.pathname.includes("/rest/v1/accounting_period_employee_inputs") || url.pathname.includes("/rest/v1/accounting_exports")) {
+      body = "[]";
+    } else if (url.pathname.includes("/rest/v1/jobs") && page.url().includes("accounting-admin.html")) {
+      body = JSON.stringify([{
+        id: "00000000-0000-4000-8000-000000000061",
+        job_number: "25169",
+        job_name: "McKay Office Addition",
+        active: true
+      }]);
     } else if (url.pathname.includes("/rest/v1/profiles")) {
       body = accept.includes("application/vnd.pgrst.object")
         ? JSON.stringify(profile)
@@ -2191,6 +2237,30 @@ test("purchase order pages keep the portal spyglass circular", async ({ page }) 
   }
 
   await expectNoRuntimeErrors(errors, "purchase order portal search button shape");
+});
+
+test("Accounting is a standalone admin page with captured biweekly review", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
+  const accountingLink = page.locator("[data-jgc-admin-nav] a", { hasText: "Accounting" }).first();
+  await expect(accountingLink).toHaveAttribute("href", "accounting-admin.html");
+
+  await accountingLink.click();
+  await expect(page).toHaveURL(/accounting-admin\.html/);
+  await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveClass(/active/);
+  await expect(page.locator("#accountingCurrentUser")).toContainText("Portal Smoke Test");
+  await expect(page.locator("#accountingPeriodDates")).toContainText("Aug 2, 2026");
+  await expect(page.locator("#accountingMetrics")).toContainText("16.00");
+  await expect(page.locator("#accountingValidation")).toContainText("Final export checks passed");
+  await expect(page.locator("#accountingEmployeeReview details")).toHaveCount(1);
+  await expect(page.locator("#accountingEmployeeReview details")).not.toHaveAttribute("open", "");
+  await expect(page.locator("#accountingJobExceptions")).toContainText("All work entries are matched");
+  await expect(page.locator("#accountingTemplateStatus")).toContainText("Approved template ready");
+  await expect(page.locator("#accountingDownloadFinal")).toBeEnabled();
+  await expectNoRuntimeErrors(errors, "Accounting admin workflow");
 });
 
 test("work order auto-submit recovers stale claims and bounds email delivery", async () => {
