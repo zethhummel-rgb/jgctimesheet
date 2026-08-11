@@ -2277,6 +2277,11 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expect(page.locator("#accountingEmployeeReview details")).toHaveCount(1);
   await expect(page.locator("#accountingEmployeeReview details")).not.toHaveAttribute("open", "");
   await expect(page.locator("#accountingJobExceptions")).toContainText("All work entries are matched");
+  await expect(page.locator("#accountingRatesPanel")).not.toHaveAttribute("open", "");
+  await expect(page.locator("#accountingRates")).not.toBeVisible();
+  await page.locator("#accountingRatesPanel > summary").click();
+  await expect(page.locator("#accountingRatesPanel")).toHaveAttribute("open", "");
+  await expect(page.locator("#accountingRates")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Accounting Inputs" })).toHaveCount(0);
   await expect(page.locator("#accountingSaveInputs")).toHaveCount(0);
   await expect(page.locator(".accounting-export-help")).toContainText("completed in Excel after download");

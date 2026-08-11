@@ -9,7 +9,7 @@
   <title>JGC Portal - Accounting</title>
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="accounting-admin.css?v=1">
+  <link rel="stylesheet" href="accounting-admin.css?v=2">
 </head>
 <body class="accounting-page jgc-page">
   <nav class="accounting-admin-tabs" data-jgc-admin-nav="true" aria-label="Admin navigation">
@@ -78,15 +78,15 @@
       <div id="accountingJobExceptions"></div>
     </section>
 
-    <section class="accounting-panel jgc-panel" aria-labelledby="accountingRatesTitle">
-      <div class="accounting-section-heading">
-        <div>
-          <h2 id="accountingRatesTitle" class="jgc-section-title">Employee Rates</h2>
-          <p>Rates are effective-dated and append-only. A new rate never rewrites an older payroll period.</p>
-        </div>
-      </div>
-      <div id="accountingRates"></div>
-    </section>
+    <details id="accountingRatesPanel" class="accounting-panel accounting-collapsible-panel jgc-panel" aria-labelledby="accountingRatesTitle">
+      <summary class="accounting-collapsible-summary">
+        <span>
+          <strong id="accountingRatesTitle" class="jgc-section-title">Employee Rates</strong>
+          <small>Rates are effective-dated and append-only. A new rate never rewrites an older payroll period.</small>
+        </span>
+      </summary>
+      <div id="accountingRates" class="accounting-collapsible-body"></div>
+    </details>
 
     <section class="accounting-panel jgc-panel" aria-labelledby="accountingExportTitle">
       <div class="accounting-section-heading">

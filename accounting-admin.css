@@ -60,6 +60,52 @@
   line-height: 1.45;
 }
 
+.accounting-collapsible-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 42px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.accounting-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.accounting-collapsible-summary > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.accounting-collapsible-summary .jgc-section-title {
+  margin: 0;
+}
+
+.accounting-collapsible-summary small {
+  color: #b9c9bd;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.accounting-collapsible-summary::after {
+  margin-left: auto;
+  color: #39db62;
+  content: "Show +";
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.accounting-collapsible-panel[open] > .accounting-collapsible-summary::after {
+  content: "Hide -";
+}
+
+.accounting-collapsible-body {
+  margin-top: 14px;
+}
+
 .accounting-period-toolbar {
   display: grid;
   grid-template-columns: auto minmax(220px, 1fr) auto auto auto;
