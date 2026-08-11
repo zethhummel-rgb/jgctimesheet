@@ -236,7 +236,13 @@
     const missingRateEntries = workEntries.filter((entry) => !rateFor(entry.profile_id, entry.work_date));
     const missingRateProfiles = Array.from(new Set(missingRateEntries.map((entry) => entry.profile_id))).filter(Boolean);
     const discrepancies = submissions.filter((submission) => {
-      return Math.abs(number(submission.source_total_hours) - number(submission.normalized_work_hours)) > 0.011;
+      const ignoredPlaceholderHours = entries
+        .filter((entry) => entry.submission_id === submission.id
+          && entry.entry_type !== "work"
+          && Math.abs(number(entry.original_hours) - 0.01) < 0.001)
+        .reduce((sum, entry) => sum + number(entry.original_hours), 0);
+      const storedWorkHours = number(submission.source_total_hours) - ignoredPlaceholderHours;
+      return Math.abs(storedWorkHours - number(submission.normalized_work_hours)) > 0.011;
     });
     const leaveEntries = entries.filter((entry) => entry.entry_type !== "work");
     const blockFinal = [];
@@ -284,7 +290,7 @@
       cards.push(`<div class="accounting-validation-card warning"><strong>${validation.missing.length} expected submission${validation.missing.length === 1 ? "" : "s"} missing</strong>${escapeText(missingText)}. This is a review warning and does not automatically block a final export.</div>`);
     }
     if (validation.discrepancies.length) {
-      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.discrepancies.length} stored-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The workbook uses normalized entry details and ignores 0.01 leave placeholders. Review these submissions during the historical comparison.</div>`);
+      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.discrepancies.length} stored-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The normalized work entries do not match the stored weekly total after leave placeholders are removed. Review these submissions during the historical comparison.</div>`);
     }
     if (validation.leaveEntries.length) {
       const counts = validation.leaveEntries.reduce((result, entry) => {

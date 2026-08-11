@@ -142,12 +142,13 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
     } else if (url.pathname.includes("/rest/v1/accounting_timesheet_submissions")) {
       body = JSON.stringify([
         { id: "00000000-0000-4000-8000-000000000031", source_week_id: "00000000-0000-4000-8000-000000000041", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-02", submitted_at: "2026-08-10T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 },
-        { id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 }
+        { id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8.01, normalized_work_hours: 8 }
       ]);
     } else if (url.pathname.includes("/rest/v1/accounting_time_entries")) {
       body = JSON.stringify([
         { id: "00000000-0000-4000-8000-000000000051", submission_id: "00000000-0000-4000-8000-000000000031", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-04", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
-        { id: "00000000-0000-4000-8000-000000000052", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-11", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true }
+        { id: "00000000-0000-4000-8000-000000000052", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-11", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
+        { id: "00000000-0000-4000-8000-000000000053", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-12", day_of_week: "Wednesday", entry_type: "vacation", leave_type: "paid", leave_note: "Vacation", source_job_number: "Vacation", source_job_name: "Vacation", job_id: null, job_match_status: "not_applicable", shift_type: "day", payable_hours: 0, original_hours: 0.01, is_current: true }
       ]);
     } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
       body = "null";
@@ -2271,6 +2272,8 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expect(page.locator("#accountingPeriodDates")).toContainText("Aug 2, 2026");
   await expect(page.locator("#accountingMetrics")).toContainText("16.00");
   await expect(page.locator("#accountingValidation")).toContainText("Final export checks passed");
+  await expect(page.locator("#accountingValidation")).toContainText("Vacation: 1");
+  await expect(page.locator("#accountingValidation")).not.toContainText("stored-total difference");
   await expect(page.locator("#accountingEmployeeReview details")).toHaveCount(1);
   await expect(page.locator("#accountingEmployeeReview details")).not.toHaveAttribute("open", "");
   await expect(page.locator("#accountingJobExceptions")).toContainText("All work entries are matched");
