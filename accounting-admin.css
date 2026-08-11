@@ -316,7 +316,7 @@
 
 .accounting-rate-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1.25fr) 130px 150px 120px 130px 150px auto;
+  grid-template-columns: minmax(180px, 1.25fr) 150px 120px 130px 150px auto;
   gap: 8px;
   align-items: end;
   padding: 12px;

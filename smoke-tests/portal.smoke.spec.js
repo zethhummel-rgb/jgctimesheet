@@ -140,16 +140,24 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
         effective_from: "2026-07-01"
       }]);
     } else if (url.pathname.includes("/rest/v1/accounting_timesheet_submissions")) {
-      body = JSON.stringify([
+      const accountingSubmissions = [
         { id: "00000000-0000-4000-8000-000000000031", source_week_id: "00000000-0000-4000-8000-000000000041", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-02", submitted_at: "2026-08-10T12:00:00Z", source_revision: 1, source_total_hours: 8, normalized_work_hours: 8 },
         { id: "00000000-0000-4000-8000-000000000032", source_week_id: "00000000-0000-4000-8000-000000000042", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", submitted_at: "2026-08-17T12:00:00Z", source_revision: 1, source_total_hours: 8.01, normalized_work_hours: 8 }
-      ]);
+      ];
+      if (options.includeExcludedAccountingSubmission) {
+        accountingSubmissions.push({ id: "00000000-0000-4000-8000-000000000033", source_week_id: "00000000-0000-4000-8000-000000000043", profile_id: profile.id, worker_name: profile.display_name, week_start: "2026-08-02", submitted_at: "2026-08-10T13:00:00Z", source_revision: 1, source_total_hours: 7, normalized_work_hours: 7 });
+      }
+      body = JSON.stringify(accountingSubmissions);
     } else if (url.pathname.includes("/rest/v1/accounting_time_entries")) {
-      body = JSON.stringify([
+      const accountingEntries = [
         { id: "00000000-0000-4000-8000-000000000051", submission_id: "00000000-0000-4000-8000-000000000031", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-04", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
         { id: "00000000-0000-4000-8000-000000000052", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-11", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
         { id: "00000000-0000-4000-8000-000000000053", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-12", day_of_week: "Wednesday", entry_type: "vacation", leave_type: "paid", leave_note: "Vacation", source_job_number: "Vacation", source_job_name: "Vacation", job_id: null, job_match_status: "not_applicable", shift_type: "day", payable_hours: 0, original_hours: 0.01, is_current: true }
-      ]);
+      ];
+      if (options.includeExcludedAccountingSubmission) {
+        accountingEntries.push({ id: "00000000-0000-4000-8000-000000000054", submission_id: "00000000-0000-4000-8000-000000000033", profile_id: profile.id, worker_name: profile.display_name, work_date: "2026-08-05", day_of_week: "Wednesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 7, original_hours: 7, is_current: true });
+      }
+      body = JSON.stringify(accountingEntries);
     } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
       body = "null";
     } else if (url.pathname.includes("/rest/v1/accounting_workbook_templates")) {
@@ -2255,18 +2263,28 @@ test("purchase order pages keep the portal spyglass circular", async ({ page }) 
 
 test("Accounting is a standalone admin page with captured biweekly review", async ({ page }) => {
   const accountingSource = fs.readFileSync(path.join(portalRoot, "accounting-admin.js"), "utf8");
+  const accountingInclusionMigration = fs.readFileSync(
+    path.join(portalRoot, "supabase", "migrations", "20260811144734_use_accounting_access_for_employee_inclusion.sql"),
+    "utf8"
+  );
   const shopMigration = fs.readFileSync(
     path.join(portalRoot, "supabase", "migrations", "20260811143339_approve_shop_accounting_entries.sql"),
     "utf8"
   );
   expect(accountingSource).not.toContain("accounting_period_employee_inputs");
+  expect(accountingSource).not.toContain("accounting_employee_settings");
+  expect(accountingSource).not.toContain("data-save-setting");
   expect(accountingSource).toContain("inputs: {}");
+  expect(accountingInclusionMigration).toContain("coalesce(setting.include_in_payroll, false)");
+  expect(accountingInclusionMigration).toContain("profile.role = 'admin'");
+  expect(accountingInclusionMigration).toContain("profile.account_status = 'approved'");
+  expect(accountingInclusionMigration).toContain("(new.id, 'accounting', false)");
   expect(shopMigration).toContain("accounting_time_entries_approve_shop");
   expect(shopMigration).toContain("Automatically approved: Shop");
   expect(shopMigration).toContain("'^shop([[:space:]]|$)'");
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
-  await mockPortalServices(page);
+  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
 
   await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
   const accountingLink = page.locator("[data-jgc-admin-nav] a", { hasText: "Accounting" }).first();
@@ -2289,6 +2307,10 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await page.locator("#accountingRatesPanel > summary").click();
   await expect(page.locator("#accountingRatesPanel")).toHaveAttribute("open", "");
   await expect(page.locator("#accountingRates")).toBeVisible();
+  await expect(page.locator("#accountingRates")).toContainText("Steven Leduc");
+  await expect(page.locator("#accountingRates")).not.toContainText("Portal Smoke Test");
+  await expect(page.locator("#accountingRates [data-payroll-included]")).toHaveCount(0);
+  await expect(page.locator("#accountingRates [data-save-setting]")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Accounting Inputs" })).toHaveCount(0);
   await expect(page.locator("#accountingSaveInputs")).toHaveCount(0);
   await expect(page.locator(".accounting-export-help")).toContainText("completed in Excel after download");
@@ -2297,25 +2319,24 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
 });
 
-test("Accounting navigation and page are blocked when employee access is disabled", async ({ page }) => {
+test("Accounting employee inclusion does not remove approved admin page access", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
-  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
-  page.on("dialog", async (dialog) => {
-    try {
-      await dialog.dismiss();
-    } catch (_) {
-      // A simultaneous navigation guard may have already closed the dialog.
-    }
+  await mockPortalServices(page, fakeProfile, {
+    accountingEnabled: false,
+    includeExcludedAccountingSubmission: true
   });
 
   await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("html")).toHaveAttribute("data-jgc-accounting-access", "disabled");
-  await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-accounting-access", "enabled");
+  await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveCount(1);
 
   await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/admin\.html\?tab=summary/);
-  await expectNoRuntimeErrors(errors, "disabled Accounting page access");
+  await expect(page).toHaveURL(/accounting-admin\.html/);
+  await expect(page.locator("#accountingCurrentUser")).toContainText("Portal Smoke Test");
+  await expect(page.locator("#accountingMetrics")).toContainText("16.00");
+  await expect(page.locator("#accountingEmployeeReview")).not.toContainText("Portal Smoke Test");
+  await expectNoRuntimeErrors(errors, "Accounting inclusion independent from admin access");
 });
 
 test("work order auto-submit recovers stale claims and bounds email delivery", async () => {
@@ -2425,8 +2446,9 @@ test("employee page access is a standalone admin tool with all selector permissi
   await expect(adminRow.locator('[data-feature-key="accounting"]')).toBeEnabled();
   await expect(adminRow.locator('[data-feature-key="accounting"]')).toBeChecked();
   const employeeRow = page.locator("#employeeAccessRows tr", { hasText: "Steven Leduc" });
-  await expect(employeeRow.locator('[data-feature-key="accounting"]')).toBeDisabled();
-  await expect(employeeRow).toContainText("Admin account required");
+  await expect(employeeRow.locator('[data-feature-key="accounting"]')).toBeEnabled();
+  await expect(employeeRow.locator('[data-feature-key="accounting"]')).toBeChecked();
+  await expect(employeeRow).not.toContainText("Admin account required");
   await expectNoRuntimeErrors(errors, "employee page access admin tool");
 });
 

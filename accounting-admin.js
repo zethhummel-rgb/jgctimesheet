@@ -11,7 +11,8 @@
     periodDates: null,
     period: null,
     profiles: [],
-    settings: [],
+    workers: [],
+    accessRows: [],
     rates: [],
     submissions: [],
     entries: [],
@@ -164,8 +165,17 @@
     return profile ? profile.display_name : (fallback || "Unmatched Employee");
   }
 
-  function settingFor(profileId) {
-    return state.settings.find((setting) => setting.profile_id === profileId) || null;
+  function accountingProfileIds() {
+    const enabledWorkerIds = new Set(state.accessRows
+      .filter((row) => row.feature_key === "accounting" && row.enabled !== false)
+      .map((row) => row.worker_id));
+    return new Set(state.workers
+      .filter((worker) => worker.profile_id && worker.approved !== false && enabledWorkerIds.has(worker.id))
+      .map((worker) => worker.profile_id));
+  }
+
+  function isAccountingProfile(profileId) {
+    return Boolean(profileId) && accountingProfileIds().has(profileId);
   }
 
   function ratesFor(profileId) {
@@ -179,7 +189,7 @@
 
   function selectedSubmissions() {
     const selected = new Map();
-    state.submissions.slice().sort((left, right) => {
+    state.submissions.filter((submission) => isAccountingProfile(submission.profile_id)).sort((left, right) => {
       return String(left.submitted_at || "").localeCompare(String(right.submitted_at || ""))
         || number(left.source_revision) - number(right.source_revision);
     }).forEach((submission) => {
@@ -210,11 +220,9 @@
   }
 
   function expectedProfiles() {
-    return state.profiles.filter((profile) => {
-      const setting = settingFor(profile.id);
-      if (setting) return Boolean(setting.include_in_payroll);
-      return profile.account_status === "approved" && profile.role !== "admin" && profile.worker_key !== "test account";
-    }).sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
+    const included = accountingProfileIds();
+    return state.profiles.filter((profile) => included.has(profile.id))
+      .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
   }
 
   function getValidation() {
@@ -383,21 +391,22 @@
   }
 
   function renderRates() {
-    const submissionIds = new Set(selectedSubmissions().map((submission) => submission.profile_id).filter(Boolean));
-    const profiles = state.profiles.filter((profile) => ["approved", "limited"].includes(profile.account_status) || submissionIds.has(profile.id))
+    const included = accountingProfileIds();
+    const profiles = state.profiles.filter((profile) => included.has(profile.id))
       .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
+    if (!profiles.length) {
+      elements.rates.innerHTML = '<div class="accounting-empty">No employees are selected for Accounting. Use Employee Page Access in Admin Tools to choose who appears here.</div>';
+      return;
+    }
     elements.rates.innerHTML = `<div class="accounting-table-wrap">${profiles.map((profile) => {
-      const setting = settingFor(profile.id);
-      const included = setting ? Boolean(setting.include_in_payroll) : (profile.role !== "admin" && profile.worker_key !== "test account");
       const latest = ratesFor(profile.id)[0] || null;
       return `<div class="accounting-rate-form" data-rate-profile="${escapeText(profile.id)}">
         <div class="accounting-rate-name"><strong>${escapeText(profile.display_name)}</strong><small>${escapeText(label(profile.role))} · ${latest ? `Current ${money(latest.regular_rate)} from ${formatDate(latest.effective_from)}` : "No rate on file"}</small></div>
-        <div class="jgc-field"><label class="jgc-label">Payroll</label><label class="accounting-stat-control"><input type="checkbox" data-payroll-included="${escapeText(profile.id)}"${included ? " checked" : ""}> Included</label></div>
         <div class="jgc-field"><label class="jgc-label">Pay Type</label><select class="jgc-select" data-rate-pay-type><option value="hourly"${!latest || latest.pay_type === "hourly" ? " selected" : ""}>Hourly</option><option value="salary"${latest && latest.pay_type === "salary" ? " selected" : ""}>Salary</option></select></div>
         <div class="jgc-field"><label class="jgc-label">Regular Rate</label><input class="jgc-input" data-rate-regular type="number" min="0" step="0.01" value="${latest ? escapeText(latest.regular_rate) : ""}"></div>
         <div class="jgc-field"><label class="jgc-label">OT Multiplier</label><input class="jgc-input" data-rate-overtime type="number" min="0" step="0.001" value="${latest ? escapeText(latest.overtime_multiplier) : "1.5"}"></div>
         <div class="jgc-field"><label class="jgc-label">Effective Date</label><input class="jgc-input" data-rate-effective type="date" value="${escapeText(state.periodDates.weekOneStart)}"></div>
-        <div class="jgc-actions"><button class="jgc-button jgc-button--secondary" type="button" data-save-setting="${escapeText(profile.id)}">Save Inclusion</button><button class="jgc-button" type="button" data-save-rate="${escapeText(profile.id)}">Add Rate</button></div>
+        <div class="jgc-actions"><button class="jgc-button" type="button" data-save-rate="${escapeText(profile.id)}">Add Rate</button></div>
       </div>`;
     }).join("")}</div>`;
   }
@@ -450,9 +459,10 @@
     state.periodDates = periodDates(state.payDate);
     try {
       const dates = state.periodDates;
-      const [profilesResult, settingsResult, ratesResult, submissionsResult, entriesResult, jobsResult, periodResult, templateResult] = await Promise.all([
+      const [profilesResult, workersResult, accessResult, ratesResult, submissionsResult, entriesResult, jobsResult, periodResult, templateResult] = await Promise.all([
         state.client.from("profiles").select("id,display_name,worker_key,role,account_status").order("display_name"),
-        state.client.from("accounting_employee_settings").select("*"),
+        state.client.from("work_order_labour_workers").select("id,profile_id,approved"),
+        state.client.from("employee_feature_access").select("worker_id,feature_key,enabled").eq("feature_key", "accounting"),
         state.client.from("accounting_employee_rates").select("*").order("effective_from", { ascending: false }),
         state.client.from("accounting_timesheet_submissions").select("*").in("week_start", [dates.weekOneStart, dates.weekTwoStart]).order("submitted_at"),
         state.client.from("accounting_time_entries").select("*").gte("work_date", dates.weekOneStart).lte("work_date", dates.weekTwoEnd).eq("is_current", true).order("work_date"),
@@ -461,7 +471,8 @@
         state.client.from("accounting_workbook_templates").select("id,file_name,file_sha256,is_active,uploaded_by,created_at,updated_at").eq("is_active", true).limit(1).maybeSingle()
       ]);
       state.profiles = requireResult(profilesResult, "Profiles") || [];
-      state.settings = requireResult(settingsResult, "Accounting settings") || [];
+      state.workers = requireResult(workersResult, "Employee directory") || [];
+      state.accessRows = requireResult(accessResult, "Accounting employee selection") || [];
       state.rates = requireResult(ratesResult, "Employee rates") || [];
       state.submissions = requireResult(submissionsResult, "Submitted timesheets") || [];
       state.entries = requireResult(entriesResult, "Accounting time entries") || [];
@@ -506,23 +517,6 @@
     }
     state.period = requireResult(result, "Create pay period");
     return state.period;
-  }
-
-  async function saveEmployeeSetting(profileId) {
-    const checkbox = elements.rates.querySelector(`[data-payroll-included="${CSS.escape(profileId)}"]`);
-    const existing = settingFor(profileId);
-    const payload = {
-      include_in_payroll: Boolean(checkbox && checkbox.checked),
-      updated_by: state.user.id,
-      updated_at: new Date().toISOString()
-    };
-    const result = existing
-      ? await state.client.from("accounting_employee_settings").update(payload).eq("profile_id", profileId).select("*").single()
-      : await state.client.from("accounting_employee_settings").insert(Object.assign({ profile_id: profileId, created_by: state.user.id }, payload)).select("*").single();
-    const saved = requireResult(result, "Save payroll inclusion");
-    state.settings = state.settings.filter((item) => item.profile_id !== profileId).concat(saved);
-    showNotice("Payroll inclusion saved.");
-    renderAll();
   }
 
   async function saveRate(profileId) {
@@ -684,7 +678,7 @@
       employees,
       entries,
       jobs: state.jobs,
-      rates: state.rates,
+      rates: state.rates.filter((rate) => isAccountingProfile(rate.profile_id)),
       inputs: {},
       submissions: validation.submissions
     };
@@ -772,11 +766,6 @@
       const matchButton = event.target.closest("[data-match-entry]");
       if (matchButton) {
         matchEntry(matchButton.dataset.matchEntry).catch((error) => showNotice(error.message, "error"));
-        return;
-      }
-      const settingButton = event.target.closest("[data-save-setting]");
-      if (settingButton) {
-        saveEmployeeSetting(settingButton.dataset.saveSetting).catch((error) => showNotice(error.message, "error"));
         return;
       }
       const rateButton = event.target.closest("[data-save-rate]");

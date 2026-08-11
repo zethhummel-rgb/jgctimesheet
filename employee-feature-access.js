@@ -8,7 +8,7 @@
     { key: "toolbox_talks", label: "Toolbox Talks", description: "Presenter and crew selectors" },
     { key: "job_notes", label: "Job Notes", description: "Employees who can be tagged on shared notes" },
     { key: "tasks", label: "Tasks", description: "Task assignment selector" },
-    { key: "accounting", label: "Accounting", description: "Admin payroll review and Excel exports" }
+    { key: "accounting", label: "Accounting", description: "Employee Rates and spreadsheet inclusion" }
   ]);
 
   const FEATURE_KEYS = Object.freeze(FEATURES.map(function (feature) {
@@ -27,14 +27,6 @@
 
     if (PORTAL_ACCOUNT_REQUIRED_FEATURES.includes(featureKey) && !worker.profile_id) {
       return false;
-    }
-
-    if (featureKey === "accounting") {
-      return Boolean(
-        profile
-        && String(profile.role || "").toLowerCase() === "admin"
-        && String(profile.account_status || "").toLowerCase() === "approved"
-      );
     }
 
     return true;

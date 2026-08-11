@@ -118,10 +118,9 @@
         + editButton + "</td>"
         + featureApi.FEATURES.map(function (feature) {
           const eligible = featureEligible(worker, feature.key);
-          const accountingFeature = feature.key === "accounting";
-          const requirementText = accountingFeature ? "Admin account required" : "Account required";
-          const unavailableTitle = accountingFeature
-            ? "An approved admin account is required for Accounting."
+          const requirementText = "Account required";
+          const unavailableTitle = feature.key === "accounting"
+            ? "A portal account is required before this employee can be included in Accounting."
             : "A portal account is required for Work Orders.";
           const requirement = eligible ? "" : '<small class="employee-access-requirement">'
             + requirementText + "</small>";
@@ -168,7 +167,7 @@
       renderRows();
       showNotice(
         featureKey === "accounting"
-          ? "An approved admin account is required before Accounting can be enabled."
+          ? "A portal account is required before this employee can be included in Accounting."
           : "A portal account is required before this employee can be selected on Work Orders.",
         "error"
       );

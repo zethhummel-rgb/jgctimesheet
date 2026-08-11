@@ -1541,33 +1541,7 @@ function getJgcAdminNavigationSection(page, adminNav) {
 async function hasJgcAccountingAccess(client, profileId, profile) {
   const role = String(profile && profile.role || "").toLowerCase();
   const status = String(profile && profile.account_status || "").toLowerCase();
-  if (!client || !profileId || role !== "admin" || status !== "approved") {
-    return false;
-  }
-
-  const workerResult = await client
-    .from("work_order_labour_workers")
-    .select("id")
-    .eq("profile_id", profileId)
-    .maybeSingle();
-  if (workerResult.error) {
-    throw workerResult.error;
-  }
-  if (!workerResult.data) {
-    return false;
-  }
-
-  const accessResult = await client
-    .from("employee_feature_access")
-    .select("enabled")
-    .eq("worker_id", workerResult.data.id)
-    .eq("feature_key", "accounting")
-    .maybeSingle();
-  if (accessResult.error) {
-    throw accessResult.error;
-  }
-
-  return Boolean(accessResult.data && accessResult.data.enabled === true);
+  return Boolean(profileId && role === "admin" && status === "approved");
 }
 
 async function refreshJgcAccountingNavigationForCurrentUser() {
