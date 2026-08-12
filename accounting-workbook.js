@@ -168,13 +168,19 @@
     };
   }
 
+  function isManualShopJob(job) {
+    return !job.id && String(job.name || "").trim().toLowerCase().includes("shop");
+  }
+
   function jobKey(entry, jobsById) {
     const job = resolveJob(entry, jobsById);
+    if (isManualShopJob(job)) return "source:manual-shop";
     return job.id || `source:${job.number.toLowerCase()}|${job.name.toLowerCase()}`;
   }
 
   function jobLabel(entry, jobsById) {
     const job = resolveJob(entry, jobsById);
+    if (isManualShopJob(job)) return "Shop";
     return [job.name, job.number].filter(Boolean).join(" ").trim() || "Special / No Job";
   }
 

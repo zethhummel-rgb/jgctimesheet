@@ -2387,6 +2387,64 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
 });
 
+test("Accounting groups manual Shop descriptions without merging an official Shop job", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
+
+  const jobHeaders = await page.evaluate(async () => {
+    const template = new ExcelJS.Workbook();
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"]
+      .forEach((name) => template.addWorksheet(name));
+    const templateBuffer = await template.xlsx.writeBuffer();
+    let binary = "";
+    new Uint8Array(templateBuffer).forEach((byte) => { binary += String.fromCharCode(byte); });
+
+    const exportResult = await JgcAccountingWorkbook.build({
+      templateBase64: btoa(binary),
+      exportedBy: "Portal Smoke Test",
+      data: {
+        payDate: "2026-08-20",
+        weekOneStart: "2026-08-02",
+        weekOneEnd: "2026-08-08",
+        weekTwoStart: "2026-08-09",
+        weekTwoEnd: "2026-08-15",
+        employees: [
+          { profileId: "employee-one", name: "Stewart Thompson" },
+          { profileId: "employee-two", name: "Leo Dorie" }
+        ],
+        entries: [
+          { profileId: "employee-one", workerName: "Stewart Thompson", workDate: "2026-08-03", dayOfWeek: "Monday", entryType: "work", sourceJobNumber: "", sourceJobName: "Shop - tree watering", jobId: null, shiftType: "day", hours: 2 },
+          { profileId: "employee-one", workerName: "Stewart Thompson", workDate: "2026-08-04", dayOfWeek: "Tuesday", entryType: "work", sourceJobNumber: "", sourceJobName: "Shop - clean up", jobId: null, shiftType: "day", hours: 3 },
+          { profileId: "employee-two", workerName: "Leo Dorie", workDate: "2026-08-05", dayOfWeek: "Wednesday", entryType: "work", sourceJobNumber: "", sourceJobName: "Jeff Shop", jobId: null, shiftType: "day", hours: 4 },
+          { profileId: "employee-one", workerName: "Stewart Thompson", workDate: "2026-08-06", dayOfWeek: "Thursday", entryType: "work", sourceJobNumber: "26074", sourceJobName: "Shop JGC", jobId: "job-26074", shiftType: "day", hours: 5 }
+        ],
+        jobs: [{ id: "job-26074", job_number: "26074", job_name: "Shop JGC", active: true }],
+        rates: [
+          { id: "rate-one", profile_id: "employee-one", regular_rate: 28, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-07-30" },
+          { id: "rate-two", profile_id: "employee-two", regular_rate: 27, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-07-30" }
+        ],
+        inputs: {},
+        submissions: []
+      }
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResult.buffer);
+    return workbook.getWorksheet("Jobs Week 1").getColumn(1).values
+      .filter((value) => typeof value === "string");
+  });
+
+  expect(jobHeaders.filter((value) => value === "Shop")).toHaveLength(1);
+  expect(jobHeaders.filter((value) => value === "Shop JGC 26074")).toHaveLength(1);
+  expect(jobHeaders).not.toContain("Shop - tree watering");
+  expect(jobHeaders).not.toContain("Shop - clean up");
+  expect(jobHeaders).not.toContain("Jeff Shop");
+  await expectNoRuntimeErrors(errors, "Accounting manual Shop grouping");
+});
+
 test("Accounting blocks final lock and can fill a missing employee week", async ({ page }) => {
   const errors = watchRuntimeErrors(page, "accept");
   await installAuthenticatedPortalState(page);
