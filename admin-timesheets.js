@@ -317,6 +317,41 @@ function renderAdminTimeEntryOptions() {
     handleAdminTimeEntryTypeChange();
 }
 
+function getDigitsOnlyAdminTimesheetJobNumber(value) {
+    return String(value || "").replace(/\D/g, "");
+}
+
+function isValidAdminTimesheetWorkJobNumber(value) {
+    const jobNumber = String(value || "").trim();
+    return !jobNumber || /^\d+$/.test(jobNumber);
+}
+
+function sanitizeAdminTimesheetJobNumberInput(input, entryTypeId) {
+    const entryTypeInput = document.getElementById(entryTypeId);
+
+    if (input && (!entryTypeInput || (entryTypeInput.value || "work") === "work")) {
+        input.value = getDigitsOnlyAdminTimesheetJobNumber(input.value);
+    }
+}
+
+function updateLiveTimesheetJobNumberMode() {
+    const entryTypeInput = document.getElementById("liveTimesheetEntryType");
+    const jobNumberInput = document.getElementById("liveTimesheetJobNumber");
+
+    if (!entryTypeInput || !jobNumberInput) {
+        return;
+    }
+
+    const isWork = (entryTypeInput.value || "work") === "work";
+    jobNumberInput.inputMode = isWork ? "numeric" : "text";
+
+    if (isWork) {
+        jobNumberInput.setAttribute("pattern", "[0-9]*");
+    } else {
+        jobNumberInput.removeAttribute("pattern");
+    }
+}
+
 function fillAdminTimeEntryJob() {
     const select = document.getElementById("adminTimeEntryJob");
     const job = select ? jobs.find((item) => item.id === select.value) : null;
@@ -326,7 +361,7 @@ function fillAdminTimeEntryJob() {
     }
 
     document.getElementById("adminTimeEntryJobName").value = job.job_name || "";
-    document.getElementById("adminTimeEntryJobNumber").value = job.job_number || "";
+    document.getElementById("adminTimeEntryJobNumber").value = getDigitsOnlyAdminTimesheetJobNumber(job.job_number);
 }
 
 function handleAdminTimeEntryDateChange() {
@@ -552,6 +587,10 @@ function buildAdminTimeEntryRow() {
     if (entryType === "work") {
         if (!jobName || !timeIn || !timeOut) {
             return { error: "For work hours, fill in job name, time in, and time out." };
+        }
+
+        if (!isValidAdminTimesheetWorkJobNumber(jobNumber)) {
+            return { error: "Job Number can contain numbers only. Leave it blank for Shop work." };
         }
 
         hours = calculateAdminTimesheetHours(timeIn, timeOut, tookLunch);
@@ -1646,7 +1685,7 @@ function renderLiveTimesheetEditPanel(entry) {
             </div>
             <div>
                 <label>Entry Type</label>
-                <select id="liveTimesheetEntryType">${typeOptions}</select>
+                <select id="liveTimesheetEntryType" onchange="updateLiveTimesheetJobNumberMode()">${typeOptions}</select>
             </div>
             <div>
                 <label>Vacation Type</label>
@@ -1663,7 +1702,7 @@ function renderLiveTimesheetEditPanel(entry) {
             </div>
             <div>
                 <label>Job Number</label>
-                <input id="liveTimesheetJobNumber" value="${escapeHtml(entry.job_number || "")}">
+                <input id="liveTimesheetJobNumber" value="${escapeHtml(entry.job_number || "")}" oninput="sanitizeAdminTimesheetJobNumberInput(this, 'liveTimesheetEntryType')">
             </div>
             <div>
                 <label>Time In</label>
@@ -1686,6 +1725,8 @@ function renderLiveTimesheetEditPanel(entry) {
         </div>
         <div id="liveTimesheetEditStatus" class="small" style="margin-top:8px;"></div>
     `;
+
+    updateLiveTimesheetJobNumberMode();
 }
 
 async function saveLiveTimesheetEntryEdit() {
@@ -1716,6 +1757,12 @@ async function saveLiveTimesheetEntryEdit() {
 
     if (entryType === "work" && (!jobName || !timeIn || !timeOut)) {
         alert("Fill in week, day, job name, time in, and time out.");
+        return;
+    }
+
+    if (entryType === "work" && !isValidAdminTimesheetWorkJobNumber(jobNumber)) {
+        alert("Job Number can contain numbers only. Leave it blank for Shop work.");
+        document.getElementById("liveTimesheetJobNumber").focus();
         return;
     }
 

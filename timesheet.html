@@ -1363,8 +1363,10 @@
     <input class="jgc-input"
       id="jobNumber"
       type="text"
+      inputmode="numeric"
+      pattern="[0-9]*"
       placeholder="Job number if available"
-      oninput="markManualJobNumber()"
+      oninput="handleJobNumberInput()"
     />
     <div id="jobStatus" class="small">Loading active jobs. You can still type a job manually.</div>
 
@@ -3145,6 +3147,26 @@ function markManualJobNumber() {
   jobNumberInput.dataset.autoJobNumber = "false";
 }
 
+function getDigitsOnlyJobNumber(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isValidWorkJobNumber(value) {
+  const jobNumber = String(value || "").trim();
+  return !jobNumber || /^\d+$/.test(jobNumber);
+}
+
+function handleJobNumberInput() {
+  const jobNumberInput = document.getElementById("jobNumber");
+  const entryTypeInput = document.getElementById("entryType");
+
+  if (jobNumberInput && (!entryTypeInput || (entryTypeInput.value || "work") === "work")) {
+    jobNumberInput.value = getDigitsOnlyJobNumber(jobNumberInput.value);
+  }
+
+  markManualJobNumber();
+}
+
 function fillJobNumberForSelectedJob() {
   const jobNameInput = document.getElementById("jobName");
   const jobNumberInput = document.getElementById("jobNumber");
@@ -3767,6 +3789,8 @@ function updateEntryTypeFields() {
     jobNumberLabel.textContent = "Job Number";
     jobNameInput.placeholder = "Search jobs or type job name";
     jobNumberInput.placeholder = "Job number if available";
+    jobNumberInput.inputMode = "numeric";
+    jobNumberInput.setAttribute("pattern", "[0-9]*");
     jobStatus.style.display = "";
 
     if (isAutoSpecialJobName(jobNameInput.value)) {
@@ -3785,6 +3809,8 @@ function updateEntryTypeFields() {
   jobNameLabel.classList.add("field-hidden");
   jobNameInput.classList.add("field-hidden");
   jobNumberLabel.textContent = "Reason / Note";
+  jobNumberInput.inputMode = "text";
+  jobNumberInput.removeAttribute("pattern");
   jobStatus.style.display = "none";
   document.getElementById("tookLunch").checked = false;
   document.getElementById("nightWork").checked = false;
@@ -4396,6 +4422,12 @@ async function submitTime() {
 
   if (isWorkEntry && !typedJobName) {
     alert("Fill in the job name.");
+    return;
+  }
+
+  if (isWorkEntry && !isValidWorkJobNumber(jobNumber)) {
+    alert("Job Number can contain numbers only. Leave it blank for Shop work.");
+    document.getElementById("jobNumber").focus();
     return;
   }
 

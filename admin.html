@@ -372,7 +372,7 @@
             </div>
             <div class="jgc-field" data-admin-time-work>
                 <label class="jgc-label">Job Number</label>
-                <input id="adminTimeEntryJobNumber" class="jgc-input" placeholder="Job number">
+                <input id="adminTimeEntryJobNumber" class="jgc-input" inputmode="numeric" pattern="[0-9]*" placeholder="Job number" oninput="sanitizeAdminTimesheetJobNumberInput(this, 'adminTimeEntryType')">
             </div>
             <div class="jgc-field" data-admin-time-clock>
                 <label class="jgc-label">Time In</label>
@@ -1123,7 +1123,7 @@
 <script src="admin-jobs.js?v=7"></script>
 <script src="admin-work-orders.js?v=2"></script>
 <script src="admin-equipment.js?v=1"></script>
-<script src="admin-timesheets.js?v=6"></script>
+<script src="admin-timesheets.js?v=7"></script>
 <script src="admin-summary.js?v=2"></script>
 <script src="admin-core.js?v=5"></script>
 </body>

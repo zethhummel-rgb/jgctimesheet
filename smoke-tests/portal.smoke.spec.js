@@ -950,6 +950,41 @@ test("test account stays isolated from Zeth timesheets and vacation requests", a
   await expectNoRuntimeErrors(errors, "test account timesheet isolation");
 });
 
+test("timesheet job numbers accept digits only while Shop can stay blank", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#submitStatus")).toContainText("Loaded", { timeout: 10000 });
+
+  await page.locator("#entryType").selectOption("work");
+  await page.locator("#jobNumber").fill("Water trees 26074");
+  await expect(page.locator("#jobNumber")).toHaveValue("26074");
+  expect(await page.evaluate(() => isValidWorkJobNumber(""))).toBe(true);
+  expect(await page.evaluate(() => isValidWorkJobNumber("Repair counter top"))).toBe(false);
+
+  await page.locator("#entryType").selectOption("sick");
+  await page.locator("#jobNumber").fill("Doctor appointment");
+  await expect(page.locator("#jobNumber")).toHaveValue("Doctor appointment");
+
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#timesheetsSection")).toBeVisible({ timeout: 10000 });
+  const adminResult = await page.evaluate(() => {
+    const input = document.getElementById("adminTimeEntryJobNumber");
+    input.value = "Repair counter top 26040";
+    sanitizeAdminTimesheetJobNumberInput(input, "adminTimeEntryType");
+    return {
+      value: input.value,
+      blankAllowed: isValidAdminTimesheetWorkJobNumber(""),
+      wordsAllowed: isValidAdminTimesheetWorkJobNumber("Water trees")
+    };
+  });
+
+  expect(adminResult).toEqual({ value: "26040", blankAllowed: true, wordsAllowed: false });
+  await expectNoRuntimeErrors(errors, "numeric timesheet job numbers");
+});
+
 test("admin can submit a complete employee timesheet week", async ({ page }) => {
   const errors = watchRuntimeErrors(page, "accept");
   const now = new Date();
