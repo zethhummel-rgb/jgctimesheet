@@ -413,6 +413,7 @@
     const jobGroups = groupBy(workEntries, (entry) => jobKey(entry, jobsById));
     let row = 1;
     let workbookTotal = 0;
+    const jobTotalRows = [];
 
     Array.from(jobGroups.values())
       .sort((left, right) => jobLabel(left[0], jobsById).localeCompare(jobLabel(right[0], jobsById)))
@@ -477,14 +478,16 @@
         applyTotalCell(sheet.getCell(row, 11), true);
         setFormula(sheet.getCell(row, 12), `K${row}*1.4`, round(jobGross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
         applyTotalCell(sheet.getCell(row, 12), true);
+        jobTotalRows.push(row);
         workbookTotal = round(workbookTotal + jobGross);
         row += 3;
       });
 
-    sheet.getCell(row, 13).value = workbookTotal;
-    sheet.getCell(row, 13).fill = fill(COLORS.navy);
-    sheet.getCell(row, 13).font = { bold: true, color: { argb: COLORS.white }, size: 12 };
-    sheet.getCell(row, 13).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
+    const totalCell = sheet.getCell(row, 13);
+    const totalFormula = jobTotalRows.length ? `SUM(${jobTotalRows.map((item) => `K${item}`).join(",")})` : "0";
+    setFormula(totalCell, totalFormula, workbookTotal, "$#,##0.00;[Red]-$#,##0.00;-");
+    totalCell.fill = fill(COLORS.navy);
+    totalCell.font = { bold: true, color: { argb: COLORS.white }, size: 12 };
     return workbookTotal;
   }
 
