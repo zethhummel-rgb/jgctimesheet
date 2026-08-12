@@ -4673,6 +4673,10 @@ async function emailEntries() {
     return;
   }
 
+  if (!confirmTimesheetLongDays(entries)) {
+    return;
+  }
+
   const noteResponse = prompt(
     "Add a note for this weekly timesheet before submitting.\n\nLeave it blank if there is nothing to add.",
     ""
@@ -5123,6 +5127,48 @@ function getTotalHours(entries) {
   return entries.reduce(function(total, entry) {
     return total + getEntryTotalHours(entry);
   }, 0);
+}
+
+function getTimesheetLongDays(entries) {
+  const dailyHours = new Map();
+
+  (entries || []).forEach(function(entry) {
+    if (isFullDayLeaveEntry(entry)) {
+      return;
+    }
+
+    const day = String(entry.day || entry.day_of_week || "").trim();
+
+    if (!day) {
+      return;
+    }
+
+    dailyHours.set(day, (dailyHours.get(day) || 0) + getEntryTotalHours(entry));
+  });
+
+  return getEmailDayOrder().map(function(day) {
+    return { day, hours: dailyHours.get(day) || 0 };
+  }).filter(function(item) {
+    return item.hours > 14;
+  });
+}
+
+function confirmTimesheetLongDays(entries) {
+  const longDays = getTimesheetLongDays(entries);
+
+  if (!longDays.length) {
+    return true;
+  }
+
+  const details = longDays.map(function(item) {
+    return item.day + ": " + item.hours.toFixed(2) + " hours";
+  }).join("\n");
+
+  return confirm(
+    "This timesheet has more than 14 hours recorded in one day:\n\n" +
+    details +
+    "\n\nAre these hours correct?\n\nSelect OK to continue submitting, or Cancel to review the entries."
+  );
 }
 
 function getDisplayWorkerName() {

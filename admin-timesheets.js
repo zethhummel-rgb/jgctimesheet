@@ -1125,6 +1125,49 @@ function getAdminLiveTimesheetMissingWeekdays(entries) {
     return requiredDays.filter((day) => !coveredDays.has(day));
 }
 
+function getAdminTimesheetLongDays(entries) {
+    const dailyHours = new Map();
+
+    (entries || []).forEach((entry) => {
+        const entryType = getAdminTimesheetEntryType(entry);
+        const isTimedEntry = entryType === "work" || (entryType === "vacation" && getAdminTimesheetLeaveType(entry) === "half_day");
+
+        if (!isTimedEntry) {
+            return;
+        }
+
+        const day = String(getTimesheetEntryValue(entry, "day", "day_of_week", "") || "").trim();
+
+        if (!day) {
+            return;
+        }
+
+        const hours = Number(getTimesheetEntryValue(entry, "hours", "hours", 0)) || 0;
+        dailyHours.set(day, (dailyHours.get(day) || 0) + hours);
+    });
+
+    return getTimesheetEmailDayOrder().map((day) => ({
+        day,
+        hours: dailyHours.get(day) || 0
+    })).filter((item) => item.hours > 14);
+}
+
+function confirmAdminTimesheetLongDays(entries, worker) {
+    const longDays = getAdminTimesheetLongDays(entries);
+
+    if (!longDays.length) {
+        return true;
+    }
+
+    const details = longDays.map((item) => item.day + ": " + item.hours.toFixed(2) + " hours").join("\n");
+
+    return confirm(
+        "The timesheet for " + worker + " has more than 14 hours recorded in one day:\n\n" +
+        details +
+        "\n\nAre these hours correct?\n\nSelect OK to continue submitting, or Cancel to review the entries."
+    );
+}
+
 function getSubmittedTimesheetWeekStart(week) {
     const entries = week && Array.isArray(week.entries) ? week.entries : [];
     const firstEntry = entries.find((entry) => getTimesheetEntryValue(entry, "weekStartValue", "week_start", ""));
@@ -1224,6 +1267,10 @@ async function submitAdminLiveTimesheetWeek(button) {
     if (isAdminLiveTimesheetWeekSubmitted(worker, weekStart)) {
         alert("This timesheet has already been submitted.");
         renderTimesheets();
+        return;
+    }
+
+    if (!confirmAdminTimesheetLongDays(liveEntries, worker)) {
         return;
     }
 

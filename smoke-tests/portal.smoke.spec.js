@@ -985,6 +985,69 @@ test("timesheet job numbers accept digits only while Shop can stay blank", async
   await expectNoRuntimeErrors(errors, "numeric timesheet job numbers");
 });
 
+test("employee and admin timesheet submissions confirm days over 14 hours", async ({ page }) => {
+  const employeeSource = fs.readFileSync(path.join(portalRoot, "timesheet.html"), "utf8");
+  const adminSource = fs.readFileSync(path.join(portalRoot, "admin-timesheets.js"), "utf8");
+  expect(employeeSource).toContain("if (!confirmTimesheetLongDays(entries))");
+  expect(adminSource).toContain("if (!confirmAdminTimesheetLongDays(liveEntries, worker))");
+
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof confirmTimesheetLongDays === "function");
+
+  const employeeWarning = await page.evaluate(() => {
+    let message = "";
+    window.confirm = (value) => {
+      message = value;
+      return false;
+    };
+    const confirmed = confirmTimesheetLongDays([
+      { day: "Monday", entryType: "work", hours: 8 },
+      { day: "Monday", entryType: "work", hours: 8.25 },
+      { day: "Tuesday", entryType: "work", hours: 14 },
+      { day: "Thursday", entryType: "work", hours: 12 },
+      { day: "Thursday", entryType: "vacation", leaveType: "half_day", hours: 3 },
+      { day: "Wednesday", entryType: "vacation", leaveType: "paid", hours: 0.01 }
+    ]);
+    return { confirmed, message };
+  });
+
+  expect(employeeWarning.confirmed).toBe(false);
+  expect(employeeWarning.message).toContain("Monday: 16.25 hours");
+  expect(employeeWarning.message).toContain("Thursday: 15.00 hours");
+  expect(employeeWarning.message).not.toContain("Tuesday:");
+  expect(employeeWarning.message).not.toContain("Wednesday:");
+
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof confirmAdminTimesheetLongDays === "function");
+  const adminWarning = await page.evaluate(() => {
+    let message = "";
+    window.confirm = (value) => {
+      message = value;
+      return true;
+    };
+    const confirmed = confirmAdminTimesheetLongDays([
+      { day_of_week: "Friday", entry_type: "work", hours: 9 },
+      { day_of_week: "Friday", entry_type: "work", hours: 7 },
+      { day_of_week: "Thursday", entry_type: "work", hours: 14 },
+      { day_of_week: "Tuesday", entry_type: "work", hours: 12 },
+      { day_of_week: "Tuesday", entry_type: "vacation", leave_type: "half_day", hours: 3 },
+      { day_of_week: "Wednesday", entry_type: "sick", hours: 0.01 }
+    ], "Steven Leduc");
+    return { confirmed, message };
+  });
+
+  expect(adminWarning.confirmed).toBe(true);
+  expect(adminWarning.message).toContain("Steven Leduc");
+  expect(adminWarning.message).toContain("Friday: 16.00 hours");
+  expect(adminWarning.message).toContain("Tuesday: 15.00 hours");
+  expect(adminWarning.message).not.toContain("Thursday:");
+  expect(adminWarning.message).not.toContain("Wednesday:");
+  await expectNoRuntimeErrors(errors, "long timesheet day confirmation");
+});
+
 test("admin can submit a complete employee timesheet week", async ({ page }) => {
   const errors = watchRuntimeErrors(page, "accept");
   const now = new Date();
