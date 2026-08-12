@@ -156,6 +156,10 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
         { id: "00000000-0000-4000-8000-000000000052", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-11", day_of_week: "Tuesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 8, original_hours: 8, is_current: true },
         { id: "00000000-0000-4000-8000-000000000053", submission_id: "00000000-0000-4000-8000-000000000032", profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", work_date: "2026-08-12", day_of_week: "Wednesday", entry_type: "vacation", leave_type: "paid", leave_note: "Vacation", source_job_number: "Vacation", source_job_name: "Vacation", job_id: null, job_match_status: "not_applicable", shift_type: "day", payable_hours: 0, original_hours: 0.01, is_current: true }
       ];
+      if (options.accountingLongEntry) {
+        accountingEntries[0].payable_hours = 13;
+        accountingEntries[0].original_hours = 13;
+      }
       if (options.includeExcludedAccountingSubmission) {
         accountingEntries.push({ id: "00000000-0000-4000-8000-000000000054", submission_id: "00000000-0000-4000-8000-000000000033", profile_id: profile.id, worker_name: profile.display_name, work_date: "2026-08-05", day_of_week: "Wednesday", entry_type: "work", source_job_number: "25169", source_job_name: "McKay Office Addition", job_id: "00000000-0000-4000-8000-000000000061", job_match_status: "exact", shift_type: "day", payable_hours: 7, original_hours: 7, is_current: true });
       }
@@ -2506,6 +2510,86 @@ test("Accounting groups manual Shop descriptions without merging an official Sho
   expect(jobHeaders).not.toContain("Shop - clean up");
   expect(jobHeaders).not.toContain("Jeff Shop");
   await expectNoRuntimeErrors(errors, "Accounting manual Shop grouping");
+});
+
+test("Accounting highlights a single timesheet entry over 12 hours", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, {
+    accountingEnabled: false,
+    accountingLongEntry: true
+  });
+
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  const warningCell = page.locator("#accountingEmployeeReview td.accounting-hours-warning");
+  await expect(warningCell).toHaveCount(1);
+  await expect(warningCell).toHaveText("13.00");
+  await expect(warningCell).toHaveAttribute("title", /more than 12 hours/i);
+  const warningStyle = await warningCell.evaluate((cell) => ({
+    background: getComputedStyle(cell).backgroundColor,
+    color: getComputedStyle(cell).color,
+    weight: getComputedStyle(cell).fontWeight
+  }));
+  expect(warningStyle.background).toBe("rgb(143, 29, 29)");
+  expect(warningStyle.color).toBe("rgb(255, 255, 255)");
+  expect(Number(warningStyle.weight)).toBeGreaterThanOrEqual(700);
+
+  await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
+  const workbookWarnings = await page.evaluate(async () => {
+    const template = new ExcelJS.Workbook();
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"]
+      .forEach((name) => template.addWorksheet(name));
+    const templateBuffer = await template.xlsx.writeBuffer();
+    let binary = "";
+    new Uint8Array(templateBuffer).forEach((byte) => { binary += String.fromCharCode(byte); });
+
+    const exportResult = await JgcAccountingWorkbook.build({
+      templateBase64: btoa(binary),
+      exportedBy: "Portal Smoke Test",
+      data: {
+        payDate: "2026-08-20",
+        weekOneStart: "2026-08-02",
+        weekOneEnd: "2026-08-08",
+        weekTwoStart: "2026-08-09",
+        weekTwoEnd: "2026-08-15",
+        employees: [{ profileId: "employee-one", name: "Steven Leduc" }],
+        entries: [
+          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-04", dayOfWeek: "Tuesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Office Addition", jobId: "job-25169", shiftType: "day", hours: 13 },
+          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-05", dayOfWeek: "Wednesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Office Addition", jobId: "job-25169", shiftType: "day", hours: 8 }
+        ],
+        jobs: [{ id: "job-25169", job_number: "25169", job_name: "McKay Office Addition", active: true }],
+        rates: [{ id: "rate-one", profile_id: "employee-one", regular_rate: 30, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-07-30" }],
+        inputs: {},
+        submissions: []
+      }
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResult.buffer);
+    const describe = (cell) => ({
+      value: cell.value,
+      fill: cell.fill && cell.fill.fgColor ? cell.fill.fgColor.argb : "",
+      fontColor: cell.font && cell.font.color ? cell.font.color.argb : "",
+      bold: Boolean(cell.font && cell.font.bold)
+    });
+    return {
+      employeeDay: describe(workbook.getWorksheet("Aug 8").getCell("E5")),
+      employeeNormalDay: describe(workbook.getWorksheet("Aug 8").getCell("F5")),
+      jobDay: describe(workbook.getWorksheet("Jobs Week 1").getCell("D3"))
+    };
+  });
+
+  expect(workbookWarnings.employeeDay.value).toBe(13);
+  expect(workbookWarnings.employeeDay.fill).toMatch(/8F1D1D$/);
+  expect(workbookWarnings.employeeDay.fontColor).toMatch(/FFFFFF$/);
+  expect(workbookWarnings.employeeDay.bold).toBe(true);
+  expect(workbookWarnings.jobDay.value).toBe(13);
+  expect(workbookWarnings.jobDay.fill).toMatch(/8F1D1D$/);
+  expect(workbookWarnings.jobDay.fontColor).toMatch(/FFFFFF$/);
+  expect(workbookWarnings.jobDay.bold).toBe(true);
+  expect(workbookWarnings.employeeNormalDay.value).toBe(8);
+  expect(workbookWarnings.employeeNormalDay.fill).not.toMatch(/8F1D1D$/);
+  await expectNoRuntimeErrors(errors, "Accounting long entry warning");
 });
 
 test("Accounting blocks final lock and can fill a missing employee week", async ({ page }) => {

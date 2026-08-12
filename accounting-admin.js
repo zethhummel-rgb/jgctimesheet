@@ -436,6 +436,7 @@
       const weeks = new Set(employeeSubmissions.map((submission) => isoDate(submission.week_start)));
       const rows = employeeEntries.slice().sort((left, right) => isoDate(left.work_date).localeCompare(isoDate(right.work_date))).map((entry) => {
         const job = entry.job_id ? state.jobs.find((item) => item.id === entry.job_id) : null;
+        const isLongWorkEntry = entry.entry_type === "work" && number(entry.payable_hours) > 12;
         const jobText = entry.entry_type === "work"
           ? [job ? job.job_number : entry.source_job_number, job ? job.job_name : entry.source_job_name].filter(Boolean).join(" - ")
           : label(entry.entry_type);
@@ -443,7 +444,7 @@
           <td>${escapeText(formatDate(entry.work_date))}<br><small>${escapeText(entry.day_of_week)}</small></td>
           <td>${escapeText(jobText || "Special / No Job")}</td>
           <td>${escapeText(entry.shift_type === "night" ? "Night" : "Day")}</td>
-          <td class="accounting-number">${entry.entry_type === "work" ? hours(entry.payable_hours) : "-"}</td>
+          <td class="accounting-number${isLongWorkEntry ? " accounting-hours-warning" : ""}"${isLongWorkEntry ? ' title="Review this entry: more than 12 hours were entered."' : ""}>${entry.entry_type === "work" ? hours(entry.payable_hours) : "-"}</td>
           <td>${escapeText(label(entry.job_match_status))}</td>
         </tr>`;
       }).join("");

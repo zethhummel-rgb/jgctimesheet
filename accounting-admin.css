@@ -460,6 +460,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+.accounting-table td.accounting-hours-warning {
+  background: #8f1d1d !important;
+  color: #ffffff !important;
+  font-weight: 900;
+  box-shadow: inset 0 0 0 2px #ff6b6b;
+}
+
 .accounting-inline-select,
 .accounting-inline-input {
   width: 100%;

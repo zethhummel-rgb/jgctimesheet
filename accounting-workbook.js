@@ -12,7 +12,9 @@
     white: "FFFFFF",
     text: "1F2933",
     softGray: "F3F5F6",
-    inputBlue: "D9EAF7"
+    inputBlue: "D9EAF7",
+    warningRed: "8F1D1D",
+    warningBorder: "FF6B6B"
   };
 
   const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -96,6 +98,16 @@
     cell.border = thinBorder("E7EEF3");
     cell.alignment = { vertical: "middle", horizontal: numeric ? "right" : "left" };
     if (numeric) cell.numFmt = "0.00;-0.00;-";
+  }
+
+  function hasLongEntryForDay(entries, day) {
+    return (entries || []).some((entry) => entry.dayOfWeek === day && safeNumber(entry.hours) > 12);
+  }
+
+  function applyLongHoursWarning(cell) {
+    cell.fill = fill(COLORS.warningRed);
+    cell.font = { bold: true, color: { argb: COLORS.white } };
+    cell.border = thinBorder(COLORS.warningBorder);
   }
 
   function applyTotalCell(cell, bold) {
@@ -296,6 +308,7 @@
           const cell = sheet.getCell(row, 3 + index);
           cell.value = hours || null;
           applyEntryCell(cell, true);
+          if (hasLongEntryForDay(jobEntries, DAYS[index])) applyLongHoursWarning(cell);
         });
         const rate = jobEntries.length ? blockRate(employee.profileId, data.rates, jobEntries[0].workDate) : blockRate(employee.profileId, data.rates, end);
         const gross = round(rowTotal * rate);
@@ -465,6 +478,7 @@
               cell.value = hours || null;
               cell.fill = fill(COLORS.paleGreen);
               cell.numFmt = "0.00;-0.00;-";
+              if (hasLongEntryForDay(employeeEntries, DAYS[index])) applyLongHoursWarning(cell);
             });
             setFormula(sheet.getCell(row, 9), `SUM(B${row}:H${row})`, totalHours, "0.00;-0.00;-");
             sheet.getCell(row, 10).value = rate;
