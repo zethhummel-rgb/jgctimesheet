@@ -1746,12 +1746,17 @@ test("summary search categories start collapsed and open one at a time", async (
   await expect(summaryGroups.locator(".admin-global-search-group-results:visible")).toHaveCount(0);
   const summaryTimeGroup = summaryGroups.filter({ hasText: "Time & Attendance" });
   const summaryJobsGroup = summaryGroups.filter({ hasText: "Jobs & Work Orders" });
-  await summaryTimeGroup.locator(".admin-global-search-group-header").click();
-  await expect(summaryTimeGroup.locator(".admin-global-search-group-results")).toBeVisible();
+  const openSummaryGroup = async (group) => {
+    await expect(async () => {
+      const results = group.locator(".admin-global-search-group-results");
+      if (await results.isHidden()) await group.locator(".admin-global-search-group-header").click();
+      await expect(results).toBeVisible();
+    }).toPass({ timeout: 10_000 });
+  };
+  await openSummaryGroup(summaryTimeGroup);
   await expect(summaryJobsGroup.locator(".admin-global-search-group-results")).toBeHidden();
-  await summaryJobsGroup.locator(".admin-global-search-group-header").click();
+  await openSummaryGroup(summaryJobsGroup);
   await expect(summaryTimeGroup.locator(".admin-global-search-group-results")).toBeHidden();
-  await expect(summaryJobsGroup.locator(".admin-global-search-group-results")).toBeVisible();
   await expectNoRuntimeErrors(errors, "summary search category accordions");
 });
 
@@ -2554,10 +2559,11 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
         weekTwoEnd: "2026-08-15",
         employees: [{ profileId: "employee-one", name: "Steven Leduc" }],
         entries: [
-          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-04", dayOfWeek: "Tuesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Office Addition", jobId: "job-25169", shiftType: "day", hours: 13 },
-          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-05", dayOfWeek: "Wednesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Office Addition", jobId: "job-25169", shiftType: "day", hours: 8 }
+          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-04", dayOfWeek: "Tuesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Mechanical Long Office Addition and Interior Renovation Project", jobId: "job-25169", shiftType: "day", hours: 13 },
+          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-05", dayOfWeek: "Wednesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Mechanical Long Office Addition and Interior Renovation Project", jobId: "job-25169", shiftType: "day", hours: 8 },
+          { profileId: "employee-one", workerName: "Steven Leduc", workDate: "2026-08-11", dayOfWeek: "Tuesday", entryType: "work", sourceJobNumber: "25169", sourceJobName: "McKay Mechanical Long Office Addition and Interior Renovation Project", jobId: "job-25169", shiftType: "day", hours: 7 }
         ],
-        jobs: [{ id: "job-25169", job_number: "25169", job_name: "McKay Office Addition", active: true }],
+        jobs: [{ id: "job-25169", job_number: "25169", job_name: "McKay Mechanical Long Office Addition and Interior Renovation Project", active: true }],
         rates: [{ id: "rate-one", profile_id: "employee-one", regular_rate: 30, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-07-30" }],
         inputs: {},
         submissions: []
@@ -2568,6 +2574,8 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
     await workbook.xlsx.load(exportResult.buffer);
     const describe = (cell) => ({
       value: cell.value,
+      formula: cell.value && typeof cell.value === "object" ? cell.value.formula : "",
+      result: cell.value && typeof cell.value === "object" ? cell.value.result : cell.value,
       fill: cell.fill && cell.fill.fgColor ? cell.fill.fgColor.argb : "",
       fontColor: cell.font && cell.font.color ? cell.font.color.argb : "",
       bold: Boolean(cell.font && cell.font.bold)
@@ -2575,7 +2583,17 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
     return {
       employeeDay: describe(workbook.getWorksheet("Aug 8").getCell("E5")),
       employeeNormalDay: describe(workbook.getWorksheet("Aug 8").getCell("F5")),
-      jobDay: describe(workbook.getWorksheet("Jobs Week 1").getCell("D3"))
+      jobDay: describe(workbook.getWorksheet("Jobs Week 1").getCell("D3")),
+      jobRate: describe(workbook.getWorksheet("Jobs Week 1").getCell("J3")),
+      secondWeekJobDay: describe(workbook.getWorksheet("Jobs Week 2").getCell("D3")),
+      summaryWeekOneHours: describe(workbook.getWorksheet("Summary").getCell("D5")),
+      summaryWeekTwoHours: describe(workbook.getWorksheet("Summary").getCell("G5")),
+      summaryGross: describe(workbook.getWorksheet("Summary").getCell("K5")),
+      summarySettings: workbook.getWorksheet("Summary").getCell("I13").value,
+      summarySettingsWidth: workbook.getWorksheet("Summary").getColumn(9).width,
+      weekJobColumnWidth: workbook.getWorksheet("Aug 8").getColumn(1).width,
+      weekJobWrap: Boolean(workbook.getWorksheet("Aug 8").getCell("A5").alignment.wrapText),
+      weekJobRowHeight: workbook.getWorksheet("Aug 8").getRow(5).height
     };
   });
 
@@ -2583,10 +2601,23 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
   expect(workbookWarnings.employeeDay.fill).toMatch(/8F1D1D$/);
   expect(workbookWarnings.employeeDay.fontColor).toMatch(/FFFFFF$/);
   expect(workbookWarnings.employeeDay.bold).toBe(true);
-  expect(workbookWarnings.jobDay.value).toBe(13);
+  expect(workbookWarnings.jobDay.formula).toBe("'Aug 8'!E5");
+  expect(workbookWarnings.jobDay.result).toBe(13);
   expect(workbookWarnings.jobDay.fill).toMatch(/8F1D1D$/);
   expect(workbookWarnings.jobDay.fontColor).toMatch(/FFFFFF$/);
   expect(workbookWarnings.jobDay.bold).toBe(true);
+  expect(workbookWarnings.jobRate.formula).toBe("'Aug 8'!K5");
+  expect(workbookWarnings.jobRate.result).toBe(30);
+  expect(workbookWarnings.secondWeekJobDay.formula).toBe("'Aug 15'!E5");
+  expect(workbookWarnings.secondWeekJobDay.result).toBe(7);
+  expect(workbookWarnings.summaryWeekOneHours.formula).toBe("'Aug 8'!J6");
+  expect(workbookWarnings.summaryWeekTwoHours.formula).toBe("'Aug 15'!J6");
+  expect(workbookWarnings.summaryGross.formula).toBe("F5+I5+J5");
+  expect(workbookWarnings.summarySettings).toBe("Simple Settings");
+  expect(workbookWarnings.summarySettingsWidth).toBeGreaterThanOrEqual(18);
+  expect(workbookWarnings.weekJobColumnWidth).toBeGreaterThanOrEqual(42);
+  expect(workbookWarnings.weekJobWrap).toBe(true);
+  expect(workbookWarnings.weekJobRowHeight).toBeGreaterThan(18);
   expect(workbookWarnings.employeeNormalDay.value).toBe(8);
   expect(workbookWarnings.employeeNormalDay.fill).not.toMatch(/8F1D1D$/);
   await expectNoRuntimeErrors(errors, "Accounting long entry warning");

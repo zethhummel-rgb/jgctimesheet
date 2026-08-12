@@ -19,6 +19,7 @@
 
   const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const DAY_LABELS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
+  const WEEK_DAY_COLUMNS = ["C", "D", "E", "F", "G", "H", "I"];
 
   function isoDate(value) {
     return String(value || "").slice(0, 10);
@@ -78,19 +79,19 @@
   function applyTitle(cell) {
     cell.fill = fill(COLORS.navy);
     cell.font = { bold: true, color: { argb: COLORS.white }, size: 14 };
-    cell.alignment = { vertical: "middle", horizontal: "left" };
+    cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   }
 
   function applyHeader(cell) {
     cell.fill = fill(COLORS.blue);
     cell.font = { bold: true, color: { argb: COLORS.white } };
-    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
   }
 
   function applyEmployeeHeader(cell) {
     cell.fill = fill(COLORS.lightBlue);
     cell.font = { bold: true, color: { argb: COLORS.text }, size: 12 };
-    cell.alignment = { vertical: "middle", horizontal: "left" };
+    cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
   }
 
   function applyEntryCell(cell, numeric) {
@@ -125,6 +126,14 @@
 
   function quoteSheetName(name) {
     return `'${String(name || "").replace(/'/g, "''")}'`;
+  }
+
+  function wrappedRowHeight(value, charactersPerLine, minimumHeight) {
+    const width = Math.max(1, Number(charactersPerLine) || 1);
+    const lines = String(value || "").split(/\r?\n/).reduce((count, part) => (
+      count + Math.max(1, Math.ceil(part.length / width))
+    ), 0);
+    return Math.min(60, Math.max(Number(minimumHeight) || 18, lines * 15));
   }
 
   function base64ToUint8Array(value) {
@@ -196,6 +205,19 @@
     return [job.name, job.number].filter(Boolean).join(" ").trim() || "Special / No Job";
   }
 
+  function rateKey(entry, rates) {
+    const rate = findRate(rates, entry.profileId, entry.workDate);
+    return rate ? (rate.id || rate.effective_from || rate.regular_rate) : "missing";
+  }
+
+  function jobRateKey(entry, jobsById, rates) {
+    return `${jobKey(entry, jobsById)}|rate:${rateKey(entry, rates)}`;
+  }
+
+  function employeeJobRateKey(entry, jobsById, rates) {
+    return `${entry.profileId || entry.workerName}|${jobRateKey(entry, jobsById, rates)}`;
+  }
+
   function workEntriesForWeek(entries, start, end) {
     return (entries || []).filter((entry) => entry.entryType === "work"
       && isoDate(entry.workDate) >= start
@@ -236,14 +258,14 @@
   function prepareWeekSheet(sheet, title) {
     resetWorksheet(sheet);
     sheet.columns = [
-      { width: 28 }, { width: 3 },
+      { width: 42 }, { width: 3 },
       { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 },
       { width: 12 }, { width: 10 }, { width: 14 }, { width: 14 }
     ];
     sheet.mergeCells("A1:M1");
     sheet.getCell("A1").value = title;
     applyTitle(sheet.getCell("A1"));
-    sheet.getRow(1).height = 24;
+    sheet.getRow(1).height = wrappedRowHeight(title, 86, 24);
     sheet.views = [{ state: "frozen", ySplit: 1 }];
     sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
     sheet.headerFooter = sheet.headerFooter || {};
@@ -256,6 +278,7 @@
     let row = 3;
     let workbookTotal = 0;
     const employeeRefs = {};
+    const jobRowRefs = {};
     const employeeTotalRows = [];
 
     data.employees.forEach((employee) => {
@@ -263,11 +286,7 @@
         .filter((entry) => entry.profileId === employee.profileId);
       const leaveEntries = data.entries.filter((entry) => entry.profileId === employee.profileId
         && entry.entryType !== "work" && isoDate(entry.workDate) >= start && isoDate(entry.workDate) <= end);
-      const jobGroups = groupBy(workEntries, (entry) => {
-        const rate = findRate(data.rates, employee.profileId, entry.workDate);
-        const rateKey = rate ? (rate.id || rate.effective_from || rate.regular_rate) : "missing";
-        return `${jobKey(entry, jobsById)}|rate:${rateKey}`;
-      });
+      const jobGroups = groupBy(workEntries, (entry) => jobRateKey(entry, jobsById, data.rates));
 
       sheet.mergeCells(row, 1, row, 13);
       sheet.getCell(row, 1).value = employee.name;
@@ -304,6 +323,11 @@
         sheet.mergeCells(row, 1, row, 2);
         sheet.getCell(row, 1).value = label;
         sheet.getCell(row, 1).border = thinBorder("E7EEF3");
+        sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+        sheet.getRow(row).height = wrappedRowHeight(label, 44, 18);
+        if (jobEntries.length) {
+          jobRowRefs[employeeJobRateKey(jobEntries[0], jobsById, data.rates)] = row;
+        }
         totals.forEach((hours, index) => {
           const cell = sheet.getCell(row, 3 + index);
           cell.value = hours || null;
@@ -396,11 +420,12 @@
         sheet.getCell(row, 1).font = { italic: true, color: { argb: "596A60" }, size: 9 };
         sheet.getCell(row, 1).fill = fill(COLORS.softGray);
         sheet.getCell(row, 1).alignment = { wrapText: true };
+        sheet.getRow(row).height = wrappedRowHeight(sheet.getCell(row, 1).value, 110, 18);
         row += 1;
       }
 
       row += 2;
-      sheet.getRow(headerRow).height = 20;
+      sheet.getRow(headerRow).height = 28;
     });
 
     const totalCell = sheet.getCell(row, 13);
@@ -410,13 +435,13 @@
     totalCell.numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
     totalCell.alignment = { horizontal: "right" };
     sheet.autoFilter = null;
-    return { workbookTotal, employeeRefs, sheetName: sheet.name };
+    return { workbookTotal, employeeRefs, jobRowRefs, sheetName: sheet.name };
   }
 
   function prepareJobSheet(sheet) {
     resetWorksheet(sheet);
     sheet.columns = [
-      { width: 28 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 },
+      { width: 32 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 },
       { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }
     ];
     sheet.views = [{ state: "frozen", ySplit: 1 }];
@@ -425,7 +450,7 @@
     sheet.headerFooter.oddFooter = "Page &P of &N";
   }
 
-  function buildJobSheet(sheet, data, start, end) {
+  function buildJobSheet(sheet, data, start, end, weekWorkbook) {
     prepareJobSheet(sheet);
     const jobsById = new Map(data.jobs.map((job) => [job.id, job]));
     const workEntries = workEntriesForWeek(data.entries, start, end);
@@ -440,6 +465,7 @@
         sheet.mergeCells(row, 1, row, 13);
         sheet.getCell(row, 1).value = jobLabel(jobEntries[0], jobsById);
         applyEmployeeHeader(sheet.getCell(row, 1));
+        sheet.getRow(row).height = wrappedRowHeight(sheet.getCell(row, 1).value, 100, 22);
         row += 1;
 
         sheet.getCell(row, 1).value = formatDate(end);
@@ -452,13 +478,10 @@
           sheet.getCell(row, 9 + index).value = label;
           applyHeader(sheet.getCell(row, 9 + index));
         });
+        sheet.getRow(row).height = 28;
         row += 1;
 
-        const employeeGroups = groupBy(jobEntries, (entry) => {
-          const rate = findRate(data.rates, entry.profileId, entry.workDate);
-          const rateKey = rate ? (rate.id || rate.effective_from || rate.regular_rate) : "missing";
-          return `${entry.profileId || entry.workerName}|rate:${rateKey}`;
-        });
+        const employeeGroups = groupBy(jobEntries, (entry) => employeeJobRateKey(entry, jobsById, data.rates));
         const firstEmployeeRow = row;
         Array.from(employeeGroups.values())
           .sort((left, right) => employeeName(left[0].profileId, data.employees, left[0].workerName)
@@ -468,23 +491,27 @@
             const totals = dayTotals(employeeEntries);
             const totalHours = round(totals.reduce((sum, hours) => sum + hours, 0));
             const rate = blockRate(profileId, data.rates, employeeEntries[0].workDate);
+            const sourceKey = employeeJobRateKey(employeeEntries[0], jobsById, data.rates);
+            const sourceRow = weekWorkbook && weekWorkbook.jobRowRefs[sourceKey];
+            if (!sourceRow) {
+              throw new Error(`Could not link ${employeeName(profileId, data.employees, employeeEntries[0].workerName)} to ${weekWorkbook && weekWorkbook.sheetName}.`);
+            }
             const gross = round(employeeEntries.reduce((sum, entry) => {
               const entryRate = findRate(data.rates, profileId, entry.workDate);
               return sum + safeNumber(entry.hours) * safeNumber(entryRate && entryRate.regular_rate);
             }, 0));
             sheet.getCell(row, 1).value = employeeName(profileId, data.employees, employeeEntries[0].workerName);
+            sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+            sheet.getRow(row).height = wrappedRowHeight(sheet.getCell(row, 1).value, 31, 18);
             totals.forEach((hours, index) => {
               const cell = sheet.getCell(row, 2 + index);
-              cell.value = hours || null;
+              setFormula(cell, `${quoteSheetName(weekWorkbook.sheetName)}!${WEEK_DAY_COLUMNS[index]}${sourceRow}`, hours, "0.00;-0.00;-");
               cell.fill = fill(COLORS.paleGreen);
-              cell.numFmt = "0.00;-0.00;-";
               if (hasLongEntryForDay(employeeEntries, DAYS[index])) applyLongHoursWarning(cell);
             });
             setFormula(sheet.getCell(row, 9), `SUM(B${row}:H${row})`, totalHours, "0.00;-0.00;-");
-            sheet.getCell(row, 10).value = rate;
-            sheet.getCell(row, 10).fill = fill(COLORS.inputBlue);
-            sheet.getCell(row, 10).font = { color: { argb: "0000FF" } };
-            sheet.getCell(row, 10).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
+            setFormula(sheet.getCell(row, 10), `${quoteSheetName(weekWorkbook.sheetName)}!K${sourceRow}`, rate, "$#,##0.00;[Red]-$#,##0.00;-");
+            applyTotalCell(sheet.getCell(row, 10), false);
             setFormula(sheet.getCell(row, 11), `I${row}*J${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
             setFormula(sheet.getCell(row, 12), `K${row}*1.4`, round(gross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
             row += 1;
@@ -528,8 +555,8 @@
     resetWorksheet(sheet);
     sheet.columns = [
       { width: 24 }, { width: 12 }, { width: 12 }, { width: 13 }, { width: 12 }, { width: 15 }, { width: 13 },
-      { width: 3 }, { width: 15 }, { width: 13 }, { width: 15 }, { width: 13 }, { width: 13 }, { width: 13 },
-      { width: 15 }, { width: 12 }
+      { width: 3 }, { width: 18 }, { width: 13 }, { width: 15 }, { width: 13 }, { width: 13 }, { width: 13 },
+      { width: 15 }, { width: 28 }
     ];
     sheet.mergeCells("A2:P2");
     sheet.getCell("A2").value = `Two Weeks ended ${formatDate(data.weekTwoEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
@@ -540,6 +567,7 @@
       sheet.getCell(4, index + 1).value = header;
       if (header) applyHeader(sheet.getCell(4, index + 1));
     });
+    sheet.getRow(4).height = 30;
 
     let row = 5;
     const totals = { hours: 0, w1: 0, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, gross: 0, adjustment: 0, vp: 0, other: 0, balance: 0 };
@@ -575,7 +603,11 @@
           cell.fill = fill(employeeFill);
           cell.border = thinBorder("E6E6E6");
           if (index >= 2 && index !== 7 && index !== 15) cell.numFmt = index === 2 || index === 3 || index === 6 ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
+          if (index === 0 || index === 15) cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
         });
+        if (item.type === "Regular" && input.note) {
+          sheet.getRow(row).height = wrappedRowHeight(input.note, 27, 18);
+        }
         setFormula(sheet.getCell(row, 3), `D${row}+G${row}`, totalHours, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 4), `${weekOneSheet}!J${weekOneRow}`, item.w1, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 5), `${weekTwoSheet}!K${weekTwoRow}`, item.rate, "$#,##0.00;[Red]-$#,##0.00;-");
@@ -627,14 +659,19 @@
     sheet.getCell(totalRow + 4, 1).value = "Blue cells = enter or update   |   Green cells = calculated automatically";
     sheet.getCell(totalRow + 4, 1).font = { italic: true, color: { argb: "6B7280" } };
     sheet.getCell(totalRow + 4, 1).fill = fill(COLORS.inputBlue);
-    sheet.getCell(totalRow + 4, 8).value = "Simple Settings";
-    applyEmployeeHeader(sheet.getCell(totalRow + 4, 8));
-    sheet.getCell(totalRow + 5, 8).value = "Labour multiplier";
-    sheet.getCell(totalRow + 5, 9).value = 1.4;
-    sheet.getCell(totalRow + 5, 9).numFmt = "0.00x";
-    sheet.getCell(totalRow + 6, 8).value = "Stat hours default";
-    sheet.getCell(totalRow + 6, 9).value = 8;
-    sheet.getCell(totalRow + 6, 9).numFmt = "0.00";
+    sheet.getCell(totalRow + 4, 9).value = "Simple Settings";
+    applyEmployeeHeader(sheet.getCell(totalRow + 4, 9));
+    sheet.getCell(totalRow + 5, 9).value = "Labour multiplier";
+    sheet.getCell(totalRow + 5, 9).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    sheet.getCell(totalRow + 5, 10).value = 1.4;
+    sheet.getCell(totalRow + 5, 10).numFmt = "0.00x";
+    sheet.getCell(totalRow + 6, 9).value = "Stat hours default";
+    sheet.getCell(totalRow + 6, 9).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    sheet.getCell(totalRow + 6, 10).value = 8;
+    sheet.getCell(totalRow + 6, 10).numFmt = "0.00";
+    sheet.getRow(totalRow + 4).height = 22;
+    sheet.getRow(totalRow + 5).height = 22;
+    sheet.getRow(totalRow + 6).height = 22;
     sheet.views = [{ state: "frozen", ySplit: 4 }];
     sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
     return totals;
@@ -642,7 +679,7 @@
 
   function buildPayPeriodSheet(sheet, data) {
     resetWorksheet(sheet);
-    sheet.columns = [{ width: 27 }, { width: 24 }, { width: 18 }, { width: 18 }];
+    sheet.columns = [{ width: 27 }, { width: 42 }, { width: 18 }, { width: 18 }];
     sheet.mergeCells("A1:D1");
     sheet.getCell("A1").value = "Biweekly Pay Period";
     applyTitle(sheet.getCell("A1"));
@@ -663,12 +700,19 @@
     sheet.getCell("A10").fill = fill(COLORS.lightBlue);
     sheet.getCell("A10").font = { italic: true, color: { argb: COLORS.text } };
     sheet.getCell("A10").alignment = { wrapText: true, vertical: "middle" };
+    sheet.getRow(10).height = 28;
+    sheet.getRow(11).height = 28;
     sheet.getCell("A13").value = "Week 1 heading";
     sheet.getCell("B13").value = `Week ended ${formatDate(data.weekOneEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
     sheet.getCell("A14").value = "Week 2 heading";
     sheet.getCell("B14").value = `Week ended ${formatDate(data.weekTwoEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
     ["A13", "A14"].forEach((address) => { sheet.getCell(address).font = { bold: true }; });
-    ["B13", "B14"].forEach((address) => { sheet.getCell(address).fill = fill(COLORS.paleGreen); });
+    ["B13", "B14"].forEach((address) => {
+      sheet.getCell(address).fill = fill(COLORS.paleGreen);
+      sheet.getCell(address).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    });
+    sheet.getRow(13).height = wrappedRowHeight(sheet.getCell("B13").value, 41, 18);
+    sheet.getRow(14).height = wrappedRowHeight(sheet.getCell("B14").value, 41, 18);
     sheet.pageSetup = { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1, paperSize: 9 };
   }
 
@@ -731,9 +775,9 @@
     const weekOneTitle = `Week ended ${formatDate(data.weekOneEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
     const weekTwoTitle = `Week ended ${formatDate(data.weekTwoEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
     const weekOneWorkbook = buildWeekSheet(weekOneSheet, data, data.weekOneStart, data.weekOneEnd, weekOneTitle);
-    buildJobSheet(jobsWeekOneSheet, data, data.weekOneStart, data.weekOneEnd);
+    buildJobSheet(jobsWeekOneSheet, data, data.weekOneStart, data.weekOneEnd, weekOneWorkbook);
     const weekTwoWorkbook = buildWeekSheet(weekTwoSheet, data, data.weekTwoStart, data.weekTwoEnd, weekTwoTitle);
-    buildJobSheet(jobsWeekTwoSheet, data, data.weekTwoStart, data.weekTwoEnd);
+    buildJobSheet(jobsWeekTwoSheet, data, data.weekTwoStart, data.weekTwoEnd, weekTwoWorkbook);
     const totals = buildSummarySheet(summarySheet, data, weekOneWorkbook, weekTwoWorkbook);
     buildPayPeriodSheet(payPeriodSheet, data);
 
