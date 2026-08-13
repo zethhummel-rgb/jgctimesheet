@@ -328,7 +328,7 @@ test("all public cached pages open without a JavaScript crash", async ({ context
   }
 });
 
-test("password recovery email uses a scanner-safe six-digit code", () => {
+test("password recovery email uses a scanner-safe numeric code", () => {
   const template = fs.readFileSync(path.join(portalRoot, "supabase", "templates", "password-recovery.html"), "utf8");
   expect(template).toContain("{{ .Token }}");
   expect(template).toContain("{{ .RedirectTo }}");
@@ -398,7 +398,7 @@ test("password reset verifies the recovery code before updating the password", a
 
   await page.goto("/reset-password.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#resetEmail")).toHaveValue("employee@johngordonconstruction.com");
-  await page.locator("#resetCode").fill("123456");
+  await page.locator("#resetCode").fill("04904794");
   await page.locator("#newPassword").fill("new-secure-password");
   await page.locator("#confirmPassword").fill("new-secure-password");
   await page.getByRole("button", { name: "Verify Code & Update Password" }).click();
@@ -409,7 +409,7 @@ test("password reset verifies the recovery code before updating the password", a
     kind: "verify",
     payload: expect.objectContaining({
       email: "employee@johngordonconstruction.com",
-      token: "123456",
+      token: "04904794",
       type: "recovery"
     })
   });
