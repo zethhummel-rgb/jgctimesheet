@@ -328,6 +328,98 @@ test("all public cached pages open without a JavaScript crash", async ({ context
   }
 });
 
+test("password recovery email uses a scanner-safe six-digit code", () => {
+  const template = fs.readFileSync(path.join(portalRoot, "supabase", "templates", "password-recovery.html"), "utf8");
+  expect(template).toContain("{{ .Token }}");
+  expect(template).toContain("{{ .RedirectTo }}");
+  expect(template).not.toContain("{{ .ConfirmationURL }}");
+});
+
+test("forgot password requests a code and opens the reset form", async ({ page }) => {
+  let recoveryRequest = null;
+  const errors = watchRuntimeErrors(page);
+
+  await page.route(`${supabaseOrigin}/**`, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname === "/auth/v1/recover") {
+      recoveryRequest = {
+        url,
+        payload: JSON.parse(request.postData() || "{}")
+      };
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+  await page.locator("#email").fill("Employee@JohnGordonConstruction.com");
+  await page.getByRole("button", { name: "Forgot Password" }).click();
+
+  await expect.poll(() => recoveryRequest).not.toBeNull();
+  expect(recoveryRequest.payload.email).toBe("employee@johngordonconstruction.com");
+  const redirectTarget = recoveryRequest.url.searchParams.get("redirect_to") || recoveryRequest.payload.redirect_to;
+  expect(redirectTarget).toMatch(/\/reset-password\.html$/);
+  await expect(page).toHaveURL(/\/reset-password\.html$/);
+  await expect(page.locator("#resetEmail")).toHaveValue("employee@johngordonconstruction.com");
+  await expectNoRuntimeErrors(errors, "password reset request");
+});
+
+test("password reset verifies the recovery code before updating the password", async ({ page }) => {
+  const authRequests = [];
+  const session = createFakeSession();
+  const errors = watchRuntimeErrors(page);
+
+  await page.addInitScript(() => {
+    sessionStorage.setItem("jgcPasswordResetEmail", "employee@johngordonconstruction.com");
+  });
+
+  await page.route(`${supabaseOrigin}/**`, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const payload = JSON.parse(request.postData() || "{}");
+    let status = 200;
+    let body = "{}";
+
+    if (url.pathname === "/auth/v1/verify") {
+      authRequests.push({ kind: "verify", payload });
+      body = JSON.stringify(session);
+    } else if (url.pathname === "/auth/v1/user" && request.method() === "PUT") {
+      authRequests.push({ kind: "update", payload });
+      body = JSON.stringify(fakeUser);
+    } else if (url.pathname === "/auth/v1/user") {
+      body = JSON.stringify(fakeUser);
+    } else if (url.pathname === "/auth/v1/logout") {
+      status = 204;
+      body = "";
+    }
+
+    await route.fulfill({ status, contentType: "application/json", body });
+  });
+
+  await page.goto("/reset-password.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#resetEmail")).toHaveValue("employee@johngordonconstruction.com");
+  await page.locator("#resetCode").fill("123456");
+  await page.locator("#newPassword").fill("new-secure-password");
+  await page.locator("#confirmPassword").fill("new-secure-password");
+  await page.getByRole("button", { name: "Verify Code & Update Password" }).click();
+
+  await expect(page.locator("#status")).toContainText("Password updated successfully");
+  await expect.poll(() => authRequests.length).toBe(2);
+  expect(authRequests[0]).toEqual({
+    kind: "verify",
+    payload: expect.objectContaining({
+      email: "employee@johngordonconstruction.com",
+      token: "123456",
+      type: "recovery"
+    })
+  });
+  expect(authRequests[1]).toEqual({
+    kind: "update",
+    payload: expect.objectContaining({ password: "new-secure-password" })
+  });
+  await expectNoRuntimeErrors(errors, "password reset code verification");
+});
+
 authenticatedPageGroups.forEach((pageGroup, groupIndex) => {
   test(`authenticated cached pages group ${groupIndex + 1} opens without a JavaScript crash`, async ({ context }) => {
     test.setTimeout(30_000);

@@ -1113,7 +1113,16 @@ async function resetPassword() {
     return;
   }
 
-  setStatus("Password reset email sent.");
+  try {
+    sessionStorage.setItem("jgcPasswordResetEmail", email);
+  } catch (storageError) {
+    // The reset page still allows the email to be entered manually.
+  }
+
+  setStatus("Password reset code sent. Opening the reset page...");
+  setTimeout(function() {
+    window.location.href = "reset-password.html";
+  }, 600);
 }
 
 function submitOnEnter(event) {
