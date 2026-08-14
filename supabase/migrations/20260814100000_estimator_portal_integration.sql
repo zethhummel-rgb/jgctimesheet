@@ -89,24 +89,24 @@ alter table public.estimator_supplier_catalog_items enable row level security;
 drop policy if exists estimator_workspace_admin_all on public.estimator_workspaces;
 create policy estimator_workspace_admin_all on public.estimator_workspaces
 for all to authenticated
-using (private.jgc_has_full_portal_access())
-with check (private.jgc_has_full_portal_access());
+using ((select private.jgc_has_full_portal_access()))
+with check ((select private.jgc_has_full_portal_access()));
 
 drop policy if exists estimator_supplier_import_admin_all on public.estimator_supplier_price_imports;
 create policy estimator_supplier_import_admin_all on public.estimator_supplier_price_imports
 for all to authenticated
-using (private.jgc_has_full_portal_access())
-with check (private.jgc_has_full_portal_access());
+using ((select private.jgc_has_full_portal_access()))
+with check ((select private.jgc_has_full_portal_access()));
 
 drop policy if exists estimator_supplier_catalog_admin_all on public.estimator_supplier_catalog_items;
 create policy estimator_supplier_catalog_admin_all on public.estimator_supplier_catalog_items
 for all to authenticated
-using (private.jgc_has_full_portal_access())
-with check (private.jgc_has_full_portal_access());
+using ((select private.jgc_has_full_portal_access()))
+with check ((select private.jgc_has_full_portal_access()));
 
-revoke all on table public.estimator_workspaces from anon;
-revoke all on table public.estimator_supplier_price_imports from anon;
-revoke all on table public.estimator_supplier_catalog_items from anon;
+revoke all on table public.estimator_workspaces from anon, authenticated;
+revoke all on table public.estimator_supplier_price_imports from anon, authenticated;
+revoke all on table public.estimator_supplier_catalog_items from anon, authenticated;
 grant select, insert, update, delete on table public.estimator_workspaces to authenticated;
 grant select, insert, update, delete on table public.estimator_supplier_price_imports to authenticated;
 grant select, insert, update, delete on table public.estimator_supplier_catalog_items to authenticated;
