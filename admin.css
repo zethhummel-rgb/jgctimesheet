@@ -3631,3 +3631,49 @@ button.admin-schedule-event-button.admin-event-vacation {
         padding: 15px;
     }
 }
+/* Estimate Desk is a companion workspace, so its launcher is intentionally
+   lighter than the Portal's operational cards. */
+.estimating-launcher {
+    align-items: center;
+    background: #f7faf9;
+    border: 1px solid #cfe2da;
+    border-left: 4px solid #238060;
+    border-radius: 10px;
+    color: #183d31;
+    display: flex;
+    gap: 13px;
+    margin: 0 0 16px;
+    padding: 13px 15px;
+    text-decoration: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.estimating-launcher:hover,
+.estimating-launcher:focus-visible {
+    border-color: #238060;
+    box-shadow: 0 6px 18px rgba(18, 68, 52, .09);
+    transform: translateY(-1px);
+}
+
+.estimating-launcher-icon {
+    align-items: center;
+    background: #e4f2ec;
+    border-radius: 9px;
+    color: #176b50;
+    display: inline-flex;
+    flex: 0 0 40px;
+    font-size: 20px;
+    font-weight: 800;
+    height: 40px;
+    justify-content: center;
+}
+
+.estimating-launcher > span:nth-child(2) { display: grid; gap: 2px; }
+.estimating-launcher strong { color: #102a43; font-size: 17px; }
+.estimating-launcher small { color: #607284; font-size: 12px; font-weight: 500; }
+.estimating-launcher b { color: #176b50; font-size: 13px; margin-left: auto; white-space: nowrap; }
+
+@media (max-width: 640px) {
+    .estimating-launcher { align-items: flex-start; padding: 12px; }
+    .estimating-launcher b { display: none; }
+}

@@ -1,0 +1,4 @@
+# Generated estimator runtime and OCR assets must stay byte-for-byte identical.
+estimating/assets/*.js binary
+estimating/supplier-import/** binary
+estimating-app/public/supplier-import/** binary

@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "703";
+const JGC_RELEASE_ID = "704";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -45,6 +45,7 @@ const JGC_APP_SHELL = [
   "./toolbox-report-actions.js?v=1",
   "./incident-report.html",
   "./admin.html",
+  "./estimating/index.html",
   "./accounts.html",
   "./notification-settings.html",
   "./reset-password.html",
@@ -56,7 +57,7 @@ const JGC_APP_SHELL = [
   "./tele-handler.html",
   "./policies-admin.html",
   "./styles.css?v=3",
-  "./admin.css?v=6",
+  "./admin.css?v=7",
   "./admin-global-search.css?v=5",
   "./accounting-admin.css?v=4",
   "./jgc-design-system.css?v=5",
@@ -132,6 +133,9 @@ const JGC_APP_SHELL = [
   "./vendor/jszip.min.js?v=1",
   "./vendor/jspdf.umd.min.js?v=1",
   "./vendor/lucide.min.js",
+  "./estimating/assets/index-BxL2RJDo.js",
+  "./estimating/assets/index-TBijnTdi.css",
+  "./estimating/jgc-letterhead-logo.jpg",
   "./logo.webp",
   "./login-background.webp",
   "./jgc-login-qr.png",

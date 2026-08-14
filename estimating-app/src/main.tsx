@@ -1,0 +1,62 @@
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import EstimateDesk from "../app/estimate-desk";
+import "../app/globals.css";
+import "./portal-shell.css";
+import { installEstimatorApiBridge } from "./portal-api";
+
+declare global {
+  interface Window {
+    createJgcSupabaseClient?: () => any;
+  }
+}
+
+type GateState = "loading" | "allowed" | "denied" | "signed-out" | "error";
+
+function PortalEstimator() {
+  const [gate, setGate] = useState<GateState>("loading");
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      try {
+        if (!window.createJgcSupabaseClient) throw new Error("The Portal connection did not load.");
+        const client = window.createJgcSupabaseClient();
+        const sessionResult = await client.auth.getSession();
+        const user = sessionResult.data?.session?.user;
+        if (!user) {
+          if (active) setGate("signed-out");
+          return;
+        }
+        const profileResult = await client.from("profiles").select("full_name,role,account_status").eq("id", user.id).single();
+        if (profileResult.error) throw new Error(profileResult.error.message || "Your Portal profile could not be checked.");
+        const profile = profileResult.data;
+        const approved = profile?.role === "admin" && profile?.account_status === "approved";
+        if (!approved) {
+          if (active) setGate("denied");
+          return;
+        }
+        installEstimatorApiBridge(client);
+        if (active) {
+          setName(profile.full_name || user.email || "Administrator");
+          setGate("allowed");
+        }
+      } catch (error) {
+        if (!active) return;
+        setMessage(error instanceof Error ? error.message : "The estimator could not connect to the Portal.");
+        setGate("error");
+      }
+    };
+    void run();
+    return () => { active = false; };
+  }, []);
+
+  if (gate === "allowed") return <><div className="estimator-portal-strip"><a href="../admin.html?tab=summary">← Portal Summary</a><span>Estimate Desk</span><small>{name}</small></div><EstimateDesk /></>;
+  const title = gate === "denied" ? "Admin access required" : gate === "signed-out" ? "Sign in to the JGC Portal" : gate === "error" ? "Connection problem" : "Opening Estimate Desk";
+  const detail = gate === "denied" ? "The Estimate Desk is available only to approved Portal administrators." : gate === "signed-out" ? "Use your existing Portal account. You will return here after signing in." : gate === "error" ? message : "Checking your Portal access and shared data…";
+  return <main className="estimator-gate"><div className="estimator-gate-mark">JG</div><p>JGC ESTIMATE DESK</p><h1>{title}</h1><span>{detail}</span>{gate !== "loading" && <a className="gate-button" href="../index.html">{gate === "signed-out" ? "Go to Portal sign in" : "Return to Portal"}</a>}</main>;
+}
+
+createRoot(document.getElementById("root")!).render(<React.StrictMode><PortalEstimator /></React.StrictMode>);
