@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "705";
+const JGC_RELEASE_ID = "706";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -57,7 +57,7 @@ const JGC_APP_SHELL = [
   "./tele-handler.html",
   "./policies-admin.html",
   "./styles.css?v=3",
-  "./admin.css?v=7",
+  "./admin.css?v=8",
   "./admin-global-search.css?v=5",
   "./accounting-admin.css?v=4",
   "./jgc-design-system.css?v=5",
@@ -133,8 +133,13 @@ const JGC_APP_SHELL = [
   "./vendor/jszip.min.js?v=1",
   "./vendor/jspdf.umd.min.js?v=1",
   "./vendor/lucide.min.js",
-  "./estimating/assets/index-DEoT-K0d.js",
-  "./estimating/assets/index-TBijnTdi.css",
+  "./estimating/assets/index-DhJVwtBy.js",
+  "./estimating/assets/index-ZKbQpyRU.css",
+  "./estimating/assets/es-BGgVVAHa.js",
+  "./estimating/assets/pdf-DPVOxVOM.js",
+  "./estimating/assets/src-BY0Orcp_.js",
+  "./estimating/assets/purchase-order-pdf-SFslxVCV.js",
+  "./estimating/assets/quote-backup-pdf-D1uF6_I1.js",
   "./estimating/jgc-letterhead-logo.jpg",
   "./logo.webp",
   "./login-background.webp",

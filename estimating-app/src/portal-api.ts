@@ -1,4 +1,4 @@
-import { createDefaultState, normalizeAppState, type AppState, type Job, type Vendor } from "../lib/estimator-data";
+import { createDefaultState, normalizeAppState, type AppState, type Job, type Vendor, type VendorContact } from "../lib/estimator-data";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
 import { normalizeMaterialName } from "../lib/material-price-workbook";
 import { normalizeSupplierSku } from "../lib/supplier-price-parser";
@@ -69,7 +69,22 @@ function catalogRecord(row: Record<string, any>): SupplierCatalogItemRecord {
   };
 }
 
-function portalVendor(row: Record<string, any>): Vendor {
+function portalContact(row: Record<string, any>): VendorContact {
+  return {
+    id: `portal-contact-${row.id}`,
+    portalRecordId: row.id,
+    name: row.contact_name ?? "",
+    role: row.role ?? "",
+    phone: row.phone ?? "",
+    email: row.email ?? "",
+    notes: row.notes ?? "",
+    active: row.is_active !== false,
+  };
+}
+
+function portalVendor(row: Record<string, any>, contactRows: Record<string, any>[] = []): Vendor {
+  const contacts = contactRows.map(portalContact);
+  const firstContact = contacts.find((contact) => contact.active) ?? contacts[0];
   return {
     id: `portal-${row.id}`,
     portalRecordId: row.id,
@@ -78,30 +93,49 @@ function portalVendor(row: Record<string, any>): Vendor {
     name: row.company_name ?? "",
     trade: row.service_type ?? "",
     category: "Subcontractor",
-    contact: row.contact_name ?? "",
-    email: row.email ?? "",
-    phone: row.phone ?? "",
+    contact: row.contact_name ?? firstContact?.name ?? "",
+    email: row.email ?? firstContact?.email ?? "",
+    phone: row.phone ?? firstContact?.phone ?? "",
     status: row.is_active ? "Active" : "Inactive",
     notes: row.notes ?? "",
+    contacts,
     demo: false,
   };
 }
 
-async function loadPortalReferences(client: any) {
-  const [vendorsResult, jobsResult] = await Promise.all([
+async function loadPortalVendors(client: any) {
+  const [vendorsResult, contactsResult] = await Promise.all([
     client
       .from("subcontractors_suppliers")
       .select("id,company_name,category,service_type,contact_name,phone,email,notes,is_active")
       .eq("category", "Subcontractor")
       .order("company_name"),
     client
+      .from("subcontractor_supplier_contacts")
+      .select("id,company_id,contact_name,role,phone,email,notes,sort_order,is_active")
+      .order("sort_order")
+      .order("contact_name"),
+  ]);
+  if (vendorsResult.error) throw new Error(vendorsResult.error.message || "Portal subcontractors could not be loaded.");
+  if (contactsResult.error) throw new Error(contactsResult.error.message || "Portal subcontractor contacts could not be loaded.");
+  const contactsByCompany = new Map<string, Record<string, any>[]>();
+  for (const contact of contactsResult.data ?? []) {
+    const list = contactsByCompany.get(contact.company_id) ?? [];
+    list.push(contact);
+    contactsByCompany.set(contact.company_id, list);
+  }
+  return (vendorsResult.data ?? []).map((row: Record<string, any>) => portalVendor(row, contactsByCompany.get(row.id) ?? []));
+}
+
+async function loadPortalReferences(client: any) {
+  const [vendors, jobsResult] = await Promise.all([
+    loadPortalVendors(client),
+    client
       .from("jobs")
       .select("id,job_number,job_name,customer,address,active")
       .order("job_number", { ascending: false }),
   ]);
-  if (vendorsResult.error) throw new Error(vendorsResult.error.message || "Portal subcontractors could not be loaded.");
   if (jobsResult.error) throw new Error(jobsResult.error.message || "Portal jobs could not be loaded.");
-  const vendors = (vendorsResult.data ?? []).map(portalVendor);
   const portalJobs: PortalJobOption[] = (jobsResult.data ?? []).map((row: Record<string, any>) => ({
     id: row.id,
     jobNumber: row.job_number,
@@ -112,6 +146,70 @@ async function loadPortalReferences(client: any) {
   }));
   bridgeWindow.JGC_ESTIMATOR_PORTAL_JOBS = portalJobs;
   return { vendors, portalJobs };
+}
+
+function vendorPayload(body: Record<string, any>) {
+  return {
+    company_name: String(body.name ?? "").trim(),
+    category: "Subcontractor",
+    service_type: String(body.trade ?? "").trim(),
+    contact_name: String(body.contact ?? "").trim(),
+    phone: String(body.phone ?? "").trim(),
+    email: String(body.email ?? "").trim(),
+    notes: String(body.notes ?? "").trim(),
+    is_active: body.status !== "Inactive",
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function vendorsResponse(client: any) {
+  return json({ vendors: await loadPortalVendors(client) });
+}
+
+async function mutatePortalVendor(client: any, request: Request) {
+  if (request.method === "GET") return vendorsResponse(client);
+  const body = await request.json() as Record<string, any>;
+  const payload = vendorPayload(body);
+  if (!payload.company_name) return json({ error: "A subcontractor company name is required." }, 400);
+  if (request.method === "POST") {
+    const result = await client.from("subcontractors_suppliers").insert(payload).select("id").single();
+    if (result.error) throw new Error(result.error.message || "The subcontractor could not be added.");
+    return vendorsResponse(client);
+  }
+  if (!body.portalRecordId) return json({ error: "The Portal subcontractor record is required." }, 400);
+  const result = await client.from("subcontractors_suppliers").update(payload).eq("id", body.portalRecordId).select("id").single();
+  if (result.error) throw new Error(result.error.message || "The subcontractor could not be saved.");
+  return vendorsResponse(client);
+}
+
+async function mutatePortalContact(client: any, request: Request) {
+  const body = await request.json() as Record<string, any>;
+  if (request.method === "DELETE") {
+    if (!body.portalRecordId) return json({ error: "The Portal contact record is required." }, 400);
+    const result = await client.from("subcontractor_supplier_contacts").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", body.portalRecordId).select("id").single();
+    if (result.error) throw new Error(result.error.message || "The contact could not be removed.");
+    return vendorsResponse(client);
+  }
+  const payload = {
+    company_id: String(body.companyId ?? ""),
+    contact_name: String(body.name ?? "").trim(),
+    role: String(body.role ?? "").trim(),
+    phone: String(body.phone ?? "").trim(),
+    email: String(body.email ?? "").trim(),
+    notes: String(body.notes ?? "").trim(),
+    is_active: body.active !== false,
+    updated_at: new Date().toISOString(),
+  };
+  if (!payload.company_id || !payload.contact_name) return json({ error: "A company and contact name are required." }, 400);
+  if (request.method === "POST") {
+    const result = await client.from("subcontractor_supplier_contacts").insert(payload).select("id").single();
+    if (result.error) throw new Error(result.error.message || "The contact could not be added.");
+    return vendorsResponse(client);
+  }
+  if (!body.portalRecordId) return json({ error: "The Portal contact record is required." }, 400);
+  const result = await client.from("subcontractor_supplier_contacts").update(payload).eq("id", body.portalRecordId).select("id").single();
+  if (result.error) throw new Error(result.error.message || "The contact could not be saved.");
+  return vendorsResponse(client);
 }
 
 function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJobOption[]) {
@@ -325,6 +423,8 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
     if (request.method === "POST") return applySupplierImport(client, request);
     return getSupplierCatalog(client, url);
   }
+  if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
+  if (url.pathname.endsWith("/api/vendor-contacts")) return mutatePortalContact(client, request);
   return null;
 }
 

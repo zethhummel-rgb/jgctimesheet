@@ -3635,11 +3635,11 @@ button.admin-schedule-event-button.admin-event-vacation {
    lighter than the Portal's operational cards. */
 .estimating-launcher {
     align-items: center;
-    background: #f7faf9;
-    border: 1px solid #cfe2da;
-    border-left: 4px solid #238060;
+    background: linear-gradient(135deg, #0a2d23, #124a38);
+    border: 1px solid #1a744f;
+    border-left: 4px solid #27c46a;
     border-radius: 10px;
-    color: #183d31;
+    color: #ffffff;
     display: flex;
     gap: 13px;
     margin: 0 0 16px;
@@ -3650,14 +3650,14 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .estimating-launcher:hover,
 .estimating-launcher:focus-visible {
-    border-color: #238060;
-    box-shadow: 0 6px 18px rgba(18, 68, 52, .09);
+    border-color: #35d879;
+    box-shadow: 0 7px 22px rgba(0, 0, 0, .25);
     transform: translateY(-1px);
 }
 
 .estimating-launcher-icon {
     align-items: center;
-    background: #e4f2ec;
+    background: #ffffff;
     border-radius: 9px;
     color: #176b50;
     display: inline-flex;
@@ -3667,11 +3667,12 @@ button.admin-schedule-event-button.admin-event-vacation {
     height: 40px;
     justify-content: center;
 }
+.estimating-launcher-icon img { width: 100%; height: 100%; border-radius: 9px; object-fit: cover; }
 
 .estimating-launcher > span:nth-child(2) { display: grid; gap: 2px; }
-.estimating-launcher strong { color: #102a43; font-size: 17px; }
-.estimating-launcher small { color: #607284; font-size: 12px; font-weight: 500; }
-.estimating-launcher b { color: #176b50; font-size: 13px; margin-left: auto; white-space: nowrap; }
+.estimating-launcher strong { color: #ffffff !important; font-size: 17px; }
+.estimating-launcher small { color: #cce5db !important; font-size: 12px; font-weight: 500; }
+.estimating-launcher b { color: #55ea91 !important; font-size: 13px; margin-left: auto; white-space: nowrap; }
 
 @media (max-width: 640px) {
     .estimating-launcher { align-items: flex-start; padding: 12px; }

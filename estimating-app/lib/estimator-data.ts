@@ -70,7 +70,19 @@ export interface Vendor {
   phone: string;
   status: "Active" | "Inactive";
   notes: string;
+  contacts?: VendorContact[];
   demo?: boolean;
+}
+
+export interface VendorContact {
+  id: string;
+  portalRecordId?: string | null;
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  notes: string;
+  active: boolean;
 }
 
 export type QuoteCostBuildUpKind = "Labour" | "Material";
@@ -910,6 +922,16 @@ export function normalizeAppState(state: AppState): AppState {
       portalRecordId: vendor.portalRecordId ?? null,
       portalActive: vendor.portalActive ?? null,
       portalLastSyncedAt: vendor.portalLastSyncedAt ?? "",
+      contacts: Array.isArray(vendor.contacts) ? vendor.contacts.map((contact) => ({
+        ...contact,
+        portalRecordId: contact.portalRecordId ?? null,
+        name: contact.name ?? "",
+        role: contact.role ?? "",
+        phone: contact.phone ?? "",
+        email: contact.email ?? "",
+        notes: contact.notes ?? "",
+        active: contact.active !== false,
+      })) : [],
     })),
     quotes: state.quotes.map((quote) => ({
       ...quote,

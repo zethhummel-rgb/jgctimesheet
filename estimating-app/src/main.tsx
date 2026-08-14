@@ -53,10 +53,10 @@ function PortalEstimator() {
     return () => { active = false; };
   }, []);
 
-  if (gate === "allowed") return <><div className="estimator-portal-strip"><a href="../admin.html?tab=summary">← Portal Summary</a><span>Estimate Desk</span><small>{name}</small></div><EstimateDesk /></>;
+  if (gate === "allowed") return <><div className="estimator-portal-strip"><span>Connected to JGC Portal</span><small>{name}</small></div><EstimateDesk /></>;
   const title = gate === "denied" ? "Admin access required" : gate === "signed-out" ? "Sign in to the JGC Portal" : gate === "error" ? "Connection problem" : "Opening Estimate Desk";
   const detail = gate === "denied" ? "The Estimate Desk is available only to approved Portal administrators." : gate === "signed-out" ? "Use your existing Portal account. You will return here after signing in." : gate === "error" ? message : "Checking your Portal access and shared data…";
-  return <main className="estimator-gate"><div className="estimator-gate-mark">JG</div><p>JGC ESTIMATE DESK</p><h1>{title}</h1><span>{detail}</span>{gate !== "loading" && <a className="gate-button" href="../index.html">{gate === "signed-out" ? "Go to Portal sign in" : "Return to Portal"}</a>}</main>;
+  return <main className="estimator-gate"><img className="estimator-gate-logo" src="../icon-192.png" alt="JGC" /><p>JGC ESTIMATE DESK</p><h1>{title}</h1><span>{detail}</span>{gate !== "loading" && <a className="gate-button" href="../index.html">{gate === "signed-out" ? "Go to Portal sign in" : "Return to Portal"}</a>}</main>;
 }
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode><PortalEstimator /></React.StrictMode>);

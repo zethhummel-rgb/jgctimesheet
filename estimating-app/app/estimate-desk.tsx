@@ -27,6 +27,7 @@ import {
   type QuoteLine,
   type QuoteStatus,
   type Vendor,
+  type VendorContact,
   type ViewKey,
 } from "../lib/estimator-data";
 
@@ -910,7 +911,7 @@ export default function EstimateDesk() {
     <div className="desk-shell">
       <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <div className="brand-block">
-          <div className="brand-mark">JG</div>
+          <img className="brand-logo" src="../icon-192.png" alt="JGC" />
           <div>
             <strong>JGC</strong>
             <span>Estimate Desk</span>
@@ -946,10 +947,11 @@ export default function EstimateDesk() {
         <header className="topbar">
           <button className="mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>☰</button>
           <div className="topbar-context">
-            <span>Standalone workspace</span>
+            <span>Connected to JGC Portal</span>
             <strong>{selectedQuote ? selectedQuote.number : state.settings.appName}</strong>
           </div>
           <div className="topbar-actions">
+            <a className="button secondary compact portal-return-button" href="../admin.html?tab=summary"><span aria-hidden="true">←</span> Return to Portal</a>
             <div className={`save-indicator ${saveStatus}`} title={lastSaved ? `Last saved ${shortDate(lastSaved)}` : ""}>
               <span className="save-dot" />
               {saveStatus === "loading" && "Loading"}
@@ -1077,7 +1079,7 @@ function Dashboard({ state, onNewQuote, onOpenQuote }: { state: AppState; onNewQ
           <h1>Clear pricing. Controlled risk. Better handoff.</h1>
           <p>Build the quote once, review the numbers, finalize a clean proposal, then compare won estimates with actual costs and labour hours.</p>
         </div>
-        <button className="button light" onClick={onNewQuote}>＋ Start a quote</button>
+        <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
       </section>
 
       <section className="metric-grid">
@@ -2755,59 +2757,71 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
   onAdd: () => void;
 }) {
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Vendor | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [newContacts, setNewContacts] = useState<Record<string, Partial<VendorContact>>>({});
   const normalized = search.toLowerCase();
-  const vendors = state.vendors.filter((vendor) => isSubcontractor(vendor) && `${vendor.name} ${vendor.trade} ${vendor.contact} ${vendor.email} ${vendor.phone}`.toLowerCase().includes(normalized));
-  const portalManaged = vendors.some((vendor) => Boolean(vendor.portalRecordId));
+  const vendors = state.vendors.filter((vendor) => isSubcontractor(vendor) && `${vendor.name} ${vendor.trade} ${vendor.contact} ${vendor.email} ${vendor.phone} ${(vendor.contacts ?? []).map((contact) => `${contact.name} ${contact.role} ${contact.email} ${contact.phone}`).join(" ")}`.toLowerCase().includes(normalized));
   const updateVendor = <K extends keyof Vendor>(vendorId: string, field: K, value: Vendor[K]) => {
     setState((current) => ({
       ...current,
       vendors: current.vendors.map((vendor) => vendor.id === vendorId ? { ...vendor, [field]: value } : vendor),
     }));
   };
-  const deleteVendor = (vendor: Vendor) => {
+  const updateContact = <K extends keyof VendorContact>(vendorId: string, contactId: string, field: K, value: VendorContact[K]) => {
     setState((current) => ({
       ...current,
-      vendors: current.vendors.filter((item) => item.id !== vendor.id),
-      priceBook: current.priceBook.map((item) => item.defaultVendorId === vendor.id ? {
-        ...item,
-        defaultVendorId: null,
-        defaultVendorName: item.defaultVendorName?.trim() || vendor.name,
-      } : item),
-      quotes: current.quotes.map((quote) => ({
-        ...quote,
-        lines: quote.lines.map((line) => line.vendorId === vendor.id ? {
-          ...line,
-          vendorId: null,
-          vendorName: line.vendorName?.trim() || vendor.name,
-        } : line),
-      })),
+      vendors: current.vendors.map((vendor) => vendor.id === vendorId ? ({
+        ...vendor,
+        contacts: (vendor.contacts ?? []).map((contact) => contact.id === contactId ? { ...contact, [field]: value } : contact),
+      }) : vendor),
     }));
-    setExpandedVendorId(null);
-    setPendingDelete(null);
+  };
+  const syncRequest = async (path: string, method = "GET", body?: Record<string, unknown>) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const result = await response.json() as { vendors?: Vendor[]; error?: string };
+      if (!response.ok || !result.vendors) throw new Error(result.error || "The shared vendor list could not be updated.");
+      setState((current) => ({ ...current, vendors: result.vendors! }));
+      setMessage("Shared Portal list updated.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The shared vendor list could not be updated.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveVendor = (vendor: Vendor) => syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, trade: vendor.trade, contact: vendor.contact, email: vendor.email, phone: vendor.phone, notes: vendor.notes, status: vendor.status });
+  const saveContact = (vendor: Vendor, contact: VendorContact) => syncRequest("/api/vendor-contacts", "PATCH", { portalRecordId: contact.portalRecordId, companyId: vendor.portalRecordId, name: contact.name, role: contact.role, phone: contact.phone, email: contact.email, notes: contact.notes, active: contact.active });
+  const removeContact = (contact: VendorContact) => syncRequest("/api/vendor-contacts", "DELETE", { portalRecordId: contact.portalRecordId });
+  const addContact = async (vendor: Vendor) => {
+    const draft = newContacts[vendor.id] ?? {};
+    if (!String(draft.name ?? "").trim()) return setMessage("Enter the contact's name first.");
+    const saved = await syncRequest("/api/vendor-contacts", "POST", { companyId: vendor.portalRecordId, name: draft.name, role: draft.role, phone: draft.phone, email: draft.email, notes: draft.notes, active: true });
+    if (saved) setNewContacts((current) => ({ ...current, [vendor.id]: {} }));
   };
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="SUBCONTRACTOR PRICING" title="Vendors" description="This list comes from Portal companies marked Subcontractor. Material suppliers remain in Material Prices." actions={<a className="button primary" href="../admin.html?tab=adminTools&section=subcontractorsSuppliers">Manage subcontractors in Portal</a>} />
-      <div className="estimating-boundary-note"><strong>Shared Portal list</strong><p>Company names, trades and contacts are managed once on the Portal’s Subs/Suppliers page and appear here automatically.</p></div>
-      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subcontractor or trade" /></div><span className="toolbar-note">{vendors.length} subcontractor{vendors.length === 1 ? "" : "s"}</span></section>
+      <PageHeading eyebrow="SUBCONTRACTOR PRICING" title="Vendors" description="The same subcontractor companies and contacts are shared with the Portal." actions={<div className="heading-actions"><button className="button secondary" onClick={() => void syncRequest("/api/vendors")} disabled={busy}>↻ Refresh</button><button className="button primary" onClick={onAdd}>＋ Add subcontractor</button></div>} />
+      <div className="estimating-boundary-note"><strong>One shared list</strong><p>Edit companies and contacts here or on the Portal’s Subs/Suppliers page. Both screens use the same records.</p><a href="../admin.html?tab=adminTools&section=subcontractorsSuppliers">Open Subs/Suppliers in Portal →</a></div>
+      {message && <div className={`vendor-sync-message ${message.includes("updated") ? "success" : "error"}`}>{message}</div>}
+      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subcontractor, trade or contact" /></div><span className="toolbar-note">{vendors.length} subcontractor{vendors.length === 1 ? "" : "s"}</span></section>
       <section className="vendor-grid">
         {vendors.map((vendor) => {
-          const linkedLines = state.quotes.flatMap((quote) => quote.lines.map((line) => ({ quote, line }))).filter((entry) => entry.line.vendorId === vendor.id);
-          const totalQuoted = linkedLines.reduce((sum, entry) => sum + lineDirectCost(entry.line), 0);
+          const contacts = (vendor.contacts ?? []).filter((contact) => contact.active);
+          const primaryContact = contacts[0];
+          const draft = newContacts[vendor.id] ?? {};
           return (
             <article className={`vendor-card ${expandedVendorId === vendor.id ? "is-editing" : ""}`} key={vendor.id}>
               <header><div className="vendor-icon">{vendor.trade.slice(0, 1).toUpperCase()}</div><div><h2>{vendor.name}</h2><span>{vendor.trade || "Trade not specified"}</span></div><span className={`vendor-status ${vendor.status.toLowerCase()}`}>{vendor.status}</span></header>
-              <div className="vendor-metrics"><div><span>Linked quote lines</span><strong>{linkedLines.length}</strong></div><div><span>Direct quote value</span><strong>{money(totalQuoted)}</strong></div></div>
-              <div className="vendor-contact"><span>{vendor.contact || "No contact recorded"}</span><span>{vendor.email || vendor.phone || "Contact details not recorded"}</span></div>
-              {vendor.demo && <span className="demo-chip">Demo only</span>}
-              {!portalManaged && <div className="vendor-card-actions">
-                <button className="button secondary compact" onClick={() => setExpandedVendorId(expandedVendorId === vendor.id ? null : vendor.id)}>{expandedVendorId === vendor.id ? "Done" : "Edit vendor"}</button>
-                <button className="text-button danger" onClick={() => setPendingDelete(vendor)}>Delete</button>
-              </div>}
-              {!portalManaged && expandedVendorId === vendor.id && (
+              <div className="vendor-contact"><strong>{contacts.length ? `${contacts.length} contact${contacts.length === 1 ? "" : "s"}` : "No contacts yet"}</strong><span>{primaryContact?.name || vendor.contact || "Add a contact in this card"}{(primaryContact?.role || primaryContact?.phone || primaryContact?.email) ? ` · ${primaryContact?.role || primaryContact?.phone || primaryContact?.email}` : ""}</span></div>
+              <div className="vendor-card-actions"><button className="button secondary compact" onClick={() => setExpandedVendorId(expandedVendorId === vendor.id ? null : vendor.id)}>{expandedVendorId === vendor.id ? "Close" : "Edit company & contacts"}</button></div>
+              {expandedVendorId === vendor.id && (
                 <div className="vendor-edit-panel">
-                  <div className="vendor-edit-heading"><div><span className="eyebrow">EDIT VENDOR</span><h3>{vendor.name || "Unnamed vendor"}</h3></div><span className="autosave-chip">● Saves automatically</span></div>
+                  <div className="vendor-edit-heading"><div><span className="eyebrow">SHARED PORTAL COMPANY</span><h3>{vendor.name || "Unnamed vendor"}</h3></div><span className="autosave-chip">● Shared with Portal</span></div>
                   <div className="form-grid vendor-edit-grid">
                     <label className="field full"><span>Subcontractor company</span><input value={vendor.name} onChange={(event) => updateVendor(vendor.id, "name", event.target.value)} /></label>
                     <label className="field"><span>Trade</span><input value={vendor.trade} onChange={(event) => updateVendor(vendor.id, "trade", event.target.value)} placeholder="Painting, electrical, drywall…" /></label>
@@ -2816,8 +2830,26 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
                     <label className="field"><span>Phone</span><input value={vendor.phone} onChange={(event) => updateVendor(vendor.id, "phone", event.target.value)} inputMode="tel" /></label>
                     <label className="field full"><span>Email</span><input type="email" value={vendor.email} onChange={(event) => updateVendor(vendor.id, "email", event.target.value)} /></label>
                     <label className="field full"><span>Notes</span><textarea rows={4} value={vendor.notes} onChange={(event) => updateVendor(vendor.id, "notes", event.target.value)} /></label>
-                    <label className="check-field full"><input type="checkbox" checked={Boolean(vendor.demo)} onChange={(event) => updateVendor(vendor.id, "demo", event.target.checked)} /><span><strong>Demo / starter record</strong><small>Turn this off once the vendor information has been replaced with a real trade partner.</small></span></label>
+                    <div className="vendor-save-row full"><button className="button primary" onClick={() => void saveVendor(vendor)} disabled={busy}>Save company to Portal</button><small>Changes appear on the Portal Subs/Suppliers page immediately.</small></div>
                   </div>
+                  <section className="vendor-contacts-section">
+                    <div className="vendor-contact-heading"><span className="eyebrow">CONTACTS</span><h3>{contacts.length ? `${contacts.length} saved contact${contacts.length === 1 ? "" : "s"}` : "Add the first contact"}</h3></div>
+                    <div className="vendor-contact-list">{contacts.map((contact) => <div className="vendor-contact-editor" key={contact.id}>
+                      <label className="field"><span>Name</span><input value={contact.name} onChange={(event) => updateContact(vendor.id, contact.id, "name", event.target.value)} /></label>
+                      <label className="field"><span>Role / title</span><input value={contact.role} onChange={(event) => updateContact(vendor.id, contact.id, "role", event.target.value)} /></label>
+                      <label className="field"><span>Phone</span><input value={contact.phone} onChange={(event) => updateContact(vendor.id, contact.id, "phone", event.target.value)} /></label>
+                      <label className="field"><span>Email</span><input type="email" value={contact.email} onChange={(event) => updateContact(vendor.id, contact.id, "email", event.target.value)} /></label>
+                      <label className="field vendor-contact-notes"><span>Notes</span><input value={contact.notes} onChange={(event) => updateContact(vendor.id, contact.id, "notes", event.target.value)} /></label>
+                      <div className="vendor-contact-actions"><button className="button primary compact" onClick={() => void saveContact(vendor, contact)} disabled={busy}>Save</button><button className="button danger-ghost compact" onClick={() => void removeContact(contact)} disabled={busy}>Remove</button></div>
+                    </div>)}</div>
+                    <div className="vendor-new-contact">
+                      <label className="field"><span>New contact name</span><input value={String(draft.name ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], name: event.target.value } }))} /></label>
+                      <label className="field"><span>Role / title</span><input value={String(draft.role ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], role: event.target.value } }))} placeholder="Owner, estimator, plumber…" /></label>
+                      <label className="field"><span>Phone</span><input value={String(draft.phone ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], phone: event.target.value } }))} /></label>
+                      <label className="field"><span>Email</span><input type="email" value={String(draft.email ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], email: event.target.value } }))} /></label>
+                      <button className="button success" onClick={() => void addContact(vendor)} disabled={busy}>＋ Add contact</button>
+                    </div>
+                  </section>
                 </div>
               )}
             </article>
@@ -2825,15 +2857,6 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
         })}
       </section>
       {!vendors.length && <section className="panel empty-state"><span>◇</span><h3>No subcontractors found</h3><p>Add an active company marked Subcontractor on the Portal’s Subs/Suppliers page.</p><a className="button primary" href="../admin.html?tab=adminTools&section=subcontractorsSuppliers">Open Subs/Suppliers</a></section>}
-      {pendingDelete && (
-        <div className="modal-layer" role="presentation" onMouseDown={() => setPendingDelete(null)}>
-          <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="delete-vendor-title" onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><span className="eyebrow danger-eyebrow">DELETE VENDOR</span><h2 id="delete-vendor-title">Delete {pendingDelete.name}?</h2></div><button aria-label="Cancel deletion" onClick={() => setPendingDelete(null)}>×</button></header>
-            <div className="confirm-content"><div className="confirm-line-name"><span>{pendingDelete.trade || "Trade not specified"}</span><strong>{pendingDelete.name}</strong></div><p>This removes the vendor from your library. Existing quote prices will not change; linked quote lines will keep their source text but no longer point to this vendor record.</p></div>
-            <footer className="confirm-actions"><button className="button secondary" onClick={() => setPendingDelete(null)}>Keep vendor</button><button className="button danger-solid" onClick={() => deleteVendor(pendingDelete)}>Delete vendor</button></footer>
-          </section>
-        </div>
-      )}
     </div>
   );
 }
@@ -3015,8 +3038,11 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
   const titles = { client: "Add client", vendor: "Add subcontractor", pricebook: "Add service or installed rate", jobCost: "Add actual cost or hours" };
   const [priceBookCostType, setPriceBookCostType] = useState<CostType>("Labour");
   const [priceBookUnitChoice, setPriceBookUnitChoice] = useState("LS");
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSubmitError("");
     const form = new FormData(event.currentTarget);
     if (modal.kind === "client") {
       const client: Client = { id: uid("client"), name: String(form.get("name") || "").trim(), contact: String(form.get("contact") || "").trim(), email: String(form.get("email") || "").trim(), phone: String(form.get("phone") || "").trim(), sites: String(form.get("siteLabel") || "").trim() ? [{ id: uid("site"), label: String(form.get("siteLabel") || "").trim(), address: String(form.get("address") || "").trim() }] : [], notes: "" };
@@ -3027,7 +3053,17 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
     if (modal.kind === "vendor") {
       const vendor: Vendor = { id: uid("vendor"), name: String(form.get("name") || "").trim(), trade: String(form.get("trade") || "").trim(), category: "Subcontractor", portalRecordId: null, portalActive: null, portalLastSyncedAt: "", contact: String(form.get("contact") || "").trim(), email: String(form.get("email") || "").trim(), phone: String(form.get("phone") || "").trim(), status: "Active", notes: String(form.get("notes") || "").trim() };
       if (!vendor.name) return;
-      onSubmit({ ...state, vendors: [vendor, ...state.vendors] });
+      setSubmitting(true);
+      try {
+        const response = await fetch("/api/vendors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vendor) });
+        const result = await response.json() as { vendors?: Vendor[]; error?: string };
+        if (!response.ok || !result.vendors) throw new Error(result.error || "The subcontractor could not be added to the Portal.");
+        onSubmit({ ...state, vendors: result.vendors });
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : "The subcontractor could not be added to the Portal.");
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
     if (modal.kind === "pricebook") {
@@ -3069,7 +3105,8 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
             <label className="field full"><span>Recommended use</span><textarea name="use" rows={3} /></label>
           </div>}
           {modal.kind === "jobCost" && <div className="form-grid two-column"><div className="field full actual-entry-note"><strong>Estimate follow-up only</strong><small>Enter a cost, labour hours, or both. Purchase orders can be created from subcontractor lines above; official invoices and accounting records stay in the office system.</small></div><label className="field"><span>Date</span><input name="date" type="date" defaultValue={today()} /></label><label className="field"><span>Actual type</span><select name="type"><option>Subcontractor</option><option>Material</option><option>Labour</option><option>Equipment</option><option>Expense</option></select></label><label className="field"><span>Division / section</span><input name="section" defaultValue="General" /></label><label className="field"><span>Vendor / person</span><input name="vendor" /></label><label className="field full"><span>Invoice, receipt or timesheet reference</span><input name="reference" /></label><label className="field"><span>Pre-tax cost</span><div className="input-prefix"><span>$</span><input name="preTaxAmount" type="number" min="0" step="0.01" defaultValue="0" /></div></label><label className="field"><span>Labour hours</span><input name="hours" type="number" min="0" step="0.25" defaultValue="0" /></label><label className="field full"><span>Notes</span><textarea name="notes" rows={3} /></label></div>}
-          <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary">Save</button></footer>
+          {submitError && <p className="modal-error">{submitError}</p>}
+          <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary" disabled={submitting}>{submitting ? "Saving…" : "Save"}</button></footer>
         </form>
       </section>
     </div>
