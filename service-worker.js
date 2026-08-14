@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "704";
+const JGC_RELEASE_ID = "705";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -133,7 +133,7 @@ const JGC_APP_SHELL = [
   "./vendor/jszip.min.js?v=1",
   "./vendor/jspdf.umd.min.js?v=1",
   "./vendor/lucide.min.js",
-  "./estimating/assets/index-BxL2RJDo.js",
+  "./estimating/assets/index-DEoT-K0d.js",
   "./estimating/assets/index-TBijnTdi.css",
   "./estimating/jgc-letterhead-logo.jpg",
   "./logo.webp",

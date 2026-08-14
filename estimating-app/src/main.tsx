@@ -30,7 +30,7 @@ function PortalEstimator() {
           if (active) setGate("signed-out");
           return;
         }
-        const profileResult = await client.from("profiles").select("full_name,role,account_status").eq("id", user.id).single();
+        const profileResult = await client.from("profiles").select("display_name,role,account_status").eq("id", user.id).single();
         if (profileResult.error) throw new Error(profileResult.error.message || "Your Portal profile could not be checked.");
         const profile = profileResult.data;
         const approved = profile?.role === "admin" && profile?.account_status === "approved";
@@ -40,7 +40,7 @@ function PortalEstimator() {
         }
         installEstimatorApiBridge(client);
         if (active) {
-          setName(profile.full_name || user.email || "Administrator");
+          setName(profile.display_name || user.email || "Administrator");
           setGate("allowed");
         }
       } catch (error) {
