@@ -34,6 +34,7 @@ import {
 // Start loading the PDF maker with the workspace so a later site update cannot
 // leave an already-open quote pointing at an old, removed download file.
 const quoteBackupPdfModule = import("../lib/quote-backup-pdf");
+const proposalPdfModule = import("../lib/proposal-pdf");
 const purchaseOrderPdfModule = import("../lib/purchase-order-pdf");
 
 const moneyFormatter = new Intl.NumberFormat("en-CA", {
@@ -83,6 +84,23 @@ const constructionDivisions = [
   "Division 42 – Process Heating, Cooling and Drying Equipment",
   "Division 44 – Pollution Control Equipment",
 ];
+
+function detectConstructionDivision(description: string): string | null {
+  const value = description.toLocaleLowerCase();
+  const rules: Array<[RegExp, string]> = [
+    [/\b(concrete|cement|rebar|forming|formwork|coring)\b/, "Division 03 – Concrete"],
+    [/\b(masonry|brick|block|mortar)\b/, "Division 04 – Masonry"],
+    [/\b(metal|steel|structural steel|welding)\b/, "Division 05 – Metals"],
+    [/\b(wood|carpentry|framing|lumber|millwork)\b/, "Division 06 – Wood, Plastics and Composites"],
+    [/\b(roof|roofing|waterproof|insulation|vapou?r barrier|caulking)\b/, "Division 07 – Thermal and Moisture Protection"],
+    [/\b(door|frame|hardware|window|glazing)\b/, "Division 08 – Openings"],
+    [/\b(drywall|gypsum|flooring|painting|paint|ceiling|tile|finishes)\b/, "Division 09 – Finishes"],
+    [/\b(plumb|plumbing|toilet|sink|faucet|drain)\b/, "Division 22 – Plumbing"],
+    [/\b(hvac|mechanical|duct|ventilation|heating|cooling)\b/, "Division 23 – Heating, Ventilating and Air-Conditioning (HVAC)"],
+    [/\b(electric|electrical|wiring|lighting|panel|receptacle)\b/, "Division 26 – Electrical"],
+  ];
+  return rules.find(([pattern]) => pattern.test(value))?.[1] ?? null;
+}
 
 const unitPricingOptions = [
   { value: "LS", label: "LS — Lump sum for the complete item" },
@@ -185,6 +203,15 @@ async function downloadQuoteBackup(state: AppState, quote: Quote) {
   }
 }
 
+async function downloadCustomerProposal(state: AppState, quote: Quote) {
+  try {
+    const { downloadProposalPdf } = await proposalPdfModule;
+    await downloadProposalPdf(state, quote);
+  } catch {
+    window.alert("The proposal PDF could not be created. Please try again.");
+  }
+}
+
 async function downloadPurchaseOrder(state: AppState, job: Job, purchaseOrder: PurchaseOrder) {
   try {
     const { downloadPurchaseOrderPdf } = await purchaseOrderPdfModule;
@@ -248,6 +275,37 @@ function divisionSummaries(quote: Quote) {
   });
 }
 
+function quoteCostCategories(quote: Quote) {
+  const direct = { labour: 0, materials: 0, subcontractors: 0, other: 0 };
+  const sell = { labour: 0, materials: 0, subcontractors: 0, other: 0 };
+  quote.lines.filter((line) => line.included).forEach((line) => {
+    const lineDirect = lineDirectCost(line);
+    const lineSell = lineSellPrice(line, quote.defaultMarkup);
+    const factor = lineDirect > 0 ? lineSell / lineDirect : 0;
+    const add = (key: keyof typeof direct, amount: number) => {
+      direct[key] += amount;
+      sell[key] += amount * factor;
+    };
+    if (line.costBuildUp) {
+      const totals = lineBuildUpTotals(line);
+      add("labour", totals.labour * line.quantity);
+      add("materials", totals.materials * line.quantity);
+      add("subcontractors", totals.subcontractors * line.quantity);
+      add("other", totals.other * line.quantity);
+    } else if (line.costType === "Labour") add("labour", lineDirect);
+    else if (line.costType === "Material") add("materials", lineDirect);
+    else if (line.costType === "Sub / Vendor") add("subcontractors", lineDirect);
+    else if (line.costType === "Labour & Materials") {
+      add("labour", lineDirect / 2);
+      add("materials", lineDirect / 2);
+    } else add("other", lineDirect);
+  });
+  return {
+    direct: Object.fromEntries(Object.entries(direct).map(([key, value]) => [key, Math.round(value * 100) / 100])) as typeof direct,
+    sell: Object.fromEntries(Object.entries(sell).map(([key, value]) => [key, Math.round(value * 100) / 100])) as typeof sell,
+  };
+}
+
 function dollarsInWords(value: number): string {
   const belowTwenty = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -308,13 +366,10 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
     if (!(line.quantity > 0)) blockers.push({ key: `${line.id}-quantity`, message: `${label} needs a quantity above zero.` });
     if (!line.unit.trim()) blockers.push({ key: `${line.id}-unit`, message: `${label} needs a unit.` });
     if (!(effectiveUnitCost(line) > 0)) blockers.push({ key: `${line.id}-cost`, message: `${label} has no usable direct cost.` });
-    if (line.liveQuote && !(line.projectCost && line.projectCost > 0)) {
-      blockers.push({ key: `${line.id}-live-cost`, message: `${label} requires a current vendor cost.` });
-    }
     if (line.costType === "Sub / Vendor" && !line.vendorId && !line.vendorName?.trim()) {
       blockers.push({ key: `${line.id}-vendor`, message: `${label} needs a subcontractor.` });
     }
-    if (line.costType === "Sub / Vendor" && !line.vendorReference.trim()) {
+    if (line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && !line.vendorReference.trim()) {
       blockers.push({ key: `${line.id}-vendor-reference`, message: `${label} needs the subcontractor quote number or pricing reference.` });
     }
     if (line.vendorId && !vendors.some((vendor) => vendor.id === line.vendorId)) {
@@ -331,17 +386,7 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
       });
     }
 
-    if (line.confidence === "Low") warnings.push({ key: `${line.id}-confidence`, message: `${label} uses low-confidence pricing.` });
-    if (
-      line.projectCost !== null &&
-      ((line.low !== null && line.projectCost < line.low) || (line.high !== null && line.projectCost > line.high))
-    ) {
-      warnings.push({ key: `${line.id}-range`, message: `${label} is outside its historical price range.` });
-    }
     if (line.priceOverride !== null) warnings.push({ key: `${line.id}-price-override`, message: `${label} has a manual customer-price override.` });
-    if (!line.priceBookCode && !line.costBuildUp && !line.sourceNote.trim()) {
-      warnings.push({ key: `${line.id}-custom-source`, message: `${label} is custom and needs a source note.` });
-    }
     if (line.vendorQuoteExpiry) {
       const twoWeeks = addDays(today(), 14);
       if (line.vendorQuoteExpiry <= twoWeeks) {
@@ -354,10 +399,7 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
   if (totals.subtotal > 0 && totals.margin < quote.targetMargin) {
     warnings.push({ key: "target-margin", message: `Gross margin ${percent(totals.margin)} is below the ${percent(quote.targetMargin)} target.` });
   }
-  if (quote.quoteType === "Unit Price" && proposalStyle(quote) === "jgc-classic") {
-    warnings.push({ key: "unit-price-classic", message: "Unit-price work is easier to understand with the Detailed Breakdown proposal style." });
-  }
-  if (!quote.scopeSummary.trim()) warnings.push({ key: "scope", message: "Add a short project scope summary." });
+  if (!customerScopeLines(quote).length) warnings.push({ key: "scope", message: "Add at least one Proposal Scope Line." });
   if (!quote.exclusions.trim()) warnings.push({ key: "exclusions", message: "Add exclusions or state that there are none." });
   if (!quote.terms.trim()) warnings.push({ key: "terms", message: "Add proposal terms." });
 
@@ -387,6 +429,7 @@ function newLine(section = "General"): QuoteLine {
     vendorReference: "",
     vendorQuoteDate: "",
     vendorQuoteExpiry: "",
+    vendorPricingMode: "Budget",
     liveQuote: false,
     confidence: "Project-specific",
     low: null,
@@ -403,7 +446,7 @@ function newBuildUpItem(kind: QuoteCostBuildUpItem["kind"], patch: Partial<Quote
     kind,
     description: "",
     quantity: 0,
-    unit: kind === "Labour" ? "hr" : "Each",
+    unit: kind === "Labour" ? "hr" : kind === "Subcontractor" || kind === "Other" ? "LS" : "Each",
     unitCost: 0,
     source: "",
     ...patch,
@@ -433,12 +476,19 @@ function newSubcontractorLine(section = "General"): QuoteLine {
     quantity: 1,
     unit: "LS",
     liveQuote: true,
+    vendorPricingMode: "Quoted",
     confidence: "Project-specific",
     sourceNote: "Current subcontractor quote.",
   };
 }
 
-export default function EstimateDesk() {
+export interface CurrentEstimator {
+  id: string;
+  name: string;
+  isAdmin: boolean;
+}
+
+export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth", isAdmin: true } }: { currentEstimator?: CurrentEstimator }) {
   const [state, setState] = useState<AppState>(() => createDefaultState());
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
@@ -551,12 +601,16 @@ export default function EstimateDesk() {
       status: "Draft",
       clientId: "",
       site: "",
+      address: "",
       project: "",
       reference: "",
-      preparedBy: "Zeth",
+      preparedBy: currentEstimator.name,
+      ownerUserId: currentEstimator.id,
+      ownerName: currentEstimator.name,
       quoteDate: date,
       validUntil: addDays(date, state.settings.defaultValidityDays),
       quoteType: "Fixed Price",
+      customerQuoteType: "Proposal Quote",
       taxName: state.settings.taxName,
       taxRate: state.settings.taxRate,
       defaultMarkup: state.settings.defaultMarkup,
@@ -567,6 +621,8 @@ export default function EstimateDesk() {
       proposalScope: "",
       proposalNotes: "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others",
       proposalAttention: "",
+      proposalShowCostBreakdown: false,
+      proposalBreakdownIncludesMarkup: true,
       scopeSummary: "",
       inclusions: "",
       exclusions: "",
@@ -615,6 +671,9 @@ export default function EstimateDesk() {
       number: `${state.settings.quotePrefix}-${date.slice(0, 4)}-${sequence}`,
       revision: 0,
       status: "Draft",
+      preparedBy: currentEstimator.name,
+      ownerUserId: currentEstimator.id,
+      ownerName: currentEstimator.name,
       project: `${quote.project} — copy`,
       lines: quote.lines.map((line) => ({
         ...line,
@@ -706,8 +765,8 @@ export default function EstimateDesk() {
                 (site) => site.label.trim().toLocaleLowerCase() === siteName.toLocaleLowerCase(),
               );
               return siteAlreadySaved
-                ? client
-                : { ...client, sites: [...client.sites, { id: uid("site"), label: siteName, address: "" }] };
+                ? { ...client, sites: client.sites.map((site) => site.label.trim().toLocaleLowerCase() === siteName.toLocaleLowerCase() && quote.address?.trim() ? { ...site, address: quote.address.trim() } : site) }
+                : { ...client, sites: [...client.sites, { id: uid("site"), label: siteName, address: quote.address?.trim() ?? "" }] };
             })
           : current.clients,
         quotes: current.quotes.map((item) =>
@@ -832,7 +891,7 @@ export default function EstimateDesk() {
 
   const renderContent = () => {
     if (!ready) return <LoadingState />;
-    if (view === "dashboard") return <Dashboard state={state} onNewQuote={createQuote} onOpenQuote={openQuote} />;
+    if (view === "dashboard") return <Dashboard state={state} currentEstimator={currentEstimator} onNewQuote={createQuote} onOpenQuote={openQuote} />;
     if (view === "quotes") {
       if (selectedQuote) {
         return (
@@ -935,7 +994,7 @@ export default function EstimateDesk() {
           <div className="workspace-card">
             <div className="workspace-avatar">ZG</div>
             <div>
-              <strong>Zeth</strong>
+              <strong>{currentEstimator.name}</strong>
               <span>Estimator workspace</span>
             </div>
           </div>
@@ -1054,25 +1113,34 @@ function ReadinessPill({ quote, vendors }: { quote: Quote; vendors: Vendor[] }) 
   return <span className="readiness-pill ready">Ready to finalize</span>;
 }
 
-function Dashboard({ state, onNewQuote, onOpenQuote }: { state: AppState; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void }) {
-  const activeQuotes = state.quotes.filter((quote) => quote.status === "Draft" || quote.status === "Sent");
+function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void }) {
+  const [companyWide, setCompanyWide] = useState(false);
+  const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
+  const ownedQuotes = state.quotes.filter((quote) => {
+    if (quote.ownerUserId) return quote.ownerUserId === currentEstimator.id;
+    const quoteOwnerName = (quote.ownerName || quote.preparedBy).trim().toLocaleLowerCase();
+    return quoteOwnerName === currentOwnerName || currentOwnerName.startsWith(`${quoteOwnerName} `) || quoteOwnerName.startsWith(`${currentOwnerName} `);
+  });
+  const dashboardQuotes = currentEstimator.isAdmin && companyWide ? state.quotes : ownedQuotes;
+  const activeQuotes = dashboardQuotes.filter((quote) => quote.status === "Draft" || quote.status === "Sent");
   const pipeline = activeQuotes.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
-  const sent = state.quotes.filter((quote) => quote.status === "Sent").length;
-  const wonValue = state.quotes.filter((quote) => quote.status === "Won").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
+  const sent = dashboardQuotes.filter((quote) => quote.status === "Sent").length;
+  const wonValue = dashboardQuotes.filter((quote) => quote.status === "Won").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
   const attention = activeQuotes
     .map((quote) => ({ quote, readiness: quoteReadiness(quote, state.vendors) }))
     .filter((item) => item.readiness.blockers.length || item.readiness.unresolvedWarnings.length)
     .slice(0, 5);
-  const recentQuotes = [...state.quotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+  const recentQuotes = [...dashboardQuotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const stageValues = [
-    { label: "Draft", count: state.quotes.filter((quote) => quote.status === "Draft").length, value: state.quotes.filter((quote) => quote.status === "Draft").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "blue" },
-    { label: "Finalized", count: sent, value: state.quotes.filter((quote) => quote.status === "Sent").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "amber" },
-    { label: "Won", count: state.quotes.filter((quote) => quote.status === "Won").length, value: wonValue, color: "green" },
+    { label: "Draft", count: dashboardQuotes.filter((quote) => quote.status === "Draft").length, value: dashboardQuotes.filter((quote) => quote.status === "Draft").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "blue" },
+    { label: "Finalized", count: sent, value: dashboardQuotes.filter((quote) => quote.status === "Sent").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "amber" },
+    { label: "Won", count: dashboardQuotes.filter((quote) => quote.status === "Won").length, value: wonValue, color: "green" },
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
 
   return (
     <div className="page-stack">
+      {currentEstimator.isAdmin && <div className="dashboard-scope-switch"><span>Viewing</span><button className={!companyWide ? "active" : ""} onClick={() => setCompanyWide(false)}>My estimates</button><button className={companyWide ? "active" : ""} onClick={() => setCompanyWide(true)}>Company-wide</button></div>}
       <section className="welcome-panel">
         <div>
           <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
@@ -1655,14 +1723,15 @@ function QuoteDetails({ state, quote, locked, updateField }: {
       <section className="panel form-panel">
         <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 6</span></div>
         <div className="form-grid two-column">
-          <label className="field"><span>Client <b>*</b></span><select value={quote.clientId} disabled={locked} onChange={(event) => { updateField("clientId", event.target.value); updateField("site", ""); }}><option value="">Select a client</option>{state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
+          <label className="field"><span>Client <b>*</b></span><select value={quote.clientId} disabled={locked} onChange={(event) => { updateField("clientId", event.target.value); updateField("site", ""); updateField("address", ""); }}><option value="">Select a client</option>{state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
+          <label className="field"><span>Attention</span><input value={quote.proposalAttention ?? selectedClient?.contact ?? ""} disabled={locked} onChange={(event) => updateField("proposalAttention", event.target.value)} placeholder="Customer contact for this proposal" /></label>
           <label className="field">
-            <span>Work site <em>Choose or type a site</em></span>
+            <span>Site name <em>Choose or type a location</em></span>
             <input
               list={`work-sites-${quote.id}`}
               value={quote.site}
               disabled={locked || !quote.clientId}
-              onChange={(event) => updateField("site", event.target.value)}
+              onChange={(event) => { const value = event.target.value; updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); if (saved) updateField("address", saved.address); }}
               placeholder={quote.clientId ? "Select a saved site or type a new one" : "Select a client first"}
             />
             <datalist id={`work-sites-${quote.id}`}>
@@ -1670,12 +1739,13 @@ function QuoteDetails({ state, quote, locked, updateField }: {
             </datalist>
             {!locked && quote.clientId && <small>New sites are saved to this client when you finalize the quote.</small>}
           </label>
+          <label className="field"><span>Address</span><input value={quote.address ?? ""} disabled={locked} onChange={(event) => updateField("address", event.target.value)} placeholder="Project street address (optional)" /></label>
           <label className="field full"><span>Project name <b>*</b></span><input value={quote.project} disabled={locked} onChange={(event) => updateField("project", event.target.value)} placeholder="e.g. Office renovation — Phase 1" /></label>
           <label className="field"><span>Customer / RFP reference</span><input value={quote.reference} disabled={locked} onChange={(event) => updateField("reference", event.target.value)} /></label>
           <label className="field"><span>Prepared by</span><input value={quote.preparedBy} disabled={locked} onChange={(event) => updateField("preparedBy", event.target.value)} /></label>
           <label className="field"><span>Quote date</span><input type="date" value={quote.quoteDate} disabled={locked} onChange={(event) => updateField("quoteDate", event.target.value)} /></label>
           <label className="field"><span>Valid until</span><input type="date" value={quote.validUntil} disabled={locked} onChange={(event) => updateField("validUntil", event.target.value)} /></label>
-          <label className="field"><span>Quote type</span><select value={quote.quoteType} disabled={locked} onChange={(event) => updateField("quoteType", event.target.value as Quote["quoteType"])}><option>Fixed Price</option><option>Unit Price</option><option>Budgetary</option></select></label>
+          <label className="field"><span>Customer document</span><select value={quote.customerQuoteType ?? "Proposal Quote"} disabled={locked} onChange={(event) => updateField("customerQuoteType", event.target.value as Quote["customerQuoteType"])}><option>Proposal Quote</option><option>Budget Quote</option></select></label>
           <label className="field"><span>Deposit</span><div className="input-suffix"><input type="number" min="0" max="100" step="1" value={quote.depositPercent * 100} disabled={locked} onChange={(event) => updateField("depositPercent", Number(event.target.value) / 100)} /><span>%</span></div></label>
         </div>
       </section>
@@ -1684,14 +1754,14 @@ function QuoteDetails({ state, quote, locked, updateField }: {
         <div className="panel-heading"><div><span className="eyebrow">PRICING CONTROLS</span><h2>Defaults</h2></div></div>
         <label className="control-row"><span><strong>Project markup</strong><small>Applied unless a line overrides it</small></span><div className="input-suffix small"><input type="number" min="0" step="0.5" value={quote.defaultMarkup * 100} disabled={locked} onChange={(event) => updateField("defaultMarkup", Number(event.target.value) / 100)} /><span>%</span></div></label>
         <label className="control-row"><span><strong>Target margin</strong><small>Creates a warning below target</small></span><div className="input-suffix small"><input type="number" min="0" max="100" step="0.5" value={quote.targetMargin * 100} disabled={locked} onChange={(event) => updateField("targetMargin", Number(event.target.value) / 100)} /><span>%</span></div></label>
-        <label className="control-row"><span><strong>{quote.taxName} rate</strong><small>Calculated from rounded subtotal</small></span><div className="input-suffix small"><input type="number" min="0" max="100" step="0.1" value={quote.taxRate * 100} disabled={locked} onChange={(event) => updateField("taxRate", Number(event.target.value) / 100)} /><span>%</span></div></label>
-        <div className="control-explainer"><strong>20% markup ≠ 20% margin</strong><p>At a 20% markup, every $100 of cost sells for $120 and produces a 16.7% gross margin.</p></div>
+        <div className="control-row fixed-tax-row"><span><strong>HST</strong><small>Always shown as extra on the customer proposal</small></span><strong>Extra</strong></div>
       </aside>
 
       <section className="panel form-panel full-span">
         <div className="panel-heading"><div><span className="eyebrow">SCOPE FOUNDATION</span><h2>What are we pricing?</h2></div><span className="client-safe-chip">Customer-facing</span></div>
         <div className="form-grid two-column">
-          <label className="field full"><span>Scope summary</span><textarea rows={3} value={quote.scopeSummary} disabled={locked} onChange={(event) => updateField("scopeSummary", event.target.value)} placeholder="A clear two- or three-sentence summary of the work." /></label>
+          <label className="field full"><span>Proposal Scope Lines <em>One numbered item per line</em></span><textarea rows={6} value={quote.proposalScope ?? ""} disabled={locked} onChange={(event) => updateField("proposalScope", event.target.value)} placeholder="Supply labour and materials to complete…" /></label>
+          <label className="field full"><span>Proposal Notes <em>One item per line</em></span><textarea rows={4} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(event) => updateField("proposalNotes", event.target.value)} placeholder="Access, working hours, permits and project assumptions." /></label>
           <label className="field"><span>Inclusions</span><textarea rows={5} value={quote.inclusions} disabled={locked} onChange={(event) => updateField("inclusions", event.target.value)} placeholder="What the price includes" /></label>
           <label className="field"><span>Exclusions</span><textarea rows={5} value={quote.exclusions} disabled={locked} onChange={(event) => updateField("exclusions", event.target.value)} placeholder="What is specifically excluded" /></label>
           <label className="field"><span>Proposal terms</span><textarea rows={4} value={quote.terms} disabled={locked} onChange={(event) => updateField("terms", event.target.value)} /></label>
@@ -1699,24 +1769,11 @@ function QuoteDetails({ state, quote, locked, updateField }: {
         </div>
       </section>
 
-      <section className="panel form-panel full-span proposal-layout-panel">
-        <div className="panel-heading"><div><span className="eyebrow">CUSTOMER PROPOSAL</span><h2>Choose how much pricing detail to show</h2></div><span className="client-safe-chip">Does not change the estimate</span></div>
-        <div className="proposal-style-grid" role="radiogroup" aria-label="Proposal style">
-          {([
-            { value: "jgc-classic", title: "JGC Classic · Lump Sum", detail: "Your traditional letterhead, numbered scope and one price. Recommended for most quotes.", badge: "Recommended" },
-            { value: "section-summary", title: "Section Summary", detail: "Shows one customer price for each phase or section, without exposing internal line costs.", badge: "High level" },
-            { value: "detailed", title: "Detailed Breakdown", detail: "Shows each customer line with quantity, unit and price, like the current proposal.", badge: "Full detail" },
-          ] as const).map((style) => (
-            <button type="button" role="radio" aria-checked={proposalStyle(quote) === style.value} className={`proposal-style-card ${proposalStyle(quote) === style.value ? "selected" : ""}`} key={style.value} disabled={locked} onClick={() => updateField("proposalStyle", style.value)}>
-              <span>{style.badge}</span><strong>{style.title}</strong><small>{style.detail}</small><i>{proposalStyle(quote) === style.value ? "✓ Selected" : "Choose style"}</i>
-            </button>
-          ))}
-        </div>
-        <div className="form-grid two-column proposal-copy-fields">
-          <label className="field"><span>Attention</span><input value={quote.proposalAttention ?? selectedClient?.contact ?? ""} disabled={locked} onChange={(event) => updateField("proposalAttention", event.target.value)} placeholder="Customer contact for this proposal" /></label>
-          <label className="field"><span>Tax shown on proposal</span><select value={quote.proposalTaxDisplay ?? "extra"} disabled={locked} onChange={(event) => updateField("proposalTaxDisplay", event.target.value as Quote["proposalTaxDisplay"])}><option value="extra">HST extra — one pre-tax price</option><option value="breakdown">Show subtotal, HST and total</option></select></label>
-          <label className="field full"><span>Proposal scope lines <em>One item per line</em></span><textarea rows={6} value={quote.proposalScope ?? ""} disabled={locked} onChange={(event) => updateField("proposalScope", event.target.value)} placeholder="Leave blank to build the scope automatically from included estimate lines." /></label>
-          <label className="field full"><span>Proposal notes <em>One item per line</em></span><textarea rows={5} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(event) => updateField("proposalNotes", event.target.value)} placeholder="Access, working hours, permits, inspections and project-specific assumptions." /></label>
+      <section className="panel form-panel full-span">
+        <div className="panel-heading"><div><span className="eyebrow">CUSTOMER PRICING</span><h2>Optional cost breakdown</h2></div><span className="client-safe-chip">Lump sum remains standard</span></div>
+        <div className="proposal-breakdown-controls">
+          <label className="check-field"><input type="checkbox" checked={quote.proposalShowCostBreakdown ?? false} disabled={locked} onChange={(event) => updateField("proposalShowCostBreakdown", event.target.checked)} /><span><strong>Show cost breakdown on proposal</strong><small>Show customer-facing Labour, Materials, Subcontractors and Other totals.</small></span></label>
+          <label className="check-field"><input type="checkbox" checked={quote.proposalBreakdownIncludesMarkup ?? true} disabled={locked || !quote.proposalShowCostBreakdown} onChange={(event) => updateField("proposalBreakdownIncludesMarkup", event.target.checked)} /><span><strong>Include markup in breakdown totals</strong><small>When off, markup is shown as its own separate line.</small></span></label>
         </div>
       </section>
     </div>
@@ -2001,8 +2058,8 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                   <Fragment key={line.id}>
                     <tr className={`${expandedLineId === line.id ? "expanded" : ""} ${!line.included ? "not-included" : ""}`}>
                       <td className="line-number" data-label="#">{index + 1}</td>
-                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><input className="cell-input description-input vendor-row-input" list={`row-vendor-options-${line.id}`} value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} disabled={locked} onChange={(event) => updateLineVendor(line, event.target.value)} placeholder="Select or type subcontractor" /><datalist id={`row-vendor-options-${line.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option value={vendor.name} label={vendor.trade || undefined} key={vendor.id} />)}</datalist><small className={`cell-hint sub-quote-hint ${line.vendorReference ? "" : "missing"}`}>{line.vendorReference ? `Sub quote ${line.vendorReference}` : "Sub quote # required"}</small></td> : <td data-label="Description"><input className="cell-input description-input" value={line.description} disabled={locked} onChange={(event) => updateLine(line.id, { description: event.target.value })} placeholder="Describe the work" /></td>}
-                      <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
+                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><input className="cell-input description-input vendor-row-input" list={`row-vendor-options-${line.id}`} value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} disabled={locked} onChange={(event) => updateLineVendor(line, event.target.value)} placeholder="Select or type subcontractor" /><datalist id={`row-vendor-options-${line.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option value={vendor.name} label={vendor.trade || undefined} key={vendor.id} />)}</datalist><small className={`cell-hint sub-quote-hint ${(line.vendorPricingMode ?? "Quoted") === "Budget" || line.vendorReference ? "" : "missing"}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : line.vendorReference ? `Sub quote ${line.vendorReference}` : "Quote # required"}</small></td> : <td data-label="Description"><input className="cell-input description-input" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
+                      <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value, divisionManual: true })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
                       <td data-label="Product / service">{line.costType === "Sub / Vendor" ? <input className="cell-input item-select subcontractor-trade-input" value={line.description} disabled={locked} onChange={(event) => updateLine(line.id, { description: event.target.value })} placeholder="Plumber, mechanical, electrician…" /> : <select className="cell-input item-select" value={line.priceSourceSnapshot ? `supplier:${line.priceSourceSnapshot.catalogItemId}` : line.priceBookCode ?? ""} disabled={locked} onChange={(event) => { if (!event.target.value.startsWith("supplier:")) applyCatalog(line.id, event.target.value); }}><option value="">Custom item</option>{line.priceSourceSnapshot && <option value={`supplier:${line.priceSourceSnapshot.catalogItemId}`}>{line.description} · {line.priceSourceSnapshot.supplierName}</option>}{appliedItems.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</select>}</td>
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
@@ -2036,17 +2093,13 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                             <div className="form-grid four-column">
                               <label className="field"><span>Cost type</span><select value={line.costType} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { costType: event.target.value as CostType })}>{costTypeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
                               <label className="field"><span>Subcontractor <em>Choose or type a name</em></span><input list={`vendor-options-${line.id}`} value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} disabled={locked} onChange={(event) => updateLineVendor(line, event.target.value)} placeholder="Select an existing subcontractor or type one" /><datalist id={`vendor-options-${line.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option value={vendor.name} label={vendor.trade || undefined} key={vendor.id} />)}</datalist></label>
-                              <label className="field"><span>{line.costType === "Sub / Vendor" ? "Subcontractor quote #" : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value, sourceNote: line.sourceNote || event.target.value })} placeholder={line.costType === "Sub / Vendor" ? "Enter the subcontractor's quote number" : "Supplier reference or takeoff"} /></label>
-                              <label className="field"><span>Pricing confidence</span><select value={line.confidence} disabled={locked} onChange={(event) => updateLine(line.id, { confidence: event.target.value as QuoteLine["confidence"] })}><option>Project-specific</option><option>Low</option><option>Low-Medium</option><option>Medium</option><option>High</option></select></label>
-                              <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>
-                              <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>
+                              {line.costType === "Sub / Vendor" && <label className="check-field"><input type="checkbox" checked={(line.vendorPricingMode ?? "Quoted") === "Budget"} disabled={locked} onChange={(event) => updateLine(line.id, { vendorPricingMode: event.target.checked ? "Budget" : "Quoted", liveQuote: !event.target.checked })} /><span><strong>Budget allowance</strong><small>Use an estimated subcontractor cost; a quote number is not required.</small></span></label>}
+                              <label className="field"><span>{line.costType === "Sub / Vendor" ? "Subcontractor quote #" : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked || (line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Budget")} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={line.costType === "Sub / Vendor" ? ((line.vendorPricingMode ?? "Quoted") === "Budget" ? "Not required for budget allowance" : "Enter the subcontractor's quote number") : "Supplier reference or takeoff"} /></label>
+                              {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
+                              {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>}
                               <label className="field"><span>Customer-price override</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.priceOverride ?? ""} disabled={locked} onChange={(event) => updateLine(line.id, { priceOverride: event.target.value === "" ? null : Number(event.target.value) })} placeholder={money(sell)} /></div></label>
-                              <label className="field"><span>Live quote required?</span><select value={line.liveQuote ? "Yes" : "No"} disabled={locked} onChange={(event) => updateLine(line.id, { liveQuote: event.target.value === "Yes" })}><option>No</option><option>Yes</option></select></label>
                               <label className="field full"><span>Internal scope and assumptions</span><textarea rows={2} value={line.internalScope} disabled={locked} onChange={(event) => updateLine(line.id, { internalScope: event.target.value })} /></label>
-                              <label className="field"><span>Customer line note</span><textarea rows={3} value={line.customerNote} disabled={locked} onChange={(event) => updateLine(line.id, { customerNote: event.target.value })} /></label>
-                              <label className="field"><span>Cost source / override reason</span><textarea rows={3} value={line.sourceNote} disabled={locked} onChange={(event) => updateLine(line.id, { sourceNote: event.target.value })} /></label>
                               <label className="field internal-field"><span>Internal note <em>Hidden from customer</em></span><textarea rows={3} value={line.internalNote} disabled={locked} onChange={(event) => updateLine(line.id, { internalNote: event.target.value })} /></label>
-                              <div className="line-evidence-card"><span>Historical range</span><strong>{line.low === null || line.high === null ? "No reusable range" : `${money(line.low)} – ${money(line.high)}`}</strong><small>Project price: {money(effectiveUnitCost(line))}</small></div>
                             </div>
                           </div>
                         </td>
@@ -2095,6 +2148,8 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const items = line.costBuildUp?.items ?? [];
   const labourItems = items.filter((item) => item.kind === "Labour");
   const materialItems = items.filter((item) => item.kind === "Material");
+  const subcontractorItems = items.filter((item) => item.kind === "Subcontractor");
+  const otherItems = items.filter((item) => item.kind === "Other");
   const totals = lineBuildUpTotals(line);
 
   useEffect(() => {
@@ -2124,6 +2179,8 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const removeItem = (itemId: string) => commitItems(items.filter((item) => item.id !== itemId));
   const addLabour = () => commitItems([...items, newBuildUpItem("Labour", { description: "Crew labour" })]);
   const addManualMaterial = () => commitItems([...items, newBuildUpItem("Material")]);
+  const addSubcontractor = () => commitItems([...items, newBuildUpItem("Subcontractor", { unit: "LS" })]);
+  const addOther = () => commitItems([...items, newBuildUpItem("Other", { unit: "LS" })]);
   const addPricedMaterial = (material: SupplierCatalogItemRecord) => {
     const pricedItem = newBuildUpItem("Material", {
       description: material.productName,
@@ -2195,10 +2252,26 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
         <div className="build-up-subtotal"><span>Materials total</span><strong>{money(totals.materials)}</strong></div>
       </div>
 
+      <div className="build-up-group subcontractor-group">
+        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">S</span><div><strong>Subcontractors</strong><small>Firm quotes or budget allowances included in this item</small></div></div>{!locked && <button className="button compact secondary" onClick={addSubcontractor}>＋ Subcontractor row</button>}</div>
+        <div className="build-up-grid-header"><span>Subcontractor / scope</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
+        <div className="build-up-rows">{subcontractorItems.map(renderCostRow)}{!subcontractorItems.length && <div className="build-up-empty">No subcontractor rows yet.</div>}</div>
+        <div className="build-up-subtotal"><span>Subcontractor total</span><strong>{money(totals.subcontractors)}</strong></div>
+      </div>
+
+      <div className="build-up-group other-group">
+        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">O</span><div><strong>Other direct costs</strong><small>Equipment, rentals, permits or miscellaneous direct costs</small></div></div>{!locked && <button className="button compact secondary" onClick={addOther}>＋ Other cost row</button>}</div>
+        <div className="build-up-grid-header"><span>Description / source</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
+        <div className="build-up-rows">{otherItems.map(renderCostRow)}{!otherItems.length && <div className="build-up-empty">No other cost rows yet.</div>}</div>
+        <div className="build-up-subtotal"><span>Other total</span><strong>{money(totals.other)}</strong></div>
+      </div>
+
       <footer className="build-up-summary">
         <div><span>Labour</span><strong>{money(totals.labour)}</strong></div>
         <span className="build-up-plus">＋</span>
         <div><span>Materials</span><strong>{money(totals.materials)}</strong></div>
+        <span className="build-up-equals">＝</span>
+        <div><span>Subs &amp; other</span><strong>{money(totals.subcontractors + totals.other)}</strong></div>
         <span className="build-up-equals">＝</span>
         <div className="build-up-grand"><span>Built-up unit cost</span><strong>{money(totals.total)}</strong></div>
       </footer>
@@ -2217,6 +2290,8 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const includedLines = quote.lines.filter((line) => line.included);
+  const builtUpLines = includedLines.filter((line) => line.costBuildUp);
+  const subcontractorLines = includedLines.filter((line) => line.costType === "Sub / Vendor");
   const costTypes: CostType[] = ["Sub / Vendor", "Labour", "Material", "Labour & Materials", "Equipment / Other"];
   const costBreakdown = costTypes.map((type) => ({
     type,
@@ -2304,6 +2379,24 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
           )}
         </section>
       </div>
+      {(builtUpLines.length > 0 || subcontractorLines.length > 0) && (
+        <section className="review-build-ups">
+          <div className="review-section-heading"><span className="eyebrow">ESTIMATE CONTENT</span><h2>Built-up items and subcontractors</h2><p>Expanded by default so every cost can be checked without opening estimate rows one at a time.</p></div>
+          {builtUpLines.map((line) => {
+            const itemTotals = lineBuildUpTotals(line);
+            return <article className="review-built-up-card" key={line.id}>
+              <header><div><span>{line.division || "Div 01 – General Requirements"}</span><h3>{line.description || "Unnamed built-up item"}</h3></div><div><span>Total direct cost</span><strong>{money(lineDirectCost(line))}</strong></div></header>
+              {(["Labour", "Material", "Subcontractor", "Other"] as const).map((kind) => {
+                const items = line.costBuildUp?.items.filter((item) => item.kind === kind) ?? [];
+                if (!items.length) return null;
+                return <section className="review-cost-group" key={kind}><h4>{kind === "Material" ? "Materials" : kind === "Subcontractor" ? "Subcontractors" : kind}</h4>{items.map((item) => <div key={item.id}><span><strong>{item.description || "Unnamed cost row"}</strong><small>{numberFormatter.format(item.quantity)} {item.unit} × {money(item.unitCost)}{item.source ? ` · ${item.source}` : ""}</small></span><b>{money(buildUpItemTotal(item))}</b></div>)}</section>;
+              })}
+              <footer><span>Labour {money(itemTotals.labour)}</span><span>Materials {money(itemTotals.materials)}</span><span>Subs {money(itemTotals.subcontractors)}</span><span>Other {money(itemTotals.other)}</span></footer>
+            </article>;
+          })}
+          {subcontractorLines.filter((line) => !line.costBuildUp).map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
+        </section>
+      )}
     </div>
   );
 }
@@ -2341,13 +2434,15 @@ function QuoteDivisions({ quote }: { quote: Quote }) {
 function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   const totals = quoteTotals(quote);
   const client = state.clients.find((item) => item.id === quote.clientId);
-  const style = proposalStyle(quote);
+  const projectAddress = quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLocaleLowerCase() === quote.site.trim().toLocaleLowerCase())?.address?.trim() || "";
+  const style = "jgc-classic" as ProposalStyle;
   const required = quote.lines.filter((line) => line.included);
   const optional = quote.lines.filter((line) => line.classification === "Optional" && !line.included);
   const scope = customerScopeLines(quote);
   const notes = nonBlankLines(quote.proposalNotes);
   const sections = sectionSummaries(quote);
-  const taxExtra = (quote.proposalTaxDisplay ?? "extra") === "extra";
+  const taxExtra = true;
+  const categoryTotals = quoteCostCategories(quote);
   const company = {
     phone: state.settings.companyPhone ?? "(613) 932-1293",
     fax: state.settings.companyFax ?? "(613) 937-3656",
@@ -2356,11 +2451,6 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
     postal: state.settings.companyPostalCode ?? "K6H 6L7",
     signatory: state.settings.signatoryName ?? quote.preparedBy ?? "Zeth Hummel",
   };
-  const styleChoices: { value: ProposalStyle; label: string; description: string }[] = [
-    { value: "jgc-classic", label: "JGC Classic", description: "One lump-sum price" },
-    { value: "section-summary", label: "Section Summary", description: "Price by phase" },
-    { value: "detailed", label: "Detailed", description: "Every customer line" },
-  ];
   const sharedOptional = optional.length > 0 && (
     <section className="proposal-section optional-proposal">
       <div className="proposal-section-title"><span>{style === "jgc-classic" ? "03" : "02"}</span><h3>Optional work</h3></div>
@@ -2371,17 +2461,14 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   return (
     <div className="proposal-workspace">
       <div className="proposal-toolbar">
-        <div><span className="eyebrow">CUSTOMER VIEW · STEP 5 OF 6</span><h2>Proposal preview</h2><p>Change the style in Quote details. Internal costs, markup and vendors remain hidden.</p></div>
-        <div className="proposal-toolbar-actions"><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Full quote backup PDF</button><button className="button primary" onClick={() => window.print()}>⇩ Proposal-only PDF</button></div>
-      </div>
-      <div className="proposal-preview-switch" aria-label="Current proposal style">
-        {styleChoices.map((choice) => <div className={choice.value === style ? "active" : ""} key={choice.value}><strong>{choice.label}</strong><span>{choice.description}</span></div>)}
+        <div><span className="eyebrow">CUSTOMER VIEW · STEP 5 OF 6</span><h2>Proposal preview</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
+        <div className="proposal-toolbar-actions"><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Full quote backup PDF</button><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ Proposal-only PDF</button></div>
       </div>
       <article className={`proposal-paper ${style === "jgc-classic" ? "classic-proposal hybrid-classic-proposal" : "modern-proposal"}`}>
         {style === "jgc-classic" ? (
           <>
             <header className="hybrid-letterhead">
-              <img src="./jgc-letterhead-logo.jpg" alt="John Gordon Construction" />
+              <img src="../logo.webp" alt="John Gordon Construction" />
               <div className="hybrid-company-contact">
                 <span>GENERAL CONTRACTOR</span>
                 <div><p><strong>{company.phone}</strong><small>Phone</small></p><p><strong>{company.fax}</strong><small>Fax</small></p></div>
@@ -2389,16 +2476,17 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               </div>
             </header>
             <div className="hybrid-titlebar">
-              <div><span>QUOTATION</span><h1>Proposal</h1></div>
+              <div><span>{quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION"}</span><h1>{quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal"}</h1></div>
               <div className="hybrid-quote-id"><span>QUOTE NUMBER</span><strong>{quote.number}</strong><small>Revision {quote.revision}</small></div>
             </div>
             {quote.demo && <div className="demo-watermark">DEMO ONLY — VERIFY OR DELETE</div>}
-            <section className="hybrid-meta">
-              <div><span>Prepared for</span><strong>{client?.name || "Client not selected"}</strong><p>{quote.site || "Site not recorded"}</p>{(quote.proposalAttention || client?.contact) && <p>Attention: {quote.proposalAttention || client?.contact}</p>}</div>
-              <div><span>Project</span><strong>{quote.project || "Project not named"}</strong>{quote.reference && <p>Reference: {quote.reference}</p>}</div>
+            <section className={`hybrid-meta ${projectAddress ? "has-address" : ""}`}>
+              <div><span>Prepared for</span><strong>{client?.name || "Client not selected"}</strong>{(quote.proposalAttention || client?.contact) && <p>Attention: {quote.proposalAttention || client?.contact}</p>}</div>
+              {projectAddress && <div><span>Address</span><strong>{projectAddress}</strong></div>}
+              <div><span>Project</span><strong>{quote.site || "Site name not recorded"}</strong><p>{quote.project || "Project not named"}</p>{quote.reference && <p>Reference: {quote.reference}</p>}</div>
               <div><span>Quote date</span><strong>{shortDate(quote.quoteDate)}</strong><p>Valid until {shortDate(quote.validUntil)}</p></div>
             </section>
-            <section className="hybrid-intro"><p>{state.settings.proposalIntro}</p>{quote.scopeSummary && <p>{quote.scopeSummary}</p>}</section>
+            <section className="hybrid-intro"><p>{state.settings.proposalIntro}</p></section>
           </>
         ) : (
           <>
@@ -2429,9 +2517,15 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p>{quote.inclusions}</p></div>}{quote.exclusions && <div><span>Excluded</span><p>{quote.exclusions}</p></div>}</div>}
             </section>
             {sharedOptional}
+            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{([
+              ["Labour", "labour"],
+              ["Materials", "materials"],
+              ["Subcontractors", "subcontractors"],
+              ["Other direct costs", "other"],
+            ] as const).filter(([, key]) => categoryTotals.direct[key] > 0).map(([label, key]) => <div key={key}><span>{label}</span><strong>{money((quote.proposalBreakdownIncludesMarkup ?? true) ? categoryTotals.sell[key] : categoryTotals.direct[key])}</strong></div>)}{!(quote.proposalBreakdownIncludesMarkup ?? true) && <div><span>Markup</span><strong>{money(totals.profit)}</strong></div>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
             <section className="hybrid-lump-sum">
               <div><span>LUMP SUM PROPOSAL</span><p>Complete the Scope of Work above in a good and workmanlike manner.</p><small>{dollarsInWords(totals.subtotal)} Dollars</small></div>
-              <div><strong>{money(totals.subtotal)}</strong><span>{taxExtra ? `plus ${quote.taxName}` : `${quote.taxName} shown below`}</span></div>
+              <div><strong>{money(totals.subtotal)}</strong><span>HST Extra</span></div>
             </section>
           </>
         )}
@@ -2452,8 +2546,8 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
 
         {style !== "jgc-classic" && <section className="proposal-bottom-grid"><div className="proposal-terms"><h3>Inclusions</h3><p>{quote.inclusions || "As specifically listed above."}</p><h3>Exclusions</h3><p>{quote.exclusions || "No exclusions recorded."}</p><h3>Terms</h3><p>{quote.terms}</p></div><ProposalTotals quote={quote} totals={totals} taxExtra={taxExtra} /></section>}
         {style === "jgc-classic" && !taxExtra && <ProposalTotals quote={quote} totals={totals} taxExtra={false} />}
-        <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><p>Any changes in the work and the price to be charged for the same shall be made in writing.</p><p>{quote.terms}</p></section>
-        <section className={`proposal-signoff ${style === "jgc-classic" ? "hybrid-signoff" : ""}`}><div><strong>TERMS:</strong><p>Invoices are due on receipt.<br />Service charge of 2% per month applies after 30 days.</p></div><div><span>Respectfully submitted,</span><strong>{company.signatory}</strong><small>John Gordon Construction</small></div></section>
+        <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><h3>Terms</h3><p>{quote.terms}</p><p><strong>HST Extra</strong></p></section>
+        <section className={`proposal-signoff ${style === "jgc-classic" ? "hybrid-signoff" : ""}`}><div /><div><span>Respectfully submitted,</span><strong>{company.signatory}</strong><small>John Gordon Construction</small></div></section>
         <section className={`classic-acceptance ${style === "jgc-classic" ? "hybrid-acceptance" : ""}`}><h2>ACCEPTANCE</h2><p>You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein.</p><div><span>Signature</span><span>Print name</span><span>Date</span></div></section>
         <footer className="proposal-footer"><strong>John Gordon Construction Inc.</strong><span>Prepared by {quote.preparedBy || "JGC Estimating"}</span><span>Quote {quote.number} · Rev {quote.revision}</span></footer>
       </article>
@@ -2795,6 +2889,10 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
     }
   };
   const saveVendor = (vendor: Vendor) => syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, trade: vendor.trade, contact: vendor.contact, email: vendor.email, phone: vendor.phone, notes: vendor.notes, status: vendor.status });
+  const makeMainContact = async (vendor: Vendor, contact: VendorContact) => {
+    const saved = await syncRequest("/api/vendors", "PATCH", { portalRecordId: vendor.portalRecordId, name: vendor.name, trade: vendor.trade, contact: contact.name, email: contact.email, phone: contact.phone, notes: vendor.notes, status: vendor.status });
+    if (saved) setMessage(`${contact.name} is now the main contact for ${vendor.name}.`);
+  };
   const saveContact = (vendor: Vendor, contact: VendorContact) => syncRequest("/api/vendor-contacts", "PATCH", { portalRecordId: contact.portalRecordId, companyId: vendor.portalRecordId, name: contact.name, role: contact.role, phone: contact.phone, email: contact.email, notes: contact.notes, active: contact.active });
   const removeContact = (contact: VendorContact) => syncRequest("/api/vendor-contacts", "DELETE", { portalRecordId: contact.portalRecordId });
   const addContact = async (vendor: Vendor) => {
@@ -2812,7 +2910,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
       <section className="vendor-grid">
         {vendors.map((vendor) => {
           const contacts = (vendor.contacts ?? []).filter((contact) => contact.active);
-          const primaryContact = contacts[0];
+          const primaryContact = contacts.find((contact) => contact.id === vendor.mainContactId) ?? contacts.find((contact) => contact.name.trim().toLocaleLowerCase() === vendor.contact.trim().toLocaleLowerCase()) ?? contacts[0];
           const draft = newContacts[vendor.id] ?? {};
           return (
             <article className={`vendor-card ${expandedVendorId === vendor.id ? "is-editing" : ""}`} key={vendor.id}>
@@ -2834,14 +2932,15 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
                   </div>
                   <section className="vendor-contacts-section">
                     <div className="vendor-contact-heading"><span className="eyebrow">CONTACTS</span><h3>{contacts.length ? `${contacts.length} saved contact${contacts.length === 1 ? "" : "s"}` : "Add the first contact"}</h3></div>
-                    <div className="vendor-contact-list">{contacts.map((contact) => <div className="vendor-contact-editor" key={contact.id}>
+                    <div className="vendor-contact-list">{contacts.map((contact) => { const isMain = primaryContact?.id === contact.id; return <div className={`vendor-contact-editor ${isMain ? "is-main" : ""}`} key={contact.id}>
+                      <div className="vendor-main-contact-row"><span>{isMain ? "★ Main Contact" : "Contact"}</span>{!isMain && <button className="text-button" onClick={() => void makeMainContact(vendor, contact)} disabled={busy}>Make Main Contact</button>}</div>
                       <label className="field"><span>Name</span><input value={contact.name} onChange={(event) => updateContact(vendor.id, contact.id, "name", event.target.value)} /></label>
                       <label className="field"><span>Role / title</span><input value={contact.role} onChange={(event) => updateContact(vendor.id, contact.id, "role", event.target.value)} /></label>
                       <label className="field"><span>Phone</span><input value={contact.phone} onChange={(event) => updateContact(vendor.id, contact.id, "phone", event.target.value)} /></label>
                       <label className="field"><span>Email</span><input type="email" value={contact.email} onChange={(event) => updateContact(vendor.id, contact.id, "email", event.target.value)} /></label>
                       <label className="field vendor-contact-notes"><span>Notes</span><input value={contact.notes} onChange={(event) => updateContact(vendor.id, contact.id, "notes", event.target.value)} /></label>
                       <div className="vendor-contact-actions"><button className="button primary compact" onClick={() => void saveContact(vendor, contact)} disabled={busy}>Save</button><button className="button danger-ghost compact" onClick={() => void removeContact(contact)} disabled={busy}>Remove</button></div>
-                    </div>)}</div>
+                    </div>; })}</div>
                     <div className="vendor-new-contact">
                       <label className="field"><span>New contact name</span><input value={String(draft.name ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], name: event.target.value } }))} /></label>
                       <label className="field"><span>Role / title</span><input value={String(draft.role ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], role: event.target.value } }))} placeholder="Owner, estimator, plumber…" /></label>

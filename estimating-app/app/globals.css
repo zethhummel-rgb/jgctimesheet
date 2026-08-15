@@ -26,6 +26,17 @@
   --shadow-md: 0 10px 28px rgba(11, 31, 51, 0.08);
 }
 
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+
+.dashboard-scope-switch { width: fit-content; padding: 4px; display: flex; align-items: center; gap: 3px; border: 1px solid var(--slate-200); border-radius: 8px; background: #fff; box-shadow: var(--shadow-sm); }
+.dashboard-scope-switch > span { padding: 0 8px; color: var(--slate-500); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.dashboard-scope-switch button { min-height: 34px; padding: 0 12px; border: 0; border-radius: 5px; background: transparent; color: var(--slate-600); font: inherit; font-weight: 750; cursor: pointer; }
+.dashboard-scope-switch button.active { background: var(--green-100); color: var(--green-700); }
+.fixed-tax-row > strong { color: var(--green-700); }
+.proposal-breakdown-controls { padding: 0 22px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
 /* Quote revision workflow */
 .locked-banner .button { margin-left: auto; flex: 0 0 auto; }
 .revision-confirm-summary { padding: 13px 15px; border-left: 3px solid var(--green-600); border-radius: 5px; background: var(--green-100); }
@@ -975,6 +986,27 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* Accepted-job purchase order workflow */
+.hybrid-letterhead { min-height: 112px; display: flex; align-items: center; flex-direction: column; gap: 10px; }
+.hybrid-letterhead img { max-width: 385px; object-position: center; border: 0; }
+.hybrid-company-contact { width: 100%; display: flex; align-items: end; justify-content: space-between; gap: 20px; text-align: left; }
+.hybrid-company-contact address { text-align: right; }
+.proposal-cost-breakdown { width: min(100%, 420px); margin: 16px 0 0 auto; padding: 13px 15px; border: 1px solid var(--slate-200); border-radius: 6px; background: var(--slate-50); break-inside: avoid; }
+.proposal-cost-breakdown h2 { margin: 0 0 7px; color: var(--navy-900); font-size: 12px; }
+.proposal-cost-breakdown > div, .proposal-cost-breakdown footer { min-height: 27px; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--slate-200); }
+.proposal-cost-breakdown footer { margin-top: 4px; padding-top: 4px; border-top: 2px solid var(--green-600); color: var(--navy-900); font-weight: 850; }
+.review-build-ups { display: grid; gap: 13px; }
+.review-section-heading { padding: 4px 2px; }.review-section-heading h2 { margin: 4px 0; color: var(--navy-900); }.review-section-heading p { margin: 0; color: var(--slate-600); }
+.review-built-up-card, .review-subcontractor-card { overflow: hidden; border: 1px solid var(--slate-200); border-radius: 9px; background: #fff; box-shadow: var(--shadow-sm); }
+.review-built-up-card > header { padding: 15px 17px; display: flex; align-items: center; justify-content: space-between; gap: 18px; background: var(--slate-50); border-bottom: 1px solid var(--slate-200); }
+.review-built-up-card > header span, .review-built-up-card > header h3 { display: block; }.review-built-up-card h3 { margin: 3px 0 0; color: var(--navy-900); }
+.review-built-up-card > header > div:last-child { text-align: right; }.review-built-up-card > header > div:last-child strong { display: block; margin-top: 3px; color: var(--green-700); font-size: 18px; }
+.review-cost-group { padding: 10px 17px; }.review-cost-group + .review-cost-group { border-top: 1px solid var(--slate-100); }.review-cost-group h4 { margin: 0 0 5px; color: var(--blue-600); font-size: 10px; text-transform: uppercase; }
+.review-cost-group > div { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }.review-cost-group small { display: block; margin-top: 2px; color: var(--slate-500); }
+.review-built-up-card > footer { padding: 11px 17px; display: flex; flex-wrap: wrap; gap: 8px 18px; border-top: 1px solid var(--slate-200); background: var(--green-100); color: var(--green-700); font-weight: 800; }
+.review-subcontractor-card { padding: 15px 17px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }.review-subcontractor-card h3 { margin: 5px 0 2px; color: var(--navy-900); }.review-subcontractor-card p { margin: 0; color: var(--slate-600); }.review-subcontractor-card > strong { color: var(--navy-900); font-size: 18px; white-space: nowrap; }
+.sub-pricing-badge { padding: 3px 7px; border-radius: 999px; background: var(--green-100); color: var(--green-700); font-size: 9px; font-weight: 850; text-transform: uppercase; }.sub-pricing-badge.budget { background: var(--amber-100); color: var(--amber-700); }
+.vendor-contact-editor.is-main { border-color: var(--green-600); box-shadow: inset 3px 0 0 var(--green-600); }
+.vendor-main-contact-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }.vendor-main-contact-row > span { color: var(--green-700); font-size: 10px; font-weight: 850; text-transform: uppercase; }
 .sub-quote-hint { color: var(--blue-600); text-align: left; }
 .sub-quote-hint.missing { color: var(--red-700); font-weight: 800; }
 .subcontract-po-panel { overflow: hidden; }
@@ -989,6 +1021,37 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .po-status.po-draft { background: var(--amber-100); color: var(--amber-700) !important; }
 .po-status.po-issued { background: var(--green-100); color: var(--green-700) !important; }
 .po-status.po-void { background: var(--red-100); color: var(--red-700) !important; }
+
+@media screen and (max-width: 760px) {
+  .dashboard-scope-switch { width: 100%; }
+  .dashboard-scope-switch button { flex: 1; }
+  .welcome-panel { padding: 18px 17px; gap: 14px; }
+  .welcome-panel h1 { font-size: 25px; }
+  .welcome-panel p { font-size: 13px; line-height: 1.4; }
+  .welcome-actions { width: 100%; flex: none; }
+  .welcome-actions img { display: none; }
+  .welcome-actions .button { min-height: 44px; }
+  .topbar { min-height: 106px; height: auto; padding-block: 8px; flex-wrap: wrap; align-content: center; }
+  .topbar-context span { display: none; }
+  .topbar-actions { width: 100%; flex-basis: 100%; display: grid; grid-template-columns: 1.25fr .8fr 1fr; gap: 6px; }
+  .topbar-actions .button, .topbar-actions .portal-return-button { width: 100%; height: 40px; min-height: 40px; padding: 0 8px; font-size: 10px; white-space: nowrap; }
+  .topbar-actions .button span { font-size: 13px; }
+  .save-indicator { min-width: 0; justify-content: center; }
+  .quote-tabs { top: 106px; }
+  .filter-tabs { overflow: visible; flex-wrap: wrap; }
+  .filter-tabs button { flex: 1 1 72px; min-width: 0; }
+  .sticky-quote-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .sticky-quote-summary > div { min-width: 0; border-left: 0; }
+  .proposal-breakdown-controls { padding-inline: 15px; grid-template-columns: 1fr; }
+  .review-built-up-card > header, .review-subcontractor-card { align-items: flex-start; flex-direction: column; }
+  .review-built-up-card > header > div:last-child { text-align: left; }
+  .review-subcontractor-card > strong { white-space: normal; }
+  .hybrid-letterhead { text-align: center; }
+  .hybrid-letterhead img { object-position: center; }
+  .hybrid-company-contact { align-items: center; flex-direction: column; text-align: center; }
+  .hybrid-company-contact address { text-align: center; }
+  .proposal-cost-breakdown { width: 100%; }
+}
 .purchase-order-modal { width: min(1120px, 100%); }
 .purchase-order-form { padding: 0 22px; display: grid; gap: 17px; }
 .purchase-order-form .field.two-wide { grid-column: span 2; }

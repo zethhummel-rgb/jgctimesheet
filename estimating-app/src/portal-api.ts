@@ -85,6 +85,10 @@ function portalContact(row: Record<string, any>): VendorContact {
 function portalVendor(row: Record<string, any>, contactRows: Record<string, any>[] = []): Vendor {
   const contacts = contactRows.map(portalContact);
   const firstContact = contacts.find((contact) => contact.active) ?? contacts[0];
+  const mainContact = contacts.find((contact) =>
+    String(contact.name).trim().toLocaleLowerCase() === String(row.contact_name ?? "").trim().toLocaleLowerCase() &&
+    (!row.email || String(contact.email).trim().toLocaleLowerCase() === String(row.email).trim().toLocaleLowerCase())
+  );
   return {
     id: `portal-${row.id}`,
     portalRecordId: row.id,
@@ -99,6 +103,7 @@ function portalVendor(row: Record<string, any>, contactRows: Record<string, any>
     status: row.is_active ? "Active" : "Inactive",
     notes: row.notes ?? "",
     contacts,
+    mainContactId: mainContact?.id ?? null,
     demo: false,
   };
 }

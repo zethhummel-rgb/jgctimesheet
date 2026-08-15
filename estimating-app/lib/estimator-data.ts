@@ -13,6 +13,7 @@ export type CostType = "Labour" | "Material" | "Labour & Materials" | "Sub / Ven
 export type Confidence = "Low" | "Low-Medium" | "Medium" | "High" | "Project-specific";
 export type ProposalStyle = "jgc-classic" | "section-summary" | "detailed";
 export type ProposalTaxDisplay = "extra" | "breakdown";
+export type CustomerQuoteType = "Proposal Quote" | "Budget Quote";
 
 export interface PriceBookItem {
   id: string;
@@ -71,6 +72,7 @@ export interface Vendor {
   status: "Active" | "Inactive";
   notes: string;
   contacts?: VendorContact[];
+  mainContactId?: string | null;
   demo?: boolean;
 }
 
@@ -85,7 +87,7 @@ export interface VendorContact {
   active: boolean;
 }
 
-export type QuoteCostBuildUpKind = "Labour" | "Material";
+export type QuoteCostBuildUpKind = "Labour" | "Material" | "Subcontractor" | "Other";
 
 export interface QuoteCostBuildUpItem {
   id: string;
@@ -119,6 +121,7 @@ export interface QuoteLine {
   id: string;
   section: string;
   division?: string;
+  divisionManual?: boolean;
   priceBookCode: string | null;
   description: string;
   internalScope: string;
@@ -136,6 +139,7 @@ export interface QuoteLine {
   vendorReference: string;
   vendorQuoteDate: string;
   vendorQuoteExpiry: string;
+  vendorPricingMode?: "Quoted" | "Budget";
   liveQuote: boolean;
   confidence: Confidence;
   low: number | null;
@@ -176,12 +180,16 @@ export interface Quote {
   status: QuoteStatus;
   clientId: string;
   site: string;
+  address?: string;
   project: string;
   reference: string;
   preparedBy: string;
+  ownerUserId?: string;
+  ownerName?: string;
   quoteDate: string;
   validUntil: string;
   quoteType: "Fixed Price" | "Unit Price" | "Budgetary";
+  customerQuoteType?: CustomerQuoteType;
   taxName: string;
   taxRate: number;
   defaultMarkup: number;
@@ -192,6 +200,8 @@ export interface Quote {
   proposalScope?: string;
   proposalNotes?: string;
   proposalAttention?: string;
+  proposalShowCostBreakdown?: boolean;
+  proposalBreakdownIncludesMarkup?: boolean;
   scopeSummary: string;
   inclusions: string;
   exclusions: string;
@@ -901,7 +911,7 @@ export function normalizeAppState(state: AppState): AppState {
   const oldTerms = "Pricing is valid for the period shown and is subject to the listed inclusions, exclusions and clarifications.";
   return {
     ...state,
-    version: 8,
+    version: 9,
     settings: {
       ...state.settings,
       defaultValidityDays: state.version < 2 && state.settings.defaultValidityDays === 14 ? 30 : state.settings.defaultValidityDays,
@@ -932,6 +942,7 @@ export function normalizeAppState(state: AppState): AppState {
         notes: contact.notes ?? "",
         active: contact.active !== false,
       })) : [],
+      mainContactId: vendor.mainContactId ?? null,
     })),
     quotes: state.quotes.map((quote) => ({
       ...quote,
@@ -940,17 +951,24 @@ export function normalizeAppState(state: AppState): AppState {
       proposalScope: quote.proposalScope ?? "",
       proposalNotes: quote.proposalNotes ?? jgcProposalNotes,
       proposalAttention: quote.proposalAttention ?? "",
+      address: quote.address ?? "",
+      ownerUserId: quote.ownerUserId ?? "",
+      ownerName: quote.ownerName ?? quote.preparedBy ?? "",
+      customerQuoteType: quote.customerQuoteType ?? (quote.quoteType === "Budgetary" ? "Budget Quote" : "Proposal Quote"),
+      proposalShowCostBreakdown: quote.proposalShowCostBreakdown ?? false,
+      proposalBreakdownIncludesMarkup: quote.proposalBreakdownIncludesMarkup ?? true,
       lines: quote.lines.map((line) => {
         const priceBookItem = state.priceBook.find((item) => item.code === line.priceBookCode);
         return {
           ...line,
           division: line.division ?? (priceBookItem ? constructionDivision(priceBookItem.category) : "Div 01 – General Requirements"),
+          vendorPricingMode: line.vendorPricingMode ?? (line.vendorReference?.trim() ? "Quoted" : "Budget"),
           costBuildUp: line.costBuildUp
             ? {
                 items: Array.isArray(line.costBuildUp.items)
                   ? line.costBuildUp.items.map((item) => ({
                       ...item,
-                      kind: item.kind === "Material" ? "Material" : "Labour",
+                      kind: item.kind === "Material" || item.kind === "Subcontractor" || item.kind === "Other" ? item.kind : "Labour",
                       description: item.description ?? "",
                       quantity: Number(item.quantity) || 0,
                       unit: item.unit ?? "",
@@ -1022,7 +1040,9 @@ export function lineBuildUpTotals(line: QuoteLine) {
   const items = line.costBuildUp?.items ?? [];
   const labour = roundMoney(items.filter((item) => item.kind === "Labour").reduce((sum, item) => sum + buildUpItemTotal(item), 0));
   const materials = roundMoney(items.filter((item) => item.kind === "Material").reduce((sum, item) => sum + buildUpItemTotal(item), 0));
-  return { labour, materials, total: roundMoney(labour + materials) };
+  const subcontractors = roundMoney(items.filter((item) => item.kind === "Subcontractor").reduce((sum, item) => sum + buildUpItemTotal(item), 0));
+  const other = roundMoney(items.filter((item) => item.kind === "Other").reduce((sum, item) => sum + buildUpItemTotal(item), 0));
+  return { labour, materials, subcontractors, other, total: roundMoney(labour + materials + subcontractors + other) };
 }
 
 export function effectiveUnitCost(line: QuoteLine): number {

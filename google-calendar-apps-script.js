@@ -80,6 +80,27 @@ function scheduledPullGoogleUpdates() {
   pullGoogleCalendarUpdates_();
 }
 
+function fetchWithRetry_(url, options, operationName) {
+  var transientCodes = { 408: true, 429: true, 500: true, 502: true, 503: true, 504: true };
+  var delays = [500, 1500, 3500];
+  var lastError = null;
+  for (var attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      var response = UrlFetchApp.fetch(url, options);
+      var code = response.getResponseCode();
+      if (!transientCodes[code] || attempt === delays.length) {
+        return response;
+      }
+      lastError = new Error(operationName + " received temporary HTTP " + code + ".");
+    } catch (err) {
+      lastError = err;
+      if (attempt === delays.length) throw err;
+    }
+    Utilities.sleep(delays[attempt]);
+  }
+  throw lastError || new Error(operationName + " failed after retries.");
+}
+
 function upsertGoogleCalendarEvent_(event) {
   var calendar = getTargetCalendar_();
   var title = event.title || "[JGC] Schedule Event";
@@ -210,14 +231,14 @@ function fetchSupabaseSyncedScheduleEvents_() {
   }
 
   var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?select=id,google_event_id&google_event_id=not.is.null";
-  var response = UrlFetchApp.fetch(url, {
+  var response = fetchWithRetry_(url, {
     method: "get",
     headers: {
       apikey: serviceRoleKey,
       Authorization: "Bearer " + serviceRoleKey
     },
     muteHttpExceptions: true
-  });
+  }, "Supabase schedule fetch");
   var code = response.getResponseCode();
 
   if (code < 200 || code >= 300) {
@@ -271,7 +292,7 @@ function patchSupabaseScheduleEvent_(eventId, fields) {
   }
 
   var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/schedule_events?id=eq." + encodeURIComponent(eventId);
-  var response = UrlFetchApp.fetch(url, {
+  var response = fetchWithRetry_(url, {
     method: "patch",
     contentType: "application/json",
     headers: {
@@ -281,7 +302,7 @@ function patchSupabaseScheduleEvent_(eventId, fields) {
     },
     payload: JSON.stringify(fields),
     muteHttpExceptions: true
-  });
+  }, "Supabase schedule patch");
   var code = response.getResponseCode();
 
   if (code < 200 || code >= 300) {
@@ -359,7 +380,7 @@ function updateSupabaseScheduleSync_(event, fields) {
   }
 
   var url = supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + getSupabaseSyncTable_(event) + "?id=eq." + encodeURIComponent(event.id);
-  var response = UrlFetchApp.fetch(url, {
+  var response = fetchWithRetry_(url, {
     method: "patch",
     contentType: "application/json",
     headers: {
@@ -369,7 +390,7 @@ function updateSupabaseScheduleSync_(event, fields) {
     },
     payload: JSON.stringify(fields),
     muteHttpExceptions: true
-  });
+  }, "Supabase sync update");
   var code = response.getResponseCode();
 
   if (code < 200 || code >= 300) {

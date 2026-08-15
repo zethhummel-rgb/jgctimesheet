@@ -554,6 +554,8 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
       builder.totalsBox([
         ["Labour", money(buildUpTotals.labour)],
         ["Materials", money(buildUpTotals.materials)],
+        ["Subcontractors", money(buildUpTotals.subcontractors)],
+        ["Other direct costs", money(buildUpTotals.other)],
         ["Built-up unit cost", money(buildUpTotals.total)],
         [`Main line direct cost (${line.quantity} ${line.unit})`, money(lineDirectCost(line))],
       ]);
