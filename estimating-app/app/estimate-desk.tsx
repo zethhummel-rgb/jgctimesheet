@@ -560,6 +560,17 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     };
   }, [state, ready]);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [sidebarOpen]);
+
   const selectedQuote = selectedQuoteId ? state.quotes.find((quote) => quote.id === selectedQuoteId) ?? null : null;
   const selectedJob = selectedJobId ? state.jobs.find((job) => job.id === selectedJobId) ?? null : null;
 
@@ -968,13 +979,14 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
 
   return (
     <div className="desk-shell">
-      <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
+      <aside id="estimate-navigation" className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
         <div className="brand-block">
           <img className="brand-logo" src="../icon-192.png" alt="JGC" />
           <div>
             <strong>JGC</strong>
             <span>Estimate Desk</span>
           </div>
+          <button className="sidebar-close" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}>×</button>
         </div>
         <nav className="primary-nav" aria-label="Primary navigation">
           <span className="nav-heading">WORKSPACE</span>
@@ -1004,7 +1016,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
 
       <div className="main-column">
         <header className="topbar">
-          <button className="mobile-menu" aria-label="Open navigation" onClick={() => setSidebarOpen(true)}>☰</button>
+          <button className="mobile-menu" aria-label={sidebarOpen ? "Close navigation" : "Open navigation"} aria-controls="estimate-navigation" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}>☰</button>
           <div className="topbar-context">
             <span>Connected to JGC Portal</span>
             <strong>{selectedQuote ? selectedQuote.number : state.settings.appName}</strong>
