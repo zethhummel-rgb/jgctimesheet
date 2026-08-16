@@ -318,14 +318,15 @@ class BackupPdfBuilder {
     this.y -= 20;
   }
 
-  paragraph(value: string, options: { size?: number; colour?: ReturnType<typeof rgb>; indent?: number; gapAfter?: number } = {}) {
+  paragraph(value: string, options: { size?: number; colour?: ReturnType<typeof rgb>; indent?: number; gapAfter?: number; bold?: boolean } = {}) {
     const size = options.size ?? 9;
     const lineHeight = size + 3;
     const indent = options.indent ?? 0;
-    const textLines = wrapText(value || "Not recorded", this.regular, size, CONTENT_WIDTH - indent);
+    const font = options.bold ? this.bold : this.regular;
+    const textLines = wrapText(value || "Not recorded", font, size, CONTENT_WIDTH - indent);
     textLines.forEach((line) => {
       this.ensureSpace(lineHeight + 2);
-      this.page.drawText(line, { x: MARGIN + indent, y: this.y, size, font: this.regular, color: options.colour ?? colour.slate });
+      this.page.drawText(line, { x: MARGIN + indent, y: this.y, size, font, color: options.colour ?? colour.slate });
       this.y -= lineHeight;
     });
     this.y -= options.gapAfter ?? 7;
@@ -338,7 +339,7 @@ class BackupPdfBuilder {
     this.paragraph(value || "Not recorded", { size: 8.8, gapAfter: 10 });
   }
 
-  list(items: string[], options: { numbered?: boolean; status?: (index: number) => string } = {}) {
+  list(items: string[], options: { numbered?: boolean; status?: (index: number) => string; size?: number } = {}) {
     if (!items.length) {
       this.paragraph("None recorded.");
       return;
@@ -347,12 +348,13 @@ class BackupPdfBuilder {
       const prefix = options.numbered ? `${index + 1}.` : "-";
       const status = options.status?.(index);
       const text = status ? `${item} [${status}]` : item;
-      const wrapped = wrapText(text, this.regular, 8.8, CONTENT_WIDTH - 20);
+      const size = options.size ?? 8.8;
+      const wrapped = wrapText(text, this.regular, size, CONTENT_WIDTH - 20);
       wrapped.forEach((line, lineIndex) => {
-        this.ensureSpace(13);
-        if (lineIndex === 0) this.page.drawText(prefix, { x: MARGIN + 2, y: this.y, size: 8.8, font: this.bold, color: colour.navy });
-        this.page.drawText(line, { x: MARGIN + 20, y: this.y, size: 8.8, font: this.regular, color: colour.slate });
-        this.y -= 12;
+        this.ensureSpace(size + 5);
+        if (lineIndex === 0) this.page.drawText(prefix, { x: MARGIN + 2, y: this.y, size, font: this.bold, color: colour.navy });
+        this.page.drawText(line, { x: MARGIN + 20, y: this.y, size, font: this.regular, color: colour.slate });
+        this.y -= size + 3;
       });
       this.y -= 3;
     });
@@ -599,10 +601,10 @@ function addReviewPage(builder: BackupPdfBuilder, quote: Quote, review: QuoteBac
   );
   builder.subheading("Readiness checks");
   if (!review.blockers.length && !review.warnings.length) {
-    builder.callout("Ready to finalize", "All current estimate, customer-scope and pricing checks passed when this backup was created.", "green");
+    builder.callout("Ready to finish", "All current estimate, customer-scope and pricing checks passed when this backup was created.", "green");
   } else {
     if (review.blockers.length) {
-    builder.callout(`${review.blockers.length} blocking item${review.blockers.length === 1 ? "" : "s"}`, "These items must be corrected before the quote can be finalized.", "red");
+    builder.callout(`${review.blockers.length} blocking item${review.blockers.length === 1 ? "" : "s"}`, "These items must be corrected before the quote can be finished.", "red");
       builder.list(review.blockers.map((item) => item.message));
     }
     if (review.warnings.length) {
@@ -649,25 +651,23 @@ function addProposalPage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   const optional = quote.lines.filter((line) => line.classification === "Optional" && !line.included);
   builder.startSection("Proposal", `Customer-facing ${proposalStyleName(quote)} proposal. Internal costs and vendor details are intentionally hidden.`);
   builder.keyValueGrid([
-    ["Prepared for", `${client?.name || "Client not selected"}${quote.proposalAttention || client?.contact ? ` - Attn: ${quote.proposalAttention || client?.contact}` : ""}`],
-    ["Project", quote.project || "Project not named"],
-    ["Site", quote.site || "Not recorded"],
+    ["Prepared for", client?.name || "Client not selected"],
+    ["Attention", quote.proposalAttention || client?.contact || "Not recorded"],
+    ["Address", quote.address || "Not recorded"],
     ["Quote date", `${shortDate(quote.quoteDate)} - Valid until ${shortDate(quote.validUntil)}`],
+    ["Project", `${quote.site || "Site name not recorded"}\n${quote.project || "Project not named"}`],
   ]);
   builder.gap(12);
   builder.paragraph(state.settings.proposalIntro);
-  if (quote.scopeSummary) builder.paragraph(quote.scopeSummary);
 
   const proposalNotes = nonBlankLines(quote.proposalNotes);
   if (style === "jgc-classic") {
     builder.subheading("01  Scope of Work");
     builder.list(customerScopeLines(quote), { numbered: true });
     builder.subheading("02  Notes");
-    builder.list([
-      ...(proposalNotes.length ? proposalNotes : ["No additional project notes recorded."]),
-      `Included: ${quote.inclusions || "As specifically listed in the Scope of Work."}`,
-      `Excluded: ${quote.exclusions || "No exclusions recorded."}`,
-    ]);
+    builder.list(proposalNotes.length ? proposalNotes : ["No additional project notes recorded."], { size: 7.2 });
+    builder.paragraph(`Included: ${quote.inclusions || "As specifically listed in the Scope of Work."}`, { size: 7.2, gapAfter: 3 });
+    builder.paragraph(`Excluded: ${quote.exclusions || "No exclusions recorded."}`, { size: 7.2, gapAfter: 7, bold: true });
   } else if (style === "section-summary") {
     builder.subheading("Scope and pricing by section");
     builder.table(
@@ -726,17 +726,17 @@ function addHistoryPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
     ["Status", quote.status],
     ["Last changed", shortDate(quote.updatedAt)],
     ["Current total", money(quoteTotals(quote).total)],
-    ["Finalized", shortDate(quote.sentAt)],
+    ["Finished", shortDate(quote.sentAt)],
     ["Won", shortDate(quote.wonAt)],
   ]);
-  builder.subheading("Finalized revisions");
+  builder.subheading("Finished revisions");
   if (quote.revisions.length) {
     builder.table(
-    [{ label: "Revision", width: 75 }, { label: "Status", width: 100 }, { label: "Finalized", width: 177 }, { label: "Frozen total", width: 180, align: "right" }],
-    [...quote.revisions].reverse().map((revision) => [`R${revision.revision}`, revision.status === "Sent" ? "Finalized" : revision.status, shortDate(revision.issuedAt), money(revision.total)]),
+    [{ label: "Revision", width: 75 }, { label: "Status", width: 100 }, { label: "Finished", width: 177 }, { label: "Frozen total", width: 180, align: "right" }],
+    [...quote.revisions].reverse().map((revision) => [`R${revision.revision}`, revision.status === "Sent" ? "Finished" : revision.status, shortDate(revision.issuedAt), money(revision.total)]),
     );
   } else {
-  builder.paragraph("No finalized revisions have been frozen yet.");
+  builder.paragraph("No finished revisions have been frozen yet.");
   }
   builder.subheading("Activity timeline");
   if (activity.length) {

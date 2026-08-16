@@ -30,7 +30,7 @@ function wrap(text: string, font: PDFFont, size: number, width: number) {
   return result;
 }
 
-export async function downloadProposalPdf(state: AppState, quote: Quote) {
+export async function createProposalPdf(state: AppState, quote: Quote, logoBytes?: Uint8Array | null) {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -56,18 +56,22 @@ export async function downloadProposalPdf(state: AppState, quote: Quote) {
     y -= options.gap ?? 7;
   };
   const heading = (number: string, title: string) => {
-    ensure(32);
+    ensure(29);
     page.drawRectangle({ x: PAGE.margin, y: y - 16, width: 22, height: 22, color: green });
     page.drawText(number, { x: PAGE.margin + 5, y: y - 9, size: 8, font: bold, color: rgb(1, 1, 1) });
     page.drawText(title, { x: PAGE.margin + 31, y: y - 8, size: 13, font: bold, color: dark });
-    y -= 31;
+    y -= 28;
   };
 
   try {
-    const response = await fetch("./jgc-letterhead-logo.jpg");
-    if (response.ok) {
-      const logo = await pdf.embedJpg(await response.arrayBuffer());
-      const scale = Math.min(250 / logo.width, 75 / logo.height);
+    let resolvedLogoBytes = logoBytes ?? null;
+    if (!resolvedLogoBytes && typeof fetch !== "undefined") {
+      const response = await fetch("./jgc-logo-transparent.png");
+      if (response.ok) resolvedLogoBytes = new Uint8Array(await response.arrayBuffer());
+    }
+    if (resolvedLogoBytes) {
+      const logo = await pdf.embedPng(resolvedLogoBytes);
+      const scale = Math.min(285 / logo.width, 72 / logo.height);
       page.drawImage(logo, { x: (PAGE.width - logo.width * scale) / 2, y: y - logo.height * scale, width: logo.width * scale, height: logo.height * scale });
     }
   } catch { /* Text header remains available if the logo cannot load. */ }
@@ -81,30 +85,34 @@ export async function downloadProposalPdf(state: AppState, quote: Quote) {
   y -= 28;
   const client = state.clients.find((item) => item.id === quote.clientId);
   const projectAddress = quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLocaleLowerCase() === quote.site.trim().toLocaleLowerCase())?.address?.trim() || "";
-  const meta = ([
-    ["PREPARED FOR", client?.name || "Client not selected"],
-    ["ATTENTION", quote.proposalAttention || client?.contact || "—"],
-    ["PROJECT", [quote.site, quote.project].filter(Boolean).join(" — ") || "Project not named"],
-    ["ADDRESS", projectAddress],
-    ["DATE", new Date(quote.quoteDate + "T12:00:00").toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })],
-  ] as Array<[string, string]>).filter(([, value]) => value);
-  for (let index = 0; index < meta.length; index += 2) {
-    ensure(38);
-    meta.slice(index, index + 2).forEach(([label, value], column) => {
+  const drawMetaPair = (left: [string, string], right?: [string, string]) => {
+    const values = [left, right].filter(Boolean) as Array<[string, string]>;
+    const widths = right ? [245, 245] : [PAGE.width - PAGE.margin * 2];
+    const wrapped = values.map(([, value], index) => wrap(value, bold, 9, widths[index]));
+    const rowHeight = 22 + Math.max(...wrapped.map((valueLines) => valueLines.length)) * 10;
+    ensure(rowHeight);
+    values.forEach(([label], column) => {
       const x = PAGE.margin + column * 270;
-      text(label, x, 7, bold, grey);
-      page.drawText(value, { x, y: y - 13, size: 9, font: bold, color: dark, maxWidth: 245 });
+      page.drawText(label, { x, y, size: 7, font: bold, color: grey });
+      wrapped[column].forEach((line, lineIndex) => page.drawText(line, { x, y: y - 13 - lineIndex * 10, size: 9, font: bold, color: dark }));
     });
-    y -= 38;
-  }
-  paragraph(state.settings.proposalIntro, { gap: 10 });
+    y -= rowHeight;
+  };
+  const quoteDate = new Date(quote.quoteDate + "T12:00:00").toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+  drawMetaPair(["PREPARED FOR", client?.name || "Client not selected"], ["QUOTE DATE", quoteDate]);
+  drawMetaPair(["ATTENTION", quote.proposalAttention || client?.contact || "Not recorded"], ["ADDRESS", projectAddress || "Not recorded"]);
+  drawMetaPair(["PROJECT", [quote.site, quote.project].filter(Boolean).join("\n") || "Project not named"]);
+  paragraph(state.settings.proposalIntro, { gap: 6 });
   heading("01", "Project Scope — Scope of Work");
   const scope = lines(quote.proposalScope ?? "").length ? lines(quote.proposalScope ?? "") : quote.lines.filter((line) => line.included).map((line) => line.description).filter(Boolean);
-  scope.forEach((item, index) => paragraph(`${index + 1}.  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, gap: 3 }));
-  heading("02", "Notes");
-  lines(quote.proposalNotes ?? "").forEach((item) => paragraph(`•  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, gap: 2 }));
-  if (quote.inclusions) paragraph(`Included: ${quote.inclusions}`, { font: regular, gap: 4 });
-  if (quote.exclusions) paragraph(`Excluded: ${quote.exclusions}`, { font: regular, gap: 6 });
+  scope.forEach((item, index) => paragraph(`${index + 1}.  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, gap: 2 }));
+  ensure(27);
+  page.drawText("02", { x: PAGE.margin, y, size: 7, font: bold, color: green });
+  page.drawText("Notes", { x: PAGE.margin + 22, y, size: 10, font: bold, color: dark });
+  y -= 18;
+  lines(quote.proposalNotes ?? "").forEach((item) => paragraph(`•  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, size: 7, gap: 1 }));
+  if (quote.inclusions) paragraph(`Included: ${quote.inclusions}`, { size: 7, font: regular, gap: 3 });
+  if (quote.exclusions) paragraph(`Excluded: ${quote.exclusions}`, { size: 8, font: bold, gap: 6 });
 
   const totals = quoteTotals(quote);
   if (quote.proposalShowCostBreakdown) {
@@ -132,25 +140,31 @@ export async function downloadProposalPdf(state: AppState, quote: Quote) {
       text("Markup", PAGE.margin + 8, 9); page.drawText(`$${totals.profit.toLocaleString("en-CA", { minimumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 95, y, size: 9, font: bold, color: dark }); y -= 19;
     }
   }
-  ensure(72);
-  page.drawRectangle({ x: PAGE.margin, y: y - 54, width: PAGE.width - PAGE.margin * 2, height: 58, color: rgb(0.94, 0.98, 0.96), borderColor: green, borderWidth: 1 });
-  text("LUMP SUM PROPOSAL", PAGE.margin + 14, 8, bold, green);
-  page.drawText(`$${totals.subtotal.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 125, y: y - 5, size: 17, font: bold, color: dark });
-  page.drawText("HST Extra", { x: PAGE.width - PAGE.margin - 125, y: y - 24, size: 8, font: bold, color: green });
-  y -= 70;
+  const lumpSumHeight = 72;
+  ensure(lumpSumHeight + 14);
+  page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: PAGE.width - PAGE.margin * 2, height: lumpSumHeight, color: rgb(0.94, 0.98, 0.96), borderColor: green, borderWidth: 1 });
+  page.drawText("LUMP SUM PROPOSAL", { x: PAGE.margin + 16, y: y - 19, size: 8, font: bold, color: green });
+  page.drawText("Complete the Scope of Work above in a good and workmanlike manner.", { x: PAGE.margin + 16, y: y - 39, size: 8, font: regular, color: dark });
+  page.drawText(`$${totals.subtotal.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 140, y: y - 27, size: 17, font: bold, color: dark });
+  page.drawText("HST Extra", { x: PAGE.width - PAGE.margin - 140, y: y - 48, size: 8, font: bold, color: green });
+  y -= lumpSumHeight + 14;
   heading("04", "Terms");
   paragraph(quote.terms, { size: 8, gap: 4 });
-  paragraph("Any change in the work or price must be made in writing. HST Extra.", { size: 8, font: bold, gap: 12 });
-  ensure(92);
+  paragraph("Any change in the work or price must be made in writing. HST Extra.", { size: 8, font: bold, gap: 8 });
+  ensure(84);
   text("ACCEPTANCE", PAGE.margin, 13, bold);
   y -= 18;
-  paragraph("The undersigned authorizes John Gordon Construction to complete the work described above and agrees to pay the proposal amount according to these terms.", { size: 8, gap: 18 });
+  paragraph("The undersigned authorizes John Gordon Construction to complete the work described above and agrees to pay the proposal amount according to these terms.", { size: 8, gap: 10 });
   page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.margin + 210, y }, thickness: 0.7, color: grey });
   page.drawLine({ start: { x: PAGE.width - PAGE.margin - 150, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.7, color: grey });
   text("Signature", PAGE.margin, 7, regular, grey);
   text("Date", PAGE.width - PAGE.margin - 150, 7, regular, grey);
 
-  const bytes = await pdf.save();
+  return pdf.save();
+}
+
+export async function downloadProposalPdf(state: AppState, quote: Quote) {
+  const bytes = await createProposalPdf(state, quote);
   const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: "application/pdf" });
   const filename = `${safeName(`${quote.number} - ${quote.project || "Proposal"}`)}.pdf`;
   const url = URL.createObjectURL(blob);

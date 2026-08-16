@@ -15,6 +15,7 @@ import {
   quoteTotals,
   type AppState,
   type Client,
+  type ClientContact,
   type CostType,
   type Job,
   type JobCostEntry,
@@ -142,7 +143,7 @@ const navItems: { key: ViewKey; label: string; icon: string }[] = [
   { key: "jobs", label: "Jobs", icon: "✓" },
 ];
 
-type QuoteTab = "details" | "estimate" | "review" | "divisions" | "proposal" | "history";
+type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "history";
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 type ModalState =
   | null
@@ -331,12 +332,12 @@ function timeAgo(value: string) {
 }
 
 function quoteDisplayStatus(quote: Quote): QuoteStatus | "Expired" {
-  if (quote.status === "Sent" && quote.validUntil && quote.validUntil < today()) return "Expired";
+  if ((quote.status === "Finished" || quote.status === "Sent") && quote.validUntil && quote.validUntil < today()) return "Expired";
   return quote.status;
 }
 
 function quoteStatusLabel(status: QuoteStatus | "Expired" | "Active" | "Archived") {
-  return status === "Sent" ? "Finalized" : status;
+  return status === "Sent" ? "Finished" : status;
 }
 
 function clientName(state: AppState, clientId: string) {
@@ -508,6 +509,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [supplierImportOpen, setSupplierImportOpen] = useState(false);
   const [supplierCatalogRefresh, setSupplierCatalogRefresh] = useState(0);
   const [pendingDeleteQuoteId, setPendingDeleteQuoteId] = useState<string | null>(null);
+  const [pendingFinishQuoteId, setPendingFinishQuoteId] = useState<string | null>(null);
   const [pendingCreateJobQuoteId, setPendingCreateJobQuoteId] = useState<string | null>(null);
   const [purchaseOrderEditor, setPurchaseOrderEditor] = useState<PurchaseOrderEditorState>(null);
   const saveTimer = useRef<number | null>(null);
@@ -632,6 +634,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       proposalScope: "",
       proposalNotes: "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others",
       proposalAttention: "",
+      proposalAttentionContactId: "",
       proposalShowCostBreakdown: false,
       proposalBreakdownIncludesMarkup: true,
       scopeSummary: "",
@@ -721,11 +724,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const createRevision = (quote: Quote) => {
-    if (quote.status !== "Sent") return;
+    if (quote.status !== "Finished") return;
     mutateQuote(
       quote.id,
       (current) => {
-        if (current.status !== "Sent") return current;
+        if (current.status !== "Finished") return current;
         return {
           ...current,
           revision: current.revision + 1,
@@ -737,7 +740,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             {
               id: uid("revision"),
               revision: current.revision,
-              status: "Sent",
+              status: "Finished",
               issuedAt: current.sentAt || new Date().toISOString(),
               total: quoteTotals(current).total,
               snapshot: JSON.stringify(current),
@@ -750,44 +753,49 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     setQuoteTab("estimate");
   };
 
-  const finalizeQuote = (quote: Quote) => {
-    const readiness = quoteReadiness(quote, state.vendors);
-    if (readiness.blockers.length) {
-      setQuoteTab("review");
-      window.alert("This quote still has blocking items. Open Review to see what needs attention.");
-      return;
-    }
-    if (
-      readiness.unresolvedWarnings.length &&
-      !window.confirm(`Finalize this quote with ${readiness.unresolvedWarnings.length} reviewed warning(s)?`)
-    ) {
-      setQuoteTab("review");
-      return;
-    }
+  const completeFinishQuote = (quote: Quote) => {
     const sentAt = new Date().toISOString();
     const siteName = quote.site.trim();
+    const attentionName = quote.proposalAttention?.trim() ?? "";
     setState((current) => {
       const next = {
         ...current,
-        clients: siteName
+        clients: siteName || attentionName
           ? current.clients.map((client) => {
               if (client.id !== quote.clientId) return client;
               const siteAlreadySaved = client.sites.some(
                 (site) => site.label.trim().toLocaleLowerCase() === siteName.toLocaleLowerCase(),
               );
-              return siteAlreadySaved
-                ? { ...client, sites: client.sites.map((site) => site.label.trim().toLocaleLowerCase() === siteName.toLocaleLowerCase() && quote.address?.trim() ? { ...site, address: quote.address.trim() } : site) }
-                : { ...client, sites: [...client.sites, { id: uid("site"), label: siteName, address: quote.address?.trim() ?? "" }] };
+              const sites = !siteName ? client.sites : siteAlreadySaved
+                ? client.sites.map((site) => site.label.trim().toLocaleLowerCase() === siteName.toLocaleLowerCase() && quote.address?.trim() ? { ...site, address: quote.address.trim() } : site)
+                : [...client.sites, { id: uid("site"), label: siteName, address: quote.address?.trim() ?? "" }];
+              const contacts = client.contacts ?? [];
+              const attentionAlreadySaved = attentionName && contacts.some((contact) => contact.name.trim().toLocaleLowerCase() === attentionName.toLocaleLowerCase());
+              return { ...client, sites, contacts: attentionName && !attentionAlreadySaved ? [...contacts, { id: uid("client-contact"), name: attentionName, role: "", email: "", phone: "" }] : contacts };
             })
           : current.clients,
         quotes: current.quotes.map((item) =>
           item.id === quote.id
-            ? { ...item, site: siteName, status: "Sent" as const, sentAt, updatedAt: sentAt }
+            ? { ...item, site: siteName, status: "Finished" as const, sentAt, updatedAt: sentAt }
             : item,
         ),
       };
-      return addActivity(next, quote.id, "Quote finalized", `${quote.number} Rev ${quote.revision} was finalized and locked.`);
+      return addActivity(next, quote.id, "Quote finished", `${quote.number} Rev ${quote.revision} was marked Finished and remains editable.`);
     });
+    setPendingFinishQuoteId(null);
+  };
+
+  const finalizeQuote = (quote: Quote) => {
+    const readiness = quoteReadiness(quote, state.vendors);
+    if (readiness.blockers.length) {
+      setQuoteTab("review");
+      return;
+    }
+    if (readiness.unresolvedWarnings.length) {
+      setPendingFinishQuoteId(quote.id);
+      return;
+    }
+    completeFinishQuote(quote);
   };
 
   const requestCreateJob = (quote: Quote) => {
@@ -826,9 +834,15 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       addActivity(
         {
           ...current,
-          quotes: current.quotes.map((item) =>
-            item.id === quote.id ? { ...item, status: "Won", wonAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : item,
-          ),
+          quotes: current.quotes.map((item) => item.id === quote.id ? {
+            ...item,
+            status: "Won",
+            wonAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            revisions: item.revisions.some((revision) => revision.revision === item.revision)
+              ? item.revisions
+              : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished", issuedAt: item.sentAt || new Date().toISOString(), total: quoteTotals(item).total, snapshot: JSON.stringify({ ...item, status: "Finished" }) }],
+          } : item),
           jobs: current.jobs.some((item) => item.quoteId === quote.id) ? current.jobs : [job, ...current.jobs],
         },
         quote.id,
@@ -869,6 +883,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const pendingDeleteQuote = state.quotes.find((quote) => quote.id === pendingDeleteQuoteId) ?? null;
+  const pendingFinishQuote = state.quotes.find((quote) => quote.id === pendingFinishQuoteId) ?? null;
   const pendingCreateJobQuote = state.quotes.find((quote) => quote.id === pendingCreateJobQuoteId) ?? null;
   const purchaseOrderJob = purchaseOrderEditor ? state.jobs.find((job) => job.id === purchaseOrderEditor.jobId) ?? null : null;
   const purchaseOrderQuote = purchaseOrderJob ? state.quotes.find((quote) => quote.id === purchaseOrderJob.quoteId) ?? null : null;
@@ -908,6 +923,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         return (
           <QuoteWorkspace
             state={state}
+            setState={setState}
             quote={selectedQuote}
             tab={quoteTab}
             setTab={setQuoteTab}
@@ -940,7 +956,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         />
       );
     }
-    if (view === "clients") return <ClientsPage state={state} search={search} setSearch={setSearch} onAdd={() => setModal({ kind: "client" })} onOpenQuote={openQuote} />;
+    if (view === "clients") return <ClientsPage state={state} setState={setState} search={search} setSearch={setSearch} onAdd={() => setModal({ kind: "client" })} onOpenQuote={openQuote} />;
     if (view === "pricebook") {
       return (
         <PriceBookPage
@@ -1067,6 +1083,14 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onConfirm={confirmQuoteRemoval}
         />
       )}
+      {pendingFinishQuote && (
+        <QuoteFinishModal
+          quote={pendingFinishQuote}
+          warningCount={quoteReadiness(pendingFinishQuote, state.vendors).unresolvedWarnings.length}
+          onCancel={() => setPendingFinishQuoteId(null)}
+          onConfirm={() => completeFinishQuote(pendingFinishQuote)}
+        />
+      )}
       {pendingCreateJobQuote && (
         <JobCreateModal
           quote={pendingCreateJobQuote}
@@ -1114,6 +1138,58 @@ function PageHeading({ eyebrow, title, description, actions }: { eyebrow?: strin
   );
 }
 
+interface SearchPickerOption {
+  id: string;
+  label: string;
+  detail?: string;
+}
+
+function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, allowCustom = false, onChange, onSelect, addLabel, onAdd }: {
+  value: string;
+  options: SearchPickerOption[];
+  disabled?: boolean;
+  placeholder: string;
+  ariaLabel: string;
+  allowCustom?: boolean;
+  onChange?: (value: string) => void;
+  onSelect: (option: SearchPickerOption) => void;
+  addLabel?: string;
+  onAdd?: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  useEffect(() => { if (!open) setQuery(value); }, [value, open]);
+  const normalized = query.trim().toLocaleLowerCase();
+  const matches = options.filter((option) => `${option.label} ${option.detail ?? ""}`.toLocaleLowerCase().includes(normalized)).slice(0, 30);
+  return (
+    <div className="saved-data-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}>
+      <input
+        role="combobox"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-autocomplete="list"
+        autoComplete="off"
+        value={open ? query : value}
+        disabled={disabled}
+        placeholder={placeholder}
+        onFocus={() => { setQuery(value); setOpen(true); }}
+        onChange={(event) => { setQuery(event.target.value); setOpen(true); if (allowCustom) onChange?.(event.target.value); }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+          if (event.key === "Enter" && matches[0]) { event.preventDefault(); onSelect(matches[0]); setQuery(matches[0].label); setOpen(false); }
+        }}
+      />
+      {open && !disabled && (
+        <div className="saved-data-results" role="listbox">
+          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setQuery(option.label); setOpen(false); }}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
+          {!matches.length && <div className="saved-data-empty">No saved matches</div>}
+          {onAdd && <button type="button" className="saved-data-add" onMouseDown={(event) => event.preventDefault()} onClick={() => { onAdd(query.trim()); setOpen(false); }}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: QuoteStatus | "Expired" | "Active" | "Archived" }) {
   return <span className={`status-pill status-${status.toLowerCase().replace(" ", "-")}`}><span />{quoteStatusLabel(status)}</span>;
 }
@@ -1122,7 +1198,7 @@ function ReadinessPill({ quote, vendors }: { quote: Quote; vendors: Vendor[] }) 
   const readiness = quoteReadiness(quote, vendors);
   if (readiness.blockers.length) return <span className="readiness-pill blocked">{readiness.blockers.length} blocker{readiness.blockers.length === 1 ? "" : "s"}</span>;
   if (readiness.unresolvedWarnings.length) return <span className="readiness-pill warning">{readiness.unresolvedWarnings.length} warning{readiness.unresolvedWarnings.length === 1 ? "" : "s"}</span>;
-  return <span className="readiness-pill ready">Ready to finalize</span>;
+  return <span className="readiness-pill ready">Ready to finish</span>;
 }
 
 function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void }) {
@@ -1134,9 +1210,9 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
     return quoteOwnerName === currentOwnerName || currentOwnerName.startsWith(`${quoteOwnerName} `) || quoteOwnerName.startsWith(`${currentOwnerName} `);
   });
   const dashboardQuotes = currentEstimator.isAdmin && companyWide ? state.quotes : ownedQuotes;
-  const activeQuotes = dashboardQuotes.filter((quote) => quote.status === "Draft" || quote.status === "Sent");
+  const activeQuotes = dashboardQuotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished");
   const pipeline = activeQuotes.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
-  const sent = dashboardQuotes.filter((quote) => quote.status === "Sent").length;
+  const sent = dashboardQuotes.filter((quote) => quote.status === "Finished").length;
   const wonValue = dashboardQuotes.filter((quote) => quote.status === "Won").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
   const attention = activeQuotes
     .map((quote) => ({ quote, readiness: quoteReadiness(quote, state.vendors) }))
@@ -1145,7 +1221,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
   const recentQuotes = [...dashboardQuotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   const stageValues = [
     { label: "Draft", count: dashboardQuotes.filter((quote) => quote.status === "Draft").length, value: dashboardQuotes.filter((quote) => quote.status === "Draft").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "blue" },
-    { label: "Finalized", count: sent, value: dashboardQuotes.filter((quote) => quote.status === "Sent").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "amber" },
+    { label: "Finished", count: sent, value: dashboardQuotes.filter((quote) => quote.status === "Finished").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "amber" },
     { label: "Won", count: dashboardQuotes.filter((quote) => quote.status === "Won").length, value: wonValue, color: "green" },
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
@@ -1157,14 +1233,14 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
         <div>
           <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
           <h1>Clear pricing. Controlled risk. Better handoff.</h1>
-          <p>Build the quote once, review the numbers, finalize a clean proposal, then compare won estimates with actual costs and labour hours.</p>
+          <p>Build the quote once, review the numbers, finish a clean proposal, then connect accepted work to its Portal job.</p>
         </div>
         <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
       </section>
 
       <section className="metric-grid">
         <MetricCard label="Active pipeline" value={compactMoney(pipeline)} detail={`${activeQuotes.length} open quotes`} tone="navy" />
-        <MetricCard label="Awaiting response" value={String(sent)} detail="quotes currently sent" tone="amber" />
+        <MetricCard label="Awaiting response" value={String(sent)} detail="finished quotes awaiting response" tone="amber" />
         <MetricCard label="Won value" value={compactMoney(wonValue)} detail="pre-tax accepted work" tone="green" />
         <MetricCard label="Won quotes tracked" value={String(state.jobs.filter((job) => job.status === "Active").length)} detail="estimate follow-up only" tone="blue" />
       </section>
@@ -1189,7 +1265,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
 
         <section className="panel attention-panel">
           <div className="panel-heading">
-              <div><span className="eyebrow">ATTENTION</span><h2>Before you finalize</h2></div>
+              <div><span className="eyebrow">ATTENTION</span><h2>Before you finish</h2></div>
             <span className="count-badge">{attention.length}</span>
           </div>
           {attention.length ? (
@@ -1398,7 +1474,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" /></div>
         <div className="filter-tabs" role="group" aria-label="Filter quotes by status">
-          {[{ value: "All", label: "All" }, { value: "Draft", label: "Draft" }, { value: "Sent", label: "Finalized" }, { value: "Won", label: "Won" }, { value: "Lost", label: "Lost" }, { value: "Expired", label: "Expired" }].map((status) => (
+          {[{ value: "All", label: "All" }, { value: "Draft", label: "Draft" }, { value: "Finished", label: "Finished" }, { value: "Won", label: "Won" }, { value: "Lost", label: "Lost" }, { value: "Expired", label: "Expired" }].map((status) => (
             <button key={status.value} className={statusFilter === status.value ? "active" : ""} onClick={() => { setStatusFilter(status.value); setLibraryPath([]); }}>{status.label}</button>
           ))}
         </div>
@@ -1417,6 +1493,7 @@ function JobCreateModal({ quote, existingJobNumbers, portalJobs: availablePortal
 }) {
   const [jobNumber, setJobNumber] = useState("");
   const [error, setError] = useState("");
+  const selectedPortalJob = availablePortalJobs.find((job) => job.jobNumber === jobNumber);
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = jobNumber.trim();
@@ -1437,15 +1514,16 @@ function JobCreateModal({ quote, existingJobNumbers, portalJobs: availablePortal
   return (
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <section className="modal-card job-create-modal" role="dialog" aria-modal="true" aria-labelledby="create-job-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">ACCEPTED QUOTE HANDOFF</span><h2 id="create-job-title">Create job</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
+        <header><div><span className="eyebrow">ACCEPTED QUOTE HANDOFF</span><h2 id="create-job-title">Make into job</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
         <form onSubmit={submit}>
           <div className="job-create-content">
             <div className="job-create-quote"><span>{quote.number} · Rev {quote.revision}</span><strong>{quote.project || "Project not named"}</strong></div>
-            <label className="field"><span>Portal job <b>*</b></span><input autoFocus list="active-portal-jobs" value={jobNumber} onChange={(event) => { setJobNumber(event.target.value); setError(""); }} placeholder="Type or choose an active job number" /><datalist id="active-portal-jobs">{availablePortalJobs.filter((job) => job.active).map((job) => <option key={job.id} value={job.jobNumber} label={`${job.jobName}${job.customer ? ` · ${job.customer}` : ""}`} />)}</datalist></label>
+            <label className="field"><span>Portal job <b>*</b></span><SearchablePicker value={jobNumber} options={availablePortalJobs.filter((job) => job.active).map((job) => ({ id: job.id, label: job.jobNumber, detail: `${job.jobName}${job.customer ? ` · ${job.customer}` : ""}` }))} placeholder="Search by job number or job name" ariaLabel="Portal job" onSelect={(option) => { setJobNumber(option.label); setError(""); }} /></label>
+            {selectedPortalJob && <div className="selected-portal-job"><span>SELECTED PORTAL JOB</span><strong>{selectedPortalJob.jobNumber}</strong><p>{selectedPortalJob.jobName}</p></div>}
             {error && <p className="field-error" role="alert">{error}</p>}
             <div className="estimating-boundary-note"><strong>Connected to the Portal</strong><p>The quote will be linked to this existing job. If the Portal job later becomes inactive, it will move into the Estimate Desk archive automatically.</p></div>
           </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">Create job</button></footer>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">Make into job</button></footer>
         </form>
       </section>
     </div>
@@ -1580,8 +1658,30 @@ function QuoteDeleteModal({ quote, linkedJob, onCancel, onConfirm }: { quote: Qu
   );
 }
 
+function QuoteFinishModal({ quote, warningCount, onCancel, onConfirm }: { quote: Quote; warningCount: number; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
+      <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="finish-quote-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div><span className="eyebrow">FINISH QUOTE</span><h2 id="finish-quote-title">Mark {quote.number} as Finished?</h2></div>
+          <button aria-label="Cancel" onClick={onCancel}>×</button>
+        </header>
+        <div className="confirm-content">
+          <div className="confirm-line-name"><span>{quote.project || "Project not named"}</span><strong>{warningCount} reviewed warning{warningCount === 1 ? "" : "s"}</strong></div>
+          <p>The quote will remain editable. Nothing is locked or made into a Portal job until you use <strong>Make into job</strong>.</p>
+        </div>
+        <footer className="confirm-actions">
+          <button className="button secondary" onClick={onCancel}>Keep editing</button>
+          <button className="button primary" onClick={onConfirm}>Finish quote</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function QuoteWorkspace({
   state,
+  setState,
   quote,
   tab,
   setTab,
@@ -1599,6 +1699,7 @@ function QuoteWorkspace({
   setCatalogToAdd,
 }: {
   state: AppState;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   quote: Quote;
   tab: QuoteTab;
   setTab: (tab: QuoteTab) => void;
@@ -1618,10 +1719,11 @@ function QuoteWorkspace({
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
-  const locked = quote.status !== "Draft";
+  const locked = quote.status === "Won" || quote.status === "Lost";
   const tabs: { key: QuoteTab; label: string; badge?: number }[] = [
     { key: "details", label: "Details" },
     { key: "estimate", label: "Estimate", badge: quote.lines.length },
+    { key: "breakdown", label: "Breakdown", badge: quote.lines.filter((line) => line.costBuildUp).length },
     { key: "review", label: "Review", badge: readiness.blockers.length + readiness.unresolvedWarnings.length },
     { key: "divisions", label: "Divisions", badge: divisionSummaries(quote).filter((division) => division.lineCount > 0).length },
     { key: "proposal", label: "Proposal" },
@@ -1648,20 +1750,19 @@ function QuoteWorkspace({
           <button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate</button>
           <button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download PDF backup</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
-          {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finalize quote</button>}
-          {quote.status === "Sent" && <button className="button primary" onClick={() => setRevisionConfirmOpen(true)}>Make changes</button>}
-          {quote.status === "Sent" && <button className="button success" onClick={() => createJob(quote)}>Create job</button>}
-          {quote.status === "Sent" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
+          {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
+          {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
+          {quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
         </div>
       </div>
 
       {locked && (
         <div className="locked-banner">
           <span>🔒</span>
-          <div><strong>This {quote.status === "Sent" ? "finalized" : quote.status.toLowerCase()} quote is preserved.</strong><p>{quote.status === "Sent" ? "Need to add, remove or change something? Start a new editable revision. This version will remain intact in History." : "The accepted or closed pricing stays preserved."}</p></div>
-          {quote.status === "Sent" && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>Make changes in a new revision</button>}
+          <div><strong>This {quote.status.toLowerCase()} quote is preserved and read-only.</strong><p>The estimate used for the job or closed quote remains intact for history and audit reference.</p></div>
         </div>
       )}
+      {quote.status === "Finished" && <div className="finished-banner"><span>✓</span><div><strong>This quote is finished but still editable.</strong><p>Make any client-requested changes directly. Use Make into job only after the quote is accepted.</p></div></div>}
 
       <div className="quote-tabs" role="tablist" aria-label="Quote workflow">
         {tabs.map((item, index) => (
@@ -1673,7 +1774,7 @@ function QuoteWorkspace({
       </div>
 
       <div className="quote-tab-content">
-        {tab === "details" && <QuoteDetails state={state} quote={quote} locked={locked} updateField={updateQuoteField} />}
+        {tab === "details" && <QuoteDetails state={state} setState={setState} quote={quote} locked={locked} updateField={updateQuoteField} />}
         {tab === "estimate" && (
           <EstimateBuilder
             state={state}
@@ -1686,6 +1787,7 @@ function QuoteWorkspace({
             setCatalogToAdd={setCatalogToAdd}
           />
         )}
+        {tab === "breakdown" && <QuoteBreakdown quote={quote} />}
         {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} />}
         {tab === "divisions" && <QuoteDivisions quote={quote} />}
         {tab === "proposal" && <QuoteProposal state={state} quote={quote} />}
@@ -1709,11 +1811,11 @@ function QuoteWorkspace({
               <button aria-label="Close" onClick={() => setRevisionConfirmOpen(false)}>×</button>
             </header>
             <div className="confirm-content">
-              <div className="revision-confirm-summary"><span>Finalized version</span><strong>{quote.number} · Revision {quote.revision}</strong></div>
-              <p>The finalized version will be frozen in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
+              <div className="revision-confirm-summary"><span>Finished version</span><strong>{quote.number} · Revision {quote.revision}</strong></div>
+              <p>The finished version will be frozen in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
             </div>
             <footer className="confirm-actions">
-              <button className="button secondary" onClick={() => setRevisionConfirmOpen(false)}>Keep finalized</button>
+              <button className="button secondary" onClick={() => setRevisionConfirmOpen(false)}>Keep finished</button>
               <button className="button primary" onClick={() => { setRevisionConfirmOpen(false); createRevision(quote); }}>Create editable revision</button>
             </footer>
           </section>
@@ -1723,33 +1825,40 @@ function QuoteWorkspace({
   );
 }
 
-function QuoteDetails({ state, quote, locked, updateField }: {
+function QuoteDetails({ state, setState, quote, locked, updateField }: {
   state: AppState;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   quote: Quote;
   locked: boolean;
   updateField: <K extends keyof Quote>(field: K, value: Quote[K]) => void;
 }) {
   const selectedClient = state.clients.find((client) => client.id === quote.clientId);
+  const clientContacts = selectedClient?.contacts ?? [];
+  const saveAttentionContact = (name: string) => {
+    const cleanName = name.trim();
+    if (!selectedClient || !cleanName) return;
+    const existing = clientContacts.find((contact) => contact.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase());
+    if (existing) {
+      updateField("proposalAttentionContactId", existing.id);
+      updateField("proposalAttention", existing.name);
+      return;
+    }
+    const contact: ClientContact = { id: uid("client-contact"), name: cleanName, role: "", email: "", phone: "" };
+    setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === selectedClient.id ? { ...client, contacts: [...(client.contacts ?? []), contact] } : client) }));
+    updateField("proposalAttentionContactId", contact.id);
+    updateField("proposalAttention", contact.name);
+  };
   return (
     <div className="content-grid details-grid-layout">
       <section className="panel form-panel">
-        <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 6</span></div>
+        <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 7</span></div>
         <div className="form-grid two-column">
-          <label className="field"><span>Client <b>*</b></span><select value={quote.clientId} disabled={locked} onChange={(event) => { updateField("clientId", event.target.value); updateField("site", ""); updateField("address", ""); }}><option value="">Select a client</option>{state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
-          <label className="field"><span>Attention</span><input value={quote.proposalAttention ?? selectedClient?.contact ?? ""} disabled={locked} onChange={(event) => updateField("proposalAttention", event.target.value)} placeholder="Customer contact for this proposal" /></label>
+          <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={state.clients.map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
+          <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, contact.phone].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
           <label className="field">
-            <span>Site name <em>Choose or type a location</em></span>
-            <input
-              list={`work-sites-${quote.id}`}
-              value={quote.site}
-              disabled={locked || !quote.clientId}
-              onChange={(event) => { const value = event.target.value; updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); if (saved) updateField("address", saved.address); }}
-              placeholder={quote.clientId ? "Select a saved site or type a new one" : "Select a client first"}
-            />
-            <datalist id={`work-sites-${quote.id}`}>
-              {selectedClient?.sites.map((site) => <option key={site.id} value={site.label} label={site.address || undefined} />)}
-            </datalist>
-            {!locked && quote.clientId && <small>New sites are saved to this client when you finalize the quote.</small>}
+            <span>Site name <em>Search saved sites or add a new one</em></span>
+            <SearchablePicker value={quote.site} options={(selectedClient?.sites ?? []).map((site) => ({ id: site.id, label: site.label, detail: site.address }))} disabled={locked || !quote.clientId} placeholder={quote.clientId ? "Search saved sites" : "Select a client first"} ariaLabel="Site name" allowCustom onChange={(value) => { updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateField("address", saved?.address ?? ""); }} onSelect={(option) => { const site = selectedClient?.sites.find((candidate) => candidate.id === option.id); updateField("site", option.label); updateField("address", site?.address ?? ""); }} onAdd={(value) => { updateField("site", value); updateField("address", ""); }} addLabel="Use new site" />
+            {!locked && quote.clientId && <small>New sites and addresses are saved to this client when you finish the quote.</small>}
           </label>
           <label className="field"><span>Address</span><input value={quote.address ?? ""} disabled={locked} onChange={(event) => updateField("address", event.target.value)} placeholder="Project street address (optional)" /></label>
           <label className="field full"><span>Project name <b>*</b></span><input value={quote.project} disabled={locked} onChange={(event) => updateField("project", event.target.value)} placeholder="e.g. Office renovation — Phase 1" /></label>
@@ -1764,8 +1873,8 @@ function QuoteDetails({ state, quote, locked, updateField }: {
 
       <aside className="panel pricing-controls">
         <div className="panel-heading"><div><span className="eyebrow">PRICING CONTROLS</span><h2>Defaults</h2></div></div>
-        <label className="control-row"><span><strong>Project markup</strong><small>Applied unless a line overrides it</small></span><div className="input-suffix small"><input type="number" min="0" step="0.5" value={quote.defaultMarkup * 100} disabled={locked} onChange={(event) => updateField("defaultMarkup", Number(event.target.value) / 100)} /><span>%</span></div></label>
-        <label className="control-row"><span><strong>Target margin</strong><small>Creates a warning below target</small></span><div className="input-suffix small"><input type="number" min="0" max="100" step="0.5" value={quote.targetMargin * 100} disabled={locked} onChange={(event) => updateField("targetMargin", Number(event.target.value) / 100)} /><span>%</span></div></label>
+        <label className="control-row range-control"><span><strong>Project markup</strong><small>Applied unless a line overrides it</small></span><div><input type="range" min="0" max="100" step="0.5" value={quote.defaultMarkup * 100} disabled={locked} style={{ "--range-fill": `${quote.defaultMarkup * 100}%` } as React.CSSProperties} onChange={(event) => updateField("defaultMarkup", Number(event.target.value) / 100)} /><output>{percent(quote.defaultMarkup)}</output></div></label>
+        <label className="control-row range-control"><span><strong>Target margin</strong><small>Creates a warning below target</small></span><div><input type="range" min="0" max="60" step="0.5" value={quote.targetMargin * 100} disabled={locked} style={{ "--range-fill": `${Math.min(100, quote.targetMargin * 100 / 0.6)}%` } as React.CSSProperties} onChange={(event) => updateField("targetMargin", Number(event.target.value) / 100)} /><output>{percent(quote.targetMargin)}</output></div></label>
         <div className="control-row fixed-tax-row"><span><strong>HST</strong><small>Always shown as extra on the customer proposal</small></span><strong>Extra</strong></div>
       </aside>
 
@@ -1831,6 +1940,14 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   const pendingDeleteLine = pendingDeleteLineId
     ? quote.lines.find((line) => line.id === pendingDeleteLineId) ?? null
     : null;
+  const revealNewLine = (lineId: string) => {
+    setExpandedLineId(lineId);
+    window.setTimeout(() => {
+      const row = document.getElementById(`estimate-line-${lineId}`);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => row?.querySelector<HTMLInputElement>("input.description-input, .saved-data-picker input")?.focus({ preventScroll: true }), 260);
+    }, 40);
+  };
   const updateLine = (lineId: string, patch: Partial<QuoteLine>) => {
     mutateQuote(quote.id, (current) => ({
       ...current,
@@ -1882,10 +1999,10 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       internalNote: item.note,
     });
   };
-  const addSelectedItem = () => {
-    if (!catalogToAdd) return;
-    if (catalogToAdd.startsWith("supplier:")) {
-      const supplierItem = supplierCatalogMatches.find((candidate) => `supplier:${candidate.id}` === catalogToAdd);
+  const addSelectedItem = (selection = catalogToAdd) => {
+    if (!selection) return;
+    if (selection.startsWith("supplier:")) {
+      const supplierItem = supplierCatalogMatches.find((candidate) => `supplier:${candidate.id}` === selection);
       if (!supplierItem) return;
       const line = newLine(quote.lines.at(-1)?.section || "General");
       const completed: QuoteLine = {
@@ -1924,13 +2041,13 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         },
       };
       mutateQuote(quote.id, (current) => ({ ...current, lines: [...current.lines, completed], acknowledgedWarnings: {} }));
-      setExpandedLineId(completed.id);
+      revealNewLine(completed.id);
       setCatalogToAdd("");
       setCatalogSearch("");
       setCatalogPickerOpen(false);
       return;
     }
-    const item = state.priceBook.find((candidate) => candidate.code === catalogToAdd);
+    const item = state.priceBook.find((candidate) => candidate.code === selection);
     if (!item) return;
     const defaultVendor = state.vendors.find((vendor) => vendor.id === item.defaultVendorId && isSubcontractor(vendor));
     const line = newLine(quote.lines.at(-1)?.section || "General");
@@ -1955,35 +2072,31 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       internalNote: item.note,
     };
     mutateQuote(quote.id, (current) => ({ ...current, lines: [...current.lines, completed], acknowledgedWarnings: {} }));
-    setExpandedLineId(completed.id);
+    revealNewLine(completed.id);
     setCatalogToAdd("");
     setCatalogSearch("");
     setCatalogPickerOpen(false);
   };
   const selectCatalogItem = (item: PriceBookItem) => {
-    setCatalogToAdd(item.code);
-    setCatalogSearch(item.name);
-    setCatalogPickerOpen(false);
+    addSelectedItem(item.code);
   };
   const selectSupplierCatalogItem = (item: SupplierCatalogItemRecord) => {
-    setCatalogToAdd(`supplier:${item.id}`);
-    setCatalogSearch(item.productName);
-    setCatalogPickerOpen(false);
+    addSelectedItem(`supplier:${item.id}`);
   };
   const addCustom = () => {
     const line = newLine(quote.lines.at(-1)?.section || "General");
     mutateQuote(quote.id, (current) => ({ ...current, lines: [...current.lines, line], acknowledgedWarnings: {} }));
-    setExpandedLineId(line.id);
+    revealNewLine(line.id);
   };
   const addBuiltUp = () => {
     const line = newBuiltUpLine(quote.lines.at(-1)?.section || "General");
     mutateQuote(quote.id, (current) => ({ ...current, lines: [...current.lines, line], acknowledgedWarnings: {} }));
-    setExpandedLineId(line.id);
+    revealNewLine(line.id);
   };
   const addSubcontractor = () => {
     const line = newSubcontractorLine(quote.lines.at(-1)?.section || "General");
     mutateQuote(quote.id, (current) => ({ ...current, lines: [...current.lines, line], acknowledgedWarnings: {} }));
-    setExpandedLineId(line.id);
+    revealNewLine(line.id);
   };
   const enableCostBuildUp = (line: QuoteLine) => {
     updateLine(line.id, {
@@ -2030,7 +2143,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       <section className="panel estimate-panel">
         <div className="panel-heading estimate-heading">
           <div><span className="eyebrow">INTERNAL ESTIMATE</span><h2>Products, services and custom work</h2><p>Select a Price Book item or add a project-specific line. Blue fields are inputs; calculated totals stay protected.</p></div>
-          <span className="step-chip">Step 2 of 6</span>
+          <span className="step-chip">Step 2 of 7</span>
         </div>
 
         {!locked && (
@@ -2039,14 +2152,13 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
               <label><span className="sr-only">Search products and services</span><span className="catalog-search-icon">⌕</span><input role="combobox" aria-expanded={catalogPickerOpen} aria-controls={`catalog-results-${quote.id}`} aria-autocomplete="list" value={catalogSearch} onFocus={() => setCatalogPickerOpen(true)} onChange={(event) => { const value = event.target.value; setCatalogSearch(value); setCatalogToAdd(""); setCatalogPickerOpen(true); if (value.trim().length < 2) setSupplierSearchLoading(false); }} onKeyDown={(event) => { if (event.key === "Enter" && (catalogMatches.length || visibleSupplierCatalogMatches.length)) { event.preventDefault(); if (catalogMatches.length) selectCatalogItem(catalogMatches[0]); else selectSupplierCatalogItem(visibleSupplierCatalogMatches[0]); } if (event.key === "Escape") setCatalogPickerOpen(false); }} placeholder="Search services, installed rates or materials…" /></label>
               {catalogPickerOpen && <div className="catalog-search-results" id={`catalog-results-${quote.id}`} role="listbox">
                 {!!catalogMatches.length && <div className="catalog-result-heading">SERVICES &amp; ASSEMBLIES</div>}
-                {catalogMatches.map((item) => <button type="button" role="option" aria-selected={catalogToAdd === item.code} key={item.id} onClick={() => selectCatalogItem(item)}><span><strong>{item.name}</strong><small>{item.category} · {item.costType} · {item.unit}</small></span><b>{item.liveQuote ? "Live quote" : item.typical === null ? "No cost" : money(item.typical)}</b></button>)}
+                {catalogMatches.map((item) => <button type="button" role="option" aria-selected="false" key={item.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectCatalogItem(item)}><span><strong>{item.name}</strong><small>{item.category} · {item.costType} · {item.unit}</small></span><b>{item.liveQuote ? "Live quote" : item.typical === null ? "No cost" : money(item.typical)}</b></button>)}
                 {!!visibleSupplierCatalogMatches.length && <div className="catalog-result-heading">MATERIAL PRICES</div>}
-                {visibleSupplierCatalogMatches.map((item) => <button type="button" className="supplier-catalog-result" role="option" aria-selected={catalogToAdd === `supplier:${item.id}`} key={item.id} onClick={() => selectSupplierCatalogItem(item)}><span><strong>{item.productName}</strong><small>{item.supplierName} · {item.unit}{item.validUntil && item.validUntil < today() ? " · expired source" : ""}</small></span><b>{money(item.netCost)}</b></button>)}
+                {visibleSupplierCatalogMatches.map((item) => <button type="button" className="supplier-catalog-result" role="option" aria-selected="false" key={item.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectSupplierCatalogItem(item)}><span><strong>{item.productName}</strong><small>{item.supplierName} · {item.unit}{item.validUntil && item.validUntil < today() ? " · expired source" : ""}</small></span><b>{money(item.netCost)}</b></button>)}
                 {supplierSearchLoading && <div className="catalog-searching">Searching supplier materials…</div>}
                 {!catalogMatches.length && !visibleSupplierCatalogMatches.length && !supplierSearchLoading && <div className="catalog-no-results"><strong>No matching Price Book items</strong><span>Try another word or add a custom line.</span></div>}
               </div>}
             </div>
-            <button className="button primary" disabled={!catalogToAdd} onClick={addSelectedItem}>＋ Add item</button>
             <button className="button secondary subcontractor-add-button" onClick={addSubcontractor}>＋ Subcontractor</button>
             <button className="button secondary built-up-add-button" onClick={addBuiltUp}>＋ Built-up item</button>
             <button className="button secondary" onClick={addCustom}>＋ Custom line</button>
@@ -2056,7 +2168,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         <div className="estimate-table-wrap">
           <table className="estimate-table">
             <thead>
-              <tr><th>#</th><th>Description / Vendor</th><th>Division</th><th>Product / service</th><th>Qty</th><th>Unit</th><th>Direct unit cost</th><th>Markup</th><th>Sell price</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
+              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th>Direct unit cost</th><th>Markup</th><th>Sell price</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
             </thead>
             <tbody>
               {quote.lines.map((line, index) => {
@@ -2068,11 +2180,11 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                 const outOfRange = !line.costBuildUp && line.projectCost !== null && ((line.low !== null && line.projectCost < line.low) || (line.high !== null && line.projectCost > line.high));
                 return (
                   <Fragment key={line.id}>
-                    <tr className={`${expandedLineId === line.id ? "expanded" : ""} ${!line.included ? "not-included" : ""}`}>
+                    <tr id={`estimate-line-${line.id}`} className={`${expandedLineId === line.id ? "expanded" : ""} ${!line.included ? "not-included" : ""}`}>
                       <td className="line-number" data-label="#">{index + 1}</td>
-                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><input className="cell-input description-input vendor-row-input" list={`row-vendor-options-${line.id}`} value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} disabled={locked} onChange={(event) => updateLineVendor(line, event.target.value)} placeholder="Select or type subcontractor" /><datalist id={`row-vendor-options-${line.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option value={vendor.name} label={vendor.trade || undefined} key={vendor.id} />)}</datalist><small className={`cell-hint sub-quote-hint ${(line.vendorPricingMode ?? "Quoted") === "Budget" || line.vendorReference ? "" : "missing"}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : line.vendorReference ? `Sub quote ${line.vendorReference}` : "Quote # required"}</small></td> : <td data-label="Description"><input className="cell-input description-input" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
+                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search or type subcontractor" ariaLabel={`Vendor for line ${index + 1}`} allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /><small className={`cell-hint sub-quote-hint ${(line.vendorPricingMode ?? "Quoted") === "Budget" || line.vendorReference ? "" : "missing"}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : line.vendorReference ? `Sub quote ${line.vendorReference}` : "Quote # required"}</small></td> : <td data-label="Description"><input className="cell-input description-input" autoComplete="off" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
+                      <td data-label="Cost type">{line.costType === "Sub / Vendor" ? <span className="fixed-cost-type">Sub / Vendor</span> : <select className="cell-input cost-type-input" value={line.costType} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { costType: event.target.value as CostType })}>{costTypeOptions.filter((type) => type !== "Sub / Vendor").map((type) => <option key={type}>{type}</option>)}</select>}</td>
                       <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value, divisionManual: true })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
-                      <td data-label="Product / service">{line.costType === "Sub / Vendor" ? <input className="cell-input item-select subcontractor-trade-input" value={line.description} disabled={locked} onChange={(event) => updateLine(line.id, { description: event.target.value })} placeholder="Plumber, mechanical, electrician…" /> : <select className="cell-input item-select" value={line.priceSourceSnapshot ? `supplier:${line.priceSourceSnapshot.catalogItemId}` : line.priceBookCode ?? ""} disabled={locked} onChange={(event) => { if (!event.target.value.startsWith("supplier:")) applyCatalog(line.id, event.target.value); }}><option value="">Custom item</option>{line.priceSourceSnapshot && <option value={`supplier:${line.priceSourceSnapshot.catalogItemId}`}>{line.description} · {line.priceSourceSnapshot.supplierName}</option>}{appliedItems.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</select>}</td>
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
                       <td data-label="Direct unit cost">
@@ -2103,8 +2215,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                               </div>
                             )}
                             <div className="form-grid four-column">
-                              <label className="field"><span>Cost type</span><select value={line.costType} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { costType: event.target.value as CostType })}>{costTypeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
-                              <label className="field"><span>Subcontractor <em>Choose or type a name</em></span><input list={`vendor-options-${line.id}`} value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} disabled={locked} onChange={(event) => updateLineVendor(line, event.target.value)} placeholder="Select an existing subcontractor or type one" /><datalist id={`vendor-options-${line.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option value={vendor.name} label={vendor.trade || undefined} key={vendor.id} />)}</datalist></label>
+                              {line.costType === "Sub / Vendor" && <label className="field"><span>Subcontractor <em>Search or type a name</em></span><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search subcontractors" ariaLabel="Subcontractor" allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /></label>}
                               {line.costType === "Sub / Vendor" && <label className="check-field"><input type="checkbox" checked={(line.vendorPricingMode ?? "Quoted") === "Budget"} disabled={locked} onChange={(event) => updateLine(line.id, { vendorPricingMode: event.target.checked ? "Budget" : "Quoted", liveQuote: !event.target.checked })} /><span><strong>Budget allowance</strong><small>Use an estimated subcontractor cost; a quote number is not required.</small></span></label>}
                               <label className="field"><span>{line.costType === "Sub / Vendor" ? "Subcontractor quote #" : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked || (line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Budget")} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={line.costType === "Sub / Vendor" ? ((line.vendorPricingMode ?? "Quoted") === "Budget" ? "Not required for budget allowance" : "Enter the subcontractor's quote number") : "Supplier reference or takeoff"} /></label>
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
@@ -2291,6 +2402,48 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   );
 }
 
+function QuoteBreakdown({ quote }: { quote: Quote }) {
+  const builtUpLines = quote.lines.filter((line) => line.costBuildUp);
+  const renderGroup = (line: QuoteLine, kind: QuoteCostBuildUpItem["kind"], title: string) => {
+    const items = line.costBuildUp?.items.filter((item) => item.kind === kind) ?? [];
+    if (!items.length) return null;
+    return (
+      <section className="breakdown-cost-group">
+        <h3>{title}</h3>
+        <table><thead><tr><th>Description</th><th>Qty / Hours</th><th>Unit</th><th>Unit cost / Rate</th><th>Total</th></tr></thead><tbody>
+          {items.map((item) => <tr key={item.id}><td><strong>{item.description || "Unnamed cost"}</strong>{item.source && <small>{item.source}</small>}</td><td>{numberFormatter.format(item.quantity)}</td><td>{item.unit}</td><td>{money(item.unitCost)}</td><td>{money(buildUpItemTotal(item))}</td></tr>)}
+        </tbody><tfoot><tr><td colSpan={4}>{title} total</td><td>{money(items.reduce((sum, item) => sum + buildUpItemTotal(item), 0))}</td></tr></tfoot></table>
+      </section>
+    );
+  };
+  return (
+    <div className="breakdown-workspace">
+      <div className="breakdown-toolbar"><div><span className="eyebrow">INTERNAL ESTIMATING · STEP 3 OF 7</span><h2>Built-up item breakdown</h2><p>One printable page per built-up estimate item. This document is internal and never appears on the customer proposal.</p></div><button className="button secondary" onClick={() => window.print()}>⇩ Print / Save as PDF</button></div>
+      {!builtUpLines.length && <section className="panel empty-state"><span>▤</span><h3>No built-up items yet</h3><p>Add a Built-up item on the Estimate tab to create detailed labour and material worksheets.</p></section>}
+      <div className="breakdown-pages">
+        {builtUpLines.map((line, index) => {
+          const totals = lineBuildUpTotals(line);
+          const markup = line.markupOverride ?? quote.defaultMarkup;
+          return (
+            <article className="breakdown-page" key={line.id}>
+              <header><div><span>JGC INTERNAL ESTIMATE</span><h1>{line.description || "Unnamed built-up item"}</h1><p>{line.division || "Division not assigned"} · {numberFormatter.format(line.quantity)} {line.unit}</p></div><div><span>QUOTE</span><strong>{quote.number}</strong><small>Page {index + 1} of {builtUpLines.length}</small></div></header>
+              {renderGroup(line, "Labour", "Labour")}
+              {renderGroup(line, "Material", "Materials")}
+              {renderGroup(line, "Subcontractor", "Subcontractors / Vendors")}
+              {renderGroup(line, "Other", "Equipment / Other")}
+              <section className="breakdown-summary">
+                <div><span>Labour</span><strong>{money(totals.labour)}</strong></div><div><span>Materials</span><strong>{money(totals.materials)}</strong></div><div><span>Subcontractors</span><strong>{money(totals.subcontractors)}</strong></div><div><span>Equipment / Other</span><strong>{money(totals.other)}</strong></div>
+                <div><span>Built-up unit cost</span><strong>{money(totals.total)}</strong></div><div><span>Direct cost</span><strong>{money(lineDirectCost(line))}</strong></div><div><span>Markup</span><strong>{percent(markup)}</strong></div><div className="grand"><span>Final selling price</span><strong>{money(lineSellPrice(line, quote.defaultMarkup))}</strong></div>
+              </section>
+              {(line.internalScope || line.internalNote) && <footer>{line.internalScope && <p><strong>Scope / assumptions:</strong> {line.internalScope}</p>}{line.internalNote && <p><strong>Internal note:</strong> {line.internalNote}</p>}</footer>}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote }: {
   state: AppState;
   quote: Quote;
@@ -2329,9 +2482,9 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
     <div className="review-layout">
       <section className="review-hero panel">
         <div className="review-hero-copy">
-          <span className="eyebrow">APPROVAL GATE · STEP 3 OF 6</span>
-            <h2>{readiness.blockers.length ? "Not ready to finalize" : readiness.unresolvedWarnings.length ? "Ready with warnings" : "Ready to finalize"}</h2>
-            <p>{readiness.blockers.length ? "Clear the blocking checks before the customer proposal can be finalized." : readiness.unresolvedWarnings.length ? "The quote can be finalized once these judgment items have been reviewed." : "Required fields, current costs and customer scope are in place."}</p>
+          <span className="eyebrow">APPROVAL GATE · STEP 4 OF 7</span>
+            <h2>{readiness.blockers.length ? "Not ready to finish" : readiness.unresolvedWarnings.length ? "Ready with warnings" : "Ready to finish"}</h2>
+            <p>{readiness.blockers.length ? "Clear the blocking checks before the quote can be finished." : readiness.unresolvedWarnings.length ? "The quote can be finished once these judgment items have been reviewed." : "Required fields, current costs and customer scope are in place."}</p>
         </div>
         <div className={`readiness-orb ${readiness.blockers.length ? "blocked" : readiness.unresolvedWarnings.length ? "warning" : "ready"}`}>
           <strong>{readiness.blockers.length || readiness.unresolvedWarnings.length || "✓"}</strong>
@@ -2386,7 +2539,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
           {!locked && (
             <div className="review-actions">
               <button className="button secondary" onClick={() => setTab("proposal")}>Preview proposal</button>
-              <button className="button primary" disabled={!!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finalize quote</button>
+              <button className="button primary" disabled={!!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finish quote</button>
             </div>
           )}
         </section>
@@ -2423,7 +2576,7 @@ function QuoteDivisions({ quote }: { quote: Quote }) {
   return (
     <div className="division-layout">
       <section className="panel division-hero">
-        <div><span className="eyebrow">BID FORM BREAKDOWN · STEP 4 OF 6</span><h2>Pricing by construction division</h2><p>Each included estimate row rolls into its assigned division. These bid prices reconcile to the pre-tax quote total.</p></div>
+        <div><span className="eyebrow">BID FORM BREAKDOWN · STEP 5 OF 7</span><h2>Pricing by construction division</h2><p>Each included estimate row rolls into its assigned division. These bid prices reconcile to the pre-tax quote total.</p></div>
         <div className="division-hero-total"><span>Pre-tax bid total</span><strong>{money(totals.subtotal)}</strong><small>{assignedLines} of {includedLines} included rows assigned</small></div>
       </section>
       <section className="panel division-table-panel">
@@ -2473,14 +2626,14 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   return (
     <div className="proposal-workspace">
       <div className="proposal-toolbar">
-        <div><span className="eyebrow">CUSTOMER VIEW · STEP 5 OF 6</span><h2>Proposal preview</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
+        <div><span className="eyebrow">CUSTOMER VIEW · STEP 6 OF 7</span><h2>Proposal preview</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
         <div className="proposal-toolbar-actions"><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Full quote backup PDF</button><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ Proposal-only PDF</button></div>
       </div>
       <article className={`proposal-paper ${style === "jgc-classic" ? "classic-proposal hybrid-classic-proposal" : "modern-proposal"}`}>
         {style === "jgc-classic" ? (
           <>
             <header className="hybrid-letterhead">
-              <img src="../logo.webp" alt="John Gordon Construction" />
+              <img src="./jgc-logo-transparent.png" alt="John Gordon Construction" />
               <div className="hybrid-company-contact">
                 <span>GENERAL CONTRACTOR</span>
                 <div><p><strong>{company.phone}</strong><small>Phone</small></p><p><strong>{company.fax}</strong><small>Fax</small></p></div>
@@ -2585,24 +2738,23 @@ function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
   const activity = state.activity.filter((entry) => entry.quoteId === quote.id);
   const selectedRevision = quote.revisions.find((revision) => revision.id === selectedRevisionId) ?? null;
   const selectedSnapshot = selectedRevision ? savedRevisionQuote(selectedRevision.snapshot) : null;
-  const currentVersionLabel = quote.status === "Draft" ? "Current editable revision" : quote.status === "Sent" ? "Current finalized revision" : `Current ${quote.status.toLowerCase()} version`;
+  const currentVersionLabel = quote.status === "Draft" ? "Current editable quote" : quote.status === "Finished" ? "Current finished editable quote" : `Current ${quote.status.toLowerCase()} version`;
 
   return (
     <>
       <div className="history-layout">
         <section className="panel">
-          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 6 OF 6</span><h2>Revision history</h2><p>Every finalized version stays available after changes are started.</p></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 7 OF 7</span><h2>Quote history</h2><p>The accepted estimate is frozen here when a finished quote is made into a job.</p></div></div>
           <div className="revision-list">
             <div className="revision-card current"><div className="revision-marker">R{quote.revision}</div><div><strong>{currentVersionLabel}</strong><span>Last changed {timeAgo(quote.updatedAt)}</span></div><div><strong>{money(quoteTotals(quote).total)}</strong><small>incl. {quote.taxName}</small></div></div>
             {[...quote.revisions].reverse().map((revision) => (
               <button type="button" className="revision-card revision-card-button" key={revision.id} onClick={() => setSelectedRevisionId(revision.id)}>
                 <div className="revision-marker">R{revision.revision}</div>
-                <div><strong>{revision.revision === 0 ? "Original finalized quote" : "Finalized revision"}</strong><span>Finalized {shortDate(revision.issuedAt)}</span><small>View saved version →</small></div>
+                <div><strong>{revision.revision === 0 ? "Original accepted quote" : "Accepted revision"}</strong><span>Saved {shortDate(revision.issuedAt)}</span><small>View saved version →</small></div>
                 <div><strong>{money(revision.total)}</strong><small>frozen snapshot</small></div>
               </button>
             ))}
-            {!quote.revisions.length && quote.status === "Draft" && <p className="empty-copy">When this quote is finalized and later revised, the original will remain here.</p>}
-            {!quote.revisions.length && quote.status === "Sent" && <p className="history-help">Use <strong>Make changes</strong> to create Revision {quote.revision + 1}. This finalized version will then be saved here as the starting point.</p>}
+            {!quote.revisions.length && (quote.status === "Draft" || quote.status === "Finished") && <p className="empty-copy">When this quote is made into a job, the accepted estimate will be saved here as a locked snapshot.</p>}
           </div>
         </section>
         <section className="panel">
@@ -2649,15 +2801,18 @@ function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
   );
 }
 
-function ClientsPage({ state, search, setSearch, onAdd, onOpenQuote }: {
+function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }: {
   state: AppState;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
   search: string;
   setSearch: (value: string) => void;
   onAdd: () => void;
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
 }) {
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const updateClient = (clientId: string, updater: (client: Client) => Client) => setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === clientId ? updater(client) : client) }));
   const normalized = search.toLowerCase();
-  const clients = state.clients.filter((client) => `${client.name} ${client.contact} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized));
+  const clients = state.clients.filter((client) => `${client.name} ${client.contact} ${(client.contacts ?? []).map((contact) => `${contact.name} ${contact.role}`).join(" ")} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized));
   return (
     <div className="page-stack">
       <PageHeading eyebrow="RELATIONSHIPS" title="Clients and sites" description="Keep the customer, contact and work location consistent across every quote." actions={<button className="button primary" onClick={onAdd}>＋ Add client</button>} />
@@ -2665,13 +2820,21 @@ function ClientsPage({ state, search, setSearch, onAdd, onOpenQuote }: {
       <div className="entity-grid">
         {clients.map((client) => {
           const quotes = state.quotes.filter((quote) => quote.clientId === client.id);
-          const openValue = quotes.filter((quote) => quote.status === "Draft" || quote.status === "Sent").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
+          const openValue = quotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
+          const contacts = client.contacts ?? [];
+          const editing = editingClientId === client.id;
           return (
             <section className="entity-card" key={client.id}>
-              <div className="entity-card-head"><div className="entity-monogram">{client.name.slice(0, 2).toUpperCase()}</div><div><h2>{client.name}</h2><p>{client.contact || "No contact recorded"}</p></div>{client.demo && <span className="demo-chip">Demo</span>}</div>
+              <div className="entity-card-head"><div className="entity-monogram">{client.name.slice(0, 2).toUpperCase()}</div><div><h2>{client.name}</h2><p>{contacts.length ? `${contacts.length} attention contact${contacts.length === 1 ? "" : "s"}` : "No contacts recorded"}</p></div>{client.demo && <span className="demo-chip">Demo</span>}</div>
               <div className="entity-stats"><div><span>Open value</span><strong>{money(openValue)}</strong></div><div><span>Quotes</span><strong>{quotes.length}</strong></div><div><span>Sites</span><strong>{client.sites.length}</strong></div></div>
               <div className="site-list"><span className="eyebrow">WORK SITES</span>{client.sites.length ? client.sites.map((site) => <div key={site.id}><strong>{site.label}</strong><span>{site.address || "Address not recorded"}</span></div>) : <p>No work sites yet.</p>}</div>
-              <div className="entity-card-actions">{quotes[0] ? <button className="button secondary compact" onClick={() => onOpenQuote(quotes[0].id)}>Open latest quote</button> : <span>No quotes yet</span>}<span>{client.email || client.phone || "Contact details not recorded"}</span></div>
+              {!!contacts.length && <div className="client-contact-summary"><span className="eyebrow">ATTENTION CONTACTS</span>{contacts.map((contact) => <span key={contact.id}><strong>{contact.name}</strong>{contact.role ? ` · ${contact.role}` : ""}</span>)}</div>}
+              <div className="entity-card-actions"><div>{quotes[0] ? <button className="button secondary compact" onClick={() => onOpenQuote(quotes[0].id)}>Open latest quote</button> : <span>No quotes yet</span>}<button className="button secondary compact" onClick={() => setEditingClientId(editing ? null : client.id)}>{editing ? "Done" : "Edit client"}</button></div><span>{client.email || client.phone || "Contact details not recorded"}</span></div>
+              {editing && <div className="client-editor">
+                <label className="field"><span>Client name</span><input value={client.name} onChange={(event) => updateClient(client.id, (current) => ({ ...current, name: event.target.value }))} /></label>
+                <div className="client-editor-section"><header><div><span className="eyebrow">SITES &amp; ADDRESSES</span><strong>{client.sites.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, sites: [...current.sites, { id: uid("site"), label: "New site", address: "" }] }))}>＋ Site</button></header>{client.sites.map((site) => <div className="client-editor-row" key={site.id}><input aria-label="Site name" value={site.label} onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, label: event.target.value } : item) }))} /><input aria-label="Site address" value={site.address} placeholder="Address" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, address: event.target.value } : item) }))} /><button aria-label={`Remove ${site.label}`} onClick={() => updateClient(client.id, (current) => ({ ...current, sites: current.sites.filter((item) => item.id !== site.id) }))}>×</button></div>)}</div>
+                <div className="client-editor-section"><header><div><span className="eyebrow">ATTENTION CONTACTS</span><strong>{contacts.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: [...(current.contacts ?? []), { id: uid("client-contact"), name: "New contact", role: "", email: "", phone: "" }] }))}>＋ Contact</button></header>{contacts.map((contact) => <div className="client-contact-editor" key={contact.id}><input aria-label="Contact name" value={contact.name} onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, name: event.target.value } : item) }))} /><input aria-label="Contact role" value={contact.role} placeholder="Role / department" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, role: event.target.value } : item) }))} /><input aria-label="Contact email" type="email" value={contact.email} placeholder="Email" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, email: event.target.value } : item) }))} /><input aria-label="Contact phone" value={contact.phone} placeholder="Phone" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, phone: event.target.value } : item) }))} /><button aria-label={`Remove ${contact.name}`} onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).filter((item) => item.id !== contact.id) }))}>×</button></div>)}</div>
+              </div>}
             </section>
           );
         })}
@@ -2806,7 +2969,7 @@ function PriceBookPage({ state, setState, search, setSearch, category, setCatego
                             <label className="field"><span>Cost type</span><select value={item.costType} onChange={(event) => updateItem(item.id, "costType", event.target.value as CostType)}>{costTypeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
                             <label className="field"><span>Unit pricing</span><select value={unitPricingChoice(item.unit)} onChange={(event) => updateItem(item.id, "unit", event.target.value === "__custom__" ? "" : event.target.value)}>{unitPricingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}<option value="__custom__">Custom — Type your own unit</option></select></label>
                             {unitPricingChoice(item.unit) === "__custom__" && <label className="field"><span>Custom unit</span><input value={item.unit} onChange={(event) => updateItem(item.id, "unit", event.target.value)} placeholder="e.g. /hole, m³, /fixture" /></label>}
-                            {item.costType === "Sub / Vendor" && <label className="field wide-field"><span>Default subcontractor</span><input list={`price-book-vendors-${item.id}`} value={state.vendors.find((vendor) => vendor.id === item.defaultVendorId)?.name ?? item.defaultVendorName ?? ""} onChange={(event) => updateDefaultVendor(item.id, event.target.value)} placeholder="Choose a saved subcontractor or type one" /><datalist id={`price-book-vendors-${item.id}`}>{activeSubcontractors(state.vendors).map((vendor) => <option key={vendor.id} value={vendor.name} label={vendor.trade || undefined} />)}</datalist></label>}
+                            {item.costType === "Sub / Vendor" && <label className="field wide-field"><span>Default subcontractor</span><SearchablePicker value={state.vendors.find((vendor) => vendor.id === item.defaultVendorId)?.name ?? item.defaultVendorName ?? ""} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade || undefined }))} placeholder="Search or type a subcontractor" ariaLabel={`Default subcontractor for ${item.name}`} allowCustom onChange={(value) => updateDefaultVendor(item.id, value)} onSelect={(option) => updateDefaultVendor(item.id, option.label)} /></label>}
                             <label className="field"><span>Cost</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={item.typical ?? ""} onChange={(event) => updateItem(item.id, "typical", event.target.value === "" ? null : Number(event.target.value))} placeholder={item.liveQuote ? "Live quote required" : "No default"} /></div></label>
                             <label className="field"><span>Default markup</span><div className="input-suffix"><input type="number" min="0" step="0.5" value={item.markup * 100} onChange={(event) => updateItem(item.id, "markup", Number(event.target.value) / 100)} /><span>%</span></div></label>
                             <label className="field"><span>Default proposal class</span><select value={item.defaultClass} onChange={(event) => updateItem(item.id, "defaultClass", event.target.value as QuoteClass)}><option>Required</option><option>Allowance</option><option>Optional</option></select></label>
@@ -3106,7 +3269,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
     <section className="panel table-panel">
       <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>{jobSearch.trim() ? "Search results across every folder." : "Open a job to review its accepted estimate and actuals."}</span></div>
       <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => { const totals = jobTotals(item); const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId); return <tr key={item.id} onClick={() => onOpen(item.id)}><td data-label="Job / quote"><strong>{item.jobNumber}</strong><small>{linkedQuote?.number ?? "Quote unavailable"} · {linkedQuote?.preparedBy || "Unassigned"}</small></td><td data-label="Client / location"><strong>{clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || "No location"} · {item.project}</small></td><td data-label="Accepted price">{money(totals.revisedRevenue)}</td><td data-label="Estimate cost">{money(item.originalCostBudget)}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{percent(totals.margin)}</td><td data-label="Status"><StatusPill status={item.status} /></td></tr>; })}</tbody></table></div>
-      {!items.length && <div className="empty-state"><span>✓</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{statusFilter === "Active" ? "Create a job from an accepted finalized quote." : "Archived jobs will remain available here for reference."}</p></div>}
+      {!items.length && <div className="empty-state"><span>✓</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{statusFilter === "Active" ? "Make a finished, accepted quote into a Portal-linked job." : "Archived jobs will remain available here for reference."}</p></div>}
     </section>
   );
 
@@ -3138,7 +3301,7 @@ function SettingsPage({ state, setState }: { state: AppState; setState: React.Di
       <PageHeading eyebrow="WORKSPACE" title="Settings" description="Company defaults for new quotes. Existing quotes keep their own pricing snapshot." />
       <div className="settings-grid">
         <section className="panel form-panel"><div className="panel-heading"><div><span className="eyebrow">COMPANY</span><h2>Proposal identity</h2></div></div><div className="form-grid two-column"><label className="field full"><span>Company name</span><input value={state.settings.companyName} onChange={(event) => update("companyName", event.target.value)} /></label><label className="field full"><span>Application name</span><input value={state.settings.appName} onChange={(event) => update("appName", event.target.value)} /></label><label className="field"><span>Phone</span><input value={state.settings.companyPhone ?? "(613) 932-1293"} onChange={(event) => update("companyPhone", event.target.value)} /></label><label className="field"><span>Fax</span><input value={state.settings.companyFax ?? "(613) 937-3656"} onChange={(event) => update("companyFax", event.target.value)} /></label><label className="field full"><span>Street address</span><input value={state.settings.companyAddress ?? "830 Campbell St. Unit 3"} onChange={(event) => update("companyAddress", event.target.value)} /></label><label className="field"><span>City</span><input value={state.settings.companyCity ?? "Cornwall, Ontario"} onChange={(event) => update("companyCity", event.target.value)} /></label><label className="field"><span>Postal code</span><input value={state.settings.companyPostalCode ?? "K6H 6L7"} onChange={(event) => update("companyPostalCode", event.target.value)} /></label><label className="field full"><span>Proposal signatory</span><input value={state.settings.signatoryName ?? "Zeth Hummel"} onChange={(event) => update("signatoryName", event.target.value)} /></label><label className="field full"><span>Proposal introduction</span><textarea rows={4} value={state.settings.proposalIntro} onChange={(event) => update("proposalIntro", event.target.value)} /></label><label className="field full"><span>Default proposal terms</span><textarea rows={5} value={state.settings.proposalTerms} onChange={(event) => update("proposalTerms", event.target.value)} /></label></div></section>
-        <section className="panel form-panel"><div className="panel-heading"><div><span className="eyebrow">NEW QUOTE DEFAULTS</span><h2>Pricing and numbering</h2></div></div><div className="form-grid two-column"><label className="field"><span>Quote prefix</span><input value={state.settings.quotePrefix} onChange={(event) => update("quotePrefix", event.target.value)} /></label><label className="field"><span>Next number</span><input type="number" min="1" value={state.settings.nextQuoteNumber} onChange={(event) => update("nextQuoteNumber", Number(event.target.value))} /></label><label className="field"><span>Default proposal</span><select value={state.settings.defaultProposalStyle ?? "jgc-classic"} onChange={(event) => update("defaultProposalStyle", event.target.value as ProposalStyle)}><option value="jgc-classic">JGC Classic · Lump Sum</option><option value="section-summary">Section Summary</option><option value="detailed">Detailed Breakdown</option></select></label><label className="field"><span>Default tax display</span><select value={state.settings.defaultProposalTaxDisplay ?? "extra"} onChange={(event) => update("defaultProposalTaxDisplay", event.target.value as AppState["settings"]["defaultProposalTaxDisplay"])}><option value="extra">HST extra</option><option value="breakdown">Show tax breakdown</option></select></label><label className="field"><span>Default markup</span><div className="input-suffix"><input type="number" value={state.settings.defaultMarkup * 100} onChange={(event) => update("defaultMarkup", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Target margin</span><div className="input-suffix"><input type="number" value={state.settings.targetMargin * 100} onChange={(event) => update("targetMargin", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Tax name</span><input value={state.settings.taxName} onChange={(event) => update("taxName", event.target.value)} /></label><label className="field"><span>Tax rate</span><div className="input-suffix"><input type="number" value={state.settings.taxRate * 100} onChange={(event) => update("taxRate", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Default validity</span><div className="input-suffix"><input type="number" min="1" value={state.settings.defaultValidityDays} onChange={(event) => update("defaultValidityDays", Number(event.target.value))} /><span>days</span></div></label></div><div className="settings-note"><strong>These apply only to newly created quotes.</strong><p>Finalized and accepted pricing never changes when workspace defaults are updated.</p></div></section>
+        <section className="panel form-panel"><div className="panel-heading"><div><span className="eyebrow">NEW QUOTE DEFAULTS</span><h2>Pricing and numbering</h2></div></div><div className="form-grid two-column"><label className="field"><span>Quote prefix</span><input value={state.settings.quotePrefix} onChange={(event) => update("quotePrefix", event.target.value)} /></label><label className="field"><span>Next number</span><input type="number" min="1" value={state.settings.nextQuoteNumber} onChange={(event) => update("nextQuoteNumber", Number(event.target.value))} /></label><label className="field"><span>Default markup</span><div className="input-suffix"><input type="number" value={state.settings.defaultMarkup * 100} onChange={(event) => update("defaultMarkup", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Target margin</span><div className="input-suffix"><input type="number" value={state.settings.targetMargin * 100} onChange={(event) => update("targetMargin", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Tax name</span><input value={state.settings.taxName} onChange={(event) => update("taxName", event.target.value)} /></label><label className="field"><span>Tax rate</span><div className="input-suffix"><input type="number" value={state.settings.taxRate * 100} onChange={(event) => update("taxRate", Number(event.target.value) / 100)} /><span>%</span></div></label><label className="field"><span>Default validity</span><div className="input-suffix"><input type="number" min="1" value={state.settings.defaultValidityDays} onChange={(event) => update("defaultValidityDays", Number(event.target.value))} /><span>days</span></div></label></div><div className="settings-note"><strong>Customer proposals always use JGC Classic lump-sum pricing with HST extra.</strong><p>These defaults apply only to newly created quotes. Finished and accepted pricing does not change when workspace defaults are updated.</p></div></section>
         <section className="panel full-span architecture-card"><div><span className="architecture-icon">↗</span><div><span className="eyebrow">PORTAL CONNECTION</span><h2>Shared job list, separate estimating workspace</h2><p>Quotes and estimate costs stay here. Official job numbers and active/archive status come from the JGC Portal.</p></div></div><div className="architecture-status"><span>Current connection</span><strong>Connected</strong></div></section>
       </div>
     </div>
@@ -3149,6 +3312,7 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
   const titles = { client: "Add client", vendor: "Add subcontractor", pricebook: "Add service or installed rate", jobCost: "Add actual cost or hours" };
   const [priceBookCostType, setPriceBookCostType] = useState<CostType>("Labour");
   const [priceBookUnitChoice, setPriceBookUnitChoice] = useState("LS");
+  const [priceBookVendorName, setPriceBookVendorName] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -3156,7 +3320,10 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
     setSubmitError("");
     const form = new FormData(event.currentTarget);
     if (modal.kind === "client") {
-      const client: Client = { id: uid("client"), name: String(form.get("name") || "").trim(), contact: String(form.get("contact") || "").trim(), email: String(form.get("email") || "").trim(), phone: String(form.get("phone") || "").trim(), sites: String(form.get("siteLabel") || "").trim() ? [{ id: uid("site"), label: String(form.get("siteLabel") || "").trim(), address: String(form.get("address") || "").trim() }] : [], notes: "" };
+      const contactName = String(form.get("contact") || "").trim();
+      const contactEmail = String(form.get("email") || "").trim();
+      const contactPhone = String(form.get("phone") || "").trim();
+      const client: Client = { id: uid("client"), name: String(form.get("name") || "").trim(), contact: contactName, email: contactEmail, phone: contactPhone, contacts: contactName ? [{ id: uid("client-contact"), name: contactName, role: String(form.get("contactRole") || "").trim(), email: contactEmail, phone: contactPhone }] : [], sites: String(form.get("siteLabel") || "").trim() ? [{ id: uid("site"), label: String(form.get("siteLabel") || "").trim(), address: String(form.get("address") || "").trim() }] : [], notes: "" };
       if (!client.name) return;
       onSubmit({ ...state, clients: [client, ...state.clients] });
       return;
@@ -3200,13 +3367,13 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
       <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><span className="eyebrow">QUICK ADD</span><h2 id="modal-title">{titles[modal.kind]}</h2></div><button aria-label="Close" onClick={onClose}>×</button></header>
         <form onSubmit={handleSubmit}>
-          {modal.kind === "client" && <div className="form-grid two-column"><label className="field full"><span>Client name <b>*</b></span><input name="name" autoFocus required /></label><label className="field"><span>Contact</span><input name="contact" /></label><label className="field"><span>Phone</span><input name="phone" /></label><label className="field full"><span>Email</span><input name="email" type="email" /></label><label className="field"><span>First site label</span><input name="siteLabel" placeholder="e.g. Cornwall Armouries" /></label><label className="field"><span>Address</span><input name="address" /></label></div>}
+          {modal.kind === "client" && <div className="form-grid two-column"><label className="field full"><span>Client name <b>*</b></span><input name="name" autoFocus required autoComplete="off" /></label><label className="field"><span>First attention contact</span><input name="contact" autoComplete="off" /></label><label className="field"><span>Role / department</span><input name="contactRole" autoComplete="off" /></label><label className="field"><span>Phone</span><input name="phone" autoComplete="off" /></label><label className="field"><span>Email</span><input name="email" type="email" autoComplete="off" /></label><label className="field"><span>First site label</span><input name="siteLabel" autoComplete="off" placeholder="e.g. Cornwall Armouries" /></label><label className="field"><span>Address</span><input name="address" autoComplete="off" /></label></div>}
           {modal.kind === "vendor" && <div className="form-grid two-column"><div className="field full actual-entry-note"><strong>Subcontractor record</strong><small>When the portal is connected, this list will come from Subs/Suppliers records categorized as Subcontractor.</small></div><label className="field full"><span>Subcontractor company <b>*</b></span><input name="name" autoFocus required /></label><label className="field"><span>Trade / service type</span><input name="trade" placeholder="Painting, electrical…" /></label><label className="field"><span>Contact</span><input name="contact" /></label><label className="field"><span>Email</span><input name="email" type="email" /></label><label className="field"><span>Phone</span><input name="phone" /></label><label className="field full"><span>Notes</span><textarea name="notes" rows={3} /></label></div>}
           {modal.kind === "pricebook" && <div className="form-grid two-column">
             <label className="field full"><span>Product / service name <b>*</b></span><input name="name" autoFocus required placeholder="e.g. Interior painting" /></label>
             <label className="field"><span>Division</span><select name="division" defaultValue="Div 01 – General Requirements">{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></label>
             <label className="field"><span>Cost type</span><select name="costType" value={priceBookCostType} onChange={(event) => setPriceBookCostType(event.target.value as CostType)}>{costTypeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
-            {priceBookCostType === "Sub / Vendor" && <label className="field full"><span>Subcontractor name</span><input name="defaultVendor" list="new-price-book-vendors" placeholder="Choose a saved subcontractor or type one" /><datalist id="new-price-book-vendors">{activeSubcontractors(state.vendors).map((vendor) => <option key={vendor.id} value={vendor.name} label={vendor.trade || undefined} />)}</datalist></label>}
+            {priceBookCostType === "Sub / Vendor" && <label className="field full"><span>Subcontractor name</span><input type="hidden" name="defaultVendor" value={priceBookVendorName} /><SearchablePicker value={priceBookVendorName} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} placeholder="Search or type a subcontractor" ariaLabel="Default subcontractor" allowCustom onChange={setPriceBookVendorName} onSelect={(option) => setPriceBookVendorName(option.label)} /></label>}
             <label className="field"><span>Unit pricing</span><select name="unitPreset" value={priceBookUnitChoice} onChange={(event) => setPriceBookUnitChoice(event.target.value)}>{unitPricingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}<option value="__custom__">Custom — Type your own unit</option></select></label>
             {priceBookUnitChoice === "__custom__" && <label className="field"><span>Custom unit</span><input name="customUnit" required placeholder="e.g. /hole, m³, /fixture" /></label>}
             <label className="field"><span>Cost</span><div className="input-prefix"><span>$</span><input name="typical" type="number" min="0" step="0.01" /></div></label>

@@ -194,6 +194,7 @@ export function SupplierPriceImportModal({ vendors, divisions, onClose, onApplie
   const [phase, setPhase] = useState<ImportPhase>("choose");
   const [file, setFile] = useState<File | null>(null);
   const [supplierName, setSupplierName] = useState("");
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
   const [fileHash, setFileHash] = useState("");
   const [parsed, setParsed] = useState<SupplierParseResult | null>(null);
   const [rows, setRows] = useState<ReviewRow[]>([]);
@@ -206,6 +207,10 @@ export function SupplierPriceImportModal({ vendors, divisions, onClose, onApplie
   const [statusFilter, setStatusFilter] = useState<ReviewStatus | "all">("all");
   const [warningsConfirmed, setWarningsConfirmed] = useState(false);
   const [appliedMessage, setAppliedMessage] = useState("");
+  const supplierOptions = vendors
+    .filter((vendor) => (vendor.category ?? (vendor.trade === "Material Supplier" ? "Supplier" : "Subcontractor")) !== "Subcontractor")
+    .filter((vendor) => vendor.name.toLocaleLowerCase().includes(supplierName.trim().toLocaleLowerCase()))
+    .slice(0, 30);
   const cancelled = useRef(false);
 
   const counts = useMemo(() => rows.reduce((result, row) => ({ ...result, [row.status]: result[row.status] + 1 }), { new: 0, changed: 0, unchanged: 0, review: 0 } as Record<ReviewStatus, number>), [rows]);
@@ -301,7 +306,7 @@ export function SupplierPriceImportModal({ vendors, divisions, onClose, onApplie
         {phase === "choose" && <div className="supplier-import-content">
           <div className="import-explainer"><strong>Upload a supplier PDF or the completed JGC Excel price sheet.</strong><span>Excel prices are matched to the material name beside them—not the row number—so rows can be sorted, inserted or removed safely. Old quotes never change.</span></div>
           <div className="form-grid two-column">
-            <label className="field full"><span>Supplier name</span><input value={supplierName} onChange={(event) => setSupplierName(event.target.value)} list="supplier-import-vendors" placeholder="Choose a supplier or type the supplier name" /><datalist id="supplier-import-vendors">{vendors.filter((vendor) => (vendor.category ?? (vendor.trade === "Material Supplier" ? "Supplier" : "Subcontractor")) !== "Subcontractor").map((vendor) => <option key={vendor.id} value={vendor.name} />)}</datalist></label>
+            <label className="field full"><span>Supplier name</span><div className="saved-data-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSupplierPickerOpen(false); }}><input role="combobox" aria-label="Supplier name" aria-expanded={supplierPickerOpen} aria-autocomplete="list" autoComplete="off" value={supplierName} onFocus={() => setSupplierPickerOpen(true)} onChange={(event) => { setSupplierName(event.target.value); setSupplierPickerOpen(true); }} placeholder="Search saved suppliers or type a new name" />{supplierPickerOpen && <div className="saved-data-results" role="listbox">{supplierOptions.map((vendor) => <button key={vendor.id} type="button" role="option" aria-selected={supplierName === vendor.name} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSupplierName(vendor.name); setSupplierPickerOpen(false); }}><strong>{vendor.name}</strong>{vendor.trade && <small>{vendor.trade}</small>}</button>)}{!supplierOptions.length && <div className="saved-data-empty">No saved supplier matches. Keep typing to use a new supplier name.</div>}</div>}</div></label>
             <label className="supplier-file-field full"><input type="file" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /><span className="supplier-file-icon">{file?.name.toLocaleLowerCase().endsWith(".xlsx") ? "XLSX" : "PDF"}</span><strong>{file?.name ?? "Choose supplier PDF or completed JGC Excel sheet"}</strong><small>{file ? `${(file.size / 1_000_000).toFixed(1)} MB` : "Excel matches Material Name to Price; BMR/RONA and scanned Emard PDFs are also supported"}</small></label>
           </div>
           <div className="supported-imports"><div><b>JGC Excel sheet</b><span>Finds the Material Name and Price headings wherever they are and matches every price by name.</span></div><div><b>BMR / RONA PDF</b><span>Reads product number, net JGC cost and discounts automatically.</span></div><div><b>Emard PDF</b><span>Scans each image page with OCR and flags anything uncertain.</span></div></div>
