@@ -70,7 +70,12 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
       if (response.ok) resolvedLogoBytes = new Uint8Array(await response.arrayBuffer());
     }
     if (resolvedLogoBytes) {
-      const logo = await pdf.embedPng(resolvedLogoBytes);
+      let logo;
+      try {
+        logo = await pdf.embedPng(resolvedLogoBytes);
+      } catch {
+        logo = await pdf.embedJpg(resolvedLogoBytes);
+      }
       const scale = Math.min(285 / logo.width, 72 / logo.height);
       page.drawImage(logo, { x: (PAGE.width - logo.width * scale) / 2, y: y - logo.height * scale, width: logo.width * scale, height: logo.height * scale });
     }

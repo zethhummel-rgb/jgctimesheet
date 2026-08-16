@@ -17,6 +17,8 @@ import {
   type Quote,
   type QuoteLine,
 } from "./estimator-data";
+import { createProposalPdf } from "./proposal-pdf";
+import { createPurchaseOrderPdf, purchaseOrderTotals } from "./purchase-order-pdf";
 
 export interface QuoteBackupReviewItem {
   key: string;
@@ -208,7 +210,7 @@ class BackupPdfBuilder {
   private y = 0;
   private section = "";
   private sectionSubtitle = "";
-  private pageSections: string[] = [];
+  private ownedPages: Array<{ page: PDFPage; section: string }> = [];
 
   constructor(
     private document: PDFDocument,
@@ -228,7 +230,7 @@ class BackupPdfBuilder {
 
   private addPage(continuation: boolean) {
     this.page = this.document.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    this.pageSections.push(this.section);
+    this.ownedPages.push({ page: this.page, section: this.section });
     this.drawHeader();
     this.page.drawText(ascii(this.section.toUpperCase()), {
       x: MARGIN,
@@ -447,9 +449,11 @@ class BackupPdfBuilder {
 
   finish() {
     const pages = this.document.getPages();
-    pages.forEach((page, index) => {
+    this.ownedPages.forEach(({ page, section }) => {
+      const index = pages.indexOf(page);
+      if (index < 0) return;
       page.drawLine({ start: { x: MARGIN, y: 34 }, end: { x: PAGE_WIDTH - MARGIN, y: 34 }, thickness: 0.5, color: colour.line });
-      page.drawText(ascii(`${this.quote.number} - Complete Quote Backup - ${this.pageSections[index]}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
+      page.drawText(ascii(`${this.quote.number} - Complete Quote Backup - ${section}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
       const pageNumber = `Page ${index + 1} of ${pages.length}`;
       page.drawText(pageNumber, { x: PAGE_WIDTH - MARGIN - this.regular.widthOfTextAtSize(pageNumber, 6.8), y: 21, size: 6.8, font: this.regular, color: colour.muted });
     });
@@ -756,6 +760,27 @@ function addHistoryPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
       ["Accepted revenue", money(job.acceptedRevenue)],
       ["Original cost budget", money(job.originalCostBudget)],
     ]);
+    const purchaseOrders = job.purchaseOrders ?? [];
+    if (purchaseOrders.length) {
+      builder.subheading("Purchase orders included in this backup");
+      builder.table(
+        [
+          { label: "PO number", width: 105 },
+          { label: "Subcontractor", width: 190 },
+          { label: "Status", width: 75 },
+          { label: "PO date", width: 87 },
+          { label: "Pre-tax", width: 75, align: "right" },
+        ],
+        purchaseOrders.map((purchaseOrder) => [
+          purchaseOrder.number || "Not assigned",
+          purchaseOrder.vendorName || "Not recorded",
+          purchaseOrder.status,
+          shortDate(purchaseOrder.issueDate),
+          money(purchaseOrderTotals(purchaseOrder).subtotal),
+        ]),
+        { fontSize: 7.3 },
+      );
+    }
   }
   builder.callout("Embedded recovery data", "The PDF contains an attached .jgcquote.json data snapshot with the complete quote, linked client, vendors, Price Book items, job record and activity history.", "green");
 }
@@ -792,8 +817,8 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   const document = await PDFDocument.create();
   document.setTitle(`${options.quote.number} - Complete Quote Backup`);
   document.setAuthor(options.state.settings.companyName || "John Gordon Construction Inc.");
-  document.setSubject("Details, Estimate, Review, Divisions, Proposal and History");
-  document.setKeywords(["JGC", "quote", "estimate", "backup"]);
+  document.setSubject("Details, Estimate, Review, Divisions, Proposal, History and Purchase Orders");
+  document.setKeywords(["JGC", "quote", "estimate", "backup", "proposal", "purchase orders"]);
   document.setCreator("JGC Estimate Desk");
   document.setProducer("JGC Estimate Desk");
   document.setCreationDate(exportedAt);
@@ -803,9 +828,13 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   let logo: PDFImage | null = null;
   if (options.logoBytes?.length) {
     try {
-      logo = await document.embedJpg(options.logoBytes);
+      logo = await document.embedPng(options.logoBytes);
     } catch {
-      logo = null;
+      try {
+        logo = await document.embedJpg(options.logoBytes);
+      } catch {
+        logo = null;
+      }
     }
   }
   const builder = new BackupPdfBuilder(document, regular, bold, options.state, options.quote, logo, exportedAt);
@@ -813,8 +842,34 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   addEstimatePage(builder, options.state, options.quote);
   addReviewPage(builder, options.quote, options.review);
   addDivisionsPage(builder, options.quote);
-  addProposalPage(builder, options.state, options.quote);
+
+  // Copy the exact customer proposal pages into the backup. Keeping this on the
+  // shared proposal renderer prevents the Proposal-only and backup downloads
+  // from drifting apart as the customer document changes.
+  const proposalBytes = await createProposalPdf(options.state, options.quote, options.logoBytes);
+  const proposalDocument = await PDFDocument.load(proposalBytes);
+  const proposalPages = await document.copyPages(proposalDocument, proposalDocument.getPageIndices());
+  proposalPages.forEach((page) => document.addPage(page));
+
   addHistoryPage(builder, options.state, options.quote);
+
+  // A complete backup also contains readable copies of every PO connected to
+  // the accepted job. Draft, issued and void POs are all retained for audit and
+  // redundancy, using the same renderer as the individual PO download.
+  const job = options.state.jobs.find((item) => item.quoteId === options.quote.id);
+  if (job) {
+    for (const purchaseOrder of job.purchaseOrders ?? []) {
+      const purchaseOrderBytes = await createPurchaseOrderPdf({
+        state: options.state,
+        job,
+        purchaseOrder,
+        logoBytes: options.logoBytes,
+      });
+      const purchaseOrderDocument = await PDFDocument.load(purchaseOrderBytes);
+      const purchaseOrderPages = await document.copyPages(purchaseOrderDocument, purchaseOrderDocument.getPageIndices());
+      purchaseOrderPages.forEach((page) => document.addPage(page));
+    }
+  }
   builder.finish();
 
   const attachmentName = `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Machine Data.jgcquote.json`;
@@ -831,7 +886,7 @@ export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   let logoBytes: Uint8Array | null = options.logoBytes ?? null;
   if (!logoBytes && typeof fetch !== "undefined") {
     try {
-      const response = await fetch("./jgc-letterhead-logo.jpg");
+      const response = await fetch("./jgc-logo-transparent.png");
       if (response.ok) logoBytes = new Uint8Array(await response.arrayBuffer());
     } catch {
       logoBytes = null;
