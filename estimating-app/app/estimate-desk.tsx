@@ -143,7 +143,7 @@ const navItems: { key: ViewKey; label: string; icon: string }[] = [
   { key: "jobs", label: "Jobs", icon: "✓" },
 ];
 
-type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "history";
+type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 type ModalState =
   | null
@@ -939,6 +939,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             setExpandedLineId={setExpandedLineId}
             catalogToAdd={catalogToAdd}
             setCatalogToAdd={setCatalogToAdd}
+            onEditPurchaseOrder={(jobId, purchaseOrderId) => setPurchaseOrderEditor({ jobId, purchaseOrderId })}
           />
         );
       }
@@ -1697,6 +1698,7 @@ function QuoteWorkspace({
   setExpandedLineId,
   catalogToAdd,
   setCatalogToAdd,
+  onEditPurchaseOrder,
 }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
@@ -1715,11 +1717,14 @@ function QuoteWorkspace({
   setExpandedLineId: (id: string | null) => void;
   catalogToAdd: string;
   setCatalogToAdd: (code: string) => void;
+  onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
 }) {
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const locked = quote.status === "Won" || quote.status === "Lost";
+  const linkedJob = state.jobs.find((job) => job.quoteId === quote.id) ?? null;
+  const linkedPurchaseOrders = linkedJob?.purchaseOrders ?? [];
   const tabs: { key: QuoteTab; label: string; badge?: number }[] = [
     { key: "details", label: "Details" },
     { key: "estimate", label: "Estimate", badge: quote.lines.length },
@@ -1727,6 +1732,7 @@ function QuoteWorkspace({
     { key: "review", label: "Review", badge: readiness.blockers.length + readiness.unresolvedWarnings.length },
     { key: "divisions", label: "Divisions", badge: divisionSummaries(quote).filter((division) => division.lineCount > 0).length },
     { key: "proposal", label: "Proposal" },
+    ...(linkedPurchaseOrders.length ? [{ key: "purchase-orders" as const, label: "POs", badge: linkedPurchaseOrders.length }] : []),
     { key: "history", label: "History", badge: quote.revisions.length + (quote.status === "Draft" ? 0 : 1) },
   ];
 
@@ -1791,10 +1797,11 @@ function QuoteWorkspace({
         {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} />}
         {tab === "divisions" && <QuoteDivisions quote={quote} />}
         {tab === "proposal" && <QuoteProposal state={state} quote={quote} />}
+        {tab === "purchase-orders" && linkedJob && <QuotePurchaseOrders state={state} quote={quote} job={linkedJob} onEditPurchaseOrder={onEditPurchaseOrder} />}
         {tab === "history" && <QuoteHistory state={state} quote={quote} />}
       </div>
 
-      {tab !== "proposal" && (
+      {tab !== "proposal" && tab !== "purchase-orders" && (
         <div className="sticky-quote-summary">
           <div><span>Direct cost</span><strong>{money(totals.directCost)}</strong></div>
           <div><span>Quote price</span><strong>{money(totals.subtotal)}</strong></div>
@@ -2562,6 +2569,70 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
           {subcontractorLines.filter((line) => !line.costBuildUp).map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
         </section>
       )}
+    </div>
+  );
+}
+
+function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder }: {
+  state: AppState;
+  quote: Quote;
+  job: Job;
+  onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
+}) {
+  const purchaseOrders = job.purchaseOrders ?? [];
+  const activePurchaseOrders = purchaseOrders.filter((purchaseOrder) => purchaseOrder.status !== "Void");
+  const preTaxCommitment = activePurchaseOrders.reduce((sum, purchaseOrder) => (
+    sum + purchaseOrder.lines.reduce((lineSum, line) => lineSum + (Number(line.amount) || 0), 0)
+  ), 0);
+  const issuedCount = purchaseOrders.filter((purchaseOrder) => purchaseOrder.status === "Issued").length;
+  const draftCount = purchaseOrders.filter((purchaseOrder) => purchaseOrder.status === "Draft").length;
+
+  return (
+    <div className="page-stack quote-po-layout">
+      <section className="panel quote-po-hero">
+        <div>
+          <span className="eyebrow">LINKED JOB PURCHASE ORDERS</span>
+          <h2>POs for Job {job.jobNumber}</h2>
+          <p>All purchase orders connected to this accepted quote stay together here and are also included in the Full Quote Backup PDF.</p>
+        </div>
+        <div className="quote-po-total"><span>Active PO commitment</span><strong>{money(preTaxCommitment)}</strong><small>Pre-tax · void POs excluded</small></div>
+      </section>
+
+      <section className="quote-po-kpis" aria-label="Purchase order summary">
+        <div><span>Total POs</span><strong>{purchaseOrders.length}</strong><small>Attached to this quote</small></div>
+        <div><span>Issued</span><strong>{issuedCount}</strong><small>Released commitments</small></div>
+        <div><span>Draft</span><strong>{draftCount}</strong><small>Still being prepared</small></div>
+        <div><span>Job</span><strong>{job.jobNumber}</strong><small>{job.status} · {quote.project || "Project not named"}</small></div>
+      </section>
+
+      <section className="panel subcontract-po-panel quote-po-list-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">PURCHASE ORDER REGISTER</span><h2>Attached purchase orders</h2><p>Edit or download a PO here without leaving the quote.</p></div>
+          <span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="data-table-wrap">
+          <table className="data-table po-source-table quote-po-table">
+            <thead><tr><th>PO number</th><th>Subcontractor</th><th>Vendor quote #</th><th>PO date</th><th>Status</th><th>Pre-tax</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <tbody>{purchaseOrders.map((purchaseOrder) => {
+              const preTax = purchaseOrder.lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+              return (
+                <tr key={purchaseOrder.id}>
+                  <td data-label="PO number"><strong>{purchaseOrder.number || "Not assigned"}</strong></td>
+                  <td data-label="Subcontractor"><strong>{purchaseOrder.vendorName || "Not recorded"}</strong><small>{purchaseOrder.vendorContact || purchaseOrder.vendorEmail || "No contact selected"}</small></td>
+                  <td data-label="Vendor quote #">{purchaseOrder.vendorQuoteNumber || "—"}</td>
+                  <td data-label="PO date">{shortDate(purchaseOrder.issueDate)}</td>
+                  <td data-label="Status"><span className={`po-status po-${purchaseOrder.status.toLowerCase()}`}>{purchaseOrder.status}</span></td>
+                  <td data-label="Pre-tax"><strong>{money(preTax)}</strong></td>
+                  <td className="po-row-actions">
+                    <button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, purchaseOrder.id)}>Edit PO</button>
+                    <button className="button primary compact" onClick={() => void downloadPurchaseOrder(state, job, purchaseOrder)}>Download PDF</button>
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
