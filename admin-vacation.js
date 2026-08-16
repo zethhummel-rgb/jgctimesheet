@@ -1,3 +1,5 @@
+let editingAdminVacationRequestId = "";
+
 function formatVacationStatus(status) {
     const value = String(status || "pending");
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -93,11 +95,28 @@ function renderAdminVacationTable(rows) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${rows.map((request) => `
+                    ${rows.map((request) => {
+                        const isEditingDates = editingAdminVacationRequestId === request.id;
+                        return `
                         <tr>
                             <td>
-                                ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
-                                ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                                ${isEditingDates ? `
+                                    <div class="jgc-field" style="min-width:230px;">
+                                        <label class="jgc-label" for="adminVacationStart-${escapeHtml(request.id)}">First Day Off</label>
+                                        <input class="jgc-input" id="adminVacationStart-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.start_date || "")}">
+                                        <label class="jgc-label" for="adminVacationEnd-${escapeHtml(request.id)}">Last Day Off</label>
+                                        <input class="jgc-input" id="adminVacationEnd-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.end_date || "")}">
+                                        <label class="jgc-label" for="adminVacationReturn-${escapeHtml(request.id)}">Return To Work</label>
+                                        <input class="jgc-input" id="adminVacationReturn-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.return_date || "")}">
+                                        <div class="actions jgc-table-actions" style="margin-top:8px;">
+                                            <button type="button" class="jgc-button" onclick="saveAdminApprovedVacationDates('${escapeHtml(request.id)}')">Save Dates</button>
+                                            <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="cancelAdminVacationDateEdit()">Cancel</button>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    ${escapeHtml(request.start_date)} to ${escapeHtml(request.end_date)}
+                                    ${request.return_date ? '<br>Return: ' + escapeHtml(request.return_date) : ""}
+                                `}
                             </td>
                             <td>${Number(request.total_days || 0).toFixed(1)}</td>
                             <td>${escapeHtml(request.request_type)}</td>
@@ -109,17 +128,106 @@ function renderAdminVacationTable(rows) {
                             </td>
                             <td>
                                 <div class="actions jgc-table-actions">
+                                    ${request.status === "approved" && !isEditingDates ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="beginAdminVacationDateEdit('${escapeHtml(request.id)}')">Edit Approved Dates</button>` : ""}
                                     <button type="button" class="jgc-button" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'approved')">Approve</button>
                                     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="reviewVacationRequest('${escapeHtml(request.id)}', 'denied')">Deny</button>
                                 </div>
                             </td>
                             <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
                         </tr>
-                    `).join("")}
+                    `;}).join("")}
                 </tbody>
             </table>
         </div>
     `;
+}
+
+function beginAdminVacationDateEdit(id) {
+    const request = vacationRequests.find((item) => item.id === id);
+
+    if (!request || request.status !== "approved") {
+        alert("Only an approved vacation request can be edited here.");
+        return;
+    }
+
+    editingAdminVacationRequestId = id;
+    renderVacationRequests();
+    const input = document.getElementById("adminVacationStart-" + id);
+    if (input) {
+        input.focus();
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+}
+
+function cancelAdminVacationDateEdit() {
+    editingAdminVacationRequestId = "";
+    renderVacationRequests();
+}
+
+async function saveAdminApprovedVacationDates(id) {
+    const request = vacationRequests.find((item) => item.id === id);
+    const startInput = document.getElementById("adminVacationStart-" + id);
+    const endInput = document.getElementById("adminVacationEnd-" + id);
+    const returnInput = document.getElementById("adminVacationReturn-" + id);
+    const startDate = startInput ? startInput.value : "";
+    const endDate = endInput ? endInput.value : "";
+    const returnDate = returnInput ? returnInput.value : "";
+
+    if (!request || request.status !== "approved") {
+        alert("This approved vacation request could not be found.");
+        return;
+    }
+
+    if (!startDate || !endDate || endDate < startDate) {
+        alert("Choose a valid first and last day off.");
+        return;
+    }
+
+    if (returnDate && returnDate <= endDate) {
+        alert("Return to work must be after the last day off.");
+        return;
+    }
+
+    const confirmed = confirm(
+        "Update this approved vacation to " + startDate + " through " + endDate + "?\n\n" +
+        "The employee's live and submitted vacation timesheet rows will be corrected automatically."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { data: updateResult, error } = await supabaseClient.rpc("update_approved_vacation_request_dates", {
+        p_request_id: id,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_return_date: returnDate || null
+    });
+
+    if (error) {
+        alert("This approved vacation could not be updated. " + (error.message || ""));
+        return;
+    }
+
+    const updatedRequest = updateResult && updateResult.request ? updateResult.request : null;
+
+    if (!updatedRequest) {
+        alert("The vacation dates were saved, but the updated request could not be reloaded. Refresh and check the dates.");
+        return;
+    }
+
+    editingAdminVacationRequestId = "";
+    vacationRequests = vacationRequests.map((item) => item.id === id ? updatedRequest : item);
+
+    if (typeof syncJgcScheduleEventToGoogle === "function") {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(updatedRequest), "upsert");
+    }
+
+    await createVacationDecisionAnnouncement(updatedRequest);
+    await loadAllAdminData();
+    renderVacationCalendar();
+    renderVacationRequests();
+    alert("Approved vacation dates and timesheet vacation rows were updated.");
 }
 
 function getVacationWorkerGroupKey(request) {
@@ -373,6 +481,9 @@ async function deleteVacationRequest(id) {
     }
 
     vacationRequests = vacationRequests.filter((item) => item.id !== id);
+    if (editingAdminVacationRequestId === id) {
+        editingAdminVacationRequestId = "";
+    }
     renderVacationCalendar();
     renderVacationRequests();
 }

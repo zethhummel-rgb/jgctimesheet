@@ -916,6 +916,77 @@ test("vacation request date is locked to today's Toronto date", async ({ page })
   await expectNoRuntimeErrors(errors, "locked vacation request date");
 });
 
+test("employee can open an approved vacation request for date correction", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const workerProfile = {
+    ...fakeProfile,
+    display_name: "Steven Leduc",
+    worker_key: "steven leduc",
+    role: "worker"
+  };
+  const approvedRequest = {
+    id: "00000000-0000-4000-8000-000000000304",
+    worker_name: "steven leduc",
+    worker_display_name: "Steven Leduc",
+    request_date: "2026-08-01",
+    start_date: "2026-08-13",
+    end_date: "2026-08-17",
+    return_date: "2026-08-18",
+    total_days: 3,
+    request_type: "Vacation",
+    reason: "Vacation",
+    employee_signature: "Steven Leduc",
+    form_data: {},
+    status: "approved"
+  };
+
+  await installAuthenticatedPortalState(page, workerProfile);
+  await mockPortalServices(page, workerProfile);
+  await page.route(`${supabaseOrigin}/rest/v1/vacation_requests**`, (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([approvedRequest])
+  }));
+  await page.goto("/vacation-request.html", { waitUntil: "domcontentloaded" });
+
+  await page.getByRole("button", { name: "Edit Approved Dates" }).click();
+  await expect(page.locator("#startDate")).toHaveValue("2026-08-13");
+  await expect(page.locator("#endDate")).toHaveValue("2026-08-17");
+  await expect(page.locator("#returnDate")).toHaveValue("2026-08-18");
+  await expect(page.locator("#vacationSubmitButton")).toHaveText("Save Approved Vacation Changes");
+  await expect(page.locator("#requestType")).toBeDisabled();
+  await expect(page.locator("#reason")).toBeDisabled();
+  await expect(page.locator("#vacationCancelEditButton")).toBeVisible();
+  await expectNoRuntimeErrors(errors, "employee approved vacation date editor");
+});
+
+test("timesheet PDF treats full-day leave placeholders as non-hour Off markers", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page, fakeProfile);
+  await mockPortalServices(page, fakeProfile);
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#submitStatus")).toContainText("Loaded", { timeout: 10000 });
+
+  const pdfCheck = await page.evaluate(() => {
+    const html = buildTimesheetPdfHtml([
+      { day: "Thursday", weekStartValue: "2026-08-09", jobName: "Shop JGC", jobNumber: "26074", hours: 8, entryType: "work", nightWork: false },
+      { day: "Thursday", weekStartValue: "2026-08-09", jobName: "Vacation Day - Paid", jobNumber: "Vacation", hours: 0.01, entryType: "vacation", leaveType: "paid", nightWork: false },
+      { day: "Friday", weekStartValue: "2026-08-09", jobName: "Vacation Day - Paid", jobNumber: "Vacation", hours: 0.01, entryType: "vacation", leaveType: "paid", nightWork: false }
+    ], "Aug 9, 2026 to Aug 15, 2026", 8, "Vacation");
+
+    return {
+      dayTotalIsEight: html.includes("Day Hours<strong>8.00</strong>"),
+      hasOffMarker: html.includes(">Off<"),
+      containsPlaceholderTotal: html.includes("8.02") || html.includes("0.02")
+    };
+  });
+
+  expect(pdfCheck.dayTotalIsEight).toBe(true);
+  expect(pdfCheck.hasOffMarker).toBe(true);
+  expect(pdfCheck.containsPlaceholderTotal).toBe(false);
+  await expectNoRuntimeErrors(errors, "timesheet PDF leave placeholder totals");
+});
+
 test("admin timesheets do not auto-add approved vacation", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   let vacationRequestReads = 0;
@@ -2376,6 +2447,12 @@ test("admin vacation requests build each employee table only when opened", async
   await expect(firstWorker.locator("[data-vacation-lazy-body]")).toHaveAttribute("data-loaded", "true");
   await expect(firstWorker.locator("table")).toHaveCount(1);
   await expect(page.locator("#vacationList table")).toHaveCount(1);
+
+  const secondWorker = groups.filter({ hasText: "Smoke Worker Two" });
+  await secondWorker.locator("summary").click();
+  await secondWorker.getByRole("button", { name: "Edit Approved Dates" }).click();
+  await expect(page.locator("#adminVacationStart-smoke-vacation-two")).toHaveValue("2026-07-23");
+  await expect(page.getByRole("button", { name: "Save Dates" })).toBeVisible();
   await expectNoRuntimeErrors(errors, "admin vacation employee groups");
 });
 

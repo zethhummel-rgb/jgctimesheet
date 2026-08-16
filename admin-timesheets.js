@@ -1228,7 +1228,8 @@ function convertAdminLiveEntryForArchive(entry) {
         nightWork: Boolean(entry.night_work),
         entryType: entry.entry_type || "",
         leaveType: entry.leave_type || "",
-        leaveNote: entry.leave_note || entry.admin_entry_note || ""
+        leaveNote: entry.leave_note || entry.admin_entry_note || "",
+        vacationRequestId: entry.vacation_request_id || ""
     };
 }
 
@@ -2086,7 +2087,8 @@ function normalizeAdminTimesheetEntry(entry, week) {
         nightWork: Boolean(getTimesheetEntryValue(entry, "nightWork", "night_work", false)),
         entryType: getAdminTimesheetEntryType(entry),
         leaveType: getAdminTimesheetLeaveType(entry),
-        leaveNote: getAdminTimesheetLeaveNote(entry)
+        leaveNote: getAdminTimesheetLeaveNote(entry),
+        vacationRequestId: getTimesheetEntryValue(entry, "vacationRequestId", "vacation_request_id", "")
     };
 }
 
@@ -2255,7 +2257,10 @@ function getTimesheetEditRowHtml(entry) {
                     <option value="half_day"${entry.leaveType === "half_day" ? " selected" : ""}>Half Day</option>
                 </select>
             </td>
-            <td><input class="job-name-input" data-field="jobName" value="${escapeHtml(entry.jobName || "")}"></td>
+            <td>
+                <input class="job-name-input" data-field="jobName" value="${escapeHtml(entry.jobName || "")}">
+                <input type="hidden" data-field="vacationRequestId" value="${escapeHtml(entry.vacationRequestId || "")}">
+            </td>
             <td><input data-field="jobNumber" value="${escapeHtml(entry.jobNumber || "")}"></td>
             <td><input data-field="leaveNote" value="${escapeHtml(entry.leaveNote || "")}"></td>
             <td><select data-field="timeIn">${getAdminTimeOptions(entry.timeIn || "")}</select></td>
@@ -2321,7 +2326,8 @@ function collectAdminTimesheetEntries(week) {
             nightWork: entryType === "work" ? getChecked("nightWork") : false,
             entryType,
             leaveType: entryType === "vacation" ? leaveType : "",
-            leaveNote
+            leaveNote,
+            vacationRequestId: entryType === "vacation" ? getValue("vacationRequestId") : ""
         };
     }).filter((entry) => entry.day || entry.jobName || entry.leaveNote || Number(entry.hours) > 0);
 }
@@ -2436,8 +2442,21 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
         return day.slice(0, 3) + (date ? "<small>" + escapeHtml(formatTimesheetPdfDate(date).replace(", " + date.getFullYear(), "")) + "</small>" : "");
     });
     const grouped = new Map();
+    const workDays = new Set(entries
+        .filter((entry) => getAdminTimesheetEntryType(entry) === "work")
+        .map((entry) => getTimesheetEntryValue(entry, "day", "day_of_week", "")));
 
     entries.forEach((entry) => {
+        const entryDay = getTimesheetEntryValue(entry, "day", "day_of_week", "");
+        const entryHours = Number(getTimesheetEntryValue(entry, "hours", "hours", 0));
+
+        if (getAdminTimesheetEntryType(entry) !== "work" &&
+            getAdminTimesheetLeaveType(entry) !== "half_day" &&
+            entryHours <= 0.011 &&
+            workDays.has(entryDay)) {
+            return;
+        }
+
         const jobName = String(getTimesheetEntryValue(entry, "jobName", "job_name", "Unassigned")).trim() || "Unassigned";
         const jobNumber = String(getTimesheetEntryValue(entry, "jobNumber", "job_number", "")).trim();
         const typeLabel = getAdminTimesheetEntryLabel(entry);
@@ -2452,17 +2471,29 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                 shifts: {
                     Day: Array(7).fill(0),
                     Night: Array(7).fill(0)
+                },
+                leaveMarkers: {
+                    Day: Array(7).fill(""),
+                    Night: Array(7).fill("")
                 }
             });
         }
 
         const group = grouped.get(groupKey);
-        const dayIndex = dayOrder.indexOf(getTimesheetEntryValue(entry, "day", "day_of_week", ""));
+        const dayIndex = dayOrder.indexOf(entryDay);
         const shift = getTimesheetEntryValue(entry, "nightWork", "night_work", false) ? "Night" : "Day";
         const entryNote = String(getAdminTimesheetLeaveNote(entry) || "").trim();
 
         if (dayIndex >= 0) {
-            group.shifts[shift][dayIndex] += Number(getTimesheetEntryValue(entry, "hours", "hours", 0));
+            const isFullDayLeavePlaceholder = getAdminTimesheetEntryType(entry) !== "work" &&
+                getAdminTimesheetLeaveType(entry) !== "half_day" &&
+                entryHours <= 0.011;
+
+            if (isFullDayLeavePlaceholder) {
+                group.leaveMarkers[shift][dayIndex] = "Off";
+            } else {
+                group.shifts[shift][dayIndex] += entryHours;
+            }
         }
         if (entryNote) {
             group.notes.add(entryNote);
@@ -2492,9 +2523,10 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
 
             ["Day", "Night"].forEach((shift) => {
                 const hours = group.shifts[shift];
+                const leaveMarkers = group.leaveMarkers[shift];
                 const rowTotal = hours.reduce((sum, value) => sum + value, 0);
 
-                if (rowTotal <= 0) {
+                if (rowTotal <= 0 && !leaveMarkers.some(Boolean)) {
                     return;
                 }
 
@@ -2509,8 +2541,11 @@ function buildAdminTimesheetPdfHtml(week, totalHours) {
                         <td class="job-cell"><strong>${escapeHtml(group.jobName)}</strong>${group.typeLabel ? "<small>" + escapeHtml(group.typeLabel) + "</small>" : ""}</td>
                         <td class="job-number-cell">${escapeHtml(group.jobNumber)}</td>
                         <td class="shift-cell">${shift}</td>
-                        ${hours.map((value) => "<td class=\"hours-cell\">" + (value ? value.toFixed(2) : "") + "</td>").join("")}
-                        <td class="hours-cell total-cell">${rowTotal.toFixed(2)}</td>
+                        ${hours.map((value, index) => {
+                            const displayValue = leaveMarkers[index] || (value ? value.toFixed(2) : "");
+                            return "<td class=\"hours-cell\">" + escapeHtml(displayValue) + "</td>";
+                        }).join("")}
+                        <td class="hours-cell total-cell">${rowTotal > 0 ? rowTotal.toFixed(2) : ""}</td>
                     </tr>
                 `);
             });

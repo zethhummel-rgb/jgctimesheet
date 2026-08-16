@@ -569,7 +569,7 @@ body.jgc-theme.vacation-page .summary-box.jgc-card strong {
 
 <section class="container jgc-panel">
     <h1>Vacation Request</h1>
-    <div class="subtitle">Submit a request for review</div>
+    <div id="vacationFormSubtitle" class="subtitle">Submit a request for review</div>
 
     <div class="grid jgc-form-grid">
         <div class="field jgc-field">
@@ -636,7 +636,8 @@ body.jgc-theme.vacation-page .summary-box.jgc-card strong {
     </div>
 
     <div class="actions jgc-actions">
-        <button type="button" class="jgc-button" onclick="submitVacationRequest()">Submit Vacation Request</button>
+        <button id="vacationSubmitButton" type="button" class="jgc-button" onclick="submitVacationRequest()">Submit Vacation Request</button>
+        <button id="vacationCancelEditButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="cancelVacationRequestEdit()" hidden>Cancel Edit</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
@@ -671,6 +672,7 @@ const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
 let myVacationRequests = [];
 let vacationCalendarMonth = new Date();
+let editingVacationRequestId = "";
 
 function getVacationRequestToday() {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -812,7 +814,7 @@ function buildVacationEmailBody(record) {
         record.reason || "",
         "",
         "Employee Signature: " + record.employee_signature,
-        "Status: Pending"
+        "Status: " + statusLabel(record.status || "pending")
     ].join("\n");
 }
 
@@ -849,7 +851,7 @@ function buildVacationPdfHtml(record) {
                 <tr><th>Finish Time</th><td>${escapeHtml(details.halfDayFinishTimeLabel || "")}</td></tr>
                 <tr><th>Notes</th><td>${escapeHtml(record.reason || "")}</td></tr>
                 <tr><th>Employee Signature</th><td class="signature">${escapeHtml(record.employee_signature)}</td></tr>
-                <tr><th>Status</th><td>Pending</td></tr>
+                <tr><th>Status</th><td>${escapeHtml(statusLabel(record.status || "pending"))}</td></tr>
             </table>
         </body>
         </html>
@@ -1001,7 +1003,7 @@ function renderVacationHistory() {
                     <th>Type</th>
                     <th>Status</th>
                     <th>Admin Note</th>
-                    <th>Delete</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -1014,12 +1016,78 @@ function renderVacationHistory() {
                         <td>${escapeHtml(request.request_type)}</td>
                         <td><span class="status-pill ${escapeHtml(request.status)} jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(statusLabel(request.status))}</span></td>
                         <td>${escapeHtml(request.admin_note || "")}</td>
-                        <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button></td>
+                        <td>
+                            <div class="actions jgc-table-actions">
+                                ${request.status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="startVacationRequestEdit('${escapeHtml(request.id)}')">Edit Approved Dates</button>` : ""}
+                                <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button>
+                            </div>
+                        </td>
                     </tr>
                 `).join("")}
             </tbody>
         </table>
     `;
+}
+
+function resetVacationRequestForm() {
+    editingVacationRequestId = "";
+    document.getElementById("startDate").value = "";
+    document.getElementById("endDate").value = "";
+    document.getElementById("returnDate").value = "";
+    document.getElementById("totalDays").value = "";
+    document.getElementById("halfDayRequest").checked = false;
+    document.getElementById("halfDayFinishTime").value = "";
+    document.getElementById("halfDayFinishWrap").classList.add("field-hidden");
+    document.getElementById("requestType").value = "Vacation";
+    document.getElementById("reason").value = "";
+    document.getElementById("employeeName").disabled = false;
+    document.getElementById("halfDayRequest").disabled = false;
+    document.getElementById("halfDayFinishTime").disabled = false;
+    document.getElementById("requestType").disabled = false;
+    document.getElementById("reason").disabled = false;
+    document.getElementById("employeeSignature").disabled = false;
+    document.getElementById("totalDays").readOnly = false;
+    document.getElementById("vacationSubmitButton").textContent = "Submit Vacation Request";
+    document.getElementById("vacationCancelEditButton").hidden = true;
+    document.getElementById("vacationFormSubtitle").textContent = "Submit a request for review";
+}
+
+function startVacationRequestEdit(id) {
+    const request = myVacationRequests.find((item) => item.id === id);
+
+    if (!request || request.status !== "approved") {
+        alert("Only an approved vacation request can be edited here.");
+        return;
+    }
+
+    const details = request.form_data || {};
+    editingVacationRequestId = request.id;
+    document.getElementById("startDate").value = request.start_date || "";
+    document.getElementById("endDate").value = request.end_date || "";
+    document.getElementById("returnDate").value = request.return_date || "";
+    document.getElementById("totalDays").value = request.total_days || "";
+    document.getElementById("halfDayRequest").checked = Boolean(details.halfDayRequest);
+    document.getElementById("halfDayFinishTime").value = details.halfDayFinishTime || "";
+    document.getElementById("halfDayFinishWrap").classList.toggle("field-hidden", !details.halfDayRequest);
+    document.getElementById("requestType").value = request.request_type || "Vacation";
+    document.getElementById("reason").value = request.reason || "";
+    document.getElementById("employeeSignature").value = request.employee_signature || worker.display || "";
+    document.getElementById("employeeName").disabled = true;
+    document.getElementById("halfDayRequest").disabled = true;
+    document.getElementById("halfDayFinishTime").disabled = true;
+    document.getElementById("requestType").disabled = true;
+    document.getElementById("reason").disabled = true;
+    document.getElementById("employeeSignature").disabled = true;
+    document.getElementById("totalDays").readOnly = true;
+    document.getElementById("vacationSubmitButton").textContent = "Save Approved Vacation Changes";
+    document.getElementById("vacationCancelEditButton").hidden = false;
+    document.getElementById("vacationFormSubtitle").textContent = "Editing approved vacation dates. Timesheet vacation rows will update automatically.";
+    document.querySelector(".vacation-page .container").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelVacationRequestEdit() {
+    resetVacationRequestForm();
+    setStatus("Vacation edit cancelled.");
 }
 
 async function deleteVacationRequest(id) {
@@ -1036,6 +1104,10 @@ async function deleteVacationRequest(id) {
         return;
     }
 
+    if (request.google_event_id && typeof syncJgcScheduleEventToGoogle === "function") {
+        await syncJgcScheduleEventToGoogle(supabaseClient, buildEmployeeVacationGoogleEvent(request), "delete");
+    }
+
     const { error } = await supabaseClient
         .from("vacation_requests")
         .delete()
@@ -1048,6 +1120,9 @@ async function deleteVacationRequest(id) {
     }
 
     myVacationRequests = myVacationRequests.filter((item) => item.id !== id);
+    if (editingVacationRequestId === id) {
+        resetVacationRequestForm();
+    }
     renderVacationHistory();
 }
 
@@ -1094,13 +1169,14 @@ async function loadMyVacationRequests() {
     renderVacationHistory();
 }
 
-async function emailVacationRequest(record) {
+async function emailVacationRequest(record, subjectPrefix) {
     const recipients = getVacationEmailRecipients();
     const to = recipients.join(",");
+    const subject = (subjectPrefix || "Vacation Request") + " - " + record.worker_display_name + " - " + record.start_date;
 
     if (!VACATION_EMAIL_SCRIPT_URL) {
         window.location.href = "mailto:" + recipients.map((email) => encodeURIComponent(email)).join(",") +
-            "?subject=" + encodeURIComponent("Vacation Request - " + record.worker_display_name) +
+            "?subject=" + encodeURIComponent(subject) +
             "&body=" + encodeURIComponent(record.email_body);
         return;
     }
@@ -1114,13 +1190,45 @@ async function emailVacationRequest(record) {
         body: JSON.stringify({
             to,
             recipients,
-            subject: "Vacation Request - " + record.worker_display_name + " - " + record.start_date,
+            subject,
             body: record.email_body,
             text: record.email_body,
             pdfHtml: buildVacationPdfHtml(record),
             pdfFileName: "vacation-request-" + record.worker_name.replace(/[^a-z0-9]+/g, "-") + "-" + record.start_date + ".pdf"
         })
     });
+}
+
+function buildEmployeeVacationGoogleEvent(request) {
+    const workerName = request.worker_display_name || request.worker_name || worker.display || "Employee";
+    const description = [
+        "Type: Approved Vacation" + (request.request_type ? " - " + request.request_type : ""),
+        "Employee: " + workerName,
+        request.total_days ? "Total Days: " + request.total_days : "",
+        request.reason ? "Reason / Notes: " + request.reason : "",
+        "",
+        "Updated from JGC Portal.",
+        "Portal Vacation Request ID: " + request.id
+    ].filter(Boolean).join("\n");
+
+    return {
+        ...request,
+        google_sync_table: "vacation_requests",
+        all_day: true,
+        event_type: "vacation",
+        event_date: request.start_date,
+        end_date: request.end_date || request.start_date,
+        start_time: "07:00",
+        end_time: "07:30",
+        title: "Vacation - " + workerName,
+        job_name: "Vacation",
+        job_number: "",
+        location: "",
+        notes: request.reason || "",
+        description,
+        employee_names: [workerName],
+        employee_emails: [worker.email || localStorage.getItem("currentUserEmail") || ""].filter(Boolean)
+    };
 }
 
 async function submitVacationRequest() {
@@ -1163,7 +1271,7 @@ async function submitVacationRequest() {
         request_type: getValue("requestType"),
         reason: getValue("reason"),
         employee_signature: employeeSignature,
-        status: "pending",
+        status: editingVacationRequestId ? "approved" : "pending",
         form_data: {
             employeeName,
             requestDate,
@@ -1182,6 +1290,74 @@ async function submitVacationRequest() {
     record.email_body = buildVacationEmailBody(record);
 
     setStatus("Saving vacation request...");
+
+    if (editingVacationRequestId) {
+        const requestId = editingVacationRequestId;
+        const { data: updateResult, error: updateError } = await supabaseClient.rpc("update_approved_vacation_request_dates", {
+            p_request_id: requestId,
+            p_start_date: startDate,
+            p_end_date: endDate,
+            p_return_date: record.return_date
+        });
+
+        if (updateError) {
+            setStatus("");
+            alert("This approved vacation could not be updated. " + (updateError.message || ""));
+            return;
+        }
+
+        const updatedRequest = updateResult && updateResult.request ? updateResult.request : null;
+
+        if (!updatedRequest) {
+            setStatus("");
+            alert("The vacation dates were saved, but the updated request could not be reloaded. Refresh and check the dates.");
+            return;
+        }
+
+        updatedRequest.email_body = buildVacationEmailBody(updatedRequest);
+        myVacationRequests = myVacationRequests.map((item) => item.id === requestId ? updatedRequest : item);
+
+        if (typeof syncJgcScheduleEventToGoogle === "function") {
+            await syncJgcScheduleEventToGoogle(supabaseClient, buildEmployeeVacationGoogleEvent(updatedRequest), "upsert");
+        }
+
+        if (typeof createJgcPortalNotifications === "function") {
+            const adminRecipients = typeof getJgcAdminNotificationRecipients === "function"
+                ? await getJgcAdminNotificationRecipients(supabaseClient)
+                : [{ role: "admin" }];
+            await createJgcPortalNotifications(supabaseClient, "vacation_request", [{ role: "supervisor" }].concat(adminRecipients), {
+                title: "Approved vacation dates updated",
+                message: employeeName + " changed approved vacation dates to " + updatedRequest.start_date + " through " + updatedRequest.end_date + ". Timesheet vacation rows were reconciled automatically.",
+                link_url: "admin.html?tab=vacation",
+                source_table: "vacation_requests",
+                source_id: requestId,
+                dedupe_key_prefix: "vacation_request_edit:" + requestId + ":" + Date.now(),
+                created_by_name: employeeName,
+                metadata: {
+                    worker_name: updatedRequest.worker_name,
+                    worker_display_name: employeeName,
+                    start_date: updatedRequest.start_date,
+                    end_date: updatedRequest.end_date,
+                    total_days: updatedRequest.total_days,
+                    request_type: updatedRequest.request_type
+                }
+            });
+        }
+
+        setStatus("Sending updated vacation confirmation...");
+
+        try {
+            await emailVacationRequest(updatedRequest, "Approved Vacation Updated");
+            alert("Approved vacation dates and timesheet vacation rows were updated.");
+        } catch (error) {
+            alert("The vacation dates and timesheets were updated, but the email could not be sent.");
+        }
+
+        resetVacationRequestForm();
+        setStatus("Approved vacation dates updated.");
+        renderVacationHistory();
+        return;
+    }
 
     const { data: savedRequest, error } = await supabaseClient
         .from("vacation_requests")
@@ -1229,14 +1405,7 @@ async function submitVacationRequest() {
         alert("Vacation request was saved, but the email could not be sent.");
     }
 
-    document.getElementById("startDate").value = "";
-    document.getElementById("endDate").value = "";
-    document.getElementById("returnDate").value = "";
-    document.getElementById("totalDays").value = "";
-    document.getElementById("halfDayRequest").checked = false;
-    document.getElementById("halfDayFinishTime").value = "";
-    document.getElementById("halfDayFinishWrap").classList.add("field-hidden");
-    document.getElementById("reason").value = "";
+    resetVacationRequestForm();
     setStatus("Vacation request submitted.");
     loadMyVacationRequests();
 }
