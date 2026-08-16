@@ -155,8 +155,7 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
 
   drawLabelValue(page, regular, bold, "Job name", job.project, MARGIN + 278, 590, 242);
   drawLabelValue(page, regular, bold, "Client / location", `${client?.name ?? "Client not recorded"}${quote?.site ? ` - ${quote.site}` : ""}`, MARGIN + 278, 553, 242);
-  drawLabelValue(page, regular, bold, "Job number", job.jobNumber, MARGIN + 278, 520, 108);
-  drawLabelValue(page, regular, bold, "PO date", shortDate(po.issueDate), MARGIN + 401, 520, 119);
+  drawLabelValue(page, regular, bold, "PO date", shortDate(po.issueDate), MARGIN + 278, 520, 242);
 
   const detailY = 458;
   const detailWidth = CONTENT_WIDTH / 5;
@@ -258,7 +257,7 @@ export async function downloadPurchaseOrderPdf(options: PurchaseOrderPdfOptions)
   let logoBytes = options.logoBytes ?? null;
   if (!logoBytes && typeof fetch !== "undefined") {
     try {
-      const response = await fetch("./jgc-letterhead-logo.jpg");
+      const response = await fetch("./jgc-logo-transparent.png");
       if (response.ok) logoBytes = new Uint8Array(await response.arrayBuffer());
     } catch {
       logoBytes = null;

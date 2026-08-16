@@ -7,7 +7,7 @@ export type ViewKey =
   | "jobs"
   | "settings";
 
-export type QuoteStatus = "Draft" | "Sent" | "Won" | "Lost";
+export type QuoteStatus = "Draft" | "Finished" | "Sent" | "Won" | "Lost";
 export type QuoteClass = "Required" | "Allowance" | "Optional";
 export type CostType = "Labour" | "Material" | "Labour & Materials" | "Sub / Vendor" | "Equipment / Other";
 export type Confidence = "Low" | "Low-Medium" | "Medium" | "High" | "Project-specific";
@@ -47,6 +47,14 @@ export interface SiteAddress {
   address: string;
 }
 
+export interface ClientContact {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -54,6 +62,7 @@ export interface Client {
   email: string;
   phone: string;
   sites: SiteAddress[];
+  contacts?: ClientContact[];
   notes: string;
   demo?: boolean;
 }
@@ -200,6 +209,7 @@ export interface Quote {
   proposalScope?: string;
   proposalNotes?: string;
   proposalAttention?: string;
+  proposalAttentionContactId?: string;
   proposalShowCostBreakdown?: boolean;
   proposalBreakdownIncludesMarkup?: boolean;
   scopeSummary: string;
@@ -796,7 +806,7 @@ demoLines.push({
 
 export function createDefaultState(): AppState {
   return {
-    version: 7,
+    version: 10,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -911,7 +921,7 @@ export function normalizeAppState(state: AppState): AppState {
   const oldTerms = "Pricing is valid for the period shown and is subject to the listed inclusions, exclusions and clarifications.";
   return {
     ...state,
-    version: 9,
+    version: 10,
     settings: {
       ...state.settings,
       defaultValidityDays: state.version < 2 && state.settings.defaultValidityDays === 14 ? 30 : state.settings.defaultValidityDays,
@@ -926,6 +936,15 @@ export function normalizeAppState(state: AppState): AppState {
       proposalIntro: state.settings.proposalIntro === oldIntro ? jgcProposalIntro : state.settings.proposalIntro,
       proposalTerms: state.settings.proposalTerms === oldTerms ? jgcProposalTerms : state.settings.proposalTerms,
     },
+    clients: state.clients.map((client) => ({
+      ...client,
+      sites: Array.isArray(client.sites) ? client.sites : [],
+      contacts: Array.isArray(client.contacts)
+        ? client.contacts.map((contact) => ({ ...contact, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "" }))
+        : client.contact?.trim()
+          ? [{ id: `contact-${client.id}-legacy`, name: client.contact.trim(), role: "", email: client.email ?? "", phone: client.phone ?? "" }]
+          : [],
+    })),
     vendors: state.vendors.map((vendor) => ({
       ...vendor,
       category: vendor.category ?? (vendor.trade === "Material Supplier" ? "Supplier" : "Subcontractor"),
@@ -946,11 +965,13 @@ export function normalizeAppState(state: AppState): AppState {
     })),
     quotes: state.quotes.map((quote) => ({
       ...quote,
+      status: quote.status === "Sent" ? "Finished" : quote.status,
       proposalStyle: quote.proposalStyle ?? "jgc-classic",
       proposalTaxDisplay: quote.proposalTaxDisplay ?? "extra",
       proposalScope: quote.proposalScope ?? "",
       proposalNotes: quote.proposalNotes ?? jgcProposalNotes,
       proposalAttention: quote.proposalAttention ?? "",
+      proposalAttentionContactId: quote.proposalAttentionContactId ?? "",
       address: quote.address ?? "",
       ownerUserId: quote.ownerUserId ?? "",
       ownerName: quote.ownerName ?? quote.preparedBy ?? "",

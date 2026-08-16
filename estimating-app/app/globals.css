@@ -203,6 +203,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .status-pill > span { width: 6px; height: 6px; border-radius: 50%; background: var(--slate-500); }
 .status-draft { background: var(--blue-100); color: var(--blue-600); }.status-draft > span { background: var(--blue-600); }
 .status-sent { background: var(--amber-100); color: var(--amber-700); }.status-sent > span { background: var(--amber-500); }
+.status-finished { background: var(--amber-100); color: var(--amber-700); }.status-finished > span { background: var(--amber-500); }
 .status-won, .status-active { background: var(--green-100); color: var(--green-700); }.status-won > span, .status-active > span { background: var(--green-600); }
 .status-archived { background: var(--slate-100); color: var(--slate-700); }.status-archived > span { background: var(--slate-500); }
 .status-lost, .status-expired { background: var(--red-100); color: var(--red-700); }.status-lost > span, .status-expired > span { background: var(--red-700); }
@@ -1095,4 +1096,149 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .po-total-preview { grid-template-columns: 1fr; }
   .po-total-preview > div { min-height: 52px; border-top: 1px solid var(--slate-200); border-left: 0; }
   .po-total-preview > div:first-child { border-top: 0; }
+}
+
+/* Saved-data controls use the Estimator's own lists instead of browser autofill. */
+.saved-data-picker { width: 100%; min-width: 0; position: relative; }
+.saved-data-picker > input { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid var(--slate-300); border-radius: 6px; background: #fff; color: var(--slate-900); }
+.saved-data-picker > input:focus { border-color: var(--green-600); outline: 3px solid rgba(27,150,100,.13); outline-offset: 0; }
+.saved-data-picker > input:disabled { color: var(--slate-600); background: var(--slate-100); cursor: not-allowed; }
+.saved-data-results { position: absolute; z-index: 80; top: calc(100% + 5px); right: 0; left: 0; max-height: 310px; padding: 5px; overflow-y: auto; border: 1px solid var(--slate-300); border-radius: 8px; background: #fff; box-shadow: 0 14px 34px rgba(11,31,51,.2); }
+.saved-data-results > button { width: 100%; min-height: 48px; padding: 8px 10px; display: flex; align-items: flex-start; flex-direction: column; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: var(--navy-900); text-align: left; }
+.saved-data-results > button:hover, .saved-data-results > button:focus { background: var(--green-100); outline: 0; }
+.saved-data-results > button small { margin-top: 2px; color: var(--slate-500); font-size: 10px; }
+.saved-data-results > .saved-data-add { margin-top: 4px; border-top: 1px solid var(--slate-200); color: var(--green-700); font-weight: 800; }
+.saved-data-empty { padding: 11px 10px; color: var(--slate-500); font-size: 11px; }
+
+/* Touch-friendly pricing controls. */
+.range-control > div { width: min(285px, 55%); display: grid; grid-template-columns: minmax(130px, 1fr) 54px; align-items: center; gap: 11px; }
+.range-control input[type="range"] { width: 100%; height: 7px; margin: 0; appearance: none; border: 0; border-radius: 999px; background: linear-gradient(90deg, var(--green-600) 0 var(--range-fill), #fff var(--range-fill) 100%); box-shadow: inset 0 0 0 1px var(--slate-300); cursor: pointer; }
+.range-control input[type="range"]::-webkit-slider-thumb { width: 21px; height: 21px; appearance: none; border: 3px solid #fff; border-radius: 50%; background: var(--green-600); box-shadow: 0 1px 5px rgba(11,31,51,.3); }
+.range-control input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%; background: var(--green-600); box-shadow: 0 1px 5px rgba(11,31,51,.3); }
+.range-control output { min-height: 34px; padding: 0 7px; display: grid; place-items: center; border: 1px solid var(--slate-300); border-radius: 6px; background: var(--slate-50); color: var(--navy-900); font-weight: 850; }
+
+.finished-banner { padding: 13px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid #b9dfce; border-left: 4px solid var(--green-600); border-radius: 8px; background: var(--green-100); }
+.finished-banner > span { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 50%; background: var(--green-600); color: #fff; font-weight: 900; }
+.finished-banner strong { color: var(--green-700); }
+.finished-banner p { margin: 3px 0 0; color: var(--slate-700); font-size: 11px; }
+.selected-portal-job { padding: 12px 13px; border-left: 3px solid var(--green-600); border-radius: 6px; background: var(--green-100); }
+.selected-portal-job span, .selected-portal-job strong { display: block; }
+.selected-portal-job span { color: var(--green-700); font-size: 8px; font-weight: 850; letter-spacing: .08em; }
+.selected-portal-job strong { margin-top: 3px; color: var(--navy-900); font-size: 16px; }
+.selected-portal-job p { margin: 2px 0 0; color: var(--slate-600); }
+
+.fixed-cost-type { min-height: 37px; padding: 8px 7px; display: block; border-radius: 4px; background: var(--green-100); color: var(--green-700); font-weight: 760; }
+.cost-type-input { width: 145px; }
+.estimate-table { min-width: 1450px; }
+
+/* Editable client sites and attention contacts. */
+.client-contact-summary { margin-top: 12px; padding-top: 12px; display: grid; gap: 5px; border-top: 1px solid var(--slate-200); }
+.client-contact-summary > span:not(.eyebrow) { color: var(--slate-600); font-size: 11px; }
+.client-contact-summary strong { color: var(--navy-900); }
+.entity-card-actions > div { display: flex; gap: 7px; }
+.client-editor { margin: 16px -20px -20px; border-top: 1px solid var(--slate-200); background: var(--slate-50); }
+.client-editor > .field { padding: 16px 18px 0; }
+.client-editor-section { padding: 17px 18px; }
+.client-editor-section + .client-editor-section { border-top: 1px solid var(--slate-200); }
+.client-editor-section > header { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.client-editor-section > header strong { margin-top: 3px; display: block; color: var(--navy-900); font-size: 12px; }
+.client-editor-row, .client-contact-editor { margin-top: 8px; display: grid; gap: 8px; }
+.client-editor-row { grid-template-columns: 1fr 1.7fr 36px; }
+.client-contact-editor { grid-template-columns: 1.1fr 1fr 1.35fr 1fr 36px; }
+.client-editor-row input, .client-contact-editor input { width: 100%; min-width: 0; min-height: 39px; padding: 8px 10px; border: 1px solid var(--slate-300); border-radius: 6px; background: #fff; }
+.client-editor-row > button, .client-contact-editor > button { width: 36px; min-height: 36px; border: 1px solid #efb5b0; border-radius: 6px; background: #fff; color: var(--red-700); font-size: 18px; }
+
+/* Internal printable breakdown: one built-up estimate item per Letter page. */
+.breakdown-workspace { display: grid; gap: 18px; }
+.breakdown-toolbar { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid var(--slate-200); border-radius: 10px; background: #fff; box-shadow: var(--shadow-sm); }
+.breakdown-toolbar h2 { margin: 4px 0 3px; color: var(--navy-900); }
+.breakdown-toolbar p { margin: 0; color: var(--slate-600); }
+.breakdown-pages { display: grid; gap: 24px; justify-items: center; }
+.breakdown-page { width: min(100%, 816px); min-height: 1056px; padding: 42px 44px 48px; display: flex; flex-direction: column; border: 1px solid var(--slate-200); background: #fff; box-shadow: var(--shadow-md); color: var(--slate-700); }
+.breakdown-page > header { padding-bottom: 17px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; border-bottom: 3px solid var(--green-600); }
+.breakdown-page > header span { color: var(--green-700); font-size: 8px; font-weight: 850; letter-spacing: .1em; }
+.breakdown-page > header h1 { margin: 5px 0 4px; color: var(--navy-950); font-size: 24px; line-height: 1.12; }
+.breakdown-page > header p, .breakdown-page > header small { margin: 0; display: block; color: var(--slate-500); }
+.breakdown-page > header > div:last-child { min-width: 150px; text-align: right; }
+.breakdown-page > header > div:last-child strong { margin: 5px 0 4px; display: block; color: var(--navy-900); }
+.breakdown-cost-group { margin-top: 22px; }
+.breakdown-cost-group h3 { margin: 0 0 8px; color: var(--navy-900); font-size: 13px; }
+.breakdown-cost-group table { width: 100%; border-collapse: collapse; }
+.breakdown-cost-group th { padding: 7px 8px; background: var(--navy-800); color: #fff; font-size: 8px; text-align: left; text-transform: uppercase; }
+.breakdown-cost-group th:not(:first-child), .breakdown-cost-group td:not(:first-child) { text-align: right; }
+.breakdown-cost-group td { padding: 8px; border-bottom: 1px solid var(--slate-200); font-size: 10px; vertical-align: top; }
+.breakdown-cost-group td strong, .breakdown-cost-group td small { display: block; }
+.breakdown-cost-group td small { margin-top: 2px; color: var(--slate-500); }
+.breakdown-cost-group tfoot td { background: var(--slate-50); color: var(--navy-900); font-weight: 850; }
+.breakdown-summary { margin-top: auto; padding-top: 24px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.breakdown-summary > div { min-height: 64px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; border: 1px solid var(--slate-200); border-right: 0; background: var(--slate-50); }
+.breakdown-summary > div:nth-child(4n) { border-right: 1px solid var(--slate-200); }
+.breakdown-summary > div:nth-child(n+5) { border-top: 0; }
+.breakdown-summary span { color: var(--slate-500); font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.breakdown-summary strong { margin-top: 4px; color: var(--navy-900); font-size: 14px; }
+.breakdown-summary .grand { background: var(--navy-900); }
+.breakdown-summary .grand span, .breakdown-summary .grand strong { color: #fff; }
+.breakdown-page > footer { margin-top: 18px; padding: 11px 13px; border-left: 3px solid var(--amber-500); background: var(--amber-100); }
+.breakdown-page > footer p { margin: 4px 0; font-size: 9px; }
+
+/* The customer proposal uses the trimmed transparent logo and compact notes. */
+.hybrid-letterhead img { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.hybrid-notes-section { padding: 11px 14px 12px; }
+.hybrid-notes-section header h2 { font-size: 12px; }
+.hybrid-notes-list li { padding-block: 3px; font-size: 8px; line-height: 1.32; }
+.hybrid-notes-list li::before { top: 8px; }
+.hybrid-clarifications { margin-top: 7px; padding-top: 7px; }
+.hybrid-clarifications p { font-size: 7.5px; line-height: 1.35; }
+.hybrid-clarifications > div:last-child span, .hybrid-clarifications > div:last-child p { color: var(--navy-900); font-weight: 850; }
+  .hybrid-lump-sum { padding-top: 20px; }
+
+@media screen and (max-width: 760px) {
+  .saved-data-results { position: fixed; z-index: 120; top: auto; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); left: 12px; max-height: min(58vh, 430px); border-radius: 13px; }
+  .saved-data-results > button { min-height: 52px; }
+  .range-control > div { width: 100%; grid-template-columns: minmax(0, 1fr) 56px; }
+  .finished-banner { align-items: flex-start; }
+  .client-editor { margin-inline: -20px; }
+  .client-editor-row, .client-contact-editor { grid-template-columns: 1fr; }
+  .client-editor-row > button, .client-contact-editor > button { width: 44px; height: 44px; justify-self: end; }
+  .breakdown-toolbar { align-items: stretch; flex-direction: column; }
+  .breakdown-toolbar .button { width: 100%; }
+  .breakdown-page { min-height: 0; padding: 22px 16px 26px; box-shadow: var(--shadow-sm); }
+  .breakdown-page > header { flex-direction: column; gap: 10px; }
+  .breakdown-page > header > div:last-child { min-width: 0; text-align: left; }
+  .breakdown-cost-group { overflow: hidden; }
+  .breakdown-cost-group table, .breakdown-cost-group tbody, .breakdown-cost-group tr, .breakdown-cost-group td { display: block; width: 100%; }
+  .breakdown-cost-group thead { display: none; }
+  .breakdown-cost-group tbody tr { padding: 8px 0; border-bottom: 1px solid var(--slate-200); }
+  .breakdown-cost-group td { padding: 3px 0; display: flex; justify-content: space-between; gap: 12px; border: 0; text-align: left !important; }
+  .breakdown-cost-group td:nth-child(2)::before { content: "Qty / Hours"; color: var(--slate-500); }
+  .breakdown-cost-group td:nth-child(3)::before { content: "Unit"; color: var(--slate-500); }
+  .breakdown-cost-group td:nth-child(4)::before { content: "Unit cost / Rate"; color: var(--slate-500); }
+  .breakdown-cost-group td:nth-child(5)::before { content: "Total"; color: var(--slate-500); }
+  .breakdown-cost-group tfoot { display: table; width: 100%; }
+  .breakdown-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .breakdown-summary > div:nth-child(2n) { border-right: 1px solid var(--slate-200); }
+  .breakdown-summary > div:nth-child(n+3) { border-top: 0; }
+  .estimate-table { width: 100%; min-width: 0; }
+  .estimate-table tbody > tr:not(.line-detail-row) { grid-template-areas: "number number" "description description" "costtype costtype" "division division" "qty unit" "cost markup" "class include" "sell sell" "actions actions"; }
+  .estimate-table td:nth-child(1) { grid-area: number; }
+  .estimate-table td:nth-child(2) { grid-area: description; }
+  .estimate-table td:nth-child(3) { grid-area: costtype; }
+  .estimate-table td:nth-child(4) { grid-area: division; }
+  .estimate-table td:nth-child(5) { grid-area: qty; }
+  .estimate-table td:nth-child(6) { grid-area: unit; }
+  .estimate-table td:nth-child(7) { grid-area: cost; }
+  .estimate-table td:nth-child(8) { grid-area: markup; }
+  .estimate-table td:nth-child(9) { grid-area: sell; }
+  .estimate-table td:nth-child(10) { grid-area: class; }
+  .estimate-table td:nth-child(11) { grid-area: include; }
+  .estimate-table td:nth-child(12) { grid-area: actions; }
+  .estimate-table .cost-type-input { width: 100%; }
+}
+
+@media print {
+  .breakdown-toolbar { display: none !important; }
+  .breakdown-pages { display: block; }
+  .breakdown-page { width: 100%; min-height: 0; padding: 0; border: 0; box-shadow: none; break-after: page; page-break-after: always; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .breakdown-page:last-child { break-after: auto; page-break-after: auto; }
+  .breakdown-cost-group, .breakdown-summary, .breakdown-page > header, .breakdown-page > footer { break-inside: avoid; }
 }
