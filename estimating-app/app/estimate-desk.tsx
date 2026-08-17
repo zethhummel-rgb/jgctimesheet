@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, type PortalJobOption } from "../src/portal-api";
@@ -573,6 +573,51 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     };
   }, [sidebarOpen]);
 
+  useLayoutEffect(() => {
+    if (!sidebarOpen) return;
+
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollTop = window.scrollY;
+    const previousBodyStyles = {
+      position: body.style.position,
+      top: body.style.top,
+      right: body.style.right,
+      bottom: body.style.bottom,
+      left: body.style.left,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+
+    const syncVisualViewport = () => {
+      const viewport = window.visualViewport;
+      root.style.setProperty("--estimator-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+      root.style.setProperty("--estimator-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+    };
+
+    syncVisualViewport();
+    root.classList.add("estimator-nav-open");
+    body.style.position = "fixed";
+    body.style.top = `-${scrollTop}px`;
+    body.style.right = "0";
+    body.style.bottom = "0";
+    body.style.left = "0";
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    window.visualViewport?.addEventListener("resize", syncVisualViewport);
+    window.visualViewport?.addEventListener("scroll", syncVisualViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", syncVisualViewport);
+      window.visualViewport?.removeEventListener("scroll", syncVisualViewport);
+      root.classList.remove("estimator-nav-open");
+      root.style.removeProperty("--estimator-viewport-top");
+      root.style.removeProperty("--estimator-viewport-height");
+      Object.assign(body.style, previousBodyStyles);
+      window.scrollTo(0, scrollTop);
+    };
+  }, [sidebarOpen]);
+
   const selectedQuote = selectedQuoteId ? state.quotes.find((quote) => quote.id === selectedQuoteId) ?? null : null;
   const selectedJob = selectedJobId ? state.jobs.find((job) => job.id === selectedJobId) ?? null : null;
 
@@ -674,6 +719,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     setSelectedQuoteId(quoteId);
     setQuoteTab(tab);
     setView("quotes");
+  };
+
+  const openJob = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setView("jobs");
   };
 
   const duplicateQuote = (quote: Quote) => {
@@ -917,7 +967,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
 
   const renderContent = () => {
     if (!ready) return <LoadingState />;
-    if (view === "dashboard") return <Dashboard state={state} currentEstimator={currentEstimator} onNewQuote={createQuote} onOpenQuote={openQuote} />;
+    if (view === "dashboard") return <Dashboard state={state} currentEstimator={currentEstimator} onNewQuote={createQuote} onOpenQuote={openQuote} onOpenJob={openJob} />;
     if (view === "quotes") {
       if (selectedQuote) {
         return (
@@ -1202,8 +1252,9 @@ function ReadinessPill({ quote, vendors }: { quote: Quote; vendors: Vendor[] }) 
   return <span className="readiness-pill ready">Ready to finish</span>;
 }
 
-function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void }) {
+function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void }) {
   const [companyWide, setCompanyWide] = useState(false);
+  const [dashboardSearch, setDashboardSearch] = useState("");
   const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
   const ownedQuotes = state.quotes.filter((quote) => {
     if (quote.ownerUserId) return quote.ownerUserId === currentEstimator.id;
@@ -1211,6 +1262,44 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
     return quoteOwnerName === currentOwnerName || currentOwnerName.startsWith(`${quoteOwnerName} `) || quoteOwnerName.startsWith(`${currentOwnerName} `);
   });
   const dashboardQuotes = currentEstimator.isAdmin && companyWide ? state.quotes : ownedQuotes;
+  const dashboardQuoteIds = new Set(dashboardQuotes.map((quote) => quote.id));
+  const dashboardJobs = state.jobs.filter((job) => dashboardQuoteIds.has(job.quoteId));
+  const searchTerms = dashboardSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const matchesSearch = (...values: Array<string | null | undefined>) => {
+    const haystack = values.filter(Boolean).join(" ").toLocaleLowerCase();
+    return searchTerms.every((term) => haystack.includes(term));
+  };
+  const matchingQuotes = searchTerms.length
+    ? dashboardQuotes.filter((quote) => matchesSearch(
+      quote.number,
+      quote.project,
+      quote.site,
+      quote.address,
+      quote.reference,
+      quote.customerPo,
+      quote.proposalAttention,
+      quote.status,
+      quote.preparedBy,
+      clientName(state, quote.clientId),
+      ...quote.lines.flatMap((line) => [line.description, line.vendorName, line.vendorReference, line.division]),
+    )).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    : [];
+  const matchingJobs = searchTerms.length
+    ? dashboardJobs.filter((job) => {
+      const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
+      return matchesSearch(
+        job.jobNumber,
+        job.project,
+        job.status,
+        linkedQuote?.number,
+        linkedQuote?.site,
+        linkedQuote?.address,
+        linkedQuote?.reference,
+        clientName(state, job.clientId),
+        ...(job.purchaseOrders ?? []).flatMap((purchaseOrder) => [purchaseOrder.number, purchaseOrder.vendorName, purchaseOrder.vendorQuoteNumber]),
+      );
+    }).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))
+    : [];
   const activeQuotes = dashboardQuotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished");
   const pipeline = activeQuotes.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
   const sent = dashboardQuotes.filter((quote) => quote.status === "Finished").length;
@@ -1230,6 +1319,56 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote }: { state
   return (
     <div className="page-stack">
       {currentEstimator.isAdmin && <div className="dashboard-scope-switch"><span>Viewing</span><button className={!companyWide ? "active" : ""} onClick={() => setCompanyWide(false)}>My estimates</button><button className={companyWide ? "active" : ""} onClick={() => setCompanyWide(true)}>Company-wide</button></div>}
+      <section className={`panel overview-search ${searchTerms.length ? "has-results" : ""}`}>
+        <label>
+          <span className="overview-search-icon" aria-hidden="true">⌕</span>
+          <span className="sr-only">Search estimates and jobs</span>
+          <input
+            type="search"
+            value={dashboardSearch}
+            onChange={(event) => setDashboardSearch(event.target.value)}
+            placeholder="Search quote #, job #, PO #, client, site, project or reference…"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {dashboardSearch && <button type="button" className="overview-search-clear" aria-label="Clear overview search" onClick={() => setDashboardSearch("")}>×</button>}
+        </label>
+        {searchTerms.length > 0 && (
+          <div className="overview-search-results" aria-live="polite">
+            <div className="overview-search-summary">
+              <strong>{matchingQuotes.length + matchingJobs.length} result{matchingQuotes.length + matchingJobs.length === 1 ? "" : "s"}</strong>
+              <span>Searching {currentEstimator.isAdmin && companyWide ? "company-wide estimates" : "your estimates"}</span>
+            </div>
+            {matchingQuotes.length > 0 && (
+              <div className="overview-result-group">
+                <h2>Quotes <span>{matchingQuotes.length}</span></h2>
+                {matchingQuotes.slice(0, 8).map((quote) => (
+                  <button type="button" key={quote.id} onClick={() => onOpenQuote(quote.id)}>
+                    <span className="overview-result-type quote">Q</span>
+                    <span><strong>{quote.number} · {quote.project || "Project not named"}</strong><small>{clientName(state, quote.clientId)}{quote.site ? ` · ${quote.site}` : ""}</small></span>
+                    <StatusPill status={quoteDisplayStatus(quote)} />
+                    <span className="row-arrow" aria-hidden="true">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {matchingJobs.length > 0 && (
+              <div className="overview-result-group">
+                <h2>Jobs <span>{matchingJobs.length}</span></h2>
+                {matchingJobs.slice(0, 8).map((job) => (
+                  <button type="button" key={job.id} onClick={() => onOpenJob(job.id)}>
+                    <span className="overview-result-type job">J</span>
+                    <span><strong>{job.jobNumber} · {job.project}</strong><small>{clientName(state, job.clientId)}</small></span>
+                    <StatusPill status={job.status} />
+                    <span className="row-arrow" aria-hidden="true">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!matchingQuotes.length && !matchingJobs.length && <div className="overview-search-empty"><strong>No matching quotes or jobs</strong><span>Try a quote, job or PO number, client, project, site, vendor or reference.</span></div>}
+          </div>
+        )}
+      </section>
       <section className="welcome-panel">
         <div>
           <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
