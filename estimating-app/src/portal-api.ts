@@ -327,11 +327,84 @@ async function patchSupplierItem(client: any, request: Request) {
     division: String(body.division ?? "").trim(),
     unit: String(body.unit ?? "").trim(),
     net_cost: dollars(body.netCost),
+    effective_date: String(body.effectiveDate ?? "").trim() || undefined,
     active: Boolean(body.active),
     last_seen_at: new Date().toISOString(),
   }).eq("id", body.id).select("id").single();
   if (result.error) throw new Error(result.error.message || "Supplier item could not be saved.");
   return json({ saved: true });
+}
+
+async function createManualSupplierItem(client: any, request: Request) {
+  const body = await request.json() as Record<string, any>;
+  const productName = String(body.productName ?? "").trim();
+  const normalizedName = normalizeMaterialName(productName);
+  const effectiveDate = String(body.effectiveDate ?? "").trim() || new Date().toISOString().slice(0, 10);
+  const supplierName = String(body.supplierName ?? "").trim() || "Manual entry";
+  const supplierId = "manual-jgc";
+  const normalizedSku = `name:${normalizedName}`;
+  if (!productName || !normalizedName) return json({ error: "A material name is required." }, 400);
+  if (!String(body.unit ?? "").trim()) return json({ error: "A unit is required." }, 400);
+  if (dollars(body.netCost) < 0) return json({ error: "Cost cannot be negative." }, 400);
+
+  const existing = await client
+    .from("estimator_supplier_catalog_items")
+    .select("id")
+    .eq("supplier_id", supplierId)
+    .eq("normalized_sku", normalizedSku)
+    .maybeSingle();
+  if (existing.error) throw new Error(existing.error.message || "Existing manual materials could not be checked.");
+  if (existing.data) return json({ error: "That manual material already exists. Search for it and edit the existing price." }, 409);
+
+  const importId = crypto.randomUUID();
+  const itemId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const imported = await client.from("estimator_supplier_price_imports").insert({
+    id: importId,
+    supplier_id: supplierId,
+    supplier_name: supplierName,
+    filename: `Manual material - ${productName}`,
+    file_hash: `manual:${crypto.randomUUID()}`,
+    detected_date: effectiveDate,
+    effective_date: effectiveDate,
+    valid_until: null,
+    parser_type: "manual",
+    source_subtotal: dollars(body.netCost),
+    extracted_subtotal: dollars(body.netCost),
+    row_count: 1,
+    new_count: 1,
+    changed_count: 0,
+    unchanged_count: 0,
+    review_count: 0,
+  });
+  if (imported.error) throw new Error(imported.error.message || "Manual material history could not be saved.");
+
+  const record = {
+    id: itemId,
+    supplier_id: supplierId,
+    supplier_name: supplierName,
+    supplier_sku: productName,
+    normalized_sku: normalizedSku,
+    product_name: productName,
+    raw_description: productName,
+    normalized_description: normalizedName,
+    raw_unit: String(body.unit).trim(),
+    unit: String(body.unit).trim(),
+    division: String(body.division ?? "").trim(),
+    list_price: null,
+    net_cost: dollars(body.netCost),
+    effective_date: effectiveDate,
+    valid_until: null,
+    active: true,
+    latest_import_id: importId,
+    last_seen_at: now,
+  };
+  const inserted = await client.from("estimator_supplier_catalog_items").insert(record).select("*").single();
+  if (inserted.error) {
+    await client.from("estimator_supplier_price_imports").delete().eq("id", importId);
+    throw new Error(inserted.error.message || "Manual material could not be saved.");
+  }
+  return json({ item: catalogRecord(inserted.data) }, 201);
 }
 
 async function applySupplierImport(client: any, request: Request) {
@@ -425,7 +498,11 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
   }
   if (url.pathname.endsWith("/api/supplier-catalog")) {
     if (request.method === "PATCH") return patchSupplierItem(client, request);
-    if (request.method === "POST") return applySupplierImport(client, request);
+    if (request.method === "POST") {
+      return request.headers.get("content-type")?.includes("application/json")
+        ? createManualSupplierItem(client, request)
+        : applySupplierImport(client, request);
+    }
     return getSupplierCatalog(client, url);
   }
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);

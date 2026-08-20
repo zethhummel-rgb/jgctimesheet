@@ -213,6 +213,39 @@ async function downloadCustomerProposal(state: AppState, quote: Quote) {
   }
 }
 
+async function downloadEstimateOnly(state: AppState, quote: Quote) {
+  try {
+    const { downloadEstimatePdf } = await quoteBackupPdfModule;
+    await downloadEstimatePdf({ state, quote });
+  } catch (error) {
+    console.error("Unable to create estimate PDF", error);
+    window.alert("The Estimate PDF could not be created. Please refresh and try again.");
+  }
+}
+
+async function downloadBreakdownOnly(state: AppState, quote: Quote) {
+  try {
+    const { downloadBreakdownPdf } = await quoteBackupPdfModule;
+    await downloadBreakdownPdf({ state, quote });
+  } catch (error) {
+    console.error("Unable to create breakdown PDF", error);
+    window.alert("The Breakdown PDF could not be created. Please refresh and try again.");
+  }
+}
+
+async function downloadQuotePackage(state: AppState, quote: Quote) {
+  try {
+    const { downloadEstimatePdf, downloadBreakdownPdf } = await quoteBackupPdfModule;
+    const { downloadProposalPdf } = await proposalPdfModule;
+    await downloadProposalPdf(state, quote);
+    await downloadEstimatePdf({ state, quote });
+    if (quote.lines.some((line) => line.costBuildUp)) await downloadBreakdownPdf({ state, quote });
+  } catch (error) {
+    console.error("Unable to create the quote PDF package", error);
+    window.alert("One or more quote PDFs could not be created. Your quote is still safely saved. Please refresh and try again.");
+  }
+}
+
 async function downloadPurchaseOrder(state: AppState, job: Job, purchaseOrder: PurchaseOrder) {
   try {
     const { downloadPurchaseOrderPdf } = await purchaseOrderPdfModule;
@@ -1002,7 +1035,6 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           setStatusFilter={setQuoteStatusFilter}
           onNewQuote={createQuote}
           onOpenQuote={openQuote}
-          onDuplicate={duplicateQuote}
           onDelete={requestQuoteRemoval}
         />
       );
@@ -1534,7 +1566,7 @@ function LibraryFolders<T>({ records, path, setPath, noun, renderItems }: {
   );
 }
 
-function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, onNewQuote, onOpenQuote, onDuplicate, onDelete }: {
+function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, onNewQuote, onOpenQuote, onDelete }: {
   state: AppState;
   search: string;
   setSearch: (value: string) => void;
@@ -1542,7 +1574,6 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
   setStatusFilter: (value: string) => void;
   onNewQuote: () => void;
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
-  onDuplicate: (quote: Quote) => void;
   onDelete: (quote: Quote) => void;
 }) {
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
@@ -1588,8 +1619,6 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
                   <td data-label="Status"><StatusPill status={quoteDisplayStatus(quote)} /></td>
                   <td data-label="Valid until">{shortDate(quote.validUntil)}</td>
                   <td className="row-actions" onClick={(event) => event.stopPropagation()}>
-                    <button title="Duplicate quote" onClick={() => onDuplicate(quote)}>⧉</button>
-                    <button className="quote-download-button" title={`Download PDF backup of ${quote.number}`} aria-label={`Download PDF backup of ${quote.number}`} onClick={() => void downloadQuoteBackup(state, quote)}>⇩</button>
                     <button className="quote-delete-button" title={state.jobs.some((job) => job.quoteId === quote.id) ? "Won quote is protected by its Jobs tracking record" : `Delete ${quote.number}`} aria-label={`Delete ${quote.number}`} disabled={state.jobs.some((job) => job.quoteId === quote.id)} onClick={() => onDelete(quote)}>×</button>
                     <button title="Open quote" onClick={() => onOpenQuote(quote.id)}>›</button>
                   </td>
@@ -1892,8 +1921,7 @@ function QuoteWorkspace({
           <div className="identity-badges"><StatusPill status={quoteDisplayStatus(quote)} /><ReadinessPill quote={quote} vendors={state.vendors} /></div>
         </div>
         <div className="quote-primary-actions">
-          <button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate</button>
-          <button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download PDF backup</button>
+          <button className="button secondary quote-package-download" onClick={() => void downloadQuotePackage(state, quote)}>⇩ Download Proposal, Estimate, Breakdown</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
           {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
           {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
@@ -1932,8 +1960,8 @@ function QuoteWorkspace({
             setCatalogToAdd={setCatalogToAdd}
           />
         )}
-        {tab === "breakdown" && <QuoteBreakdown quote={quote} />}
-        {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} />}
+        {tab === "breakdown" && <QuoteBreakdown state={state} quote={quote} />}
+        {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} duplicateQuote={duplicateQuote} />}
         {tab === "divisions" && <QuoteDivisions quote={quote} />}
         {tab === "proposal" && <QuoteProposal state={state} quote={quote} />}
         {tab === "purchase-orders" && linkedJob && <QuotePurchaseOrders state={state} quote={quote} job={linkedJob} onEditPurchaseOrder={onEditPurchaseOrder} />}
@@ -2289,7 +2317,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       <section className="panel estimate-panel">
         <div className="panel-heading estimate-heading">
           <div><span className="eyebrow">INTERNAL ESTIMATE</span><h2>Products, services and custom work</h2><p>Select a Price Book item or add a project-specific line. Blue fields are inputs; calculated totals stay protected.</p></div>
-          <span className="step-chip">Step 2 of 7</span>
+          <div className="estimate-heading-actions"><span className="step-chip">Step 2 of 7</span><button className="button secondary compact" onClick={() => void downloadEstimateOnly(state, quote)}>⇩ Estimate Only PDF</button></div>
         </div>
 
         {!locked && (
@@ -2548,7 +2576,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   );
 }
 
-function QuoteBreakdown({ quote }: { quote: Quote }) {
+function QuoteBreakdown({ state, quote }: { state: AppState; quote: Quote }) {
   const builtUpLines = quote.lines.filter((line) => line.costBuildUp);
   const renderGroup = (line: QuoteLine, kind: QuoteCostBuildUpItem["kind"], title: string) => {
     const items = line.costBuildUp?.items.filter((item) => item.kind === kind) ?? [];
@@ -2564,7 +2592,7 @@ function QuoteBreakdown({ quote }: { quote: Quote }) {
   };
   return (
     <div className="breakdown-workspace">
-      <div className="breakdown-toolbar"><div><span className="eyebrow">INTERNAL ESTIMATING · STEP 3 OF 7</span><h2>Built-up item breakdown</h2><p>One printable page per built-up estimate item. This document is internal and never appears on the customer proposal.</p></div><button className="button secondary" onClick={() => window.print()}>⇩ Print / Save as PDF</button></div>
+      <div className="breakdown-toolbar"><div><span className="eyebrow">INTERNAL ESTIMATING · STEP 3 OF 7</span><h2>Built-up item breakdown</h2><p>One printable page per built-up estimate item. This document is internal and never appears on the customer proposal.</p></div><button className="button secondary" disabled={!builtUpLines.length} onClick={() => void downloadBreakdownOnly(state, quote)}>⇩ Download Breakdown PDF</button></div>
       {!builtUpLines.length && <section className="panel empty-state"><span>▤</span><h3>No built-up items yet</h3><p>Add a Built-up item on the Estimate tab to create detailed labour and material worksheets.</p></section>}
       <div className="breakdown-pages">
         {builtUpLines.map((line, index) => {
@@ -2590,18 +2618,18 @@ function QuoteBreakdown({ quote }: { quote: Quote }) {
   );
 }
 
-function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote }: {
+function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote, duplicateQuote }: {
   state: AppState;
   quote: Quote;
   locked: boolean;
   mutateQuote: (id: string, updater: (quote: Quote) => Quote, activity?: { title: string; detail: string }) => void;
   setTab: (tab: QuoteTab) => void;
   finalizeQuote: (quote: Quote) => void;
+  duplicateQuote: (quote: Quote) => void;
 }) {
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const includedLines = quote.lines.filter((line) => line.included);
-  const builtUpLines = includedLines.filter((line) => line.costBuildUp);
   const subcontractorLines = includedLines.filter((line) => line.costType === "Sub / Vendor");
   const costTypes: CostType[] = ["Sub / Vendor", "Labour", "Material", "Labour & Materials", "Equipment / Other"];
   const costBreakdown = costTypes.map((type) => ({
@@ -2690,24 +2718,16 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote 
           )}
         </section>
       </div>
-      {(builtUpLines.length > 0 || subcontractorLines.length > 0) && (
-        <section className="review-build-ups">
-          <div className="review-section-heading"><span className="eyebrow">ESTIMATE CONTENT</span><h2>Built-up items and subcontractors</h2><p>Expanded by default so every cost can be checked without opening estimate rows one at a time.</p></div>
-          {builtUpLines.map((line) => {
-            const itemTotals = lineBuildUpTotals(line);
-            return <article className="review-built-up-card" key={line.id}>
-              <header><div><span>{line.division || "Div 01 – General Requirements"}</span><h3>{line.description || "Unnamed built-up item"}</h3></div><div><span>Total direct cost</span><strong>{money(lineDirectCost(line))}</strong></div></header>
-              {(["Labour", "Material", "Subcontractor", "Other"] as const).map((kind) => {
-                const items = line.costBuildUp?.items.filter((item) => item.kind === kind) ?? [];
-                if (!items.length) return null;
-                return <section className="review-cost-group" key={kind}><h4>{kind === "Material" ? "Materials" : kind === "Subcontractor" ? "Subcontractors" : kind}</h4>{items.map((item) => <div key={item.id}><span><strong>{item.description || "Unnamed cost row"}</strong><small>{numberFormatter.format(item.quantity)} {item.unit} × {money(item.unitCost)}{item.source ? ` · ${item.source}` : ""}</small></span><b>{money(buildUpItemTotal(item))}</b></div>)}</section>;
-              })}
-              <footer><span>Labour {money(itemTotals.labour)}</span><span>Materials {money(itemTotals.materials)}</span><span>Subs {money(itemTotals.subcontractors)}</span><span>Other {money(itemTotals.other)}</span></footer>
-            </article>;
-          })}
+      {subcontractorLines.filter((line) => !line.costBuildUp).length > 0 && (
+        <section className="review-build-ups review-subcontractors-only">
+          <div className="review-section-heading"><span className="eyebrow">SUBCONTRACTOR REVIEW</span><h2>Quoted and budget subcontractors</h2><p>Confirm which subcontractor prices are firm quotations and which are estimating allowances.</p></div>
           {subcontractorLines.filter((line) => !line.costBuildUp).map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
         </section>
       )}
+      <section className="panel review-utility-actions">
+        <div><span className="eyebrow">QUOTE FILE ACTIONS</span><h2>Duplicate or save a complete backup</h2><p>These occasional actions stay here so the main quote header remains focused on the active workflow.</p></div>
+        <div><button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate quote</button><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download full PDF backup</button></div>
+      </section>
     </div>
   );
 }
@@ -2837,7 +2857,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
     <div className="proposal-workspace">
       <div className="proposal-toolbar">
         <div><span className="eyebrow">CUSTOMER VIEW · STEP 6 OF 7</span><h2>Proposal preview</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
-        <div className="proposal-toolbar-actions"><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Full quote backup PDF</button><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ Proposal-only PDF</button></div>
+        <div className="proposal-toolbar-actions"><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ Proposal PDF</button></div>
       </div>
       <article className={`proposal-paper ${style === "jgc-classic" ? "classic-proposal hybrid-classic-proposal" : "modern-proposal"}`}>
         {style === "jgc-classic" ? (
