@@ -2628,16 +2628,16 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
 });
 
-test("Accounting groups manual Shop descriptions without merging an official Shop job", async ({ page }) => {
+test("Accounting workbook uses the requested sheets, Summary columns, and last-name order", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
   await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
 
-  const jobHeaders = await page.evaluate(async () => {
+  const workbookLayout = await page.evaluate(async () => {
     const template = new ExcelJS.Workbook();
-    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"]
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"]
       .forEach((name) => template.addWorksheet(name));
     const templateBuffer = await template.xlsx.writeBuffer();
     let binary = "";
@@ -2674,16 +2674,49 @@ test("Accounting groups manual Shop descriptions without merging an official Sho
 
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(exportResult.buffer);
-    return workbook.getWorksheet("Jobs Week 1").getColumn(1).values
-      .filter((value) => typeof value === "string");
+    const employeeNames = ["Leo Dorie", "Stewart Thompson"];
+    const namesInColumn = (sheetName) => workbook.getWorksheet(sheetName).getColumn(1).values
+      .filter((value) => employeeNames.includes(value));
+    const summarySheet = workbook.getWorksheet("Summary");
+    const describeFormula = (address) => {
+      const value = summarySheet.getCell(address).value;
+      return value && typeof value === "object" ? value.formula : "";
+    };
+    return {
+      sheetNames: workbook.worksheets.map((sheet) => sheet.name),
+      jobHeaders: workbook.getWorksheet("Jobs Week 1").getColumn(1).values
+        .filter((value) => typeof value === "string"),
+      weekOneEmployees: namesInColumn("Aug 8"),
+      weekTwoEmployees: namesInColumn("Aug 15"),
+      jobEmployees: namesInColumn("Jobs Week 1"),
+      summaryEmployees: namesInColumn("Summary").filter((value, index, values) => index === 0 || value !== values[index - 1]),
+      summaryHeaders: summarySheet.getRow(4).values.slice(1, 14),
+      summaryAdjustmentWidth: summarySheet.getColumn(11).width,
+      summaryExtraHeader: summarySheet.getCell("N4").value,
+      summaryGrossFormula: describeFormula("J5"),
+      summaryBalanceFormula: describeFormula("M5")
+    };
   });
 
-  expect(jobHeaders.filter((value) => value === "Shop")).toHaveLength(1);
-  expect(jobHeaders.filter((value) => value === "Shop JGC 26074")).toHaveLength(1);
-  expect(jobHeaders).not.toContain("Shop - tree watering");
-  expect(jobHeaders).not.toContain("Shop - clean up");
-  expect(jobHeaders).not.toContain("Jeff Shop");
-  await expectNoRuntimeErrors(errors, "Accounting manual Shop grouping");
+  expect(workbookLayout.sheetNames).toEqual(["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"]);
+  expect(workbookLayout.jobHeaders.filter((value) => value === "Shop")).toHaveLength(1);
+  expect(workbookLayout.jobHeaders.filter((value) => value === "Shop JGC 26074")).toHaveLength(1);
+  expect(workbookLayout.jobHeaders).not.toContain("Shop - tree watering");
+  expect(workbookLayout.jobHeaders).not.toContain("Shop - clean up");
+  expect(workbookLayout.jobHeaders).not.toContain("Jeff Shop");
+  expect(workbookLayout.weekOneEmployees).toEqual(["Leo Dorie", "Stewart Thompson"]);
+  expect(workbookLayout.weekTwoEmployees).toEqual(["Leo Dorie", "Stewart Thompson"]);
+  expect(workbookLayout.jobEmployees).toEqual(["Leo Dorie", "Stewart Thompson", "Stewart Thompson"]);
+  expect(workbookLayout.summaryEmployees).toEqual(["Leo Dorie", "Stewart Thompson"]);
+  expect(workbookLayout.summaryHeaders).toEqual([
+    "Employee", "Type", "Total Hrs", "Week 1 Hrs", "Rate", "Week 1 Gross", "Week 2 Hrs",
+    "Week 2 Gross", "Stat Pay", "Gross", "Adjustment", "VP", "To Balance"
+  ]);
+  expect(workbookLayout.summaryAdjustmentWidth).toBeLessThanOrEqual(10);
+  expect(workbookLayout.summaryExtraHeader).toBeNull();
+  expect(workbookLayout.summaryGrossFormula).toBe("F5+H5+I5");
+  expect(workbookLayout.summaryBalanceFormula).toBe("J5+K5+L5");
+  await expectNoRuntimeErrors(errors, "Accounting workbook layout and sorting");
 });
 
 test("Accounting highlights a single timesheet entry over 12 hours", async ({ page }) => {
@@ -2711,7 +2744,7 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
   await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
   const workbookWarnings = await page.evaluate(async () => {
     const template = new ExcelJS.Workbook();
-    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"]
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"]
       .forEach((name) => template.addWorksheet(name));
     const templateBuffer = await template.xlsx.writeBuffer();
     let binary = "";
@@ -2757,9 +2790,9 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
       secondWeekJobDay: describe(workbook.getWorksheet("Jobs Week 2").getCell("D3")),
       summaryWeekOneHours: describe(workbook.getWorksheet("Summary").getCell("D5")),
       summaryWeekTwoHours: describe(workbook.getWorksheet("Summary").getCell("G5")),
-      summaryGross: describe(workbook.getWorksheet("Summary").getCell("K5")),
-      summarySettings: workbook.getWorksheet("Summary").getCell("I13").value,
-      summarySettingsWidth: workbook.getWorksheet("Summary").getColumn(9).width,
+      summaryGross: describe(workbook.getWorksheet("Summary").getCell("J5")),
+      summarySettings: workbook.getWorksheet("Summary").getCell("H13").value,
+      summarySettingsWidth: workbook.getWorksheet("Summary").getColumn(8).width,
       weekJobColumnWidth: workbook.getWorksheet("Aug 8").getColumn(1).width,
       weekJobWrap: Boolean(workbook.getWorksheet("Aug 8").getCell("A5").alignment.wrapText),
       weekJobRowHeight: workbook.getWorksheet("Aug 8").getRow(5).height
@@ -2781,7 +2814,7 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
   expect(workbookWarnings.secondWeekJobDay.result).toBe(7);
   expect(workbookWarnings.summaryWeekOneHours.formula).toBe("'Aug 8'!J6");
   expect(workbookWarnings.summaryWeekTwoHours.formula).toBe("'Aug 15'!J6");
-  expect(workbookWarnings.summaryGross.formula).toBe("F5+I5+J5");
+  expect(workbookWarnings.summaryGross.formula).toBe("F5+H5+I5");
   expect(workbookWarnings.summarySettings).toBe("Simple Settings");
   expect(workbookWarnings.summarySettingsWidth).toBeGreaterThanOrEqual(18);
   expect(workbookWarnings.weekJobColumnWidth).toBeGreaterThanOrEqual(42);

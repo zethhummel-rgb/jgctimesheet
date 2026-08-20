@@ -67,6 +67,23 @@
     return Number.isFinite(number) ? number : 0;
   }
 
+  function employeeSortKey(value) {
+    const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+    const lastName = parts.pop() || "";
+    return `${lastName}\u0000${parts.join(" ")}`;
+  }
+
+  function compareEmployeeNames(left, right) {
+    const leftName = String(left || "");
+    const rightName = String(right || "");
+    return employeeSortKey(leftName).localeCompare(employeeSortKey(rightName), "en-CA", { sensitivity: "base", numeric: true })
+      || leftName.localeCompare(rightName, "en-CA", { sensitivity: "base", numeric: true });
+  }
+
+  function sortedEmployees(employees) {
+    return (employees || []).slice().sort((left, right) => compareEmployeeNames(left.name, right.name));
+  }
+
   function fill(color) {
     return { type: "pattern", pattern: "solid", fgColor: { argb: color } };
   }
@@ -484,8 +501,10 @@
         const employeeGroups = groupBy(jobEntries, (entry) => employeeJobRateKey(entry, jobsById, data.rates));
         const firstEmployeeRow = row;
         Array.from(employeeGroups.values())
-          .sort((left, right) => employeeName(left[0].profileId, data.employees, left[0].workerName)
-            .localeCompare(employeeName(right[0].profileId, data.employees, right[0].workerName)))
+          .sort((left, right) => compareEmployeeNames(
+            employeeName(left[0].profileId, data.employees, left[0].workerName),
+            employeeName(right[0].profileId, data.employees, right[0].workerName)
+          ))
           .forEach((employeeEntries) => {
             const profileId = employeeEntries[0].profileId;
             const totals = dayTotals(employeeEntries);
@@ -555,14 +574,13 @@
     resetWorksheet(sheet);
     sheet.columns = [
       { width: 24 }, { width: 12 }, { width: 12 }, { width: 13 }, { width: 12 }, { width: 15 }, { width: 13 },
-      { width: 3 }, { width: 18 }, { width: 13 }, { width: 15 }, { width: 13 }, { width: 13 }, { width: 13 },
-      { width: 15 }, { width: 28 }
+      { width: 18 }, { width: 13 }, { width: 15 }, { width: 10 }, { width: 10 }, { width: 15 }
     ];
-    sheet.mergeCells("A2:P2");
+    sheet.mergeCells("A2:M2");
     sheet.getCell("A2").value = `Two Weeks ended ${formatDate(data.weekTwoEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;
     applyTitle(sheet.getCell("A2"));
     sheet.getRow(2).height = 24;
-    const headers = ["Employee", "Type", "Total Hrs", "Week 1 Hrs", "Rate", "Week 1 Gross", "Week 2 Hrs", null, "Week 2 Gross", "Stat Pay", "Gross", "Adjustment", "VP", "Other", "To Balance", "Accounting Note"];
+    const headers = ["Employee", "Type", "Total Hrs", "Week 1 Hrs", "Rate", "Week 1 Gross", "Week 2 Hrs", "Week 2 Gross", "Stat Pay", "Gross", "Adjustment", "VP", "To Balance"];
     headers.forEach((header, index) => {
       sheet.getCell(4, index + 1).value = header;
       if (header) applyHeader(sheet.getCell(4, index + 1));
@@ -570,7 +588,7 @@
     sheet.getRow(4).height = 30;
 
     let row = 5;
-    const totals = { hours: 0, w1: 0, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, gross: 0, adjustment: 0, vp: 0, other: 0, balance: 0 };
+    const totals = { hours: 0, w1: 0, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, gross: 0, adjustment: 0, vp: 0, balance: 0 };
     data.employees.forEach((employee, employeeIndex) => {
       const weekOne = employeeWeekTotals(data, employee, data.weekOneStart, data.weekOneEnd);
       const weekTwo = employeeWeekTotals(data, employee, data.weekTwoStart, data.weekTwoEnd);
@@ -581,43 +599,39 @@
       const statPay = input.statSelected ? round(safeNumber(input.statHours) * regularRate) : 0;
       const adjustment = safeNumber(input.adjustment);
       const vp = safeNumber(input.vacationPay);
-      const otherAmount = safeNumber(input.otherAmount);
       const employeeFill = ["EAF3FC", "D9F0F7", "FBE5D6", "DDF4DD", "F3D9EE", "E8E2F7"][employeeIndex % 6];
       const rowTypes = [
-        { type: "Regular", ref: "regularRow", w1: weekOne.regularHours, rate: regularRate, w1Gross: weekOne.regularGross, w2: weekTwo.regularHours, w2Gross: weekTwo.regularGross, stat: statPay, adjustment, vp, other: otherAmount },
-        { type: "Overtime", ref: "overtimeRow", w1: 0, rate: overtimeRate, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, adjustment: 0, vp: 0, other: 0 },
-        { type: "Other", ref: "otherRow", w1: weekOne.nightHours, rate: nightPremium, w1Gross: weekOne.nightGross, w2: weekTwo.nightHours, w2Gross: weekTwo.nightGross, stat: 0, adjustment: 0, vp: 0, other: 0 }
+        { type: "Regular", ref: "regularRow", w1: weekOne.regularHours, rate: regularRate, w1Gross: weekOne.regularGross, w2: weekTwo.regularHours, w2Gross: weekTwo.regularGross, stat: statPay, adjustment, vp },
+        { type: "Overtime", ref: "overtimeRow", w1: 0, rate: overtimeRate, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, adjustment: 0, vp: 0 },
+        { type: "Other", ref: "otherRow", w1: weekOne.nightHours, rate: nightPremium, w1Gross: weekOne.nightGross, w2: weekTwo.nightHours, w2Gross: weekTwo.nightGross, stat: 0, adjustment: 0, vp: 0 }
       ];
       rowTypes.forEach((item) => {
         const totalHours = round(item.w1 + item.w2);
         const gross = round(item.w1Gross + item.w2Gross + item.stat);
-        const balance = round(gross + item.adjustment + item.vp + item.other);
+        const balance = round(gross + item.adjustment + item.vp);
         const weekOneRow = weekOneWorkbook.employeeRefs[employee.profileId][item.ref];
         const weekTwoRow = weekTwoWorkbook.employeeRefs[employee.profileId][item.ref];
         const weekOneSheet = quoteSheetName(weekOneWorkbook.sheetName);
         const weekTwoSheet = quoteSheetName(weekTwoWorkbook.sheetName);
-        const values = [employee.name, item.type, null, null, null, null, null, null, null, item.stat, null, item.adjustment, item.vp, item.other, null, item.type === "Regular" && input.note ? String(input.note) : null];
+        const values = [employee.name, item.type, null, null, null, null, null, null, item.stat, null, item.adjustment, item.vp, null];
         values.forEach((value, index) => {
           const cell = sheet.getCell(row, index + 1);
           cell.value = value;
           cell.fill = fill(employeeFill);
           cell.border = thinBorder("E6E6E6");
-          if (index >= 2 && index !== 7 && index !== 15) cell.numFmt = index === 2 || index === 3 || index === 6 ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
-          if (index === 0 || index === 15) cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+          if (index >= 2) cell.numFmt = index === 2 || index === 3 || index === 6 ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
+          if (index === 0) cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
         });
-        if (item.type === "Regular" && input.note) {
-          sheet.getRow(row).height = wrappedRowHeight(input.note, 27, 18);
-        }
         setFormula(sheet.getCell(row, 3), `D${row}+G${row}`, totalHours, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 4), `${weekOneSheet}!J${weekOneRow}`, item.w1, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 5), `${weekTwoSheet}!K${weekTwoRow}`, item.rate, "$#,##0.00;[Red]-$#,##0.00;-");
         setFormula(sheet.getCell(row, 6), `${weekOneSheet}!L${weekOneRow}`, item.w1Gross, "$#,##0.00;[Red]-$#,##0.00;-");
         setFormula(sheet.getCell(row, 7), `${weekTwoSheet}!J${weekTwoRow}`, item.w2, "0.00;-0.00;-");
-        setFormula(sheet.getCell(row, 9), `${weekTwoSheet}!L${weekTwoRow}`, item.w2Gross, "$#,##0.00;[Red]-$#,##0.00;-");
-        setFormula(sheet.getCell(row, 11), `F${row}+I${row}+J${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
-        setFormula(sheet.getCell(row, 15), `K${row}+L${row}+M${row}+N${row}`, balance, "$#,##0.00;[Red]-$#,##0.00;-");
+        setFormula(sheet.getCell(row, 8), `${weekTwoSheet}!L${weekTwoRow}`, item.w2Gross, "$#,##0.00;[Red]-$#,##0.00;-");
+        setFormula(sheet.getCell(row, 10), `F${row}+H${row}+I${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
+        setFormula(sheet.getCell(row, 13), `J${row}+K${row}+L${row}`, balance, "$#,##0.00;[Red]-$#,##0.00;-");
         if (item.type === "Regular") {
-          [10, 12, 13, 14, 16].forEach((column) => {
+          [9, 11, 12].forEach((column) => {
             sheet.getCell(row, column).fill = fill(COLORS.inputBlue);
             sheet.getCell(row, column).font = { color: { argb: "0000FF" } };
           });
@@ -631,7 +645,6 @@
         totals.gross += gross;
         totals.adjustment += item.adjustment;
         totals.vp += item.vp;
-        totals.other += item.other;
         totals.balance += balance;
         row += 1;
       });
@@ -641,10 +654,10 @@
     const totalRow = row + 1;
     sheet.getCell(totalRow, 1).value = "TOTAL";
     const totalValues = {
-      3: totals.hours, 4: totals.w1, 6: totals.w1Gross, 7: totals.w2, 9: totals.w2Gross,
-      10: totals.stat, 11: totals.gross, 12: totals.adjustment, 13: totals.vp, 14: totals.other, 15: totals.balance
+      3: totals.hours, 4: totals.w1, 6: totals.w1Gross, 7: totals.w2, 8: totals.w2Gross,
+      9: totals.stat, 10: totals.gross, 11: totals.adjustment, 12: totals.vp, 13: totals.balance
     };
-    for (let column = 1; column <= 16; column += 1) {
+    for (let column = 1; column <= 13; column += 1) {
       const cell = sheet.getCell(totalRow, column);
       cell.fill = fill(COLORS.navy);
       cell.font = { bold: true, color: { argb: COLORS.white } };
@@ -659,16 +672,16 @@
     sheet.getCell(totalRow + 4, 1).value = "Blue cells = enter or update   |   Green cells = calculated automatically";
     sheet.getCell(totalRow + 4, 1).font = { italic: true, color: { argb: "6B7280" } };
     sheet.getCell(totalRow + 4, 1).fill = fill(COLORS.inputBlue);
-    sheet.getCell(totalRow + 4, 9).value = "Simple Settings";
-    applyEmployeeHeader(sheet.getCell(totalRow + 4, 9));
-    sheet.getCell(totalRow + 5, 9).value = "Labour multiplier";
-    sheet.getCell(totalRow + 5, 9).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    sheet.getCell(totalRow + 5, 10).value = 1.4;
-    sheet.getCell(totalRow + 5, 10).numFmt = "0.00x";
-    sheet.getCell(totalRow + 6, 9).value = "Stat hours default";
-    sheet.getCell(totalRow + 6, 9).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    sheet.getCell(totalRow + 6, 10).value = 8;
-    sheet.getCell(totalRow + 6, 10).numFmt = "0.00";
+    sheet.getCell(totalRow + 4, 8).value = "Simple Settings";
+    applyEmployeeHeader(sheet.getCell(totalRow + 4, 8));
+    sheet.getCell(totalRow + 5, 8).value = "Labour multiplier";
+    sheet.getCell(totalRow + 5, 8).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    sheet.getCell(totalRow + 5, 9).value = 1.4;
+    sheet.getCell(totalRow + 5, 9).numFmt = "0.00x";
+    sheet.getCell(totalRow + 6, 8).value = "Stat hours default";
+    sheet.getCell(totalRow + 6, 8).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    sheet.getCell(totalRow + 6, 9).value = 8;
+    sheet.getCell(totalRow + 6, 9).numFmt = "0.00";
     sheet.getRow(totalRow + 4).height = 22;
     sheet.getRow(totalRow + 5).height = 22;
     sheet.getRow(totalRow + 6).height = 22;
@@ -748,18 +761,19 @@
   async function build(options) {
     if (!window.ExcelJS) throw new Error("Excel support is not available.");
     if (!options || !options.templateBase64) throw new Error("The approved workbook template is missing.");
-    const data = options.data;
-    if (!data || !Array.isArray(data.entries)) throw new Error("Accounting export data is missing.");
+    const sourceData = options.data;
+    if (!sourceData || !Array.isArray(sourceData.entries)) throw new Error("Accounting export data is missing.");
+    const data = Object.assign({}, sourceData, { employees: sortedEmployees(sourceData.employees) });
 
     const workbook = new window.ExcelJS.Workbook();
     await workbook.xlsx.load(base64ToUint8Array(options.templateBase64));
-    const requiredSheets = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"];
+    const requiredSheets = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"];
     const missing = requiredSheets.filter((name) => !workbook.getWorksheet(name));
     if (missing.length) throw new Error("Workbook template is missing: " + missing.join(", "));
 
-    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"].forEach((name) => {
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"].forEach((name) => {
       const sheet = workbook.getWorksheet(name);
-      workbook.removeWorksheet(sheet.id);
+      if (sheet) workbook.removeWorksheet(sheet.id);
     });
 
     const weekOneSheet = workbook.addWorksheet(sheetDateName(data.weekOneEnd));
@@ -768,8 +782,7 @@
     const jobsWeekTwoSheet = workbook.addWorksheet("Jobs Week 2");
     const summarySheet = workbook.addWorksheet("Summary");
     const payPeriodSheet = workbook.addWorksheet("Pay Period");
-    const stewartSheet = workbook.getWorksheet("Stewart");
-    [weekOneSheet, jobsWeekOneSheet, weekTwoSheet, jobsWeekTwoSheet, summarySheet, stewartSheet, payPeriodSheet]
+    [weekOneSheet, jobsWeekOneSheet, weekTwoSheet, jobsWeekTwoSheet, summarySheet, payPeriodSheet]
       .forEach((sheet, index) => { sheet.orderNo = index; });
 
     const weekOneTitle = `Week ended ${formatDate(data.weekOneEnd, { month: "short", day: "numeric" })} paid ${formatDate(data.payDate, { month: "short", day: "numeric" })}`;

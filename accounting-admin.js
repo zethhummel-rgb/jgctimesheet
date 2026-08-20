@@ -2,7 +2,7 @@
   "use strict";
 
   const PAY_DATE_ANCHOR = "2026-08-20";
-  const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"];
+  const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"];
   const REQUIRED_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const SPECIAL_JOB_LABEL = "Special / no job required";
   const state = {
