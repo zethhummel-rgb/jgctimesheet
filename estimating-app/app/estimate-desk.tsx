@@ -2342,7 +2342,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         <div className="estimate-table-wrap">
           <table className="estimate-table">
             <thead>
-              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th>Direct unit cost</th><th>Markup</th><th>Sell price</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
+              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th>Markup</th><th>Sell price</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
             </thead>
             <tbody>
               {quote.lines.map((line, index) => {
@@ -2361,7 +2361,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                       <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value, divisionManual: true })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
-                      <td data-label="Direct unit cost">
+                      <td className="direct-unit-cost-cell" data-label="Direct unit cost">
                         <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={line.costBuildUp ? buildUpTotals.total : line.projectCost ?? line.catalogCost ?? ""} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { projectCost: event.target.value === "" ? null : Number(event.target.value) })} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
                         {line.costBuildUp ? <div className="build-up-mini-totals"><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
