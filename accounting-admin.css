@@ -570,6 +570,12 @@
   margin-bottom: 14px;
 }
 
+.accounting-ledger-title {
+  margin: 18px 0 10px;
+  color: #2fd05a;
+  font-size: 1.1rem;
+}
+
 .accounting-empty {
   padding: 16px;
   color: #bdcbbf;

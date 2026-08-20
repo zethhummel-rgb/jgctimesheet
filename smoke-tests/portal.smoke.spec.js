@@ -175,7 +175,7 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
     } else if (url.pathname.includes("/rest/v1/timesheet_entries") && page.url().includes("accounting-admin.html")) {
       body = JSON.stringify(options.accountingLiveEntries || []);
     } else if (url.pathname.includes("/rest/v1/accounting_pay_periods")) {
-      body = "null";
+      body = JSON.stringify(options.accountingPeriod || null);
     } else if (url.pathname.includes("/rest/v1/accounting_workbook_templates")) {
       body = JSON.stringify({
         id: "biweekly-v1",
@@ -186,7 +186,22 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
         created_at: "2026-08-11T12:00:00Z",
         updated_at: "2026-08-11T12:00:00Z"
       });
-    } else if (url.pathname.includes("/rest/v1/accounting_period_employee_inputs") || url.pathname.includes("/rest/v1/accounting_exports")) {
+    } else if (url.pathname.includes("/rest/v1/accounting_export_downloads")) {
+      if (request.method() === "POST") {
+        const payload = JSON.parse(request.postData() || "{}");
+        body = JSON.stringify(Object.assign({
+          id: "00000000-0000-4000-8000-000000000073",
+          downloaded_at: "2026-08-20T15:00:00Z"
+        }, payload));
+      } else {
+        body = JSON.stringify(options.accountingExportDownloads || []);
+      }
+    } else if (url.pathname.includes("/rest/v1/accounting_exports")) {
+      const exports = options.accountingExports || [];
+      body = accept.includes("application/vnd.pgrst.object")
+        ? JSON.stringify(Object.assign({ file_base64: "dGVzdA==" }, exports[0] || {}))
+        : JSON.stringify(exports);
+    } else if (url.pathname.includes("/rest/v1/accounting_period_employee_inputs")) {
       body = "[]";
     } else if (url.pathname.includes("/rest/v1/jobs") && page.url().includes("accounting-admin.html")) {
       body = JSON.stringify([{
@@ -208,7 +223,7 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
             role: "employee",
             account_status: "approved"
           }
-        ]);
+        ].concat(options.additionalProfiles || []));
     } else if (url.pathname.includes("/rest/v1/work_order_labour_workers")) {
       const workers = [
         {
@@ -2626,6 +2641,72 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
   await expect(page.locator("#accountingTemplateStatus")).toContainText("Approved template ready");
   await expect(page.locator("#accountingDownloadFinal")).toBeEnabled();
   await expectNoRuntimeErrors(errors, "Accounting admin workflow");
+});
+
+test("Accounting Export Ledger records exact-file re-downloads", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const periodId = "00000000-0000-4000-8000-000000000070";
+  const exportId = "00000000-0000-4000-8000-000000000071";
+  const darleneId = "00000000-0000-4000-8000-000000000072";
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, {
+    accountingEnabled: false,
+    accountingPeriod: {
+      id: periodId,
+      pay_date: "2026-08-20",
+      week_one_start: "2026-08-02",
+      week_one_end: "2026-08-08",
+      week_two_start: "2026-08-09",
+      week_two_end: "2026-08-15",
+      status: "draft"
+    },
+    accountingExports: [{
+      id: exportId,
+      pay_period_id: periodId,
+      file_name: "JGC Payroll - Aug 2, 2026 to Aug 15, 2026.xlsx",
+      file_sha256: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      is_final: false,
+      exported_by: fakeProfile.id,
+      exported_at: "2026-08-18T14:00:00Z"
+    }],
+    accountingExportDownloads: [{
+      id: "00000000-0000-4000-8000-000000000074",
+      export_id: exportId,
+      downloaded_by: darleneId,
+      downloaded_at: "2026-08-19T15:30:00Z"
+    }],
+    additionalProfiles: [{
+      id: darleneId,
+      email: "darlene@example.com",
+      display_name: "Darlene Donaher",
+      worker_key: "darlene donaher",
+      role: "admin",
+      account_status: "approved"
+    }]
+  });
+
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  const ledger = page.locator("#accountingExportHistory");
+  await expect(ledger.locator("thead")).toContainText("Activity");
+  await expect(ledger.locator("tbody tr")).toHaveCount(2);
+  await expect(ledger).toContainText("Generated");
+  await expect(ledger).toContainText("Portal Smoke Test");
+  await expect(ledger).toContainText("Re-downloaded");
+  await expect(ledger).toContainText("Darlene Donaher");
+
+  const ledgerRequest = page.waitForRequest((request) =>
+    request.method() === "POST" && request.url().includes("/rest/v1/accounting_export_downloads")
+  );
+  const downloadEvent = page.waitForEvent("download");
+  await ledger.locator("[data-redownload-export]").first().click();
+  const [request] = await Promise.all([ledgerRequest, downloadEvent]);
+  expect(request.postDataJSON()).toEqual({
+    export_id: exportId,
+    downloaded_by: fakeUser.id
+  });
+  await expect(page.locator("#accountingNotice")).toContainText("recorded in the Export Ledger");
+  await expect(ledger.locator("tbody tr")).toHaveCount(3);
+  await expectNoRuntimeErrors(errors, "Accounting Export Ledger re-download tracking");
 });
 
 test("Accounting workbook uses the requested sheets, Summary columns, and last-name order", async ({ page }) => {
