@@ -59,3 +59,43 @@ test("overview search finds and opens quotes by client, site, project or referen
   await quoteResult.click();
   await expect(page.getByText("JGC-Q-2026-0001 · REV 0")).toBeVisible();
 });
+
+test("quote PDF actions are separated by workflow page", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+
+  await expect(page.getByRole("button", { name: "Download Proposal, Estimate, Breakdown" })).toBeVisible();
+  await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /Duplicate/ })).toHaveCount(0);
+  await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /PDF backup/ })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await expect(page.getByRole("button", { name: "Estimate Only PDF" })).toBeVisible();
+
+  await page.getByRole("tab", { name: /Breakdown/ }).click();
+  await expect(page.getByRole("button", { name: "Download Breakdown PDF" })).toBeVisible();
+
+  await page.getByRole("tab", { name: /Review/ }).click();
+  await expect(page.getByRole("button", { name: "Duplicate quote" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download full PDF backup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Built-up items/ })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+  await expect(page.getByRole("button", { name: "Proposal PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Full quote backup/ })).toHaveCount(0);
+});
+
+test("material price book offers direct manual entry without replacing import", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: /Price Book/ }).click();
+  await page.getByRole("tab", { name: /Material Prices/ }).click();
+  await expect(page.getByRole("button", { name: "Add material manually" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Import or update prices" })).toBeVisible();
+  await page.getByRole("button", { name: "Add material manually" }).click();
+  await expect(page.getByRole("heading", { name: "Add a material directly" })).toBeVisible();
+  await expect(page.getByLabel("Material name")).toBeVisible();
+  await expect(page.getByLabel(/Supplier \/ source/)).toBeVisible();
+  await expect(page.getByLabel("Cost")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save material" })).toBeDisabled();
+});

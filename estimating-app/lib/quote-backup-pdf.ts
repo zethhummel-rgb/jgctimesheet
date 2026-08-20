@@ -15,6 +15,7 @@ import {
   quoteTotals,
   type AppState,
   type Quote,
+  type QuoteCostBuildUpItem,
   type QuoteLine,
 } from "./estimator-data";
 import { createProposalPdf } from "./proposal-pdf";
@@ -35,6 +36,13 @@ export interface QuoteBackupPdfOptions {
   state: AppState;
   quote: Quote;
   review: QuoteBackupReview;
+  logoBytes?: Uint8Array | null;
+  exportedAt?: Date;
+}
+
+export interface InternalEstimatePdfOptions {
+  state: AppState;
+  quote: Quote;
   logoBytes?: Uint8Array | null;
   exportedAt?: Date;
 }
@@ -220,6 +228,7 @@ class BackupPdfBuilder {
     private quote: Quote,
     private logo: PDFImage | null,
     private exportedAt: Date,
+    private documentLabel = "Complete Quote Backup",
   ) {}
 
   startSection(section: string, subtitle: string) {
@@ -453,7 +462,7 @@ class BackupPdfBuilder {
       const index = pages.indexOf(page);
       if (index < 0) return;
       page.drawLine({ start: { x: MARGIN, y: 34 }, end: { x: PAGE_WIDTH - MARGIN, y: 34 }, thickness: 0.5, color: colour.line });
-      page.drawText(ascii(`${this.quote.number} - Complete Quote Backup - ${section}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
+      page.drawText(ascii(`${this.quote.number} - ${this.documentLabel} - ${section}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
       const pageNumber = `Page ${index + 1} of ${pages.length}`;
       page.drawText(pageNumber, { x: PAGE_WIDTH - MARGIN - this.regular.widthOfTextAtSize(pageNumber, 6.8), y: 21, size: 6.8, font: this.regular, color: colour.muted });
     });
@@ -499,7 +508,7 @@ function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
   }
 }
 
-function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quote) {
+function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quote, includeBuiltUpWorksheets = true) {
   const totals = quoteTotals(quote);
   builder.startSection("Estimate", "Internal quantities, direct costs, sources, markup and customer pricing.");
   const columns: TableColumn[] = [
@@ -533,7 +542,7 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
     [`${quote.taxName} ${percent(quote.taxRate, 0)}`, money(totals.tax)],
     ["Customer total", money(totals.total)],
   ]);
-  const builtUpLines = quote.lines.filter((line) => line.costBuildUp);
+  const builtUpLines = includeBuiltUpWorksheets ? quote.lines.filter((line) => line.costBuildUp) : [];
   if (builtUpLines.length) {
     builder.subheading("Built-up item worksheets");
     builtUpLines.forEach((line) => {
@@ -569,6 +578,68 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   }
   if (totals.optional > 0) builder.callout("Unselected optional work", `${money(totals.optional)} is available but not included in the customer total.`, "amber");
   builder.callout("Pricing snapshot", "All amounts shown here are the values stored on this quote at the time of export. Price Book changes do not rewrite these lines.");
+}
+
+function addBreakdownPages(builder: BackupPdfBuilder, quote: Quote) {
+  const builtUpLines = quote.lines.filter((line) => line.costBuildUp);
+  builtUpLines.forEach((line, index) => {
+    const lineNumber = quote.lines.indexOf(line) + 1;
+    const totals = lineBuildUpTotals(line);
+    const markup = line.markupOverride ?? quote.defaultMarkup;
+    builder.startSection(
+      line.description || `Built-up item ${index + 1}`,
+      `Internal cost worksheet - estimate line ${lineNumber} - item ${index + 1} of ${builtUpLines.length}.`,
+    );
+    builder.keyValueGrid([
+      ["Division", line.division || "Not assigned"],
+      ["Main quantity", `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`],
+      ["Cost type", line.costType],
+      ["Proposal class", line.included ? line.classification : `${line.classification} - excluded`],
+    ]);
+    const groups: Array<{ kind: QuoteCostBuildUpItem["kind"]; title: string }> = [
+      { kind: "Labour", title: "Labour" },
+      { kind: "Material", title: "Materials" },
+      { kind: "Subcontractor", title: "Subcontractors / vendors" },
+      { kind: "Other", title: "Equipment / other direct costs" },
+    ];
+    groups.forEach(({ kind, title }) => {
+      const items = line.costBuildUp?.items.filter((item) => (
+        item.kind === kind
+        && (!!item.description.trim() || !!item.source.trim() || item.quantity > 0 || item.unitCost > 0)
+      )) ?? [];
+      if (!items.length) return;
+      builder.subheading(title);
+      builder.table(
+        [
+          { label: "Description / source", width: 244 },
+          { label: kind === "Labour" ? "Hours" : "Quantity", width: 65, align: "right" },
+          { label: "Unit", width: 63 },
+          { label: kind === "Labour" ? "Rate" : "Unit cost", width: 78, align: "right" },
+          { label: "Total", width: 82, align: "right" },
+        ],
+        items.map((item) => [
+          `${item.description || "Unnamed cost row"}${item.source ? `\n${item.source}` : item.priceSourceSnapshot ? `\n${item.priceSourceSnapshot.supplierName}` : ""}`,
+          item.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 }),
+          item.unit,
+          money(item.unitCost),
+          money(buildUpItemTotal(item)),
+        ]),
+        { fontSize: 7.2 },
+      );
+    });
+    builder.totalsBox([
+      ["Labour", money(totals.labour)],
+      ["Materials", money(totals.materials)],
+      ["Subcontractors", money(totals.subcontractors)],
+      ["Equipment / other", money(totals.other)],
+      ["Built-up unit cost", money(totals.total)],
+      ["Direct cost", money(lineDirectCost(line))],
+      ["Markup", percent(markup)],
+      ["Final selling price", money(lineSellPrice(line, quote.defaultMarkup))],
+    ]);
+    if (line.internalScope) builder.labelledParagraph("Scope / assumptions", line.internalScope);
+    if (line.internalNote) builder.labelledParagraph("Internal note", line.internalNote);
+  });
 }
 
 function addReviewPage(builder: BackupPdfBuilder, quote: Quote, review: QuoteBackupReview) {
@@ -812,6 +883,63 @@ function backupSnapshot(state: AppState, quote: Quote, review: QuoteBackupReview
   };
 }
 
+async function embedOptionalLogo(document: PDFDocument, logoBytes?: Uint8Array | null) {
+  if (!logoBytes?.length) return null;
+  try {
+    return await document.embedPng(logoBytes);
+  } catch {
+    try {
+      return await document.embedJpg(logoBytes);
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function createInternalDocument(options: InternalEstimatePdfOptions, title: string, subject: string, documentLabel: string) {
+  const exportedAt = options.exportedAt ?? new Date();
+  const document = await PDFDocument.create();
+  document.setTitle(`${options.quote.number} - ${title}`);
+  document.setAuthor(options.state.settings.companyName || "John Gordon Construction Inc.");
+  document.setSubject(subject);
+  document.setKeywords(["JGC", "quote", "estimate", "internal"]);
+  document.setCreator("JGC Estimate Desk");
+  document.setProducer("JGC Estimate Desk");
+  document.setCreationDate(exportedAt);
+  document.setModificationDate(exportedAt);
+  const regular = await document.embedFont(StandardFonts.Helvetica);
+  const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const logo = await embedOptionalLogo(document, options.logoBytes);
+  return {
+    document,
+    builder: new BackupPdfBuilder(document, regular, bold, options.state, options.quote, logo, exportedAt, documentLabel),
+  };
+}
+
+export async function createEstimatePdf(options: InternalEstimatePdfOptions) {
+  const { document, builder } = await createInternalDocument(
+    options,
+    "Internal Estimate",
+    "Internal estimate line items, direct costs, markups, selling prices and totals",
+    "Internal Estimate",
+  );
+  addEstimatePage(builder, options.state, options.quote, false);
+  builder.finish();
+  return document.save();
+}
+
+export async function createBreakdownPdf(options: InternalEstimatePdfOptions) {
+  const { document, builder } = await createInternalDocument(
+    options,
+    "Built-Up Item Breakdown",
+    "Internal built-up estimate worksheets for labour, materials, subcontractors and other direct costs",
+    "Built-Up Breakdown",
+  );
+  addBreakdownPages(builder, options.quote);
+  builder.finish();
+  return document.save();
+}
+
 export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   const exportedAt = options.exportedAt ?? new Date();
   const document = await PDFDocument.create();
@@ -825,18 +953,7 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   document.setModificationDate(exportedAt);
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
-  let logo: PDFImage | null = null;
-  if (options.logoBytes?.length) {
-    try {
-      logo = await document.embedPng(options.logoBytes);
-    } catch {
-      try {
-        logo = await document.embedJpg(options.logoBytes);
-      } catch {
-        logo = null;
-      }
-    }
-  }
+  const logo = await embedOptionalLogo(document, options.logoBytes);
   const builder = new BackupPdfBuilder(document, regular, bold, options.state, options.quote, logo, exportedAt);
   addDetailsPage(builder, options.state, options.quote, exportedAt);
   addEstimatePage(builder, options.state, options.quote);
@@ -882,25 +999,43 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   return document.save();
 }
 
-export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {
-  let logoBytes: Uint8Array | null = options.logoBytes ?? null;
-  if (!logoBytes && typeof fetch !== "undefined") {
-    try {
-      const response = await fetch("./jgc-logo-transparent.png");
-      if (response.ok) logoBytes = new Uint8Array(await response.arrayBuffer());
-    } catch {
-      logoBytes = null;
-    }
+async function loadDownloadLogo(logoBytes?: Uint8Array | null) {
+  if (logoBytes?.length || typeof fetch === "undefined") return logoBytes ?? null;
+  try {
+    const response = await fetch("./jgc-logo-transparent.png");
+    return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+  } catch {
+    return null;
   }
-  const bytes = await createQuoteBackupPdf({ ...options, logoBytes });
+}
+
+function downloadPdfBytes(bytes: Uint8Array, filename: string) {
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  const blob = new Blob([buffer], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(new Blob([buffer], { type: "application/pdf" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Complete Quote Backup.pdf`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadEstimatePdf(options: InternalEstimatePdfOptions) {
+  const logoBytes = await loadDownloadLogo(options.logoBytes);
+  const bytes = await createEstimatePdf({ ...options, logoBytes });
+  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Estimate.pdf`);
+}
+
+export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions) {
+  if (!options.quote.lines.some((line) => line.costBuildUp)) return;
+  const logoBytes = await loadDownloadLogo(options.logoBytes);
+  const bytes = await createBreakdownPdf({ ...options, logoBytes });
+  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Breakdown.pdf`);
+}
+
+export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {
+  const logoBytes = await loadDownloadLogo(options.logoBytes);
+  const bytes = await createQuoteBackupPdf({ ...options, logoBytes });
+  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Complete Quote Backup.pdf`);
 }
