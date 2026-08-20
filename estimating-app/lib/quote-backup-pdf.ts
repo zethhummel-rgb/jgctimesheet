@@ -161,6 +161,11 @@ function shortDivision(value?: string) {
   return match ? `Div ${match[1]}` : value?.trim() || "Div 01";
 }
 
+function divisionNumber(value?: string) {
+  const match = (value ?? "").match(/(?:Div|Division)\s+(\d+)/i);
+  return (match?.[1] ?? "01").padStart(2, "0");
+}
+
 function safeFileName(value: string) {
   return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim().slice(0, 120) || "JGC Quote";
 }
@@ -404,7 +409,7 @@ class BackupPdfBuilder {
     this.y -= height + 10;
   }
 
-  table(columns: TableColumn[], rows: string[][], options: { fontSize?: number; rowTone?: (index: number) => "normal" | "amber" | "green" } = {}) {
+  table(columns: TableColumn[], rows: string[][], options: { fontSize?: number; rowTone?: (index: number) => "normal" | "amber" | "blue" | "green"; gapBeforeRow?: (index: number) => number } = {}) {
     const fontSize = options.fontSize ?? 7.6;
     const lineHeight = fontSize + 2.2;
     const drawHeader = () => {
@@ -424,9 +429,11 @@ class BackupPdfBuilder {
     rows.forEach((row, rowIndex) => {
       const wrapped = columns.map((column, columnIndex) => wrapText(row[columnIndex] ?? "", this.regular, fontSize, column.width - 8));
       const height = Math.max(20, 8 + Math.max(...wrapped.map((lines) => lines.length)) * lineHeight);
-      if (this.ensureSpace(height + 2)) drawHeader();
+      const gapBefore = options.gapBeforeRow?.(rowIndex) ?? 0;
+      if (this.ensureSpace(height + gapBefore + 2)) drawHeader();
+      else this.y -= gapBefore;
       const tone = options.rowTone?.(rowIndex) ?? "normal";
-      const fill = tone === "amber" ? colour.paleAmber : tone === "green" ? colour.paleGreen : rowIndex % 2 ? colour.light : colour.white;
+      const fill = tone === "amber" ? colour.paleAmber : tone === "blue" ? colour.paleBlue : tone === "green" ? colour.paleGreen : rowIndex % 2 ? colour.light : colour.white;
       const totalWidth = columns.reduce((sum, column) => sum + column.width, 0);
       this.page.drawRectangle({ x: MARGIN, y: this.y - height, width: totalWidth, height, color: fill, borderColor: colour.line, borderWidth: 0.35 });
       let x = MARGIN;
@@ -478,9 +485,9 @@ class BackupPdfBuilder {
   }
 }
 
-function lineSource(state: AppState, line: QuoteLine) {
+function estimateVendorDetails(state: AppState, line: QuoteLine) {
   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name : line.vendorName?.trim() ?? "";
-  return [vendor, line.vendorReference, line.priceBookCode].filter(Boolean).join(" / ") || "Custom entry";
+  return [vendor, line.vendorReference].filter(Boolean).join(" / ");
 }
 
 function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote, exportedAt: Date) {
@@ -519,30 +526,40 @@ function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
 
 function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quote, includeBuiltUpWorksheets = true) {
   const totals = quoteTotals(quote);
-  builder.startSection("Estimate", "Internal quantities, direct costs, sources, markup and customer pricing.");
+  builder.startSection("Estimate", "Internal quantities, direct costs, markup and customer pricing.");
   const columns: TableColumn[] = [
-    { label: "#", width: 20, align: "center" },
-    { label: "Section / division / description / source", width: 190 },
-    { label: "Class", width: 55 },
-    { label: "Qty / unit", width: 48, align: "right" },
+    { label: "#", width: 18, align: "center" },
+    { label: "Division", width: 32, align: "center" },
+    { label: "Description / vendor", width: 170 },
+    { label: "Class", width: 52 },
+    { label: "Qty / unit", width: 46, align: "right" },
     { label: "Unit cost", width: 57, align: "right", emphasis: "green" },
-    { label: "Direct", width: 58, align: "right" },
-    { label: "Markup", width: 44, align: "right" },
+    { label: "Direct", width: 55, align: "right" },
+    { label: "Markup", width: 42, align: "right" },
     { label: "Sell", width: 60, align: "right" },
   ];
-  const rows = quote.lines.map((line, index) => [
-    String(index + 1),
-    `${line.section || "General"} | ${shortDivision(line.division)}: ${line.description || "Unnamed line"}\n${line.costType} | ${lineSource(state, line)} | ${line.confidence}`,
-    line.included ? (line.classification === "Optional" ? "Optional - selected" : line.classification) : (line.classification === "Optional" ? "Optional - not selected" : `${line.classification} - excluded`),
-    `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`,
-    money(effectiveUnitCost(line)),
-    money(lineDirectCost(line)),
-    percent(line.markupOverride ?? quote.defaultMarkup, 0),
-    money(lineSellPrice(line, quote.defaultMarkup)),
-  ]);
+  const orderedLines = quote.lines
+    .map((line, originalIndex) => ({ line, originalIndex }))
+    .sort((left, right) => Number(right.line.costType === "Sub / Vendor") - Number(left.line.costType === "Sub / Vendor") || left.originalIndex - right.originalIndex);
+  const vendorCount = orderedLines.filter(({ line }) => line.costType === "Sub / Vendor").length;
+  const rows = orderedLines.map(({ line, originalIndex }) => {
+    const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
+    return [
+      String(originalIndex + 1),
+      divisionNumber(line.division),
+      `${line.description || "Unnamed line"}${vendorDetails ? `\n${vendorDetails}` : ""}`,
+      line.included ? (line.classification === "Optional" ? "Optional - selected" : line.classification) : (line.classification === "Optional" ? "Optional - not selected" : `${line.classification} - excluded`),
+      `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`,
+      money(effectiveUnitCost(line)),
+      money(lineDirectCost(line)),
+      percent(line.markupOverride ?? quote.defaultMarkup, 0),
+      money(lineSellPrice(line, quote.defaultMarkup)),
+    ];
+  });
   builder.table(columns, rows, {
     fontSize: 6.9,
-    rowTone: (index) => quote.lines[index].classification === "Optional" && !quote.lines[index].included ? "amber" : "normal",
+    rowTone: (index) => index < vendorCount ? "blue" : "green",
+    gapBeforeRow: (index) => vendorCount > 0 && vendorCount < orderedLines.length && index === vendorCount ? 10 : 0,
   });
   builder.totalsBox([
     ["Included direct cost", money(totals.directCost)],
