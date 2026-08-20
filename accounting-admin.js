@@ -2,7 +2,7 @@
   "use strict";
 
   const PAY_DATE_ANCHOR = "2026-08-20";
-  const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Stewart", "Pay Period"];
+  const REQUIRED_TEMPLATE_SHEETS = ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"];
   const REQUIRED_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const SPECIAL_JOB_LABEL = "Special / no job required";
   const state = {
@@ -21,6 +21,7 @@
     liveEntries: [],
     jobs: [],
     exports: [],
+    exportDownloads: [],
     template: null,
     loading: false,
     missingPanelOpen: false
@@ -548,14 +549,27 @@
     const validation = getValidation();
     elements.downloadDraft.disabled = Boolean(locked || !state.template || !validation.workEntries.length);
     elements.downloadFinal.disabled = Boolean(locked || validation.blockFinal.length);
-    if (!state.exports.length) {
+    const exportsById = new Map(state.exports.map((item) => [item.id, item]));
+    const activity = state.exports.map((item) => Object.assign({}, item, {
+      activity_at: item.exported_at,
+      activity_by: item.exported_by,
+      activity_label: "Generated"
+    })).concat(state.exportDownloads.map((download) => {
+      const item = exportsById.get(download.export_id);
+      return item ? Object.assign({}, item, {
+        activity_at: download.downloaded_at,
+        activity_by: download.downloaded_by,
+        activity_label: "Re-downloaded"
+      }) : null;
+    }).filter(Boolean)).sort((left, right) => new Date(right.activity_at) - new Date(left.activity_at));
+    if (!activity.length) {
       elements.exportHistory.innerHTML = '<div class="accounting-empty">No exports have been recorded for this pay period.</div>';
       return;
     }
     elements.exportHistory.innerHTML = `<div class="accounting-table-wrap"><table class="accounting-table">
-      <thead><tr><th>Exported</th><th>Type</th><th>File</th><th>Checksum</th><th>Action</th></tr></thead>
-      <tbody>${state.exports.map((item) => `<tr>
-        <td>${escapeText(formatDateTime(item.exported_at))}<br><small>${escapeText(employeeName(item.exported_by, "Administrator"))}</small></td>
+      <thead><tr><th>Activity</th><th>Type</th><th>File</th><th>Checksum</th><th>Action</th></tr></thead>
+      <tbody>${activity.map((item) => `<tr>
+        <td><strong>${escapeText(item.activity_label)}</strong><br>${escapeText(formatDateTime(item.activity_at))}<br><small>${escapeText(employeeName(item.activity_by, "Administrator"))}</small></td>
         <td><span class="jgc-badge ${item.is_final ? "jgc-badge--success" : "jgc-badge--info"}">${item.is_final ? "Final" : "Draft"}</span></td>
         <td>${escapeText(item.file_name)}</td>
         <td><code>${escapeText(String(item.file_sha256 || "").slice(0, 16))}...</code></td>
@@ -612,8 +626,18 @@
           .eq("pay_period_id", state.period.id)
           .order("exported_at", { ascending: false });
         state.exports = requireResult(exportsResult, "Export history") || [];
+        if (state.exports.length) {
+          const downloadsResult = await state.client.from("accounting_export_downloads")
+            .select("id,export_id,downloaded_by,downloaded_at")
+            .in("export_id", state.exports.map((item) => item.id))
+            .order("downloaded_at", { ascending: false });
+          state.exportDownloads = requireResult(downloadsResult, "Export download history") || [];
+        } else {
+          state.exportDownloads = [];
+        }
       } else {
         state.exports = [];
+        state.exportDownloads = [];
       }
       renderAll();
       showNotice("");
@@ -735,11 +759,20 @@
 
   async function redownloadExport(exportId) {
     const result = await state.client.from("accounting_exports")
-      .select("file_name,file_base64")
+      .select("id,file_name,file_base64")
       .eq("id", exportId)
       .single();
     const item = requireResult(result, "Load exact Accounting export");
+    const downloadResult = await state.client.from("accounting_export_downloads").insert({
+      export_id: item.id,
+      downloaded_by: state.user.id
+    }).select("id,export_id,downloaded_by,downloaded_at").single();
+    const savedDownload = requireResult(downloadResult, "Record exact Accounting download");
+    state.exportDownloads.unshift(savedDownload);
     downloadBase64(item.file_name, item.file_base64);
+    showNotice("Exact workbook downloaded and recorded in the Export Ledger.");
+    renderExportHistory();
+    updateIcons();
   }
 
   async function validateTemplate(buffer) {
