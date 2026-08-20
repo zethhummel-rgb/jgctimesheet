@@ -25,6 +25,10 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await material.getByLabel(/quantity/).fill("50");
   await material.getByLabel(/unit cost/).fill("38.45");
 
+  const directUnitCostCell = page.locator("td.direct-unit-cost-cell").last();
+  await expect(directUnitCostCell).toHaveCSS("background-color", "rgb(220, 241, 231)");
+  await expect(directUnitCostCell.locator("input")).toHaveCSS("font-weight", "800");
+
   const [estimateDownload] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Estimate Only PDF" }).click(),

@@ -211,6 +211,7 @@ type TableColumn = {
   label: string;
   width: number;
   align?: "left" | "right" | "center";
+  emphasis?: "green";
 };
 
 class BackupPdfBuilder {
@@ -411,6 +412,9 @@ class BackupPdfBuilder {
       this.page.drawRectangle({ x: MARGIN, y: this.y - height, width: columns.reduce((sum, column) => sum + column.width, 0), height, color: colour.navy });
       let x = MARGIN;
       columns.forEach((column) => {
+        if (column.emphasis === "green") {
+          this.page.drawRectangle({ x, y: this.y - height, width: column.width, height, color: colour.green });
+        }
         this.page.drawText(ascii(column.label.toUpperCase()), { x: x + 4, y: this.y - 13, size: 6.3, font: this.bold, color: colour.white });
         x += column.width;
       });
@@ -427,10 +431,15 @@ class BackupPdfBuilder {
       this.page.drawRectangle({ x: MARGIN, y: this.y - height, width: totalWidth, height, color: fill, borderColor: colour.line, borderWidth: 0.35 });
       let x = MARGIN;
       columns.forEach((column, columnIndex) => {
+        const emphasized = column.emphasis === "green";
+        if (emphasized) {
+          this.page.drawRectangle({ x, y: this.y - height, width: column.width, height, color: colour.paleGreen, borderColor: colour.green, borderWidth: 0.55 });
+        }
         wrapped[columnIndex].forEach((line, lineIndex) => {
-          const textWidth = this.regular.widthOfTextAtSize(line, fontSize);
+          const font = emphasized || columnIndex === 0 ? this.bold : this.regular;
+          const textWidth = font.widthOfTextAtSize(line, fontSize);
           const textX = column.align === "right" ? x + column.width - 4 - textWidth : column.align === "center" ? x + (column.width - textWidth) / 2 : x + 4;
-          this.page.drawText(line, { x: textX, y: this.y - 12 - lineIndex * lineHeight, size: fontSize, font: columnIndex === 0 ? this.bold : this.regular, color: colour.slate });
+          this.page.drawText(line, { x: textX, y: this.y - 12 - lineIndex * lineHeight, size: fontSize, font, color: emphasized ? colour.navy : colour.slate });
         });
         x += column.width;
       });
@@ -516,7 +525,7 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
     { label: "Section / division / description / source", width: 190 },
     { label: "Class", width: 55 },
     { label: "Qty / unit", width: 48, align: "right" },
-    { label: "Unit cost", width: 57, align: "right" },
+    { label: "Unit cost", width: 57, align: "right", emphasis: "green" },
     { label: "Direct", width: 58, align: "right" },
     { label: "Markup", width: 44, align: "right" },
     { label: "Sell", width: 60, align: "right" },
