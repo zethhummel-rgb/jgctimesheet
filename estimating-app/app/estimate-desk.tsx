@@ -2438,7 +2438,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         <div className="estimate-table-wrap">
           <table className="estimate-table">
             <thead>
-              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th>Markup</th><th>Sell price</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
+              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th className="direct-cost-heading">Direct cost</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
             </thead>
             <tbody>
               {quote.lines.map((line, index) => {
@@ -2461,8 +2461,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                         <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={line.costBuildUp ? buildUpTotals.total : line.projectCost ?? line.catalogCost ?? ""} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { projectCost: event.target.value === "" ? null : Number(event.target.value) })} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
                         {line.costBuildUp ? <div className="build-up-mini-totals"><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
-                      <td data-label="Markup"><div className="percent-input"><input type="number" min="0" step="0.5" value={markup * 100} disabled={locked} onChange={(event) => updateLine(line.id, { markupOverride: Number(event.target.value) / 100 })} /><span>%</span></div></td>
-                      <td data-label="Sell price"><strong className="calculated-cell">{money(sell)}</strong><small className="cell-hint">Cost {money(direct)}</small></td>
+                      <td className="direct-cost-cell" data-label="Direct cost"><strong>{money(direct)}</strong></td>
                       <td data-label="Class"><select className="cell-input class-select" value={line.classification} disabled={locked} onChange={(event) => updateLine(line.id, { classification: event.target.value as QuoteClass })}><option>Required</option><option>Allowance</option><option>Optional</option></select></td>
                       <td data-label="Include"><label className="switch"><input type="checkbox" checked={line.included} disabled={locked} aria-label={`${line.included ? "Exclude" : "Include"} ${line.description || `line ${index + 1}`} from quote`} onChange={(event) => updateLine(line.id, { included: event.target.checked })} /><span /></label></td>
                       <td className="line-actions">
@@ -2473,9 +2472,18 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                     </tr>
                     {expandedLineId === line.id && (
                       <tr className="line-detail-row">
-                        <td colSpan={12}>
+                        <td colSpan={11}>
                           <div className="line-detail-panel">
-                            <div className="detail-panel-heading"><div><span className="eyebrow">LINE {index + 1} DETAILS</span><h3>{line.description || "New estimate line"}</h3></div>{!locked && <button className="text-button danger" onClick={() => requestLineRemoval(line.id)}>Delete line</button>}</div>
+                            <div className="detail-panel-heading">
+                              <div><span className="eyebrow">LINE {index + 1} DETAILS</span><h3>{line.description || "New estimate line"}</h3></div>
+                              <div className="detail-panel-controls">
+                                <div className="line-detail-pricing">
+                                  <label><span>Markup</span><div className="percent-input"><input aria-label={`Markup for ${line.description || `line ${index + 1}`}`} type="number" min="0" step="0.5" value={markup * 100} disabled={locked} onChange={(event) => updateLine(line.id, { markupOverride: Number(event.target.value) / 100 })} /><span>%</span></div></label>
+                                  <div><span>Sell price</span><strong>{money(sell)}</strong></div>
+                                </div>
+                                {!locked && <button className="text-button danger" onClick={() => requestLineRemoval(line.id)}>Delete line</button>}
+                              </div>
+                            </div>
                             {line.costBuildUp ? (
                               <CostBuildUpEditor line={line} locked={locked} updateLine={updateLine} />
                             ) : (
