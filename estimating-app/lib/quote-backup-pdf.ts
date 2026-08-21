@@ -617,11 +617,16 @@ function addBreakdownPages(builder: BackupPdfBuilder, quote: Quote) {
   builtUpLines.forEach((line, index) => {
     const lineNumber = quote.lines.indexOf(line) + 1;
     const totals = lineBuildUpTotals(line);
-    const markup = line.markupOverride ?? quote.defaultMarkup;
     builder.startSection(
-      line.description || `Built-up item ${index + 1}`,
+      "BREAKDOWN",
       `Internal cost worksheet - estimate line ${lineNumber} - item ${index + 1} of ${builtUpLines.length}.`,
     );
+    builder.paragraph(line.description || `Built-up item ${index + 1}`, {
+      size: 16,
+      bold: true,
+      colour: colour.navy,
+      gapAfter: 12,
+    });
     builder.keyValueGrid([
       ["Division", line.division || "Not assigned"],
       ["Main quantity", `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`],
@@ -659,16 +664,18 @@ function addBreakdownPages(builder: BackupPdfBuilder, quote: Quote) {
         { fontSize: 7.2 },
       );
     });
-    builder.totalsBox([
+    const directCost = lineDirectCost(line);
+    const summaryRows: Array<[string, string]> = [
       ["Labour", money(totals.labour)],
       ["Materials", money(totals.materials)],
       ["Subcontractors", money(totals.subcontractors)],
       ["Equipment / other", money(totals.other)],
-      ["Built-up unit cost", money(totals.total)],
-      ["Direct cost", money(lineDirectCost(line))],
-      ["Markup", percent(markup)],
-      ["Final selling price", money(lineSellPrice(line, quote.defaultMarkup))],
-    ]);
+    ];
+    if (Math.abs(totals.total - directCost) > 0.005) {
+      summaryRows.push(["Built-up unit cost", money(totals.total)]);
+    }
+    summaryRows.push(["Direct cost", money(directCost)]);
+    builder.totalsBox(summaryRows);
     const internalDetails = lineInternalDetails(line);
     if (internalDetails) builder.labelledParagraph("Internal scope and notes", internalDetails);
   });
