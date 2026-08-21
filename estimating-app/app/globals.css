@@ -269,9 +269,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .numbered-scope-editor { overflow: hidden; border: 1px solid var(--slate-300); border-radius: 7px; background: #fff; transition: border .12s, box-shadow .12s; }
 .numbered-scope-editor:focus-within { border-color: var(--green-600); box-shadow: 0 0 0 3px rgba(27,150,100,.1); }
 .numbered-scope-list { display: grid; }
-.numbered-scope-row { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); align-items: stretch; border-bottom: 1px solid var(--slate-200); }
+.numbered-scope-row { min-width: 0; display: grid; grid-template-columns: 44px 38px minmax(0, 1fr) 44px; align-items: stretch; border-bottom: 1px solid var(--slate-200); transition: background .12s, box-shadow .12s, opacity .12s; }
+.numbered-scope-row:has(textarea:disabled) { grid-template-columns: 42px minmax(0, 1fr); }
 .numbered-scope-row:last-child { border-bottom: 0; }
 .numbered-scope-number { padding: 11px 8px; display: flex; align-items: flex-start; justify-content: flex-end; background: var(--green-100); color: var(--green-700); font-weight: 850; line-height: 1.45; }
+.numbered-scope-drag, .numbered-scope-delete { min-width: 0; padding: 0; border: 0; display: grid; place-items: center; background: var(--slate-50); color: var(--slate-500); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.numbered-scope-drag { border-right: 1px solid var(--slate-200); font-size: 19px; }
+.numbered-scope-drag:hover, .numbered-scope-drag:focus-visible { outline: none; background: var(--green-100); color: var(--green-700); }
+.numbered-scope-drag:active { cursor: grabbing; }
+.numbered-scope-delete { border-left: 1px solid var(--slate-200); color: var(--red-700); cursor: pointer; font-size: 21px; }
+.numbered-scope-delete:hover, .numbered-scope-delete:focus-visible { outline: none; background: var(--red-100); }
+.numbered-scope-row.dragging { position: relative; z-index: 2; background: var(--green-100); box-shadow: 0 5px 16px rgba(11,31,51,.16); opacity: .88; }
 .field .numbered-scope-row textarea { min-height: 42px; padding: 10px 12px; overflow: hidden; resize: none; border: 0; border-radius: 0; box-shadow: none; }
 .field .numbered-scope-row textarea:focus { border: 0; box-shadow: none; }
 .numbered-scope-add { width: 100%; min-height: 38px; padding: 8px 12px; border: 0; border-top: 1px solid var(--slate-200); background: var(--slate-50); color: var(--green-700); font-weight: 800; text-align: left; cursor: pointer; }

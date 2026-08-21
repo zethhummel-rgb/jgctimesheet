@@ -155,6 +155,39 @@ test("proposal scope editor visibly numbers every scope item", async ({ page }) 
   await expect(secondItem).toHaveValue("Demobilize and leave the site clean");
 });
 
+test("proposal scope items can be reordered and deleted", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const editor = page.getByRole("group", { name: /Proposal Scope Lines/ });
+  const deleteButtons = editor.getByRole("button", { name: /Delete proposal scope item/ });
+  while (await deleteButtons.count() > 1) await deleteButtons.last().click();
+  const firstItem = page.getByRole("textbox", { name: "Proposal scope item 1" });
+  await firstItem.fill("First item");
+  await firstItem.press("End");
+  await firstItem.press("Enter");
+  await page.getByRole("textbox", { name: "Proposal scope item 2" }).fill("Second item");
+
+  const firstHandle = page.getByRole("button", { name: "Move proposal scope item 1" });
+  const handleBox = await firstHandle.boundingBox();
+  const secondBox = await page.getByRole("textbox", { name: "Proposal scope item 2" }).boundingBox();
+  if (!handleBox || !secondBox) throw new Error("Scope drag controls were not visible");
+  const pointerId = 7;
+  await firstHandle.dispatchEvent("pointerdown", { pointerId, pointerType: "touch", clientX: handleBox.x + handleBox.width / 2, clientY: handleBox.y + handleBox.height / 2 });
+  await page.evaluate(({ pointerId: activePointerId, x, y }) => window.dispatchEvent(new PointerEvent("pointermove", { pointerId: activePointerId, pointerType: "touch", clientX: x, clientY: y, bubbles: true, cancelable: true })), { pointerId, x: secondBox.x + secondBox.width / 2, y: secondBox.y + secondBox.height / 2 });
+  await page.evaluate((activePointerId) => window.dispatchEvent(new PointerEvent("pointerup", { pointerId: activePointerId, pointerType: "touch", bubbles: true, cancelable: true })), pointerId);
+  await expect(page.getByRole("textbox", { name: "Proposal scope item 1" })).toHaveValue("Second item");
+  await expect(page.getByRole("textbox", { name: "Proposal scope item 2" })).toHaveValue("First item");
+
+  await page.getByRole("button", { name: "Delete proposal scope item 1" }).click();
+  await expect(editor.locator(".numbered-scope-number")).toHaveText(["1."]);
+  await expect(page.getByRole("textbox", { name: "Proposal scope item 1" })).toHaveValue("First item");
+});
+
 test("missing exclusions remain recommended without blocking Finish quote", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
