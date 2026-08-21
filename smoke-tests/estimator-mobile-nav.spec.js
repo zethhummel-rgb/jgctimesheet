@@ -170,6 +170,38 @@ test("numeric inputs ignore mouse-wheel and arrow-key stepping", async ({ page }
   await expect(unitCost).not.toBeFocused();
 });
 
+test("expanded estimate lines keep pricing controls in the detail header", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: "Built-up item" }).click();
+
+  const labour = page.locator(".labour-group .build-up-row").last();
+  await labour.getByLabel(/quantity/).fill("8");
+  await labour.getByLabel(/unit cost/).fill("120");
+
+  const mainRow = page.locator(".estimate-table tbody > tr:not(.line-detail-row)").last();
+  await expect(page.locator(".estimate-table thead")).not.toContainText("Markup");
+  await expect(page.locator(".estimate-table thead")).not.toContainText("Sell price");
+  await expect(page.locator(".estimate-table thead")).toContainText("Direct cost");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$960.00");
+
+  const detailPricing = page.locator(".line-detail-panel .line-detail-pricing");
+  await expect(detailPricing.getByLabel(/Markup for/)).toHaveValue("20");
+  await expect(detailPricing).toContainText("Sell price");
+  await expect(detailPricing).toContainText("$1,152.00");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mainRow.scrollIntoViewIfNeeded();
+  await expect(mainRow.locator(".direct-cost-cell")).toBeVisible();
+  await expect.poll(async () => {
+    const bounds = await detailPricing.boundingBox();
+    return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
+  }).toBe(true);
+});
+
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
