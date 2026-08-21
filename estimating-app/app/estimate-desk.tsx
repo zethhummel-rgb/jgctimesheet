@@ -283,6 +283,12 @@ function customerScopeLines(quote: Quote) {
     .map((line) => line.description.trim());
 }
 
+function lineInternalDetails(line: QuoteLine) {
+  if (!line.internalScope) return line.internalNote;
+  if (!line.internalNote) return line.internalScope;
+  return `${line.internalScope}\n\n${line.internalNote}`;
+}
+
 function sectionSummaries(quote: Quote) {
   const groups = new Map<string, { descriptions: string[]; total: number }>();
   quote.lines
@@ -2499,8 +2505,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>}
                               <label className="field"><span>Customer-price override</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.priceOverride ?? ""} disabled={locked} onChange={(event) => updateLine(line.id, { priceOverride: event.target.value === "" ? null : Number(event.target.value) })} placeholder={money(sell)} /></div></label>
-                              <label className="field full"><span>Internal scope and assumptions</span><textarea rows={2} value={line.internalScope} disabled={locked} onChange={(event) => updateLine(line.id, { internalScope: event.target.value })} /></label>
-                              <label className="field internal-field"><span>Internal note <em>Hidden from customer</em></span><textarea rows={3} value={line.internalNote} disabled={locked} onChange={(event) => updateLine(line.id, { internalNote: event.target.value })} /></label>
+                              <label className="field full internal-field"><span>Internal scope, assumptions and notes <em>Hidden from customer</em></span><textarea rows={3} value={lineInternalDetails(line)} disabled={locked} onChange={(event) => updateLine(line.id, { internalScope: event.target.value, internalNote: "" })} /></label>
                             </div>
                           </div>
                         </td>
@@ -2713,7 +2718,7 @@ function QuoteBreakdown({ state, quote }: { state: AppState; quote: Quote }) {
                 <div><span>Labour</span><strong>{money(totals.labour)}</strong></div><div><span>Materials</span><strong>{money(totals.materials)}</strong></div><div><span>Subcontractors</span><strong>{money(totals.subcontractors)}</strong></div><div><span>Equipment / Other</span><strong>{money(totals.other)}</strong></div>
                 <div><span>Built-up unit cost</span><strong>{money(totals.total)}</strong></div><div><span>Direct cost</span><strong>{money(lineDirectCost(line))}</strong></div><div><span>Markup</span><strong>{percent(markup)}</strong></div><div className="grand"><span>Final selling price</span><strong>{money(lineSellPrice(line, quote.defaultMarkup))}</strong></div>
               </section>
-              {(line.internalScope || line.internalNote) && <footer>{line.internalScope && <p><strong>Scope / assumptions:</strong> {line.internalScope}</p>}{line.internalNote && <p><strong>Internal note:</strong> {line.internalNote}</p>}</footer>}
+              {lineInternalDetails(line) && <footer><p><strong>Internal scope and notes:</strong> {lineInternalDetails(line)}</p></footer>}
             </article>
           );
         })}

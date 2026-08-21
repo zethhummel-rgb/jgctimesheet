@@ -129,6 +129,12 @@ function customerScopeLines(quote: Quote) {
     .map((line) => line.description.trim());
 }
 
+function lineInternalDetails(line: QuoteLine) {
+  if (!line.internalScope) return line.internalNote;
+  if (!line.internalNote) return line.internalScope;
+  return `${line.internalScope}\n\n${line.internalNote}`;
+}
+
 function sectionSummaries(quote: Quote) {
   const groups = new Map<string, { descriptions: string[]; total: number }>();
   quote.lines
@@ -663,8 +669,8 @@ function addBreakdownPages(builder: BackupPdfBuilder, quote: Quote) {
       ["Markup", percent(markup)],
       ["Final selling price", money(lineSellPrice(line, quote.defaultMarkup))],
     ]);
-    if (line.internalScope) builder.labelledParagraph("Scope / assumptions", line.internalScope);
-    if (line.internalNote) builder.labelledParagraph("Internal note", line.internalNote);
+    const internalDetails = lineInternalDetails(line);
+    if (internalDetails) builder.labelledParagraph("Internal scope and notes", internalDetails);
   });
 }
 
