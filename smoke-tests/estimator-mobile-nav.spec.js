@@ -193,6 +193,12 @@ test("expanded estimate lines keep pricing controls in the detail header", async
   await expect(detailPricing).toContainText("Sell price");
   await expect(detailPricing).toContainText("$1,152.00");
 
+  const internalDetails = page.getByLabel("Internal scope, assumptions and notes Hidden from customer");
+  await expect(internalDetails).toHaveCount(1);
+  await expect(page.getByLabel("Internal note Hidden from customer")).toHaveCount(0);
+  await internalDetails.fill("Confirm access and working hours before pricing.");
+  await expect(internalDetails).toHaveValue("Confirm access and working hours before pricing.");
+
   await page.setViewportSize({ width: 390, height: 844 });
   await mainRow.scrollIntoViewIfNeeded();
   await expect(mainRow.locator(".direct-cost-cell")).toBeVisible();
