@@ -60,19 +60,29 @@ test("overview search finds and opens quotes by client, site, project or referen
   await expect(page.getByText("JGC-Q-2026-0001 · REV 0")).toBeVisible();
 });
 
-test("personal overview leads with recent work and keeps company statistics company-wide", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("personal overview orders compact greeting, search and recent work before company-only statistics", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
 
+  const scopeSwitch = page.locator(".dashboard-scope-switch");
+  const greeting = page.locator(".welcome-panel.compact");
+  const search = page.locator(".overview-search");
   const recentWork = page.locator(".recent-work-panel");
+  await expect(greeting).toBeVisible();
   await expect(recentWork).toBeVisible();
   await expect(page.locator(".metric-grid")).toHaveCount(0);
   await expect(page.locator(".pipeline-panel")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => {
+    const selector = document.querySelector(".dashboard-scope-switch");
+    const greetingPanel = document.querySelector(".welcome-panel.compact");
+    const searchPanel = document.querySelector(".overview-search");
     const recent = document.querySelector(".recent-work-panel");
-    const search = document.querySelector(".overview-search");
-    return !!recent && !!search && Boolean(recent.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const follows = (first, second) => !!first && !!second && Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return follows(selector, greetingPanel) && follows(greetingPanel, searchPanel) && follows(searchPanel, recent);
   })).toBe(true);
+  await expect.poll(async () => Math.round((await greeting.boundingBox())?.height ?? 999)).toBeLessThanOrEqual(125);
+  await expect(scopeSwitch).toBeVisible();
+  await expect(search).toBeVisible();
 
   await page.getByRole("button", { name: "Company-wide" }).click();
   await expect(page.locator(".metric-grid")).toBeVisible();

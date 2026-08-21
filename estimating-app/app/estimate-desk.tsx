@@ -1615,7 +1615,14 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   return (
     <div className="page-stack">
       {currentEstimator.isAdmin && <div className="dashboard-scope-switch"><span>Viewing</span><button className={!companyWide ? "active" : ""} onClick={() => setCompanyWide(false)}>My estimates</button><button className={companyWide ? "active" : ""} onClick={() => setCompanyWide(true)}>Company-wide</button></div>}
-      {!companyWide && recentWork}
+      <section className="welcome-panel compact">
+        <div>
+          <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
+          <h1>Clear pricing. Controlled risk. Better handoff.</h1>
+          <p>Build the quote once, review the numbers, finish a clean proposal, then connect accepted work to its Portal job.</p>
+        </div>
+        <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
+      </section>
       <section className={`panel overview-search ${searchTerms.length ? "has-results" : ""}`}>
         <label>
           <span className="overview-search-icon" aria-hidden="true">⌕</span>
@@ -1666,14 +1673,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
           </div>
         )}
       </section>
-      <section className="welcome-panel">
-        <div>
-          <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
-          <h1>Clear pricing. Controlled risk. Better handoff.</h1>
-          <p>Build the quote once, review the numbers, finish a clean proposal, then connect accepted work to its Portal job.</p>
-        </div>
-        <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
-      </section>
+      {!companyWide && recentWork}
 
       {companyWide && <section className="metric-grid">
         <MetricCard label="Active pipeline" value={compactMoney(pipeline)} detail={`${activeQuotes.length} open quotes`} tone="navy" />
