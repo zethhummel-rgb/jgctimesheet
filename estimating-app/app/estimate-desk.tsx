@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, type PortalJobOption } from "../src/portal-api";
@@ -1241,12 +1241,83 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(value);
+  const [mobileResultsStyle, setMobileResultsStyle] = useState<CSSProperties | undefined>();
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!open) setQuery(value); }, [value, open]);
+  useLayoutEffect(() => {
+    if (!open) {
+      setMobileResultsStyle(undefined);
+      return;
+    }
+
+    const syncResultsPosition = () => {
+      const input = inputRef.current;
+      if (!input || window.matchMedia("(min-width: 761px)").matches) {
+        setMobileResultsStyle(undefined);
+        return;
+      }
+
+      const viewport = window.visualViewport;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const viewportBottom = viewportTop + viewportHeight;
+      const margin = 10;
+      const gap = 6;
+      const inputBounds = input.getBoundingClientRect();
+      const availableBelow = viewportBottom - inputBounds.bottom - gap - margin;
+      const availableAbove = inputBounds.top - viewportTop - gap - margin;
+      const preferredHeight = Math.min(340, Math.max(180, viewportHeight * .52));
+      let maxHeight = Math.min(preferredHeight, Math.max(availableBelow, availableAbove));
+      let top = inputBounds.bottom + gap;
+
+      if (availableBelow < 180 && availableAbove > availableBelow) {
+        maxHeight = Math.min(preferredHeight, availableAbove);
+        top = inputBounds.top - gap - maxHeight;
+      }
+
+      if (Math.max(availableBelow, availableAbove) < 180) {
+        maxHeight = Math.max(150, viewportHeight - margin * 2);
+        top = viewportTop + margin;
+      }
+
+      top = Math.max(viewportTop + margin, Math.min(top, viewportBottom - margin - maxHeight));
+
+      const left = Math.max(margin, Math.min(inputBounds.left, window.innerWidth - margin - inputBounds.width));
+      setMobileResultsStyle({
+        position: "fixed",
+        top,
+        left,
+        width: Math.min(inputBounds.width, window.innerWidth - margin * 2),
+        maxHeight,
+      });
+    };
+
+    syncResultsPosition();
+    const firstKeyboardSync = window.setTimeout(syncResultsPosition, 120);
+    const finalKeyboardSync = window.setTimeout(syncResultsPosition, 360);
+    window.addEventListener("resize", syncResultsPosition);
+    window.visualViewport?.addEventListener("resize", syncResultsPosition);
+    window.visualViewport?.addEventListener("scroll", syncResultsPosition);
+    return () => {
+      window.clearTimeout(firstKeyboardSync);
+      window.clearTimeout(finalKeyboardSync);
+      window.removeEventListener("resize", syncResultsPosition);
+      window.visualViewport?.removeEventListener("resize", syncResultsPosition);
+      window.visualViewport?.removeEventListener("scroll", syncResultsPosition);
+    };
+  }, [open]);
   const normalized = query.trim().toLocaleLowerCase();
   const matches = options.filter((option) => `${option.label} ${option.detail ?? ""}`.toLocaleLowerCase().includes(normalized)).slice(0, 30);
+  const chooseOption = (option: SearchPickerOption) => {
+    onSelect(option);
+    setQuery(option.label);
+    setOpen(false);
+    inputRef.current?.blur();
+  };
   return (
     <div className="saved-data-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}>
       <input
+        ref={inputRef}
         role="combobox"
         aria-label={ariaLabel}
         aria-expanded={open}
@@ -1259,14 +1330,15 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
         onChange={(event) => { setQuery(event.target.value); setOpen(true); if (allowCustom) onChange?.(event.target.value); }}
         onKeyDown={(event) => {
           if (event.key === "Escape") setOpen(false);
-          if (event.key === "Enter" && matches[0]) { event.preventDefault(); onSelect(matches[0]); setQuery(matches[0].label); setOpen(false); }
+          if (event.key === "Enter" && matches[0]) { event.preventDefault(); chooseOption(matches[0]); }
         }}
       />
       {open && !disabled && (
-        <div className="saved-data-results" role="listbox">
-          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setQuery(option.label); setOpen(false); }}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
+        <div className="saved-data-results" role="listbox" style={mobileResultsStyle}>
+          <div className="saved-data-results-heading" role="presentation"><strong>Select {ariaLabel}</strong><span>{matches.length} saved option{matches.length === 1 ? "" : "s"}</span></div>
+          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onPointerDown={(event) => event.preventDefault()} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
           {!matches.length && <div className="saved-data-empty">No saved matches</div>}
-          {onAdd && <button type="button" className="saved-data-add" onMouseDown={(event) => event.preventDefault()} onClick={() => { onAdd(query.trim()); setOpen(false); }}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
+          {onAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onClick={() => { onAdd(query.trim()); setOpen(false); inputRef.current?.blur(); }}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
         </div>
       )}
     </div>
@@ -1347,10 +1419,40 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     { label: "Won", count: dashboardQuotes.filter((quote) => quote.status === "Won").length, value: wonValue, color: "green" },
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
+  const recentWork = (
+    <section className="panel recent-work-panel">
+      <div className="panel-heading">
+        <div><span className="eyebrow">RECENT WORK</span><h2>Quotes</h2></div>
+        {!!recentQuotes.length && <button className="text-button" onClick={() => onOpenQuote(recentQuotes[0].id)}>Open latest <span>→</span></button>}
+      </div>
+      <div className="data-table-wrap">
+        <table className="data-table recent-table">
+          <thead><tr><th>Quote</th><th>Client / project</th><th>Value</th><th>Margin</th><th>Status</th><th>Updated</th></tr></thead>
+          <tbody>
+            {recentQuotes.map((quote) => {
+              const totals = quoteTotals(quote);
+              return (
+                <tr key={quote.id} onClick={() => onOpenQuote(quote.id)}>
+                  <td data-label="Quote"><strong>{quote.number}</strong><small>Rev {quote.revision}</small></td>
+                  <td data-label="Client / project"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.project || "Project not named"}</small></td>
+                  <td data-label="Value"><strong>{money(totals.subtotal)}</strong></td>
+                  <td data-label="Margin">{percent(totals.margin)}</td>
+                  <td data-label="Status"><StatusPill status={quoteDisplayStatus(quote)} /></td>
+                  <td data-label="Updated">{timeAgo(quote.updatedAt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!recentQuotes.length && <EmptyInline title="No recent quotes" detail="Your newest estimates will appear here." />}
+      </div>
+    </section>
+  );
 
   return (
     <div className="page-stack">
       {currentEstimator.isAdmin && <div className="dashboard-scope-switch"><span>Viewing</span><button className={!companyWide ? "active" : ""} onClick={() => setCompanyWide(false)}>My estimates</button><button className={companyWide ? "active" : ""} onClick={() => setCompanyWide(true)}>Company-wide</button></div>}
+      {!companyWide && recentWork}
       <section className={`panel overview-search ${searchTerms.length ? "has-results" : ""}`}>
         <label>
           <span className="overview-search-icon" aria-hidden="true">⌕</span>
@@ -1410,15 +1512,15 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
         <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
       </section>
 
-      <section className="metric-grid">
+      {companyWide && <section className="metric-grid">
         <MetricCard label="Active pipeline" value={compactMoney(pipeline)} detail={`${activeQuotes.length} open quotes`} tone="navy" />
         <MetricCard label="Awaiting response" value={String(sent)} detail="finished quotes awaiting response" tone="amber" />
         <MetricCard label="Won value" value={compactMoney(wonValue)} detail="pre-tax accepted work" tone="green" />
         <MetricCard label="Won quotes tracked" value={String(state.jobs.filter((job) => job.status === "Active").length)} detail="estimate follow-up only" tone="blue" />
-      </section>
+      </section>}
 
-      <div className="dashboard-grid">
-        <section className="panel pipeline-panel">
+      <div className={`dashboard-grid ${companyWide ? "company-wide" : "personal"}`}>
+        {companyWide && <section className="panel pipeline-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">PIPELINE</span><h2>Quote flow</h2></div>
             <span className="panel-note">Pre-tax value</span>
@@ -1433,7 +1535,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
             ))}
           </div>
           <div className="margin-note"><span>i</span><p><strong>Markup and margin are different.</strong> A 20% markup produces a 16.7% gross margin. Estimate Desk shows both.</p></div>
-        </section>
+        </section>}
 
         <section className="panel attention-panel">
           <div className="panel-heading">
@@ -1454,32 +1556,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
         </section>
       </div>
 
-      <section className="panel">
-        <div className="panel-heading">
-          <div><span className="eyebrow">RECENT WORK</span><h2>Quotes</h2></div>
-          <button className="text-button" onClick={() => onOpenQuote(recentQuotes[0]?.id ?? "")}>Open latest <span>→</span></button>
-        </div>
-        <div className="data-table-wrap">
-          <table className="data-table recent-table">
-            <thead><tr><th>Quote</th><th>Client / project</th><th>Value</th><th>Margin</th><th>Status</th><th>Updated</th></tr></thead>
-            <tbody>
-              {recentQuotes.map((quote) => {
-                const totals = quoteTotals(quote);
-                return (
-                  <tr key={quote.id} onClick={() => onOpenQuote(quote.id)}>
-                    <td data-label="Quote"><strong>{quote.number}</strong><small>Rev {quote.revision}</small></td>
-                    <td data-label="Client / project"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.project || "Project not named"}</small></td>
-                    <td data-label="Value"><strong>{money(totals.subtotal)}</strong></td>
-                    <td data-label="Margin">{percent(totals.margin)}</td>
-                    <td data-label="Status"><StatusPill status={quoteDisplayStatus(quote)} /></td>
-                    <td data-label="Updated">{timeAgo(quote.updatedAt)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {companyWide && recentWork}
     </div>
   );
 }

@@ -60,6 +60,53 @@ test("overview search finds and opens quotes by client, site, project or referen
   await expect(page.getByText("JGC-Q-2026-0001 · REV 0")).toBeVisible();
 });
 
+test("personal overview leads with recent work and keeps company statistics company-wide", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+
+  const recentWork = page.locator(".recent-work-panel");
+  await expect(recentWork).toBeVisible();
+  await expect(page.locator(".metric-grid")).toHaveCount(0);
+  await expect(page.locator(".pipeline-panel")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => {
+    const recent = document.querySelector(".recent-work-panel");
+    const search = document.querySelector(".overview-search");
+    return !!recent && !!search && Boolean(recent.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })).toBe(true);
+
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await expect(page.locator(".metric-grid")).toBeVisible();
+  await expect(page.locator(".pipeline-panel")).toBeVisible();
+  await expect(recentWork).toBeVisible();
+});
+
+test("mobile client picker stays inside the visible viewport and selects immediately", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const clientPicker = page.getByRole("combobox", { name: "Client" });
+  await clientPicker.scrollIntoViewIfNeeded();
+  await clientPicker.fill("");
+  await page.setViewportSize({ width: 390, height: 520 });
+  const results = page.locator(".saved-data-results");
+  await expect(results).toBeVisible();
+  await expect.poll(async () => {
+    const bounds = await results.boundingBox();
+    return bounds ? bounds.y >= 0 && bounds.y + bounds.height <= 520 : false;
+  }).toBe(true);
+
+  const firstClient = results.getByRole("option").first();
+  const selectedName = (await firstClient.locator("strong").textContent())?.trim();
+  await firstClient.click();
+  await expect(clientPicker).toHaveValue(selectedName || "");
+  await expect(clientPicker).toHaveAttribute("aria-expanded", "false");
+  await expect(results).toHaveCount(0);
+});
+
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
