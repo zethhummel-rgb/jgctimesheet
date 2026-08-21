@@ -2236,11 +2236,12 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
     }));
   };
   const updateLineVendor = (line: QuoteLine, typedName: string) => {
-    const matchedVendor = activeSubcontractors(state.vendors).find((vendor) => vendor.name.trim().toLowerCase() === typedName.trim().toLowerCase());
+    const subcontractorName = typedName.trim();
+    const matchedVendor = activeSubcontractors(state.vendors).find((vendor) => vendor.name.trim().toLowerCase() === subcontractorName.toLowerCase());
     updateLine(line.id, {
       vendorId: matchedVendor?.id ?? null,
       vendorName: matchedVendor ? "" : typedName,
-      description: matchedVendor?.trade.trim() || line.description,
+      description: subcontractorName,
     });
   };
   const applyCatalog = (lineId: string, code: string) => {

@@ -980,8 +980,14 @@ export function normalizeAppState(state: AppState): AppState {
       proposalBreakdownIncludesMarkup: quote.proposalBreakdownIncludesMarkup ?? true,
       lines: quote.lines.map((line) => {
         const priceBookItem = state.priceBook.find((item) => item.code === line.priceBookCode);
+        const subcontractorName = line.vendorName?.trim()
+          || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name.trim()
+          || "";
         return {
           ...line,
+          description: line.costType === "Sub / Vendor" && !line.description?.trim()
+            ? subcontractorName
+            : line.description,
           division: line.division ?? (priceBookItem ? constructionDivision(priceBookItem.category) : "Div 01 – General Requirements"),
           vendorPricingMode: line.vendorPricingMode ?? (line.vendorReference?.trim() ? "Quoted" : "Budget"),
           costBuildUp: line.costBuildUp
