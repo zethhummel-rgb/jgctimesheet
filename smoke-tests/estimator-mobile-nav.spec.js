@@ -127,6 +127,13 @@ test("estimate search shows up to ten products before scrolling internally", asy
   await search.fill("");
   await expect(results.getByRole("option")).toHaveCount(12);
   await expect.poll(() => results.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await expect(results).toHaveCSS("overscroll-behavior-y", "contain");
+
+  await results.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await results.hover();
+  const pageScrollBefore = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 900);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(pageScrollBefore);
 });
 
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
