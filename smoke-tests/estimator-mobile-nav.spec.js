@@ -182,7 +182,7 @@ test("expanded estimate lines keep pricing controls in the detail header", async
   await labour.getByLabel(/quantity/).fill("8");
   await labour.getByLabel(/unit cost/).fill("120");
 
-  const mainRow = page.locator(".estimate-table tbody > tr:not(.line-detail-row)").last();
+  const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   await expect(page.locator(".estimate-table thead")).not.toContainText("Markup");
   await expect(page.locator(".estimate-table thead")).not.toContainText("Sell price");
   await expect(page.locator(".estimate-table thead")).toContainText("Direct cost");
@@ -216,7 +216,7 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await page.getByRole("tab", { name: /Estimate/ }).click();
   await page.locator(".subcontractor-add-button").click();
 
-  const mainRow = page.locator(".estimate-table tbody > tr:not(.line-detail-row)").last();
+  const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   const vendor = mainRow.getByRole("combobox", { name: /Vendor for line/ });
   await vendor.fill("Demo Painting");
   await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
@@ -254,6 +254,24 @@ test("subcontractor lines allow an optional quote number and separate added cost
   const reviewCard = page.locator(".review-subcontractor-card").last();
   await expect(reviewCard).toContainText("Includes added costs");
   await expect(reviewCard).toContainText("$5,250.00");
+});
+
+test("estimate lines stay grouped by cost type with subcontractors first", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: /Custom line/ }).click();
+  await page.locator(".subcontractor-add-button").click();
+
+  const types = await page.locator('.estimate-table tbody > tr:not(.line-detail-row) td[data-label="Cost type"]').evaluateAll((cells) => cells.map((cell) => cell.querySelector("select")?.value ?? cell.textContent?.trim() ?? ""));
+  const order = ["Sub / Vendor", "Labour & Materials", "Labour", "Material", "Equipment / Other"];
+  const ranks = types.map((type) => order.indexOf(type));
+  await expect(types[0]).toBe("Sub / Vendor");
+  await expect(ranks).toEqual([...ranks].sort((left, right) => left - right));
+  const firstNonSubcontractor = types.findIndex((type) => type !== "Sub / Vendor");
+  await expect(types.slice(0, firstNonSubcontractor).every((type) => type === "Sub / Vendor")).toBe(true);
 });
 
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
