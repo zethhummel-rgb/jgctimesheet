@@ -274,6 +274,26 @@ test("typed subcontractor names automatically become the line description", asyn
   await expect(page.locator(".review-subcontractor-card").last()).toContainText("Agway Metals");
 });
 
+test("estimate direct costs always round up to whole dollars", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: /Custom line/ }).click();
+
+  const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  await mainRow.locator(".description-input").fill("Rounded direct cost");
+  const unitCost = mainRow.locator(".direct-unit-cost-cell input");
+  await unitCost.fill("1478.55");
+  await expect(unitCost).toHaveValue("1478.55");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$1,479.00");
+  await expect(page.locator(".line-detail-pricing")).toContainText("$1,774.80");
+
+  await unitCost.fill("1478");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$1,478.00");
+});
+
 test("estimate lines stay grouped by cost type with subcontractors first", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();

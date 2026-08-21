@@ -1077,8 +1077,12 @@ export function effectiveUnitCost(line: QuoteLine): number {
   return line.projectCost ?? line.catalogCost ?? 0;
 }
 
-export function lineDirectCost(line: QuoteLine): number {
+export function preciseLineDirectCost(line: QuoteLine): number {
   return roundMoney(Math.max(0, line.quantity || 0) * effectiveUnitCost(line));
+}
+
+export function lineDirectCost(line: QuoteLine): number {
+  return Math.ceil(preciseLineDirectCost(line));
 }
 
 export function lineSellPrice(line: QuoteLine, defaultMarkup: number): number {
