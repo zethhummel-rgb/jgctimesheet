@@ -283,7 +283,12 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
   onChange: (value: string) => void;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const dragLinesRef = useRef<string[]>([]);
+  const dragIndexRef = useRef<number | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const lines = value.split(/\r?\n/);
+  useEffect(() => () => dragCleanupRef.current?.(), []);
   const focusLine = (index: number, caret = 0) => {
     window.requestAnimationFrame(() => {
       const input = editorRef.current?.querySelector<HTMLTextAreaElement>(`textarea[data-scope-line="${index}"]`);
@@ -319,22 +324,76 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
       focusLine(index - 1, previous.length);
     }
   };
+  const moveLine = (fromIndex: number, toIndex: number, sourceLines = lines) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= sourceLines.length || toIndex >= sourceLines.length) return sourceLines;
+    const nextLines = [...sourceLines];
+    const [movedLine] = nextLines.splice(fromIndex, 1);
+    nextLines.splice(toIndex, 0, movedLine);
+    onChange(nextLines.join("\n"));
+    return nextLines;
+  };
+  const deleteLine = (index: number) => {
+    const nextLines = lines.length > 1 ? lines.filter((_, lineIndex) => lineIndex !== index) : [""];
+    onChange(nextLines.join("\n"));
+    focusLine(Math.min(index, nextLines.length - 1));
+  };
+  const startDragging = (event: React.PointerEvent<HTMLButtonElement>, index: number) => {
+    if (disabled) return;
+    event.preventDefault();
+    dragCleanupRef.current?.();
+    dragLinesRef.current = [...lines];
+    dragIndexRef.current = index;
+    setDraggingIndex(index);
+    const pointerId = event.pointerId;
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== pointerId) return;
+      pointerEvent.preventDefault();
+      const row = document.elementFromPoint(pointerEvent.clientX, pointerEvent.clientY)?.closest<HTMLElement>("[data-scope-row-index]");
+      const targetIndex = Number(row?.dataset.scopeRowIndex);
+      const currentIndex = dragIndexRef.current;
+      if (currentIndex === null || !Number.isInteger(targetIndex) || currentIndex === targetIndex) return;
+      dragLinesRef.current = moveLine(currentIndex, targetIndex, dragLinesRef.current);
+      dragIndexRef.current = targetIndex;
+      setDraggingIndex(targetIndex);
+    };
+    const finishDragging = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== pointerId) return;
+      dragCleanupRef.current?.();
+    };
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishDragging);
+      window.removeEventListener("pointercancel", finishDragging);
+      dragCleanupRef.current = null;
+      dragIndexRef.current = null;
+      setDraggingIndex(null);
+    };
+    dragCleanupRef.current = cleanup;
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", finishDragging);
+    window.addEventListener("pointercancel", finishDragging);
+  };
   return (
     <div ref={editorRef} className="numbered-scope-editor" role="group" aria-labelledby="proposal-scope-label">
       <div className="numbered-scope-list">
-        {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} />)}
+        {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} dragging={draggingIndex === index} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} onMove={(toIndex) => { moveLine(index, toIndex); focusLine(toIndex); }} onDragStart={(event) => startDragging(event, index)} onDelete={() => deleteLine(index)} lineCount={lines.length} />)}
       </div>
       {!disabled && <button type="button" className="numbered-scope-add" onClick={() => { onChange(`${value}\n`); focusLine(lines.length); }}>＋ Add scope item</button>}
     </div>
   );
 }
 
-function NumberedScopeLine({ index, value, disabled, onChange, onKeyDown }: {
+function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDown, onMove, onDragStart, onDelete, lineCount }: {
   index: number;
   value: string;
   disabled: boolean;
+  dragging: boolean;
   onChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onMove: (toIndex: number) => void;
+  onDragStart: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onDelete: () => void;
+  lineCount: number;
 }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -344,9 +403,14 @@ function NumberedScopeLine({ index, value, disabled, onChange, onKeyDown }: {
     input.style.height = `${Math.max(42, input.scrollHeight)}px`;
   }, [value]);
   return (
-    <div className="numbered-scope-row">
+    <div className={`numbered-scope-row${dragging ? " dragging" : ""}`} data-scope-row-index={index}>
+      {!disabled && <button type="button" className="numbered-scope-drag" aria-label={`Move proposal scope item ${index + 1}`} title="Drag to reorder" onPointerDown={onDragStart} onKeyDown={(event) => {
+        if (event.key === "ArrowUp" && index > 0) { event.preventDefault(); onMove(index - 1); }
+        if (event.key === "ArrowDown" && index < lineCount - 1) { event.preventDefault(); onMove(index + 1); }
+      }}>⠿</button>}
       <span className="numbered-scope-number" aria-hidden="true">{index + 1}.</span>
       <textarea ref={inputRef} data-scope-line={index} rows={1} value={value} disabled={disabled} aria-label={`Proposal scope item ${index + 1}`} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"} />
+      {!disabled && <button type="button" className="numbered-scope-delete" aria-label={`Delete proposal scope item ${index + 1}`} title="Delete scope item" onClick={onDelete}>×</button>}
     </div>
   );
 }
