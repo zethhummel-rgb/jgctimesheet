@@ -54,6 +54,7 @@ const compactMoneyFormatter = new Intl.NumberFormat("en-CA", {
 const numberFormatter = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
 
 const costTypeOptions: CostType[] = ["Labour", "Material", "Labour & Materials", "Sub / Vendor", "Equipment / Other"];
+const estimateCostTypeOrder: CostType[] = ["Sub / Vendor", "Labour & Materials", "Labour", "Material", "Equipment / Other"];
 
 const constructionDivisions = [
   "Div 01 – General Requirements",
@@ -2197,6 +2198,12 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
     .filter((item) => !normalizedCatalogSearch || `${item.name} ${item.category} ${item.costType} ${item.unit} ${item.recommendedUse}`.toLocaleLowerCase().includes(normalizedCatalogSearch))
     .sort((left, right) => left.name.localeCompare(right.name))
     .slice(0, 12);
+  const displayedLines = quote.lines
+    .map((line, originalIndex) => ({ line, originalIndex }))
+    .sort((left, right) => {
+      const costTypeDifference = estimateCostTypeOrder.indexOf(left.line.costType) - estimateCostTypeOrder.indexOf(right.line.costType);
+      return costTypeDifference || left.originalIndex - right.originalIndex;
+    });
   useEffect(() => {
     const query = catalogSearch.trim();
     if (query.length < 2) return;
@@ -2468,7 +2475,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
               <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th className="direct-cost-heading">Direct cost</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
             </thead>
             <tbody>
-              {quote.lines.map((line, index) => {
+              {displayedLines.map(({ line }, index) => {
                 const direct = lineDirectCost(line);
                 const sell = lineSellPrice(line, quote.defaultMarkup);
                 const markup = line.markupOverride ?? quote.defaultMarkup;
