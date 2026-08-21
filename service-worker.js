@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "721";
+const JGC_RELEASE_ID = "722";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -133,14 +133,14 @@ const JGC_APP_SHELL = [
   "./vendor/jszip.min.js?v=1",
   "./vendor/jspdf.umd.min.js?v=1",
   "./vendor/lucide.min.js",
-  "./estimating/assets/index-4lYhHqGN.js",
-  "./estimating/assets/index-C13hnj0j.css",
-  "./estimating/assets/es-DdeKb3lX.js",
-  "./estimating/assets/pdf-NkmRrxl_.js",
-  "./estimating/assets/src-D7o2w_X1.js",
-  "./estimating/assets/proposal-pdf-B_882f0S.js",
-  "./estimating/assets/purchase-order-pdf-DGCDrmxJ.js",
-  "./estimating/assets/quote-backup-pdf--D_nNZ9w.js",
+  "./estimating/assets/index-BlL_UjJS.js",
+  "./estimating/assets/index-5Qt_lF88.css",
+  "./estimating/assets/es-bQna_Qtb.js",
+  "./estimating/assets/pdf-DUpQ7p-Z.js",
+  "./estimating/assets/src-XXKR6R90.js",
+  "./estimating/assets/proposal-pdf-EzsinPeW.js",
+  "./estimating/assets/purchase-order-pdf-BAzdeBPH.js",
+  "./estimating/assets/quote-backup-pdf-DB1McIZK.js",
   "./estimating/jgc-letterhead-logo.jpg",
   "./estimating/jgc-logo-transparent.png",
   "./logo.webp",
