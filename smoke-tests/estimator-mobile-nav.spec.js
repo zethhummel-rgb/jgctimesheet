@@ -128,8 +128,18 @@ test("estimate search shows up to ten products before scrolling internally", asy
   await expect(results.getByRole("option")).toHaveCount(12);
   await expect.poll(() => results.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   await expect(results).toHaveCSS("overscroll-behavior-y", "contain");
+  await expect(page.locator(".estimate-panel")).toHaveCSS("overflow", "visible");
+
+  await page.setViewportSize({ width: 1223, height: 565 });
+  await search.evaluate((element) => window.scrollBy(0, element.getBoundingClientRect().top - 110));
+  await expect.poll(async () => {
+    const bounds = await results.boundingBox();
+    return bounds ? bounds.y + bounds.height <= 565 : false;
+  }).toBe(true);
+  await expect.poll(() => results.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
 
   await results.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect(results.getByRole("option").last()).toBeVisible();
   await results.hover();
   const pageScrollBefore = await page.evaluate(() => window.scrollY);
   await page.mouse.wheel(0, 900);
