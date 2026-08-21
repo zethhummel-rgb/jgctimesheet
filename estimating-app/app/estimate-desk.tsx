@@ -470,6 +470,7 @@ function activeSubcontractors(vendors: Vendor[]) {
 function quoteReadiness(quote: Quote, vendors: Vendor[]) {
   const blockers: { key: string; message: string }[] = [];
   const warnings: { key: string; message: string }[] = [];
+  const recommendations: { key: string; message: string }[] = [];
   const included = quote.lines.filter((line) => line.included);
 
   if (!quote.clientId) blockers.push({ key: "client", message: "Select a client." });
@@ -513,11 +514,11 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
     warnings.push({ key: "target-margin", message: `Gross margin ${percent(totals.margin)} is below the ${percent(quote.targetMargin)} target.` });
   }
   if (!customerScopeLines(quote).length) warnings.push({ key: "scope", message: "Add at least one Proposal Scope Line." });
-  if (!quote.exclusions.trim()) warnings.push({ key: "exclusions", message: "Add exclusions or state that there are none." });
+  if (!quote.exclusions.trim()) recommendations.push({ key: "exclusions", message: "Add exclusions or state that there are none." });
   if (!quote.terms.trim()) warnings.push({ key: "terms", message: "Add proposal terms." });
 
   const unresolvedWarnings = warnings.filter((warning) => !quote.acknowledgedWarnings[warning.key]);
-  return { blockers, warnings, unresolvedWarnings };
+  return { blockers, warnings, unresolvedWarnings, recommendations };
 }
 
 function newLine(section = "General"): QuoteLine {
@@ -2917,7 +2918,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
         </section>
 
         <section className="panel readiness-checks">
-          <div className="panel-heading"><div><span className="eyebrow">READINESS CHECKS</span><h2>What needs attention</h2></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">QUOTE REVIEW</span><h2>Required checks and recommendations</h2></div></div>
           {readiness.blockers.length > 0 && (
             <div className="check-group blockers">
               <h3><span>!</span> Blocking items</h3>
@@ -2934,7 +2935,13 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
               {!locked && readiness.unresolvedWarnings.length > 0 && <button className="button warning-button" onClick={acknowledgeWarnings}>✓ Acknowledge reviewed warnings</button>}
             </div>
           )}
-          {!readiness.blockers.length && !readiness.warnings.length && <EmptyInline title="All checks passed" detail="The estimate, client scope and pricing controls are ready." />}
+          {readiness.recommendations.length > 0 && (
+            <div className="check-group recommendations">
+              <h3><span>i</span> Recommendations <small>Does not block finishing</small></h3>
+              {readiness.recommendations.map((item) => <button key={item.key} onClick={() => setTab("details")}><span className="check-icon">i</span><span>{item.message}</span><b>Open →</b></button>)}
+            </div>
+          )}
+          {!readiness.blockers.length && !readiness.warnings.length && !readiness.recommendations.length && <EmptyInline title="All checks passed" detail="The estimate, client scope and pricing controls are ready." />}
           {!locked && (
             <div className="review-actions">
               <button className="button secondary" onClick={() => setTab("proposal")}>Preview proposal</button>

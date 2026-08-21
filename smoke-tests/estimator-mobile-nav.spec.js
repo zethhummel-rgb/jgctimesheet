@@ -155,6 +155,28 @@ test("proposal scope editor visibly numbers every scope item", async ({ page }) 
   await expect(secondItem).toHaveValue("Demobilize and leave the site clean");
 });
 
+test("missing exclusions remain recommended without blocking Finish quote", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("textbox", { name: "Exclusions" }).fill("");
+  await page.getByRole("tab", { name: /Review/ }).click();
+
+  const reviewPanel = page.locator(".readiness-checks");
+  await expect(page.locator(".review-hero")).toContainText("Ready to finish");
+  await expect(reviewPanel.locator(".recommendations")).toContainText("Does not block finishing");
+  await expect(reviewPanel.locator(".recommendations")).toContainText("Add exclusions or state that there are none.");
+  await expect(reviewPanel.getByRole("button", { name: /Acknowledge reviewed warnings/ })).toHaveCount(0);
+
+  const finishQuote = reviewPanel.getByRole("button", { name: "Finish quote" });
+  await expect(finishQuote).toBeEnabled();
+  await finishQuote.click();
+  await expect(page.locator(".identity-badges")).toContainText("Finished");
+});
+
 test("estimate search shows up to ten products before scrolling internally", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
