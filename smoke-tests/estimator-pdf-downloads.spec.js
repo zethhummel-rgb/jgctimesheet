@@ -1,4 +1,20 @@
 const { test, expect } = require("@playwright/test");
+const fs = require("node:fs");
+const path = require("node:path");
+const { pathToFileURL } = require("node:url");
+
+async function extractPdfText(pdfPath) {
+  const pdfJsPath = path.resolve(__dirname, "../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs = await import(pathToFileURL(pdfJsPath).href);
+  const document = await pdfjs.getDocument({ data: new Uint8Array(fs.readFileSync(pdfPath)), disableWorker: true }).promise;
+  const pages = [];
+  for (let index = 1; index <= document.numPages; index += 1) {
+    const page = await document.getPage(index);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => item.str).join(" "));
+  }
+  return pages.join("\n");
+}
 
 async function openDemoQuote(page) {
   await page.goto("/estimating/index.html?dev=1");
@@ -12,7 +28,8 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await page.getByRole("tab", { name: /Estimate/ }).click();
   await page.getByRole("button", { name: "Built-up item" }).click();
 
-  const description = page.locator("input.description-input").last();
+  const expandedLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  const description = expandedLine.locator("input.description-input");
   await description.fill("Stairwell framing");
   const labour = page.locator(".labour-group .build-up-row").last();
   await labour.getByLabel("Labour description").fill("Four-person framing crew");
@@ -25,7 +42,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await material.getByLabel(/quantity/).fill("50");
   await material.getByLabel(/unit cost/).fill("38.45");
 
-  const directUnitCostCell = page.locator("td.direct-unit-cost-cell").last();
+  const directUnitCostCell = expandedLine.locator("td.direct-unit-cost-cell");
   await expect(directUnitCostCell).toHaveCSS("background-color", "rgb(220, 241, 231)");
   await expect(directUnitCostCell.locator("input")).toHaveCSS("font-weight", "800");
 
@@ -34,7 +51,23 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
     page.getByRole("button", { name: "Estimate Only PDF" }).click(),
   ]);
   expect(estimateDownload.suggestedFilename()).toMatch(/ - Estimate\.pdf$/);
-  await estimateDownload.saveAs(testInfo.outputPath("estimate-only.pdf"));
+  const estimatePath = testInfo.outputPath("estimate-only.pdf");
+  await estimateDownload.saveAs(estimatePath);
+  const estimateText = await extractPdfText(estimatePath);
+  for (const heading of ["DIVISION", "DESCRIPTION / VENDOR", "QTY / UNIT", "LABOUR", "MATERIALS", "DIRECT COST"]) {
+    expect(estimateText).toContain(heading);
+  }
+  expect(estimateText).toContain("Stairwell framing");
+  expect(estimateText).toContain("$9,600.00");
+  expect(estimateText).toContain("$1,922.50");
+  expect(estimateText).toMatch(/Stairwell framing.*\$9,600\.00.*\$1,922\.50.*\$11,523\.00/);
+  expect(estimateText).toContain("Included direct cost");
+  expect(estimateText).toContain("Markup %");
+  expect(estimateText).toContain("Markup amount");
+  expect(estimateText).toContain("Total");
+  for (const removedLabel of ["UNIT COST", "CLASS", "Gross profit", "Pre-tax quote", "HST 13%", "Customer total"]) {
+    expect(estimateText).not.toContain(removedLabel);
+  }
 
   await page.getByRole("tab", { name: /Breakdown/ }).click();
   const [breakdownDownload] = await Promise.all([

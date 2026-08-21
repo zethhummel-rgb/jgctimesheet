@@ -8,7 +8,6 @@ import {
 } from "pdf-lib";
 import {
   buildUpItemTotal,
-  effectiveUnitCost,
   lineBuildUpTotals,
   lineDirectCost,
   lineSellPrice,
@@ -532,34 +531,36 @@ function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
 
 function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quote, includeBuiltUpWorksheets = true) {
   const totals = quoteTotals(quote);
-  builder.startSection("Estimate", "Internal quantities, direct costs, markup and customer pricing.");
+  builder.startSection("Estimate", "Internal quantities, labour, materials, direct costs and markup.");
   const columns: TableColumn[] = [
-    { label: "#", width: 18, align: "center" },
-    { label: "Division", width: 32, align: "center" },
-    { label: "Description / vendor", width: 170 },
-    { label: "Class", width: 52 },
-    { label: "Qty / unit", width: 46, align: "right" },
-    { label: "Unit cost", width: 57, align: "right", emphasis: "green" },
-    { label: "Direct", width: 55, align: "right" },
-    { label: "Markup", width: 42, align: "right" },
-    { label: "Sell", width: 60, align: "right" },
+    { label: "Division", width: 38, align: "center" },
+    { label: "Description / vendor", width: 220 },
+    { label: "Qty / unit", width: 50, align: "right" },
+    { label: "Labour", width: 70, align: "right" },
+    { label: "Materials", width: 70, align: "right" },
+    { label: "Direct cost", width: 84, align: "right", emphasis: "green" },
   ];
   const orderedLines = quote.lines
     .map((line, originalIndex) => ({ line, originalIndex }))
     .sort((left, right) => Number(right.line.costType === "Sub / Vendor") - Number(left.line.costType === "Sub / Vendor") || left.originalIndex - right.originalIndex);
   const vendorCount = orderedLines.filter(({ line }) => line.costType === "Sub / Vendor").length;
-  const rows = orderedLines.map(({ line, originalIndex }) => {
+  const rows = orderedLines.map(({ line }) => {
     const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
+    const buildUp = line.costType === "Labour & Materials" && line.costBuildUp ? lineBuildUpTotals(line) : null;
+    const quantity = Math.max(0, line.quantity || 0);
+    const labour = buildUp
+      ? Math.round(buildUp.labour * quantity * 100) / 100
+      : line.costType === "Labour" ? lineDirectCost(line) : null;
+    const materials = buildUp
+      ? Math.round(buildUp.materials * quantity * 100) / 100
+      : line.costType === "Material" ? lineDirectCost(line) : null;
     return [
-      String(originalIndex + 1),
       divisionNumber(line.division),
       `${line.description || "Unnamed line"}${vendorDetails ? `\n${vendorDetails}` : ""}`,
-      line.included ? (line.classification === "Optional" ? "Optional - selected" : line.classification) : (line.classification === "Optional" ? "Optional - not selected" : `${line.classification} - excluded`),
       `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`,
-      money(effectiveUnitCost(line)),
+      labour === null ? "-" : money(labour),
+      materials === null ? "-" : money(materials),
       money(lineDirectCost(line)),
-      percent(line.markupOverride ?? quote.defaultMarkup, 0),
-      money(lineSellPrice(line, quote.defaultMarkup)),
     ];
   });
   builder.table(columns, rows, {
@@ -569,10 +570,9 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   });
   builder.totalsBox([
     ["Included direct cost", money(totals.directCost)],
-    ["Gross profit", money(totals.profit)],
-    ["Pre-tax quote", money(totals.subtotal)],
-    [`${quote.taxName} ${percent(quote.taxRate, 0)}`, money(totals.tax)],
-    ["Customer total", money(totals.total)],
+    ["Markup %", percent(totals.markup)],
+    ["Markup amount", money(totals.profit)],
+    ["Total", money(totals.subtotal)],
   ]);
   const builtUpLines = includeBuiltUpWorksheets ? quote.lines.filter((line) => line.costBuildUp) : [];
   if (builtUpLines.length) {
@@ -608,7 +608,7 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
       ]);
     });
   }
-  if (totals.optional > 0) builder.callout("Unselected optional work", `${money(totals.optional)} is available but not included in the customer total.`, "amber");
+  if (totals.optional > 0) builder.callout("Unselected optional work", `${money(totals.optional)} is available but not included in the Total above.`, "amber");
   builder.callout("Pricing snapshot", "All amounts shown here are the values stored on this quote at the time of export. Price Book changes do not rewrite these lines.");
 }
 
