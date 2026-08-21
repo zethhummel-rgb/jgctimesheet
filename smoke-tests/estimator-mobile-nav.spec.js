@@ -208,6 +208,54 @@ test("expanded estimate lines keep pricing controls in the detail header", async
   }).toBe(true);
 });
 
+test("subcontractor lines allow an optional quote number and separate added costs", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.locator(".subcontractor-add-button").click();
+
+  const mainRow = page.locator(".estimate-table tbody > tr:not(.line-detail-row)").last();
+  const vendor = mainRow.getByRole("combobox", { name: /Vendor for line/ });
+  await vendor.fill("Demo Painting");
+  await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
+  await mainRow.locator(".direct-unit-cost-cell input").fill("4600");
+  await expect(mainRow).toContainText("Quote # optional");
+
+  const detail = page.locator(".line-detail-panel");
+  const quoteNumber = detail.getByLabel(/Subcontractor quote #/);
+  await expect(quoteNumber).toBeEnabled();
+  await expect(quoteNumber).toHaveAttribute("placeholder", "Enter only when the subcontractor provides one");
+  await detail.getByRole("button", { name: "Add quote cost breakdown" }).click();
+
+  const worksheet = page.locator(".build-up-worksheet");
+  await expect(worksheet).toContainText("SUBCONTRACTOR COST BREAKDOWN");
+  const vendorPrice = worksheet.locator(".subcontractor-group .build-up-row").first();
+  await expect(vendorPrice.locator(".build-up-money-input input")).toHaveValue("4600");
+
+  const shipping = worksheet.locator(".other-group .build-up-row").first();
+  await shipping.getByLabel("Other description").fill("Shipping");
+  await shipping.locator(".build-up-money-input input").fill("250");
+  await worksheet.getByRole("button", { name: "Other cost row" }).click();
+  const perforation = worksheet.locator(".other-group .build-up-row").last();
+  await perforation.getByLabel("Other description").fill("Perforation");
+  await perforation.locator('input[type="number"]').first().fill("1");
+  await perforation.locator(".build-up-money-input input").fill("400");
+
+  await expect(mainRow.locator(".direct-unit-cost-cell input")).toHaveValue("5250");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$5,250.00");
+  await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$4,600.00");
+  await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$650.00");
+  await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$5,250.00");
+
+  await page.getByRole("tab", { name: /Review/ }).click();
+  await expect(page.getByText(/needs the subcontractor quote number/i)).toHaveCount(0);
+  const reviewCard = page.locator(".review-subcontractor-card").last();
+  await expect(reviewCard).toContainText("Includes added costs");
+  await expect(reviewCard).toContainText("$5,250.00");
+});
+
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();

@@ -409,14 +409,11 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
     if (line.costType === "Sub / Vendor" && !line.vendorId && !line.vendorName?.trim()) {
       blockers.push({ key: `${line.id}-vendor`, message: `${label} needs a subcontractor.` });
     }
-    if (line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && !line.vendorReference.trim()) {
-      blockers.push({ key: `${line.id}-vendor-reference`, message: `${label} needs the subcontractor quote number or pricing reference.` });
-    }
     if (line.vendorId && !vendors.some((vendor) => vendor.id === line.vendorId)) {
       blockers.push({ key: `${line.id}-vendor-missing`, message: `${label} references a vendor that no longer exists.` });
     }
     if (line.costBuildUp) {
-      const activeCostItems = line.costBuildUp.items.filter((item) => item.description.trim() || item.quantity > 0 || item.unitCost > 0);
+      const activeCostItems = line.costBuildUp.items.filter((item) => item.description.trim() || item.unitCost > 0);
       activeCostItems.forEach((item, itemIndex) => {
         const itemLabel = item.description.trim() || `${item.kind} row ${itemIndex + 1}`;
         if (!item.description.trim()) blockers.push({ key: `${item.id}-description`, message: `${label}: ${item.kind.toLowerCase()} row ${itemIndex + 1} needs a description.` });
@@ -2395,6 +2392,30 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       },
     });
   };
+  const enableSubcontractorCostBreakdown = (line: QuoteLine) => {
+    const vendor = line.vendorName || (line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name ?? "" : "");
+    const baseCost = line.projectCost ?? line.catalogCost ?? 0;
+    updateLine(line.id, {
+      priceBookCode: null,
+      priceSourceSnapshot: undefined,
+      catalogCost: null,
+      projectCost: null,
+      confidence: "Project-specific",
+      sourceNote: line.sourceNote || "Subcontractor price plus separately quoted extras.",
+      costBuildUp: {
+        items: [
+          newBuildUpItem("Subcontractor", {
+            description: vendor ? `${vendor} quoted work` : "Subcontractor quoted work",
+            quantity: 1,
+            unit: "LS",
+            unitCost: baseCost,
+            source: line.vendorReference ? `Quote #${line.vendorReference}` : "Quote number not provided",
+          }),
+          newBuildUpItem("Other", { quantity: 1, unit: "LS" }),
+        ],
+      },
+    });
+  };
   const requestLineRemoval = (lineId: string) => {
     setPendingDeleteLineId(lineId);
   };
@@ -2452,26 +2473,26 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                 const sell = lineSellPrice(line, quote.defaultMarkup);
                 const markup = line.markupOverride ?? quote.defaultMarkup;
                 const buildUpTotals = lineBuildUpTotals(line);
-                const needsLiveCost = line.liveQuote && !(line.projectCost && line.projectCost > 0);
+                const needsLiveCost = line.liveQuote && !(effectiveUnitCost(line) > 0);
                 const outOfRange = !line.costBuildUp && line.projectCost !== null && ((line.low !== null && line.projectCost < line.low) || (line.high !== null && line.projectCost > line.high));
                 return (
                   <Fragment key={line.id}>
                     <tr id={`estimate-line-${line.id}`} className={`${expandedLineId === line.id ? "expanded" : ""} ${!line.included ? "not-included" : ""}`}>
                       <td className="line-number" data-label="#">{index + 1}</td>
-                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search or type subcontractor" ariaLabel={`Vendor for line ${index + 1}`} allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /><small className={`cell-hint sub-quote-hint ${(line.vendorPricingMode ?? "Quoted") === "Budget" || line.vendorReference ? "" : "missing"}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : line.vendorReference ? `Sub quote ${line.vendorReference}` : "Quote # required"}</small></td> : <td data-label="Description"><input className="cell-input description-input" autoComplete="off" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
+                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search or type subcontractor" ariaLabel={`Vendor for line ${index + 1}`} allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /><small className="cell-hint sub-quote-hint">{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : line.vendorReference ? `Sub quote ${line.vendorReference}` : "Quote # optional"}</small></td> : <td data-label="Description"><input className="cell-input description-input" autoComplete="off" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
                       <td data-label="Cost type">{line.costType === "Sub / Vendor" ? <span className="fixed-cost-type">Sub / Vendor</span> : <select className="cell-input cost-type-input" value={line.costType} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { costType: event.target.value as CostType })}>{costTypeOptions.filter((type) => type !== "Sub / Vendor").map((type) => <option key={type}>{type}</option>)}</select>}</td>
                       <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value, divisionManual: true })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
                       <td className="direct-unit-cost-cell" data-label="Direct unit cost">
                         <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={line.costBuildUp ? buildUpTotals.total : line.projectCost ?? line.catalogCost ?? ""} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { projectCost: event.target.value === "" ? null : Number(event.target.value) })} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
-                        {line.costBuildUp ? <div className="build-up-mini-totals"><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
+                        {line.costBuildUp ? <div className="build-up-mini-totals">{line.costType === "Sub / Vendor" ? <><span>Vendor {money(buildUpTotals.subcontractors)}</span><span>Other {money(buildUpTotals.other)}</span></> : <><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></>}</div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
                       <td className="direct-cost-cell" data-label="Direct cost"><strong>{money(direct)}</strong></td>
                       <td data-label="Class"><select className="cell-input class-select" value={line.classification} disabled={locked} onChange={(event) => updateLine(line.id, { classification: event.target.value as QuoteClass })}><option>Required</option><option>Allowance</option><option>Optional</option></select></td>
                       <td data-label="Include"><label className="switch"><input type="checkbox" checked={line.included} disabled={locked} aria-label={`${line.included ? "Exclude" : "Include"} ${line.description || `line ${index + 1}`} from quote`} onChange={(event) => updateLine(line.id, { included: event.target.checked })} /><span /></label></td>
                       <td className="line-actions">
-                        {(needsLiveCost || outOfRange || line.confidence === "Low") && <span className={`line-warning ${needsLiveCost ? "danger" : ""}`} title={needsLiveCost ? "Current vendor quote required" : "Review this pricing"}>!</span>}
+                        {(needsLiveCost || outOfRange || line.confidence === "Low") && <span className={`line-warning ${needsLiveCost ? "danger" : ""}`} title={needsLiveCost ? "Enter a usable direct cost" : "Review this pricing"}>!</span>}
                         {!locked && <button className="line-delete-button" title="Delete line" aria-label={`Delete ${line.description || `line ${index + 1}`}`} onClick={() => requestLineRemoval(line.id)}>×</button>}
                         <button className={`line-detail-toggle ${expandedLineId === line.id ? "line-finish-button" : ""}`} title={expandedLineId === line.id ? "Finish row" : "Show line details"} aria-label={expandedLineId === line.id ? `Finish ${line.description || `line ${index + 1}`}` : `Edit details for ${line.description || `line ${index + 1}`}`} onClick={() => setExpandedLineId(expandedLineId === line.id ? null : line.id)}>{expandedLineId === line.id ? "✓" : "⌄"}</button>
                       </td>
@@ -2494,14 +2515,19 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                               <CostBuildUpEditor line={line} locked={locked} updateLine={updateLine} />
                             ) : (
                               <div className="build-up-invitation">
-                                <div><span className="eyebrow">OPTIONAL COST WORKSHEET</span><strong>Build this item from labour and materials</strong><p>Keep one clean line on the quote while the labour hours and material quantities calculate its direct cost underneath.</p></div>
-                                {!locked && <button className="button secondary" onClick={() => enableCostBuildUp(line)}>＋ Add labour &amp; material worksheet</button>}
+                                {line.costType === "Sub / Vendor" ? <>
+                                  <div><span className="eyebrow">OPTIONAL COST BREAKDOWN</span><strong>Add the subcontractor price and separate extras</strong><p>Keep the vendor price, shipping, perforation, delivery and other charges separate while their combined total feeds this estimate line.</p></div>
+                                  {!locked && <button className="button secondary" onClick={() => enableSubcontractorCostBreakdown(line)}>＋ Add quote cost breakdown</button>}
+                                </> : <>
+                                  <div><span className="eyebrow">OPTIONAL COST WORKSHEET</span><strong>Build this item from labour and materials</strong><p>Keep one clean line on the quote while the labour hours and material quantities calculate its direct cost underneath.</p></div>
+                                  {!locked && <button className="button secondary" onClick={() => enableCostBuildUp(line)}>＋ Add labour &amp; material worksheet</button>}
+                                </>}
                               </div>
                             )}
                             <div className="form-grid four-column">
                               {line.costType === "Sub / Vendor" && <label className="field"><span>Subcontractor <em>Search or type a name</em></span><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search subcontractors" ariaLabel="Subcontractor" allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /></label>}
                               {line.costType === "Sub / Vendor" && <label className="check-field"><input type="checkbox" checked={(line.vendorPricingMode ?? "Quoted") === "Budget"} disabled={locked} onChange={(event) => updateLine(line.id, { vendorPricingMode: event.target.checked ? "Budget" : "Quoted", liveQuote: !event.target.checked })} /><span><strong>Budget allowance</strong><small>Use an estimated subcontractor cost; a quote number is not required.</small></span></label>}
-                              <label className="field"><span>{line.costType === "Sub / Vendor" ? "Subcontractor quote #" : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked || (line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Budget")} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={line.costType === "Sub / Vendor" ? ((line.vendorPricingMode ?? "Quoted") === "Budget" ? "Not required for budget allowance" : "Enter the subcontractor's quote number") : "Supplier reference or takeoff"} /></label>
+                              <label className="field"><span>{line.costType === "Sub / Vendor" ? <>Subcontractor quote # <em>Optional</em></> : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={line.costType === "Sub / Vendor" ? "Enter only when the subcontractor provides one" : "Supplier reference or takeoff"} /></label>
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>}
                               <label className="field"><span>Customer-price override</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.priceOverride ?? ""} disabled={locked} onChange={(event) => updateLine(line.id, { priceOverride: event.target.value === "" ? null : Number(event.target.value) })} placeholder={money(sell)} /></div></label>
@@ -2557,6 +2583,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const subcontractorItems = items.filter((item) => item.kind === "Subcontractor");
   const otherItems = items.filter((item) => item.kind === "Other");
   const totals = lineBuildUpTotals(line);
+  const subcontractorBreakdown = line.costType === "Sub / Vendor";
 
   useEffect(() => {
     const query = materialSearch.trim();
@@ -2618,7 +2645,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const renderCostRow = (item: QuoteCostBuildUpItem) => (
     <div className="build-up-row" key={item.id}>
       <div className="build-up-description-cell">
-        <input value={item.description} disabled={locked} onChange={(event) => updateItem(item.id, { description: event.target.value })} placeholder={item.kind === "Labour" ? "e.g. 4-person framing crew" : "e.g. 2x12x16 SPF"} aria-label={`${item.kind} description`} />
+        <input value={item.description} disabled={locked} onChange={(event) => updateItem(item.id, { description: event.target.value })} placeholder={item.kind === "Labour" ? "e.g. 4-person framing crew" : item.kind === "Subcontractor" ? "e.g. Quoted work" : item.kind === "Other" ? "e.g. Shipping or perforation" : "e.g. 2x12x16 SPF"} aria-label={`${item.kind} description`} />
         {item.priceSourceSnapshot ? <small className="supplier-source">{item.priceSourceSnapshot.supplierName} · price saved {item.priceSourceSnapshot.effectiveDate || "without a date"}</small> : <input className="build-up-source-input" value={item.source} disabled={locked} onChange={(event) => updateItem(item.id, { source: event.target.value })} placeholder={item.kind === "Labour" ? "Crew or rate note (optional)" : "Supplier or source (optional)"} aria-label={`${item.kind} source`} />}
       </div>
       <input type="number" min="0" step="0.01" value={item.quantity || ""} disabled={locked} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })} placeholder="0" aria-label={`${item.description || item.kind} quantity`} />
@@ -2632,18 +2659,18 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   return (
     <section className="build-up-worksheet">
       <header className="build-up-header">
-        <div><span className="eyebrow">LABOUR &amp; MATERIAL WORKSHEET</span><h4>Build the cost behind this one quote item</h4><p>Each row is internal. The combined total automatically becomes the direct unit cost on the main estimate row.</p></div>
+        <div><span className="eyebrow">{subcontractorBreakdown ? "SUBCONTRACTOR COST BREAKDOWN" : "LABOUR & MATERIAL WORKSHEET"}</span><h4>{subcontractorBreakdown ? "Combine the vendor price with separately quoted extras" : "Build the cost behind this one quote item"}</h4><p>{subcontractorBreakdown ? "Keep shipping, perforation, delivery and other add-ons separate. Their combined total automatically becomes the direct unit cost." : "Each row is internal. The combined total automatically becomes the direct unit cost on the main estimate row."}</p></div>
         <div className="build-up-applied-total"><span>Applied unit cost</span><strong>{money(totals.total)}</strong><small>{numberFormatter.format(line.quantity)} {line.unit} = {money(lineDirectCost(line))} direct cost</small></div>
       </header>
 
-      <div className="build-up-group labour-group">
+      {!subcontractorBreakdown && <div className="build-up-group labour-group">
         <div className="build-up-group-heading"><div><span className="build-up-kind-icon">L</span><div><strong>Labour</strong><small>Hours, crew rates or other labour units</small></div></div>{!locked && <button className="button compact secondary" onClick={addLabour}>＋ Labour row</button>}</div>
         <div className="build-up-grid-header"><span>Description / crew</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
         <div className="build-up-rows">{labourItems.map(renderCostRow)}{!labourItems.length && <div className="build-up-empty">No labour rows yet.</div>}</div>
         <div className="build-up-subtotal"><span>Labour total</span><strong>{money(totals.labour)}</strong></div>
-      </div>
+      </div>}
 
-      <div className="build-up-group material-group">
+      {!subcontractorBreakdown && <div className="build-up-group material-group">
         <div className="build-up-group-heading"><div><span className="build-up-kind-icon">M</span><div><strong>Materials</strong><small>Use saved Material Prices or enter a one-off item</small></div></div>{!locked && <button className="button compact secondary" onClick={addManualMaterial}>＋ Manual material</button>}</div>
         {!locked && <div className="build-up-material-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMaterialSearchOpen(false); }}>
           <label><span className="catalog-search-icon">⌕</span><input role="combobox" aria-expanded={materialSearchOpen} aria-controls={`build-up-material-results-${line.id}`} value={materialSearch} onFocus={() => setMaterialSearchOpen(true)} onChange={(event) => { setMaterialSearch(event.target.value); setMaterialSearchOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter" && materialMatches[0]) { event.preventDefault(); addPricedMaterial(materialMatches[0]); } if (event.key === "Escape") setMaterialSearchOpen(false); }} placeholder="Search Material Prices, such as 2x12 or plywood…" /></label>
@@ -2656,23 +2683,29 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
         <div className="build-up-grid-header"><span>Material / source</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
         <div className="build-up-rows">{materialItems.map(renderCostRow)}{!materialItems.length && <div className="build-up-empty">No material rows yet.</div>}</div>
         <div className="build-up-subtotal"><span>Materials total</span><strong>{money(totals.materials)}</strong></div>
-      </div>
+      </div>}
 
       <div className="build-up-group subcontractor-group">
-        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">S</span><div><strong>Subcontractors</strong><small>Firm quotes or budget allowances included in this item</small></div></div>{!locked && <button className="button compact secondary" onClick={addSubcontractor}>＋ Subcontractor row</button>}</div>
-        <div className="build-up-grid-header"><span>Subcontractor / scope</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
-        <div className="build-up-rows">{subcontractorItems.map(renderCostRow)}{!subcontractorItems.length && <div className="build-up-empty">No subcontractor rows yet.</div>}</div>
-        <div className="build-up-subtotal"><span>Subcontractor total</span><strong>{money(totals.subcontractors)}</strong></div>
+        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">S</span><div><strong>{subcontractorBreakdown ? "Subcontractor price" : "Subcontractors"}</strong><small>{subcontractorBreakdown ? "The vendor's main quoted or budget amount" : "Firm quotes or budget allowances included in this item"}</small></div></div>{!locked && <button className="button compact secondary" onClick={addSubcontractor}>＋ {subcontractorBreakdown ? "Vendor price row" : "Subcontractor row"}</button>}</div>
+        <div className="build-up-grid-header"><span>{subcontractorBreakdown ? "Quoted work / source" : "Subcontractor / scope"}</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
+        <div className="build-up-rows">{subcontractorItems.map(renderCostRow)}{!subcontractorItems.length && <div className="build-up-empty">No subcontractor price entered yet.</div>}</div>
+        <div className="build-up-subtotal"><span>{subcontractorBreakdown ? "Vendor price total" : "Subcontractor total"}</span><strong>{money(totals.subcontractors)}</strong></div>
       </div>
 
       <div className="build-up-group other-group">
-        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">O</span><div><strong>Other direct costs</strong><small>Equipment, rentals, permits or miscellaneous direct costs</small></div></div>{!locked && <button className="button compact secondary" onClick={addOther}>＋ Other cost row</button>}</div>
+        <div className="build-up-group-heading"><div><span className="build-up-kind-icon">O</span><div><strong>{subcontractorBreakdown ? "Additional quoted costs" : "Other direct costs"}</strong><small>{subcontractorBreakdown ? "Shipping, perforation, delivery or other separately priced extras" : "Equipment, rentals, permits or miscellaneous direct costs"}</small></div></div>{!locked && <button className="button compact secondary" onClick={addOther}>＋ Other cost row</button>}</div>
         <div className="build-up-grid-header"><span>Description / source</span><span>Qty</span><span>Unit</span><span>Unit cost</span><span>Total</span><span /></div>
         <div className="build-up-rows">{otherItems.map(renderCostRow)}{!otherItems.length && <div className="build-up-empty">No other cost rows yet.</div>}</div>
         <div className="build-up-subtotal"><span>Other total</span><strong>{money(totals.other)}</strong></div>
       </div>
 
-      <footer className="build-up-summary">
+      {subcontractorBreakdown ? <footer className="build-up-summary subcontractor-build-up-summary">
+        <div><span>Vendor price</span><strong>{money(totals.subcontractors)}</strong></div>
+        <span className="build-up-plus">＋</span>
+        <div><span>Other costs</span><strong>{money(totals.other)}</strong></div>
+        <span className="build-up-equals">＝</span>
+        <div className="build-up-grand"><span>Direct unit cost</span><strong>{money(totals.total)}</strong></div>
+      </footer> : <footer className="build-up-summary">
         <div><span>Labour</span><strong>{money(totals.labour)}</strong></div>
         <span className="build-up-plus">＋</span>
         <div><span>Materials</span><strong>{money(totals.materials)}</strong></div>
@@ -2680,7 +2713,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
         <div><span>Subs &amp; other</span><strong>{money(totals.subcontractors + totals.other)}</strong></div>
         <span className="build-up-equals">＝</span>
         <div className="build-up-grand"><span>Built-up unit cost</span><strong>{money(totals.total)}</strong></div>
-      </footer>
+      </footer>}
     </section>
   );
 }
@@ -2827,10 +2860,10 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
           )}
         </section>
       </div>
-      {subcontractorLines.filter((line) => !line.costBuildUp).length > 0 && (
+      {subcontractorLines.length > 0 && (
         <section className="review-build-ups review-subcontractors-only">
           <div className="review-section-heading"><span className="eyebrow">SUBCONTRACTOR REVIEW</span><h2>Quoted and budget subcontractors</h2><p>Confirm which subcontractor prices are firm quotations and which are estimating allowances.</p></div>
-          {subcontractorLines.filter((line) => !line.costBuildUp).map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
+          {subcontractorLines.map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}{line.costBuildUp ? " · Includes added costs" : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
         </section>
       )}
       <section className="panel review-utility-actions">
