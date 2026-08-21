@@ -1063,14 +1063,14 @@ function downloadPdfBytes(bytes: Uint8Array, filename: string) {
 export async function downloadEstimatePdf(options: InternalEstimatePdfOptions) {
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createEstimatePdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Estimate.pdf`);
+  downloadPdfBytes(bytes, `${safeFileName(`Estimate - ${options.quote.number} - ${options.quote.project || "Untitled"}`)}.pdf`);
 }
 
 export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions) {
   if (!options.quote.lines.some((line) => line.costBuildUp)) return;
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createBreakdownPdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Breakdown.pdf`);
+  downloadPdfBytes(bytes, `${safeFileName(`Breakdown - ${options.quote.number} - ${options.quote.project || "Untitled"}`)}.pdf`);
 }
 
 export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {

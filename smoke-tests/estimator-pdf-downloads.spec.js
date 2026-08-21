@@ -61,7 +61,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Estimate Only PDF" }).click(),
   ]);
-  expect(estimateDownload.suggestedFilename()).toMatch(/ - Estimate\.pdf$/);
+  expect(estimateDownload.suggestedFilename()).toMatch(/^Estimate - JGC-Q-2026-0001 - .+\.pdf$/);
   const estimatePath = testInfo.outputPath("estimate-only.pdf");
   await estimateDownload.saveAs(estimatePath);
   const estimateText = await extractPdfText(estimatePath);
@@ -97,7 +97,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download Breakdown PDF" }).click(),
   ]);
-  expect(breakdownDownload.suggestedFilename()).toMatch(/ - Breakdown\.pdf$/);
+  expect(breakdownDownload.suggestedFilename()).toMatch(/^Breakdown - JGC-Q-2026-0001 - .+\.pdf$/);
   const breakdownPath = testInfo.outputPath("breakdown.pdf");
   await breakdownDownload.saveAs(breakdownPath);
   const breakdownPages = await extractPdfPagesText(breakdownPath);
@@ -117,9 +117,9 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   page.on("download", (download) => packageDownloads.push(download.suggestedFilename()));
   await page.getByRole("button", { name: "Download Proposal, Estimate, Breakdown" }).click();
   await expect.poll(() => packageDownloads.length).toBe(3);
-  expect(packageDownloads.some((name) => name.endsWith(" - Estimate.pdf"))).toBe(true);
-  expect(packageDownloads.some((name) => name.endsWith(" - Breakdown.pdf"))).toBe(true);
-  expect(packageDownloads.some((name) => !name.includes(" - Estimate") && !name.includes(" - Breakdown"))).toBe(true);
+  expect(packageDownloads.some((name) => name.startsWith("Estimate - "))).toBe(true);
+  expect(packageDownloads.some((name) => name.startsWith("Breakdown - "))).toBe(true);
+  expect(packageDownloads.some((name) => !name.startsWith("Estimate - ") && !name.startsWith("Breakdown - "))).toBe(true);
 });
 
 test("quote package omits an empty Breakdown PDF", async ({ page }) => {
@@ -130,5 +130,5 @@ test("quote package omits an empty Breakdown PDF", async ({ page }) => {
   await expect.poll(() => downloads.length).toBe(2);
   await page.waitForTimeout(400);
   expect(downloads).toHaveLength(2);
-  expect(downloads.some((name) => name.endsWith(" - Breakdown.pdf"))).toBe(false);
+  expect(downloads.some((name) => name.startsWith("Breakdown - "))).toBe(false);
 });
