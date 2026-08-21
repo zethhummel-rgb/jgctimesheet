@@ -29,6 +29,7 @@ export interface QuoteBackupReview {
   blockers: QuoteBackupReviewItem[];
   warnings: QuoteBackupReviewItem[];
   unresolvedWarnings: QuoteBackupReviewItem[];
+  recommendations: QuoteBackupReviewItem[];
 }
 
 export interface QuoteBackupPdfOptions {
@@ -727,6 +728,11 @@ function addReviewPage(builder: BackupPdfBuilder, quote: Quote, review: QuoteBac
       builder.callout(`${review.warnings.length} review warning${review.warnings.length === 1 ? "" : "s"}`, "Warnings may be acknowledged after the estimator confirms they are intentional.", "amber");
       builder.list(review.warnings.map((item) => item.message), { status: (index) => quote.acknowledgedWarnings[review.warnings[index].key] ? "Reviewed" : "Open" });
     }
+  }
+  if (review.recommendations.length) {
+    builder.subheading("Recommendations");
+    builder.callout(`${review.recommendations.length} non-blocking recommendation${review.recommendations.length === 1 ? "" : "s"}`, "These reminders were visible to the estimator but did not prevent the quote from being finished.", "blue");
+    builder.list(review.recommendations.map((item) => item.message), { status: () => "Recommended" });
   }
 }
 
