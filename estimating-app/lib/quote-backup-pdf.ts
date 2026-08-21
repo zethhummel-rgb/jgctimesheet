@@ -492,7 +492,9 @@ class BackupPdfBuilder {
 
 function estimateVendorDetails(state: AppState, line: QuoteLine) {
   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name : line.vendorName?.trim() ?? "";
-  return [vendor, line.vendorReference].filter(Boolean).join(" / ");
+  const comparable = (value?: string) => ascii(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const vendorAlreadyDescribesLine = !!vendor && comparable(vendor) === comparable(line.description);
+  return [vendorAlreadyDescribesLine ? "" : vendor, line.vendorReference?.trim()].filter(Boolean).join(" / ");
 }
 
 function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote, exportedAt: Date) {
