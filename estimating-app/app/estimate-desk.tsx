@@ -277,6 +277,80 @@ function nonBlankLines(value?: string) {
   return (value ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
+function NumberedScopeEditor({ value, disabled, onChange }: {
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const lines = value.split(/\r?\n/);
+  const focusLine = (index: number, caret = 0) => {
+    window.requestAnimationFrame(() => {
+      const input = editorRef.current?.querySelector<HTMLTextAreaElement>(`textarea[data-scope-line="${index}"]`);
+      input?.focus();
+      input?.setSelectionRange(caret, caret);
+    });
+  };
+  const replaceLine = (index: number, nextValue: string) => {
+    const replacements = nextValue.replace(/\r/g, "").split("\n");
+    const nextLines = [...lines];
+    nextLines.splice(index, 1, ...replacements);
+    onChange(nextLines.join("\n"));
+    if (replacements.length > 1) focusLine(index + replacements.length - 1, replacements.at(-1)?.length ?? 0);
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>, index: number) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const line = lines[index] ?? "";
+      const start = event.currentTarget.selectionStart;
+      const end = event.currentTarget.selectionEnd;
+      const nextLines = [...lines];
+      nextLines.splice(index, 1, line.slice(0, start), line.slice(end));
+      onChange(nextLines.join("\n"));
+      focusLine(index + 1);
+      return;
+    }
+    if (event.key === "Backspace" && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0 && index > 0) {
+      event.preventDefault();
+      const previous = lines[index - 1] ?? "";
+      const nextLines = [...lines];
+      nextLines.splice(index - 1, 2, previous + (lines[index] ?? ""));
+      onChange(nextLines.join("\n"));
+      focusLine(index - 1, previous.length);
+    }
+  };
+  return (
+    <div ref={editorRef} className="numbered-scope-editor" role="group" aria-labelledby="proposal-scope-label">
+      <div className="numbered-scope-list">
+        {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} />)}
+      </div>
+      {!disabled && <button type="button" className="numbered-scope-add" onClick={() => { onChange(`${value}\n`); focusLine(lines.length); }}>＋ Add scope item</button>}
+    </div>
+  );
+}
+
+function NumberedScopeLine({ index, value, disabled, onChange, onKeyDown }: {
+  index: number;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+}) {
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "0px";
+    input.style.height = `${Math.max(42, input.scrollHeight)}px`;
+  }, [value]);
+  return (
+    <div className="numbered-scope-row">
+      <span className="numbered-scope-number" aria-hidden="true">{index + 1}.</span>
+      <textarea ref={inputRef} data-scope-line={index} rows={1} value={value} disabled={disabled} aria-label={`Proposal scope item ${index + 1}`} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"} />
+    </div>
+  );
+}
+
 function customerScopeLines(quote: Quote) {
   const written = nonBlankLines(quote.proposalScope);
   if (written.length) return written;
@@ -2156,7 +2230,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       <section className="panel form-panel full-span">
         <div className="panel-heading"><div><span className="eyebrow">SCOPE FOUNDATION</span><h2>What are we pricing?</h2></div><span className="client-safe-chip">Customer-facing</span></div>
         <div className="form-grid two-column">
-          <label className="field full"><span>Proposal Scope Lines <em>One numbered item per line</em></span><textarea rows={6} value={quote.proposalScope ?? ""} disabled={locked} onChange={(event) => updateField("proposalScope", event.target.value)} placeholder="Supply labour and materials to complete…" /></label>
+          <div className="field full"><span id="proposal-scope-label">Proposal Scope Lines <em>Press Enter for the next numbered item</em></span><NumberedScopeEditor value={quote.proposalScope ?? ""} disabled={locked} onChange={(value) => updateField("proposalScope", value)} /></div>
           <label className="field full"><span>Proposal Notes <em>One item per line</em></span><textarea rows={4} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(event) => updateField("proposalNotes", event.target.value)} placeholder="Access, working hours, permits and project assumptions." /></label>
           <label className="field"><span>Inclusions</span><textarea rows={5} value={quote.inclusions} disabled={locked} onChange={(event) => updateField("inclusions", event.target.value)} placeholder="What the price includes" /></label>
           <label className="field"><span>Exclusions</span><textarea rows={5} value={quote.exclusions} disabled={locked} onChange={(event) => updateField("exclusions", event.target.value)} placeholder="What is specifically excluded" /></label>
