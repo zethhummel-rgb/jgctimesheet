@@ -572,6 +572,25 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   }, []);
 
   useEffect(() => {
+    const preventNumberStepping = (event: KeyboardEvent) => {
+      const input = event.target instanceof HTMLInputElement ? event.target : null;
+      if (input?.type !== "number" || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+    };
+    const releaseNumberInputBeforeWheel = (event: WheelEvent) => {
+      const input = event.target instanceof HTMLInputElement ? event.target : null;
+      if (input?.type === "number" && document.activeElement === input) input.blur();
+    };
+
+    document.addEventListener("keydown", preventNumberStepping, true);
+    document.addEventListener("wheel", releaseNumberInputBeforeWheel, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("keydown", preventNumberStepping, true);
+      document.removeEventListener("wheel", releaseNumberInputBeforeWheel, true);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!ready) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     setSaveStatus("saving");
