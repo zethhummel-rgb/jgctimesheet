@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { AppState, Quote } from "./estimator-data";
 import { lineBuildUpTotals, lineDirectCost, lineSellPrice, quoteTotals } from "./estimator-data";
+import { proposalTextLines, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
 
 const PAGE = { width: 612, height: 792, margin: 46 };
 const green = rgb(0.07, 0.43, 0.28);
@@ -9,10 +10,6 @@ const grey = rgb(0.35, 0.42, 0.46);
 
 function safeName(value: string) {
   return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim();
-}
-
-function lines(text: string) {
-  return String(text || "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
 function wrap(text: string, font: PDFFont, size: number, width: number) {
@@ -34,6 +31,8 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+  const boldItalic = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   let page: PDFPage = pdf.addPage([PAGE.width, PAGE.height]);
   let y = PAGE.height - PAGE.margin;
   const newPage = () => {
@@ -53,6 +52,56 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     const wrapped = wrap(value, font, size, width);
     ensure(wrapped.length * (size + 3) + (options.gap ?? 7));
     wrapped.forEach((line) => { text(line, x, size, font); y -= size + 3; });
+    y -= options.gap ?? 7;
+  };
+  const richParagraph = (value: string, options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
+    const x = options.x ?? PAGE.margin;
+    const width = options.width ?? PAGE.width - PAGE.margin * 2;
+    const baseSize = options.size ?? 9;
+    const runs: ProposalTextRun[] = [
+      ...(options.prefix ? [{ text: options.prefix, style: { bold: options.forceBold ?? false, italic: false, underline: false, size: "normal" as const } }] : []),
+      ...proposalTextRuns(value).map((run) => ({ ...run, style: { ...run.style, bold: options.forceBold || run.style.bold } })),
+    ];
+    const fontFor = (run: ProposalTextRun) => run.style.bold && run.style.italic ? boldItalic : run.style.bold ? bold : run.style.italic ? italic : regular;
+    const sizeFor = (run: ProposalTextRun) => baseSize * (run.style.size === "large" ? 1.22 : run.style.size === "small" ? 0.82 : 1);
+    const rows: ProposalTextRun[][] = [[]];
+    let rowWidth = 0;
+    const pushRow = () => { if (rows.at(-1)?.length || rows.length === 0) rows.push([]); rowWidth = 0; };
+    runs.forEach((run) => {
+      run.text.split(/(\n|\s+)/).filter((piece) => piece !== "").forEach((piece) => {
+        if (piece === "\n") { pushRow(); return; }
+        const pieceRun = { ...run, text: piece };
+        const pieceWidth = fontFor(pieceRun).widthOfTextAtSize(piece, sizeFor(pieceRun));
+        const isOnlySpace = /^\s+$/.test(piece);
+        if (!isOnlySpace && rowWidth > 0 && rowWidth + pieceWidth > width) pushRow();
+        if (!(isOnlySpace && rowWidth === 0)) {
+          rows.at(-1)?.push(pieceRun);
+          rowWidth += pieceWidth;
+        }
+      });
+    });
+    while (rows.length > 1 && rows.at(-1)?.length === 0) rows.pop();
+    const rowHeights = rows.map((row) => Math.max(baseSize + 3, ...row.map((run) => sizeFor(run) + 3)));
+    ensure(rowHeights.reduce((sum, height) => sum + height, 0) + (options.gap ?? 7));
+    rows.forEach((row, rowIndex) => {
+      let currentX = x;
+      row.forEach((run) => {
+        const runFont = fontFor(run);
+        const runSize = sizeFor(run);
+        const runWidth = runFont.widthOfTextAtSize(run.text, runSize);
+        if (run.style.highlight) page.drawRectangle({
+          x: currentX - 1,
+          y: y - 1,
+          width: runWidth + 2,
+          height: runSize + 3,
+          color: run.style.highlight === "green" ? rgb(0.78, 0.94, 0.84) : rgb(1, 0.94, 0.45),
+        });
+        page.drawText(run.text, { x: currentX, y, size: runSize, font: runFont, color: dark });
+        if (run.style.underline && run.text.trim()) page.drawLine({ start: { x: currentX, y: y - 1.5 }, end: { x: currentX + runWidth, y: y - 1.5 }, thickness: 0.65, color: dark });
+        currentX += runWidth;
+      });
+      y -= rowHeights[rowIndex];
+    });
     y -= options.gap ?? 7;
   };
   const heading = (number: string, title: string) => {
@@ -109,15 +158,15 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   drawMetaPair(["PROJECT", [quote.site, quote.project].filter(Boolean).join("\n") || "Project not named"]);
   paragraph(state.settings.proposalIntro, { gap: 6 });
   heading("01", "Project Scope — Scope of Work");
-  const scope = lines(quote.proposalScope ?? "").length ? lines(quote.proposalScope ?? "") : quote.lines.filter((line) => line.included).map((line) => line.description).filter(Boolean);
-  scope.forEach((item, index) => paragraph(`${index + 1}.  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, gap: 2 }));
+  const scope = proposalTextLines(quote.proposalScope ?? "").length ? proposalTextLines(quote.proposalScope ?? "") : quote.lines.filter((line) => line.included).map((line) => line.description).filter(Boolean);
+  scope.forEach((item, index) => richParagraph(item, { prefix: `${index + 1}.  `, x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, gap: 2 }));
   ensure(27);
   page.drawText("02", { x: PAGE.margin, y, size: 7, font: bold, color: green });
   page.drawText("Notes", { x: PAGE.margin + 22, y, size: 10, font: bold, color: dark });
   y -= 18;
-  lines(quote.proposalNotes ?? "").forEach((item) => paragraph(`•  ${item}`, { x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, size: 7, gap: 1 }));
-  if (quote.inclusions) paragraph(`Included: ${quote.inclusions}`, { size: 7, font: regular, gap: 3 });
-  if (quote.exclusions) paragraph(`Excluded: ${quote.exclusions}`, { size: 8, font: bold, gap: 6 });
+  proposalTextLines(quote.proposalNotes ?? "").forEach((item) => richParagraph(item, { prefix: "•  ", x: PAGE.margin + 8, width: PAGE.width - PAGE.margin * 2 - 8, size: 7, gap: 1 }));
+  if (quote.inclusions) richParagraph(quote.inclusions, { prefix: "Included: ", size: 7, gap: 3 });
+  if (quote.exclusions) richParagraph(quote.exclusions, { prefix: "Excluded: ", size: 8, forceBold: true, gap: 6 });
 
   const totals = quoteTotals(quote);
   if (quote.proposalShowCostBreakdown) {
@@ -154,7 +203,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   page.drawText("HST Extra", { x: PAGE.width - PAGE.margin - 140, y: y - 48, size: 8, font: bold, color: green });
   y -= lumpSumHeight + 14;
   heading("04", "Terms");
-  paragraph(quote.terms, { size: 8, gap: 4 });
+  richParagraph(quote.terms, { size: 8, gap: 4 });
   paragraph("Any change in the work or price must be made in writing. HST Extra.", { size: 8, font: bold, gap: 8 });
   ensure(84);
   text("ACCEPTANCE", PAGE.margin, 13, bold);

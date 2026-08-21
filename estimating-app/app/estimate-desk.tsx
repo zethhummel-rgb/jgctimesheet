@@ -5,6 +5,13 @@ import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-pri
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, type PortalJobOption } from "../src/portal-api";
 import {
+  proposalFormatTokens,
+  proposalTextHtml,
+  proposalTextLines,
+  proposalTextPlain,
+  type ProposalFormatCommand,
+} from "../lib/proposal-rich-text";
+import {
   buildUpItemTotal,
   createDefaultState,
   effectiveUnitCost,
@@ -277,6 +284,167 @@ function nonBlankLines(value?: string) {
   return (value ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
+function serializeProposalEditorNode(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  if (!(node instanceof HTMLElement)) return Array.from(node.childNodes).map(serializeProposalEditorNode).join("");
+  if (node.tagName === "BR") return "\n";
+  const content = Array.from(node.childNodes).map(serializeProposalEditorNode).join("");
+  let wrapped = content;
+  if (node.matches("strong, b")) wrapped = `[b]${wrapped}[/b]`;
+  else if (node.matches("em, i")) wrapped = `[i]${wrapped}[/i]`;
+  else if (node.tagName === "U") wrapped = `[u]${wrapped}[/u]`;
+  else if (node.matches("mark.proposal-highlight-green")) wrapped = `[hg]${wrapped}[/hg]`;
+  else if (node.tagName === "MARK") wrapped = `[hy]${wrapped}[/hy]`;
+  else if (node.matches("span.proposal-font-small")) wrapped = `[sm]${wrapped}[/sm]`;
+  else if (node.matches("span.proposal-font-large")) wrapped = `[lg]${wrapped}[/lg]`;
+  if (/^(DIV|P)$/.test(node.tagName) && node.nextSibling) wrapped += "\n";
+  return wrapped;
+}
+
+function proposalEditorValue(root: HTMLElement | DocumentFragment) {
+  return Array.from(root.childNodes).map(serializeProposalEditorNode).join("").replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n");
+}
+
+function activeProposalEditor(scope?: HTMLElement | null) {
+  const selection = window.getSelection();
+  const anchor = selection?.anchorNode;
+  const editor = (anchor instanceof Element ? anchor : anchor?.parentElement)?.closest<HTMLElement>("[data-proposal-rich-editor]") ?? null;
+  return editor && (!scope || scope.contains(editor)) ? editor : null;
+}
+
+function applyProposalFormat(command: ProposalFormatCommand | "clear", scope?: HTMLElement | null) {
+  const editor = activeProposalEditor(scope);
+  const selection = window.getSelection();
+  if (!editor || !selection || selection.rangeCount === 0) return;
+  editor.focus();
+  if (command === "clear") {
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed) {
+      const plain = document.createTextNode(range.extractContents().textContent ?? "");
+      range.insertNode(plain);
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(plain);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+    }
+  } else if (command === "bold" || command === "italic" || command === "underline") {
+    document.execCommand(command);
+  } else {
+    const range = selection.getRangeAt(0);
+    const [openToken] = proposalFormatTokens[command];
+    const element = openToken === "[hy]" || openToken === "[hg]" ? document.createElement("mark") : document.createElement("span");
+    if (openToken === "[hy]") element.className = "proposal-highlight-yellow";
+    if (openToken === "[hg]") element.className = "proposal-highlight-green";
+    if (openToken === "[sm]") element.className = "proposal-font-small";
+    if (openToken === "[lg]") element.className = "proposal-font-large";
+    if (range.collapsed) {
+      element.textContent = "important text";
+      range.insertNode(element);
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(element);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+    } else {
+      element.appendChild(range.extractContents());
+      range.insertNode(element);
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(element);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+    }
+  }
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function ProposalFormattingToolbar({ scopeRef, compact = false }: { scopeRef?: React.RefObject<HTMLElement | null>; compact?: boolean }) {
+  const button = (command: ProposalFormatCommand | "clear", label: string, title: string, className = "") => (
+    <button type="button" className={className} title={title} aria-label={title} onMouseDown={(event) => { event.preventDefault(); applyProposalFormat(command, scopeRef?.current); }}>{label}</button>
+  );
+  return (
+    <div className={`proposal-format-toolbar${compact ? " compact" : ""}`} aria-label="Proposal text formatting">
+      {button("bold", "B", "Bold", "format-bold")}
+      {button("italic", "I", "Italic", "format-italic")}
+      {button("underline", "U", "Underline", "format-underline")}
+      <span className="format-divider" />
+      {button("highlight-yellow", "", "Yellow highlight", "format-highlight yellow")}
+      {button("highlight-green", "", "Green highlight", "format-highlight green")}
+      <span className="format-divider" />
+      {button("small", "A−", "Smaller text")}
+      {button("large", "A+", "Larger text")}
+      {button("clear", "Clear", "Clear formatting", "format-clear")}
+    </div>
+  );
+}
+
+function ProposalRichEditor({ value, disabled, onChange, label, placeholder, rows = 4 }: {
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder?: string;
+  rows?: number;
+}) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || document.activeElement === editor) return;
+    const html = proposalTextHtml(value);
+    if (editor.innerHTML !== html) editor.innerHTML = html;
+  }, [value]);
+  return (
+    <div ref={shellRef} className="proposal-rich-shell">
+      {!disabled && <ProposalFormattingToolbar scopeRef={shellRef} />}
+      <div
+        ref={editorRef}
+        className="proposal-rich-editor"
+        data-proposal-rich-editor
+        contentEditable={!disabled}
+        role="textbox"
+        aria-label={label}
+        aria-multiline="true"
+        data-placeholder={placeholder ?? ""}
+        style={{ minHeight: `${Math.max(3, rows) * 22}px` }}
+        suppressContentEditableWarning
+        dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }}
+        onInput={(event) => onChange(proposalEditorValue(event.currentTarget))}
+        onPaste={(event) => {
+          event.preventDefault();
+          document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
+        }}
+      />
+    </div>
+  );
+}
+
+function ProposalRichText({ value }: { value?: string }) {
+  return <span className="proposal-rich-output" dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }} />;
+}
+
+function splitProposalRichEditor(editor: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return [proposalEditorValue(editor), ""] as const;
+  const selectionRange = selection.getRangeAt(0);
+  if (!editor.contains(selectionRange.startContainer) || !editor.contains(selectionRange.endContainer)) return [proposalEditorValue(editor), ""] as const;
+  const before = document.createRange();
+  before.selectNodeContents(editor);
+  before.setEnd(selectionRange.startContainer, selectionRange.startOffset);
+  const after = document.createRange();
+  after.selectNodeContents(editor);
+  after.setStart(selectionRange.endContainer, selectionRange.endOffset);
+  return [proposalEditorValue(before.cloneContents()), proposalEditorValue(after.cloneContents())] as const;
+}
+
+function placeProposalEditorCaret(editor: HTMLElement, edge: "start" | "end") {
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(edge === "start");
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 function NumberedScopeEditor({ value, disabled, onChange }: {
   value: string;
   disabled: boolean;
@@ -289,11 +457,10 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const lines = value.split(/\r?\n/);
   useEffect(() => () => dragCleanupRef.current?.(), []);
-  const focusLine = (index: number, caret = 0) => {
+  const focusLine = (index: number, edge: "start" | "end" = "start") => {
     window.requestAnimationFrame(() => {
-      const input = editorRef.current?.querySelector<HTMLTextAreaElement>(`textarea[data-scope-line="${index}"]`);
-      input?.focus();
-      input?.setSelectionRange(caret, caret);
+      const input = editorRef.current?.querySelector<HTMLElement>(`[data-scope-line="${index}"]`);
+      if (input) placeProposalEditorCaret(input, edge);
     });
   };
   const replaceLine = (index: number, nextValue: string) => {
@@ -301,27 +468,25 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
     const nextLines = [...lines];
     nextLines.splice(index, 1, ...replacements);
     onChange(nextLines.join("\n"));
-    if (replacements.length > 1) focusLine(index + replacements.length - 1, replacements.at(-1)?.length ?? 0);
+    if (replacements.length > 1) focusLine(index + replacements.length - 1, "end");
   };
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>, index: number) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      const line = lines[index] ?? "";
-      const start = event.currentTarget.selectionStart;
-      const end = event.currentTarget.selectionEnd;
+      const [before, after] = splitProposalRichEditor(event.currentTarget);
       const nextLines = [...lines];
-      nextLines.splice(index, 1, line.slice(0, start), line.slice(end));
+      nextLines.splice(index, 1, before, after);
       onChange(nextLines.join("\n"));
       focusLine(index + 1);
       return;
     }
-    if (event.key === "Backspace" && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0 && index > 0) {
+    if (event.key === "Backspace" && window.getSelection()?.isCollapsed && index > 0 && proposalTextPlain(splitProposalRichEditor(event.currentTarget)[0]).length === 0) {
       event.preventDefault();
       const previous = lines[index - 1] ?? "";
       const nextLines = [...lines];
       nextLines.splice(index - 1, 2, previous + (lines[index] ?? ""));
       onChange(nextLines.join("\n"));
-      focusLine(index - 1, previous.length);
+      focusLine(index - 1, "end");
     }
   };
   const moveLine = (fromIndex: number, toIndex: number, sourceLines = lines) => {
@@ -375,6 +540,7 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
   };
   return (
     <div ref={editorRef} className="numbered-scope-editor" role="group" aria-labelledby="proposal-scope-label">
+      {!disabled && <ProposalFormattingToolbar scopeRef={editorRef} compact />}
       <div className="numbered-scope-list">
         {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} dragging={draggingIndex === index} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} onMove={(toIndex) => { moveLine(index, toIndex); focusLine(toIndex); }} onDragStart={(event) => startDragging(event, index)} onDelete={() => deleteLine(index)} lineCount={lines.length} />)}
       </div>
@@ -389,18 +555,18 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
   disabled: boolean;
   dragging: boolean;
   onChange: (value: string) => void;
-  onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
   onMove: (toIndex: number) => void;
   onDragStart: (event: React.PointerEvent<HTMLButtonElement>) => void;
   onDelete: () => void;
   lineCount: number;
 }) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const input = inputRef.current;
-    if (!input) return;
-    input.style.height = "0px";
-    input.style.height = `${Math.max(42, input.scrollHeight)}px`;
+    if (!input || document.activeElement === input) return;
+    const html = proposalTextHtml(value);
+    if (input.innerHTML !== html) input.innerHTML = html;
   }, [value]);
   return (
     <div className={`numbered-scope-row${dragging ? " dragging" : ""}`} data-scope-row-index={index}>
@@ -409,14 +575,29 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
         if (event.key === "ArrowDown" && index < lineCount - 1) { event.preventDefault(); onMove(index + 1); }
       }}>⠿</button>}
       <span className="numbered-scope-number" aria-hidden="true">{index + 1}.</span>
-      <textarea ref={inputRef} data-scope-line={index} rows={1} value={value} disabled={disabled} aria-label={`Proposal scope item ${index + 1}`} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"} />
+      <div
+        ref={inputRef}
+        className="numbered-scope-input"
+        data-proposal-rich-editor
+        data-scope-line={index}
+        contentEditable={!disabled}
+        role="textbox"
+        aria-label={`Proposal scope item ${index + 1}`}
+        aria-disabled={disabled}
+        data-placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"}
+        suppressContentEditableWarning
+        dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }}
+        onInput={(event) => onChange(proposalEditorValue(event.currentTarget))}
+        onKeyDown={onKeyDown}
+        onPaste={(event) => { event.preventDefault(); document.execCommand("insertText", false, event.clipboardData.getData("text/plain")); }}
+      />
       {!disabled && <button type="button" className="numbered-scope-delete" aria-label={`Delete proposal scope item ${index + 1}`} title="Delete scope item" onClick={onDelete}>×</button>}
     </div>
   );
 }
 
 function customerScopeLines(quote: Quote) {
-  const written = nonBlankLines(quote.proposalScope);
+  const written = proposalTextLines(quote.proposalScope);
   if (written.length) return written;
   return quote.lines
     .filter((line) => line.description.trim() && line.included)
@@ -2296,10 +2477,10 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
         <div className="panel-heading"><div><span className="eyebrow">SCOPE FOUNDATION</span><h2>What are we pricing?</h2></div><span className="client-safe-chip">Customer-facing</span></div>
         <div className="form-grid two-column">
           <div className="field full"><span id="proposal-scope-label">Proposal Scope Lines <em>Press Enter for the next numbered item</em></span><NumberedScopeEditor value={quote.proposalScope ?? ""} disabled={locked} onChange={(value) => updateField("proposalScope", value)} /></div>
-          <label className="field full"><span>Proposal Notes <em>One item per line</em></span><textarea rows={4} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(event) => updateField("proposalNotes", event.target.value)} placeholder="Access, working hours, permits and project assumptions." /></label>
-          <label className="field"><span>Inclusions</span><textarea rows={5} value={quote.inclusions} disabled={locked} onChange={(event) => updateField("inclusions", event.target.value)} placeholder="What the price includes" /></label>
-          <label className="field"><span>Exclusions</span><textarea rows={5} value={quote.exclusions} disabled={locked} onChange={(event) => updateField("exclusions", event.target.value)} placeholder="What is specifically excluded" /></label>
-          <label className="field"><span>Proposal terms</span><textarea rows={4} value={quote.terms} disabled={locked} onChange={(event) => updateField("terms", event.target.value)} /></label>
+          <div className="field full"><span>Proposal Notes <em>One item per line</em></span><ProposalRichEditor label="Proposal Notes" rows={4} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(value) => updateField("proposalNotes", value)} placeholder="Access, working hours, permits and project assumptions." /></div>
+          <div className="field"><span>Inclusions</span><ProposalRichEditor label="Inclusions" rows={5} value={quote.inclusions} disabled={locked} onChange={(value) => updateField("inclusions", value)} placeholder="What the price includes" /></div>
+          <div className="field"><span>Exclusions</span><ProposalRichEditor label="Exclusions" rows={5} value={quote.exclusions} disabled={locked} onChange={(value) => updateField("exclusions", value)} placeholder="What is specifically excluded" /></div>
+          <div className="field"><span>Proposal terms</span><ProposalRichEditor label="Proposal terms" rows={4} value={quote.terms} disabled={locked} onChange={(value) => updateField("terms", value)} /></div>
           <label className="field internal-field"><span>Internal notes <em>Not shown to customer</em></span><textarea rows={4} value={quote.internalNotes} disabled={locked} onChange={(event) => updateField("internalNotes", event.target.value)} /></label>
         </div>
       </section>
@@ -3130,7 +3311,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   const required = quote.lines.filter((line) => line.included);
   const optional = quote.lines.filter((line) => line.classification === "Optional" && !line.included);
   const scope = customerScopeLines(quote);
-  const notes = nonBlankLines(quote.proposalNotes);
+  const notes = proposalTextLines(quote.proposalNotes);
   const sections = sectionSummaries(quote);
   const taxExtra = true;
   const categoryTotals = quoteCostCategories(quote);
@@ -3200,12 +3381,12 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
           <>
             <section className="hybrid-document-section">
               <header><span>01</span><div><small>PROJECT SCOPE</small><h2>Scope of Work</h2></div></header>
-              <ol className="hybrid-scope-list">{scope.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ol>
+              <ol className="hybrid-scope-list">{scope.map((item, index) => <li key={index}><ProposalRichText value={item} /></li>)}</ol>
             </section>
             <section className="hybrid-document-section hybrid-notes-section">
               <header><span>02</span><div><small>ASSUMPTIONS & CLARIFICATIONS</small><h2>Notes</h2></div></header>
-              {notes.length > 0 ? <ul className="hybrid-notes-list">{notes.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul> : <p className="hybrid-empty-note">No additional project notes recorded.</p>}
-              {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p>{quote.inclusions}</p></div>}{quote.exclusions && <div><span>Excluded</span><p>{quote.exclusions}</p></div>}</div>}
+              {notes.length > 0 ? <ul className="hybrid-notes-list">{notes.map((item, index) => <li key={index}><ProposalRichText value={item} /></li>)}</ul> : <p className="hybrid-empty-note">No additional project notes recorded.</p>}
+              {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p><ProposalRichText value={quote.inclusions} /></p></div>}{quote.exclusions && <div><span>Excluded</span><p><ProposalRichText value={quote.exclusions} /></p></div>}</div>}
             </section>
             {sharedOptional}
             {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{([
@@ -3235,9 +3416,9 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
           </>
         )}
 
-        {style !== "jgc-classic" && <section className="proposal-bottom-grid"><div className="proposal-terms"><h3>Inclusions</h3><p>{quote.inclusions || "As specifically listed above."}</p><h3>Exclusions</h3><p>{quote.exclusions || "No exclusions recorded."}</p><h3>Terms</h3><p>{quote.terms}</p></div><ProposalTotals quote={quote} totals={totals} taxExtra={taxExtra} /></section>}
+        {style !== "jgc-classic" && <section className="proposal-bottom-grid"><div className="proposal-terms"><h3>Inclusions</h3><p><ProposalRichText value={quote.inclusions || "As specifically listed above."} /></p><h3>Exclusions</h3><p><ProposalRichText value={quote.exclusions || "No exclusions recorded."} /></p><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p></div><ProposalTotals quote={quote} totals={totals} taxExtra={taxExtra} /></section>}
         {style === "jgc-classic" && !taxExtra && <ProposalTotals quote={quote} totals={totals} taxExtra={false} />}
-        <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><h3>Terms</h3><p>{quote.terms}</p><p><strong>HST Extra</strong></p></section>
+        <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p><p><strong>HST Extra</strong></p></section>
         <section className={`proposal-signoff ${style === "jgc-classic" ? "hybrid-signoff" : ""}`}><div /><div><span>Respectfully submitted,</span><strong>{company.signatory}</strong><small>John Gordon Construction</small></div></section>
         <section className={`classic-acceptance ${style === "jgc-classic" ? "hybrid-acceptance" : ""}`}><h2>ACCEPTANCE</h2><p>You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein.</p><div><span>Signature</span><span>Print name</span><span>Date</span></div></section>
         <footer className="proposal-footer"><strong>John Gordon Construction Inc.</strong><span>Prepared by {quote.preparedBy || "JGC Estimating"}</span><span>Quote {quote.number} · Rev {quote.revision}</span></footer>
