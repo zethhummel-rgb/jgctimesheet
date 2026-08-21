@@ -256,6 +256,24 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await expect(reviewCard).toContainText("$5,250.00");
 });
 
+test("typed subcontractor names automatically become the line description", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.locator(".subcontractor-add-button").click();
+
+  const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  await mainRow.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals");
+  await mainRow.locator(".direct-unit-cost-cell input").fill("100");
+  await expect(page.locator(".line-detail-panel h3")).toHaveText("Agway Metals");
+
+  await page.getByRole("tab", { name: /Review/ }).click();
+  await expect(page.getByText(/needs a description/i)).toHaveCount(0);
+  await expect(page.locator(".review-subcontractor-card").last()).toContainText("Agway Metals");
+});
+
 test("estimate lines stay grouped by cost type with subcontractors first", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
