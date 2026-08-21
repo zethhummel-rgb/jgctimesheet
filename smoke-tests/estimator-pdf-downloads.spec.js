@@ -142,3 +142,32 @@ test("quote package omits an empty Breakdown PDF", async ({ page }) => {
   expect(downloads).toHaveLength(2);
   expect(downloads.some((name) => name.startsWith("Breakdown - "))).toBe(false);
 });
+
+test("Proposal PDF has fillable acceptance and date fields", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+
+  const [proposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const proposalPath = testInfo.outputPath("fillable-proposal.pdf");
+  await proposalDownload.saveAs(proposalPath);
+
+  const { PDFDocument } = require("../estimating-app/node_modules/pdf-lib/cjs/index.js");
+  const proposalDocument = await PDFDocument.load(fs.readFileSync(proposalPath));
+  const fields = proposalDocument.getForm().getFields();
+  const signatureField = fields.find((field) => field.getName().startsWith("jgc_acceptance_signature_"));
+  const dateField = fields.find((field) => field.getName().startsWith("jgc_acceptance_date_"));
+
+  expect(signatureField).toBeTruthy();
+  expect(dateField).toBeTruthy();
+  expect(signatureField.needsAppearancesUpdate()).toBe(false);
+  expect(dateField.needsAppearancesUpdate()).toBe(false);
+
+  signatureField.setText("Test Customer");
+  dateField.setText("August 21, 2026");
+  const filledDocument = await PDFDocument.load(await proposalDocument.save());
+  expect(filledDocument.getForm().getTextField(signatureField.getName()).getText()).toBe("Test Customer");
+  expect(filledDocument.getForm().getTextField(dateField.getName()).getText()).toBe("August 21, 2026");
+});
