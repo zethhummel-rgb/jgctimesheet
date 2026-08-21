@@ -162,8 +162,43 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   paragraph("The undersigned authorizes John Gordon Construction to complete the work described above and agrees to pay the proposal amount according to these terms.", { size: 8, gap: 10 });
   page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.margin + 210, y }, thickness: 0.7, color: grey });
   page.drawLine({ start: { x: PAGE.width - PAGE.margin - 150, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.7, color: grey });
-  text("Signature", PAGE.margin, 7, regular, grey);
-  text("Date", PAGE.width - PAGE.margin - 150, 7, regular, grey);
+  page.drawText("Signature / accepted by", { x: PAGE.margin, y: y - 9, size: 7, font: regular, color: grey });
+  page.drawText("Date", { x: PAGE.width - PAGE.margin - 150, y: y - 9, size: 7, font: regular, color: grey });
+
+  // Keep the printed acceptance lines while also exposing real AcroForm fields.
+  // This lets a customer tap or click the proposal in a desktop or mobile PDF
+  // reader and type their acceptance and date. PDF signing/markup tools can
+  // still place a handwritten signature over the same signature area.
+  const acceptanceFieldKey = String(quote.id || quote.number || "quote").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const form = pdf.getForm();
+  const signatureField = form.createTextField(`jgc_acceptance_signature_${acceptanceFieldKey}`);
+  signatureField.setMaxLength(100);
+  signatureField.addToPage(page, {
+    x: PAGE.margin,
+    y: y + 2,
+    width: 210,
+    height: 16,
+    font: regular,
+    textColor: dark,
+    backgroundColor: rgb(1, 1, 1),
+    borderWidth: 0,
+  });
+  signatureField.setFontSize(10);
+  signatureField.updateAppearances(regular);
+  const dateField = form.createTextField(`jgc_acceptance_date_${acceptanceFieldKey}`);
+  dateField.setMaxLength(24);
+  dateField.addToPage(page, {
+    x: PAGE.width - PAGE.margin - 150,
+    y: y + 2,
+    width: 150,
+    height: 16,
+    font: regular,
+    textColor: dark,
+    backgroundColor: rgb(1, 1, 1),
+    borderWidth: 0,
+  });
+  dateField.setFontSize(10);
+  dateField.updateAppearances(regular);
 
   return pdf.save();
 }
