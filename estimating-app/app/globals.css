@@ -1211,11 +1211,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .saved-data-empty { padding: 11px 10px; color: var(--slate-500); font-size: 11px; }
 
 /* Touch-friendly pricing controls. */
-.range-control > div { width: min(285px, 55%); display: grid; grid-template-columns: minmax(130px, 1fr) 54px; align-items: center; gap: 11px; }
+.range-control > div { width: min(305px, 62%); display: grid; grid-template-columns: minmax(72px, 1fr) 74px; align-items: center; gap: 8px; }
 .range-control input[type="range"] { width: 100%; height: 7px; margin: 0; appearance: none; border: 0; border-radius: 999px; background: linear-gradient(90deg, var(--green-600) 0 var(--range-fill), #fff var(--range-fill) 100%); box-shadow: inset 0 0 0 1px var(--slate-300); cursor: pointer; }
 .range-control input[type="range"]::-webkit-slider-thumb { width: 21px; height: 21px; appearance: none; border: 3px solid #fff; border-radius: 50%; background: var(--green-600); box-shadow: 0 1px 5px rgba(11,31,51,.3); }
 .range-control input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 3px solid #fff; border-radius: 50%; background: var(--green-600); box-shadow: 0 1px 5px rgba(11,31,51,.3); }
-.range-control output { min-height: 34px; padding: 0 7px; display: grid; place-items: center; border: 1px solid var(--slate-300); border-radius: 6px; background: var(--slate-50); color: var(--navy-900); font-weight: 850; }
+.range-percent-entry { min-height: 36px; display: grid; grid-template-columns: minmax(0, 1fr) 22px; overflow: hidden; border: 1px solid var(--slate-300); border-radius: 6px; background: #fff; }
+.range-percent-entry:focus-within { border-color: var(--green-600); outline: 3px solid rgba(27,150,100,.13); }
+.range-percent-entry input { width: 100%; min-width: 0; padding: 6px 2px 6px 7px; border: 0; outline: 0; background: transparent; color: var(--navy-900); font: inherit; font-weight: 850; text-align: right; }
+.range-percent-entry span { display: grid; place-items: center start; color: var(--slate-500); font-size: 10px; font-weight: 800; }
 
 .finished-banner { padding: 13px 16px; display: flex; align-items: center; gap: 11px; border: 1px solid #b9dfce; border-left: 4px solid var(--green-600); border-radius: 8px; background: var(--green-100); }
 .finished-banner > span { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 50%; background: var(--green-600); color: #fff; font-weight: 900; }
@@ -1297,7 +1300,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .saved-data-results-heading { min-height: 48px; padding: 7px 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--slate-200); color: var(--navy-900); }
   .saved-data-results-heading span { color: var(--slate-500); font-size: 10px; }
   .saved-data-results > button { min-height: 52px; }
-  .range-control > div { width: 100%; grid-template-columns: minmax(0, 1fr) 56px; }
+  .range-control > div { width: 100%; grid-template-columns: minmax(0, 1fr) 76px; }
   .finished-banner { align-items: flex-start; }
   .client-editor { margin-inline: -20px; }
   .client-editor-row, .client-contact-editor { grid-template-columns: 1fr; }

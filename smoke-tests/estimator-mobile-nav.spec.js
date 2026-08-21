@@ -107,6 +107,31 @@ test("mobile client picker stays inside the visible viewport and selects immedia
   await expect(results).toHaveCount(0);
 });
 
+test("pricing controls accept whole-number typed percentages and stay synchronized with sliders", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const markupInput = page.getByRole("spinbutton", { name: "Project markup percentage" });
+  const markupSlider = page.getByRole("slider", { name: "Project markup slider" });
+  const marginInput = page.getByRole("spinbutton", { name: "Target margin percentage" });
+  const marginSlider = page.getByRole("slider", { name: "Target margin slider" });
+
+  await markupInput.fill("32.4");
+  await marginInput.fill("18.7");
+  await expect(markupInput).toHaveValue("32");
+  await expect(markupSlider).toHaveValue("32");
+  await expect(marginInput).toHaveValue("19");
+  await expect(marginSlider).toHaveValue("19");
+
+  await markupInput.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(markupInput).toHaveValue("32");
+});
+
 test("estimate search shows up to ten products before scrolling internally", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
