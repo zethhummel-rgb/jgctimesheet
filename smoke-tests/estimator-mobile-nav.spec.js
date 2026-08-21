@@ -146,6 +146,30 @@ test("estimate search shows up to ten products before scrolling internally", asy
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(pageScrollBefore);
 });
 
+test("numeric inputs ignore mouse-wheel and arrow-key stepping", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: "Built-up item" }).click();
+
+  const labour = page.locator(".labour-group .build-up-row").last();
+  const quantity = labour.getByLabel(/quantity/);
+  const unitCost = labour.getByLabel(/unit cost/);
+  await quantity.fill("8");
+  await quantity.press("ArrowUp");
+  await expect(quantity).toHaveValue("8");
+  await quantity.press("ArrowDown");
+  await expect(quantity).toHaveValue("8");
+
+  await unitCost.fill("120");
+  await unitCost.hover();
+  await page.mouse.wheel(0, 180);
+  await expect(unitCost).toHaveValue("120");
+  await expect(unitCost).not.toBeFocused();
+});
+
 test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
