@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "742";
+const JGC_RELEASE_ID = "743";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -103,7 +103,7 @@ const JGC_APP_SHELL = [
   "./admin-jobs.js?v=7",
   "./admin-work-orders.js?v=2",
   "./admin-equipment.js?v=1",
-  "./admin-timesheets.js?v=9",
+  "./admin-timesheets.js?v=10",
   "./admin-summary.js?v=2",
   "./admin-core.js?v=5",
   "./diagnostics-admin.css?v=1",

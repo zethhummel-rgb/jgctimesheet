@@ -1362,12 +1362,21 @@ test("employee and admin timesheet PDFs use the readable portrait layout", async
   await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => typeof buildTimesheetPdfHtml)).toBe("function");
 
-  const pdfHtml = await page.evaluate(() => buildTimesheetPdfHtml([
+  const employeePdf = await page.evaluate(() => {
+    const html = buildTimesheetPdfHtml([
+      {
+        jobName: "Sunday Shop Work",
+        jobNumber: "26074",
+        day: "Sunday",
+        weekStartValue: "2026-08-02",
+        hours: 2,
+        nightWork: false
+      },
     {
       jobName: "McKay Office Addition",
       jobNumber: "25169",
       day: "Monday",
-      date: "2026-08-03",
+      weekStartValue: "2026-08-02",
       hours: 8,
       nightWork: false
     },
@@ -1375,17 +1384,72 @@ test("employee and admin timesheet PDFs use the readable portrait layout", async
       jobName: "Whip JGC",
       jobNumber: "26074",
       day: "Friday",
-      date: "2026-08-07",
+      weekStartValue: "2026-08-02",
       hours: 8.5,
       nightWork: false
     }
-  ], "Aug 2, 2026 to Aug 8, 2026", 16.5, "Portrait layout smoke test"));
+    ], "Aug 2, 2026 to Aug 8, 2026", 18.5, "Portrait layout smoke test");
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const headers = Array.from(document.querySelectorAll("thead th"), (cell) =>
+      String(cell.firstChild ? cell.firstChild.textContent : cell.textContent).trim()
+    );
+    const sundayRow = Array.from(document.querySelectorAll("tbody tr")).find((row) =>
+      row.textContent.includes("Sunday Shop Work")
+    );
+    return {
+      html,
+      headers,
+      sundayHours: Array.from(sundayRow.querySelectorAll("td.hours-cell"), (cell) => cell.textContent.trim())
+    };
+  });
 
-  expect(pdfHtml).toContain("Letter portrait");
-  expect(pdfHtml).toContain('<div class="employee-name">Portal Smoke Test</div>');
-  expect(pdfHtml).toContain('<col class="job-number-col">');
-  expect(pdfHtml).toContain("McKay Office Addition");
-  expect(pdfHtml).toContain("16.50");
+  expect(employeePdf.html).toContain("Letter portrait");
+  expect(employeePdf.html).toContain('<div class="employee-name">Portal Smoke Test</div>');
+  expect(employeePdf.html).toContain('<col class="job-number-col">');
+  expect(employeePdf.html).toContain("McKay Office Addition");
+  expect(employeePdf.html).toContain("18.50");
+  expect(employeePdf.headers).toEqual(["Job Name", "Job #", "Shift", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Total"]);
+  expect(employeePdf.sundayHours).toEqual(["2.00", "", "", "", "", "", "", "2.00"]);
+
+  if (process.env.JGC_TIMESHEET_PDF_OUTPUT) {
+    fs.mkdirSync(path.dirname(process.env.JGC_TIMESHEET_PDF_OUTPUT), { recursive: true });
+    await page.setContent(employeePdf.html, { waitUntil: "load" });
+    await page.pdf({
+      path: process.env.JGC_TIMESHEET_PDF_OUTPUT,
+      format: "Letter",
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+  }
+
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => typeof buildAdminTimesheetPdfHtml)).toBe("function");
+  const adminPdf = await page.evaluate(() => {
+    const html = buildAdminTimesheetPdfHtml({
+      worker_name: "Steven Leduc",
+      week_label: "Aug 2, 2026 to Aug 8, 2026",
+      note: "Portrait layout smoke test",
+      entries: [
+        { job_name: "Sunday Shop Work", job_number: "26074", week_start: "2026-08-02", day_of_week: "Sunday", entry_type: "work", hours: 2, night_work: false },
+        { job_name: "McKay Office Addition", job_number: "25169", week_start: "2026-08-02", day_of_week: "Monday", entry_type: "work", hours: 8, night_work: false },
+        { job_name: "Whip JGC", job_number: "26074", week_start: "2026-08-02", day_of_week: "Friday", entry_type: "work", hours: 8.5, night_work: false }
+      ]
+    }, 18.5);
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const headers = Array.from(document.querySelectorAll("thead th"), (cell) =>
+      String(cell.firstChild ? cell.firstChild.textContent : cell.textContent).trim()
+    );
+    const sundayRow = Array.from(document.querySelectorAll("tbody tr")).find((row) =>
+      row.textContent.includes("Sunday Shop Work")
+    );
+    return {
+      headers,
+      sundayHours: Array.from(sundayRow.querySelectorAll("td.hours-cell"), (cell) => cell.textContent.trim())
+    };
+  });
+
+  expect(adminPdf.headers).toEqual(["Job Name", "Job #", "Shift", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Total"]);
+  expect(adminPdf.sundayHours).toEqual(["2.00", "", "", "", "", "", "", "2.00"]);
 });
 
 test("employees can lazy-load, view, and edit their own daily reports", async ({ page }) => {
@@ -2616,6 +2680,10 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
 
   await accountingLink.click();
   await expect(page).toHaveURL(/accounting-admin\.html/);
+  await page.locator("#accountingPayDate").evaluate((input) => {
+    input.value = "2026-08-20";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveClass(/active/);
   await expect(page.locator("#accountingCurrentUser")).toContainText("Portal Smoke Test");
   await expect(page.locator("#accountingPeriodDates")).toContainText("Aug 2, 2026");
@@ -2924,6 +2992,10 @@ test("Accounting blocks final lock and can fill a missing employee week", async 
   });
 
   await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await page.locator("#accountingPayDate").evaluate((input) => {
+    input.value = "2026-08-20";
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   await expect(page.locator("#accountingDownloadFinal")).toBeDisabled();
   await expect(page.locator("#accountingValidation")).toContainText("1 expected submission missing");
   await page.locator("[data-open-missing-submissions]").click();

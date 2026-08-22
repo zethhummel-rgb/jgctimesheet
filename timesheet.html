@@ -4779,7 +4779,7 @@ function buildTimesheetEmailBody(entries, weekLabel, totalHours, note) {
 }
 
 function buildTimesheetPdfHtml(entries, weekLabel, totalHours, note) {
-  const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const dayOrder = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const dayLabels = dayOrder.map(function(day) {
     const entry = entries.find(function(item) {
       return String(item.day || item.day_of_week || "") === day;

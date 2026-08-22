@@ -176,9 +176,9 @@ Current implementation uses the historically named `job-lists.html`, `job-lists.
 
 ### Timesheets
 
-- Weekly PDF output is grouped by job, with columns for Monday through Sunday.
+- Weekly PDF output is grouped by job, with columns for Sunday through Saturday.
 - Day and Night shifts are separate rows; Night rows use a light grey full-row background.
-- Rows should be ordered by the first weekday containing hours so Monday work appears before Wednesday work.
+- Rows should be ordered by the first day containing hours, following the Sunday-through-Saturday workweek.
 - The old right-side Notes column was removed and a Notes section was added below the table.
 - Weekly submission prompts the employee for a note.
 - Admin final submissions are grouped by employee and lazy loaded.

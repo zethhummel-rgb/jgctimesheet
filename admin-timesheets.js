@@ -2435,7 +2435,7 @@ function buildAdminTimesheetEmailBody(week, totalHours) {
 
 function buildAdminTimesheetPdfHtml(week, totalHours) {
     const entries = Array.isArray(week.entries) ? week.entries : [];
-    const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const dayOrder = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayLabels = dayOrder.map((day) => {
         const entry = entries.find((item) => getTimesheetEntryValue(item, "day", "day_of_week", "") === day);
         const date = entry ? getTimesheetEntryDate(entry) : null;
