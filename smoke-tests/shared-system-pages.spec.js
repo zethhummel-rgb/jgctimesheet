@@ -87,7 +87,7 @@ test("the nine migrated pages have one visual source of truth", async () => {
   for (const file of sharedPages) {
     const source = fs.readFileSync(path.join(portalRoot, file), "utf8");
     expect(source, `${file} must not retain inline CSS`).not.toMatch(/<style\b/i);
-    expect(source, `${file} must load design-system version 6`).toContain('jgc-design-system.css?v=6');
+    expect(source, `${file} must load design-system version 7`).toContain('jgc-design-system.css?v=7');
     expect(source, `${file} must opt into the centralized component system`).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     for (const stylesheet of removedStylesheets) {
       expect(source, `${file} must not load ${stylesheet}`).not.toContain(stylesheet);
@@ -113,7 +113,7 @@ for (const viewport of [
       await page.goto(`/${file}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(150);
 
-      await expect(page.locator('link[data-jgc-design-system="6"]')).toHaveCount(1);
+      await expect(page.locator('link[data-jgc-design-system="7"]')).toHaveCount(1);
       const dimensions = await page.evaluate(() => ({
         bodyWidth: document.body.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
@@ -153,6 +153,113 @@ for (const viewport of [
     }
   });
 }
+
+test("certificate and equipment records become readable mobile cards", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await installState(page, "admin");
+
+  await page.goto("/certificates.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    certificates = [{
+      id: "certificate-mobile-test",
+      certificate_name: "Working at Heights",
+      expiry_date: "2029-03-16",
+      notes: "Mobile certificate record"
+    }];
+    certificateUrls = {};
+    renderCertificates();
+  });
+
+  const certificateTable = page.locator("#certificatesList .jgc-table--mobile-cards");
+  await expect(certificateTable).toBeVisible();
+  await expect(certificateTable.locator("thead")).toHaveCSS("display", "none");
+  await expect(certificateTable.locator("td").first()).toHaveCSS("display", "grid");
+  await expect(certificateTable.locator('td[data-label="Certificate"]')).toContainText("Working at Heights");
+  expect(await certificateTable.locator("td:not([data-label])").count()).toBe(0);
+  expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(391);
+
+  await page.goto("/equipment-vehicles.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    document.getElementById("equipmentDirectoryDetails").open = true;
+  });
+  await page.waitForFunction(() => !equipmentDirectoryLoading);
+  await page.evaluate(() => {
+    const sample = {
+      name: "White F-150 Service Truck",
+      equipment_type: "Vehicle",
+      identification_number: "BD48405",
+      operator_name: "Portal Test",
+      current_km: 123456,
+      ownership_type: "owned",
+      rental_supplier: "",
+      billable_equipment: true,
+      transportation_required: false,
+      yearly_inspection_expiry: "2027-08-23"
+    };
+    document.getElementById("equipmentList").innerHTML = renderEquipmentTable([sample], "Vehicles");
+  });
+
+  const equipmentTable = page.locator("#equipmentList .jgc-table--mobile-cards");
+  await expect(equipmentTable).toBeVisible();
+  await expect(equipmentTable.locator("thead")).toHaveCSS("display", "none");
+  await expect(equipmentTable.locator("td").first()).toHaveCSS("display", "grid");
+  await expect(equipmentTable.locator('td[data-label="Name"]')).toContainText("White F-150 Service Truck");
+  expect(await equipmentTable.locator("td:not([data-label])").count()).toBe(0);
+  expect(await page.evaluate(() => document.body.scrollWidth)).toBeLessThanOrEqual(391);
+
+  await context.close();
+});
+
+test("admin notice and policy tables can be swiped horizontally on phones", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await installState(page, "admin");
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    const panel = document.createElement("details");
+    panel.className = "sub-card admin-collapsible-panel";
+    panel.open = true;
+    panel.innerHTML = `
+      <summary>Announcements / Notices</summary>
+      <div id="mobileTableScrollTest" class="table-wrap jgc-table-wrap" tabindex="0">
+        <table class="jgc-table jgc-table--wide">
+          <thead><tr><th>Title</th><th>Message</th><th>PDF</th><th>Read Status</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody><tr><td>Scheduled</td><td>A deliberately long announcement message</td><td>-</td><td>0/5 read</td><td>Aug 24</td><td>Delete</td></tr></tbody>
+        </table>
+      </div>`;
+    document.body.appendChild(panel);
+  });
+
+  const wrapper = page.locator("#mobileTableScrollTest");
+  const metrics = await wrapper.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    overflowX: getComputedStyle(element).overflowX
+  }));
+  expect(metrics.overflowX).toBe("auto");
+  expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+  const scrolled = await wrapper.evaluate((element) => {
+    element.scrollLeft = 140;
+    return element.scrollLeft;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await context.close();
+});
+
+test("employee mobile More menu includes the Jobs page", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await installState(page, "worker");
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  const moreButton = page.locator("#jgcMobileMoreButton");
+  await expect(moreButton).toBeVisible();
+  await moreButton.click();
+  const jobsLink = page.locator('.jgc-mobile-more-sheet a[href="jobs.html"]');
+  await expect(jobsLink).toBeVisible();
+  await expect(jobsLink).toHaveText("Jobs");
+  await context.close();
+});
 
 test("shared token combinations meet normal-text contrast", async ({ page }) => {
   await page.goto("/reset-password.html", { waitUntil: "domcontentloaded" });

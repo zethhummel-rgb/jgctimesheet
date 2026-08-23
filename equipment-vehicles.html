@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Equipment / Vehicles</title>
-<link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6">
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
 
 </head>
 
@@ -141,7 +141,7 @@ function renderEquipmentTable(items, category) {
 
     return `
         <div class="table-wrap jgc-table-wrap">
-            <table class="jgc-table jgc-table--wide">
+            <table class="jgc-table jgc-table--wide jgc-table--mobile-cards">
                 <thead>
                     <tr>
                         <th>Name of Equipment / Vehicle</th>
@@ -164,16 +164,16 @@ function renderEquipmentTable(items, category) {
                             : formatEquipmentHours(item.current_hours);
                         return `
                             <tr>
-                                <td>${escapeHtml(item.name)}</td>
-                                <td>${escapeHtml(item.equipment_type || "")}</td>
-                                <td>${escapeHtml(item.identification_number || "")}</td>
-                                <td>${escapeHtml(item.operator_name || "")}</td>
-                                ${showMeterColumn ? `<td>${meterValue}</td>` : ""}
-                                <td>${escapeHtml(formatEquipmentWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
-                                <td>${item.billable_equipment === false ? "No" : "Yes"}</td>
-                                <td>${item.transportation_required ? "Yes" : "No"}</td>
-                                <td>${item.yearly_inspection_expiry ? escapeHtml(item.yearly_inspection_expiry) : "-"}</td>
-                                <td><span class="status-pill ${status.className} jgc-badge ${status.className === "expired" ? "jgc-badge--danger" : status.className === "expiring" ? "jgc-badge--warning" : "jgc-badge--success"}">${status.text}</span></td>
+                                <td data-label="Name">${escapeHtml(item.name)}</td>
+                                <td data-label="Type">${escapeHtml(item.equipment_type || "")}</td>
+                                <td data-label="Identification #">${escapeHtml(item.identification_number || "")}</td>
+                                <td data-label="Operator">${escapeHtml(item.operator_name || "")}</td>
+                                ${showMeterColumn ? `<td data-label="${meterHeader}">${meterValue}</td>` : ""}
+                                <td data-label="Owned / Rental">${escapeHtml(formatEquipmentWords(item.ownership_type || "owned"))}${item.rental_supplier ? "<br><span class=\"small\">" + escapeHtml(item.rental_supplier) + "</span>" : ""}</td>
+                                <td data-label="Billable">${item.billable_equipment === false ? "No" : "Yes"}</td>
+                                <td data-label="Transportation Required">${item.transportation_required ? "Yes" : "No"}</td>
+                                <td data-label="Inspection Expiry">${item.yearly_inspection_expiry ? escapeHtml(item.yearly_inspection_expiry) : "-"}</td>
+                                <td data-label="Status"><span class="status-pill ${status.className} jgc-badge ${status.className === "expired" ? "jgc-badge--danger" : status.className === "expiring" ? "jgc-badge--warning" : "jgc-badge--success"}">${status.text}</span></td>
                             </tr>
                         `;
                     }).join("")}

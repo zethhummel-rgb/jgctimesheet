@@ -47,7 +47,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "6";
+const JGC_DESIGN_SYSTEM_VERSION = "7";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "5";
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
@@ -2051,6 +2051,7 @@ function getJgcMobileNavItems() {
       { label: "Tasks", href: "tasks.html", icon: "tasks" },
       { label: "Field Calculator", href: "field-calculator.html", icon: "calculator" },
       { label: "Equipment", href: "equipment-vehicles.html", icon: "truck" },
+      { label: "Jobs", href: "jobs.html", icon: "briefcase" },
       { label: "Contacts", href: "contacts.html", icon: "phone" },
       { label: "Subs/Suppliers", href: "subcontractors-suppliers.html", icon: "briefcase" },
       { label: "Policies", href: "policies-announcements.html", icon: "policy" }

@@ -100,8 +100,8 @@ function renderAnnouncementReadDetails(announcement) {
     return `
         <details>
             <summary>${uniqueReadCount}/${targetAccounts.length} read</summary>
-            <div class="table-wrap" style="margin-top:8px;">
-                <table>
+            <div class="table-wrap jgc-table-wrap" style="margin-top:8px;" role="region" aria-label="Announcement read status; swipe horizontally to see all columns" tabindex="0">
+                <table class="jgc-table jgc-table--wide">
                     <thead>
                         <tr><th>Worker</th><th>Email</th><th>Status</th><th>Read At</th></tr>
                     </thead>
@@ -133,8 +133,8 @@ function renderAnnouncements() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap" role="region" aria-label="Announcements; swipe horizontally to see all columns" tabindex="0">
+            <table class="jgc-table jgc-table--wide">
                 <thead>
                     <tr>
                         <th>Title</th>
@@ -381,8 +381,8 @@ function renderToolboxTalks() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap" role="region" aria-label="Toolbox talks; swipe horizontally to see all columns" tabindex="0">
+            <table class="jgc-table jgc-table--wide">
                 <thead>
                     <tr>
                         <th>Title</th>
@@ -562,8 +562,8 @@ function renderPolicies() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap" role="region" aria-label="Policies; swipe horizontally to see all columns" tabindex="0">
+            <table class="jgc-table jgc-table--wide">
                 <thead>
                     <tr>
                         <th>Title</th>

@@ -108,15 +108,23 @@ h1 {
 }
 
 .admin-collapsible-panel .table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
     border: 1px solid rgba(78, 224, 110, 0.35);
     border-radius: 8px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
     background: #0f2d15;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
 }
 
 .admin-collapsible-panel table {
     border-collapse: collapse;
     width: 100%;
+    min-width: 760px;
     color: #ebfff2;
 }
 

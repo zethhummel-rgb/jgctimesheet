@@ -5,7 +5,7 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive" />
   <title>Certificates</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6" />
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7" />
 </head>
 
 <body class="certificates-page jgc-page jgc-system-page">
@@ -250,11 +250,11 @@ function renderCertificates() {
 
     return `
       <tr>
-        <td>${escapeHtml(certificate.certificate_name)}</td>
-        <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
-        <td><span class="jgc-badge ${status.className}">${status.text}</span></td>
-        <td>${escapeHtml(certificate.notes || "")}</td>
-        <td>
+        <td data-label="Certificate">${escapeHtml(certificate.certificate_name)}</td>
+        <td data-label="Expiry">${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
+        <td data-label="Status"><span class="jgc-badge ${status.className}">${status.text}</span></td>
+        <td data-label="Notes">${escapeHtml(certificate.notes || "")}</td>
+        <td data-label="File">
           <div class="actions jgc-table-actions">
             ${fileButton}
           </div>
@@ -265,7 +265,7 @@ function renderCertificates() {
 
   list.innerHTML = `
     <div class="table-wrap jgc-table-wrap">
-      <table class="jgc-table jgc-table--wide">
+      <table class="jgc-table jgc-table--wide jgc-table--mobile-cards">
         <thead>
           <tr>
             <th>Certificate</th>
