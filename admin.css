@@ -1770,19 +1770,19 @@ button:hover,
 
 .job-dashboard-card {
     max-width: 1500px;
-    background: #06110f;
-    border-top-color: #19e64f;
-    color: #ffffff;
+    background: var(--jgc-color-page);
+    border-top-color: var(--jgc-color-brand-500);
+    color: var(--jgc-color-text);
 }
 
 .job-dashboard-card h2,
 .job-dashboard-card h3,
 .job-dashboard-card label {
-    color: #37f05a;
+    color: var(--jgc-color-brand-400);
 }
 
 .job-dashboard-card .small {
-    color: #dbe8dc;
+    color: var(--jgc-color-text-muted);
 }
 
 .job-dashboard-controls {
@@ -1795,8 +1795,8 @@ button:hover,
 
 .job-dashboard-controls select,
 .job-dashboard-controls input {
-    background: #f6faf5;
-    color: #102018;
+    background: var(--jgc-color-input);
+    color: var(--jgc-color-text-dark);
 }
 
 .job-dashboard-picker {
@@ -1816,11 +1816,11 @@ button:hover,
     max-height: 320px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border: 1px solid rgba(89, 198, 109, 0.62);
-    border-radius: 6px;
+    border: 1px solid var(--jgc-color-border);
+    border-radius: var(--jgc-radius-md);
     padding: 5px;
-    background: #10241b;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+    background: var(--jgc-color-notice);
+    box-shadow: var(--jgc-shadow-md);
 }
 
 .job-dashboard-options[hidden] {
@@ -1832,37 +1832,37 @@ button:hover,
     width: 100%;
     min-height: 42px;
     border: 0;
-    border-radius: 4px;
+    border-radius: var(--jgc-radius-sm);
     padding: 9px 11px;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     line-height: 1.25;
     text-align: left;
 }
 
 body.jgc-theme #jobDashboardSection .job-dashboard-option--active {
-    border: 1px solid #39c848 !important;
-    background: #168a3d !important;
+    border: 1px solid var(--jgc-color-brand-500) !important;
+    background: var(--jgc-color-brand-600) !important;
 }
 
 body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive {
-    border: 1px solid #87918c !important;
-    background: #5b6460 !important;
+    border: 1px solid var(--jgc-color-input-border) !important;
+    background: var(--jgc-color-surface-soft) !important;
 }
 
 body.jgc-theme #jobDashboardSection .job-dashboard-option--active:hover,
 body.jgc-theme #jobDashboardSection .job-dashboard-option--active:focus-visible {
-    background: #1da84a !important;
+    background: var(--jgc-color-brand-500) !important;
 }
 
 body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive:hover,
 body.jgc-theme #jobDashboardSection .job-dashboard-option--inactive:focus-visible {
-    background: #6f7874 !important;
+    background: var(--jgc-color-surface-raised) !important;
 }
 
 .job-dashboard-empty {
     padding: 12px;
-    color: #dbe8dc;
-    font-size: 14px;
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-sm);
 }
 
 .admin-schedule-summary {
@@ -2869,10 +2869,10 @@ button.admin-schedule-event-button.admin-event-vacation {
 .job-dashboard-hero,
 .job-dashboard-panel,
 .job-dashboard-metric {
-    background: linear-gradient(145deg, rgba(17, 32, 38, 0.96), rgba(5, 12, 14, 0.98));
-    border: 1px solid rgba(55, 240, 90, 0.24);
-    border-radius: 8px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 26px rgba(0,0,0,0.24);
+    background: var(--jgc-color-surface-raised);
+    border: 1px solid var(--jgc-color-border);
+    border-radius: var(--jgc-radius-lg);
+    box-shadow: var(--jgc-shadow-sm);
 }
 
 .job-dashboard-hero {
@@ -2889,7 +2889,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .job-dashboard-title h3 {
     margin: 0;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     font-size: clamp(24px, 3vw, 36px);
 }
 
@@ -2897,16 +2897,16 @@ button.admin-schedule-event-button.admin-event-vacation {
     display: inline-flex;
     align-items: center;
     padding: 5px 10px;
-    border-radius: 999px;
-    background: #0f8b36;
-    color: #ffffff;
+    border-radius: var(--jgc-radius-pill);
+    background: var(--jgc-color-badge-success);
+    color: var(--jgc-color-text);
     font-weight: 900;
-    border: 1px solid #37f05a;
+    border: 1px solid var(--jgc-color-brand-400);
 }
 
 .job-status-pill.inactive {
-    background: #5b6460;
-    border-color: #909b94;
+    background: var(--jgc-color-surface-soft);
+    border-color: var(--jgc-color-input-border);
 }
 
 .job-status-toggle {
@@ -2920,7 +2920,7 @@ button.admin-schedule-event-button.admin-event-vacation {
     width: auto;
     min-width: 18px;
     height: 18px;
-    accent-color: #32dc55;
+    accent-color: var(--jgc-color-brand-500);
 }
 
 .jobs-management-tabs {
@@ -2935,9 +2935,9 @@ button.admin-schedule-event-button.admin-event-vacation {
     height: 22px;
     margin-left: 4px;
     padding: 0 6px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.22);
-    font-size: 12px;
+    border-radius: var(--jgc-radius-pill);
+    background: var(--jgc-color-page-deep);
+    font-size: var(--jgc-font-size-xs);
 }
 
 .jobs-management-tab-help {
@@ -2952,22 +2952,22 @@ button.admin-schedule-event-button.admin-event-vacation {
 }
 
 .job-info-item {
-    border-left: 3px solid rgba(55, 240, 90, 0.55);
+    border-left: 3px solid var(--jgc-color-brand-500);
     padding-left: 10px;
 }
 
 .job-info-item span,
 .job-dashboard-metric span {
     display: block;
-    color: #aebdb4;
-    font-size: 12px;
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-xs);
     font-weight: 800;
     text-transform: uppercase;
 }
 
 .job-info-item strong {
     display: block;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     margin-top: 4px;
     line-height: 1.35;
 }
@@ -2979,13 +2979,13 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .job-dashboard-metric strong {
     display: block;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     font-size: 30px;
     margin: 6px 0;
 }
 
 .job-dashboard-metric em {
-    color: #37f05a;
+    color: var(--jgc-color-brand-400);
     font-style: normal;
     font-weight: 800;
 }
@@ -3015,32 +3015,32 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .job-bar-track {
     height: 14px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.08);
+    border-radius: var(--jgc-radius-pill);
+    background: var(--jgc-color-surface-soft);
     overflow: hidden;
 }
 
 .job-bar-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #17983f, #37f05a);
+    background: linear-gradient(90deg, var(--jgc-color-brand-600), var(--jgc-color-brand-400));
 }
 
 .job-dashboard-panel table {
     width: 100%;
     min-width: 0;
-    background: rgba(4, 12, 14, 0.95);
-    color: #ffffff;
+    background: var(--jgc-color-table);
+    color: var(--jgc-color-text);
 }
 
 .job-dashboard-panel th {
-    background: rgba(18, 75, 39, 0.92);
-    color: #ffffff;
+    background: var(--jgc-color-table-header);
+    color: var(--jgc-color-text);
 }
 
 .job-dashboard-panel td {
-    border-color: rgba(255,255,255,0.14);
-    color: #ffffff;
+    border-color: var(--jgc-color-border-soft);
+    color: var(--jgc-color-text);
 }
 
 .job-dashboard-panel .job-dashboard-actions-cell {
@@ -3066,30 +3066,30 @@ button.admin-schedule-event-button.admin-event-vacation {
     width: min(620px, 100%);
     max-height: min(82vh, 720px);
     padding: 18px;
-    color: #ffffff;
-    background: linear-gradient(145deg, #10281c, #071912);
-    border: 1px solid rgba(55, 240, 90, 0.38);
-    border-top: 4px solid #37f05a;
-    border-radius: 8px;
+    color: var(--jgc-color-text);
+    background: var(--jgc-color-surface);
+    border: 1px solid var(--jgc-color-border);
+    border-top: 4px solid var(--jgc-color-brand-500);
+    border-radius: var(--jgc-radius-lg);
 }
 
 .job-dashboard-record-header.jgc-modal__header {
     align-items: flex-start;
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(55, 240, 90, 0.24);
+    border-bottom: 1px solid var(--jgc-color-border);
 }
 
 .job-dashboard-record-header h2 {
     margin: 3px 0 0;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     font-size: 24px;
 }
 
 .job-dashboard-record-type {
     display: block;
-    color: #37f05a;
-    font-size: 12px;
+    color: var(--jgc-color-brand-400);
+    font-size: var(--jgc-font-size-xs);
     font-weight: 900;
     text-transform: uppercase;
 }
@@ -3118,17 +3118,17 @@ button.admin-schedule-event-button.admin-event-vacation {
 .job-dashboard-record-description {
     min-width: 0;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.045);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 6px;
+    background: var(--jgc-color-surface-soft);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-radius: var(--jgc-radius-md);
 }
 
 .job-dashboard-record-field span,
 .job-dashboard-record-description span {
     display: block;
     margin-bottom: 4px;
-    color: #aebdb4;
-    font-size: 11px;
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-xs);
     font-weight: 900;
     text-transform: uppercase;
 }
@@ -3136,7 +3136,7 @@ button.admin-schedule-event-button.admin-event-vacation {
 .job-dashboard-record-field strong,
 .job-dashboard-record-description p {
     margin: 0;
-    color: #ffffff;
+    color: var(--jgc-color-text);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
 }
@@ -3147,15 +3147,15 @@ button.admin-schedule-event-button.admin-event-vacation {
 
 .job-dashboard-edit {
     margin-top: 12px;
-    border: 1px solid rgba(55, 240, 90, 0.28);
-    border-radius: 8px;
-    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--jgc-color-border);
+    border-radius: var(--jgc-radius-lg);
+    background: var(--jgc-color-surface-soft);
 }
 
 .job-dashboard-edit summary {
     cursor: pointer;
     padding: 12px;
-    color: #37f05a;
+    color: var(--jgc-color-brand-400);
     font-weight: 900;
     list-style: none;
 }
@@ -3181,9 +3181,9 @@ button.admin-schedule-event-button.admin-event-vacation {
 .job-dashboard-edit input,
 .job-dashboard-edit select,
 .job-dashboard-edit textarea {
-    background: #f6faf5;
-    color: #102018;
-    border: 1px solid #809080;
+    background: var(--jgc-color-input);
+    color: var(--jgc-color-text-dark);
+    border: 1px solid var(--jgc-color-input-border);
 }
 
 @media (max-width: 900px) {

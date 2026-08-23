@@ -3,179 +3,37 @@
 <head>
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <meta name="googlebot" content="noindex, nofollow, noarchive" />
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JGC Jobs</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="jobs-design-system.css?v=2">
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #061411;
-  color: #ffffff;
-  margin: 0;
-  padding: 20px;
-}
-
-.page {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.logo-wrap {
-  max-width: 260px;
-  margin: 0 auto 10px;
-}
-
-.logo-wrap img {
-  width: 100%;
-  display: block;
-}
-
-.top-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
-.card {
-  background: #102018;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-top: 4px solid #37d650;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
-}
-
-h1,
-h2 {
-  color: #37d650;
-}
-
-h1 {
-  text-align: center;
-  margin: 0 0 8px;
-}
-
-.small {
-  color: #d7e6d6;
-  font-size: 13px;
-}
-
-label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-
-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 11px;
-  border-radius: 6px;
-  border: 1px solid #6d7d70;
-  background: #f7faf6;
-  color: #102018;
-  font-size: 16px;
-}
-
-.table-wrap {
-  overflow-x: auto;
-  margin-top: 14px;
-}
-
-table {
-  width: 100%;
-  min-width: 720px;
-  border-collapse: collapse;
-  background: #0b1714;
-}
-
-th,
-td {
-  border: 1px solid rgba(255,255,255,0.16);
-  padding: 9px;
-  text-align: left;
-  vertical-align: top;
-}
-
-th {
-  background: #12371e;
-  color: #ffffff;
-}
-
-button {
-  background: #14883f;
-  color: #ffffff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-button.secondary {
-  background: #26352d;
-}
-
-.pill {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #dcefdc;
-  color: #102018;
-  font-weight: bold;
-  font-size: 12px;
-}
-
-.doc-link {
-  display: inline-block;
-  padding: 7px 10px;
-  border-radius: 5px;
-  background: #37d650;
-  color: #061411;
-  font-weight: 900;
-  text-decoration: none;
-}
-
-.doc-link:hover {
-  filter: brightness(1.08);
-}
-
-@media (max-width: 720px) {
-  body {
-    padding: 12px;
-  }
-
-  .top-actions button {
-    flex: 1 1 40%;
-  }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JGC Jobs</title>
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+  <link rel="stylesheet" href="jobs-design-system.css?v=3">
 </head>
-<body class="jobs-page jgc-page">
-<main class="page jobs-page-shell jgc-page-shell jgc-page-shell--wide">
-  <div class="logo-wrap jgc-brand-region">
-    <img src="logo.webp" alt="John Gordon Construction logo">
-  </div>
 
-  <h1 class="jgc-page-title">Job Lookup</h1>
-  <div id="currentUser" class="small jgc-user-line" style="text-align:center;margin-bottom:12px;"></div>
+<body class="jobs-page jgc-page jgc-system-page">
+<main class="page jobs-page-shell jgc-page-shell jgc-stack">
+  <header class="jobs-page-header jgc-page-header">
+    <div class="logo-wrap jgc-brand">
+      <img src="logo.webp" alt="John Gordon Construction logo">
+    </div>
+    <h1 class="jgc-page-title">Job Lookup</h1>
+    <div id="currentUser" class="small jgc-page-user"></div>
+  </header>
 
-  <div class="top-actions jgc-actions">
+  <div class="top-actions jgc-actions jgc-actions--center">
     <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadJobs()">Refresh Jobs</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
-  <section class="card jgc-panel">
+  <section class="card jobs-lookup-panel jgc-panel jgc-stack">
     <h2 class="jgc-section-title">Jobs</h2>
-    <div class="small" style="margin-bottom:12px;">Search job names, job numbers, or Contract / T&M status. This list is read-only and comes from the admin Excel import.</div>
-    <label class="jgc-label" for="jobSearch">Search Jobs</label>
-    <input class="jgc-input" id="jobSearch" type="search" placeholder="Example: Cornwall, 24-001, T&M" oninput="renderJobs()">
-    <div id="jobsStatus" class="small" style="margin-top:10px;">Loading jobs...</div>
+    <p class="small jobs-help jgc-muted">Search job names, job numbers, or Contract / T&amp;M status. This list is read-only and comes from the admin Excel import.</p>
+    <div class="jgc-field">
+      <label class="jgc-label" for="jobSearch">Search Jobs</label>
+      <input class="jgc-input" id="jobSearch" type="search" placeholder="Example: Cornwall, 24-001, T&amp;M" oninput="renderJobs()">
+    </div>
+    <div id="jobsStatus" class="small jobs-status jgc-notice" role="status" aria-live="polite">Loading jobs...</div>
     <div id="jobsList"></div>
   </section>
 </main>
@@ -204,9 +62,14 @@ function getJobDocumentHref(job) {
   return /^https?:\/\//i.test(url) ? url : "";
 }
 
+function setJobsStatus(message, isError) {
+  const status = document.getElementById("jobsStatus");
+  status.textContent = message || "";
+  status.classList.toggle("jgc-notice--danger", Boolean(isError));
+}
+
 function renderJobs() {
   const list = document.getElementById("jobsList");
-  const status = document.getElementById("jobsStatus");
   const search = document.getElementById("jobSearch").value.trim().toLowerCase();
   const filtered = jobs.filter((job) => {
     const text = [
@@ -219,21 +82,21 @@ function renderJobs() {
     return !search || text.includes(search);
   });
 
-  status.textContent = filtered.length + " job" + (filtered.length === 1 ? "" : "s") + " shown.";
+  setJobsStatus(filtered.length + " job" + (filtered.length === 1 ? "" : "s") + " shown.");
 
   if (!filtered.length) {
-    list.innerHTML = '<div class="small" style="margin-top:14px;">No jobs match that search.</div>';
+    list.innerHTML = '<div class="small jobs-empty jgc-empty-state">No jobs match that search.</div>';
     return;
   }
 
   list.innerHTML = `
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap jgc-table-wrap">
+      <table class="jobs-table jgc-table">
         <thead>
           <tr>
             <th>Job Number</th>
             <th>Job Name</th>
-            <th>Contract / T&M</th>
+            <th>Contract / T&amp;M</th>
             <th>Documents</th>
           </tr>
         </thead>
@@ -244,10 +107,10 @@ function renderJobs() {
               const label = job.document_link_label || "Open Documents";
               return `
             <tr>
-              <td>${escapeHtml(job.job_number || "")}</td>
-              <td>${escapeHtml(job.job_name || "")}</td>
-              <td><span class="pill">${escapeHtml(getJobTypeLabel(job.job_type))}</span></td>
-              <td>${href ? '<a class="doc-link" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>' : '<span class="small">No link</span>'}</td>
+              <td data-label="Job Number"><strong>${escapeHtml(job.job_number || "")}</strong></td>
+              <td data-label="Job Name">${escapeHtml(job.job_name || "")}</td>
+              <td data-label="Contract / T&amp;M"><span class="pill job-type-badge jgc-badge jgc-badge--info">${escapeHtml(getJobTypeLabel(job.job_type))}</span></td>
+              <td data-label="Documents">${href ? '<a class="doc-link jobs-document-link jgc-button" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>' : '<span class="small jgc-muted">No link</span>'}</td>
             </tr>
               `;
             })()}
@@ -259,8 +122,8 @@ function renderJobs() {
 }
 
 async function loadJobs() {
-  const status = document.getElementById("jobsStatus");
-  status.textContent = "Loading jobs...";
+  const list = document.getElementById("jobsList");
+  setJobsStatus("Loading jobs...");
 
   const { data, error } = await supabaseClient
     .from("jobs")
@@ -270,8 +133,8 @@ async function loadJobs() {
 
   if (error) {
     jobs = [];
-    status.textContent = "Jobs could not be loaded.";
-    renderJobs();
+    list.innerHTML = '<div class="small jobs-empty jgc-empty-state">The job list is temporarily unavailable.</div>';
+    setJobsStatus("Jobs could not be loaded.", true);
     return;
   }
 

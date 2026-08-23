@@ -1,4 +1,4 @@
-/* Phase 16: jobs-family compatibility layer. */
+/* Jobs feature layout. All visual values come from the shared JGC design tokens. */
 .jobs-page,
 .jobs-page * {
   box-sizing: border-box;
@@ -12,26 +12,80 @@
 .jobs-page .jobs-page-shell,
 .jobs-page .logo-wrap,
 .jobs-page .top-actions,
-.jobs-page .card,
+.jobs-page .jobs-lookup-panel,
 .jobs-page #jobsList,
 .jobs-page .table-wrap {
   min-width: 0;
   max-width: 100%;
-  box-sizing: border-box;
 }
 
-.jobs-page .jobs-page-shell {
-  width: min(100%, 1100px);
-  margin-inline: auto;
+.jobs-page .jobs-page-header {
+  margin-bottom: 0;
 }
 
-.jobs-page .table-wrap,
-#jobDashboardSection.jgc-job-admin .job-dashboard-panel,
-#jobsSection.jgc-job-admin #jobsList .table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
+.jobs-page .top-actions.jgc-actions {
+  justify-content: center;
 }
 
+.jobs-page .jobs-lookup-panel {
+  overflow: hidden;
+}
+
+.jobs-page .jobs-help {
+  margin: 0;
+}
+
+.jobs-page .jobs-status.jgc-notice {
+  min-height: 0;
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
+.jobs-page .jobs-empty.jgc-empty-state {
+  margin-top: 0;
+}
+
+.jobs-page .table-wrap.jgc-table-wrap {
+  margin-top: 0;
+}
+
+.jobs-page .jobs-table.jgc-table {
+  min-width: 680px;
+}
+
+.jobs-page .jobs-table th:first-child,
+.jobs-page .jobs-table td:first-child {
+  width: 150px;
+}
+
+.jobs-page .jobs-table th:nth-child(3),
+.jobs-page .jobs-table td:nth-child(3) {
+  width: 160px;
+}
+
+.jobs-page .jobs-table th:last-child,
+.jobs-page .jobs-table td:last-child {
+  width: 190px;
+}
+
+.jobs-page .jobs-table td {
+  overflow-wrap: anywhere;
+}
+
+.jobs-page .job-type-badge.jgc-badge {
+  white-space: normal;
+}
+
+.jobs-page .jobs-document-link.jgc-button {
+  width: auto;
+  min-height: 36px;
+  margin: 0;
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Admin Job Dashboard and Jobs Management keep their feature geometry here. */
 #jobDashboardSection.jgc-job-admin,
 #jobsSection.jgc-job-admin,
 #jobDashboardSection.jgc-job-admin .job-dashboard-shell,
@@ -52,6 +106,12 @@
   overflow-y: visible;
 }
 
+#jobDashboardSection.jgc-job-admin .job-dashboard-panel,
+#jobsSection.jgc-job-admin #jobsList .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 #jobsSection.jgc-job-admin input,
 #jobsSection.jgc-job-admin select,
 #jobDashboardSection.jgc-job-admin input,
@@ -62,16 +122,95 @@
 }
 
 @media (max-width: 720px) {
-  .jobs-page {
-    padding-inline: 12px;
-  }
-
-  .jobs-page .jobs-page-shell {
+  .jobs-page .top-actions.jgc-actions {
+    display: grid;
     width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .jobs-page .top-actions,
-  #jobsSection.jgc-job-admin .actions {
+  .jobs-page .top-actions.jgc-actions .jgc-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .jobs-page .top-actions.jgc-actions .jgc-button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .jobs-page input:not([type="checkbox"]):not([type="radio"]),
+  #jobsSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
+  #jobDashboardSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
+  #jobDashboardSection.jgc-job-admin select,
+  #jobDashboardSection.jgc-job-admin textarea {
+    font-size: 16px;
+  }
+
+  .jobs-page .table-wrap.jgc-table-wrap {
+    overflow: visible;
+  }
+
+  .jobs-page .jobs-table.jgc-table,
+  .jobs-page .jobs-table tbody,
+  .jobs-page .jobs-table tr,
+  .jobs-page .jobs-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .jobs-page .jobs-table thead {
+    display: none;
+  }
+
+  .jobs-page .jobs-table {
+    background: transparent;
+  }
+
+  .jobs-page .jobs-table tbody {
+    display: grid;
+    gap: var(--jgc-space-3);
+  }
+
+  .jobs-page .jobs-table tbody tr,
+  .jobs-page .jobs-table tbody tr:nth-child(even) {
+    display: grid;
+    gap: 0;
+    padding: var(--jgc-space-2) var(--jgc-space-3);
+    background: var(--jgc-color-table-row);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-left: 4px solid var(--jgc-color-brand-500);
+    border-radius: var(--jgc-radius-lg);
+    box-shadow: var(--jgc-shadow-sm);
+  }
+
+  .jobs-page .jobs-table td,
+  .jobs-page .jobs-table td:first-child,
+  .jobs-page .jobs-table td:nth-child(3),
+  .jobs-page .jobs-table td:last-child {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(105px, 36%) minmax(0, 1fr);
+    gap: var(--jgc-space-2);
+    align-items: start;
+    padding: var(--jgc-space-2) 0;
+    border: 0;
+    border-bottom: 1px solid var(--jgc-color-border-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .jobs-page .jobs-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .jobs-page .jobs-table td::before {
+    content: attr(data-label);
+    color: var(--jgc-color-brand-400);
+    font-size: var(--jgc-font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .jobs-page .jobs-document-link.jgc-button {
     width: 100%;
   }
 
@@ -81,12 +220,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .jobs-page input:not([type="checkbox"]):not([type="radio"]),
-  #jobsSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
-  #jobDashboardSection.jgc-job-admin input:not([type="checkbox"]):not([type="radio"]),
-  #jobDashboardSection.jgc-job-admin select,
-  #jobDashboardSection.jgc-job-admin textarea {
-    font-size: 16px;
+  #jobsSection.jgc-job-admin .actions {
+    width: 100%;
   }
 }
 
