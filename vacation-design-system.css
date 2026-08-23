@@ -52,6 +52,17 @@
   grid-column: 1 / -1;
 }
 
+/* iOS Safari gives date controls a wider intrinsic inline size than text inputs. */
+.vacation-page input[type="date"].jgc-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
 .vacation-page .check-row {
   display: flex;
   min-height: var(--jgc-control-height);

@@ -208,11 +208,12 @@ test("Vacation Requests family uses one shared visual source", async () => {
   expect(pageSource).not.toContain('style="margin-top:14px;"');
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=7');
-  expect(pageSource).toContain('vacation-design-system.css?v=1');
+  expect(pageSource).toContain('vacation-design-system.css?v=2');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Vacation-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
+  expect(featureCss).toMatch(/input\[type="date"\]\.jgc-input\s*\{[\s\S]*?min-inline-size:\s*0;[\s\S]*?max-inline-size:\s*100%;/i);
   expect(adminSource).toContain('admin.css?v=11');
-  expect(adminSource).toContain('vacation-design-system.css?v=1');
+  expect(adminSource).toContain('vacation-design-system.css?v=2');
   expect(adminSource).toContain('jgc-panel jgc-vacation-admin');
   expect(adminVacationSource).not.toMatch(/\sstyle\s*=/i);
   expect(adminCss).not.toContain("Phase 8 design-system compatibility for the embedded Vacation Requests section");
@@ -241,18 +242,26 @@ for (const viewport of [
       const historyTable = document.querySelector(".vacation-history-table");
       const firstRow = historyTable && historyTable.querySelector("tbody tr");
       const calendarScroll = document.querySelector(".vacation-calendar-scroll");
+      const requestPanel = document.querySelector(".vacation-request-panel");
+      const panelRect = requestPanel ? requestPanel.getBoundingClientRect() : null;
+      const dateInputsContained = Array.from(document.querySelectorAll('.vacation-request-panel input[type="date"]')).every((input) => {
+        const rect = input.getBoundingClientRect();
+        return panelRect && rect.left >= panelRect.left - 1 && rect.right <= panelRect.right + 1;
+      });
       return {
         bodyWidth: document.body.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
         submitHeight: submit ? submit.getBoundingClientRect().height : 0,
         tableDisplay: historyTable ? getComputedStyle(historyTable).display : "",
         rowDisplay: firstRow ? getComputedStyle(firstRow).display : "",
-        calendarContained: calendarScroll ? calendarScroll.scrollWidth >= calendarScroll.clientWidth : false
+        calendarContained: calendarScroll ? calendarScroll.scrollWidth >= calendarScroll.clientWidth : false,
+        dateInputsContained
       };
     });
     expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
     expect(dimensions.submitHeight).toBeGreaterThanOrEqual(44);
     expect(dimensions.calendarContained).toBe(true);
+    expect(dimensions.dateInputsContained).toBe(true);
 
     if (viewport.name === "phone") {
       expect(dimensions.tableDisplay).toBe("block");
