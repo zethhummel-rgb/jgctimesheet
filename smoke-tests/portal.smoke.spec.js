@@ -2868,6 +2868,96 @@ test("Accounting workbook uses the requested sheets, Summary columns, and last-n
   await expectNoRuntimeErrors(errors, "Accounting workbook layout and sorting");
 });
 
+test("Accounting night premiums do not inflate worked-hour totals", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
+
+  const workbookNightHours = await page.evaluate(async () => {
+    const template = new ExcelJS.Workbook();
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"]
+      .forEach((name) => template.addWorksheet(name));
+    const templateBuffer = await template.xlsx.writeBuffer();
+    let binary = "";
+    new Uint8Array(templateBuffer).forEach((byte) => { binary += String.fromCharCode(byte); });
+
+    const exportResult = await JgcAccountingWorkbook.build({
+      templateBase64: btoa(binary),
+      exportedBy: "Portal Smoke Test",
+      data: {
+        payDate: "2026-08-20",
+        weekOneStart: "2026-08-02",
+        weekOneEnd: "2026-08-08",
+        weekTwoStart: "2026-08-09",
+        weekTwoEnd: "2026-08-15",
+        employees: [{ profileId: "employee-one", name: "Steven Leduc" }],
+        entries: [{
+          profileId: "employee-one",
+          workerName: "Steven Leduc",
+          workDate: "2026-08-04",
+          dayOfWeek: "Tuesday",
+          entryType: "work",
+          sourceJobNumber: "26090",
+          sourceJobName: "Cornwall Courthouse - Access Panel Install",
+          jobId: "job-26090",
+          shiftType: "night",
+          hours: 8
+        }],
+        jobs: [{ id: "job-26090", job_number: "26090", job_name: "Cornwall Courthouse - Access Panel Install", active: true }],
+        rates: [{ id: "rate-one", profile_id: "employee-one", regular_rate: 30, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-07-30" }],
+        inputs: {},
+        submissions: []
+      }
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResult.buffer);
+    const summary = workbook.getWorksheet("Summary");
+    const weekOne = workbook.getWorksheet("Aug 8");
+    const describe = (cell) => ({
+      value: cell.value,
+      formula: cell.value && typeof cell.value === "object" ? cell.value.formula : "",
+      result: cell.value && typeof cell.value === "object" ? cell.value.result : cell.value
+    });
+    return {
+      bytes: Array.from(new Uint8Array(exportResult.buffer)),
+      snapshotWorkedHours: exportResult.snapshot.totals.hours,
+      regularTotalHours: describe(summary.getCell("C5")),
+      nightPremiumTotalHours: describe(summary.getCell("C7")),
+      nightPremiumWeekOneHours: describe(summary.getCell("D7")),
+      summaryWorkedHours: describe(summary.getCell("C9")),
+      summaryWeekOneWorkedHours: describe(summary.getCell("D9")),
+      summaryGross: describe(summary.getCell("J9")),
+      weekRegularHours: describe(weekOne.getCell("J6")),
+      weekNightPremiumHours: describe(weekOne.getCell("J9")),
+      weekEmployeeTotal: describe(weekOne.getCell("M9"))
+    };
+  });
+
+  if (process.env.JGC_ACCOUNTING_NIGHT_HOURS_OUTPUT) {
+    fs.mkdirSync(path.dirname(process.env.JGC_ACCOUNTING_NIGHT_HOURS_OUTPUT), { recursive: true });
+    fs.writeFileSync(process.env.JGC_ACCOUNTING_NIGHT_HOURS_OUTPUT, Buffer.from(workbookNightHours.bytes));
+  }
+
+  expect(workbookNightHours.snapshotWorkedHours).toBe(8);
+  expect(workbookNightHours.regularTotalHours.formula).toBe("D5+G5");
+  expect(workbookNightHours.regularTotalHours.result).toBe(8);
+  expect(workbookNightHours.nightPremiumTotalHours.value).toBeNull();
+  expect(workbookNightHours.nightPremiumWeekOneHours.formula).toBe("'Aug 8'!J9");
+  expect(workbookNightHours.nightPremiumWeekOneHours.result).toBe(8);
+  expect(workbookNightHours.summaryWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"<>Other",C5:C7)');
+  expect(workbookNightHours.summaryWorkedHours.result).toBe(8);
+  expect(workbookNightHours.summaryWeekOneWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"<>Other",D5:D7)');
+  expect(workbookNightHours.summaryWeekOneWorkedHours.result).toBe(8);
+  expect(workbookNightHours.weekRegularHours.result).toBe(8);
+  expect(workbookNightHours.weekNightPremiumHours.result).toBe(8);
+  expect(workbookNightHours.weekEmployeeTotal.result).toBe(264);
+  expect(workbookNightHours.summaryGross.result).toBe(264);
+  await expectNoRuntimeErrors(errors, "Accounting night premium hours");
+});
+
 test("Accounting highlights a single timesheet entry over 12 hours", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);

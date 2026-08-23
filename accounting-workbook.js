@@ -606,6 +606,7 @@
         { type: "Other", ref: "otherRow", w1: weekOne.nightHours, rate: nightPremium, w1Gross: weekOne.nightGross, w2: weekTwo.nightHours, w2Gross: weekTwo.nightGross, stat: 0, adjustment: 0, vp: 0 }
       ];
       rowTypes.forEach((item) => {
+        const countsAsWorkedHours = item.type !== "Other";
         const totalHours = round(item.w1 + item.w2);
         const gross = round(item.w1Gross + item.w2Gross + item.stat);
         const balance = round(gross + item.adjustment + item.vp);
@@ -622,7 +623,6 @@
           if (index >= 2) cell.numFmt = index === 2 || index === 3 || index === 6 ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
           if (index === 0) cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
         });
-        setFormula(sheet.getCell(row, 3), `D${row}+G${row}`, totalHours, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 4), `${weekOneSheet}!J${weekOneRow}`, item.w1, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 5), `${weekTwoSheet}!K${weekTwoRow}`, item.rate, "$#,##0.00;[Red]-$#,##0.00;-");
         setFormula(sheet.getCell(row, 6), `${weekOneSheet}!L${weekOneRow}`, item.w1Gross, "$#,##0.00;[Red]-$#,##0.00;-");
@@ -636,10 +636,13 @@
             sheet.getCell(row, column).font = { color: { argb: "0000FF" } };
           });
         }
-        totals.hours += totalHours;
-        totals.w1 += item.w1;
+        if (countsAsWorkedHours) {
+          setFormula(sheet.getCell(row, 3), `D${row}+G${row}`, totalHours, "0.00;-0.00;-");
+          totals.hours += totalHours;
+          totals.w1 += item.w1;
+          totals.w2 += item.w2;
+        }
         totals.w1Gross += item.w1Gross;
-        totals.w2 += item.w2;
         totals.w2Gross += item.w2Gross;
         totals.stat += item.stat;
         totals.gross += gross;
@@ -664,7 +667,10 @@
       if (Object.prototype.hasOwnProperty.call(totalValues, column)) {
         const numberFormat = [3, 4, 7].includes(column) ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
         const columnLetter = cell.address.replace(/\d+$/g, "");
-        setFormula(cell, `SUM(${columnLetter}5:${columnLetter}${lastDataRow})`, round(totalValues[column]), numberFormat);
+        const formula = [3, 4, 7].includes(column)
+          ? `SUMIF($B$5:$B$${lastDataRow},"<>Other",${columnLetter}5:${columnLetter}${lastDataRow})`
+          : `SUM(${columnLetter}5:${columnLetter}${lastDataRow})`;
+        setFormula(cell, formula, round(totalValues[column]), numberFormat);
       }
     }
 
