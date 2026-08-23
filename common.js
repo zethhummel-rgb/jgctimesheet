@@ -47,7 +47,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "5";
+const JGC_DESIGN_SYSTEM_VERSION = "6";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "5";
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";

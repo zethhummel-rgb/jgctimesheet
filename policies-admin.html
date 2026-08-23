@@ -6,225 +6,59 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Manage Policies</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="policy-design-system.css?v=1">
-<style>
-body {
-  margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(49, 198, 74, 0.18), transparent 34%),
-    linear-gradient(135deg, #06110f, #0b1717 52%, #07100f);
-  color: #f5f7f3;
-  font-family: Arial, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.page-shell {
-  width: min(1120px, calc(100% - 28px));
-  margin: 0 auto;
-  padding: 22px 0 42px;
-}
-
-.top-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand img {
-  width: 110px;
-  height: auto;
-}
-
-.card {
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 10px;
-  background: rgba(13, 27, 27, 0.92);
-  padding: 20px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
-  margin-bottom: 16px;
-}
-
-h1,
-h2 {
-  margin: 0 0 12px;
-}
-
-h2 {
-  color: #31c64a;
-}
-
-.muted,
-.small {
-  color: #bac4bd;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 160px;
-  gap: 10px;
-}
-
-.full {
-  grid-column: 1 / -1;
-}
-
-label {
-  display: block;
-  font-weight: 800;
-  margin-bottom: 5px;
-}
-
-input,
-textarea {
-  width: 100%;
-  border: 1px solid #b8c2b2;
-  border-radius: 6px;
-  padding: 9px;
-  background: #f7f9f4;
-  color: #1f2a24;
-}
-
-textarea {
-  min-height: 110px;
-  resize: vertical;
-}
-
-button,
-.file-link {
-  border: 0;
-  border-radius: 7px;
-  background: #13843f;
-  color: #ffffff;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.secondary {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.delete-button {
-  background: #b42318;
-}
-
-.actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  min-width: 820px;
-  border-collapse: collapse;
-  background: rgba(8, 18, 18, 0.88);
-}
-
-th,
-td {
-  border: 1px solid rgba(199, 221, 211, 0.18);
-  padding: 8px;
-  text-align: left;
-  vertical-align: top;
-  font-size: 13px;
-}
-
-th {
-  background: rgba(57, 200, 72, 0.16);
-}
-
-@media (max-width: 760px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .full {
-    grid-column: auto;
-  }
-
-  button,
-  .file-link {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
+<link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6">
 </head>
-<body class="policy-page jgc-page">
-<main class="page-shell policy-page-shell jgc-page-shell">
-  <div class="top-actions">
-    <div class="brand">
+<body class="policy-page jgc-page jgc-system-page">
+<main class="page-shell policy-page-shell jgc-page-shell jgc-stack">
+  <div class="top-actions jgc-topbar">
+    <div class="brand jgc-brand-lockup">
       <img src="logo.webp" alt="John Gordon Construction">
       <div>
-        <h1>Manage Policies</h1>
-        <div class="muted" id="workerName"></div>
+        <h1 class="jgc-brand-lockup__title">Manage Policies</h1>
+        <div class="jgc-brand-lockup__meta" id="workerName"></div>
       </div>
     </div>
-    <div class="actions">
-      <button type="button" onclick="window.location.href='policies-announcements.html'">Policies Page</button>
-      <button class="secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
-      <button class="secondary" type="button" onclick="window.location.href='home.html'">Home</button>
+    <div class="actions jgc-actions">
+      <button class="jgc-button" type="button" onclick="window.location.href='policies-announcements.html'">Policies Page</button>
+      <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='admin.html'">Admin</button>
+      <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
     </div>
   </div>
 
-  <section class="card">
-    <h2>Add Policy PDF</h2>
-    <div class="form-grid">
-      <div>
-        <label>Policy Title</label>
-        <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+  <section class="card jgc-panel">
+    <h2 class="jgc-section-title">Add Policy PDF</h2>
+    <div class="form-grid jgc-form-grid">
+      <div class="jgc-field">
+        <label class="jgc-label" for="policyTitle">Policy Title</label>
+        <input class="jgc-input" id="policyTitle" placeholder="Example: Fall Protection Policy">
       </div>
-      <div>
-        <label>Category</label>
-        <input id="policyCategory" placeholder="Example: Safety" value="General">
+      <div class="jgc-field">
+        <label class="jgc-label" for="policyCategory">Category</label>
+        <input class="jgc-input" id="policyCategory" placeholder="Example: Safety" value="General">
       </div>
-      <div>
-        <label>Display Order</label>
-        <input id="policyOrder" type="number" value="0">
+      <div class="jgc-field">
+        <label class="jgc-label" for="policyOrder">Display Order</label>
+        <input class="jgc-input" id="policyOrder" type="number" value="0">
       </div>
-      <div class="full">
-        <label>Description</label>
-        <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+      <div class="full jgc-field jgc-field--full">
+        <label class="jgc-label" for="policyDescription">Description</label>
+        <textarea class="jgc-textarea" id="policyDescription" placeholder="Short description for employees"></textarea>
       </div>
-      <div class="full">
-        <label>Policy PDF</label>
-        <input id="policyFile" type="file" accept="application/pdf,.pdf">
+      <div class="full jgc-field jgc-field--full">
+        <label class="jgc-label" for="policyFile">Policy PDF</label>
+        <input class="jgc-input" id="policyFile" type="file" accept="application/pdf,.pdf">
       </div>
     </div>
-    <div class="actions">
-      <button id="policySaveButton" type="button">Add Policy</button>
-      <button id="policyRefreshButton" class="secondary" type="button">Refresh Policies</button>
+    <div class="actions jgc-actions">
+      <button id="policySaveButton" class="jgc-button" type="button">Add Policy</button>
+      <button id="policyRefreshButton" class="secondary jgc-button jgc-button--secondary" type="button">Refresh Policies</button>
     </div>
-    <div id="policyStatus" class="small" style="margin-top:10px;"></div>
+    <div id="policyStatus" class="jgc-notice" role="status" aria-live="polite"></div>
   </section>
 
-  <section class="card">
-    <h2>Current Policies</h2>
-    <div id="policiesList" class="small">Loading policies...</div>
+  <section class="card jgc-panel">
+    <h2 class="jgc-section-title">Current Policies</h2>
+    <div id="policiesList" class="jgc-muted">Loading policies...</div>
   </section>
 </main>
 
@@ -257,8 +91,11 @@ if (supabaseClient) {
 document.getElementById("policySaveButton").addEventListener("click", publishPolicy);
 document.getElementById("policyRefreshButton").addEventListener("click", loadPolicies);
 
-function setPolicyStatus(message) {
-  document.getElementById("policyStatus").textContent = message || "";
+function setPolicyStatus(message, type) {
+  const status = document.getElementById("policyStatus");
+  status.textContent = message || "";
+  status.classList.toggle("jgc-notice--danger", type === "error");
+  status.classList.toggle("jgc-notice--success", type === "success");
 }
 
 function makeSafeFileName(name) {
@@ -297,8 +134,8 @@ function renderPolicies() {
   }
 
   list.innerHTML = `
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap jgc-table-wrap">
+      <table class="jgc-table jgc-table--wide">
         <thead>
           <tr>
             <th>Title</th>
@@ -316,10 +153,10 @@ function renderPolicies() {
               <td>${escapeHtml(policy.title)}</td>
               <td>${escapeHtml(policy.category || "General")}</td>
               <td>${escapeHtml(policy.description || "")}</td>
-              <td>${policyUrls[policy.id] ? '<a class="file-link" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+              <td>${policyUrls[policy.id] ? '<a class="file-link jgc-button" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
               <td>${Number(policy.sort_order || 0)}</td>
               <td>${escapeHtml(formatDisplayDate(policy.created_at))}</td>
-              <td><button type="button" class="delete-button" data-policy-delete="${escapeHtml(policy.id)}">Delete</button></td>
+              <td><button type="button" class="delete-button jgc-button jgc-button--danger" data-policy-delete="${escapeHtml(policy.id)}">Delete</button></td>
             </tr>
           `).join("")}
         </tbody>
@@ -385,7 +222,7 @@ async function publishPolicy() {
   });
 
   if (uploadError) {
-    setPolicyStatus("Policy PDF upload failed: " + uploadError.message);
+    setPolicyStatus("Policy PDF upload failed: " + uploadError.message, "error");
     return;
   }
 
@@ -407,7 +244,7 @@ async function publishPolicy() {
 
   if (error) {
     await supabaseClient.storage.from("policies").remove([filePath]);
-    setPolicyStatus("Policy could not be saved.");
+    setPolicyStatus("Policy could not be saved.", "error");
     return;
   }
 
@@ -416,7 +253,7 @@ async function publishPolicy() {
   document.getElementById("policyCategory").value = "General";
   document.getElementById("policyOrder").value = "0";
   fileInput.value = "";
-  setPolicyStatus("Policy added.");
+  setPolicyStatus("Policy added.", "success");
   await loadPolicies();
 }
 

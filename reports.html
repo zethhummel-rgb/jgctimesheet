@@ -6,315 +6,83 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reports</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="report-design-system.css?v=1">
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #8f9691;
-    margin: 0;
-    padding: 20px;
-    color: #1f2a24;
-}
-
-.logo-wrap {
-    max-width: 347px;
-    margin: 0 auto 8px;
-    text-align: center;
-}
-
-.logo-wrap img {
-    width: 100%;
-    max-width: 347px;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-}
-
-.user-bar {
-    max-width: 1100px;
-    margin: 0 auto 12px;
-    color: #ffffff;
-    text-align: center;
-    font-size: 13px;
-    font-weight: bold;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-
-.container {
-    max-width: 1100px;
-    margin: auto;
-    background: #fbfcf9;
-    padding: 20px;
-    border-radius: 8px;
-    border-top: 4px solid #3f7d4d;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-}
-
-h1 {
-    text-align: center;
-    color: #2f6f3c;
-    margin: 0 0 6px;
-}
-
-.subtitle {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 18px;
-}
-
-.reports-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 22px;
-}
-
-.report-card {
-    border: 1px solid #c6cec5;
-    border-top: 4px solid #3f7d4d;
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 16px;
-    text-align: left;
-    color: #1f2a24;
-    cursor: pointer;
-    min-height: 150px;
-}
-
-.report-card h2 {
-    margin: 0 0 8px;
-    color: #0b5e3b;
-}
-
-.report-card p {
-    margin: 0;
-    line-height: 1.35;
-}
-
-.report-card.pending {
-    cursor: default;
-    opacity: 0.82;
-}
-
-.daily-report-history {
-    margin-top: 22px;
-    border-top: 1px solid #2b5f3d;
-    padding-top: 16px;
-}
-
-.daily-report-history > summary {
-    cursor: pointer;
-    list-style: none;
-    font-size: 20px;
-    font-weight: bold;
-    color: #39d353;
-    padding: 12px 0;
-}
-
-.daily-report-history > summary::-webkit-details-marker {
-    display: none;
-}
-
-.daily-report-history > summary::after {
-    content: "+";
-    float: right;
-}
-
-.daily-report-history[open] > summary::after {
-    content: "-";
-}
-
-.daily-report-list {
-    display: grid;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.daily-report-row {
-    display: grid;
-    grid-template-columns: minmax(110px, 0.7fr) minmax(220px, 2fr) auto;
-    gap: 12px;
-    align-items: center;
-    padding: 12px;
-    border: 1px solid #2b5f3d;
-    background: #0b2118;
-    border-radius: 6px;
-}
-
-.daily-report-row strong,
-.daily-report-row span {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.daily-report-row .jgc-actions {
-    margin: 0;
-}
-
-.toolbox-panel {
-    margin-top: 16px;
-    border-top: 1px solid #d6ddd4;
-    padding-top: 18px;
-}
-
-.table-wrap {
-    overflow-x: auto;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #ffffff;
-}
-
-th,
-td {
-    border: 1px solid #c6cec5;
-    padding: 8px;
-    text-align: left;
-    vertical-align: top;
-    font-size: 13px;
-}
-
-th {
-    background: #e6ece6;
-}
-
-button,
-.file-link {
-    background: #0b5e3b;
-    color: #ffffff;
-    border: none;
-    border-radius: 4px;
-    padding: 10px 14px;
-    font-weight: bold;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-}
-
-button:hover,
-.file-link:hover {
-    background: #08452b;
-}
-
-.secondary {
-    background: #47534b;
-}
-
-.secondary:hover {
-    background: #354039;
-}
-
-.status {
-    min-height: 20px;
-    margin-top: 10px;
-    font-weight: bold;
-    color: #2f6f3c;
-}
-
-.small {
-    font-size: 12px;
-    color: #47534b;
-}
-
-@media (max-width: 800px) {
-    body {
-        padding: 10px;
-    }
-
-    .reports-grid {
-        grid-template-columns: 1fr;
-    }
-
-    button,
-    .file-link {
-        width: 100%;
-        box-sizing: border-box;
-        text-align: center;
-    }
-
-    .daily-report-row {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
-<link rel="stylesheet" href="employee-hub-design-system.css?v=2">
+<link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6">
 </head>
 
-<body class="report-family-page report-directory-page jgc-page jgc-employee-hub">
-<main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
-<div class="logo-wrap jgc-brand">
-    <img src="logo.webp" alt="John Gordon Construction logo">
-</div>
+<body class="report-family-page report-directory-page jgc-page jgc-system-page">
+<main class="report-page-shell jgc-page-shell jgc-page-shell--wide jgc-stack">
+<header class="jgc-page-header">
+    <div class="logo-wrap jgc-brand">
+        <img src="logo.webp" alt="John Gordon Construction logo">
+    </div>
+    <div id="currentUser" class="jgc-page-user"></div>
+</header>
 
-<div id="currentUser" class="user-bar jgc-page-user"></div>
-
-<div class="container jgc-panel">
+<section class="container jgc-panel jgc-stack">
     <h1 class="jgc-page-title">Reports</h1>
-    <div class="subtitle">Quick Links</div>
+    <div class="jgc-section-heading">Quick Links</div>
 
-    <section class="reports-grid jgc-card-grid">
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='todays-inspections.html?recordType=reports'">
+    <section class="reports-grid jgc-card-grid jgc-card-grid--two">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='todays-inspections.html?recordType=reports'">
             <h2>Today's Reports</h2>
             <p>View reports submitted in the last 24 hours, with edit, email, and delete options.</p>
         </button>
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='previous-inspections.html?recordType=reports'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='previous-inspections.html?recordType=reports'">
             <h2>Previous Reports</h2>
             <p>Review reports completed in the last 2 months and keep compliance history on hand.</p>
         </button>
     </section>
 
-    <div class="subtitle">Start a New Report</div>
+    <div class="jgc-section-heading">Start a New Report</div>
 
-    <section class="reports-grid jgc-card-grid">
+    <section class="reports-grid jgc-card-grid jgc-card-grid--three">
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='daily-site-report.html'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='daily-site-report.html'">
             <h2>Daily Site Reports</h2>
             <p>Project notes, weather, crew, deliveries, visitors, delays, photos, PDF and email.</p>
         </button>
 
-            <button type="button" class="report-card jgc-card" onclick="window.location.href='jsa.html?v=361'">
+            <button type="button" class="report-card jgc-link-card" onclick="window.location.href='jsa.html?v=361'">
             <h2>JSA</h2>
             <p>Job Safety Analysis form for reviewing work steps, hazards, controls, and crew sign-off.</p>
         </button>
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='toolbox-talks.html'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='toolbox-talks.html'">
             <h2>Toolbox Talks</h2>
             <p>Select a toolbox talk PDF, complete the report, and collect crew acknowledgements.</p>
         </button>
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='incident-report.html'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='incident-report.html'">
             <h2>Near Miss Reporting</h2>
             <p>Report near misses, injuries, property damage, environmental incidents, and photos.</p>
         </button>
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='accident-report.html'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='accident-report.html'">
             <h2>Accident Report</h2>
             <p>Supervisor accident investigation with employee dropdowns, corrective action, PDF and email.</p>
         </button>
 
-        <button type="button" class="report-card jgc-card" onclick="window.location.href='employee-injury-report.html'">
+        <button type="button" class="report-card jgc-link-card" onclick="window.location.href='employee-injury-report.html'">
             <h2>Employee Injury Report</h2>
             <p>Employee injury statement with supervisor, witnesses, prevention notes, PDF and email.</p>
         </button>
     </section>
 
-    <details id="myDailyReportsSection" class="daily-report-history jgc-section" ontoggle="handleMyDailyReportsToggle(this)">
-        <summary>My Daily Site Reports <span id="myDailyReportsCount" class="jgc-badge"></span></summary>
-        <div id="myDailyReportsStatus" class="small">Open this section to load your reports.</div>
-        <div id="myDailyReportsList" class="daily-report-list"></div>
+    <details id="myDailyReportsSection" class="daily-report-history jgc-archive" ontoggle="handleMyDailyReportsToggle(this)">
+        <summary><span class="jgc-archive__title">My Daily Site Reports</span><span id="myDailyReportsCount" class="jgc-archive__count"></span></summary>
+        <div class="jgc-archive__body">
+            <div id="myDailyReportsStatus" class="jgc-muted">Open this section to load your reports.</div>
+            <div id="myDailyReportsList" class="daily-report-list jgc-record-list"></div>
+        </div>
     </details>
 
-    <div class="actions jgc-actions">
+    <div class="actions jgc-actions jgc-actions--center">
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
 
-</div>
+</section>
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
@@ -381,7 +149,7 @@ async function handleMyDailyReportsToggle(section) {
 
     status.textContent = `${reports.length} report${reports.length === 1 ? "" : "s"}`;
     list.innerHTML = reports.map((report) => `
-        <article class="daily-report-row">
+        <article class="daily-report-row jgc-record-row">
             <strong>${escapeHtml(formatDailyReportDate(report.report_date))}</strong>
             <span>${escapeHtml(report.project || "Project not entered")}</span>
             <div class="jgc-actions jgc-actions--compact">

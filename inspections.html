@@ -6,289 +6,69 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Inspections</title>
-<link rel="stylesheet" href="styles.css?v=3">
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #8f9691;
-    margin: 0;
-    padding: 20px;
-    color: #1f2a24;
-}
-
-/* Phase 6 compatibility: shared inspection semantics without changing geometry. */
-body.inspections-hub-page.jgc-page {
-    background: #8f9691;
-    padding: 20px;
-    color: #1f2a24;
-    line-height: normal;
-}
-
-.inspections-hub-page .inspection-page-shell.jgc-page-shell {
-    width: 100%;
-    max-width: none;
-    padding: 0;
-}
-
-.inspections-hub-page .inspection-page-header.jgc-page-header {
-    display: block;
-    margin-bottom: 0;
-}
-
-.inspections-hub-page .logo-wrap.jgc-brand {
-    display: block;
-}
-
-.inspections-hub-page .logo-wrap.jgc-brand img {
-    width: 100%;
-    max-width: 347px;
-}
-
-.inspections-hub-page .container.jgc-panel {
-    max-width: 1050px;
-    margin: auto;
-    background: #fbfcf9;
-    padding: 24px;
-    border-radius: 8px;
-    border: 0;
-    border-top: 4px solid #3f7d4d;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-}
-
-.inspections-hub-page .container h1.jgc-section-title {
-    margin: 0 0 6px;
-    color: #2f6f3c;
-    font-size: 2em;
-}
-
-.inspections-hub-page .inspection-card.jgc-card {
-    min-height: 96px;
-    border: 1px solid #cad6c9;
-    background: #ffffff;
-    color: #1f2a24;
-    border-radius: 8px;
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.inspections-hub-page .actions.jgc-actions {
-    margin-top: 24px;
-    justify-content: center;
-}
-
-.inspections-hub-page .small-button.jgc-button {
-    min-height: 0;
-    border: none;
-    background: #47534b;
-    border-radius: 4px;
-    padding: 10px 15px;
-    font-family: Arial, sans-serif;
-    font-size: 15px;
-}
-
-.logo-wrap {
-    max-width: 347px;
-    margin: 0 auto 8px;
-    text-align: center;
-}
-
-.logo-wrap img {
-    width: 100%;
-    max-width: 347px;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-}
-
-.user-bar {
-    max-width: 1050px;
-    margin: 0 auto 12px;
-    color: #ffffff;
-    text-align: center;
-    font-size: 13px;
-    font-weight: bold;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-
-.container {
-    max-width: 1050px;
-    margin: auto;
-    background: #fbfcf9;
-    padding: 24px;
-    border-radius: 8px;
-    border-top: 4px solid #3f7d4d;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-}
-
-h1 {
-    text-align: center;
-    margin: 0 0 6px;
-    color: #2f6f3c;
-}
-
-.subtitle {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 22px;
-}
-
-.inspection-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 14px;
-}
-
-.inspection-quick-links {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 22px;
-}
-
-.inspection-card {
-    min-height: 96px;
-    border: 1px solid #cad6c9;
-    background: #ffffff;
-    color: #1f2a24;
-    border-radius: 8px;
-    padding: 18px;
-    cursor: pointer;
-    text-align: left;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.inspection-card:hover {
-    transform: translateY(-2px);
-    border-color: #3f7d4d;
-    box-shadow: 0 5px 14px rgba(0,0,0,0.14);
-}
-
-.inspection-card strong {
-    display: block;
-    font-size: 20px;
-    color: #f5f7f3;
-    margin-bottom: 8px;
-}
-
-.inspection-card span {
-    color: #bac4bd;
-    font-size: 14px;
-    line-height: 1.35;
-}
-
-.actions {
-    margin-top: 24px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.small-button {
-    border: none;
-    background: #47534b;
-    color: white;
-    cursor: pointer;
-    border-radius: 4px;
-    padding: 10px 15px;
-    font-size: 15px;
-}
-
-.small-button:hover {
-    background: #354039;
-}
-
-@media (max-width: 640px) {
-    body,
-    body.inspections-hub-page.jgc-page {
-        padding: 12px;
-    }
-
-    .container,
-    .inspections-hub-page .container.jgc-panel {
-        padding: 18px 14px;
-    }
-
-    .inspection-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .inspection-quick-links {
-        grid-template-columns: 1fr;
-    }
-
-    .inspection-card,
-    .inspections-hub-page .inspection-card.jgc-card {
-        min-height: 78px;
-        padding: 15px;
-    }
-}
-</style>
-<link rel="stylesheet" href="employee-hub-design-system.css?v=2">
+<link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6">
 </head>
 
-<body class="inspections-hub-page jgc-page jgc-employee-hub">
-<main class="inspection-page-shell jgc-page-shell">
+<body class="inspections-hub-page jgc-page jgc-system-page">
+<main class="inspection-page-shell jgc-page-shell jgc-stack">
 <header class="inspection-page-header jgc-page-header">
 <div class="logo-wrap jgc-brand">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
-<div class="user-bar" id="userBar"></div>
+<div class="jgc-page-user" id="userBar"></div>
 </header>
 
-<div class="container jgc-panel">
-    <h1 class="jgc-section-title">Inspections</h1>
-    <div class="subtitle">Quick Links</div>
+<section class="container jgc-panel jgc-stack">
+    <h1 class="jgc-page-title">Inspections</h1>
+    <div class="jgc-section-heading">Quick Links</div>
 
-    <section class="inspection-quick-links" aria-label="Inspection history">
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='todays-inspections.html'">
+    <section class="inspection-quick-links jgc-card-grid jgc-card-grid--two" aria-label="Inspection history">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='todays-inspections.html'">
             <strong>Today's Inspections</strong>
             <span>Saved inspections from the last 24 hours</span>
         </button>
 
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='previous-inspections.html'">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='previous-inspections.html'">
             <strong>Previous Inspections</strong>
             <span>Saved inspections from the last 2 months</span>
         </button>
     </section>
 
-    <div class="subtitle">Start a New Inspection</div>
+    <div class="jgc-section-heading">Start a New Inspection</div>
 
-    <section class="inspection-grid" aria-label="Inspection forms">
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='aerial-lifts.html'">
+    <section class="inspection-grid jgc-card-grid" aria-label="Inspection forms">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='aerial-lifts.html'">
             <strong>Aerial Lifts</strong>
             <span>Pre-use inspection form</span>
         </button>
 
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='forklift.html'">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='forklift.html'">
             <strong>Fork Lift</strong>
             <span>Daily inspection form</span>
         </button>
 
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='tele-handler.html'">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='tele-handler.html'">
             <strong>Tele Handler</strong>
             <span>Daily checklist</span>
         </button>
 
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='vehicle-inspection.html?mode=manual'">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='vehicle-inspection.html?mode=manual'">
             <strong>Vehicle Inspections</strong>
             <span>Daily vehicle or trailer inspection</span>
         </button>
 
-        <button class="inspection-card jgc-card" type="button" onclick="window.location.href='harness.html'">
+        <button class="inspection-card jgc-link-card" type="button" onclick="window.location.href='harness.html'">
             <strong>Harness</strong>
             <span>Inspection checklist</span>
         </button>
     </section>
 
-    <div class="actions jgc-actions">
+    <div class="actions jgc-actions jgc-actions--center">
         <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="window.location.href='home.html'">Home</button>
         <button class="small-button jgc-button jgc-button--secondary" type="button" onclick="signOut()">Sign Out</button>
     </div>
-</div>
+</section>
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>

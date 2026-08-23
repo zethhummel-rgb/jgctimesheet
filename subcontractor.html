@@ -6,166 +6,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JGC Portal - Subcontractor Access</title>
-  <link rel="stylesheet" href="styles.css?v=3">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      min-height: 100vh;
-      padding: 28px;
-      background:
-        radial-gradient(circle at 18% 0%, rgba(31, 126, 56, 0.34), transparent 28rem),
-        linear-gradient(135deg, #050908 0%, #0c1717 45%, #07100f 100%);
-      color: #f5f7f3;
-    }
-
-    .page {
-      width: min(1100px, 100%);
-      margin: 0 auto;
-    }
-
-    .hero {
-      display: grid;
-      justify-items: center;
-      text-align: center;
-      gap: 10px;
-      margin-bottom: 22px;
-    }
-
-    .hero img {
-      width: min(300px, 70vw);
-      height: auto;
-    }
-
-    h1 {
-      margin: 10px 0 0;
-      color: #ffffff;
-      font-size: clamp(32px, 5vw, 48px);
-    }
-
-    .subtitle,
-    .user-bar {
-      color: #c8d7ca;
-      line-height: 1.45;
-    }
-
-    .portal-card {
-      border: 1px solid rgba(57, 200, 72, 0.32);
-      border-top: 5px solid #39c848;
-      border-radius: 8px;
-      background: rgba(8, 22, 20, 0.92);
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.3);
-      padding: 18px;
-    }
-
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .quick-card {
-      width: 100%;
-      min-height: 132px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    .quick-card:hover {
-      border-color: rgba(57, 200, 72, 0.64);
-      background: rgba(57, 200, 72, 0.14);
-    }
-
-    .quick-card strong {
-      font-size: 18px;
-      color: #39c848;
-    }
-
-    .quick-card span {
-      color: #c8d7ca;
-      line-height: 1.35;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 18px;
-    }
-
-    button {
-      min-height: 42px;
-      padding: 10px 14px;
-      border: 0;
-      border-radius: 6px;
-      background: #13843f;
-      color: #ffffff;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.22);
-    }
-
-    @media (max-width: 720px) {
-      body {
-        padding: 16px;
-      }
-    }
-  </style>
-  <link rel="stylesheet" href="subcontractor-design-system.css?v=1">
+  <link rel="stylesheet" href="jgc-design-system.css?v=6" data-jgc-design-system="6">
 </head>
-<body class="subcontractor-page jgc-page">
-  <main class="page subcontractor-shell jgc-page-shell">
+<body class="subcontractor-page jgc-page jgc-system-page">
+  <main class="page subcontractor-shell jgc-page-shell jgc-stack">
     <section class="hero subcontractor-header jgc-page-header">
       <div class="subcontractor-brand jgc-brand">
         <img src="logo.webp" alt="John Gordon Construction">
       </div>
       <h1>Subcontractor Portal</h1>
-      <div id="subcontractorUser" class="user-bar"></div>
-      <div class="subtitle">Use these links to submit project paperwork or review JGC safety information.</div>
+      <div id="subcontractorUser" class="jgc-page-user"></div>
+      <div class="subtitle jgc-muted">Use these links to submit project paperwork or review JGC safety information.</div>
     </section>
 
     <section class="portal-card jgc-panel">
-      <div class="quick-grid">
-        <button type="button" class="quick-card jgc-card" onclick="window.location.href='reports.html'">
+      <div class="quick-grid jgc-card-grid">
+        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='reports.html'">
           <strong>Reports</strong>
           <span>Daily site reports, JSA, incident/near miss, accident, and injury forms.</span>
         </button>
-        <button type="button" class="quick-card jgc-card" onclick="window.location.href='inspections.html'">
+        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='inspections.html'">
           <strong>Inspections</strong>
           <span>Equipment and safety inspections available to project partners.</span>
         </button>
-        <button type="button" class="quick-card jgc-card" onclick="window.location.href='permits.html'">
+        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='permits.html'">
           <strong>Permits</strong>
           <span>Hot work, confined space, and excavation permit forms.</span>
         </button>
-        <button type="button" class="quick-card jgc-card" onclick="window.location.href='policies-announcements.html'">
+        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='policies-announcements.html'">
           <strong>Policies</strong>
           <span>Review active JGC policies and safety announcements.</span>
         </button>
-        <button type="button" class="quick-card jgc-card" onclick="window.location.href='contacts.html'">
+        <button type="button" class="quick-card jgc-link-card" onclick="window.location.href='contacts.html'">
           <strong>Contacts</strong>
           <span>Find current JGC contacts for coordination and questions.</span>
         </button>
       </div>
     </section>
 
-    <div class="actions jgc-actions">
+    <div class="actions jgc-actions jgc-actions--center">
       <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
   </main>
