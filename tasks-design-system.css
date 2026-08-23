@@ -1,12 +1,14 @@
-/* Tasks compatibility layer. Task CRUD, assignment, status, and embedded-frame behavior stay page-owned. */
+/* Tasks feature layout. All visual values come from the shared JGC design tokens. */
 .tasks-page {
   overflow-x: hidden;
 }
 
 .tasks-page .tasks-page-shell {
-  width: 100%;
-  max-width: none;
-  padding: 0;
+  min-width: 0;
+}
+
+.tasks-page .tasks-page-header {
+  margin-bottom: 0;
 }
 
 .tasks-page .logo-wrap.jgc-brand {
@@ -26,15 +28,21 @@
 
 .tasks-page .top-actions.jgc-actions {
   min-width: 0;
+  justify-content: center;
 }
 
-.tasks-page .panel.jgc-panel {
+.tasks-page .jgc-archive {
   min-width: 0;
-  box-sizing: border-box;
+  margin-top: 0;
+}
+
+.tasks-page .task-form-help {
+  margin-bottom: var(--jgc-space-3);
 }
 
 .tasks-page .form-grid.jgc-form-grid {
   min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .tasks-page .field.jgc-field {
@@ -52,28 +60,182 @@
   box-sizing: border-box;
 }
 
-.tasks-page .task-grid {
+.tasks-page .assignee-checklist {
+  display: grid;
   min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--jgc-space-2);
+  padding: var(--jgc-space-3);
+  background: var(--jgc-color-page-deep);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
 }
 
-.tasks-page .task-card,
-.tasks-page .assignee-checklist,
-.tasks-page .empty-state {
+.tasks-page .assignee-option {
+  display: flex;
   min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
+  align-items: center;
+  gap: var(--jgc-space-2);
+  color: var(--jgc-color-text);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
 }
 
-.tasks-page .task-title,
-.tasks-page .task-meta,
-.tasks-page .notes-preview {
+.tasks-page .assignee-option > span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.tasks-page .task-actions.jgc-actions,
-.tasks-page .form-actions.jgc-actions,
+.tasks-page .assignee-option input {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  accent-color: var(--jgc-color-brand-500);
+}
+
+.tasks-page .assignee-source {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+}
+
+.tasks-page .form-actions.jgc-actions {
+  min-width: 0;
+  margin-top: var(--jgc-space-3);
+}
+
+.tasks-page .status-line.jgc-notice {
+  min-height: 0;
+  margin-top: var(--jgc-space-3);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
 .tasks-page .filters.jgc-tabs {
   min-width: 0;
+  margin-bottom: var(--jgc-space-3);
+}
+
+.tasks-page .filters.jgc-tabs .jgc-tab {
+  flex: 0 0 auto;
+}
+
+.tasks-page .task-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--jgc-space-3);
+  margin-top: var(--jgc-space-3);
+}
+
+.tasks-page .task-card.jgc-card {
+  min-width: 0;
+  max-width: 100%;
+  border-left: 4px solid var(--jgc-color-brand-500);
+  box-sizing: border-box;
+}
+
+.tasks-page .task-card.complete {
+  border-left-color: var(--jgc-color-info);
+}
+
+.tasks-page .task-card.archived {
+  border-left-color: var(--jgc-color-text-muted);
+  opacity: 0.78;
+}
+
+.tasks-page .task-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--jgc-space-3);
+}
+
+.tasks-page .task-title {
+  min-width: 0;
+  color: var(--jgc-color-text);
+  font-size: var(--jgc-font-size-lg);
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.tasks-page .badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jgc-space-2);
+  margin-block: var(--jgc-space-3);
+}
+
+.tasks-page .task-badge.open,
+.tasks-page .task-badge.priority-low {
+  background: var(--jgc-color-badge-success);
+}
+
+.tasks-page .task-badge.in_progress,
+.tasks-page .task-badge.priority-medium {
+  color: var(--jgc-color-badge-warning-text);
+  background: var(--jgc-color-badge-warning);
+}
+
+.tasks-page .task-badge.complete {
+  background: var(--jgc-color-badge-info);
+}
+
+.tasks-page .task-badge.archived {
+  background: var(--jgc-color-surface-soft);
+}
+
+.tasks-page .task-badge.priority-high,
+.tasks-page .task-badge.priority-urgent {
+  background: var(--jgc-color-badge-danger);
+}
+
+.tasks-page .task-meta {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--jgc-space-2);
+  margin-top: var(--jgc-space-3);
+}
+
+.tasks-page .meta-box {
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--jgc-space-2);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.tasks-page .meta-box strong {
+  display: block;
+  margin-bottom: var(--jgc-space-1);
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-xs);
+  text-transform: uppercase;
+}
+
+.tasks-page .notes-preview {
+  margin-top: var(--jgc-space-3);
+  color: var(--jgc-color-text-muted);
+  line-height: var(--jgc-line-height);
+  overflow-wrap: anywhere;
+}
+
+.tasks-page .task-actions.jgc-actions {
+  min-width: 0;
+  margin-top: var(--jgc-space-3);
+}
+
+.tasks-page .empty-state.jgc-empty-state {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #tasksSection.jgc-task-admin {
@@ -97,6 +259,25 @@
   overflow: hidden;
 }
 
+body.tasks-page.embedded-task-page {
+  overflow: hidden;
+  padding: 0;
+  background: transparent;
+}
+
+body.tasks-page.embedded-task-page .tasks-page-shell {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+body.tasks-page.embedded-task-page .tasks-page-header,
+body.tasks-page.embedded-task-page .top-actions,
+body.tasks-page.embedded-task-page #jgcNotificationBell,
+body.tasks-page.embedded-task-page #jgcAdminGlobalSearch {
+  display: none !important;
+}
+
 @media (max-width: 860px) {
   .tasks-page input:not([type="checkbox"]):not([type="radio"]),
   .tasks-page select,
@@ -104,7 +285,8 @@
     font-size: 16px;
   }
 
-  .tasks-page .form-grid.jgc-form-grid {
+  .tasks-page .form-grid.jgc-form-grid,
+  .tasks-page .task-meta {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -112,13 +294,26 @@
     grid-column: 1;
   }
 
-  .tasks-page .top-actions.jgc-actions,
-  .tasks-page .form-actions.jgc-actions {
-    width: 100%;
+  .tasks-page .assignee-checklist {
+    grid-template-columns: minmax(0, 1fr);
   }
 
+  .tasks-page .top-actions.jgc-actions .jgc-button {
+    width: min(100%, 260px);
+    min-width: 0;
+  }
+
+  .tasks-page .form-actions.jgc-actions,
   .tasks-page .task-actions.jgc-actions {
+    display: grid;
     width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tasks-page .form-actions.jgc-actions .jgc-button,
+  .tasks-page .task-actions.jgc-actions .jgc-button {
+    width: 100%;
+    min-width: 0;
   }
 
   #tasksSection .admin-task-frame {
@@ -129,7 +324,9 @@
 
 @media print {
   .tasks-page,
+  .tasks-page .jgc-card,
   .tasks-page .jgc-panel,
+  .tasks-page .jgc-archive,
   #tasksSection.jgc-task-admin {
     overflow: visible !important;
   }

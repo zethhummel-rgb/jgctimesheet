@@ -6,472 +6,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Tasks</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="tasks-design-system.css?v=1">
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+<link rel="stylesheet" href="tasks-design-system.css?v=2">
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background:
-    radial-gradient(circle at 16% 0%, rgba(39, 165, 72, 0.32), transparent 28rem),
-    linear-gradient(135deg, #040b0a 0%, #0b1717 48%, #05100e 100%);
-  color: #f5f7f3;
-  margin: 0;
-  padding: 20px;
-}
-
-.page {
-  max-width: 1160px;
-  margin: 0 auto;
-}
-
-.logo-wrap {
-  max-width: 280px;
-  margin: 0 auto 10px;
-}
-
-.logo-wrap img {
-  width: 100%;
-  display: block;
-}
-
-h1 {
-  margin: 0 0 6px;
-  color: #ffffff;
-  text-align: center;
-}
-
-h2 {
-  color: #37d650;
-  margin: 0 0 12px;
-}
-
-.user-bar {
-  text-align: center;
-  color: #d7e6d6;
-  font-size: 13px;
-  font-weight: bold;
-  margin-bottom: 14px;
-}
-
-.top-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
-.panel {
-  background: rgba(12, 26, 23, 0.94);
-  border: 1px solid rgba(99, 205, 107, 0.24);
-  border-top: 4px solid #37d650;
-  border-radius: 8px;
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.32);
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.field.full {
-  grid-column: 1 / -1;
-}
-
-label {
-  font-weight: 800;
-  color: #ffffff;
-  font-size: 13px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #8aa08c;
-  border-radius: 6px;
-  background: #f7faf6;
-  color: #0a1814;
-  padding: 10px;
-  font-size: 15px;
-}
-
-textarea {
-  min-height: 92px;
-  resize: vertical;
-}
-
-button {
-  border: none;
-  border-radius: 6px;
-  background: #14883f;
-  color: #ffffff;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 800;
-}
-
-button:hover {
-  background: #0f6e32;
-}
-
-button.secondary {
-  background: #25352e;
-}
-
-button.secondary:hover {
-  background: #31453b;
-}
-
-button.danger {
-  background: #b92319;
-}
-
-button.danger:hover {
-  background: #941a12;
-}
-
-.form-actions,
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.filters button {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #ffffff;
-}
-
-.filters button.active {
-  background: #37d650;
-  color: #061411;
-}
-
-.small {
-  color: #c7d5cb;
-  font-size: 13px;
-}
-
-.status-line {
-  min-height: 18px;
-  margin-top: 10px;
-  color: #c7d5cb;
-  font-size: 13px;
-  font-weight: bold;
-}
-
-.status-line.error {
-  color: #ffb3ad;
-}
-
-.task-form-details summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-  color: #37d650;
-  font-size: 22px;
-  font-weight: 900;
-  list-style: none;
-}
-
-.task-form-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.task-form-details summary::after {
-  content: "+";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  background: rgba(55, 214, 80, 0.18);
-  color: #78ff89;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.task-form-details[open] summary::after {
-  content: "-";
-}
-
-.task-form-help {
-  margin-top: 10px;
-}
-
-.assignee-checklist {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 7px;
-  padding: 9px;
-  border: 1px solid rgba(199, 221, 211, 0.28);
-  border-radius: 6px;
-  background: rgba(4, 15, 12, 0.58);
-}
-
-.assignee-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #f5f7f3;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.assignee-option input {
-  width: auto;
-  min-width: 18px;
-  min-height: 18px;
-  accent-color: #37d650;
-}
-
-.assignee-source {
-  color: #a9bbb0;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.task-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.task-card {
-  background:
-    linear-gradient(145deg, rgba(17, 34, 31, 0.98), rgba(7, 17, 15, 0.98));
-  border: 1px solid rgba(199, 221, 211, 0.16);
-  border-left: 4px solid #37d650;
-  border-radius: 8px;
-  padding: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
-}
-
-.task-card.complete {
-  border-left-color: #76aef8;
-}
-
-.task-card.archived {
-  opacity: 0.72;
-  border-left-color: #839089;
-}
-
-.task-title-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.task-title {
-  font-size: 18px;
-  line-height: 1.25;
-  font-weight: 900;
-  color: #ffffff;
-}
-
-.badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 12px;
-  font-weight: 900;
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-}
-
-.badge.open {
-  background: rgba(57, 200, 72, 0.22);
-  color: #7dff8f;
-}
-
-.badge.in_progress {
-  background: rgba(255, 217, 102, 0.22);
-  color: #ffe18b;
-}
-
-.badge.complete {
-  background: rgba(105, 173, 255, 0.22);
-  color: #9dc8ff;
-}
-
-.badge.archived {
-  background: rgba(190, 201, 194, 0.18);
-  color: #d4ddd7;
-}
-
-.badge.priority-low {
-  background: rgba(166, 214, 173, 0.18);
-  color: #bff4c7;
-}
-
-.badge.priority-medium {
-  background: rgba(255, 217, 102, 0.18);
-  color: #ffe18b;
-}
-
-.badge.priority-high {
-  background: rgba(255, 145, 77, 0.22);
-  color: #ffbd91;
-}
-
-.badge.priority-urgent {
-  background: rgba(255, 84, 76, 0.26);
-  color: #ffb0aa;
-}
-
-.task-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.meta-box {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 6px;
-  padding: 8px;
-  min-height: 38px;
-}
-
-.meta-box strong {
-  display: block;
-  color: #8dff9c;
-  font-size: 11px;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-
-.notes-preview {
-  margin-top: 10px;
-  color: #d7e6d6;
-  line-height: 1.4;
-}
-
-.task-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.empty-state {
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 18px;
-  color: #c7d5cb;
-  text-align: center;
-}
-
-@media (max-width: 860px) {
-  body {
-    padding: 12px;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .top-actions button,
-  .form-actions button {
-    flex: 1 1 46%;
-  }
-
-  .filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .filters button {
-    width: 100%;
-  }
-
-  .task-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .task-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .task-actions button {
-    flex: 1 1 44%;
-  }
-
-  .assignee-checklist {
-    grid-template-columns: 1fr;
-  }
-}
-
-body.embedded-task-page {
-  padding: 0;
-  background: transparent;
-}
-
-body.embedded-task-page .page {
-  max-width: none;
-}
-
-body.tasks-page.embedded-task-page .logo-wrap.jgc-brand,
-body.embedded-task-page .top-actions,
-body.embedded-task-page .user-bar,
-body.embedded-task-page h1 {
-  display: none;
-}
-
-body.tasks-page.embedded-task-page #jgcNotificationBell {
-  display: none !important;
-}
-
-body.tasks-page.embedded-task-page #jgcAdminGlobalSearch {
-  display: none !important;
-}
-
-body.embedded-task-page .panel {
-  margin-bottom: 14px;
-}
-
-body.embedded-task-page {
-  overflow: hidden;
-}
-</style>
 </head>
 
-<body class="tasks-page jgc-page">
-<main class="page tasks-page-shell jgc-page-shell jgc-page-shell--wide">
-  <div class="logo-wrap jgc-brand">
-    <img src="logo.webp" alt="John Gordon Construction logo">
-  </div>
-
-  <h1 class="jgc-page-title">Tasks</h1>
-  <div id="currentUser" class="user-bar jgc-page-user"></div>
+<body class="tasks-page jgc-page jgc-system-page">
+<main class="page tasks-page-shell jgc-page-shell jgc-stack">
+  <header class="tasks-page-header jgc-page-header">
+    <div class="logo-wrap jgc-brand">
+      <img src="logo.webp" alt="John Gordon Construction logo">
+    </div>
+    <h1 class="jgc-page-title">Tasks</h1>
+    <div id="currentUser" class="user-bar jgc-page-user"></div>
+  </header>
 
   <div class="top-actions jgc-actions">
     <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
@@ -479,12 +27,12 @@ body.embedded-task-page {
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
-  <section class="panel task-form-panel jgc-panel">
-    <details id="taskFormDetails" class="task-form-details">
-      <summary><span id="taskFormTitle">New Task</span></summary>
-      <div class="small task-form-help">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
+  <details id="taskFormDetails" class="task-form-details jgc-archive">
+    <summary><span id="taskFormTitle" class="jgc-archive__title">New Task</span></summary>
+    <div class="jgc-archive__body">
+      <div class="small task-form-help jgc-muted">Only the title is required. Assignment, job, due date, priority, and category can all be left blank.</div>
 
-    <div class="form-grid jgc-form-grid" style="margin-top:14px;">
+    <div class="form-grid jgc-form-grid">
       <div class="field full jgc-field jgc-field--full">
         <label class="jgc-label" for="taskTitle">Task Title</label>
         <input class="jgc-input" id="taskTitle" maxlength="180" placeholder="Example: Fix WO name bug">
@@ -517,12 +65,6 @@ body.embedded-task-page {
       </div>
 
       <div class="field jgc-field">
-        <label class="jgc-label">Assigned To</label>
-        <div id="taskAssignedToList" class="assignee-checklist"></div>
-        <div class="small">Optional. Select one or more workers, or leave blank for unassigned.</div>
-      </div>
-
-      <div class="field jgc-field">
         <label class="jgc-label" for="taskCategory">Category</label>
         <select class="jgc-select" id="taskCategory">
           <option value="">No category</option>
@@ -534,6 +76,12 @@ body.embedded-task-page {
           <option value="job_follow_up">Job Follow-Up</option>
           <option value="other">Other</option>
         </select>
+      </div>
+
+      <div class="field full jgc-field jgc-field--full">
+        <label class="jgc-label">Assigned To</label>
+        <div id="taskAssignedToList" class="assignee-checklist"></div>
+        <div class="small jgc-muted">Optional. Select one or more workers, or leave blank for unassigned.</div>
       </div>
 
       <div class="field jgc-field">
@@ -559,22 +107,20 @@ body.embedded-task-page {
       <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="clearTaskForm()">Clear</button>
     </div>
       <div id="taskFormStatus" class="status-line jgc-notice" aria-live="polite"></div>
-    </details>
-  </section>
+    </div>
+  </details>
 
-  <section class="panel jgc-panel">
-    <details id="taskListDetails" class="jgc-archive">
-      <summary>
-        <span class="jgc-archive__title">Task List</span>
-        <span id="taskListLazyStatus" class="jgc-archive__count">Open to load</span>
-      </summary>
-      <div class="jgc-archive__body">
-        <div class="filters jgc-tabs" id="taskFilters"></div>
-        <div id="taskListStatus" class="status-line jgc-notice" aria-live="polite">Tasks have not been loaded yet.</div>
-        <div id="taskList" class="task-grid"></div>
-      </div>
-    </details>
-  </section>
+  <details id="taskListDetails" class="jgc-archive">
+    <summary>
+      <span class="jgc-archive__title">Task List</span>
+      <span id="taskListLazyStatus" class="jgc-archive__count">Open to load</span>
+    </summary>
+    <div class="jgc-archive__body">
+      <div class="filters jgc-tabs" id="taskFilters" role="tablist" aria-label="Task filters"></div>
+      <div id="taskListStatus" class="status-line jgc-notice" aria-live="polite">Tasks have not been loaded yet.</div>
+      <div id="taskList" class="task-grid"></div>
+    </div>
+  </details>
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
@@ -695,6 +241,7 @@ function setTaskFormStatus(message, isError) {
   const element = document.getElementById("taskFormStatus");
   element.textContent = message || "";
   element.classList.toggle("error", Boolean(isError));
+  element.classList.toggle("jgc-notice--danger", Boolean(isError));
   requestTaskFrameResize();
 }
 
@@ -702,6 +249,7 @@ function setTaskListStatus(message, isError) {
   const element = document.getElementById("taskListStatus");
   element.textContent = message || "";
   element.classList.toggle("error", Boolean(isError));
+  element.classList.toggle("jgc-notice--danger", Boolean(isError));
   requestTaskFrameResize();
 }
 
@@ -913,7 +461,7 @@ function sortTasks(a, b) {
 function renderFilters() {
   document.getElementById("taskFilters").innerHTML = TASK_FILTERS.map((filter) => {
     const active = activeFilter === filter.key ? "active" : "";
-    return '<button type="button" class="' + active + '" onclick="setTaskFilter(\'' + filter.key + '\')">' + escapeHtml(filter.label) + '</button>';
+    return '<button type="button" class="jgc-tab ' + active + '" role="tab" aria-selected="' + (active ? 'true' : 'false') + '" onclick="setTaskFilter(\'' + filter.key + '\')">' + escapeHtml(filter.label) + '</button>';
   }).join("");
 }
 
@@ -932,7 +480,7 @@ function renderTaskFormOptions() {
       return '<label class="assignee-option"><input type="checkbox" name="taskAssignedTo" value="' + escapeHtml(assignee.value) + '"><span>' + escapeHtml(label) + '</span>' + source + '</label>';
     })
     .join("");
-  document.getElementById("taskAssignedToList").innerHTML = assignmentOptions || '<div class="small">No approved workers found.</div>';
+  document.getElementById("taskAssignedToList").innerHTML = assignmentOptions || '<div class="small jgc-muted">No approved workers found.</div>';
 
   document.getElementById("taskJobOptions").innerHTML = jobs.map((job) => {
     const name = String(job.job_name || "").trim();
@@ -1153,7 +701,7 @@ function renderTasks() {
   setTaskListStatus(filtered.length + " task" + (filtered.length === 1 ? "" : "s") + " shown.");
 
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty-state">No tasks found for this filter.</div>';
+    list.innerHTML = '<div class="empty-state jgc-empty-state">No tasks found for this filter.</div>';
     requestTaskFrameResize();
     return;
   }
@@ -1173,17 +721,17 @@ function renderTaskCard(task) {
   const canDelete = currentWorkerIsAdmin;
 
   return `
-    <article class="task-card ${escapeHtml(status)}">
+    <article class="task-card jgc-card ${escapeHtml(status)}">
       <div class="task-title-row">
         <div class="task-title">${escapeHtml(task.title || "Untitled Task")}</div>
-        ${task.due_date ? '<span class="badge">' + escapeHtml(formatTaskDate(task.due_date)) + '</span>' : ""}
+        ${task.due_date ? '<span class="badge task-badge jgc-badge">' + escapeHtml(formatTaskDate(task.due_date)) + '</span>' : ""}
       </div>
 
       <div class="badge-row">
-        <span class="badge ${escapeHtml(status)}">${escapeHtml(getTaskStatusLabel(status))}</span>
-        ${priority ? '<span class="badge priority-' + escapeHtml(priority) + '">' + escapeHtml(getTaskPriorityLabel(priority)) + '</span>' : ""}
-        ${category ? '<span class="badge">' + escapeHtml(getTaskCategoryLabel(category)) + '</span>' : ""}
-        ${isDueSoon(task) ? '<span class="badge priority-high">Due Soon</span>' : ""}
+        <span class="badge task-badge jgc-badge ${escapeHtml(status)}">${escapeHtml(getTaskStatusLabel(status))}</span>
+        ${priority ? '<span class="badge task-badge jgc-badge priority-' + escapeHtml(priority) + '">' + escapeHtml(getTaskPriorityLabel(priority)) + '</span>' : ""}
+        ${category ? '<span class="badge task-badge jgc-badge">' + escapeHtml(getTaskCategoryLabel(category)) + '</span>' : ""}
+        ${isDueSoon(task) ? '<span class="badge task-badge jgc-badge priority-high">Due Soon</span>' : ""}
       </div>
 
       <div class="task-meta">
@@ -1195,13 +743,13 @@ function renderTaskCard(task) {
 
       ${notes ? '<div class="notes-preview">' + escapeHtml(notes.length > 220 ? notes.slice(0, 220) + "..." : notes) + '</div>' : ""}
 
-      <div class="task-actions">
-        ${status !== "complete" && status !== "archived" && canChange ? '<button type="button" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'complete\')">Mark Complete</button>' : ""}
-        ${status === "open" && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'in_progress\')">Start</button>' : ""}
-        ${(status === "complete" || status === "archived" || status === "in_progress") && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'open\')">Reopen</button>' : ""}
-        ${status !== "archived" && canChange ? '<button type="button" class="secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'archived\')">Archive</button>' : ""}
-        ${canChange ? '<button type="button" class="secondary" onclick="editTask(\'' + escapeHtml(task.id) + '\')">Edit</button>' : ""}
-        ${canDelete ? '<button type="button" class="danger" onclick="deleteTask(\'' + escapeHtml(task.id) + '\')">Delete</button>' : ""}
+      <div class="task-actions jgc-actions">
+        ${status !== "complete" && status !== "archived" && canChange ? '<button type="button" class="jgc-button" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'complete\')">Mark Complete</button>' : ""}
+        ${status === "open" && canChange ? '<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'in_progress\')">Start</button>' : ""}
+        ${(status === "complete" || status === "archived" || status === "in_progress") && canChange ? '<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'open\')">Reopen</button>' : ""}
+        ${status !== "archived" && canChange ? '<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="updateTaskStatus(\'' + escapeHtml(task.id) + '\', \'archived\')">Archive</button>' : ""}
+        ${canChange ? '<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editTask(\'' + escapeHtml(task.id) + '\')">Edit</button>' : ""}
+        ${canDelete ? '<button type="button" class="danger jgc-button jgc-button--danger" onclick="deleteTask(\'' + escapeHtml(task.id) + '\')">Delete</button>' : ""}
       </div>
     </article>
   `;
