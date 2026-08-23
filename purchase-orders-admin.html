@@ -8,10 +8,10 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>JGC Portal - Purchase Order Admin</title>
   <link rel="manifest" href="manifest.json?v=7">
-  <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=20">
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+  <link rel="stylesheet" href="purchase-orders.css?v=21">
 </head>
-<body class="po-page po-admin-page jgc-page">
+<body class="po-page po-admin-page jgc-page jgc-system-page">
   <nav class="po-admin-tabs" aria-label="Admin navigation">
     <a class="tab-button" href="admin.html?tab=summary">Summary</a>
     <a class="tab-button" href="admin.html?tab=jobDashboard">Job Dashboard</a>
@@ -26,8 +26,8 @@
   <main class="po-shell jgc-page-shell">
     <header class="jgc-page-header">
       <div class="po-brand jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-      <h1>Purchase Order Admin</h1>
-      <p id="poAdminCurrentUser" class="po-user-line"></p>
+      <h1 class="jgc-page-title">Purchase Order Admin</h1>
+      <p id="poAdminCurrentUser" class="po-user-line jgc-page-user"></p>
     </header>
 
     <div id="poAdminNotice" class="po-notice jgc-notice" hidden role="status"></div>
@@ -149,7 +149,7 @@
           <input id="poBlockLeaseDays" class="jgc-input" type="number" min="1" max="90" value="30">
         </div>
       </div>
-      <div class="po-form-actions jgc-actions" style="position:static;">
+      <div class="po-form-actions po-static-actions jgc-actions">
         <button id="poAssignBlockButton" class="jgc-button" type="button"><i data-lucide="check"></i> Assign Block</button>
       </div>
     </div>
@@ -161,6 +161,6 @@
   <script src="common.js?v=39"></script>
   <script src="admin-housekeeping.js?v=1"></script>
   <script src="purchase-orders-pdf.js?v=2"></script>
-  <script src="purchase-orders-admin.js?v=13"></script>
+  <script src="purchase-orders-admin.js?v=14"></script>
 </body>
 </html>

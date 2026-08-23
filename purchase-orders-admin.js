@@ -176,8 +176,8 @@
         <td data-label="Date">${escapeText(formatDate(order.order_date))}</td>
         <td data-label="Job">${escapeText(order.job_number)}<br>${escapeText(order.job_name)}</td>
         <td data-label="Supplier">${escapeText(order.supplier_name || "-")}</td>
-        <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span style="color:#b9c9bd;">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
-        <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span style="color:#b9c9bd;">Rev. ${escapeText(order.revision)}</span></td>
+        <td data-label="Created / Edited">${escapeText(order.creator_name)}${order.last_edited_by_name ? `<br><span class="po-muted-line">Edited by: ${escapeText(order.last_edited_by_name)}</span>` : ""}</td>
+        <td data-label="Status">${escapeText(label(order.workflow_status))}<br><span class="po-muted-line">Rev. ${escapeText(order.revision)}</span></td>
         <td data-label="Email">${escapeText(label(order.email_status))}${order.receipt_status === "cleanup_failed" ? '<br><span class="po-badge jgc-badge danger jgc-badge--danger">Cleanup Failed</span>' : ""}</td>
         <td data-label="Work Order">${escapeText(link ? getWorkOrderName(link.work_order_id) : "-")}</td>
         <td data-label="Actions"><button class="jgc-button" type="button" data-view-order="${escapeText(order.id)}"><i data-lucide="folder-open"></i> View</button></td>
@@ -304,8 +304,8 @@
         : (deviceLimitReached ? `<span class="po-device-note">${poDeviceLimit(profile)} active device limit reached</span>` : "");
       return `
         <tr>
-          <td data-label="Employee">${escapeText(profile ? profile.display_name : device.profile_id)}<br><span style="color:#b9c9bd;">${escapeText(profile && profile.email || "")}</span></td>
-          <td data-label="Device">${escapeText(device.device_label)}<br><span style="color:#b9c9bd;">Requested ${escapeText(formatDateTime(device.requested_at))}</span></td>
+          <td data-label="Employee">${escapeText(profile ? profile.display_name : device.profile_id)}<br><span class="po-muted-line">${escapeText(profile && profile.email || "")}</span></td>
+          <td data-label="Device">${escapeText(device.device_label)}<br><span class="po-muted-line">Requested ${escapeText(formatDateTime(device.requested_at))}</span></td>
           <td data-label="Status"><span class="${badgeClass(device.status === "active" ? "green" : (device.status === "revoked" ? "danger" : "warning"))}">${escapeText(label(device.status))}</span></td>
           <td data-label="Lease">${escapeText(formatDateTime(device.lease_expires_at))}</td>
           <td data-label="Number Blocks">${blockText}</td>
@@ -389,7 +389,7 @@
       </div>
       ${order.email_last_error ? `<div class="po-notice error jgc-notice jgc-notice--danger">${escapeText(order.email_last_error)}</div>` : ""}
       <section class="po-section-band jgc-section">
-        <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+        <div class="po-inline-actions po-spaced-actions jgc-inline-actions">
           <button class="secondary jgc-button jgc-button--secondary" type="button" data-admin-action="pdf"><i data-lucide="file-text"></i> View PDF</button>
           ${order.workflow_status === "submitted" && order.email_status === "pending" ? '<button class="jgc-button jgc-button--primary" type="button" data-admin-action="submit-early"><i data-lucide="send"></i> Submit Early</button>' : ""}
           ${order.email_status === "failed" || order.receipt_status === "cleanup_failed" ? '<button class="jgc-button jgc-button--primary" type="button" data-admin-action="retry"><i data-lucide="send"></i> Retry Delivery</button>' : ""}
@@ -403,7 +403,7 @@
       <section class="po-section-band jgc-section">
         <h3 class="jgc-section-title">Materials</h3>
         <div class="po-table-wrap jgc-table-wrap">
-          <table class="po-table jgc-table" style="min-width:420px;">
+          <table class="po-table po-materials-table jgc-table">
             <thead><tr><th>Qty Ordered</th><th>Description</th></tr></thead>
             <tbody>${items.map((item) => `<tr><td>${escapeText(item.quantity_ordered)}</td><td>${escapeText(item.description)}</td></tr>`).join("") || '<tr><td colspan="2">No material rows.</td></tr>'}</tbody>
           </table>

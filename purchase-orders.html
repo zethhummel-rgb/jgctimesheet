@@ -8,15 +8,15 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>JGC Portal - Purchase Orders</title>
   <link rel="manifest" href="manifest.json?v=7">
-  <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="purchase-orders.css?v=20">
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+  <link rel="stylesheet" href="purchase-orders.css?v=21">
 </head>
-<body class="po-page po-employee-page jgc-page">
+<body class="po-page po-employee-page jgc-page jgc-system-page">
   <main class="po-shell jgc-page-shell">
     <header class="jgc-page-header">
       <div class="po-brand jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-      <h1>Purchase Orders</h1>
-      <p id="poCurrentUser" class="po-user-line"></p>
+      <h1 class="jgc-page-title">Purchase Orders</h1>
+      <p id="poCurrentUser" class="po-user-line jgc-page-user"></p>
     </header>
 
     <div class="po-status-row" aria-live="polite">
@@ -29,8 +29,8 @@
 
     <section id="poDevicePanel" class="po-notice warning jgc-notice jgc-notice--warning" hidden>
       <strong id="poDeviceTitle">PO device approval required</strong>
-      <div id="poDeviceMessage" style="margin-top:5px;"></div>
-      <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+      <div id="poDeviceMessage" class="po-device-message"></div>
+      <div class="po-inline-actions po-spaced-actions jgc-inline-actions">
         <button id="poRegisterDeviceButton" class="jgc-button" type="button">
           <i data-lucide="smartphone"></i> Register This Device
         </button>
@@ -166,7 +166,7 @@
             <h3 class="jgc-section-title">Materials</h3>
           </div>
           <div id="poMaterialList" class="po-material-list"></div>
-          <div class="po-inline-actions jgc-inline-actions" style="margin-top:10px;">
+          <div class="po-inline-actions po-spaced-actions jgc-inline-actions">
             <button id="poAddItemButton" class="secondary jgc-button jgc-button--secondary" type="button">
               <i data-lucide="plus"></i> Add Material Row
             </button>

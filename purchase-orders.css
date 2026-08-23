@@ -1,15 +1,15 @@
-:root {
-  --po-bg: #061411;
-  --po-surface: #0e2119;
-  --po-surface-2: #142a20;
-  --po-border: rgba(107, 217, 121, 0.3);
-  --po-green: #31d653;
-  --po-green-dark: #12833d;
-  --po-text: #f4f8f4;
-  --po-muted: #b9c9bd;
-  --po-danger: #c72a22;
-  --po-warning: #f1bf4b;
-  --po-info: #56b4e9;
+.po-page {
+  --po-bg: var(--jgc-color-page);
+  --po-surface: var(--jgc-color-surface);
+  --po-surface-2: var(--jgc-color-surface-raised);
+  --po-border: var(--jgc-color-border);
+  --po-green: var(--jgc-color-success);
+  --po-green-dark: var(--jgc-color-brand-600);
+  --po-text: var(--jgc-color-text);
+  --po-muted: var(--jgc-color-text-muted);
+  --po-danger: var(--jgc-color-danger);
+  --po-warning: var(--jgc-color-warning);
+  --po-info: var(--jgc-color-info);
 }
 
 * {
@@ -21,7 +21,7 @@ body.po-page {
   padding: 24px 18px 80px;
   background: var(--po-bg);
   color: var(--po-text);
-  font-family: Arial, sans-serif;
+  font-family: var(--jgc-font-family);
 }
 
 .po-admin-tabs {
@@ -35,10 +35,10 @@ body.po-page {
   margin: 0 auto 12px;
   padding: 7px 10px;
   overflow-x: auto;
-  background: rgba(6, 20, 17, 0.98);
-  border-top: 1px solid rgba(57, 200, 72, 0.25);
-  border-bottom: 1px solid rgba(57, 200, 72, 0.25);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  background: var(--jgc-nav-mobile-background);
+  border-top: 1px solid var(--jgc-nav-accent-border-soft);
+  border-bottom: 1px solid var(--jgc-nav-accent-border-soft);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--jgc-color-page-deep) 18%, transparent);
   scrollbar-width: none;
 }
 
@@ -50,10 +50,10 @@ body.po-page {
   flex: 0 0 auto;
   min-width: 86px;
   padding: 8px 13px;
-  border: 1px solid rgba(63, 125, 77, 0.6);
+  border: 1px solid var(--jgc-nav-accent-border);
   border-radius: 999px;
-  background: #13843f !important;
-  color: #fff !important;
+  background: var(--jgc-color-brand-600) !important;
+  color: var(--jgc-color-on-brand) !important;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.1;
@@ -63,8 +63,8 @@ body.po-page {
 }
 
 .po-admin-tabs .tab-button.active {
-  background: #39c848 !important;
-  color: #061411 !important;
+  background: var(--jgc-color-brand-500) !important;
+  color: var(--jgc-color-page) !important;
 }
 
 .po-shell {
@@ -105,7 +105,7 @@ body.po-page {
 
 .po-page h1 {
   margin: 0;
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   text-align: center;
   font-size: 36px;
   letter-spacing: 0;
@@ -134,6 +134,23 @@ body.po-page {
   flex-wrap: wrap;
 }
 
+.po-device-message {
+  margin-top: var(--jgc-space-1);
+}
+
+.po-spaced-actions {
+  margin-top: var(--jgc-space-3);
+}
+
+.po-static-actions {
+  position: static;
+}
+
+.po-materials-table {
+  min-width: 420px;
+}
+
+.po-muted-line,
 .po-device-note {
   color: var(--po-muted);
   font-size: 12px;
@@ -162,11 +179,11 @@ body.po-page {
 .po-page button,
 .po-page .po-button {
   min-height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--jgc-color-border-soft);
   border-radius: 6px;
   padding: 10px 15px;
   background: var(--po-green-dark);
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -182,7 +199,7 @@ body.po-page {
 .po-page input:focus-visible,
 .po-page select:focus-visible,
 .po-page textarea:focus-visible {
-  outline: 3px solid rgba(49, 214, 83, 0.4);
+  outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-400) 40%, transparent);
   outline-offset: 2px;
 }
 
@@ -192,7 +209,7 @@ body.po-page {
 }
 
 .po-page button.secondary {
-  background: #263a30;
+  background: var(--jgc-color-surface-soft);
 }
 
 .po-page button.danger {
@@ -218,38 +235,38 @@ body.po-page {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--jgc-color-border-soft);
   border-radius: 999px;
   padding: 4px 10px;
-  background: #25382f;
-  color: #fff;
+  background: var(--jgc-color-surface-soft);
+  color: var(--jgc-color-on-brand);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .po-badge.green {
-  background: #116a35;
+  background: var(--jgc-color-badge-success);
 }
 
 .po-badge.warning {
-  background: #775816;
-  color: #fff6d6;
+  background: var(--jgc-color-badge-warning);
+  color: var(--jgc-color-badge-warning-text);
 }
 
 .po-badge.danger {
-  background: #7c211e;
+  background: var(--jgc-color-badge-danger);
 }
 
 .po-badge.info {
-  background: #155477;
+  background: var(--jgc-color-badge-info);
 }
 
 .po-notice {
   margin: 14px 0;
   border-left: 4px solid var(--po-green);
   padding: 12px 14px;
-  background: #10241b;
+  background: var(--jgc-color-notice);
   color: var(--po-text);
 }
 
@@ -258,26 +275,27 @@ body.po-page {
 }
 
 .po-notice.error {
-  border-left-color: #ef5147;
+  border-left-color: var(--jgc-color-danger);
 }
 
 .po-notice.po-submit-error {
   scroll-margin-top: 96px;
-  border: 2px solid #ff5a52;
+  border: 2px solid var(--jgc-color-danger);
   border-left-width: 8px;
-  background: #3b0b0b;
-  color: #fff;
+  background: var(--jgc-color-danger-dark);
+  color: var(--jgc-color-on-brand);
   font-size: 20px;
   font-weight: 800;
   line-height: 1.35;
 }
 
 .po-notice.po-submit-error:focus {
-  outline: 3px solid #ff8a84;
+  outline: 3px solid var(--jgc-color-danger);
   outline-offset: 3px;
 }
 
 .po-notice[hidden],
+.po-page [hidden],
 .po-view[hidden],
 .po-modal[hidden] {
   display: none !important;
@@ -314,7 +332,7 @@ body.po-page {
 .po-page label {
   display: block;
   margin-bottom: 5px;
-  color: #eff8ef;
+  color: var(--jgc-color-text);
   font-size: 14px;
   font-weight: 700;
 }
@@ -324,11 +342,11 @@ body.po-page {
 .po-page textarea {
   width: 100%;
   min-height: 44px;
-  border: 1px solid #718078;
+  border: 1px solid var(--jgc-color-input-border);
   border-radius: 6px;
   padding: 10px 11px;
-  background: #f7faf6;
-  color: #102018;
+  background: var(--jgc-color-input);
+  color: var(--jgc-color-text-dark);
   font: inherit;
   letter-spacing: 0;
 }
@@ -339,8 +357,8 @@ body.po-page {
 }
 
 .po-page input[readonly] {
-  background: #dfe7df;
-  color: #344239;
+  background: color-mix(in srgb, var(--jgc-color-input) 86%, var(--jgc-color-text-muted));
+  color: var(--jgc-color-text-dark);
 }
 
 .po-list {
@@ -374,7 +392,7 @@ body.po-page {
 }
 
 .po-record.cancelled {
-  border-left-color: #d7463d;
+  border-left-color: var(--jgc-color-danger);
 }
 
 .po-record.pending {
@@ -390,7 +408,7 @@ body.po-page {
 }
 
 .po-record-number {
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font-size: 21px;
   font-weight: 800;
 }
@@ -412,7 +430,7 @@ body.po-page {
 }
 
 .po-record-meta strong {
-  color: #fff;
+  color: var(--jgc-color-on-brand);
 }
 
 .po-record-actions {
@@ -440,7 +458,7 @@ body.po-page {
 }
 
 .po-number-display {
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font-size: 23px;
   font-weight: 800;
 }
@@ -458,7 +476,7 @@ body.po-page {
 .po-field-label {
   display: block;
   margin-bottom: 8px;
-  color: #b9c9bd;
+  color: var(--jgc-color-text-muted);
   font-size: 13px;
   font-weight: 800;
 }
@@ -480,11 +498,11 @@ body.po-page {
   max-height: 320px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid rgba(89, 198, 109, 0.62);
+  border: 1px solid var(--jgc-color-brand-400);
   border-radius: 6px;
   padding: 5px;
-  background: #10241b;
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
+  background: var(--jgc-color-notice);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--jgc-color-page-deep) 42%, transparent);
 }
 
 .po-job-options[hidden] {
@@ -499,14 +517,14 @@ body.po-page {
   border-radius: 4px;
   padding: 9px 11px;
   background: transparent !important;
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   line-height: 1.25;
   text-align: left;
 }
 
 .po-job-option:hover,
 .po-job-option:focus-visible {
-  background: #174b2d !important;
+  background: var(--jgc-color-brand-700) !important;
 }
 
 .po-job-empty {
@@ -542,7 +560,7 @@ body.po-page {
   width: 100%;
   min-height: 58px;
   padding: 10px 12px !important;
-  background: #10241b !important;
+  background: var(--jgc-color-notice) !important;
   color: var(--po-text) !important;
   text-align: left;
 }
@@ -605,7 +623,7 @@ body.po-page {
 .po-job-note-heading strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font-size: 14px;
 }
 
@@ -625,7 +643,7 @@ body.po-page {
   align-items: center;
   gap: 12px;
   min-height: 48px;
-  border-top: 1px solid rgba(107, 217, 121, 0.14);
+  border-top: 1px solid var(--jgc-color-border-soft);
   padding: 6px 0;
 }
 
@@ -761,7 +779,7 @@ body.po-page {
 
 .po-metric strong {
   display: block;
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font-size: 24px;
 }
 
@@ -784,19 +802,19 @@ body.po-page {
 
 .po-table th,
 .po-table td {
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--jgc-color-border-soft);
   padding: 9px;
   text-align: left;
   vertical-align: top;
 }
 
 .po-table th {
-  background: #113b22;
-  color: #fff;
+  background: var(--jgc-color-table-header);
+  color: var(--jgc-color-on-brand);
 }
 
 .po-table td {
-  background: #0d1d17;
+  background: var(--jgc-color-table-row);
 }
 
 .po-table-wrap.jgc-table-wrap {
@@ -806,17 +824,17 @@ body.po-page {
 
 .po-table.jgc-table th,
 .po-table.jgc-table td {
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--jgc-color-border-soft);
   padding: 9px;
 }
 
 .po-table.jgc-table th {
-  background: #113b22;
+  background: var(--jgc-color-table-header);
 }
 
 .po-table.jgc-table td,
 .po-table.jgc-table tbody tr:nth-child(even) td {
-  background: #0d1d17;
+  background: var(--jgc-color-table-row);
 }
 
 .po-tabs {
@@ -836,7 +854,7 @@ body.po-page {
 
 .po-tabs button.active {
   background: var(--po-green);
-  color: #04200c;
+  color: var(--jgc-color-text-dark);
 }
 
 .po-submitted-groups {
@@ -891,7 +909,7 @@ body.po-page {
 
 .po-employee-order-group[open] > summary {
   border-bottom: 1px solid var(--po-border);
-  background: rgba(52, 211, 73, 0.07);
+  background: color-mix(in srgb, var(--jgc-color-brand-500) 7%, transparent);
 }
 
 .po-employee-group-person {
@@ -906,7 +924,7 @@ body.po-page {
 }
 
 .po-employee-group-person strong {
-  color: #fff;
+  color: var(--jgc-color-on-brand);
   font-size: 16px;
 }
 
@@ -933,14 +951,14 @@ body.po-page {
 }
 
 .po-history-item {
-  border-left: 3px solid #4b8e5b;
+  border-left: 3px solid var(--jgc-color-brand-600);
   padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.035);
+  background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
 }
 
 .po-history-item strong {
   display: block;
-  color: #fff;
+  color: var(--jgc-color-on-brand);
 }
 
 .po-history-item span {
@@ -955,7 +973,7 @@ body.po-page {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(0, 0, 0, 0.78);
+  background: color-mix(in srgb, var(--jgc-color-page-deep) 78%, transparent);
 }
 
 .po-modal-dialog {
@@ -965,7 +983,7 @@ body.po-page {
   border: 1px solid var(--po-border);
   border-radius: 8px;
   padding: 18px;
-  background: #0d1e17;
+  background: var(--jgc-color-surface);
 }
 
 .po-modal-header {
@@ -978,7 +996,7 @@ body.po-page {
 .po-modal.jgc-modal {
   z-index: 5000;
   padding: 18px;
-  background: rgba(0, 0, 0, 0.78);
+  background: color-mix(in srgb, var(--jgc-color-page-deep) 78%, transparent);
 }
 
 .po-modal-dialog.jgc-modal__dialog {
@@ -986,7 +1004,7 @@ body.po-page {
   max-height: 88vh;
   border-radius: 8px;
   padding: 18px;
-  background: #0d1e17;
+  background: var(--jgc-color-surface);
   box-shadow: none;
 }
 
@@ -1058,16 +1076,16 @@ body.po-page {
     min-width: max-content;
     min-height: 38px;
     padding: 9px 12px;
-    background: #13843f !important;
-    border-color: rgba(91, 203, 112, 0.48);
+    background: var(--jgc-color-brand-600) !important;
+    border-color: var(--jgc-nav-accent-border);
     border-radius: 999px;
     font-size: 13px;
     scroll-snap-align: center;
   }
 
   .jgc-theme .po-admin-tabs .tab-button.active {
-    background: #39c848 !important;
-    color: #07100f !important;
+    background: var(--jgc-color-brand-500) !important;
+    color: var(--jgc-color-text-dark) !important;
   }
 
   .po-brand {
@@ -1407,7 +1425,7 @@ body.po-page {
     gap: 10px;
     align-items: start;
     border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--jgc-color-border-soft);
     padding: 8px 10px;
     background: transparent;
     overflow-wrap: anywhere;
@@ -1489,7 +1507,7 @@ body.po-page {
     margin: -14px -14px 12px;
     border-bottom: 1px solid var(--po-border);
     padding: 12px 14px;
-    background: #0d1e17;
+    background: var(--jgc-color-surface);
   }
 
   .po-modal.jgc-modal {
