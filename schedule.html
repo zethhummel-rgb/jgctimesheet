@@ -6,486 +6,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Schedule</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<link rel="stylesheet" href="schedule-design-system.css?v=1">
-<style>
-body {
-  margin: 0;
-  padding: 20px;
-  font-family: Arial, sans-serif;
-  background: #061411;
-  color: #f6fff7;
-}
-
-.page {
-  max-width: 1280px;
-  margin: 0 auto;
-}
-
-.logo-wrap {
-  max-width: 260px;
-  margin: 0 auto 8px;
-}
-
-.logo-wrap img {
-  width: 100%;
-  display: block;
-}
-
-h1,
-h2,
-h3 {
-  color: #38df5c;
-}
-
-h1 {
-  text-align: center;
-  margin: 0 0 6px;
-}
-
-.top-actions,
-.calendar-controls,
-.form-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.top-actions,
-.calendar-controls {
-  justify-content: center;
-  margin: 12px 0;
-}
-
-.admin-tabs {
-  position: sticky;
-  top: 66px;
-  z-index: 120;
-  max-width: 1500px;
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: 3px;
-  margin: 0 auto 12px;
-  padding: 5px 8px;
-  overflow-x: visible;
-  background: rgba(6, 20, 17, 0.98);
-  border-top: 1px solid rgba(57, 200, 72, 0.25);
-  border-bottom: 1px solid rgba(57, 200, 72, 0.25);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
-}
-
-.admin-tabs button {
-  flex: 0 0 auto;
-  padding: 5px 7px;
-  background: #20382a;
-  border: 1px solid rgba(99, 205, 107, 0.35);
-  font-size: 11px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.admin-tabs button.active {
-  background: #37d650;
-  color: #061411;
-}
-
-button {
-  border: 0;
-  border-radius: 6px;
-  padding: 10px 14px;
-  background: #168d42;
-  color: #ffffff;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-button.secondary {
-  background: #26352d;
-}
-
-button.danger {
-  background: #a82828;
-}
-
-.small {
-  color: #d9ead9;
-  font-size: 13px;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.6fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.card {
-  background: #102018;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-top: 4px solid #37d650;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
-}
-
-.calendar-title {
-  min-width: 220px;
-  text-align: center;
-  font-size: 22px;
-  font-weight: 900;
-  color: #ffffff;
-}
-
-.legend {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-bottom: 10px;
-}
-
-.legend span,
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 7px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.work-chip,
-.legend .work {
-  background: #c9f1d2;
-  color: #0d351a;
-}
-
-.vehicle-chip,
-.legend .vehicle {
-  background: #cfd8ff;
-  color: #151d53;
-}
-
-.training-chip,
-.legend .training {
-  background: #f0ccff;
-  color: #3a0d4e;
-}
-
-.general-chip,
-.legend .general {
-  background: #e2e8ee;
-  color: #1d2a32;
-}
-
-.vacation-chip,
-.legend .vacation {
-  background: #ffe7a7;
-  color: #3f2c00;
-}
-
-.mine-chip,
-.legend .mine {
-  background: #b9e9ff;
-  color: #092b3b;
-}
-
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 1px;
-  border: 1px solid rgba(99, 205, 107, 0.32);
-  background: rgba(99, 205, 107, 0.32);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.calendar-head,
-.day {
-  background: #f8fff8;
-  color: #102018;
-}
-
-.calendar-head {
-  padding: 8px 4px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 900;
-  background: #164225;
-  color: #ffffff;
-}
-
-.day {
-  min-height: 124px;
-  padding: 7px;
-  border: 0;
-  text-align: left;
-  cursor: pointer;
-}
-
-.day:hover,
-.day.selected {
-  outline: 3px solid #37d650;
-  outline-offset: -3px;
-}
-
-.day.muted {
-  background: #dfe8df;
-  color: #657268;
-}
-
-.day-number {
-  font-size: 15px;
-  font-weight: 900;
-  margin-bottom: 5px;
-}
-
-.day-list {
-  display: grid;
-  gap: 4px;
-}
-
-.day-item {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-radius: 5px;
-  padding: 4px 5px;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.schedule-sync-dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-right: 5px;
-  vertical-align: middle;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.55), 0 0 7px rgba(0,0,0,0.25);
-}
-
-.schedule-sync-dot.synced {
-  background: #22c55e;
-}
-
-.schedule-sync-dot.unsynced {
-  background: #ef4444;
-}
-
-.schedule-event-time {
-  font-weight: 900;
-  margin-right: 3px;
-}
-
-.schedule-event-title {
-  min-width: 0;
-}
-
-.day-item.work {
-  background: #c9f1d2;
-  color: #0d351a;
-}
-
-.day-item.vehicle {
-  background: #cfd8ff;
-  color: #151d53;
-}
-
-.day-item.training {
-  background: #f0ccff;
-  color: #3a0d4e;
-}
-
-.day-item.general {
-  background: #e2e8ee;
-  color: #1d2a32;
-}
-
-.day-item.mine {
-  background: #b9e9ff;
-  color: #092b3b;
-}
-
-.day-item.vacation {
-  background: #ffe7a7;
-  color: #3f2c00;
-}
-
-label {
-  display: block;
-  margin: 10px 0 5px;
-  font-weight: 900;
-  color: #ffffff;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #879687;
-  border-radius: 6px;
-  padding: 10px;
-  background: #f8fff8;
-  color: #102018;
-  font-size: 15px;
-}
-
-textarea {
-  min-height: 88px;
-  resize: vertical;
-}
-
-.employee-checks {
-  display: grid;
-  gap: 6px;
-  max-height: 220px;
-  overflow: auto;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-radius: 8px;
-  padding: 8px;
-  background: rgba(255,255,255,0.04);
-}
-
-.employee-checks label {
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  gap: 7px;
-  align-items: center;
-  margin: 0;
-  padding: 6px;
-  border-radius: 5px;
-  background: rgba(255,255,255,0.04);
-  color: #f7fff7;
-  font-weight: 800;
-}
-
-.employee-checks input {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-}
-
-.detail-list {
-  display: grid;
-  gap: 9px;
-}
-
-.detail-item {
-  border: 1px solid rgba(99, 205, 107, 0.22);
-  border-radius: 8px;
-  padding: 10px;
-  background: rgba(255,255,255,0.04);
-}
-
-.detail-title {
-  color: #ffffff;
-  font-weight: 900;
-  margin-bottom: 4px;
-}
-
-.detail-meta {
-  color: #d9ead9;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.schedule-sync-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.schedule-sync-status.synced {
-  background: rgba(48, 209, 88, 0.16);
-  color: #8ff7a4;
-}
-
-.schedule-sync-status.pending {
-  background: rgba(255, 211, 106, 0.16);
-  color: #ffe4a0;
-}
-
-.schedule-sync-status.failed {
-  background: rgba(255, 99, 99, 0.16);
-  color: #ffb6b6;
-}
-
-.schedule-sync-retry {
-  width: auto;
-  min-height: 30px;
-  margin: 8px 0 0;
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
-.hidden {
-  display: none !important;
-}
-
-@media (max-width: 900px) {
-  body {
-    padding: 12px;
-  }
-
-  .admin-tabs {
-    top: 58px;
-    z-index: 20;
-    margin: 0 -12px 14px;
-    padding: 8px 12px;
-    gap: 8px;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    background: rgba(6, 20, 17, 0.98);
-    border-top: 1px solid rgba(57, 200, 72, 0.25);
-    border-bottom: 1px solid rgba(57, 200, 72, 0.25);
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .admin-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .admin-tabs button {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: max-content;
-    padding: 9px 12px;
-    border-radius: 999px;
-    font-size: 13px;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .calendar-grid {
-    overflow-x: auto;
-  }
-
-  .day {
-    min-height: 96px;
-    padding: 5px;
-  }
-
-  .day-item {
-    font-size: 10px;
-  }
-}
-</style>
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+<link rel="stylesheet" href="schedule-design-system.css?v=2">
 </head>
-<body class="schedule-page jgc-page">
+<body class="schedule-page jgc-page jgc-system-page">
 <main class="page schedule-page-shell jgc-page-shell jgc-page-shell--wide">
   <div id="adminTabs" class="admin-tabs hidden">
     <button type="button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
@@ -509,12 +33,13 @@ textarea {
     <button type="button" onclick="window.location.href='accounts.html'">Accounts</button>
   </div>
 
-  <div class="logo-wrap jgc-brand-region">
-    <img src="logo.webp" alt="John Gordon Construction logo">
-  </div>
-
-  <h1 class="jgc-page-title">Schedule</h1>
-  <div id="currentUser" class="small jgc-user-line" style="text-align:center;"></div>
+  <header class="schedule-page-header jgc-page-header">
+    <div class="logo-wrap jgc-brand jgc-brand-region">
+      <img src="logo.webp" alt="John Gordon Construction logo">
+    </div>
+    <h1 class="jgc-page-title">Schedule</h1>
+    <div id="currentUser" class="small schedule-user-line jgc-page-user jgc-user-line"></div>
+  </header>
 
   <div class="top-actions jgc-actions">
     <button class="jgc-button" type="button" onclick="window.location.href='home.html'">Home</button>
@@ -523,7 +48,7 @@ textarea {
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Logout</button>
   </div>
 
-  <div id="scheduleStatus" class="small" style="text-align:center;margin-bottom:12px;">Loading schedule...</div>
+  <div id="scheduleStatus" class="small schedule-status jgc-notice">Loading schedule...</div>
 
   <div class="layout">
     <section class="card jgc-panel">
@@ -540,16 +65,18 @@ textarea {
         <span class="general">General</span>
         <span class="vacation">Approved Vacation</span>
       </div>
-      <div id="scheduleCalendar" class="calendar-grid"></div>
+      <div class="schedule-calendar-scroll">
+        <div id="scheduleCalendar" class="calendar-grid"></div>
+      </div>
     </section>
 
-    <aside>
+    <aside class="schedule-sidebar">
       <section class="card jgc-panel">
         <h2 id="selectedDateTitle">Selected Day</h2>
         <div id="selectedDateDetails" class="detail-list small">Select a day to view schedule details.</div>
       </section>
 
-      <section id="scheduleForm" class="card jgc-panel" style="margin-top:16px;">
+      <section id="scheduleForm" class="card schedule-form-panel jgc-panel">
         <h2>Add Schedule</h2>
         <label>Schedule Type</label>
         <select id="eventType" onchange="updateScheduleTypeFields()">
@@ -584,7 +111,7 @@ textarea {
           <select id="vehicleSelect" onchange="fillSelectedVehicle()"></select>
           <label>Reason for Appointment</label>
           <input id="maintenanceReason" placeholder="Example: oil change, tire repair, annual service">
-          <div id="vehicleOperatorHint" class="small" style="margin-top:6px;"></div>
+          <div id="vehicleOperatorHint" class="small schedule-field-hint"></div>
         </div>
 
         <label id="titleLabel">Title</label>
@@ -599,7 +126,7 @@ textarea {
         <label>Notes</label>
         <textarea id="notes" placeholder="Optional notes for the crew"></textarea>
 
-        <div class="form-actions jgc-actions" style="margin-top:12px;">
+        <div class="form-actions schedule-form-actions jgc-actions">
           <button id="scheduleSaveButton" class="jgc-button" type="button" onclick="saveScheduleEvent()">Save Schedule</button>
           <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="clearScheduleForm()">Clear</button>
         </div>
@@ -1103,9 +630,9 @@ function renderSelectedDate() {
         ${event.notes ? "Notes: " + escapeHtml(event.notes) + "<br>" : ""}
       </div>
       ${renderScheduleGoogleSyncStatus(event)}
-      <div class="form-actions" style="margin-top:8px;">
-        <button type="button" class="secondary" onclick="editScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
-        ${canDeleteScheduleEvent(event) ? '<button type="button" class="danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
+      <div class="form-actions schedule-detail-actions jgc-actions">
+        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editScheduleEvent('${escapeHtml(event.id)}')">Edit</button>
+        ${canDeleteScheduleEvent(event) ? '<button type="button" class="danger jgc-button jgc-button--danger" onclick="deleteScheduleEvent(\'' + escapeHtml(event.id) + '\')">Delete</button>' : ""}
       </div>
     </div>
   `).join("");
@@ -1125,7 +652,7 @@ function renderScheduleGoogleSyncStatus(event) {
   const label = getJgcScheduleSyncLabel(event);
   const icon = statusClass === "synced" ? "OK" : (statusClass === "failed" ? "!" : "-");
   const retry = statusClass !== "synced"
-    ? '<button type="button" class="schedule-sync-retry" onclick="retryScheduleGoogleSync(\'' + escapeHtml(event.id) + '\')">Retry Sync</button>'
+    ? '<button type="button" class="schedule-sync-retry jgc-button jgc-button--secondary" onclick="retryScheduleGoogleSync(\'' + escapeHtml(event.id) + '\')">Retry Sync</button>'
     : "";
 
   return '<div><span class="schedule-sync-status ' + escapeHtml(statusClass) + '">' + icon + ' ' + escapeHtml(label) + '</span>' + retry + '</div>';
