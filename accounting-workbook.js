@@ -231,8 +231,16 @@
     return `${jobKey(entry, jobsById)}|rate:${rateKey(entry, rates)}`;
   }
 
+  function shiftKey(entry) {
+    return entry && entry.shiftType === "night" ? "night" : "day";
+  }
+
+  function jobRateShiftKey(entry, jobsById, rates) {
+    return `${jobRateKey(entry, jobsById, rates)}|shift:${shiftKey(entry)}`;
+  }
+
   function employeeJobRateKey(entry, jobsById, rates) {
-    return `${entry.profileId || entry.workerName}|${jobRateKey(entry, jobsById, rates)}`;
+    return `${entry.profileId || entry.workerName}|${jobRateShiftKey(entry, jobsById, rates)}`;
   }
 
   function workEntriesForWeek(entries, start, end) {
@@ -303,7 +311,7 @@
         .filter((entry) => entry.profileId === employee.profileId);
       const leaveEntries = data.entries.filter((entry) => entry.profileId === employee.profileId
         && entry.entryType !== "work" && isoDate(entry.workDate) >= start && isoDate(entry.workDate) <= end);
-      const jobGroups = groupBy(workEntries, (entry) => jobRateKey(entry, jobsById, data.rates));
+      const jobGroups = groupBy(workEntries, (entry) => jobRateShiftKey(entry, jobsById, data.rates));
 
       sheet.mergeCells(row, 1, row, 13);
       sheet.getCell(row, 1).value = employee.name;
@@ -329,14 +337,19 @@
       const sortedJobGroups = Array.from(jobGroups.values()).sort((left, right) => {
         const leftDate = left.map((item) => isoDate(item.workDate)).sort()[0] || "";
         const rightDate = right.map((item) => isoDate(item.workDate)).sort()[0] || "";
-        return leftDate.localeCompare(rightDate) || jobLabel(left[0], jobsById).localeCompare(jobLabel(right[0], jobsById));
+        return leftDate.localeCompare(rightDate)
+          || jobLabel(left[0], jobsById).localeCompare(jobLabel(right[0], jobsById))
+          || shiftKey(left[0]).localeCompare(shiftKey(right[0]));
       });
+      const nightJobRows = [];
 
       if (!sortedJobGroups.length) sortedJobGroups.push([]);
       sortedJobGroups.forEach((jobEntries) => {
         const totals = dayTotals(jobEntries);
         const rowTotal = round(totals.reduce((sum, hours) => sum + hours, 0));
-        const label = jobEntries.length ? jobLabel(jobEntries[0], jobsById) : "No submitted work hours";
+        const label = jobEntries.length
+          ? `${jobLabel(jobEntries[0], jobsById)}${shiftKey(jobEntries[0]) === "night" ? " - Night" : ""}`
+          : "No submitted work hours";
         sheet.mergeCells(row, 1, row, 2);
         sheet.getCell(row, 1).value = label;
         sheet.getCell(row, 1).border = thinBorder("E7EEF3");
@@ -344,6 +357,7 @@
         sheet.getRow(row).height = wrappedRowHeight(label, 44, 18);
         if (jobEntries.length) {
           jobRowRefs[employeeJobRateKey(jobEntries[0], jobsById, data.rates)] = row;
+          if (shiftKey(jobEntries[0]) === "night") nightJobRows.push(row);
         }
         totals.forEach((hours, index) => {
           const cell = sheet.getCell(row, 3 + index);
@@ -408,7 +422,11 @@
       sheet.getCell(row, 1).value = "Other - Night Shift";
       nightTotals.forEach((hours, index) => {
         const cell = sheet.getCell(row, 3 + index);
-        cell.value = hours || null;
+        const dayColumn = WEEK_DAY_COLUMNS[index];
+        const formula = nightJobRows.length
+          ? `SUM(${nightJobRows.map((jobRow) => `${dayColumn}${jobRow}`).join(",")})`
+          : "0";
+        setFormula(cell, formula, hours, "0.00;-0.00;-");
         applyEntryCell(cell, true);
       });
       setFormula(sheet.getCell(row, 10), `SUM(C${row}:I${row})`, nightHours, "0.00;-0.00;-");
@@ -504,9 +522,11 @@
           .sort((left, right) => compareEmployeeNames(
             employeeName(left[0].profileId, data.employees, left[0].workerName),
             employeeName(right[0].profileId, data.employees, right[0].workerName)
-          ))
+          ) || shiftKey(left[0]).localeCompare(shiftKey(right[0])))
           .forEach((employeeEntries) => {
             const profileId = employeeEntries[0].profileId;
+            const employeeDisplayName = employeeName(profileId, data.employees, employeeEntries[0].workerName);
+            const isNightShift = shiftKey(employeeEntries[0]) === "night";
             const totals = dayTotals(employeeEntries);
             const totalHours = round(totals.reduce((sum, hours) => sum + hours, 0));
             const rate = blockRate(profileId, data.rates, employeeEntries[0].workDate);
@@ -519,7 +539,7 @@
               const entryRate = findRate(data.rates, profileId, entry.workDate);
               return sum + safeNumber(entry.hours) * safeNumber(entryRate && entryRate.regular_rate);
             }, 0));
-            sheet.getCell(row, 1).value = employeeName(profileId, data.employees, employeeEntries[0].workerName);
+            sheet.getCell(row, 1).value = `${employeeDisplayName}${isNightShift ? " - Night" : ""}`;
             sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
             sheet.getRow(row).height = wrappedRowHeight(sheet.getCell(row, 1).value, 31, 18);
             totals.forEach((hours, index) => {
@@ -534,11 +554,37 @@
             setFormula(sheet.getCell(row, 11), `I${row}*J${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
             setFormula(sheet.getCell(row, 12), `K${row}*1.4`, round(gross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
             row += 1;
+
+            if (isNightShift) {
+              const premiumRow = row;
+              const premiumRate = blockNightPremium(profileId, data.rates, employeeEntries[0].workDate);
+              const premiumGross = round(totalHours * premiumRate);
+              const otherRow = weekWorkbook && weekWorkbook.employeeRefs[profileId] && weekWorkbook.employeeRefs[profileId].otherRow;
+              if (!otherRow) {
+                throw new Error(`Could not link ${employeeDisplayName}'s night premium to ${weekWorkbook && weekWorkbook.sheetName}.`);
+              }
+              const premiumLabel = `${employeeDisplayName} - Night Premium (${totalHours.toFixed(2)} hrs)`;
+              sheet.getCell(premiumRow, 1).value = {
+                formula: `="${employeeDisplayName.replace(/"/g, '""')} - Night Premium ("&TEXT(${quoteSheetName(weekWorkbook.sheetName)}!J${sourceRow},"0.00")&" hrs)"`,
+                result: premiumLabel
+              };
+              sheet.getCell(premiumRow, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+              sheet.getRow(premiumRow).height = wrappedRowHeight(premiumLabel, 31, 18);
+              setFormula(sheet.getCell(premiumRow, 10), `${quoteSheetName(weekWorkbook.sheetName)}!K${otherRow}`, premiumRate, "$#,##0.00;[Red]-$#,##0.00;-");
+              applyTotalCell(sheet.getCell(premiumRow, 10), false);
+              setFormula(sheet.getCell(premiumRow, 11), `${quoteSheetName(weekWorkbook.sheetName)}!J${sourceRow}*J${premiumRow}`, premiumGross, "$#,##0.00;[Red]-$#,##0.00;-");
+              setFormula(sheet.getCell(premiumRow, 12), `K${premiumRow}*1.4`, round(premiumGross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
+              row += 1;
+            }
           });
         const lastEmployeeRow = row - 1;
         const jobGross = round(jobEntries.reduce((sum, entry) => {
           const rate = findRate(data.rates, entry.profileId, entry.workDate);
-          return sum + safeNumber(entry.hours) * safeNumber(rate && rate.regular_rate);
+          const regularGross = safeNumber(entry.hours) * safeNumber(rate && rate.regular_rate);
+          const premiumGross = shiftKey(entry) === "night"
+            ? safeNumber(entry.hours) * safeNumber(rate && rate.night_premium)
+            : 0;
+          return sum + regularGross + premiumGross;
         }, 0));
         setFormula(sheet.getCell(row, 11), `SUM(K${firstEmployeeRow}:K${lastEmployeeRow})`, jobGross, "$#,##0.00;[Red]-$#,##0.00;-");
         applyTotalCell(sheet.getCell(row, 11), true);

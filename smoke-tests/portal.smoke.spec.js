@@ -2916,6 +2916,7 @@ test("Accounting night premiums do not inflate worked-hour totals", async ({ pag
     await workbook.xlsx.load(exportResult.buffer);
     const summary = workbook.getWorksheet("Summary");
     const weekOne = workbook.getWorksheet("Aug 8");
+    const jobsWeekOne = workbook.getWorksheet("Jobs Week 1");
     const describe = (cell) => ({
       value: cell.value,
       formula: cell.value && typeof cell.value === "object" ? cell.value.formula : "",
@@ -2931,8 +2932,24 @@ test("Accounting night premiums do not inflate worked-hour totals", async ({ pag
       summaryWeekOneWorkedHours: describe(summary.getCell("D9")),
       summaryGross: describe(summary.getCell("J9")),
       weekRegularHours: describe(weekOne.getCell("J6")),
+      weekNightPremiumTuesday: describe(weekOne.getCell("E9")),
       weekNightPremiumHours: describe(weekOne.getCell("J9")),
-      weekEmployeeTotal: describe(weekOne.getCell("M9"))
+      weekEmployeeTotal: describe(weekOne.getCell("M9")),
+      weekNightJobLabel: weekOne.getCell("A5").value,
+      jobNightEmployeeLabel: jobsWeekOne.getCell("A3").value,
+      jobNightHours: describe(jobsWeekOne.getCell("D3")),
+      jobNightTotalHours: describe(jobsWeekOne.getCell("I3")),
+      jobRegularRate: describe(jobsWeekOne.getCell("J3")),
+      jobRegularGross: describe(jobsWeekOne.getCell("K3")),
+      jobRegularBurden: describe(jobsWeekOne.getCell("L3")),
+      jobPremiumLabel: describe(jobsWeekOne.getCell("A4")),
+      jobPremiumTotalHours: describe(jobsWeekOne.getCell("I4")),
+      jobPremiumRate: describe(jobsWeekOne.getCell("J4")),
+      jobPremiumGross: describe(jobsWeekOne.getCell("K4")),
+      jobPremiumBurden: describe(jobsWeekOne.getCell("L4")),
+      jobGrossTotal: describe(jobsWeekOne.getCell("K5")),
+      jobBurdenTotal: describe(jobsWeekOne.getCell("L5")),
+      jobWorkbookTotal: describe(jobsWeekOne.getCell("M8"))
     };
   });
 
@@ -2952,9 +2969,31 @@ test("Accounting night premiums do not inflate worked-hour totals", async ({ pag
   expect(workbookNightHours.summaryWeekOneWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"<>Other",D5:D7)');
   expect(workbookNightHours.summaryWeekOneWorkedHours.result).toBe(8);
   expect(workbookNightHours.weekRegularHours.result).toBe(8);
+  expect(workbookNightHours.weekNightPremiumTuesday.formula).toBe("SUM(E5)");
+  expect(workbookNightHours.weekNightPremiumTuesday.result).toBe(8);
   expect(workbookNightHours.weekNightPremiumHours.result).toBe(8);
   expect(workbookNightHours.weekEmployeeTotal.result).toBe(264);
   expect(workbookNightHours.summaryGross.result).toBe(264);
+  expect(workbookNightHours.weekNightJobLabel).toBe("Cornwall Courthouse - Access Panel Install 26090 - Night");
+  expect(workbookNightHours.jobNightEmployeeLabel).toBe("Steven Leduc - Night");
+  expect(workbookNightHours.jobNightHours.formula).toBe("'Aug 8'!E5");
+  expect(workbookNightHours.jobNightHours.result).toBe(8);
+  expect(workbookNightHours.jobNightTotalHours.result).toBe(8);
+  expect(workbookNightHours.jobRegularRate.result).toBe(30);
+  expect(workbookNightHours.jobRegularGross.result).toBe(240);
+  expect(workbookNightHours.jobRegularBurden.result).toBe(336);
+  expect(workbookNightHours.jobPremiumLabel.formula).toContain("Night Premium");
+  expect(workbookNightHours.jobPremiumLabel.result).toBe("Steven Leduc - Night Premium (8.00 hrs)");
+  expect(workbookNightHours.jobPremiumTotalHours.value).toBeNull();
+  expect(workbookNightHours.jobPremiumRate.formula).toBe("'Aug 8'!K9");
+  expect(workbookNightHours.jobPremiumRate.result).toBe(3);
+  expect(workbookNightHours.jobPremiumGross.formula).toBe("'Aug 8'!J5*J4");
+  expect(workbookNightHours.jobPremiumGross.result).toBe(24);
+  expect(workbookNightHours.jobPremiumBurden.result).toBeCloseTo(33.6, 6);
+  expect(workbookNightHours.jobGrossTotal.formula).toBe("SUM(K3:K4)");
+  expect(workbookNightHours.jobGrossTotal.result).toBe(264);
+  expect(workbookNightHours.jobBurdenTotal.result).toBeCloseTo(369.6, 6);
+  expect(workbookNightHours.jobWorkbookTotal.result).toBe(264);
   await expectNoRuntimeErrors(errors, "Accounting night premium hours");
 });
 
