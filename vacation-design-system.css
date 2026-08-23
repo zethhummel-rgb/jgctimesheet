@@ -1,0 +1,515 @@
+/* Vacation Requests layout. All visual values come from the shared JGC design tokens. */
+.vacation-page,
+.vacation-page * {
+  box-sizing: border-box;
+}
+
+.vacation-page {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.vacation-page [hidden] {
+  display: none !important;
+}
+
+.vacation-page .vacation-page-shell,
+.vacation-page .vacation-page-header,
+.vacation-page .vacation-request-panel,
+.vacation-page .vacation-history-panel,
+.vacation-page .vacation-calendar-scroll,
+.vacation-page #requestHistory {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.vacation-page .vacation-page-shell {
+  width: min(960px, calc(100% - 32px));
+}
+
+.vacation-page .vacation-page-header {
+  margin-bottom: 0;
+}
+
+.vacation-page .vacation-form-subtitle {
+  margin: 0;
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.vacation-page .grid.jgc-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vacation-page .field.jgc-field,
+.vacation-page .field.full.jgc-field--full {
+  min-width: 0;
+}
+
+.vacation-page .field.full.jgc-field--full {
+  grid-column: 1 / -1;
+}
+
+.vacation-page .check-row {
+  display: flex;
+  min-height: var(--jgc-control-height);
+  align-items: center;
+  gap: var(--jgc-space-2);
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
+}
+
+.vacation-page .check-row input {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  accent-color: var(--jgc-color-brand-500);
+}
+
+.vacation-page .field-hidden {
+  display: none;
+}
+
+.vacation-page #requestDate[readonly] {
+  color: var(--jgc-color-text-muted);
+  background: var(--jgc-color-surface-soft);
+  cursor: not-allowed;
+}
+
+.vacation-page .vacation-actions.jgc-actions {
+  justify-content: center;
+  margin-top: var(--jgc-space-1);
+}
+
+.vacation-page .vacation-status.jgc-notice {
+  min-height: 0;
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
+.vacation-page .vacation-status.jgc-notice:empty {
+  display: none;
+}
+
+.vacation-page .summary-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--jgc-space-3);
+}
+
+.vacation-page .summary-box.jgc-card {
+  min-width: 0;
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  text-align: center;
+}
+
+.vacation-page .summary-box.jgc-card strong {
+  display: block;
+  margin-bottom: var(--jgc-space-1);
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-xl);
+  line-height: 1;
+}
+
+.vacation-page .calendar-controls.jgc-toolbar,
+#vacationSection.jgc-vacation-admin .calendar-controls.jgc-toolbar {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr) minmax(96px, auto);
+  gap: var(--jgc-space-2);
+  align-items: center;
+}
+
+.vacation-page .calendar-title,
+#vacationSection.jgc-vacation-admin .calendar-title {
+  min-width: 0;
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-md);
+  font-weight: 800;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.vacation-page .vacation-calendar-scroll,
+#vacationSection.jgc-vacation-admin .vacation-calendar-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vacation-page .calendar-grid,
+#vacationSection.jgc-vacation-admin .calendar-grid {
+  display: grid;
+  width: 100%;
+  min-width: 560px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--jgc-color-border);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  overflow: hidden;
+}
+
+.vacation-page .calendar-head,
+.vacation-page .calendar-day,
+#vacationSection.jgc-vacation-admin .calendar-head,
+#vacationSection.jgc-vacation-admin .calendar-day {
+  min-width: 0;
+  padding: var(--jgc-space-2);
+  border: 0;
+  font-size: var(--jgc-font-size-xs);
+}
+
+.vacation-page .calendar-head,
+#vacationSection.jgc-vacation-admin .calendar-head {
+  min-height: 0;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-header);
+  font-weight: 800;
+  text-align: center;
+}
+
+.vacation-page .calendar-day,
+#vacationSection.jgc-vacation-admin .calendar-day {
+  min-height: 72px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-row);
+}
+
+.vacation-page .calendar-day.past,
+#vacationSection.jgc-vacation-admin .calendar-day.past {
+  color: var(--jgc-color-text-muted);
+  background: var(--jgc-color-page-deep);
+}
+
+.vacation-page .calendar-day.approved {
+  background: var(--jgc-color-badge-success);
+}
+
+.vacation-page .calendar-day.pending {
+  color: var(--jgc-color-badge-warning-text);
+  background: var(--jgc-color-badge-warning);
+}
+
+.vacation-page .calendar-day.denied {
+  background: var(--jgc-color-badge-danger);
+}
+
+.vacation-page .day-number,
+#vacationSection.jgc-vacation-admin .day-number {
+  margin-bottom: var(--jgc-space-1);
+  color: inherit;
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.vacation-page .day-label {
+  color: inherit;
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.vacation-page .vacation-history-table.jgc-table {
+  min-width: 760px;
+}
+
+.vacation-page .vacation-history-table td {
+  overflow-wrap: anywhere;
+}
+
+.vacation-page .vacation-history-actions.jgc-table-actions {
+  margin: 0;
+}
+
+.vacation-page .empty-history-message.jgc-empty-state {
+  margin-top: 0;
+}
+
+/* Admin Vacation Requests keeps the shared admin shell and feature geometry. */
+#vacationSection.jgc-vacation-admin,
+#vacationSection.jgc-vacation-admin > *,
+#vacationSection.jgc-vacation-admin .calendar-panel,
+#vacationSection.jgc-vacation-admin .vacation-calendar-scroll,
+#vacationSection.jgc-vacation-admin .jgc-archive,
+#vacationSection.jgc-vacation-admin .jgc-archive__body {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#vacationSection.jgc-vacation-admin {
+  max-width: var(--jgc-page-width);
+  margin: 0 auto var(--jgc-space-4);
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-top: 4px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: var(--jgc-shadow-sm);
+  overflow-x: hidden;
+}
+
+#vacationSection.jgc-vacation-admin .jgc-section-title {
+  color: var(--jgc-color-brand-400);
+}
+
+#vacationSection.jgc-vacation-admin .jgc-label {
+  color: var(--jgc-color-text);
+}
+
+#vacationSection.jgc-vacation-admin .jgc-input,
+#vacationSection.jgc-vacation-admin .jgc-select,
+#vacationSection.jgc-vacation-admin .jgc-textarea {
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid var(--jgc-color-input-border);
+  border-radius: var(--jgc-radius-sm);
+}
+
+#vacationSection.jgc-vacation-admin button.jgc-button {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
+  border-color: var(--jgc-color-border);
+}
+
+#vacationSection.jgc-vacation-admin button.jgc-button--secondary {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+}
+
+#vacationSection.jgc-vacation-admin button.jgc-button--danger {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-danger);
+}
+
+#vacationSection.jgc-vacation-admin .calendar-panel {
+  margin-bottom: var(--jgc-space-4);
+  padding: var(--jgc-space-3);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: var(--jgc-shadow-sm);
+}
+
+#vacationSection.jgc-vacation-admin .calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jgc-space-2);
+  margin: var(--jgc-space-2) 0;
+}
+
+#vacationSection.jgc-vacation-admin .legend-item {
+  border: 0;
+}
+
+#vacationSection.jgc-vacation-admin .calendar-grid {
+  min-width: 700px;
+}
+
+#vacationSection.jgc-vacation-admin .calendar-day {
+  min-height: 92px;
+}
+
+#vacationSection.jgc-vacation-admin .calendar-request {
+  margin-top: var(--jgc-space-1);
+  padding: var(--jgc-space-1) var(--jgc-space-2);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-sm);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+#vacationSection.jgc-vacation-admin .calendar-request.approved {
+  background: var(--jgc-color-badge-success);
+}
+
+#vacationSection.jgc-vacation-admin .calendar-request.pending {
+  color: var(--jgc-color-badge-warning-text);
+  background: var(--jgc-color-badge-warning);
+}
+
+#vacationSection.jgc-vacation-admin .calendar-request.denied {
+  background: var(--jgc-color-badge-danger);
+}
+
+#vacationSection.jgc-vacation-admin .filters.jgc-filter-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#vacationSection.jgc-vacation-admin .jgc-textarea {
+  min-height: 96px;
+}
+
+#vacationSection.jgc-vacation-admin .vacation-admin-table.jgc-table {
+  min-width: 980px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table);
+}
+
+#vacationSection.jgc-vacation-admin .vacation-admin-table th,
+#vacationSection.jgc-vacation-admin .vacation-admin-table td {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-row);
+  border-color: var(--jgc-color-border-soft);
+  white-space: normal;
+}
+
+#vacationSection.jgc-vacation-admin .vacation-admin-table th {
+  background: var(--jgc-color-table-header);
+}
+
+#vacationSection.jgc-vacation-admin .vacation-admin-table tbody tr:nth-child(even) td {
+  background: var(--jgc-color-table-row-alt);
+}
+
+#vacationSection.jgc-vacation-admin .vacation-edit-fields {
+  min-width: 230px;
+}
+
+#vacationSection.jgc-vacation-admin .vacation-edit-actions {
+  margin-top: var(--jgc-space-2);
+}
+
+#vacationSection.jgc-vacation-admin .small {
+  color: var(--jgc-color-text-muted);
+}
+
+@media (max-width: 720px) {
+  .vacation-page .vacation-page-shell {
+    width: min(100% - 20px, 960px);
+  }
+
+  .vacation-page .grid.jgc-form-grid,
+  .vacation-page .summary-grid,
+  #vacationSection.jgc-vacation-admin .filters.jgc-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vacation-page .field.full.jgc-field--full {
+    grid-column: auto;
+  }
+
+  .vacation-page .vacation-actions.jgc-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vacation-page .vacation-actions.jgc-actions .jgc-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .vacation-page #vacationSubmitButton {
+    grid-column: 1 / -1;
+  }
+
+  .vacation-page .calendar-controls.jgc-toolbar,
+  #vacationSection.jgc-vacation-admin .calendar-controls.jgc-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vacation-page .calendar-title,
+  #vacationSection.jgc-vacation-admin .calendar-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .vacation-page .calendar-controls .jgc-button,
+  #vacationSection.jgc-vacation-admin .calendar-controls .jgc-button {
+    width: 100%;
+  }
+
+  .vacation-page .vacation-history-table.jgc-table,
+  .vacation-page .vacation-history-table tbody,
+  .vacation-page .vacation-history-table tr,
+  .vacation-page .vacation-history-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .vacation-page .vacation-history-table thead {
+    display: none;
+  }
+
+  .vacation-page .vacation-history-table {
+    background: transparent;
+  }
+
+  .vacation-page .vacation-history-table tbody {
+    display: grid;
+    gap: var(--jgc-space-3);
+  }
+
+  .vacation-page .vacation-history-table tbody tr,
+  .vacation-page .vacation-history-table tbody tr:nth-child(even) {
+    display: grid;
+    padding: var(--jgc-space-2) var(--jgc-space-3);
+    background: var(--jgc-color-table-row);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-left: 4px solid var(--jgc-color-brand-500);
+    border-radius: var(--jgc-radius-lg);
+    box-shadow: var(--jgc-shadow-sm);
+  }
+
+  .vacation-page .vacation-history-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 35%) minmax(0, 1fr);
+    gap: var(--jgc-space-2);
+    padding: var(--jgc-space-2) 0;
+    border: 0;
+    border-bottom: 1px solid var(--jgc-color-border-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .vacation-page .vacation-history-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .vacation-page .vacation-history-table td::before {
+    content: attr(data-label);
+    color: var(--jgc-color-brand-400);
+    font-size: var(--jgc-font-size-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .vacation-page .vacation-history-actions.jgc-table-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vacation-page .vacation-history-actions .jgc-button {
+    width: 100%;
+  }
+
+  .vacation-page input:not([type="checkbox"]):not([type="radio"]),
+  .vacation-page select,
+  .vacation-page textarea,
+  #vacationSection.jgc-vacation-admin input:not([type="checkbox"]):not([type="radio"]),
+  #vacationSection.jgc-vacation-admin select,
+  #vacationSection.jgc-vacation-admin textarea {
+    font-size: 16px;
+  }
+
+  #vacationSection.jgc-vacation-admin {
+    padding: var(--jgc-space-3);
+  }
+}

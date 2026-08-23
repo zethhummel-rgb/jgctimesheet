@@ -81,7 +81,7 @@ function renderAdminVacationTable(rows) {
 
     return `
         <div class="table-wrap jgc-table-wrap">
-            <table class="jgc-table">
+            <table class="vacation-admin-table jgc-table">
                 <thead>
                     <tr>
                         <th>Dates</th>
@@ -101,14 +101,14 @@ function renderAdminVacationTable(rows) {
                         <tr>
                             <td>
                                 ${isEditingDates ? `
-                                    <div class="jgc-field" style="min-width:230px;">
+                                    <div class="vacation-edit-fields jgc-field">
                                         <label class="jgc-label" for="adminVacationStart-${escapeHtml(request.id)}">First Day Off</label>
                                         <input class="jgc-input" id="adminVacationStart-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.start_date || "")}">
                                         <label class="jgc-label" for="adminVacationEnd-${escapeHtml(request.id)}">Last Day Off</label>
                                         <input class="jgc-input" id="adminVacationEnd-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.end_date || "")}">
                                         <label class="jgc-label" for="adminVacationReturn-${escapeHtml(request.id)}">Return To Work</label>
                                         <input class="jgc-input" id="adminVacationReturn-${escapeHtml(request.id)}" type="date" value="${escapeHtml(request.return_date || "")}">
-                                        <div class="actions jgc-table-actions" style="margin-top:8px;">
+                                        <div class="actions vacation-edit-actions jgc-table-actions">
                                             <button type="button" class="jgc-button" onclick="saveAdminApprovedVacationDates('${escapeHtml(request.id)}')">Save Dates</button>
                                             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="cancelAdminVacationDateEdit()">Cancel</button>
                                         </div>

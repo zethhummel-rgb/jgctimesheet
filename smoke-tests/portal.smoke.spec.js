@@ -880,7 +880,7 @@ test("vacation request date is locked to today's Toronto date", async ({ page })
 
   const summaryCounts = page.locator("#vacationSummary .summary-box strong");
   await expect(summaryCounts).toHaveCount(3);
-  await expect(summaryCounts.first()).toHaveCSS("color", "rgb(11, 94, 59)");
+  await expect(summaryCounts.first()).toHaveCSS("color", "rgb(82, 220, 99)");
 
   const expectedDate = await page.evaluate(() => {
     const parts = new Intl.DateTimeFormat("en-CA", {

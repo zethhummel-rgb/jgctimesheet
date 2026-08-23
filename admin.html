@@ -13,7 +13,8 @@
   <link rel="stylesheet" href="jobs-design-system.css?v=3">
   <link rel="stylesheet" href="schedule-design-system.css?v=1">
 
-<link rel="stylesheet" href="admin.css?v=10">
+<link rel="stylesheet" href="admin.css?v=11">
+<link rel="stylesheet" href="vacation-design-system.css?v=1">
 </head>
 
 <body>
@@ -540,7 +541,7 @@
     <div id="certificatesList" class="small">Loading certificates...</div>
 </div>
 
-<div id="vacationSection" class="card jgc-panel" hidden>
+<div id="vacationSection" class="card jgc-panel jgc-vacation-admin" hidden>
     <h2 class="jgc-section-title">Vacation Requests</h2>
     <div class="calendar-panel">
         <div class="calendar-controls jgc-toolbar">
@@ -553,7 +554,9 @@
             <span class="legend-item pending jgc-badge jgc-badge--warning">Pending</span>
             <span class="legend-item denied jgc-badge jgc-badge--danger">Denied</span>
         </div>
-        <div id="adminVacationCalendar" class="calendar-grid"></div>
+        <div class="vacation-calendar-scroll">
+            <div id="adminVacationCalendar" class="calendar-grid"></div>
+        </div>
     </div>
     <div class="filters jgc-filter-grid">
         <div class="jgc-field">
@@ -1119,7 +1122,7 @@
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="admin-backups.js?v=3"></script>
 <script src="admin-contacts.js?v=1"></script>
-<script src="admin-vacation.js?v=3"></script>
+<script src="admin-vacation.js?v=4"></script>
 <script src="admin-notices.js?v=2"></script>
 <script src="admin-certificates.js?v=3"></script>
 <script src="admin-inspections.js?v=4"></script>

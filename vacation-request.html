@@ -6,570 +6,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vacation Request</title>
-<link rel="stylesheet" href="styles.css?v=3">
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #8f9691;
-    margin: 0;
-    padding: 20px;
-    color: #1f2a24;
-}
-
-.logo-wrap {
-    max-width: 347px;
-    margin: 0 auto 8px;
-    text-align: center;
-}
-
-.logo-wrap img {
-    width: 100%;
-    max-width: 347px;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-}
-
-.user-bar {
-    max-width: 760px;
-    margin: 0 auto 12px;
-    color: #ffffff;
-    text-align: center;
-    font-size: 13px;
-    font-weight: bold;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-
-.container {
-    max-width: 760px;
-    margin: auto;
-    background: #fbfcf9;
-    padding: 20px;
-    border-radius: 8px;
-    border-top: 4px solid #3f7d4d;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-}
-
-h1 {
-    text-align: center;
-    color: #2f6f3c;
-    margin: 0 0 6px;
-}
-
-.subtitle {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 18px;
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-
-.field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.full {
-    grid-column: 1 / -1;
-}
-
-.check-row {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-}
-
-.check-row input {
-    width: auto;
-}
-
-.field-hidden {
-    display: none;
-}
-
-label {
-    font-weight: bold;
-    font-size: 13px;
-}
-
-input,
-select,
-textarea {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 9px;
-    border: 1px solid #bcc7bc;
-    border-radius: 4px;
-    font-size: 15px;
-}
-
-textarea {
-    min-height: 100px;
-    resize: vertical;
-}
-
-.actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 18px;
-}
-
-button {
-    background: #0b5e3b;
-    color: white;
-    border: none;
-    padding: 11px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-button:hover {
-    background: #08452b;
-}
-
-.secondary {
-    background: #47534b;
-}
-
-.secondary:hover {
-    background: #354039;
-}
-
-.delete-button {
-    background: #b42318;
-}
-
-.delete-button:hover {
-    background: #8f1d14;
-}
-
-.status {
-    margin-top: 12px;
-    min-height: 20px;
-    font-weight: bold;
-    color: #2f6f3c;
-}
-
-.history {
-    margin-top: 22px;
-    border-top: 1px solid #d6ddd4;
-    padding-top: 18px;
-    color: #1f2a24;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.summary-box {
-    background: #ffffff;
-    border: 1px solid #c6cec5;
-    border-radius: 6px;
-    padding: 10px;
-    text-align: center;
-    color: #1f2a24;
-}
-
-.summary-box strong {
-    display: block;
-    font-size: 20px;
-    color: #0b5e3b;
-}
-
-.summary-box {
-    font-weight: 500;
-}
-
-.empty-history-message {
-    color: #f4fff6;
-    font-weight: bold;
-    margin-top: 12px;
-}
-
-.table-wrap {
-    overflow-x: auto;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #ffffff;
-    color: #1f2a24;
-}
-
-th,
-td {
-    border: 1px solid #c6cec5;
-    padding: 7px;
-    text-align: left;
-    vertical-align: top;
-    font-size: 13px;
-    color: #1f2a24;
-}
-
-th {
-    background: #e6ece6;
-    color: #1f2a24;
-}
-
-.calendar-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    margin: 16px 0 8px;
-}
-
-.calendar-controls button {
-    width: auto;
-}
-
-.calendar-title {
-    font-weight: bold;
-    color: #2f6f3c;
-    text-align: center;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    border: 1px solid #c6cec5;
-    background: #ffffff;
-    color: #1f2a24;
-}
-
-.calendar-head,
-.calendar-day {
-    min-height: 58px;
-    border: 1px solid #d6ddd4;
-    padding: 5px;
-    box-sizing: border-box;
-    font-size: 12px;
-    color: #1f2a24;
-}
-
-.calendar-head {
-    min-height: auto;
-    background: #e6ece6;
-    font-weight: bold;
-    text-align: center;
-}
-
-.calendar-day.past {
-    background: #f1f1f1;
-    color: #7a827c;
-}
-
-.calendar-day.approved {
-    background: #dcefe1;
-    border-color: #6ca678;
-    color: #1f2a24;
-}
-
-.calendar-day.pending {
-    background: #fff3cd;
-    border-color: #d8b44b;
-    color: #1f2a24;
-}
-
-.calendar-day.denied {
-    background: #f8d7da;
-    border-color: #d98a92;
-    color: #1f2a24;
-}
-
-.day-number {
-    font-weight: bold;
-    margin-bottom: 4px;
-}
-
-.day-label {
-    font-size: 11px;
-    line-height: 1.2;
-}
-
-.status-pill {
-    display: inline-block;
-    padding: 3px 7px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: bold;
-    background: #e6ece6;
-    color: #1f2a24;
-}
-
-.status-pill.approved {
-    background: #dcefe1;
-    color: #245832;
-}
-
-.status-pill.pending {
-    background: #fff3cd;
-    color: #7a5b00;
-}
-
-.status-pill.denied {
-    background: #f8d7da;
-    color: #8f1d14;
-}
-
-/* Phase 8 design-system compatibility: preserve the established vacation layout. */
-body.vacation-page.jgc-page {
-    background: #8f9691;
-    padding: 20px;
-    color: #1f2a24;
-}
-
-.vacation-page .vacation-page-shell.jgc-page-shell {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0 0 80px;
-}
-
-.vacation-page .vacation-page-header.jgc-page-header {
-    display: block;
-    margin-bottom: 0;
-}
-
-.vacation-page .logo-wrap.jgc-brand {
-    display: block;
-}
-
-.vacation-page .container.jgc-panel {
-    max-width: 760px;
-    padding: 20px;
-    color: #1f2a24;
-    background: #fbfcf9;
-    border: 0;
-    border-top: 4px solid #3f7d4d;
-    border-radius: 8px;
-    box-shadow: 0 3px 10px rgba(0,0,0,.18);
-}
-
-.vacation-page .grid.jgc-form-grid,
-.vacation-page .summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.vacation-page .summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.vacation-page .field.jgc-field {
-    display: flex;
-}
-
-.vacation-page .field.full.jgc-field--full {
-    grid-column: 1 / -1;
-}
-
-.vacation-page .jgc-label {
-    margin-bottom: 0;
-    color: #1f2a24;
-    font-size: 13px;
-}
-
-.vacation-page .jgc-input,
-.vacation-page .jgc-select,
-.vacation-page .jgc-textarea {
-    min-height: 0;
-    padding: 9px;
-    color: #1f2a24;
-    background: #ffffff;
-    border: 1px solid #bcc7bc;
-    border-radius: 4px;
-    font-size: 15px;
-}
-
-.vacation-page .jgc-textarea {
-    min-height: 100px;
-}
-
-.vacation-page #requestDate[readonly] {
-    color: #33463a;
-    background: #e4ebe4;
-    cursor: not-allowed;
-}
-
-.vacation-page .actions.jgc-actions,
-.vacation-page .calendar-controls.jgc-toolbar {
-    align-items: center;
-}
-
-.vacation-page .calendar-controls.jgc-toolbar {
-    padding: 0;
-    border: 0;
-}
-
-.vacation-page button.jgc-button {
-    min-height: 0;
-    padding: 11px 16px;
-    background: #0b5e3b;
-    border: 0;
-    border-radius: 4px;
-}
-
-.vacation-page button.jgc-button--secondary {
-    background: #47534b;
-}
-
-.vacation-page button.jgc-button--danger {
-    background: #b42318;
-}
-
-.vacation-page .status.jgc-notice {
-    padding: 0;
-    color: #2f6f3c;
-    background: transparent;
-    border-left: 0;
-}
-
-.vacation-page .history.jgc-section {
-    padding: 18px 0 0;
-}
-
-.vacation-page .history .jgc-section-title {
-    color: #1f2a24;
-}
-
-.vacation-page .summary-box.jgc-card {
-    padding: 10px;
-    color: #1f2a24;
-    background: #ffffff;
-    border: 1px solid #c6cec5;
-    border-radius: 6px;
-    box-shadow: none;
-}
-
-/* Keep vacation summary counts readable when the shared dark portal theme is active. */
-body.jgc-theme.vacation-page .summary-box.jgc-card {
-    background: #ffffff !important;
-    color: #1f2a24 !important;
-    border-color: #c6cec5 !important;
-}
-
-body.jgc-theme.vacation-page .summary-box.jgc-card strong {
-    color: #0b5e3b !important;
-    text-shadow: none;
-}
-
-.vacation-page .table-wrap.jgc-table-wrap {
-    border: 0;
-    border-radius: 0;
-}
-
-.vacation-page table.jgc-table {
-    color: #1f2a24;
-    background: #ffffff;
-}
-
-.vacation-page table.jgc-table th,
-.vacation-page table.jgc-table td {
-    padding: 7px;
-    color: #1f2a24;
-    white-space: normal;
-}
-
-.vacation-page table.jgc-table th {
-    background: #e6ece6;
-}
-
-.vacation-page .status-pill.jgc-badge {
-    display: inline-block;
-    border-radius: 999px;
-}
-
-.vacation-page .empty-history-message.jgc-empty-state {
-    padding: 0;
-    color: #f4fff6;
-    text-align: left;
-    border: 0;
-}
-
-@media (max-width: 720px) {
-    body {
-        padding: 10px;
-    }
-
-    .container {
-        padding: 14px;
-    }
-
-    .logo-wrap {
-        max-width: 260px;
-    }
-
-    .grid {
-        grid-template-columns: 1fr;
-    }
-
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .calendar-day {
-        min-height: 48px;
-        font-size: 11px;
-        padding: 4px;
-    }
-
-    button {
-        width: 100%;
-    }
-
-    body.vacation-page.jgc-page {
-        padding: 10px;
-    }
-
-    .vacation-page .container.jgc-panel {
-        padding: 14px;
-    }
-
-    .vacation-page .grid.jgc-form-grid,
-    .vacation-page .summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .vacation-page .field.full.jgc-field--full {
-        grid-column: auto;
-    }
-
-    .vacation-page .jgc-input,
-    .vacation-page .jgc-select,
-    .vacation-page .jgc-textarea {
-        font-size: 16px;
-    }
-}
-</style>
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+<link rel="stylesheet" href="vacation-design-system.css?v=1">
 </head>
 
-<body class="vacation-page jgc-page">
-<main class="vacation-page-shell jgc-page-shell">
+<body class="vacation-page jgc-page jgc-system-page">
+<main class="vacation-page-shell jgc-page-shell jgc-stack">
 <header class="vacation-page-header jgc-page-header">
 <div class="logo-wrap jgc-brand">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
-
-<div id="currentUser" class="user-bar"></div>
+<h1 class="jgc-page-title">Vacation Request</h1>
+<div id="currentUser" class="user-bar jgc-page-user"></div>
+<div id="vacationFormSubtitle" class="vacation-form-subtitle">Submit a request for review</div>
 </header>
 
-<section class="container jgc-panel">
-    <h1>Vacation Request</h1>
-    <div id="vacationFormSubtitle" class="subtitle">Submit a request for review</div>
+<section class="container vacation-request-panel jgc-panel jgc-stack">
+    <h2 class="jgc-section-title">Request Details</h2>
 
     <div class="grid jgc-form-grid">
         <div class="field jgc-field">
@@ -635,16 +88,17 @@ body.jgc-theme.vacation-page .summary-box.jgc-card strong {
         </div>
     </div>
 
-    <div class="actions jgc-actions">
+    <div class="actions vacation-actions jgc-actions">
         <button id="vacationSubmitButton" type="button" class="jgc-button" onclick="submitVacationRequest()">Submit Vacation Request</button>
         <button id="vacationCancelEditButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="cancelVacationRequestEdit()" hidden>Cancel Edit</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
         <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
     </div>
 
-    <div id="saveStatus" class="status jgc-notice" aria-live="polite"></div>
+    <div id="saveStatus" class="status vacation-status jgc-notice" aria-live="polite"></div>
+</section>
 
-    <div class="history jgc-section">
+<section class="history vacation-history-panel jgc-panel jgc-stack">
         <h2 class="jgc-section-title">My Vacation Requests</h2>
         <div id="vacationSummary" class="summary-grid"></div>
 
@@ -653,10 +107,11 @@ body.jgc-theme.vacation-page .summary-box.jgc-card strong {
             <div id="vacationCalendarTitle" class="calendar-title"></div>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="changeVacationMonth(1)">Next</button>
         </div>
-        <div id="vacationCalendar" class="calendar-grid"></div>
+        <div class="vacation-calendar-scroll">
+            <div id="vacationCalendar" class="calendar-grid"></div>
+        </div>
 
-        <div id="requestHistory" class="table-wrap jgc-table-wrap" style="margin-top:14px;">Loading vacation requests...</div>
-    </div>
+        <div id="requestHistory" class="vacation-history-wrap table-wrap jgc-table-wrap">Loading vacation requests...</div>
 </section>
 </main>
 
@@ -995,7 +450,7 @@ function renderVacationHistory() {
 
     const sorted = myVacationRequests.slice().sort((a, b) => getRequestSortTime(b) - getRequestSortTime(a));
     history.innerHTML = `
-        <table class="jgc-table">
+        <table class="vacation-history-table jgc-table">
             <thead>
                 <tr>
                     <th>Dates</th>
@@ -1009,15 +464,15 @@ function renderVacationHistory() {
             <tbody>
                 ${sorted.map((request) => `
                     <tr>
-                        <td>
+                        <td data-label="Dates">
                             ${formatVacationDateCell(request)}
                         </td>
-                        <td>${Number(request.total_days || 0).toFixed(1)}</td>
-                        <td>${escapeHtml(request.request_type)}</td>
-                        <td><span class="status-pill ${escapeHtml(request.status)} jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(statusLabel(request.status))}</span></td>
-                        <td>${escapeHtml(request.admin_note || "")}</td>
-                        <td>
-                            <div class="actions jgc-table-actions">
+                        <td data-label="Days">${Number(request.total_days || 0).toFixed(1)}</td>
+                        <td data-label="Type">${escapeHtml(request.request_type)}</td>
+                        <td data-label="Status"><span class="status-pill ${escapeHtml(request.status)} jgc-badge ${request.status === "approved" ? "jgc-badge--success" : request.status === "denied" ? "jgc-badge--danger" : "jgc-badge--warning"}">${escapeHtml(statusLabel(request.status))}</span></td>
+                        <td data-label="Admin Note">${escapeHtml(request.admin_note || "")}</td>
+                        <td data-label="Actions">
+                            <div class="actions vacation-history-actions jgc-table-actions">
                                 ${request.status === "approved" ? `<button type="button" class="secondary jgc-button jgc-button--secondary" onclick="startVacationRequestEdit('${escapeHtml(request.id)}')">Edit Approved Dates</button>` : ""}
                                 <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteVacationRequest('${escapeHtml(request.id)}')">Delete</button>
                             </div>
