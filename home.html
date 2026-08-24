@@ -5,1410 +5,14 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive" />
   <title>JGC Portal - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css?v=3" />
-  <style>
-    :root {
-      --app-bg: #07100f;
-      --panel: rgba(15, 27, 27, 0.88);
-      --panel-strong: rgba(20, 34, 34, 0.96);
-      --panel-border: rgba(199, 221, 211, 0.16);
-      --green: #39c848;
-      --green-soft: rgba(57, 200, 72, 0.15);
-      --text: #f5f7f3;
-      --muted: #bac4bd;
-      --line: rgba(255, 255, 255, 0.09);
-      --shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at 20% 0%, rgba(31, 126, 56, 0.34), transparent 28rem),
-        linear-gradient(135deg, #050908 0%, #0c1717 45%, #07100f 100%);
-      color: var(--text);
-    }
-
-    button {
-      font-family: inherit;
-    }
-
-    .app-shell {
-      width: min(1360px, calc(100% - 20px));
-      margin: 10px auto;
-      min-height: calc(100vh - 20px);
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      overflow: hidden;
-      background: rgba(5, 12, 12, 0.84);
-      box-shadow: var(--shadow);
-    }
-
-    .topbar {
-      min-height: 88px;
-      padding: 16px 26px 16px 72px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background:
-        radial-gradient(circle at 25% 0%, rgba(57, 200, 72, 0.2), transparent 26rem),
-        linear-gradient(90deg, rgba(5, 18, 16, 0.96), rgba(8, 42, 29, 0.88), rgba(5, 14, 14, 0.96));
-      position: relative;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .sidebar-toggle {
-      width: 32px;
-      height: 32px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 7px;
-      background: rgba(5, 18, 15, 0.18);
-      color: #ffffff;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      position: absolute;
-      left: 22px;
-      bottom: 16px;
-    }
-
-    .sidebar-toggle:hover {
-      background: rgba(5, 18, 15, 0.34);
-    }
-
-    .logo-wrap {
-      text-align: center;
-    }
-
-    .logo-wrap img {
-      width: 215px;
-      height: auto;
-      display: block;
-      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
-    }
-
-    .profile-block {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-      position: absolute;
-      right: 24px;
-      top: 18px;
-      max-width: 245px;
-      cursor: pointer;
-    }
-
-    .top-spacer {
-      min-width: 0;
-    }
-
-    .profile-icon,
-    .stat-icon,
-    .card-icon,
-    .info-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: var(--green-soft);
-      color: var(--green);
-    }
-
-    .profile-icon {
-      width: 42px;
-      height: 42px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(0,0,0,0.38);
-      flex: 0 0 auto;
-      overflow: hidden;
-      font-size: 10px;
-      font-weight: 900;
-    }
-
-    .profile-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .eyebrow,
-    .section-title {
-      color: var(--green);
-      font-size: 14px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0;
-    }
-
-    .profile-name {
-      font-size: 15px;
-      font-weight: 800;
-      line-height: 1.1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .role-text,
-    .date-detail,
-    .muted {
-      color: var(--muted);
-    }
-
-    .role-text {
-      margin-top: 2px;
-      font-weight: 700;
-      font-size: 12px;
-      color: #55de61;
-    }
-
-    .profile-edit-hint {
-      display: none;
-    }
-
-    .profile-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 80;
-      background: rgba(0,0,0,0.72);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-    }
-
-    .profile-modal-backdrop.open {
-      display: flex;
-    }
-
-    .profile-modal {
-      width: min(720px, 100%);
-      max-height: 92vh;
-      overflow-y: auto;
-      background: #071410;
-      border: 1px solid rgba(55,214,80,0.55);
-      border-top: 4px solid var(--green);
-      border-radius: var(--radius);
-      padding: 18px;
-      box-shadow: var(--shadow);
-    }
-
-    .profile-modal h2 {
-      margin: 0 0 12px;
-      color: var(--green);
-    }
-
-    .profile-form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-
-    .profile-form-grid .full {
-      grid-column: 1 / -1;
-    }
-
-    .profile-form-grid label {
-      display: block;
-      color: #fff;
-      font-weight: 800;
-      margin-bottom: 5px;
-    }
-
-    .profile-form-grid input,
-    .profile-form-grid textarea {
-      width: 100%;
-      box-sizing: border-box;
-      border-radius: 6px;
-      border: 1px solid rgba(255,255,255,0.22);
-      padding: 10px;
-      background: #f7faf6;
-      color: #102018;
-      font-size: 15px;
-    }
-
-    .profile-form-grid textarea {
-      min-height: 80px;
-      resize: vertical;
-    }
-
-    .profile-photo-preview {
-      width: 92px;
-      height: 92px;
-      border-radius: 999px;
-      border: 3px solid var(--green);
-      background: #12371e;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      color: #fff;
-      margin-bottom: 8px;
-    }
-
-    .profile-photo-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .date-chip {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--text);
-      font-weight: 800;
-      white-space: nowrap;
-      position: absolute;
-      left: 22px;
-      top: 12px;
-      margin: 0;
-      font-size: 14px;
-    }
-
-    .date-chip svg {
-      width: 24px;
-      height: 24px;
-      padding: 10px;
-      box-sizing: content-box;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(0,0,0,0.22);
-    }
-
-    .date-detail {
-      font-size: 12px;
-      font-weight: 700;
-      margin-top: 0;
-    }
-
-    .logout-button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 5px 8px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 6px;
-      background: rgba(5, 18, 15, 0.2);
-      color: white;
-      cursor: pointer;
-      font-weight: 800;
-      font-size: 11px;
-      position: absolute;
-      right: 24px;
-      bottom: 15px;
-    }
-
-    .logout-button:hover {
-      background: rgba(5, 18, 15, 0.36);
-    }
-
-    .main-grid {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      min-height: calc(100vh - 150px);
-      transition: grid-template-columns 0.18s ease;
-    }
-
-    .app-shell.sidebar-collapsed .main-grid {
-      grid-template-columns: 76px 1fr;
-    }
-
-    .sidebar {
-      padding: 22px 14px 26px;
-      border-right: 1px solid var(--line);
-      background: rgba(8, 18, 18, 0.72);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .side-nav {
-      display: grid;
-      gap: 8px;
-    }
-
-    .side-link,
-    .bottom-link {
-      border: 0;
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 800;
-    }
-
-    .side-link {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      width: 100%;
-      padding: 13px 14px;
-      min-height: 48px;
-      border-radius: 7px;
-      background: transparent;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-
-    .side-link svg {
-      width: 20px;
-      height: 20px;
-      flex: 0 0 20px;
-      display: block;
-    }
-
-    .side-link .side-label {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .app-shell.sidebar-collapsed .side-link {
-      justify-content: center;
-      gap: 0;
-      padding: 16px 10px;
-      font-size: 0;
-    }
-
-    .app-shell.sidebar-collapsed .side-link svg {
-      width: 22px;
-      height: 22px;
-      flex: 0 0 auto;
-    }
-
-    .side-link:hover,
-    .side-link.active {
-      background: linear-gradient(90deg, rgba(32, 147, 57, 0.88), rgba(15, 91, 39, 0.82));
-    }
-
-    .quick-info {
-      display: none;
-      grid-template-columns: auto repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      align-items: stretch;
-      padding: 14px 24px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(8, 18, 18, 0.76);
-    }
-
-    .quick-info .section-title {
-      margin: 0;
-      align-self: center;
-      white-space: nowrap;
-    }
-
-    .info-item {
-      display: grid;
-      grid-template-columns: 42px 1fr;
-      gap: 12px;
-      align-items: center;
-      min-width: 0;
-      margin-top: 0;
-      padding: 10px 12px;
-      border: 1px solid rgba(199, 221, 211, 0.13);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.035);
-    }
-
-    .info-item > div {
-      min-width: 0;
-    }
-
-    .info-item .muted {
-      overflow-wrap: anywhere;
-      line-height: 1.25;
-    }
-
-    .info-icon {
-      width: 42px;
-      height: 42px;
-    }
-
-    .info-value {
-      font-size: 22px;
-      font-weight: 900;
-      margin: 4px 0 2px;
-    }
-
-    .vacation-reminder {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      margin: 0;
-      padding: 10px 26px;
-      border-bottom: 1px solid rgba(56, 213, 92, 0.28);
-      background: linear-gradient(90deg, rgba(17, 85, 41, 0.95), rgba(12, 42, 24, 0.96));
-      color: #f5fff6;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-    }
-
-    .vacation-reminder[hidden] {
-      display: none;
-    }
-
-    .vacation-reminder-main {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      font-weight: 900;
-    }
-
-    .vacation-reminder-main svg {
-      width: 20px;
-      height: 20px;
-      color: #39df63;
-      flex: 0 0 auto;
-    }
-
-    .vacation-reminder-text {
-      overflow-wrap: anywhere;
-      line-height: 1.25;
-    }
-
-    .vacation-reminder-detail {
-      color: #d9f4df;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    .vacation-reminder button {
-      width: auto;
-      flex: 0 0 auto;
-      padding: 7px 12px;
-      border: 1px solid rgba(217, 244, 223, 0.42);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .content {
-      padding: 28px 34px 40px;
-    }
-
-    .hero {
-      display: none;
-    }
-
-    .hero:after {
-      display: none;
-    }
-
-    .hero-content {
-      max-width: 450px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .welcome-strip {
-      margin: 2px 0 22px;
-    }
-
-    .welcome-strip h1 {
-      margin: 0 0 8px;
-      font-size: clamp(24px, 3vw, 34px);
-      line-height: 1.12;
-    }
-
-    .welcome-strip p {
-      margin: 0;
-      font-size: 16px;
-    }
-
-    h1 {
-      margin: 14px 0 22px;
-      font-size: clamp(36px, 5vw, 52px);
-      line-height: 1.02;
-      letter-spacing: 0;
-    }
-
-    .green-line {
-      width: 78px;
-      height: 3px;
-      background: var(--green);
-      margin-bottom: 28px;
-    }
-
-    .overview {
-      display: block;
-      margin-top: 0;
-      padding: 0;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-    }
-
-    .overview-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-top: 0;
-    }
-
-    .stat {
-      min-width: 0;
-      text-align: left;
-      min-height: 112px;
-      padding: 14px 16px;
-      border: 1px solid var(--panel-border);
-      border-left: 3px solid rgba(57, 200, 72, 0.72);
-      border-radius: 8px;
-      background:
-        linear-gradient(90deg, rgba(57, 200, 72, 0.09), transparent 48%),
-        rgba(9, 20, 19, 0.82);
-      box-shadow: none;
-      display: grid;
-      grid-template-columns: 38px 1fr;
-      grid-template-rows: auto auto;
-      column-gap: 12px;
-      align-items: center;
-    }
-
-    .stat-icon {
-      width: 38px;
-      height: 38px;
-      margin: 0;
-      grid-row: 1 / 3;
-    }
-
-    .stat-value {
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .stat-label {
-      color: var(--muted);
-      line-height: 1.35;
-      margin-top: 4px;
-      font-size: 12px;
-    }
-
-    .section-title {
-      margin: 26px 0 14px;
-    }
-
-    .home-schedule-panel {
-      margin: 22px 0 10px;
-      border: 1px solid rgba(57, 200, 72, 0.34);
-      border-radius: 10px;
-      background:
-        linear-gradient(90deg, rgba(57, 200, 72, 0.1), transparent 45%),
-        rgba(9, 20, 19, 0.88);
-      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
-      overflow: hidden;
-    }
-
-    .home-schedule-panel summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 14px 16px;
-      cursor: pointer;
-      list-style: none;
-      color: var(--text);
-      font-weight: 900;
-    }
-
-    .home-schedule-panel summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .home-schedule-panel summary:after {
-      content: "Open";
-      padding: 6px 10px;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 999px;
-      color: var(--green);
-      font-size: 12px;
-    }
-
-    .home-schedule-panel[open] summary:after {
-      content: "Close";
-    }
-
-    .home-schedule-heading {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .home-schedule-heading svg {
-      width: 22px;
-      height: 22px;
-      color: var(--green);
-      flex: 0 0 auto;
-    }
-
-    .home-schedule-count {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .home-schedule-body {
-      padding: 0 16px 16px;
-    }
-
-    .home-agenda-list {
-      display: grid;
-      gap: 12px;
-    }
-
-    .home-agenda-day-group {
-      display: grid;
-      gap: 7px;
-    }
-
-    .home-agenda-day-header {
-      color: #ffffff;
-      font-weight: 900;
-      font-size: 13px;
-      padding: 2px 2px 0;
-    }
-
-    .home-agenda-item {
-      display: grid;
-      grid-template-columns: 86px minmax(0, 1fr);
-      gap: 12px;
-      padding: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-left: 4px solid var(--green);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.045);
-    }
-
-    .home-agenda-item.vehicle {
-      border-left-color: #8da2ff;
-    }
-
-    .home-agenda-item.training {
-      border-left-color: #d775ff;
-    }
-
-    .home-agenda-item.general {
-      border-left-color: #a7b6c4;
-    }
-
-    .home-agenda-item.vacation {
-      border-left-color: #ffd36a;
-    }
-
-    .home-agenda-date {
-      color: var(--muted);
-      font-weight: 800;
-      line-height: 1.2;
-      font-size: 12px;
-    }
-
-    .home-agenda-title {
-      color: #ffffff;
-      font-weight: 900;
-      overflow-wrap: anywhere;
-    }
-
-    .home-agenda-meta {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .home-sync-status {
-      display: inline-flex;
-      margin-top: 6px;
-      padding: 3px 7px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 900;
-    }
-
-    .home-sync-status.synced {
-      background: rgba(48, 209, 88, 0.16);
-      color: #8ff7a4;
-    }
-
-    .home-sync-status.pending {
-      background: rgba(255, 211, 106, 0.16);
-      color: #ffe4a0;
-    }
-
-    .home-sync-status.failed {
-      background: rgba(255, 99, 99, 0.16);
-      color: #ffb6b6;
-    }
-
-    .home-schedule-footer {
-      margin-top: 12px;
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-    }
-
-    .home-schedule-footer button {
-      width: auto;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-    }
-
-    .home-schedule-modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 80;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(0, 0, 0, 0.68);
-    }
-
-    .home-schedule-modal-backdrop.open {
-      display: flex;
-    }
-
-    .home-schedule-modal {
-      width: min(760px, 100%);
-      max-height: 92vh;
-      overflow: auto;
-      border: 1px solid rgba(57, 200, 72, 0.34);
-      border-top: 4px solid var(--green);
-      border-radius: 10px;
-      background: #102018;
-      color: var(--text);
-      padding: 18px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.46);
-    }
-
-    .home-schedule-form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .home-schedule-form-grid .full {
-      grid-column: 1 / -1;
-    }
-
-    .home-schedule-modal label,
-    .home-schedule-modal h2 {
-      color: #ffffff;
-    }
-
-    .home-schedule-modal input,
-    .home-schedule-modal select,
-    .home-schedule-modal textarea {
-      width: 100%;
-      box-sizing: border-box;
-      border: 1px solid #879687;
-      border-radius: 6px;
-      padding: 10px;
-      background: #f8fff8;
-      color: #102018;
-      font-size: 15px;
-    }
-
-    .home-schedule-modal textarea {
-      min-height: 86px;
-      resize: vertical;
-    }
-
-    .home-schedule-modal .field-hidden {
-      display: none !important;
-    }
-
-    .home-schedule-employees {
-      display: grid;
-      gap: 6px;
-      max-height: 190px;
-      overflow: auto;
-      border: 1px solid rgba(99, 205, 107, 0.28);
-      border-radius: 8px;
-      padding: 8px;
-      background: rgba(255,255,255,0.04);
-    }
-
-    .home-schedule-employees label {
-      display: grid;
-      grid-template-columns: 22px 1fr;
-      gap: 7px;
-      align-items: center;
-      margin: 0;
-      padding: 6px;
-      border-radius: 5px;
-      background: rgba(255,255,255,0.04);
-      color: #f7fff7;
-      font-weight: 800;
-    }
-
-    .home-schedule-employees input {
-      width: 18px;
-      height: 18px;
-      padding: 0;
-    }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .feature-card {
-      min-height: 184px;
-      padding: 22px;
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      background: var(--panel);
-      color: var(--text);
-      cursor: pointer;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      box-shadow: inset 0 -3px 0 rgba(57, 200, 72, 0.4);
-    }
-
-    .feature-card:hover {
-      background: var(--panel-strong);
-      transform: translateY(-1px);
-    }
-
-    .card-icon {
-      width: 58px;
-      height: 58px;
-      margin-bottom: 22px;
-    }
-
-    .feature-card h2 {
-      margin: 0 0 10px;
-      color: var(--text);
-      font-size: 20px;
-      line-height: 1.05;
-      max-width: 100%;
-      min-height: 42px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow-wrap: normal;
-      word-break: normal;
-    }
-
-    .feature-card p {
-      display: none;
-      color: var(--muted);
-      font-size: 17px;
-      line-height: 1.35;
-    }
-
-    .arrow {
-      color: var(--green);
-      margin-top: 16px;
-      width: 20px;
-      height: 20px;
-      padding: 6px;
-      box-sizing: content-box;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.06);
-    }
-
-    .announcement {
-      display: none;
-      margin-top: 22px;
-      padding: 18px;
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      background: var(--panel);
-      grid-template-columns: 62px 1fr auto;
-      gap: 18px;
-      align-items: center;
-    }
-
-    .announcement-panel {
-      margin-top: 28px;
-      padding: 24px;
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      background: var(--panel);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .announcement-panel:before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 58px;
-      bottom: 18px;
-      width: 4px;
-      background: var(--green);
-      border-radius: 999px;
-    }
-
-    .announcement-list {
-      display: grid;
-      gap: 0;
-      margin-top: 18px;
-    }
-
-    .announcement-item {
-      display: grid;
-      grid-template-columns: 54px 1fr auto;
-      gap: 14px;
-      align-items: center;
-      padding: 16px 8px 16px 28px;
-      border-radius: 0;
-      background: transparent;
-      border: 0;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .announcement-item:last-child {
-      border-bottom: 0;
-    }
-
-    .announcement-item h2 {
-      margin: 0 0 5px;
-      color: var(--text);
-      font-size: 20px;
-      line-height: 1.15;
-    }
-
-    .announcement-file {
-      color: var(--green);
-      font-weight: 800;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-
-    .footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      align-items: center;
-      padding: 20px 28px;
-      border-top: 1px solid var(--line);
-      background: rgba(10, 20, 20, 0.9);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .footer img {
-      width: 120px;
-      height: auto;
-      filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
-    }
-
-    .mobile-bottom-nav {
-      display: none;
-    }
-
-    .more-sheet {
-      position: fixed;
-      inset: auto 12px 82px;
-      display: none;
-      padding: 10px;
-      border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      background: rgba(12, 24, 24, 0.98);
-      box-shadow: var(--shadow);
-      z-index: 11;
-    }
-
-    .more-sheet.open {
-      display: grid;
-      gap: 8px;
-    }
-
-    .more-sheet button {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 13px;
-      border: 0;
-      border-radius: 7px;
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text);
-      font-weight: 800;
-      text-align: left;
-      cursor: pointer;
-    }
-
-    @media (max-width: 980px) {
-      body {
-        background: #07100f;
-      }
-
-      .app-shell {
-        width: 100%;
-        min-height: 100vh;
-        margin: 0;
-        border-radius: 0;
-        border: 0;
-        padding-bottom: 0;
-      }
-
-      .topbar {
-        min-height: 64px;
-        padding: 8px 126px 8px 52px;
-      }
-
-      .logo-wrap img {
-        width: 160px;
-      }
-
-      .profile-block {
-        justify-content: flex-end;
-      }
-
-      .top-spacer {
-        display: none;
-      }
-
-      .profile-name {
-        font-size: 11px;
-      }
-
-      .date-chip {
-        display: none;
-      }
-
-      .logout-button {
-        display: flex;
-        right: 12px;
-        bottom: 12px;
-      }
-
-      .quick-info {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        overflow: visible;
-        padding: 10px 12px;
-        gap: 8px;
-      }
-
-      .quick-info .section-title {
-        display: none;
-      }
-
-      .info-item {
-        grid-template-columns: 34px minmax(0, 1fr);
-        gap: 8px;
-        padding: 9px;
-      }
-
-      .info-icon {
-        width: 34px;
-        height: 34px;
-      }
-
-      .info-value {
-        font-size: 18px;
-      }
-
-      .home-schedule-panel {
-        margin-top: 16px;
-      }
-
-      .home-schedule-panel summary {
-        align-items: flex-start;
-        padding: 12px;
-      }
-
-      .home-schedule-count {
-        white-space: normal;
-      }
-
-      .home-schedule-body {
-        padding: 0 12px 12px;
-      }
-
-      .home-agenda-item {
-        grid-template-columns: 1fr;
-        gap: 5px;
-        padding: 10px;
-      }
-
-      .home-schedule-modal-backdrop {
-        align-items: flex-start;
-        padding: 10px;
-      }
-
-      .home-schedule-form-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .home-schedule-footer {
-        justify-content: stretch;
-      }
-
-      .home-schedule-footer button {
-        width: 100%;
-      }
-
-      .vacation-reminder {
-        align-items: flex-start;
-        padding: 10px 12px;
-        gap: 8px;
-      }
-
-      .vacation-reminder-main {
-        align-items: flex-start;
-      }
-
-      .vacation-reminder-detail {
-        white-space: normal;
-      }
-
-      .vacation-reminder button {
-        padding: 6px 9px;
-      }
-
-      .main-grid {
-        display: block;
-        min-height: auto;
-      }
-
-      .hero,
-      .footer {
-        display: none;
-      }
-
-      .sidebar {
-        display: none;
-        position: fixed;
-        top: 52px;
-        left: 10px;
-        right: 10px;
-        z-index: 30;
-        max-height: calc(100vh - 68px);
-        overflow-y: auto;
-        padding: 12px;
-        border: 1px solid var(--panel-border);
-        border-radius: 10px;
-        background: rgba(8, 18, 18, 0.98);
-        box-shadow: var(--shadow);
-      }
-
-      .app-shell:not(.sidebar-collapsed) .sidebar {
-        display: flex;
-      }
-
-      .app-shell:not(.sidebar-collapsed)::after {
-        content: "";
-        position: fixed;
-        inset: 52px 0 0;
-        z-index: 20;
-        background: rgba(0, 0, 0, 0.42);
-      }
-
-      .app-shell.sidebar-collapsed .side-link,
-      .side-link {
-        justify-content: flex-start;
-        gap: 12px;
-        padding: 13px 14px;
-        font-size: 15px;
-      }
-
-      .app-shell.sidebar-collapsed .side-link svg,
-      .side-link svg {
-        width: 20px;
-        height: 20px;
-      }
-
-      .content {
-        padding: 22px 18px;
-      }
-
-      .welcome-strip h1 {
-        font-size: 27px;
-      }
-
-      .overview-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .stat {
-        min-height: 96px;
-        padding: 12px;
-      }
-
-      .stat-icon {
-        width: 34px;
-        height: 34px;
-      }
-
-      .stat-value {
-        font-size: 24px;
-      }
-
-      .stat-label {
-        font-size: 13px;
-      }
-
-      .cards-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      .feature-card {
-        min-height: 150px;
-        padding: 18px;
-        position: relative;
-      }
-
-      .card-icon {
-        width: 52px;
-        height: 52px;
-        margin: 0 0 14px;
-      }
-
-      .feature-card h2 {
-        font-size: 21px;
-        margin-bottom: 8px;
-      }
-
-      .feature-card p {
-        font-size: 16px;
-      }
-
-      .arrow {
-        position: static;
-        margin-top: 12px;
-      }
-
-      .announcement {
-        display: grid;
-        grid-template-columns: 54px 1fr auto;
-      }
-
-      .announcement-panel {
-        margin-top: 0;
-        padding: 16px;
-      }
-
-      .announcement-item {
-        grid-template-columns: 46px 1fr;
-        padding-left: 8px;
-      }
-
-      .announcement-file {
-        grid-column: 2;
-      }
-
-      .mobile-bottom-nav {
-        display: none;
-      }
-
-      .bottom-link {
-        background: transparent;
-        color: var(--muted);
-        display: grid;
-        justify-items: center;
-        gap: 5px;
-        font-size: 12px;
-        padding: 3px;
-      }
-
-      .bottom-link.active {
-        color: var(--green);
-      }
-    }
-
-    @media (max-width: 620px) {
-      .topbar {
-        min-height: 58px;
-        padding: 7px 100px 7px 46px;
-      }
-
-      .logo-wrap img {
-        width: 136px;
-      }
-
-      .profile-icon {
-        display: none;
-      }
-
-      .profile-name {
-        font-size: 10px;
-      }
-
-      .role-text,
-      #greetingText {
-        font-size: 8px;
-      }
-
-      .overview-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .quick-info {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .cards-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      .feature-card {
-        min-height: 132px;
-        padding: 14px;
-      }
-
-      .card-icon {
-        width: 56px;
-        height: 56px;
-        margin-bottom: 15px;
-      }
-
-      .feature-card h2 {
-        font-size: 17px;
-        overflow-wrap: anywhere;
-      }
-
-      .feature-card p {
-        font-size: 13px;
-        overflow-wrap: anywhere;
-      }
-    }
-
-    @media (max-width: 390px) {
-      .quick-info {
-        grid-template-columns: 1fr;
-      }
-
-      .cards-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-  <link rel="stylesheet" href="home-design-system.css?v=1" />
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" />
+  <link rel="stylesheet" href="home-design-system.css?v=2" />
 </head>
 
-<body class="home-dashboard-page jgc-page">
+<body class="home-dashboard-page jgc-page jgc-system-page">
 <div class="app-shell home-dashboard-shell jgc-page-shell jgc-page-shell--wide">
-  <header class="topbar">
-    <button id="sidebarToggle" type="button" class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Collapse sidebar">
+  <header class="topbar jgc-panel">
+    <button id="sidebarToggle" type="button" class="sidebar-toggle jgc-button jgc-button--icon" onclick="toggleSidebar()" aria-label="Collapse sidebar">
       <i data-lucide="menu"></i>
     </button>
 
@@ -1426,7 +30,7 @@
       </div>
     </div>
 
-    <button type="button" class="logout-button" onclick="signOut()">
+    <button type="button" class="logout-button jgc-button jgc-button--secondary" onclick="signOut()">
       <i data-lucide="log-out"></i>
       Logout
     </button>
@@ -1478,7 +82,7 @@
     </div>
   </section>
 
-  <section id="upcomingVacationBanner" class="vacation-reminder" hidden>
+  <section id="upcomingVacationBanner" class="vacation-reminder jgc-notice" hidden>
     <div class="vacation-reminder-main">
       <i data-lucide="calendar-check"></i>
       <div>
@@ -1490,7 +94,7 @@
   </section>
 
   <div class="main-grid">
-    <aside class="sidebar">
+    <aside class="sidebar jgc-panel">
       <nav class="side-nav" aria-label="Main navigation">
         <button type="button" class="side-link active" onclick="goHome()"><i data-lucide="home"></i><span class="side-label">Home</span></button>
         <button type="button" class="side-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i><span class="side-label">Timesheets</span></button>
@@ -1544,7 +148,7 @@
       </section>
 
       <section id="announcementsPanel" class="announcement-panel jgc-panel" hidden>
-        <div class="section-title jgc-section-title" style="margin:0;">Recent Announcements</div>
+        <div class="section-title jgc-section-title home-section-title--flush">Recent Announcements</div>
         <div id="announcementsList" class="announcement-list"></div>
       </section>
 
@@ -1564,97 +168,97 @@
 
       <div class="section-title jgc-section-title">Quick Access</div>
       <section class="cards-grid jgc-card-grid">
-        <button type="button" class="feature-card" onclick="goTo('schedule.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('schedule.html')">
           <span class="card-icon"><i data-lucide="calendar-check"></i></span>
           <h2>Schedule</h2>
           <p>View scheduled work, job assignments, training, and appointments</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('timesheet.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('timesheet.html')">
           <span class="card-icon"><i data-lucide="clock-3"></i></span>
           <h2>Timesheets</h2>
           <p>Record and manage your work hours</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('tasks.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('tasks.html')">
           <span class="card-icon"><i data-lucide="list-checks"></i></span>
           <h2>Tasks</h2>
           <p>Track small fixes, reminders, follow-ups, and action items</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('job-lists.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('job-lists.html')">
           <span class="card-icon"><i data-lucide="notebook-tabs"></i></span>
           <h2>Job Notes</h2>
           <p>Build shared material and job lists with reminders for the crew</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('field-calculator.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('field-calculator.html')">
           <span class="card-icon"><i data-lucide="calculator"></i></span>
           <h2>Field Calculator</h2>
           <p>Feet, inches, metric conversions, stairs, areas, and volumes</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('inspections.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('inspections.html')">
           <span class="card-icon"><i data-lucide="shield-check"></i></span>
           <h2>Inspections</h2>
           <p>View and complete site inspections</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('reports.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('reports.html')">
           <span class="card-icon"><i data-lucide="files"></i></span>
           <h2>Reports</h2>
           <p>Daily site reports, toolbox talks, and near miss reporting</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('permits.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('permits.html')">
           <span class="card-icon"><i data-lucide="file-check"></i></span>
           <h2>Permits</h2>
           <p>Hot work, confined space, and excavation permits</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('certificates.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('certificates.html')">
           <span class="card-icon"><i data-lucide="badge-check"></i></span>
           <h2>Certificates</h2>
           <p>Manage and track your certifications</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('vacation-request.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('vacation-request.html')">
           <span class="card-icon"><i data-lucide="calendar-days"></i></span>
           <h2>Vacation Requests</h2>
           <p>Request time off and view approvals</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('contacts.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('contacts.html')">
           <span class="card-icon"><i data-lucide="phone"></i></span>
           <h2>Contacts</h2>
           <p>Company and emergency contacts</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('subcontractors-suppliers.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('subcontractors-suppliers.html')">
           <span class="card-icon"><i data-lucide="users-round"></i></span>
           <h2>Subs / Suppliers</h2>
           <p>Look up subcontractors, suppliers, rentals, and service contacts</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('equipment-vehicles.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('equipment-vehicles.html')">
           <span class="card-icon"><i data-lucide="truck"></i></span>
           <h2>Equipment / Vehicles</h2>
           <p>View equipment, operators, and inspection expiry dates</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('jobs.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('jobs.html')">
           <span class="card-icon"><i data-lucide="briefcase"></i></span>
           <h2>Jobs</h2>
           <p>Look up job names, numbers, and Contract / T&M status</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button type="button" class="feature-card" onclick="goTo('work-orders.html')">
+        <button type="button" class="feature-card jgc-card" onclick="goTo('work-orders.html')">
           <span class="card-icon"><i data-lucide="clipboard-check"></i></span>
           <h2>Work Orders</h2>
           <p>T&M backup documentation and PO tracking</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
-        <button id="policiesAnnouncementsCard" type="button" class="feature-card" onclick="goTo('policies-announcements.html')">
+        <button id="policiesAnnouncementsCard" type="button" class="feature-card jgc-card" onclick="goTo('policies-announcements.html')">
           <span class="card-icon"><i data-lucide="file-text"></i></span>
           <h2>Policies</h2>
           <p>Review JGC policies and previous announcements</p>
@@ -1672,76 +276,51 @@
   </footer>
 </div>
 
-<nav class="mobile-bottom-nav" aria-label="Mobile navigation">
-  <button type="button" class="bottom-link active" onclick="goHome()"><i data-lucide="home"></i><span>Home</span></button>
-  <button type="button" class="bottom-link" onclick="goTo('timesheet.html')"><i data-lucide="clock-3"></i><span>Timesheets</span></button>
-  <button type="button" class="bottom-link" onclick="goTo('inspections.html')"><i data-lucide="shield-check"></i><span>Inspections</span></button>
-  <button type="button" class="bottom-link" onclick="goTo('certificates.html')"><i data-lucide="badge-check"></i><span>Certificates</span></button>
-  <button type="button" class="bottom-link" onclick="showMoreMenu()"><i data-lucide="ellipsis"></i><span>More</span></button>
-</nav>
-
-<div id="moreSheet" class="more-sheet">
-  <button type="button" onclick="goTo('reports.html')"><i data-lucide="files"></i>Reports</button>
-  <button type="button" onclick="goTo('permits.html')"><i data-lucide="file-check"></i>Permits</button>
-  <button type="button" onclick="goTo('vacation-request.html')"><i data-lucide="calendar-days"></i>Vacation Requests</button>
-  <button type="button" onclick="goTo('schedule.html')"><i data-lucide="calendar-check"></i>Schedule</button>
-  <button type="button" onclick="goTo('tasks.html')"><i data-lucide="list-checks"></i>Tasks</button>
-  <button type="button" onclick="goTo('job-lists.html')"><i data-lucide="notebook-tabs"></i>Job Notes</button>
-  <button type="button" onclick="goTo('field-calculator.html')"><i data-lucide="calculator"></i>Field Calculator</button>
-  <button type="button" onclick="goTo('equipment-vehicles.html')"><i data-lucide="truck"></i>Equipment / Vehicles</button>
-  <button type="button" onclick="goTo('jobs.html')"><i data-lucide="briefcase"></i>Jobs</button>
-  <button type="button" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i>Work Orders</button>
-  <button type="button" onclick="goTo('contacts.html')"><i data-lucide="phone"></i>Contacts</button>
-  <button type="button" onclick="goTo('subcontractors-suppliers.html')"><i data-lucide="users-round"></i>Subs / Suppliers</button>
-  <button id="policiesAnnouncementsMoreLink" type="button" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i>Policies/Announcements</button>
-  <button type="button" onclick="signOut()"><i data-lucide="log-out"></i>Logout</button>
-</div>
-
 <div id="profileModal" class="profile-modal-backdrop" onclick="closeProfileEditor(event)">
   <section class="profile-modal jgc-modal__dialog" onclick="event.stopPropagation()">
     <h2>Edit My Profile</h2>
-    <div class="profile-form-grid">
+    <div class="profile-form-grid jgc-form-grid">
       <div>
         <div id="profilePhotoPreview" class="profile-photo-preview">JGC</div>
         <label>Profile Photo</label>
-        <input id="profilePhotoFile" type="file" accept="image/*,.heic,.heif" onchange="previewMyProfilePhoto()">
+        <input id="profilePhotoFile" class="jgc-input" type="file" accept="image/*,.heic,.heif" onchange="previewMyProfilePhoto()">
       </div>
       <div>
         <label>Contact Email</label>
-        <input id="profileEmail" type="email">
+        <input id="profileEmail" class="jgc-input" type="email">
       </div>
       <div>
         <label>Phone</label>
-        <input id="profilePhone">
+        <input id="profilePhone" class="jgc-input">
       </div>
       <div>
         <label>Emergency Contact</label>
-        <input id="profileEmergencyContact">
+        <input id="profileEmergencyContact" class="jgc-input">
       </div>
       <div>
         <label>Emergency Contact Phone</label>
-        <input id="profileEmergencyContactPhone" type="tel">
+        <input id="profileEmergencyContactPhone" class="jgc-input" type="tel">
       </div>
       <div class="full">
         <label>Address</label>
-        <textarea id="profileAddress"></textarea>
+        <textarea id="profileAddress" class="jgc-textarea"></textarea>
       </div>
     </div>
-    <div class="actions jgc-actions" style="margin-top:14px;">
-      <button type="button" onclick="saveMyProfile()">Save Profile</button>
-      <button type="button" class="secondary" onclick="closeProfileEditor()">Cancel</button>
+    <div class="actions jgc-actions home-actions--spaced">
+      <button type="button" class="jgc-button" onclick="saveMyProfile()">Save Profile</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeProfileEditor()">Cancel</button>
     </div>
-    <div id="profileSaveStatus" class="muted" style="margin-top:10px;"></div>
+    <div id="profileSaveStatus" class="muted home-status--spaced"></div>
   </section>
 </div>
 
 <div id="homeScheduleModal" class="home-schedule-modal-backdrop" onclick="closeHomeScheduleModal(event)">
   <section class="home-schedule-modal jgc-modal__dialog" onclick="event.stopPropagation()">
     <h2>Add Schedule Event</h2>
-    <div class="home-schedule-form-grid">
+    <div class="home-schedule-form-grid jgc-form-grid">
       <div>
         <label>Schedule Type</label>
-        <select id="homeScheduleType" onchange="updateHomeScheduleTypeFields()">
+        <select id="homeScheduleType" class="jgc-select" onchange="updateHomeScheduleTypeFields()">
           <option value="work">Work / Job</option>
           <option value="vehicle">Equipment / Vehicle Appointment</option>
           <option value="training">Training</option>
@@ -1750,42 +329,42 @@
       </div>
       <div>
         <label>Date</label>
-        <input id="homeScheduleDate" type="date">
+        <input id="homeScheduleDate" class="jgc-input" type="date">
       </div>
       <div>
         <label>Start Time</label>
-        <input id="homeScheduleStartTime" type="time">
+        <input id="homeScheduleStartTime" class="jgc-input" type="time">
       </div>
       <div>
         <label>End Time</label>
-        <input id="homeScheduleEndTime" type="time">
+        <input id="homeScheduleEndTime" class="jgc-input" type="time">
       </div>
       <div id="homeScheduleJobWrap" class="full">
         <label>Job</label>
-        <select id="homeScheduleJob" onchange="fillHomeScheduleJob()"></select>
+        <select id="homeScheduleJob" class="jgc-select" onchange="fillHomeScheduleJob()"></select>
       </div>
       <div id="homeScheduleJobNameWrap">
         <label>Job Name</label>
-        <input id="homeScheduleJobName" placeholder="Job name or location">
+        <input id="homeScheduleJobName" class="jgc-input" placeholder="Job name or location">
       </div>
       <div id="homeScheduleJobNumberWrap">
         <label>Job Number</label>
-        <input id="homeScheduleJobNumber" placeholder="Optional">
+        <input id="homeScheduleJobNumber" class="jgc-input" placeholder="Optional">
       </div>
       <div id="homeScheduleVehicleWrap" class="full field-hidden">
         <label>Vehicle / Equipment / Trailer</label>
-        <select id="homeScheduleVehicle" onchange="fillHomeScheduleVehicle()"></select>
+        <select id="homeScheduleVehicle" class="jgc-select" onchange="fillHomeScheduleVehicle()"></select>
         <label>Reason for Appointment</label>
-        <input id="homeScheduleMaintenanceReason" placeholder="Example: oil change, tire repair, annual service">
-        <div id="homeScheduleVehicleHint" class="muted" style="margin-top:6px;"></div>
+        <input id="homeScheduleMaintenanceReason" class="jgc-input" placeholder="Example: oil change, tire repair, annual service">
+        <div id="homeScheduleVehicleHint" class="muted home-hint--spaced"></div>
       </div>
       <div class="full">
         <label id="homeScheduleTitleLabel">Title / Attention</label>
-        <input id="homeScheduleItemTitle" placeholder="Optional title or attention">
+        <input id="homeScheduleItemTitle" class="jgc-input" placeholder="Optional title or attention">
       </div>
       <div class="full">
         <label>Location</label>
-        <input id="homeScheduleLocation" placeholder="Optional site/location">
+        <input id="homeScheduleLocation" class="jgc-input" placeholder="Optional site/location">
       </div>
       <div class="full">
         <label>Tag Employees</label>
@@ -1793,14 +372,14 @@
       </div>
       <div class="full">
         <label>Notes</label>
-        <textarea id="homeScheduleNotes" placeholder="Optional notes for the crew"></textarea>
+        <textarea id="homeScheduleNotes" class="jgc-textarea" placeholder="Optional notes for the crew"></textarea>
       </div>
     </div>
-    <div class="actions jgc-actions" style="margin-top:14px;">
-      <button type="button" onclick="saveHomeScheduleEvent()">Save Event</button>
-      <button type="button" class="secondary" onclick="closeHomeScheduleModal()">Cancel</button>
+    <div class="actions jgc-actions home-actions--spaced">
+      <button type="button" class="jgc-button" onclick="saveHomeScheduleEvent()">Save Event</button>
+      <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeHomeScheduleModal()">Cancel</button>
     </div>
-    <div id="homeScheduleModalStatus" class="muted" style="margin-top:10px;"></div>
+    <div id="homeScheduleModalStatus" class="muted home-status--spaced"></div>
   </section>
 </div>
 
@@ -2327,10 +906,6 @@ async function acknowledgeAnnouncement(announcementId, source) {
 async function acknowledgeHomeAnnouncement(announcementId) {
   await acknowledgeAnnouncement(announcementId, "home_acknowledge_button");
   await loadAnnouncements();
-}
-
-function showMoreMenu() {
-  document.getElementById("moreSheet").classList.toggle("open");
 }
 
 function toggleSidebar() {

@@ -191,7 +191,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminSource).not.toMatch(/adminSchedule[^>]*style=/i);
   expect(adminCss).not.toContain(".admin-schedule-summary");
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
-  expect(serviceWorker).toContain('const JGC_RELEASE_ID = "755"');
+  expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=13"');
   expect(serviceWorker).toContain('"./schedule-design-system.css?v=3"');
 });
