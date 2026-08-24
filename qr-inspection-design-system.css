@@ -32,6 +32,25 @@
   box-sizing: border-box;
 }
 
+.qr-inspection-page .qr-inspection-spaced {
+  margin-top: var(--jgc-space-3);
+}
+
+.qr-inspection-page .qr-inspection-progress-card {
+  margin-top: var(--jgc-space-4);
+}
+
+.qr-inspection-page .qr-inspection-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jgc-space-3);
+}
+
+.qr-inspection-page .qr-inspection-history-action {
+  margin-top: var(--jgc-space-2);
+}
+
 .qr-inspection-page .qr-inspection-shell {
   margin-inline: auto;
 }

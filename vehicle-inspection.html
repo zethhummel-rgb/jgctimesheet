@@ -5,363 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Vehicle Inspection</title>
 <link rel="manifest" href="manifest.json?v=7">
-<link rel="stylesheet" href="qr-inspection-design-system.css?v=1">
-<style>
-:root {
-    color-scheme: dark;
-    --page-bg: #020d0a;
-    --panel: #0c1a17;
-    --panel-soft: #10231d;
-    --green: #27d64b;
-    --green-dark: #0c7d3f;
-    --border: rgba(55, 240, 90, 0.34);
-    --text: #ffffff;
-    --muted: #bed0c5;
-    --input-bg: #f7fff7;
-    --input-text: #102018;
-    --fail: #c51f28;
-    --warn: #ffcc4d;
-    --na: #49545d;
-}
-
-* { box-sizing: border-box; }
-
-body {
-    margin: 0;
-    min-height: 100vh;
-    background:
-        radial-gradient(circle at top, rgba(20, 92, 46, 0.2), transparent 380px),
-        linear-gradient(180deg, #03120f, var(--page-bg));
-    color: var(--text);
-    font-family: Arial, sans-serif;
-}
-
-.page-shell {
-    width: min(1000px, calc(100% - 24px));
-    margin: 0 auto;
-    padding: 18px 0 34px;
-}
-
-.scan-header {
-    display: grid;
-    gap: 10px;
-    justify-items: center;
-    text-align: center;
-    margin: 6px 0 16px;
-}
-
-.scan-header img {
-    width: min(240px, 62vw);
-    height: auto;
-}
-
-h1, h2, h3 {
-    margin: 0;
-    color: var(--green);
-}
-
-h1 {
-    color: #ffffff;
-    font-size: clamp(26px, 5vw, 42px);
-    line-height: 1.05;
-}
-
-.card {
-    border: 1px solid var(--border);
-    border-top: 4px solid var(--green);
-    border-radius: 8px;
-    background: rgba(12, 26, 23, 0.96);
-    box-shadow: 0 22px 62px rgba(0, 0, 0, 0.35);
-    padding: 16px;
-    margin-bottom: 16px;
-}
-
-.status-card {
-    border-top-width: 1px;
-    color: var(--muted);
-}
-
-.status-card.error {
-    border-color: rgba(197, 31, 40, 0.65);
-    color: #ffd5d5;
-}
-
-.asset-grid,
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.asset-fact {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.asset-fact span,
-label,
-.small {
-    color: var(--muted);
-}
-
-.asset-fact strong {
-    display: block;
-    margin-top: 4px;
-    color: #ffffff;
-    font-size: 17px;
-}
-
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 900;
-}
-
-input,
-select,
-textarea {
-    width: 100%;
-    min-height: 42px;
-    border: 1px solid #93a696;
-    border-radius: 5px;
-    background: var(--input-bg);
-    color: var(--input-text);
-    padding: 9px 10px;
-    font: inherit;
-}
-
-textarea {
-    min-height: 90px;
-    resize: vertical;
-}
-
-.inspection-type-options {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.inspection-type-choice {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 46px;
-    margin: 0;
-    padding: 10px 12px;
-    border: 1px solid #93a696;
-    border-radius: 6px;
-    background: var(--input-bg);
-    color: var(--input-text);
-    font-weight: 900;
-    cursor: pointer;
-}
-
-.inspection-type-choice input {
-    width: auto;
-    min-height: 0;
-    margin: 0;
-    accent-color: var(--green);
-}
-
-.inspection-type-choice:has(input:checked) {
-    border-color: var(--green);
-    background: #e9ffe9;
-    box-shadow: inset 0 0 0 2px rgba(39, 214, 75, 0.28);
-}
-
-input[readonly] {
-    background: #eaf4eb;
-    color: #314037;
-}
-
-.field.full {
-    grid-column: 1 / -1;
-}
-
-.progress-card {
-    display: grid;
-    gap: 8px;
-    color: var(--input-text);
-    background: #f7fff7;
-}
-
-.progress-card h3,
-.progress-card strong {
-    color: var(--input-text);
-}
-
-.progress-bar {
-    height: 10px;
-    border-radius: 999px;
-    overflow: hidden;
-    background: #d7ded5;
-}
-
-.progress-bar span {
-    display: block;
-    width: 0;
-    height: 100%;
-    background: linear-gradient(90deg, var(--green-dark), var(--green));
-}
-
-.inspection-section {
-    display: grid;
-    gap: 12px;
-}
-
-.inspection-section h3 {
-    margin-top: 10px;
-}
-
-.inspection-card {
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    padding: 14px;
-    background: #f7fff7;
-    color: var(--input-text);
-}
-
-.inspection-card.pass {
-    background: #e9ffe9;
-    border-color: rgba(14, 147, 72, 0.62);
-    box-shadow: inset 0 0 0 2px rgba(14, 147, 72, 0.14);
-}
-
-.inspection-card.defect {
-    background: #fff1f1;
-    border-color: rgba(197, 31, 40, 0.45);
-}
-
-.inspection-card.na {
-    background: #eef1f3;
-    border-color: rgba(113, 126, 136, 0.56);
-    box-shadow: inset 0 0 0 2px rgba(113, 126, 136, 0.11);
-}
-
-.inspection-card h4 {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 0 0 12px;
-    color: var(--input-text);
-    font-size: 17px;
-    line-height: 1.3;
-}
-
-.item-help {
-    margin: -4px 0 12px 44px;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.35;
-}
-
-.item-number {
-    flex: 0 0 auto;
-    display: inline-grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: #0b6b39;
-    color: #ffffff;
-    font-weight: 900;
-}
-
-.choice-row,
-.severity-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-}
-
-button {
-    border: 0;
-    border-radius: 6px;
-    background: #159147;
-    color: #ffffff;
-    padding: 11px 14px;
-    font-weight: 900;
-    cursor: pointer;
-}
-
-button.secondary {
-    background: #26322e;
-}
-
-button.delete-button,
-button.choice-defect.is-selected,
-button.severity-major.is-selected {
-    background: var(--fail);
-}
-
-button.choice-pass.is-selected,
-button.severity-minor.is-selected {
-    background: #0e9348;
-    box-shadow: 0 0 0 2px rgba(39, 214, 75, 0.42);
-}
-
-button.choice-na.is-selected {
-    background: var(--na);
-    box-shadow: 0 0 0 2px rgba(160, 170, 180, 0.34);
-}
-
-button:disabled {
-    opacity: 0.58;
-    cursor: not-allowed;
-}
-
-.defect-panel {
-    display: none;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(197, 31, 40, 0.22);
-}
-
-.inspection-card.defect .defect-panel {
-    display: grid;
-    gap: 10px;
-}
-
-.actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-
-.history-list {
-    display: grid;
-    gap: 8px;
-}
-
-.history-item {
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 6px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-@media (max-width: 720px) {
-    .asset-grid,
-    .form-grid,
-    .choice-row,
-    .severity-row {
-        grid-template-columns: 1fr;
-    }
-
-    .card {
-        padding: 14px;
-    }
-
-    .actions button {
-        flex: 1 1 100%;
-    }
-}
-</style>
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+<link rel="stylesheet" href="qr-inspection-design-system.css?v=2">
+<link rel="stylesheet" href="vehicle-qr-inspection.css?v=1">
 </head>
-<body class="qr-inspection-page vehicle-qr-inspection jgc-page">
+<body class="qr-inspection-page vehicle-qr-inspection jgc-page jgc-system-page">
 <main class="page-shell qr-inspection-shell jgc-page-shell">
     <header class="scan-header jgc-brand-region">
         <img src="logo.webp" alt="John Gordon Construction logo">
@@ -373,7 +21,7 @@ button:disabled {
 
     <section id="manualVehicleCard" class="card" hidden>
         <h2>Select Vehicle / Unit</h2>
-        <div class="form-grid" style="margin-top:12px;">
+        <div class="form-grid qr-inspection-spaced">
             <div class="field full">
                 <label for="manualVehicleSelect">Vehicle / Trailer</label>
                 <select id="manualVehicleSelect">
@@ -381,18 +29,18 @@ button:disabled {
                 </select>
             </div>
         </div>
-        <div class="small" style="margin-top:10px;">Use this if the QR code is missing, damaged, or not available.</div>
+        <div class="small qr-inspection-spaced">Use this if the QR code is missing, damaged, or not available.</div>
     </section>
 
     <section id="assetCard" class="card" hidden>
         <h2 id="assetTitle">Vehicle</h2>
-        <div class="asset-grid" id="assetFacts" style="margin-top:12px;"></div>
+        <div class="asset-grid qr-inspection-spaced" id="assetFacts"></div>
     </section>
 
     <section id="todayCard" class="card" hidden>
         <h2>Today's Inspection</h2>
-        <div id="todayInspectionDetails" class="small" style="margin-top:10px;"></div>
-        <div class="actions jgc-actions" style="margin-top:12px;">
+        <div id="todayInspectionDetails" class="small qr-inspection-spaced"></div>
+        <div class="actions jgc-actions qr-inspection-spaced">
             <button type="button" onclick="showInspectionForm()">Start Another Inspection</button>
             <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>
             <button type="button" class="secondary" onclick="window.location.href='home.html'">Home</button>
@@ -401,7 +49,7 @@ button:disabled {
 
     <form id="inspectionForm" class="card" hidden>
         <h2>Inspection Details</h2>
-        <div class="form-grid" style="margin-top:12px;">
+        <div class="form-grid qr-inspection-spaced">
             <div class="field">
                 <label id="inspectionTypeLabel">Inspection Type</label>
                 <div class="inspection-type-options" role="group" aria-labelledby="inspectionTypeLabel">
@@ -461,8 +109,8 @@ button:disabled {
             </div>
         </div>
 
-        <div class="card progress-card" style="margin-top:16px;">
-            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+        <div class="card progress-card qr-inspection-progress-card">
+            <div class="qr-inspection-progress-heading">
                 <h3>Inspection Progress</h3>
                 <strong id="progressText">0 of 0 completed</strong>
             </div>
@@ -471,12 +119,12 @@ button:disabled {
 
         <section id="inspectionItems" class="inspection-section"></section>
 
-        <div class="field full" style="margin-top:14px;">
+        <div class="field full qr-inspection-spaced">
             <label for="repairNotes">Repair / General Notes</label>
             <textarea id="repairNotes" placeholder="Repair notes, follow-up notes, or general inspection comments"></textarea>
         </div>
 
-        <div class="actions jgc-actions" style="margin-top:14px;">
+        <div class="actions jgc-actions qr-inspection-spaced">
             <button type="button" class="secondary" onclick="saveInspection('draft')">Save Draft</button>
             <button id="submitButton" type="submit">Submit Inspection</button>
             <button type="button" class="secondary" onclick="printCurrentInspection()">Print / PDF</button>
@@ -486,7 +134,7 @@ button:disabled {
 
     <section id="historyCard" class="card" hidden>
         <h2>Inspection History</h2>
-        <div id="historyList" class="history-list small" style="margin-top:12px;"></div>
+        <div id="historyList" class="history-list small qr-inspection-spaced"></div>
     </section>
 </main>
 
@@ -1104,7 +752,7 @@ function renderHistory() {
         <div class="history-item">
             <strong>${pageEscape(row.inspection_date || "")} - ${pageEscape(row.inspection_type || "Vehicle Inspection")}</strong><br>
             ${pageEscape(row.driver_name || "")} | ${row.defects_found ? pageEscape(row.major_defects_found ? "Major defects" : "Minor defects") : "No defects"}<br>
-            <button type="button" class="secondary" style="margin-top:8px;" onclick="printInspectionById('${pageEscape(row.id)}')">Print / PDF</button>
+            <button type="button" class="secondary qr-inspection-history-action" onclick="printInspectionById('${pageEscape(row.id)}')">Print / PDF</button>
         </div>
     `).join("");
 }
