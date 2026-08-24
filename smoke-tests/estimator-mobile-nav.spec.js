@@ -245,14 +245,15 @@ test("missing exclusions remain recommended without blocking Finish quote", asyn
   await page.getByRole("tab", { name: /Review/ }).click();
 
   const reviewPanel = page.locator(".readiness-checks");
-  await expect(page.locator(".review-hero")).toContainText("Ready to finish");
+  await expect(page.locator(".review-hero")).toContainText("Ready with warnings");
   await expect(reviewPanel.locator(".recommendations")).toContainText("Does not block finishing");
   await expect(reviewPanel.locator(".recommendations")).toContainText("Add exclusions or state that there are none.");
-  await expect(reviewPanel.getByRole("button", { name: /Acknowledge reviewed warnings/ })).toHaveCount(0);
+  await expect(reviewPanel.locator(".warnings")).not.toContainText("Add exclusions or state that there are none.");
 
   const finishQuote = reviewPanel.getByRole("button", { name: "Finish quote" });
   await expect(finishQuote).toBeEnabled();
   await finishQuote.click();
+  await page.getByRole("dialog", { name: /Mark .* as Finished/ }).getByRole("button", { name: "Finish quote" }).click();
   await expect(page.locator(".identity-badges")).toContainText("Finished");
 });
 
