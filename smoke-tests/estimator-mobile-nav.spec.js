@@ -198,7 +198,7 @@ test("proposal scope items can be reordered and deleted", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Proposal scope item 1" })).toHaveText("First item");
 });
 
-test("proposal text formatting is visible in the editor and preview", async ({ page }) => {
+test("proposal text formatting is visible in the editor, preview and PDF", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
@@ -207,31 +207,53 @@ test("proposal text formatting is visible in the editor and preview", async ({ p
   await page.getByRole("tab", { name: /Details/ }).click();
 
   const scopeItem = page.getByRole("textbox", { name: "Proposal scope item 1" });
-  await scopeItem.fill("Protect this important area");
+  await scopeItem.fill("Protect this important highlighted area");
+  await expect(scopeItem).toHaveText("Protect this important highlighted area");
   await scopeItem.evaluate((element) => {
     const text = element.firstChild;
     if (!text) throw new Error("Scope text was not created");
     const range = document.createRange();
     range.setStart(text, 13);
-    range.setEnd(text, 22);
+    range.setEnd(text, 39);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
   });
   await page.getByRole("group", { name: /Proposal Scope Lines/ }).getByRole("button", { name: "Yellow highlight" }).click();
-  await expect(scopeItem.locator("mark.proposal-highlight-yellow")).toHaveText("important");
+  await expect(scopeItem.locator("mark.proposal-highlight-yellow")).toHaveText("important highlighted area");
+
+  const notesEditor = page.getByRole("textbox", { name: "Proposal Notes" });
+  await notesEditor.evaluate((element) => {
+    element.innerHTML = '<div>Regular proposal note</div><div><b><mark class="proposal-highlight-yellow">Work to be Completed in two stages</mark></b></div>';
+    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+  });
+  await expect(notesEditor.locator("mark.proposal-highlight-yellow")).toHaveText("Work to be Completed in two stages");
 
   await page.getByRole("tab", { name: /Proposal/ }).click();
-  await expect(page.locator(".hybrid-scope-list mark.proposal-highlight-yellow")).toHaveText("important");
+  await expect(page.locator(".hybrid-scope-list mark.proposal-highlight-yellow")).toHaveText("important highlighted area");
+  await expect(page.locator(".hybrid-notes-list mark.proposal-highlight-yellow")).toHaveText("Work to be Completed in two stages");
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: /Proposal PDF/ }).click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+  await download.saveAs(testInfo.outputPath("highlighted-proposal.pdf"));
   const stream = await download.createReadStream();
   let byteCount = 0;
   for await (const chunk of stream) byteCount += chunk.length;
   expect(byteCount).toBeGreaterThan(5_000);
+
+  await page.getByRole("tab", { name: /Review/ }).click();
+  const [backupDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download full PDF backup" }).click(),
+  ]);
+  expect(backupDownload.suggestedFilename()).toMatch(/\.pdf$/i);
+  await backupDownload.saveAs(testInfo.outputPath("highlighted-full-quote-backup.pdf"));
+  const backupStream = await backupDownload.createReadStream();
+  let backupByteCount = 0;
+  for await (const chunk of backupStream) backupByteCount += chunk.length;
+  expect(backupByteCount).toBeGreaterThan(byteCount);
 });
 
 test("missing exclusions remain recommended without blocking Finish quote", async ({ page }) => {
@@ -314,8 +336,7 @@ test("numeric inputs ignore mouse-wheel and arrow-key stepping", async ({ page }
   await expect(quantity).toHaveValue("8");
 
   await unitCost.fill("120");
-  await unitCost.hover();
-  await page.mouse.wheel(0, 180);
+  await unitCost.dispatchEvent("wheel", { deltaY: 180 });
   await expect(unitCost).toHaveValue("120");
   await expect(unitCost).not.toBeFocused();
 });

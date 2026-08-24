@@ -12,7 +12,7 @@ export default defineConfig({
         handler(html) {
           return html.replace(
             /<link rel="stylesheet" crossorigin href="(\.\/assets\/index-[^"]+\.css)">/,
-            '<link rel="stylesheet" crossorigin href="$1" data-jgc-design-system="7" data-jgc-estimator-theme="1">'
+            '<link rel="stylesheet" crossorigin href="$1" data-jgc-design-system="8" data-jgc-estimator-theme="1">'
           );
         }
       }
