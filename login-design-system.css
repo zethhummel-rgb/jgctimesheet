@@ -1,4 +1,607 @@
-/* Login compatibility layer for the shared JGC design system. */
+/* Login layout. All visual values inherit shared portal tokens. */
+
+    :root {
+      --green: var(--jgc-color-brand-400);
+      --green-dark: var(--jgc-color-brand-700);
+      --panel: color-mix(in srgb, var(--jgc-color-surface) 86%, transparent);
+      --panel-border: color-mix(in srgb, var(--jgc-color-brand-400) 58%, transparent);
+      --text: var(--jgc-color-text);
+      --muted: var(--jgc-color-text-muted);
+      --field: color-mix(in srgb, var(--jgc-color-surface-soft) 76%, transparent);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--jgc-font-family);
+      background: var(--jgc-color-page-deep);
+      padding: 0;
+      margin: 0;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body:before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--jgc-color-page-deep) 20%, transparent), color-mix(in srgb, var(--jgc-color-page-deep) 78%, transparent)),
+        repeating-linear-gradient(90deg, transparent 0 54px, color-mix(in srgb, var(--jgc-color-text) 3.5%, transparent) 55px 57px, transparent 58px 112px);
+      opacity: 0.72;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    body:after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--jgc-color-page-deep) 8%, transparent), color-mix(in srgb, var(--jgc-color-page-deep) 58%, transparent)),
+        url("login-background.webp") center center / cover no-repeat;
+      filter: grayscale(0.9) contrast(1.16) brightness(0.48);
+      transform: scale(1.02);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .login-shell {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(360px, 0.82fr);
+      gap: clamp(24px, 5vw, 80px);
+      align-items: center;
+      padding: clamp(26px, 5vw, 58px);
+    }
+
+    .brand-panel {
+      min-height: calc(100vh - 116px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px 0;
+    }
+
+    .logo-wrap {
+      max-width: 300px;
+      margin: 0;
+      text-align: left;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      display: block;
+      margin: 0;
+      filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--jgc-color-page-deep) 50%, transparent));
+    }
+
+    .portal-label {
+      margin-top: 14px;
+      color: var(--jgc-color-on-brand);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+    }
+
+    .brand-line {
+      width: 170px;
+      height: 2px;
+      margin-top: 18px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+    }
+
+    .hero-copy {
+      max-width: 620px;
+      margin-bottom: 26px;
+    }
+
+    .hero-copy h1 {
+      margin: 0;
+      color: var(--jgc-color-on-brand);
+      font-size: clamp(52px, 8vw, 96px);
+      line-height: 0.92;
+      text-transform: uppercase;
+      letter-spacing: 0;
+      text-shadow: 0 7px 24px color-mix(in srgb, var(--jgc-color-page-deep) 55%, transparent);
+    }
+
+    .hero-copy .green {
+      color: var(--green);
+    }
+
+    .trust-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 650px;
+    }
+
+    .trust-item {
+      min-height: 74px;
+      border: 1px solid var(--jgc-color-border-soft);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--jgc-color-page-deep) 34%, transparent);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: var(--jgc-color-on-brand);
+    }
+
+    .trust-icon {
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--green);
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-size: 23px;
+      flex: 0 0 auto;
+    }
+
+    .card {
+      width: min(100%, 560px);
+      background:
+        linear-gradient(145deg, color-mix(in srgb, var(--jgc-color-text) 5.5%, transparent), transparent 48%),
+        var(--panel);
+      padding: clamp(24px, 4.5vw, 52px);
+      margin: 0 auto;
+      border-radius: 20px;
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 28px 70px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent);
+      backdrop-filter: blur(10px);
+    }
+
+    .login-card-logo {
+      max-width: 280px;
+      margin: 0 auto 26px;
+    }
+
+    .login-card-logo img {
+      width: 100%;
+      display: block;
+      filter: drop-shadow(0 15px 24px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent));
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      color: var(--jgc-color-on-brand);
+      text-align: center;
+      font-size: clamp(34px, 4vw, 48px);
+      line-height: 1;
+    }
+
+    .login-subtitle {
+      margin: 0 0 28px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .divider {
+      width: 120px;
+      height: 2px;
+      margin: 0 auto 28px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--jgc-color-on-brand);
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 0;
+      margin-bottom: 14px;
+      box-sizing: border-box;
+    }
+
+    input {
+      background: var(--field);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-text) 22%, transparent);
+      border-radius: 8px;
+      color: var(--jgc-color-on-brand);
+      font-size: 16px;
+    }
+
+    input::placeholder {
+      color: var(--jgc-color-text-muted);
+    }
+
+    input:focus {
+      border-color: var(--green);
+      outline: 2px solid color-mix(in srgb, var(--jgc-color-brand-400) 22%, transparent);
+    }
+
+    button {
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-700));
+      color: var(--jgc-color-on-brand);
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      min-height: 54px;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, var(--jgc-color-brand-400), var(--jgc-color-brand-800));
+    }
+
+    .secondary {
+      background: transparent;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 68%, transparent);
+      color: var(--green);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .secondary:hover {
+      background: color-mix(in srgb, var(--jgc-color-brand-400) 10%, transparent);
+    }
+
+    .public-tool-button {
+      margin-top: 4px;
+      background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+      color: var(--jgc-color-text-dark);
+      border: 1px solid var(--jgc-color-border-soft);
+    }
+
+    .public-tool-button:hover {
+      background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+    }
+
+    .public-tool-button-top {
+      margin-top: 16px;
+      margin-bottom: 8px;
+    }
+
+    .public-notes-button {
+      margin-top: 8px;
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
+      color: var(--jgc-color-on-brand);
+    }
+
+    .public-notes-button:hover {
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+    }
+
+    .subcontractor-access-button {
+      margin-top: 18px;
+      background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
+      border-color: color-mix(in srgb, var(--jgc-color-text) 28%, transparent);
+      color: var(--jgc-color-on-brand);
+    }
+
+    .subcontractor-access-button:hover {
+      background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
+    }
+
+    .portal-share-qr {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 34%, transparent);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--jgc-color-text) 5.5%, transparent);
+      text-align: center;
+    }
+
+    .portal-share-qr h4 {
+      margin: 0 0 8px;
+      color: var(--jgc-color-on-brand);
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .portal-share-qr img {
+      display: block;
+      width: min(170px, 58vw);
+      height: auto;
+      margin: 0 auto 8px;
+      border-radius: 10px;
+      background: var(--jgc-color-input);
+      padding: 8px;
+    }
+
+    .portal-share-qr p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .notes-overlay[hidden],
+    .subcontractor-overlay[hidden] {
+      display: none;
+    }
+
+    .notes-overlay,
+    .subcontractor-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: color-mix(in srgb, var(--jgc-color-page-deep) 72%, transparent);
+      backdrop-filter: blur(8px);
+    }
+
+    .notes-panel,
+    .subcontractor-panel {
+      width: min(760px, 100%);
+      max-height: min(88dvh, 760px);
+      overflow: auto;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 45%, transparent);
+      border-top: 5px solid var(--jgc-color-brand-500);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--jgc-color-surface) 98%, transparent);
+      box-shadow: 0 28px 80px color-mix(in srgb, var(--jgc-color-page-deep) 48%, transparent);
+      color: var(--jgc-color-on-brand);
+    }
+
+    .subcontractor-panel {
+      width: min(560px, 100%);
+    }
+
+    .notes-panel-inner {
+      padding: 22px;
+    }
+
+    .subcontractor-panel-inner {
+      padding: 24px;
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .notes-header h3 {
+      margin: 0 0 5px;
+      color: var(--jgc-color-brand-500);
+      font-size: 1.55rem;
+      text-align: left;
+    }
+
+    .subcontractor-panel h3 {
+      margin: 0 0 8px;
+      color: var(--jgc-color-brand-500);
+      font-size: 1.55rem;
+      text-align: left;
+    }
+
+    .notes-header p,
+    .notes-status,
+    .subcontractor-status {
+      margin: 0;
+      color: var(--jgc-color-text-muted);
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+
+    .notes-close-button,
+    .notes-clear-button,
+    .notes-done-button {
+      width: auto;
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .notes-close-button {
+      flex: 0 0 auto;
+      background: color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
+      border: 1px solid var(--jgc-color-border-soft);
+    }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .notes-card {
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--jgc-color-text) 4.5%, transparent);
+      padding: 14px;
+    }
+
+    .notes-card label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--jgc-color-on-brand);
+      font-size: 0.95rem;
+    }
+
+    .notes-card textarea {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      box-sizing: border-box;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 25%, transparent);
+      border-radius: 12px;
+      background: var(--jgc-color-input);
+      color: var(--jgc-color-text-dark);
+      padding: 12px;
+      font: 600 0.98rem/1.45 var(--jgc-font-family);
+    }
+
+    .notes-card textarea:focus {
+      outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent);
+      border-color: var(--jgc-color-brand-500);
+    }
+
+    .notes-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .notes-clear-button {
+      background: var(--jgc-color-danger);
+    }
+
+    .notes-done-button {
+      background: var(--jgc-color-brand-600);
+    }
+
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .status {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--green);
+      min-height: 18px;
+      text-align: center;
+    }
+
+    .toggle-card {
+      margin-top: 16px;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .toggle-button {
+      margin: 0;
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
+      color: var(--jgc-color-on-brand);
+      text-align: center;
+      padding: 14px 15px;
+      min-height: 50px;
+    }
+
+    .toggle-button:hover {
+      background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
+    }
+
+    .signup-panel {
+      padding: 22px 0 0;
+      border-top: 1px solid color-mix(in srgb, var(--jgc-color-text) 12%, transparent);
+      margin-top: 18px;
+    }
+
+    .signup-panel[hidden] {
+      display: none;
+    }
+
+    .security-note {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .stay-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0 16px;
+      color: var(--jgc-color-on-brand);
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stay-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 940px) {
+      .login-shell {
+        grid-template-columns: 1fr;
+        padding: 18px;
+      }
+
+      .brand-panel {
+        min-height: auto;
+        gap: 28px;
+      }
+
+      .hero-copy h1 {
+        font-size: clamp(42px, 14vw, 68px);
+      }
+
+      .trust-row {
+        grid-template-columns: 1fr;
+      }
+
+      .login-card-logo {
+        max-width: 220px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .login-shell {
+        padding: 14px;
+      }
+
+      .brand-panel {
+        display: none;
+      }
+
+      .card {
+        border-radius: 14px;
+        padding: 22px;
+      }
+
+      .notes-overlay {
+        align-items: stretch;
+        padding: 12px;
+      }
+
+      .notes-panel {
+        max-height: calc(100dvh - 24px);
+      }
+
+      .notes-panel-inner {
+        padding: 18px;
+      }
+
+      .notes-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .notes-card textarea {
+        min-height: 170px;
+      }
+    }
 
 html,
 body.login-page {
@@ -12,8 +615,8 @@ body.login-page.jgc-page {
   margin: 0;
   padding: 0;
   color: var(--text);
-  background: #050807;
-  font-family: Arial, sans-serif;
+  background: var(--jgc-color-page-deep);
+  font-family: var(--jgc-font-family);
   line-height: normal;
 }
 
@@ -59,26 +662,26 @@ body.login-page.jgc-page {
   max-width: 300px;
   height: auto;
   margin: 0;
-  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 18px 28px color-mix(in srgb, var(--jgc-color-page-deep) 50%, transparent));
 }
 
 .login-page .brand-panel.jgc-page-header .hero-copy h1 {
   margin: 0;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   font-size: clamp(52px, 8vw, 96px);
   line-height: 0.92;
   letter-spacing: 0;
   text-align: left;
   text-transform: uppercase;
-  text-shadow: 0 7px 24px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 7px 24px color-mix(in srgb, var(--jgc-color-page-deep) 55%, transparent);
 }
 
 .login-page .trust-item.jgc-card {
   min-height: 74px;
   padding: 14px;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-page-deep) 34%, transparent);
+  border: 1px solid var(--jgc-color-border-soft);
   border-radius: 8px;
   box-shadow: none;
 }
@@ -91,11 +694,11 @@ body.login-page.jgc-page {
   padding: clamp(24px, 4.5vw, 52px);
   color: var(--text);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 48%),
+    linear-gradient(145deg, color-mix(in srgb, var(--jgc-color-text) 5.5%, transparent), transparent 48%),
     var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 20px;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 28px 70px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent);
   backdrop-filter: blur(10px);
   box-sizing: border-box;
 }
@@ -113,13 +716,13 @@ body.login-page.jgc-page {
   max-width: none;
   height: auto;
   margin: 0;
-  filter: drop-shadow(0 15px 24px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 15px 24px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent));
 }
 
 .login-page label.jgc-label {
   display: block;
   margin: 0 0 5px;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   font-size: 13px;
   font-weight: 700;
   line-height: normal;
@@ -127,33 +730,33 @@ body.login-page.jgc-page {
 
 .login-page input.jgc-input {
   width: 100%;
-  min-height: 0;
+  min-height: var(--jgc-control-height);
   margin: 0 0 14px;
   padding: 15px;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   background: var(--field);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 22%, transparent);
   border-radius: 8px;
-  font: 400 16px Arial, sans-serif;
+  font: 400 16px var(--jgc-font-family);
   line-height: normal;
   color-scheme: dark;
   box-sizing: border-box;
 }
 
 .login-page input.jgc-input::placeholder {
-  color: #aeb7b1;
+  color: var(--jgc-color-text-muted);
 }
 
 .login-page input.jgc-input:focus {
   border-color: var(--green);
-  outline: 2px solid rgba(94, 225, 47, 0.22);
+  outline: 2px solid color-mix(in srgb, var(--jgc-color-brand-400) 22%, transparent);
   outline-offset: 0;
 }
 
 .login-page label.stay-row.jgc-label {
   display: flex;
   margin: 12px 0 16px;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   font-size: 14px;
   font-weight: 700;
   align-items: center;
@@ -166,63 +769,63 @@ body.login-page.jgc-page {
   min-height: 54px;
   margin: 0 0 14px;
   padding: 15px;
-  color: #ffffff;
-  background: linear-gradient(135deg, #68d43b, #2f8f21);
+  color: var(--jgc-color-on-brand);
+  background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-700));
   border: 0;
   border-radius: 8px;
   box-shadow: none;
-  font: 900 13.3333px Arial, sans-serif;
+  font: 900 13.3333px var(--jgc-font-family);
   line-height: normal;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .login-page button.jgc-button:hover {
-  background: linear-gradient(135deg, #72e245, #247c18);
+  background: linear-gradient(135deg, var(--jgc-color-brand-400), var(--jgc-color-brand-800));
   filter: none;
 }
 
 .login-page button.secondary.jgc-button--secondary {
   color: var(--green);
   background: transparent;
-  border: 1px solid rgba(94, 225, 47, 0.68);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 68%, transparent);
   letter-spacing: 0;
   text-transform: none;
 }
 
 .login-page button.secondary.jgc-button--secondary:hover {
-  background: rgba(94, 225, 47, 0.1);
+  background: color-mix(in srgb, var(--jgc-color-brand-400) 10%, transparent);
   filter: none;
 }
 
 .login-page button.public-tool-button.jgc-button {
-  color: #111817;
-  background: linear-gradient(135deg, #d99527, #93651c);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--jgc-color-text-dark);
+  background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+  border: 1px solid var(--jgc-color-border-soft);
 }
 
 .login-page button.public-tool-button.jgc-button:hover {
-  background: linear-gradient(135deg, #efaa35, #a87420);
+  background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
 }
 
 .login-page button.public-notes-button.jgc-button {
-  color: #ffffff;
-  background: linear-gradient(135deg, #16843f, #0b5e3b);
+  color: var(--jgc-color-on-brand);
+  background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
 }
 
 .login-page button.public-notes-button.jgc-button:hover {
-  background: linear-gradient(135deg, #1a9a4a, #0d7045);
+  background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
 }
 
 .login-page button.subcontractor-access-button.jgc-button {
   margin-top: 18px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.28);
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--jgc-color-text) 28%, transparent);
 }
 
 .login-page button.subcontractor-access-button.jgc-button:hover {
-  background: rgba(94, 225, 47, 0.12);
+  background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
 }
 
 .login-page .status.jgc-notice,
@@ -253,21 +856,21 @@ body.login-page.jgc-page {
   min-height: 50px;
   margin: 0;
   padding: 14px 15px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
   border: 0;
   border-radius: 18px;
   text-align: center;
 }
 
 .login-page button.toggle-button.jgc-button:hover {
-  background: rgba(94, 225, 47, 0.12);
+  background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
 }
 
 .login-page .signup-panel.jgc-section {
   margin-top: 18px;
   padding: 22px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--jgc-color-text) 12%, transparent);
 }
 
 .login-page .signup-panel.jgc-section[hidden] {
@@ -285,8 +888,8 @@ body.login-page.jgc-page {
   margin-top: 18px;
   padding: 14px;
   color: inherit;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(94, 225, 47, 0.34);
+  background: color-mix(in srgb, var(--jgc-color-text) 5.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 34%, transparent);
   border-radius: 14px;
   box-shadow: none;
   text-align: center;
@@ -299,7 +902,7 @@ body.login-page.jgc-page {
   padding: 24px;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
+  background: color-mix(in srgb, var(--jgc-color-page-deep) 72%, transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -315,12 +918,12 @@ body.login-page.jgc-page {
   margin: 0;
   padding: 0;
   overflow: auto;
-  color: #ffffff;
-  background: rgba(6, 24, 18, 0.98);
-  border: 1px solid rgba(57, 200, 72, 0.45);
-  border-top: 5px solid #39c848;
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-surface) 98%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 45%, transparent);
+  border-top: 5px solid var(--jgc-color-brand-500);
   border-radius: 18px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 28px 80px color-mix(in srgb, var(--jgc-color-page-deep) 48%, transparent);
 }
 
 .login-page .subcontractor-panel.jgc-modal__dialog {
@@ -337,7 +940,7 @@ body.login-page.jgc-page {
 .login-page button.notes-clear-button.jgc-button,
 .login-page button.notes-done-button.jgc-button {
   width: auto;
-  min-height: 0;
+  min-height: var(--jgc-control-height);
   margin: 0;
   padding: 10px 14px;
   border-radius: 10px;
@@ -347,31 +950,31 @@ body.login-page.jgc-page {
 
 .login-page button.notes-close-button.jgc-button {
   flex: 0 0 auto;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
+  border: 1px solid var(--jgc-color-border-soft);
 }
 
 .login-page button.notes-clear-button.jgc-button {
-  background: #9f1f1a;
+  background: var(--jgc-color-danger);
 }
 
 .login-page button.notes-done-button.jgc-button {
-  background: #118844;
+  background: var(--jgc-color-brand-600);
 }
 
 .login-page .notes-card.jgc-card {
   padding: 14px;
   color: inherit;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(57, 200, 72, 0.28);
+  background: color-mix(in srgb, var(--jgc-color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
   border-radius: 14px;
   box-shadow: none;
 }
 
 .login-page .notes-card label.jgc-label {
   margin-bottom: 8px;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   font-size: 0.95rem;
 }
 
@@ -380,19 +983,19 @@ body.login-page.jgc-page {
   min-height: 220px;
   padding: 12px;
   resize: vertical;
-  color: #111817;
-  background: #f4f7f2;
-  border: 1px solid rgba(57, 200, 72, 0.25);
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 25%, transparent);
   border-radius: 12px;
   outline-offset: 0;
-  font: 600 0.98rem/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 600 0.98rem/1.45 var(--jgc-font-family);
   color-scheme: light;
   box-sizing: border-box;
 }
 
 .login-page .notes-card textarea.jgc-textarea:focus {
-  border-color: #39c848;
-  outline: 3px solid rgba(57, 200, 72, 0.34);
+  border-color: var(--jgc-color-brand-500);
+  outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent);
   outline-offset: 0;
 }
 
@@ -403,7 +1006,7 @@ body.login-page.jgc-page {
 }
 
 .login-page .subcontractor-status.jgc-notice {
-  color: #c4d0c8;
+  color: var(--jgc-color-text-muted);
   line-height: 1.4;
   text-align: left;
 }
@@ -454,4 +1057,9 @@ body.login-page.jgc-page {
   .login-page .notes-card textarea.jgc-textarea {
     min-height: 170px;
   }
+}
+
+
+.login-page .login-signup-help {
+  margin: 0 0 var(--jgc-space-4);
 }
