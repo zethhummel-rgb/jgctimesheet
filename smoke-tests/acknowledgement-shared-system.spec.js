@@ -9,7 +9,7 @@ test("Safety Acknowledgement uses one token-only visual source", async () => {
   const css = fs.readFileSync(path.join(portalRoot, "acknowledgement-design-system.css"), "utf8");
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=7');
+  expect(html).toContain('jgc-design-system.css?v=8');
   expect(html).toContain('acknowledgement-design-system.css?v=2');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);

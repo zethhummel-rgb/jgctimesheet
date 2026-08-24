@@ -15,7 +15,7 @@ test("inspection records screens and Admin Safety Records use token-only visual 
     const css = fs.readFileSync(path.join(portalRoot, page.css), "utf8");
 
     expect(source).not.toContain("styles.css");
-    expect(source).toContain('jgc-design-system.css?v=7');
+    expect(source).toContain('jgc-design-system.css?v=8');
     expect(source).toContain(`${page.css}?v=1`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     expect(screenMarkup).not.toMatch(/<style\b/i);

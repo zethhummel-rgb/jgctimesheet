@@ -124,6 +124,17 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
       body = JSON.stringify(fakeUser);
     } else if (url.pathname.startsWith("/auth/v1/token")) {
       body = JSON.stringify(session);
+    } else if (url.pathname.includes("/rest/v1/portal_user_preferences")) {
+      const preferenceState = options.themePreferenceState || { theme: "dark", writes: [] };
+      if (["POST", "PATCH"].includes(request.method())) {
+        const payload = JSON.parse(request.postData() || "{}");
+        preferenceState.theme = payload.theme || preferenceState.theme;
+        preferenceState.writes = preferenceState.writes || [];
+        preferenceState.writes.push(payload);
+        body = "[]";
+      } else {
+        body = JSON.stringify({ theme: preferenceState.theme || "dark" });
+      }
     } else if (url.pathname.includes("/rest/v1/accounting_employee_settings")) {
       body = JSON.stringify([
         { profile_id: fakeProfile.id, include_in_payroll: false },
@@ -3347,6 +3358,74 @@ test("employee submitted work orders load only after their tab is clicked", asyn
   expect(workOrderRequests.some((url) => url.includes("status.eq.submitted"))).toBe(true);
   await expect(page.locator("#woSubmittedTabButton")).toHaveClass(/active/);
   await expectNoRuntimeErrors(errors, "employee submitted work order lazy loading");
+});
+
+test("appearance settings persist per account and remain usable on mobile", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const themePreferenceState = { theme: "dark", writes: [] };
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { themePreferenceState });
+
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#jgcAppearanceSettingsButton")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "dark");
+
+  await page.locator("#jgcAppearanceSettingsButton").click();
+  await expect(page.locator("#jgcAppearanceSettingsPanel")).toBeVisible();
+  await page.locator('[data-jgc-theme-choice="light"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+  await expect(page.locator('[data-jgc-theme-choice="light"]')).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => themePreferenceState.theme).toBe("light");
+  expect(themePreferenceState.writes.at(-1)).toEqual(expect.objectContaining({
+    user_id: fakeUser.id,
+    theme: "light"
+  }));
+
+  const lightTokens = await page.evaluate(() => {
+    const tokens = getComputedStyle(document.documentElement);
+    return {
+      page: tokens.getPropertyValue("--jgc-color-page").trim(),
+      surface: tokens.getPropertyValue("--jgc-color-surface").trim(),
+      text: tokens.getPropertyValue("--jgc-color-text").trim()
+    };
+  });
+  expect(lightTokens).toEqual({ page: "#e7ece8", surface: "#f7f9f7", text: "#17251d" });
+
+  await page.evaluate(({ userId }) => {
+    localStorage.removeItem("jgcPortalTheme");
+    localStorage.removeItem("jgcPortalTheme:" + userId);
+  }, { userId: fakeUser.id });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+
+  await page.evaluate(({ userId }) => {
+    localStorage.setItem("jgcPortalThemePending:" + userId, "dark");
+  }, { userId: fakeUser.id });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "dark");
+  await expect.poll(() => themePreferenceState.theme).toBe("dark");
+  expect(await page.evaluate(({ userId }) => (
+    localStorage.getItem("jgcPortalThemePending:" + userId)
+  ), { userId: fakeUser.id })).toBeNull();
+
+  await page.locator("#jgcAppearanceSettingsButton").click();
+  await page.locator('[data-jgc-theme-choice="light"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+  await expect.poll(() => themePreferenceState.theme).toBe("light");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobilePanel = await page.locator("#jgcAppearanceSettingsPanel").boundingBox();
+  const mobileButton = await page.locator("#jgcAppearanceSettingsButton").boundingBox();
+  expect(mobilePanel.width).toBeLessThanOrEqual(370);
+  expect(mobilePanel.x).toBeGreaterThanOrEqual(9);
+  expect(mobileButton.width).toBe(38);
+  expect(mobileButton.height).toBe(38);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+  await expect(page.locator("#jgcAppearanceSettingsButton")).toBeVisible();
+  await expectNoRuntimeErrors(errors, "appearance settings");
 });
 
 test("purchase order list tabs and key controls respond", async ({ page }) => {

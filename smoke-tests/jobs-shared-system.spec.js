@@ -123,7 +123,7 @@ test("Jobs family uses shared tokens without employee-page legacy CSS", async ()
   expect(source).not.toMatch(/<style\b/i);
   expect(source).not.toMatch(/\sstyle\s*=/i);
   expect(source).not.toContain("styles.css");
-  expect(source).toContain('jgc-design-system.css?v=7');
+  expect(source).toContain('jgc-design-system.css?v=8');
   expect(source).toContain('jobs-design-system.css?v=3');
   expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Jobs-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);

@@ -921,6 +921,12 @@
     const elements = getElements();
     elements.button.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (global.JGCAppearanceSettings && typeof global.JGCAppearanceSettings.close === "function") {
+        global.JGCAppearanceSettings.close();
+      }
+      if (typeof global.toggleJgcNotificationPanel === "function") {
+        global.toggleJgcNotificationPanel(false);
+      }
       toggle();
     });
     wrapper.querySelector("[data-jgc-admin-search-close]").addEventListener("click", close);

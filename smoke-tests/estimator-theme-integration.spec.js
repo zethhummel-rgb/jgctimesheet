@@ -11,7 +11,7 @@ test("Estimate Desk uses the Portal design system and one token-only theme adapt
   const shell = fs.readFileSync(path.join(portalRoot, "estimating-app/src/portal-shell.css"), "utf8");
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
 
-  expect(sourceIndex).toContain('href="../jgc-design-system.css?v=7" data-jgc-design-system="7"');
+  expect(sourceIndex).toContain('href="../jgc-design-system.css?v=8" data-jgc-design-system="8"');
   expect(sourceIndex).toContain('href="../estimator-theme.css?v=1" data-jgc-estimator-theme="1"');
   expect(theme).toContain("--jgc-estimator-green-600: var(--jgc-color-brand-600");
   expect(theme).toContain("--jgc-estimator-red-700: var(--jgc-color-danger");
@@ -63,7 +63,7 @@ for (const viewport of [
     expect(themeState.sidebarBackground).toContain("linear-gradient");
     expect(themeState.overflow).toBeLessThanOrEqual(1);
     expect(themeState.stylesheets.some((href) => /\/estimating\/assets\/index-[^/]+\.css/.test(href))).toBe(true);
-    await expect(page.locator('link[data-jgc-design-system="7"][data-jgc-estimator-theme="1"]')).toHaveCount(1);
+    await expect(page.locator('link[data-jgc-design-system="8"][data-jgc-estimator-theme="1"]')).toHaveCount(1);
     const badThemeRequest = await page.evaluate(() => performance.getEntriesByType("resource").some((entry) => entry.name.includes("/estimating/jgc-design-system.css")));
     expect(badThemeRequest).toBe(false);
   });

@@ -10,7 +10,7 @@ test("Login uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
 
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=7');
+  expect(html).toContain('jgc-design-system.css?v=8');
   expect(html).toContain('login-design-system.css?v=2');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
@@ -20,7 +20,7 @@ test("Login uses one token-only visual source", async () => {
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('const JGC_RELEASE_ID = "780"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "781"');
   expect(worker).toContain('"./login-design-system.css?v=2"');
 });
 

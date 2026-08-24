@@ -13,7 +13,7 @@ test("Employee Access and Diagnostics use direct token-only shared styling", asy
     const html = fs.readFileSync(path.join(portalRoot, page.html), "utf8");
     const css = fs.readFileSync(path.join(portalRoot, page.css), "utf8");
     expect(html).not.toContain("styles.css");
-    expect(html).toContain('jgc-design-system.css?v=7');
+    expect(html).toContain('jgc-design-system.css?v=8');
     expect(html).toContain(`${page.css}?v=${page.version}`);
     expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
     expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);

@@ -17,7 +17,7 @@ test("QR inspection screens use centralized token-only styling", async () => {
     const featureCss = fs.readFileSync(path.join(portalRoot, page.css), "utf8");
     const screenMarkup = source.split("<script src=")[0];
 
-    expect(source).toContain('jgc-design-system.css?v=7');
+    expect(source).toContain('jgc-design-system.css?v=8');
     expect(source).toContain('qr-inspection-design-system.css?v=2');
     expect(source).toContain(`${page.css}?v=1`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
