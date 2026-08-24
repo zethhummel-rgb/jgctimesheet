@@ -82,6 +82,26 @@ body.notification-settings-page {
   max-width: 347px;
 }
 
+.notification-settings-page > .logo-wrap {
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  margin: 0 auto var(--jgc-space-2);
+}
+
+.notification-settings-page > .jgc-page-title,
+.notification-settings-page > .jgc-page-user {
+  width: min(var(--jgc-page-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  margin-inline: auto;
+  text-align: center;
+}
+
+.notification-settings-page > .jgc-page-title {
+  margin-bottom: var(--jgc-space-2);
+}
+
+.notification-settings-page > .jgc-page-user {
+  margin-bottom: var(--jgc-space-4);
+}
+
 .notification-settings-page .notification-settings-shell {
   width: min(1180px, calc(100vw - 40px));
   max-width: 1180px;
@@ -104,9 +124,9 @@ body.notification-settings-page {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--jgc-space-3);
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin: var(--jgc-space-4) 0;
   padding: 0;
 }
 
@@ -234,6 +254,11 @@ body.notification-settings-page {
 
   .notification-settings-page .toolbar.jgc-toolbar {
     align-items: stretch;
+  }
+
+  .notification-settings-page .toolbar.jgc-toolbar .jgc-button {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }
 

@@ -207,7 +207,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(adminSource).toContain('admin.css?v=16');
   expect(adminSource).toContain('work-orders-design-system.css?v=1');
   expect(adminSource).toContain('admin-work-orders.js?v=3');
-  expect(adminSource).toContain('class="card jgc-panel jgc-work-orders-admin"');
+  expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
   expect(adminWorkOrders).not.toMatch(/class="small" style=/i);
   expect(adminCss).not.toContain(".admin-wo-management {");
   expect(adminCss).not.toContain(".admin-wo-editor-panel {");

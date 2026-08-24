@@ -18,10 +18,25 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
   expect(html).toContain('jgc-design-system.css?v=7');
-  expect(html).toContain('admin-shell-design-system.css?v=1');
+  expect(html).toContain('admin-shell-design-system.css?v=2');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
   expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');
   expect(html).toContain('id="adminToolsSection" class="card jgc-panel jgc-admin-shell-surface"');
+  for (const id of [
+    "timesheetsSection",
+    "safetyRecordsSection",
+    "inspectionsSection",
+    "certificatesSection",
+    "tasksSection",
+    "noticePolicySection",
+    "reportsSection",
+    "jobsSection",
+    "workOrdersSection",
+    "contactsSection",
+    "subcontractorsSuppliersSection"
+  ]) {
+    expect(html).toMatch(new RegExp(`id=["']${id}["'][^>]*\\bjgc-admin-feature-surface\\b`));
+  }
   expect(html).toContain('src="common.js?v=39"');
 
   for (const css of [shellCss, searchCss]) {
@@ -30,8 +45,8 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   }
 
   expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "6";');
-  expect(worker).toContain('const JGC_RELEASE_ID = "775";');
-  expect(worker).toContain('"./admin-shell-design-system.css?v=1"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "776";');
+  expect(worker).toContain('"./admin-shell-design-system.css?v=2"');
   expect(worker).toContain('"./admin-global-search.css?v=6"');
   expect(worker).toContain('"./admin-global-search.js?v=6"');
   expect(worker).toContain('"./common.js?v=39"');
@@ -58,6 +73,20 @@ async function visibleLayout(page, selector) {
     };
   }, selector);
 }
+
+const adminFeatureSurfaceSelectors = [
+  "#timesheetsSection",
+  "#safetyRecordsSection",
+  "#inspectionsSection",
+  "#certificatesSection",
+  "#tasksSection",
+  "#noticePolicySection",
+  "#reportsSection",
+  "#jobsSection",
+  "#workOrdersSection",
+  "#contactsSection",
+  "#subcontractorsSuppliersSection"
+];
 
 for (const viewport of [
   { name: "desktop", width: 1280, height: 900 },
@@ -102,6 +131,46 @@ for (const viewport of [
       const toolColumns = await page.locator(".admin-tools-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length);
       expect(toolColumns).toBe(1);
     }
+    await context.close();
+  });
+
+  test(`Admin feature surfaces and tables retain the dark green shell on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+
+    const styles = await page.evaluate((selectors) => {
+      const summary = document.querySelector("#summarySection");
+      const expectedSurface = getComputedStyle(summary).backgroundColor;
+      return selectors.map((selector) => {
+        const surface = document.querySelector(selector);
+        surface.hidden = false;
+        const probe = document.createElement("table");
+        probe.className = "admin-surface-theme-probe";
+        probe.innerHTML = "<thead><tr><th>Header</th></tr></thead><tbody><tr><td>Row</td></tr></tbody>";
+        surface.appendChild(probe);
+        const result = {
+          selector,
+          surface: getComputedStyle(surface).backgroundColor,
+          table: getComputedStyle(probe).backgroundColor,
+          header: getComputedStyle(probe.querySelector("th")).backgroundColor,
+          cell: getComputedStyle(probe.querySelector("td")).backgroundColor,
+          expectedSurface
+        };
+        probe.remove();
+        surface.hidden = true;
+        return result;
+      });
+    }, adminFeatureSurfaceSelectors);
+
+    for (const style of styles) {
+      expect(style.surface, style.selector).toBe(style.expectedSurface);
+      expect(style.surface, style.selector).not.toBe("rgb(251, 252, 249)");
+      expect(style.table, style.selector).not.toBe("rgb(255, 255, 255)");
+      expect(style.header, style.selector).not.toBe("rgb(230, 236, 230)");
+      expect(style.cell, style.selector).not.toBe("rgb(255, 255, 255)");
+    }
+
     await context.close();
   });
 }

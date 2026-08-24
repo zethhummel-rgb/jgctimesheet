@@ -7,9 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JGC Notification Settings</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
-  <link rel="stylesheet" href="notification-settings-design-system.css?v=2">
+  <link rel="stylesheet" href="notification-settings-design-system.css?v=3">
 </head>
-<body class="notification-settings-page jgc-theme jgc-page">
+<body class="notification-settings-page jgc-theme jgc-page jgc-system-page">
   <div class="tabs">
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
@@ -24,12 +24,12 @@
     <button type="button" class="tab-button active" onclick="window.location.href='admin.html?tab=adminTools'">Admin Tools</button>
   </div>
 
-  <div class="logo-wrap jgc-brand">
+  <div class="logo-wrap jgc-brand jgc-brand-region">
     <img src="logo.webp" alt="John Gordon Construction logo">
   </div>
 
-  <h1>Notification Settings</h1>
-  <div id="currentUser" class="user-bar"></div>
+  <h1 class="jgc-page-title">Notification Settings</h1>
+  <div id="currentUser" class="user-bar jgc-page-user"></div>
 
   <main class="panel notification-settings-shell jgc-page-shell jgc-page-shell--wide jgc-panel">
     <h2 class="jgc-section-title">Notification Settings</h2>

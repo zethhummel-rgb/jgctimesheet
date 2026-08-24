@@ -204,6 +204,65 @@
   border-color: var(--jgc-color-border-soft);
 }
 
+/*
+ * Embedded feature sections share the Admin surface and table palette while
+ * retaining the control sizes and component geometry owned by each feature.
+ */
+.jgc-admin-shell-page .jgc-admin-feature-surface {
+  width: min(1200px, 100%);
+  min-width: 0;
+  max-width: 1200px;
+  margin: 0 auto var(--jgc-space-3);
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  background: color-mix(in srgb, var(--jgc-color-surface) 96%, transparent);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-top: 4px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: var(--jgc-shadow-lg);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface :where(h2, h3, h4) {
+  color: var(--jgc-color-brand-400);
+  text-shadow: none;
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface :where(p, .small, .status, .muted, .helper) {
+  color: var(--jgc-color-text-muted);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface :where(label, strong) {
+  color: var(--jgc-color-text);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface table {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface th {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-header);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface td {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-row);
+}
+
+.jgc-admin-shell-page .jgc-admin-feature-surface th,
+.jgc-admin-shell-page .jgc-admin-feature-surface td {
+  border-color: var(--jgc-color-border-soft);
+}
+
 /* Summary and its on-page search. */
 .jgc-admin-shell-page .portal-summary-title {
   margin-bottom: var(--jgc-space-2);
@@ -576,7 +635,8 @@
     padding-inline: var(--jgc-space-3);
   }
 
-  .jgc-admin-shell-page .jgc-admin-shell-surface {
+  .jgc-admin-shell-page .jgc-admin-shell-surface,
+  .jgc-admin-shell-page .jgc-admin-feature-surface {
     padding: var(--jgc-space-3);
   }
 
