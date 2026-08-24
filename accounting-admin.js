@@ -280,8 +280,8 @@
     const dates = state.periodDates;
     elements.payDate.value = state.payDate;
     elements.periodDates.innerHTML = `
-      <div class="accounting-date-card"><strong>Week 1</strong><span>${escapeText(formatDate(dates.weekOneStart))} to ${escapeText(formatDate(dates.weekOneEnd))}</span></div>
-      <div class="accounting-date-card"><strong>Week 2</strong><span>${escapeText(formatDate(dates.weekTwoStart))} to ${escapeText(formatDate(dates.weekTwoEnd))}</span></div>
+      <div class="accounting-date-card jgc-card"><strong>Week 1</strong><span>${escapeText(formatDate(dates.weekOneStart))} to ${escapeText(formatDate(dates.weekOneEnd))}</span></div>
+      <div class="accounting-date-card jgc-card"><strong>Week 2</strong><span>${escapeText(formatDate(dates.weekTwoStart))} to ${escapeText(formatDate(dates.weekTwoEnd))}</span></div>
     `;
     const locked = state.period && state.period.status === "locked";
     elements.periodStatus.textContent = locked ? "Locked" : "Draft";
@@ -292,34 +292,34 @@
     const submittedProfiles = new Set(validation.submissions.map((item) => item.profile_id).filter(Boolean)).size;
     const totalHours = validation.workEntries.reduce((sum, entry) => sum + number(entry.payable_hours), 0);
     elements.metrics.innerHTML = `
-      <div class="accounting-metric"><strong>${submittedProfiles}</strong><span>Employees Submitted</span></div>
-      <div class="accounting-metric"><strong>${validation.submissions.length}</strong><span>Weekly Submissions</span></div>
-      <div class="accounting-metric"><strong>${hours(totalHours)}</strong><span>Work Hours</span></div>
-      <div class="accounting-metric"><strong>${validation.leaveEntries.length}</strong><span>Leave Markers</span></div>
-      <div class="accounting-metric"><strong>${validation.unmatched.length}</strong><span>Job Exceptions</span></div>
+      <div class="accounting-metric jgc-card"><strong>${submittedProfiles}</strong><span>Employees Submitted</span></div>
+      <div class="accounting-metric jgc-card"><strong>${validation.submissions.length}</strong><span>Weekly Submissions</span></div>
+      <div class="accounting-metric jgc-card"><strong>${hours(totalHours)}</strong><span>Work Hours</span></div>
+      <div class="accounting-metric jgc-card"><strong>${validation.leaveEntries.length}</strong><span>Leave Markers</span></div>
+      <div class="accounting-metric jgc-card"><strong>${validation.unmatched.length}</strong><span>Job Exceptions</span></div>
     `;
   }
 
   function renderValidation(validation) {
     const cards = [];
     if (!validation.blockFinal.length) {
-      cards.push('<div class="accounting-validation-card"><strong>Final export checks passed</strong>Both weeks are submitted for every Accounting employee, and rates and job matches are ready.</div>');
+      cards.push('<div class="accounting-validation-card jgc-notice"><strong>Final export checks passed</strong>Both weeks are submitted for every Accounting employee, and rates and job matches are ready.</div>');
     } else {
-      cards.push(`<div class="accounting-validation-card danger"><strong>Final export blocked</strong>Resolve: ${escapeText(validation.blockFinal.join(", "))}.</div>`);
+      cards.push(`<div class="accounting-validation-card jgc-notice jgc-notice--danger danger"><strong>Final export blocked</strong>Resolve: ${escapeText(validation.blockFinal.join(", "))}.</div>`);
     }
     if (validation.missing.length) {
       const missingText = validation.missing.map((item) => `${item.profile.display_name} (${formatDate(item.weekStart, false)} week)`).join(", ");
-      cards.push(`<button type="button" class="accounting-validation-card accounting-missing-trigger warning" data-open-missing-submissions><strong>${validation.missing.length} expected submission${validation.missing.length === 1 ? "" : "s"} missing</strong>${escapeText(missingText)}. Final &amp; Lock stays disabled until these weeks are submitted. Click to review or auto-fill Vacation / Holiday.</button>`);
+      cards.push(`<button type="button" class="accounting-validation-card accounting-missing-trigger jgc-notice jgc-notice--warning warning" data-open-missing-submissions><strong>${validation.missing.length} expected submission${validation.missing.length === 1 ? "" : "s"} missing</strong>${escapeText(missingText)}. Final &amp; Lock stays disabled until these weeks are submitted. Click to review or auto-fill Vacation / Holiday.</button>`);
     }
     if (validation.discrepancies.length) {
-      cards.push(`<div class="accounting-validation-card warning"><strong>${validation.discrepancies.length} captured work-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The captured work rows do not match the normalized work total. Review these submissions during the historical comparison.</div>`);
+      cards.push(`<div class="accounting-validation-card jgc-notice jgc-notice--warning warning"><strong>${validation.discrepancies.length} captured work-total difference${validation.discrepancies.length === 1 ? "" : "s"}</strong>The captured work rows do not match the normalized work total. Review these submissions during the historical comparison.</div>`);
     }
     if (validation.leaveEntries.length) {
       const counts = validation.leaveEntries.reduce((result, entry) => {
         result[entry.entry_type] = (result[entry.entry_type] || 0) + 1;
         return result;
       }, {});
-      cards.push(`<div class="accounting-validation-card"><strong>Leave reference</strong>${escapeText(Object.entries(counts).map(([key, count]) => `${label(key)}: ${count}`).join(" | "))}. Leave placeholders are never counted as 0.01 paid hours.</div>`);
+      cards.push(`<div class="accounting-validation-card jgc-notice"><strong>Leave reference</strong>${escapeText(Object.entries(counts).map(([key, count]) => `${label(key)}: ${count}`).join(" | "))}. Leave placeholders are never counted as 0.01 paid hours.</div>`);
     }
     elements.validation.innerHTML = cards.join("");
   }
@@ -348,7 +348,7 @@
           <small>${isCovered ? "Entered" : "Fill"}</small>
         </label>`;
       }).join("");
-      return `<article class="accounting-missing-card" data-missing-card data-profile-id="${escapeText(item.profile.id)}" data-week-start="${escapeText(item.weekStart)}">
+      return `<article class="accounting-missing-card jgc-card" data-missing-card data-profile-id="${escapeText(item.profile.id)}" data-week-start="${escapeText(item.weekStart)}">
         <div class="accounting-missing-card-heading">
           <div><strong>${escapeText(item.profile.display_name)}</strong><span>Week of ${escapeText(formatDate(item.weekStart))}</span></div>
           <span class="jgc-badge ${needsFill ? "jgc-badge--warning" : "jgc-badge--info"}">${needsFill ? `${item.missingDays.length} day${item.missingDays.length === 1 ? "" : "s"} missing` : "Ready to submit"}</span>
@@ -427,7 +427,7 @@
     const submissions = validation.submissions;
     const groups = reviewEmployees();
     if (!groups.length) {
-      elements.employeeReview.innerHTML = '<div class="accounting-empty">No submitted timesheets were captured for this pay period.</div>';
+      elements.employeeReview.innerHTML = '<div class="accounting-empty jgc-empty-state">No submitted timesheets were captured for this pay period.</div>';
       return;
     }
     elements.employeeReview.innerHTML = groups.map((employee) => {
@@ -458,7 +458,7 @@
           </span>
         </summary>
         <div class="accounting-employee-content">
-          <div class="accounting-table-wrap"><table class="accounting-table">
+          <div class="accounting-table-wrap jgc-table-wrap"><table class="accounting-table jgc-table">
             <thead><tr><th>Date</th><th>Job / Leave</th><th>Shift</th><th>Hours</th><th>Match</th></tr></thead>
             <tbody>${rows || '<tr><td colspan="5">No entry details.</td></tr>'}</tbody>
           </table></div>
@@ -496,7 +496,7 @@
     elements.jobCount.textContent = `${validation.unmatched.length} exception${validation.unmatched.length === 1 ? "" : "s"}`;
     elements.jobCount.className = `jgc-badge ${validation.unmatched.length ? "jgc-badge--warning" : "jgc-badge--success"}`;
     if (!validation.unmatched.length) {
-      elements.jobExceptions.innerHTML = '<div class="accounting-empty">All work entries are matched to a job or marked as a reviewed special entry.</div>';
+      elements.jobExceptions.innerHTML = '<div class="accounting-empty jgc-empty-state">All work entries are matched to a job or marked as a reviewed special entry.</div>';
       return;
     }
     const rows = validation.unmatched.map((entry) => `<tr>
@@ -509,7 +509,7 @@
         <button class="jgc-button" type="button" data-match-entry="${escapeText(entry.id)}"${locked ? " disabled" : ""}>Apply</button>
       </div></td>
     </tr>`).join("");
-    elements.jobExceptions.innerHTML = `<div class="accounting-table-wrap"><table class="accounting-table">
+    elements.jobExceptions.innerHTML = `<div class="accounting-table-wrap jgc-table-wrap"><table class="accounting-table jgc-table">
       <thead><tr><th>Employee</th><th>Date</th><th>Submitted Job</th><th>Hours</th><th>Accounting Match</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div><datalist id="accountingJobChoices">${jobOptions()}</datalist>`;
@@ -520,10 +520,10 @@
     const profiles = state.profiles.filter((profile) => included.has(profile.id))
       .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
     if (!profiles.length) {
-      elements.rates.innerHTML = '<div class="accounting-empty">No employees are selected for Accounting. Use Employee Page Access in Admin Tools to choose who appears here.</div>';
+      elements.rates.innerHTML = '<div class="accounting-empty jgc-empty-state">No employees are selected for Accounting. Use Employee Page Access in Admin Tools to choose who appears here.</div>';
       return;
     }
-    elements.rates.innerHTML = `<div class="accounting-table-wrap">${profiles.map((profile) => {
+    elements.rates.innerHTML = `<div class="accounting-table-wrap jgc-table-wrap">${profiles.map((profile) => {
       const latest = ratesFor(profile.id)[0] || null;
       return `<div class="accounting-rate-form" data-rate-profile="${escapeText(profile.id)}">
         <div class="accounting-rate-name"><strong>${escapeText(profile.display_name)}</strong><small>${escapeText(label(profile.role))} · ${latest ? `Current ${money(latest.regular_rate)} from ${formatDate(latest.effective_from)}` : "No rate on file"}</small></div>
@@ -563,10 +563,10 @@
       }) : null;
     }).filter(Boolean)).sort((left, right) => new Date(right.activity_at) - new Date(left.activity_at));
     if (!activity.length) {
-      elements.exportHistory.innerHTML = '<div class="accounting-empty">No exports have been recorded for this pay period.</div>';
+      elements.exportHistory.innerHTML = '<div class="accounting-empty jgc-empty-state">No exports have been recorded for this pay period.</div>';
       return;
     }
-    elements.exportHistory.innerHTML = `<div class="accounting-table-wrap"><table class="accounting-table">
+    elements.exportHistory.innerHTML = `<div class="accounting-table-wrap jgc-table-wrap"><table class="accounting-table jgc-table">
       <thead><tr><th>Activity</th><th>Type</th><th>File</th><th>Checksum</th><th>Action</th></tr></thead>
       <tbody>${activity.map((item) => `<tr>
         <td><strong>${escapeText(item.activity_label)}</strong><br>${escapeText(formatDateTime(item.activity_at))}<br><small>${escapeText(employeeName(item.activity_by, "Administrator"))}</small></td>

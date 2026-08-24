@@ -3013,9 +3013,17 @@ test("Accounting highlights a single timesheet entry over 12 hours", async ({ pa
   const warningStyle = await warningCell.evaluate((cell) => ({
     background: getComputedStyle(cell).backgroundColor,
     color: getComputedStyle(cell).color,
-    weight: getComputedStyle(cell).fontWeight
+    weight: getComputedStyle(cell).fontWeight,
+    dangerToken: (() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--jgc-color-danger-dark)";
+      document.body.appendChild(probe);
+      const resolved = getComputedStyle(probe).color;
+      probe.remove();
+      return resolved;
+    })()
   }));
-  expect(warningStyle.background).toBe("rgb(143, 29, 29)");
+  expect(warningStyle.background).toBe(warningStyle.dangerToken);
   expect(warningStyle.color).toBe("rgb(255, 255, 255)");
   expect(Number(warningStyle.weight)).toBeGreaterThanOrEqual(700);
 

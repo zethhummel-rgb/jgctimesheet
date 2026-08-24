@@ -8,28 +8,28 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>JGC Portal - Accounting</title>
   <link rel="manifest" href="manifest.json?v=7">
-  <link rel="stylesheet" href="styles.css?v=3">
-  <link rel="stylesheet" href="accounting-admin.css?v=5">
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+  <link rel="stylesheet" href="accounting-admin.css?v=6">
 </head>
-<body class="accounting-page jgc-page">
-  <nav class="accounting-admin-tabs" data-jgc-admin-nav="true" aria-label="Admin navigation">
-    <a class="tab-button" href="admin.html?tab=summary">Summary</a>
-    <a class="tab-button" href="admin.html?tab=jobDashboard">Job Dashboard</a>
-    <a class="tab-button" href="admin.html?tab=timesheets">Timesheets</a>
-    <a class="tab-button active" aria-current="page" href="accounting-admin.html">Accounting</a>
-    <a class="tab-button" href="admin.html?tab=safetyRecords">Safety Records</a>
-    <a class="tab-button" href="admin.html?tab=vacation">Vacation Requests</a>
-    <a class="tab-button" href="admin.html?tab=tasks">Tasks</a>
-    <a class="tab-button" href="admin.html?tab=workOrders">Work Orders</a>
-    <a class="tab-button" href="purchase-orders-admin.html">Purchase Orders</a>
-    <a class="tab-button" href="admin.html?tab=adminTools">Admin Tools</a>
+<body class="accounting-page jgc-page jgc-system-page">
+  <nav class="accounting-admin-tabs jgc-admin-nav" data-jgc-admin-nav="true" aria-label="Admin navigation">
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=summary">Summary</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=jobDashboard">Job Dashboard</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=timesheets">Timesheets</a>
+    <a class="tab-button jgc-admin-nav__item active" aria-current="page" href="accounting-admin.html">Accounting</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=safetyRecords">Safety Records</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=vacation">Vacation Requests</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=tasks">Tasks</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=workOrders">Work Orders</a>
+    <a class="tab-button jgc-admin-nav__item" href="purchase-orders-admin.html">Purchase Orders</a>
+    <a class="tab-button jgc-admin-nav__item" href="admin.html?tab=adminTools">Admin Tools</a>
   </nav>
 
   <main id="accountingPage" class="accounting-shell jgc-page-shell jgc-page-shell--wide" hidden>
     <header class="jgc-page-header accounting-header">
       <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-      <h1>Accounting</h1>
-      <p id="accountingCurrentUser" class="accounting-user-line"></p>
+      <h1 class="jgc-page-title">Accounting</h1>
+      <p id="accountingCurrentUser" class="accounting-user-line jgc-page-user"></p>
     </header>
 
     <div id="accountingNotice" class="accounting-notice jgc-notice" hidden role="status" aria-live="polite"></div>
@@ -105,7 +105,7 @@
           <p>The approved biweekly workbook stays private. Exports are generated in this browser and downloaded directly to the selected folder.</p>
         </div>
       </div>
-      <div id="accountingTemplateStatus" class="accounting-template-status"></div>
+      <div id="accountingTemplateStatus" class="accounting-template-status jgc-card"></div>
       <div class="accounting-template-upload jgc-field">
         <label class="jgc-label" for="accountingTemplateFile">Replace Workbook Template (administrators only)</label>
         <div class="accounting-file-row">
@@ -128,6 +128,6 @@
   <script src="vendor/exceljs.min.js?v=1"></script>
   <script src="common.js?v=39"></script>
   <script src="accounting-workbook.js?v=8"></script>
-  <script src="accounting-admin.js?v=9"></script>
+  <script src="accounting-admin.js?v=10"></script>
 </body>
 </html>
