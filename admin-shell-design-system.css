@@ -550,30 +550,164 @@
   font-family: Consolas, "Courier New", monospace;
 }
 
-/* Estimator launcher remains visually distinct while still using shared tokens. */
-.jgc-admin-shell-page .estimating-launcher {
+/* Estimate Desk access is a dedicated workspace card, not a Summary list row. */
+.jgc-admin-shell-page .estimating-access {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--jgc-space-4);
+  align-items: center;
+  margin: 0 0 var(--jgc-space-5);
+  padding: var(--jgc-space-4);
+  overflow: hidden;
   color: var(--jgc-color-text);
-  background: var(--jgc-nav-background);
-  border-color: var(--jgc-color-border);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--jgc-color-surface-raised) 96%, var(--jgc-color-brand-700)),
+      color-mix(in srgb, var(--jgc-color-surface) 82%, var(--jgc-color-brand-800)));
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
   box-shadow: var(--jgc-shadow-md);
 }
 
-.jgc-admin-shell-page .estimating-launcher:hover,
-.jgc-admin-shell-page .estimating-launcher:focus-visible {
+.jgc-admin-shell-page .estimating-access::after {
+  position: absolute;
+  right: calc(var(--jgc-space-5) * -1);
+  bottom: calc(var(--jgc-space-5) * -2);
+  width: 12rem;
+  height: 12rem;
+  pointer-events: none;
+  content: "";
+  background: radial-gradient(circle, color-mix(in srgb, var(--jgc-color-brand-500) 18%, transparent), transparent 68%);
+}
+
+.jgc-admin-shell-page .estimating-access-icon {
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 60%, transparent);
+  border-radius: var(--jgc-radius-md);
+  box-shadow: var(--jgc-shadow-sm);
+}
+
+.jgc-admin-shell-page .estimating-access-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.jgc-admin-shell-page .estimating-access-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.jgc-admin-shell-page .estimating-access-eyebrow {
+  display: block;
+  margin-bottom: var(--jgc-space-1);
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jgc-admin-shell-page .estimating-access h2 {
+  margin: 0 0 var(--jgc-space-1);
+  color: var(--jgc-color-text);
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  line-height: 1.2;
+}
+
+.jgc-admin-shell-page .estimating-access p {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--jgc-color-text-muted);
+  line-height: 1.45;
+}
+
+.jgc-admin-shell-page .estimating-access-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jgc-space-2);
+  margin-top: var(--jgc-space-3);
+}
+
+.jgc-admin-shell-page .estimating-access-features span {
+  padding: var(--jgc-space-1) var(--jgc-space-2);
+  color: var(--jgc-color-text-muted);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-pill);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 600;
+}
+
+.jgc-admin-shell-page .estimating-access-action {
+  position: relative;
+  z-index: 1;
+  min-height: var(--jgc-control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--jgc-space-2);
+  padding: var(--jgc-space-3) var(--jgc-space-4);
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
+  border: 1px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-md);
+  box-shadow: var(--jgc-shadow-sm);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jgc-admin-shell-page .estimating-access-action:hover,
+.jgc-admin-shell-page .estimating-access-action:focus-visible {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-700);
   border-color: var(--jgc-color-brand-400);
-  box-shadow: var(--jgc-shadow-lg);
+  box-shadow: var(--jgc-shadow-md);
+  transform: translateY(-1px);
 }
 
-.jgc-admin-shell-page .estimating-launcher strong {
-  color: var(--jgc-color-text) !important;
+.jgc-admin-shell-page .estimating-access-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-400) 28%, transparent);
+  outline-offset: 2px;
 }
 
-.jgc-admin-shell-page .estimating-launcher small {
-  color: var(--jgc-color-text-muted) !important;
+.jgc-admin-shell-page .estimating-access-action svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.jgc-admin-shell-page .estimating-launcher b {
-  color: var(--jgc-color-brand-400) !important;
+.jgc-admin-shell-page .portal-summary-heading {
+  margin-bottom: var(--jgc-space-3);
+}
+
+.jgc-admin-shell-page .portal-summary-heading .portal-summary-title {
+  margin: 0 0 var(--jgc-space-1);
+}
+
+.jgc-admin-shell-page .portal-summary-heading p {
+  margin: 0;
+  color: var(--jgc-color-text-muted);
 }
 
 /* Replaces the former inline spacing declarations. */
@@ -638,6 +772,27 @@
   .jgc-admin-shell-page .jgc-admin-shell-surface,
   .jgc-admin-shell-page .jgc-admin-feature-surface {
     padding: var(--jgc-space-3);
+  }
+
+  .jgc-admin-shell-page .estimating-access {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--jgc-space-3);
+    padding: var(--jgc-space-3);
+  }
+
+  .jgc-admin-shell-page .estimating-access-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .jgc-admin-shell-page .estimating-access-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .jgc-admin-shell-page .estimating-access-action {
+    width: 100%;
+    grid-column: 1 / -1;
   }
 
   .jgc-admin-shell-page .admin-tools-grid,

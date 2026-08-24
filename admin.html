@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="tasks-design-system.css?v=2">
   <link rel="stylesheet" href="jobs-design-system.css?v=3">
 <link rel="stylesheet" href="admin.css?v=16">
-<link rel="stylesheet" href="admin-shell-design-system.css?v=2">
+<link rel="stylesheet" href="admin-shell-design-system.css?v=3">
 <link rel="stylesheet" href="certificates-embedded.css?v=1">
 <link rel="stylesheet" href="equipment-admin.css?v=1">
 <link rel="stylesheet" href="safety-records-admin.css?v=1">
@@ -44,12 +44,34 @@
 <div id="currentUser" class="user-bar jgc-page-user"></div>
 
 <div id="summarySection" class="card jgc-panel jgc-admin-shell-surface">
-    <h2 class="portal-summary-title">Portal Summary</h2>
-    <a class="estimating-launcher" href="estimating/">
-        <span class="estimating-launcher-icon" aria-hidden="true"><img src="icon-192.png" alt="" /></span>
-        <span><strong>Estimations</strong><small>Open quotes, pricing, proposals and estimate follow-up</small></span>
-        <b aria-hidden="true">Open →</b>
-    </a>
+    <section class="estimating-access" aria-labelledby="estimatingAccessTitle">
+        <span class="estimating-access-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 2.75h9l3 3V21.25H6z"></path>
+                <path d="M15 2.75v3h3M9 10h6M9 14h2M14 14h1M9 17.5h2M14 17.5h1"></path>
+            </svg>
+        </span>
+        <div class="estimating-access-copy">
+            <span class="estimating-access-eyebrow">Dedicated estimating workspace</span>
+            <h2 id="estimatingAccessTitle">JGC Estimate Desk</h2>
+            <p>Build quotes, review pricing, and prepare customer proposals in one focused workspace.</p>
+            <div class="estimating-access-features" aria-label="Estimate Desk features">
+                <span>Quotes</span>
+                <span>Pricing</span>
+                <span>Proposals</span>
+            </div>
+        </div>
+        <a class="estimating-access-action" href="estimating/">
+            <span>Open Estimate Desk</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <path d="M4 10h11M11 6l4 4-4 4"></path>
+            </svg>
+        </a>
+    </section>
+    <div class="portal-summary-heading">
+        <h2 class="portal-summary-title">Portal Summary</h2>
+        <p>Search and review activity across the JGC Portal.</p>
+    </div>
     <div class="admin-global-search">
         <div class="admin-global-search-row">
             <input id="adminGlobalSearchInput" type="search" placeholder="Search dates, names, jobs, WO or PO numbers..." autocomplete="off" oninput="scheduleAdminGlobalSearch()" onkeydown="handleAdminGlobalSearchKeydown(event)">

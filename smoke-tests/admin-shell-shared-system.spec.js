@@ -18,9 +18,12 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
   expect(html).toContain('jgc-design-system.css?v=7');
-  expect(html).toContain('admin-shell-design-system.css?v=2');
+  expect(html).toContain('admin-shell-design-system.css?v=3');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
   expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');
+  expect(html).toContain('class="estimating-access"');
+  expect(html).toContain('id="estimatingAccessTitle">JGC Estimate Desk</h2>');
+  expect(html).toContain('class="estimating-access-action" href="estimating/"');
   expect(html).toContain('id="adminToolsSection" class="card jgc-panel jgc-admin-shell-surface"');
   for (const id of [
     "timesheetsSection",
@@ -45,8 +48,8 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   }
 
   expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "6";');
-  expect(worker).toContain('const JGC_RELEASE_ID = "777";');
-  expect(worker).toContain('"./admin-shell-design-system.css?v=2"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "778";');
+  expect(worker).toContain('"./admin-shell-design-system.css?v=3"');
   expect(worker).toContain('"./admin-global-search.css?v=6"');
   expect(worker).toContain('"./admin-global-search.js?v=6"');
   expect(worker).toContain('"./common.js?v=39"');
@@ -104,6 +107,25 @@ for (const viewport of [
     expect(layout.surface.left).toBeGreaterThanOrEqual(0);
     expect(layout.surface.right).toBeLessThanOrEqual(layout.viewport + 1);
     expect(layout.overflowingControls).toEqual([]);
+    const estimateAccess = await page.locator(".estimating-access").evaluate((card) => {
+      const action = card.querySelector(".estimating-access-action");
+      const cardRect = card.getBoundingClientRect();
+      const actionRect = action.getBoundingClientRect();
+      return {
+        href: action.getAttribute("href"),
+        cardLeft: cardRect.left,
+        cardRight: cardRect.right,
+        actionLeft: actionRect.left,
+        actionRight: actionRect.right,
+        actionWidth: actionRect.width
+      };
+    });
+    expect(estimateAccess.href).toBe("estimating/");
+    expect(estimateAccess.actionLeft).toBeGreaterThanOrEqual(estimateAccess.cardLeft - 1);
+    expect(estimateAccess.actionRight).toBeLessThanOrEqual(estimateAccess.cardRight + 1);
+    if (viewport.name === "phone") {
+      expect(estimateAccess.actionWidth).toBeGreaterThan(estimateAccess.cardRight - estimateAccess.cardLeft - 30);
+    }
     const tabsOverflow = await page.locator("body > .tabs").evaluate((tabs) => getComputedStyle(tabs).overflowX);
     expect(["auto", "scroll"]).toContain(tabsOverflow);
     await context.close();
