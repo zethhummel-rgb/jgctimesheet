@@ -1,3 +1,6 @@
+# Keep text files byte-for-byte consistent across Windows worktrees and GitHub Pages.
+* text=auto eol=lf
+
 # Generated estimator runtime and OCR assets must stay byte-for-byte identical.
 estimating/assets/*.js binary
 estimating/supplier-import/** binary
