@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "770";
+const JGC_RELEASE_ID = "771";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -91,7 +91,7 @@ const JGC_APP_SHELL = [
   "./equipment-qr-inspection.css?v=1",
   "./vehicle-qr-inspection.css?v=1",
   "./home-design-system.css?v=3",
-  "./notification-settings-design-system.css?v=1",
+  "./notification-settings-design-system.css?v=2",
   "./acknowledgement-design-system.css?v=1",
   "./login-design-system.css?v=1",
   "./common.js?v=39",

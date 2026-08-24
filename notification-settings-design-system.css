@@ -1,4 +1,55 @@
-/* Phase 22: Notification Settings compatibility layer. */
+/* Notification Settings layout. All visual values inherit shared portal tokens. */
+
+/* Shared-token fallback for the static admin navigation before common.js enhances it. */
+.notification-settings-page .tabs {
+  position: sticky;
+  top: var(--jgc-top-nav-height);
+  z-index: 120;
+  display: flex;
+  gap: var(--jgc-space-2);
+  width: min(var(--jgc-admin-width), calc(100vw - 40px));
+  margin: 0 auto var(--jgc-space-3);
+  padding: var(--jgc-space-2);
+  overflow-x: auto;
+  background: var(--jgc-nav-mobile-background);
+  border-block: 1px solid var(--jgc-color-border);
+  scrollbar-width: none;
+}
+
+.notification-settings-page .tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.notification-settings-page .tab-button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: max-content;
+  min-height: var(--jgc-control-height);
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  color: var(--jgc-admin-tab-text);
+  background: var(--jgc-admin-tab-background);
+  border: 1px solid var(--jgc-nav-accent-border-soft);
+  border-radius: var(--jgc-radius-pill);
+}
+
+.notification-settings-page .tab-button.active {
+  color: var(--jgc-admin-tab-active-text);
+  background: var(--jgc-admin-tab-active-background);
+}
+
+.notification-settings-page .switch-cell input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--jgc-color-success);
+}
+
+.notification-settings-page .status-line {
+  min-height: 20px;
+  margin-top: var(--jgc-space-3);
+  color: var(--jgc-color-text-muted);
+  font-weight: 700;
+}
+
 .notification-settings-page,
 .notification-settings-page * {
   box-sizing: border-box;
@@ -9,9 +60,9 @@ body.notification-settings-page {
   margin: 0;
   padding: 0 20px 24px;
   overflow-x: hidden;
-  color: #f4fff6;
-  background: radial-gradient(circle at top, #062817 0, #020b08 58%);
-  font-family: Arial, sans-serif;
+  color: var(--jgc-color-text);
+  background: radial-gradient(circle at top, color-mix(in srgb, var(--jgc-color-brand-800) 72%, var(--jgc-color-page)) 0, var(--jgc-color-page-deep) 58%);
+  font-family: var(--jgc-font-family);
 }
 
 .notification-settings-page .logo-wrap,
@@ -36,17 +87,17 @@ body.notification-settings-page {
   max-width: 1180px;
   margin: 0 auto;
   padding: 16px;
-  color: #f4fff6;
-  background: rgba(12, 30, 27, 0.96);
-  border: 1px solid rgba(64, 220, 78, 0.35);
-  border-top: 4px solid #28d84a;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
+  border: 1px solid var(--jgc-color-border);
+  border-top: 4px solid var(--jgc-color-success);
   border-radius: 8px;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--jgc-shadow-md);
 }
 
 .notification-settings-page .notification-settings-shell > .jgc-section-title {
   margin-top: 0;
-  color: #2ee64f;
+  color: var(--jgc-color-brand-500);
 }
 
 .notification-settings-page .toolbar.jgc-toolbar {
@@ -61,10 +112,10 @@ body.notification-settings-page {
 
 .notification-settings-page button.jgc-button {
   width: auto;
-  min-height: 0;
+  min-height: var(--jgc-control-height);
   padding: 10px 14px;
-  color: #ffffff;
-  background: #159447;
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
   border: 0;
   border-radius: 6px;
   font-size: 14px;
@@ -73,9 +124,9 @@ body.notification-settings-page {
 }
 
 .notification-settings-page button.secondary.jgc-button {
-  color: #ffffff;
-  background: #1d332d;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
 }
 
 .notification-settings-page .settings-form.jgc-form-grid.jgc-section {
@@ -85,15 +136,15 @@ body.notification-settings-page {
   align-items: end;
   margin: 14px 0 18px;
   padding: 12px;
-  background: rgba(4, 20, 16, 0.65);
-  border: 1px solid rgba(64, 220, 78, 0.25);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border);
   border-radius: 8px;
 }
 
 .notification-settings-page .settings-form .jgc-label {
   display: block;
   margin-bottom: 4px;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   font-size: 13px;
   font-weight: 800;
 }
@@ -103,9 +154,9 @@ body.notification-settings-page {
   width: 100%;
   min-height: 0;
   padding: 9px;
-  color: #071511;
-  background: #f7faf4;
-  border: 1px solid #bcc7bc;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid var(--jgc-color-input-border);
   border-radius: 5px;
   font-family: inherit;
   font-size: 14px;
@@ -135,20 +186,20 @@ body.notification-settings-page {
 .notification-settings-page table.jgc-table th,
 .notification-settings-page table.jgc-table td {
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--jgc-color-border-soft);
   text-align: left;
   vertical-align: top;
 }
 
 .notification-settings-page table.jgc-table th {
-  color: #ffffff;
-  background: rgba(16, 70, 34, 0.88);
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-table-header);
 }
 
 .notification-settings-page table.jgc-table td,
 .notification-settings-page table.jgc-table tbody tr:nth-child(even) td {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.025);
+  color: var(--jgc-color-on-brand);
+  background: color-mix(in srgb, var(--jgc-color-text) 2.5%, transparent);
 }
 
 .notification-settings-page table.jgc-table .switch-cell {
