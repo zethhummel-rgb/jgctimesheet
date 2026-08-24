@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "774";
+const JGC_RELEASE_ID = "775";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -60,10 +60,11 @@ const JGC_APP_SHELL = [
   "./policies-admin.html",
   "./styles.css?v=3",
   "./admin.css?v=16",
+  "./admin-shell-design-system.css?v=1",
   "./inspection-history-today.css?v=1",
   "./inspection-history-previous.css?v=1",
   "./safety-records-admin.css?v=1",
-  "./admin-global-search.css?v=5",
+  "./admin-global-search.css?v=6",
   "./accounting-admin.css?v=5",
   "./jgc-design-system.css?v=7",
   "./certificates-admin.css?v=1",
@@ -96,7 +97,7 @@ const JGC_APP_SHELL = [
   "./acknowledgement-design-system.css?v=2",
   "./login-design-system.css?v=2",
   "./common.js?v=39",
-  "./admin-global-search.js?v=5",
+  "./admin-global-search.js?v=6",
   "./accounting-workbook.js?v=8",
   "./accounting-admin.js?v=9",
   "./employee-feature-access.js?v=3",

@@ -7,12 +7,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Admin</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
-  <link rel="stylesheet" href="styles.css?v=3">
   <link rel="stylesheet" href="report-design-system.css?v=2">
   <link rel="stylesheet" href="timesheet-design-system.css?v=2">
   <link rel="stylesheet" href="tasks-design-system.css?v=2">
   <link rel="stylesheet" href="jobs-design-system.css?v=3">
 <link rel="stylesheet" href="admin.css?v=16">
+<link rel="stylesheet" href="admin-shell-design-system.css?v=1">
 <link rel="stylesheet" href="certificates-embedded.css?v=1">
 <link rel="stylesheet" href="equipment-admin.css?v=1">
 <link rel="stylesheet" href="safety-records-admin.css?v=1">
@@ -23,8 +23,8 @@
 <link rel="stylesheet" href="directory-design-system.css?v=2">
 </head>
 
-<body>
-<div class="tabs">
+<body class="jgc-page jgc-system-page jgc-admin-shell-page">
+<div class="tabs jgc-tabs">
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
     <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
@@ -36,14 +36,14 @@
     <button id="adminToolsTab" class="tab-button" onclick="showTab('adminTools')">Admin Tools</button>
 </div>
 
-<div class="logo-wrap">
+<div class="logo-wrap jgc-brand jgc-brand-region">
     <img src="logo.webp" alt="John Gordon Construction logo">
 </div>
 
-<h1>Admin</h1>
-<div id="currentUser" class="user-bar"></div>
+<h1 class="jgc-page-title">Admin</h1>
+<div id="currentUser" class="user-bar jgc-page-user"></div>
 
-<div id="summarySection" class="card">
+<div id="summarySection" class="card jgc-panel jgc-admin-shell-surface">
     <h2 class="portal-summary-title">Portal Summary</h2>
     <a class="estimating-launcher" href="estimating/">
         <span class="estimating-launcher-icon" aria-hidden="true"><img src="icon-192.png" alt="" /></span>
@@ -97,9 +97,9 @@
     </div>
 </div>
 
-<div id="adminToolsSection" class="card" hidden>
+<div id="adminToolsSection" class="card jgc-panel jgc-admin-shell-surface" hidden>
     <h2>Admin Tools</h2>
-    <div class="small" style="margin-bottom:12px;">Setup and maintenance tools. These sections still load only when you open them.</div>
+    <div class="small admin-space-bottom-3">Setup and maintenance tools. These sections still load only when you open them.</div>
     <div class="admin-tools-grid">
         <button type="button" class="admin-tool-card" onclick="openAdminTool('employeeProfile')">
             <strong>Employee Profiles</strong>
@@ -261,13 +261,13 @@
     </section>
 </div>
 
-<div id="employeeProfileSection" class="card employee-profile-card" hidden>
+<div id="employeeProfileSection" class="card employee-profile-card jgc-panel jgc-admin-shell-surface" hidden>
     <h2>Employee Profile</h2>
     <div class="employee-profile-layout">
         <aside class="employee-picker-panel">
             <label>Select Employee</label>
             <input id="employeeProfileSearch" type="search" placeholder="Search employee..." oninput="renderEmployeeProfileOptions()">
-            <select id="employeeProfileSelect" size="10" onchange="renderEmployeeProfile()" style="margin-top:10px;"></select>
+            <select id="employeeProfileSelect" size="10" onchange="renderEmployeeProfile()" class="admin-space-top-2"></select>
         </aside>
         <main class="employee-main-panel">
             <div id="employeeProfileHero" class="profile-hero">
@@ -282,7 +282,7 @@
     </div>
 </div>
 
-<div id="employeeProfileEditSection" class="card employee-profile-card" hidden>
+<div id="employeeProfileEditSection" class="card employee-profile-card jgc-panel jgc-admin-shell-surface" hidden>
     <details class="profile-edit-drawer">
         <summary>Edit Employee Details</summary>
         <div class="profile-edit-body">
@@ -336,11 +336,11 @@
                 <textarea id="profileAddress"></textarea>
             </div>
         </div>
-        <div class="actions" style="margin-top:12px;">
+        <div class="actions admin-space-top-3">
             <button type="button" onclick="saveEmployeeProfileDetails()">Save Employee Details</button>
             <button type="button" class="secondary" onclick="renderEmployeeProfile()">Cancel</button>
         </div>
-        <div id="employeeProfileSaveStatus" class="small" style="margin-top:8px;"></div>
+        <div id="employeeProfileSaveStatus" class="small admin-space-top-2"></div>
         </div>
     </details>
 </div>
@@ -429,11 +429,11 @@
     <div id="timesheetEditPanel" class="timesheet-edit-panel jgc-section" hidden></div>
 </div>
 
-<div id="sickDaysSection" class="card" hidden>
+<div id="sickDaysSection" class="card jgc-panel jgc-admin-shell-surface" hidden>
     <h2>Sick Days</h2>
-    <div class="sub-card" style="margin-bottom:14px;">
+    <div class="sub-card jgc-card admin-space-bottom-3">
         <h3>Add Sick Day To Timesheet</h3>
-        <div class="small" style="margin-bottom:10px;">This saves the sick day directly to the employee's current timesheet entries, the same as if they entered it themselves.</div>
+        <div class="small admin-space-bottom-2">This saves the sick day directly to the employee's current timesheet entries, the same as if they entered it themselves.</div>
         <div class="announcement-grid">
             <div>
                 <label>Employee</label>
@@ -448,10 +448,10 @@
                 <input id="adminSickDayReason" placeholder="Example: Sick, headache, appointment">
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
+        <div class="actions admin-space-top-2">
             <button type="button" onclick="addAdminSickDayToTimesheet()">Add Sick Day</button>
         </div>
-        <div id="adminSickDayStatus" class="small" style="margin-top:8px;"></div>
+        <div id="adminSickDayStatus" class="small admin-space-top-2"></div>
     </div>
     <div class="filters">
         <div>
@@ -586,7 +586,7 @@
 
 <div id="tasksSection" class="card jgc-panel admin-task-card jgc-task-admin" hidden>
     <h2 class="jgc-section-title">Tasks</h2>
-    <div class="small" style="margin-bottom:12px;">Same task list as the employee Tasks page, with admin delete permissions available when needed.</div>
+    <div class="small admin-space-bottom-3">Same task list as the employee Tasks page, with admin delete permissions available when needed.</div>
     <iframe class="admin-task-frame" data-src="tasks.html?embedded=1&admin=1" title="Admin Tasks" scrolling="no"></iframe>
 </div>
 
@@ -695,7 +695,7 @@
             <h3>Tool Box Talks</h3>
             <h4>Completed Toolbox Talk History</h4>
             <div id="toolboxTalkHistoryList" class="small">Loading completed toolbox talks...</div>
-            <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+            <hr class="admin-shell-divider">
             <h4>Toolbox Talk PDF Library</h4>
             <div class="announcement-grid">
                 <div>
@@ -711,12 +711,12 @@
                     <textarea id="toolboxTalkDescription" placeholder="Optional notes for this toolbox talk"></textarea>
                 </div>
             </div>
-            <div class="actions" style="margin-top:10px;">
+            <div class="actions admin-space-top-2">
                 <button type="button" onclick="publishToolboxTalk()">Upload Toolbox Talk PDF</button>
                 <button class="secondary" type="button" onclick="loadToolboxTalks()">Refresh Toolbox Data</button>
             </div>
-            <div id="toolboxTalkStatus" class="small" style="margin-top:10px;"></div>
-            <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+            <div id="toolboxTalkStatus" class="small admin-space-top-2"></div>
+            <hr class="admin-shell-divider">
             <div id="toolboxTalkList" class="small">Loading toolbox talks...</div>
         </section>
     </div>
@@ -890,14 +890,14 @@
             <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
         </div>
     </div>
-    <div class="actions jgc-actions" style="margin-top:10px;">
+    <div class="actions jgc-actions admin-space-top-2">
         <button class="jgc-button" type="button" onclick="importJobsFromExcel()">Upload & Import</button>
         <button class="delete-button jgc-button jgc-button--danger" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
         <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
-    <div id="jobsImportStatus" class="small" style="margin-top:10px;"></div>
-    <div id="jobsSummary" class="small" style="margin-top:12px;">Loading job summary...</div>
-    <div id="jobsList" class="small" style="margin-top:12px;">Loading jobs...</div>
+    <div id="jobsImportStatus" class="small admin-space-top-2"></div>
+    <div id="jobsSummary" class="small admin-space-top-3">Loading job summary...</div>
+    <div id="jobsList" class="small admin-space-top-3">Loading jobs...</div>
 </div>
 
 <div id="workOrdersSection" class="card jgc-panel jgc-work-orders-admin" hidden>
@@ -1068,7 +1068,7 @@
     <div id="subcontractorsSuppliersAdminList" class="small jgc-section jgc-directory-list">Loading subcontractors and suppliers...</div>
 </div>
 
-<div id="backupsSection" class="card" hidden>
+<div id="backupsSection" class="card jgc-panel jgc-admin-shell-surface" hidden>
     <h2>Backups</h2>
     <div class="small">Use this before making big website changes. The backup runs from your computer and only passes after website files, every discovered Supabase table/view, and every live Storage bucket are exported and re-checked inside the finished ZIP.</div>
 
@@ -1094,28 +1094,28 @@
         <button type="button" onclick="copyBackupCommand()">Copy Manual Backup Command</button>
         <button type="button" class="secondary" onclick="window.location.href='backup-jgc-portal.ps1'">Open Backup Script</button>
     </div>
-    <div id="backupCommandStatus" class="small" style="margin-top:10px;"></div>
+    <div id="backupCommandStatus" class="small admin-space-top-2"></div>
 
-    <h3 style="margin-top:18px;">Configure Local Credential</h3>
+    <h3 class="admin-space-top-4">Configure Local Credential</h3>
     <div class="small">Run this once on Zeth's Windows account to save the Supabase URL and secret key with Windows DPAPI encryption. The scheduled task must run under the same Windows account.</div>
     <div id="backupCredentialCommandText" class="backup-command"></div>
     <div class="actions">
         <button type="button" class="secondary" onclick="copyBackupCredentialCommand()">Copy Credential Setup Command</button>
     </div>
-    <div id="backupCredentialStatus" class="small" style="margin-top:10px;"></div>
+    <div id="backupCredentialStatus" class="small admin-space-top-2"></div>
 
-    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
+    <hr class="admin-shell-divider">
 
     <h3>Backup List / Restore Prep</h3>
     <div class="small">Upload one of the backup ZIP files here to inspect it. This does not overwrite anything. It shows what is inside so a restore can be done carefully if something breaks.</div>
-    <div class="announcement-grid" style="margin-top:10px;">
+    <div class="announcement-grid admin-space-top-2">
         <div class="full">
             <label>Backup ZIP</label>
             <input id="backupZipFile" type="file" accept=".zip,application/zip,.json,application/json" onchange="inspectBackupFile()">
         </div>
     </div>
-    <div id="backupInspectStatus" class="small" style="margin-top:10px;">No backup selected yet.</div>
-    <div id="backupHistoryList" class="small" style="margin-top:12px;"></div>
+    <div id="backupInspectStatus" class="small admin-space-top-2">No backup selected yet.</div>
+    <div id="backupHistoryList" class="small admin-space-top-3"></div>
     <div id="backupInspectResult" class="backup-inspector-result small"></div>
 </div>
 

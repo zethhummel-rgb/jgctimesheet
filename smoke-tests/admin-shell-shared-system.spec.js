@@ -1,0 +1,107 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const { test, expect } = require("@playwright/test");
+
+const portalRoot = path.resolve(__dirname, "..");
+
+function read(file) {
+  return fs.readFileSync(path.join(portalRoot, file), "utf8");
+}
+
+test("main Admin shell uses one scoped token-only visual layer", async () => {
+  const html = read("admin.html");
+  const shellCss = read("admin-shell-design-system.css");
+  const searchCss = read("admin-global-search.css");
+  const common = read("common.js");
+  const worker = read("service-worker.js");
+
+  expect(html).not.toMatch(/href=["']styles\.css/i);
+  expect(html).not.toMatch(/\sstyle\s*=/i);
+  expect(html).toContain('jgc-design-system.css?v=7');
+  expect(html).toContain('admin-shell-design-system.css?v=1');
+  expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
+  expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');
+  expect(html).toContain('id="adminToolsSection" class="card jgc-panel jgc-admin-shell-surface"');
+  expect(html).toContain('src="common.js?v=39"');
+
+  for (const css of [shellCss, searchCss]) {
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(|hsla?\(|color:\s*(?:white|black)\b/i);
+    expect(css).toContain("var(--jgc-color-");
+  }
+
+  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "6";');
+  expect(worker).toContain('const JGC_RELEASE_ID = "775";');
+  expect(worker).toContain('"./admin-shell-design-system.css?v=1"');
+  expect(worker).toContain('"./admin-global-search.css?v=6"');
+  expect(worker).toContain('"./admin-global-search.js?v=6"');
+  expect(worker).toContain('"./common.js?v=39"');
+});
+
+async function visibleLayout(page, selector) {
+  return page.evaluate((targetSelector) => {
+    const viewport = document.documentElement.clientWidth;
+    const surface = document.querySelector(targetSelector).getBoundingClientRect();
+    const overflowingControls = Array.from(document.querySelectorAll(`${targetSelector} input, ${targetSelector} select, ${targetSelector} textarea, ${targetSelector} button, ${targetSelector} a`)).flatMap((element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return [];
+      const scrollRegion = element.closest(".tabs, .table-wrap, .admin-schedule-calendar-scroll");
+      const intentionallyScrollable = scrollRegion && ["auto", "scroll"].includes(getComputedStyle(scrollRegion).overflowX);
+      return intentionallyScrollable || (rect.left >= -1 && rect.right <= viewport + 1)
+        ? []
+        : [{ tag: element.tagName, id: element.id, left: rect.left, right: rect.right }];
+    });
+    return {
+      viewport,
+      bodyWidth: document.body.scrollWidth,
+      surface: { left: surface.left, right: surface.right },
+      overflowingControls
+    };
+  }, selector);
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "phone", width: 390, height: 844 }
+]) {
+  test(`Admin Summary shell stays readable and contained on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+    await page.locator("#adminGlobalSearchResults").evaluate((results) => {
+      results.innerHTML = `<section class="admin-global-search-group"><button class="admin-global-search-group-header" type="button" aria-expanded="false"><span>Time &amp; Attendance</span><span class="admin-global-search-group-count">3</span></button></section>`;
+    });
+    const layout = await visibleLayout(page, "#summarySection");
+    expect(layout.bodyWidth).toBeLessThanOrEqual(layout.viewport + 1);
+    expect(layout.surface.left).toBeGreaterThanOrEqual(0);
+    expect(layout.surface.right).toBeLessThanOrEqual(layout.viewport + 1);
+    expect(layout.overflowingControls).toEqual([]);
+    const tabsOverflow = await page.locator("body > .tabs").evaluate((tabs) => getComputedStyle(tabs).overflowX);
+    expect(["auto", "scroll"]).toContain(tabsOverflow);
+    await context.close();
+  });
+
+  test(`Admin Tools, Employee Profiles, and Backups stay contained on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+
+    for (const selector of ["#adminToolsSection", "#employeeProfileSection", "#backupsSection"]) {
+      await page.locator("#summarySection, #adminToolsSection, #employeeProfileSection, #backupsSection").evaluateAll((sections, selected) => {
+        sections.forEach((section) => { section.hidden = `#${section.id}` !== selected; });
+      }, selector);
+      const layout = await visibleLayout(page, selector);
+      expect(layout.bodyWidth).toBeLessThanOrEqual(layout.viewport + 1);
+      expect(layout.surface.left).toBeGreaterThanOrEqual(0);
+      expect(layout.surface.right).toBeLessThanOrEqual(layout.viewport + 1);
+      expect(layout.overflowingControls).toEqual([]);
+    }
+
+    if (viewport.name === "phone") {
+      await page.locator("#adminToolsSection").evaluate((section) => { section.hidden = false; });
+      await page.locator("#backupsSection").evaluate((section) => { section.hidden = true; });
+      const toolColumns = await page.locator(".admin-tools-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length);
+      expect(toolColumns).toBe(1);
+    }
+    await context.close();
+  });
+}

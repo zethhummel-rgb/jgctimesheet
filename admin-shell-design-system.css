@@ -1,0 +1,601 @@
+/*
+ * Main Admin shell compatibility layer.
+ *
+ * Summary, Admin Tools, Employee Profiles, Sick Days, and Backups use the
+ * shared JGC theme tokens through this file. Embedded feature areas retain
+ * their purpose-built layout stylesheets and JavaScript hooks.
+ */
+
+.jgc-admin-shell-page {
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--jgc-space-5);
+  overflow-x: hidden;
+  color: var(--jgc-color-text);
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--jgc-color-brand-600) 34%, transparent), transparent 28rem),
+    linear-gradient(135deg, var(--jgc-color-page-deep), var(--jgc-color-page) 45%, var(--jgc-color-page-deep));
+}
+
+.jgc-admin-shell-page > .logo-wrap {
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  max-width: var(--jgc-page-brand-width);
+  margin: 0 auto var(--jgc-space-2);
+}
+
+.jgc-admin-shell-page > .logo-wrap img {
+  width: 100%;
+  max-width: var(--jgc-page-brand-width);
+  filter: drop-shadow(var(--jgc-shadow-sm));
+}
+
+.jgc-admin-shell-page > .jgc-page-title,
+.jgc-admin-shell-page > .jgc-page-user {
+  width: min(1200px, 100%);
+  margin-inline: auto;
+}
+
+.jgc-admin-shell-page > .jgc-page-title {
+  margin-bottom: var(--jgc-space-2);
+  color: var(--jgc-color-text);
+  text-shadow: none;
+}
+
+.jgc-admin-shell-page > .jgc-page-user {
+  margin-bottom: var(--jgc-space-3);
+  color: var(--jgc-color-text-muted);
+  text-shadow: none;
+}
+
+.jgc-admin-shell-page > .tabs {
+  width: min(var(--jgc-admin-width), calc(100vw - 40px));
+  max-width: var(--jgc-admin-width);
+  margin: 0 auto var(--jgc-space-3);
+  padding: 7px 10px;
+  gap: 5px;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: color-mix(in srgb, var(--jgc-color-page) 98%, transparent);
+  border-top: 1px solid var(--jgc-color-border-soft);
+  border-bottom: 1px solid var(--jgc-color-border-soft);
+  box-shadow: var(--jgc-nav-shadow);
+  scrollbar-width: none;
+}
+
+.jgc-admin-shell-page > .tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.jgc-admin-shell-page > .tabs .tab-button {
+  width: auto;
+  min-width: max-content;
+  min-height: var(--jgc-control-height);
+  margin: 0;
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  flex: 0 0 auto;
+  color: var(--jgc-admin-tab-text);
+  background: var(--jgc-admin-tab-background);
+  border: 1px solid var(--jgc-nav-accent-border-soft);
+  border-radius: var(--jgc-radius-pill);
+  font-size: var(--jgc-font-size-xs);
+  white-space: nowrap;
+}
+
+.jgc-admin-shell-page > .tabs .tab-button.active {
+  color: var(--jgc-admin-tab-active-text);
+  background: var(--jgc-admin-tab-active-background);
+  border-color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface {
+  width: min(1200px, 100%);
+  min-width: 0;
+  max-width: 1200px;
+  margin: 0 auto var(--jgc-space-3);
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  background: color-mix(in srgb, var(--jgc-color-surface) 96%, transparent);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-top: 4px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: var(--jgc-shadow-lg);
+}
+
+.jgc-admin-shell-page .employee-profile-card.jgc-admin-shell-surface {
+  width: min(var(--jgc-admin-width), 100%);
+  max-width: var(--jgc-admin-width);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(h2, h3, h4) {
+  color: var(--jgc-color-brand-400);
+  text-shadow: none;
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(p, .small, .status, .muted, .helper) {
+  color: var(--jgc-color-text-muted);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(label, strong) {
+  color: var(--jgc-color-text);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  width: 100%;
+  min-height: var(--jgc-control-height);
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid var(--jgc-color-input-border);
+  border-radius: var(--jgc-radius-md);
+  font-family: var(--jgc-font-family);
+  color-scheme: light;
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(input, select, textarea):focus {
+  border-color: var(--jgc-color-brand-500);
+  outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-400) 24%, transparent);
+  outline-offset: 1px;
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(input, textarea)::placeholder {
+  color: color-mix(in srgb, var(--jgc-color-text-dark) 64%, transparent);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(button, .file-link) {
+  min-height: var(--jgc-control-height);
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 12%, transparent);
+  border-radius: var(--jgc-radius-md);
+  font-family: var(--jgc-font-family);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(button, .file-link):hover {
+  background: var(--jgc-color-brand-700);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(.secondary, button.secondary) {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border-color: var(--jgc-color-border);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(.delete-button, button.delete-button) {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-danger);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface :where(.delete-button, button.delete-button):hover {
+  background: var(--jgc-color-danger-dark);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface .sub-card,
+.jgc-admin-shell-page .jgc-admin-shell-surface .jgc-card {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-color: var(--jgc-color-border);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface .table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface table {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface th {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-header);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface td {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-row);
+}
+
+.jgc-admin-shell-page .jgc-admin-shell-surface th,
+.jgc-admin-shell-page .jgc-admin-shell-surface td {
+  border-color: var(--jgc-color-border-soft);
+}
+
+/* Summary and its on-page search. */
+.jgc-admin-shell-page .portal-summary-title {
+  margin-bottom: var(--jgc-space-2);
+}
+
+.jgc-admin-shell-page .admin-global-search {
+  margin: 0 0 var(--jgc-space-4);
+  padding: 0 0 var(--jgc-space-4);
+  border-bottom-color: var(--jgc-color-border);
+}
+
+.jgc-admin-shell-page .admin-global-search-row {
+  gap: var(--jgc-space-2);
+}
+
+.jgc-admin-shell-page .admin-global-search-row :where(input, button) {
+  min-height: var(--jgc-control-height);
+}
+
+.jgc-admin-shell-page .admin-global-search-result,
+.jgc-admin-shell-page .admin-global-search-group {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-color: var(--jgc-color-border);
+  border-radius: var(--jgc-radius-md);
+}
+
+.jgc-admin-shell-page .admin-global-search-result-category,
+.jgc-admin-shell-page .admin-global-search-group-title {
+  color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .admin-global-search-result-title,
+.jgc-admin-shell-page .admin-global-search-group-header,
+.jgc-admin-shell-page .admin-global-search-group-chevron {
+  color: var(--jgc-color-text);
+}
+
+.jgc-admin-shell-page .admin-global-search-result-detail {
+  color: var(--jgc-color-text-muted);
+}
+
+.jgc-admin-shell-page .admin-global-search-group-header {
+  background: var(--jgc-color-table-header);
+}
+
+.jgc-admin-shell-page .admin-global-search-group-header:hover,
+.jgc-admin-shell-page .admin-global-search-group-header[aria-expanded="true"] {
+  background: var(--jgc-color-brand-700);
+}
+
+.jgc-admin-shell-page .admin-global-search-group-count {
+  color: var(--jgc-color-page-deep);
+  background: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .summary-grid {
+  gap: var(--jgc-space-2);
+}
+
+.jgc-admin-shell-page .portal-summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: var(--jgc-space-2);
+  margin-bottom: var(--jgc-space-3);
+}
+
+.jgc-admin-shell-page .summary-tile,
+.jgc-admin-shell-page #portalSummaryGrid .summary-tile {
+  min-height: 64px;
+  padding: var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised) !important;
+  border: 1px solid var(--jgc-color-border);
+  border-top: 3px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--jgc-color-brand-400) 42%, transparent), var(--jgc-shadow-sm);
+}
+
+.jgc-admin-shell-page .summary-tile:hover {
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: inset 0 -4px 0 var(--jgc-color-brand-400), var(--jgc-shadow-md);
+}
+
+.jgc-admin-shell-page .summary-tile,
+.jgc-admin-shell-page .summary-tile *,
+.jgc-admin-shell-page .summary-tile h3,
+.jgc-admin-shell-page .summary-value,
+.jgc-admin-shell-page .summary-detail {
+  color: var(--jgc-color-text) !important;
+}
+
+.jgc-admin-shell-page #portalSummaryGrid .summary-tile h3 {
+  font-size: var(--jgc-font-size-xs);
+  line-height: 1.2;
+}
+
+.jgc-admin-shell-page #portalSummaryGrid .summary-value {
+  font-size: var(--jgc-font-size-lg);
+}
+
+.jgc-admin-shell-page .summary-badge {
+  color: var(--jgc-color-on-brand) !important;
+  background: var(--jgc-color-danger);
+}
+
+.jgc-admin-shell-page .summary-badge.clear {
+  background: var(--jgc-color-badge-success);
+}
+
+.jgc-admin-shell-page .subcontractor-activity-panel {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-color: var(--jgc-color-border);
+}
+
+.jgc-admin-shell-page .subcontractor-activity-panel > summary,
+.jgc-admin-shell-page .subcontractor-company-name {
+  color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .subcontractor-activity-count,
+.jgc-admin-shell-page .subcontractor-company-meta {
+  color: var(--jgc-color-text-muted);
+}
+
+.jgc-admin-shell-page .subcontractor-company-panel {
+  background: var(--jgc-color-surface-soft);
+  border-color: var(--jgc-color-border-soft);
+}
+
+.jgc-admin-shell-page .subcontractor-activity-table th {
+  background: var(--jgc-color-table-header);
+}
+
+/* Admin Tools. */
+.jgc-admin-shell-page .admin-tools-grid {
+  gap: var(--jgc-space-3);
+}
+
+.jgc-admin-shell-page .admin-tool-card {
+  min-width: 0;
+  min-height: 108px;
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--jgc-color-brand-400) 48%, transparent), var(--jgc-shadow-sm);
+}
+
+.jgc-admin-shell-page .admin-tool-card:hover,
+.jgc-admin-shell-page .admin-tool-card:focus-visible {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: inset 0 -5px 0 var(--jgc-color-brand-400), var(--jgc-shadow-md);
+}
+
+.jgc-admin-shell-page .admin-tool-card strong {
+  color: var(--jgc-color-text);
+}
+
+.jgc-admin-shell-page .admin-tool-card span {
+  color: var(--jgc-color-text-muted);
+}
+
+/* Employee Profiles. */
+.jgc-admin-shell-page .employee-profile-card {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-page);
+  border-top-color: var(--jgc-color-brand-500);
+}
+
+.jgc-admin-shell-page .employee-profile-card :where(h2, h3, label) {
+  color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page :where(.employee-picker-panel, .employee-main-panel, .profile-panel),
+.jgc-admin-shell-page :where(.profile-edit-drawer summary, .profile-edit-body) {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
+  border-color: var(--jgc-color-border);
+  box-shadow: var(--jgc-shadow-sm);
+}
+
+.jgc-admin-shell-page .employee-picker-panel :where(select, input) {
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border-color: var(--jgc-color-input-border);
+}
+
+.jgc-admin-shell-page .employee-picker-panel option {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
+}
+
+.jgc-admin-shell-page .employee-picker-panel option:checked {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-600);
+}
+
+.jgc-admin-shell-page .profile-hero {
+  color: var(--jgc-color-text);
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--jgc-color-brand-400) 22%, transparent), transparent 32%),
+    linear-gradient(135deg, var(--jgc-color-brand-800), var(--jgc-color-surface));
+  border-color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .profile-avatar {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-800);
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--jgc-color-brand-400) 35%, transparent);
+}
+
+.jgc-admin-shell-page .profile-hero h3,
+.jgc-admin-shell-page .profile-fact,
+.jgc-admin-shell-page .profile-fact strong,
+.jgc-admin-shell-page .profile-tile h4,
+.jgc-admin-shell-page .profile-number {
+  color: var(--jgc-color-text);
+  text-shadow: none;
+}
+
+.jgc-admin-shell-page .profile-status-pill {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-badge-success);
+  border-color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page :where(.profile-fact-icon, .profile-tile-icon) {
+  color: var(--jgc-color-brand-400);
+  background: color-mix(in srgb, var(--jgc-color-brand-400) 14%, transparent);
+}
+
+.jgc-admin-shell-page .employee-profile-card .small {
+  color: var(--jgc-color-text-muted);
+}
+
+.jgc-admin-shell-page .profile-tile {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-color: var(--jgc-color-border-soft);
+}
+
+.jgc-admin-shell-page .profile-tile:hover {
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: var(--jgc-shadow-md);
+}
+
+.jgc-admin-shell-page .profile-panel table {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table);
+}
+
+.jgc-admin-shell-page .profile-panel th {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-header);
+}
+
+.jgc-admin-shell-page .profile-panel td {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-table-row);
+  border-color: var(--jgc-color-border-soft);
+}
+
+.jgc-admin-shell-page .profile-edit-drawer summary {
+  color: var(--jgc-color-brand-400);
+}
+
+/* Backups. */
+.jgc-admin-shell-page .backup-status-card,
+.jgc-admin-shell-page .backup-command {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-color: var(--jgc-color-border);
+}
+
+.jgc-admin-shell-page .backup-status-card strong {
+  color: var(--jgc-color-brand-400);
+}
+
+.jgc-admin-shell-page .backup-command {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+/* Estimator launcher remains visually distinct while still using shared tokens. */
+.jgc-admin-shell-page .estimating-launcher {
+  color: var(--jgc-color-text);
+  background: var(--jgc-nav-background);
+  border-color: var(--jgc-color-border);
+  box-shadow: var(--jgc-shadow-md);
+}
+
+.jgc-admin-shell-page .estimating-launcher:hover,
+.jgc-admin-shell-page .estimating-launcher:focus-visible {
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: var(--jgc-shadow-lg);
+}
+
+.jgc-admin-shell-page .estimating-launcher strong {
+  color: var(--jgc-color-text) !important;
+}
+
+.jgc-admin-shell-page .estimating-launcher small {
+  color: var(--jgc-color-text-muted) !important;
+}
+
+.jgc-admin-shell-page .estimating-launcher b {
+  color: var(--jgc-color-brand-400) !important;
+}
+
+/* Replaces the former inline spacing declarations. */
+.admin-space-top-2 {
+  margin-top: var(--jgc-space-2) !important;
+}
+
+.admin-space-top-3 {
+  margin-top: var(--jgc-space-3) !important;
+}
+
+.admin-space-top-4 {
+  margin-top: calc(var(--jgc-space-4) + var(--jgc-space-1)) !important;
+}
+
+.admin-space-bottom-2 {
+  margin-bottom: var(--jgc-space-2) !important;
+}
+
+.admin-space-bottom-3 {
+  margin-bottom: var(--jgc-space-3) !important;
+}
+
+.admin-shell-divider {
+  height: 0;
+  margin: calc(var(--jgc-space-4) + var(--jgc-space-1)) 0;
+  border: 0;
+  border-top: 1px solid var(--jgc-color-border);
+}
+
+@media (max-width: 900px) {
+  .jgc-admin-shell-page > .tabs {
+    justify-content: flex-start;
+  }
+
+  .jgc-admin-shell-page .employee-profile-layout,
+  .jgc-admin-shell-page .profile-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .jgc-admin-shell-page .profile-avatar {
+    width: 92px;
+    height: 92px;
+  }
+
+  .jgc-admin-shell-page .employee-picker-panel select {
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 640px) {
+  .jgc-admin-shell-page {
+    padding: 10px;
+  }
+
+  .jgc-admin-shell-page > .tabs {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    padding-inline: var(--jgc-space-3);
+  }
+
+  .jgc-admin-shell-page .jgc-admin-shell-surface {
+    padding: var(--jgc-space-3);
+  }
+
+  .jgc-admin-shell-page .admin-tools-grid,
+  .jgc-admin-shell-page .admin-global-search-row,
+  .jgc-admin-shell-page .admin-global-search-result {
+    grid-template-columns: 1fr;
+  }
+
+  .jgc-admin-shell-page .admin-tool-card,
+  .jgc-admin-shell-page .admin-global-search-result button {
+    width: 100%;
+  }
+
+  .jgc-admin-shell-page .portal-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jgc-admin-shell-page .profile-two-column {
+    grid-template-columns: 1fr;
+  }
+}
