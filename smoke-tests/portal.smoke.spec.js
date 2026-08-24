@@ -2680,12 +2680,13 @@ test("Accounting is a standalone admin page with captured biweekly review", asyn
 
   await accountingLink.click();
   await expect(page).toHaveURL(/accounting-admin\.html/);
+  await expect(page.locator("#accountingCurrentUser")).toContainText("Portal Smoke Test");
+  await expect(page.locator("#accountingRefresh")).toBeEnabled();
   await page.locator("#accountingPayDate").evaluate((input) => {
     input.value = "2026-08-20";
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
   await expect(page.locator("[data-jgc-admin-section='accounting']")).toHaveClass(/active/);
-  await expect(page.locator("#accountingCurrentUser")).toContainText("Portal Smoke Test");
   await expect(page.locator("#accountingPeriodDates")).toContainText("Aug 2, 2026");
   await expect(page.locator("#accountingMetrics")).toContainText("16.00");
   await expect(page.locator("#accountingValidation")).toContainText("Final export checks passed");
