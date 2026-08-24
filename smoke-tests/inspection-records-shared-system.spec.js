@@ -27,14 +27,14 @@ test("inspection records screens and Admin Safety Records use token-only visual 
   const adminSource = fs.readFileSync(path.join(portalRoot, "admin.html"), "utf8");
   const adminCss = fs.readFileSync(path.join(portalRoot, "admin.css"), "utf8");
   const safetyCss = fs.readFileSync(path.join(portalRoot, "safety-records-admin.css"), "utf8");
-  expect(adminSource).toContain('admin.css?v=15');
+  expect(adminSource).toContain('admin.css?v=16');
   expect(adminSource).toContain('safety-records-admin.css?v=1');
   expect(adminCss).not.toMatch(/\.admin-safety-record-tile|\.inspection-sheet/);
   expect(safetyCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(safetyCss).toContain("var(--jgc-color-");
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["inspection-history-today.css?v=1", "inspection-history-previous.css?v=1", "safety-records-admin.css?v=1", "admin.css?v=15"]) {
+  for (const asset of ["inspection-history-today.css?v=1", "inspection-history-previous.css?v=1", "safety-records-admin.css?v=1", "admin.css?v=16"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

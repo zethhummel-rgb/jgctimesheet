@@ -35,20 +35,20 @@
 .report-directory-page .report-card.jgc-card {
   width: 100%;
   box-sizing: border-box;
-  color: #1f2a24;
-  background: #ffffff;
-  border: 1px solid #c6cec5;
-  border-top: 4px solid #3f7d4d;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-text);
+  border: 1px solid var(--jgc-color-input-border);
+  border-top: 4px solid var(--jgc-color-brand-600);
   box-shadow: none;
   text-align: left;
 }
 
 .report-directory-page .report-card.jgc-card h2 {
-  color: #ffffff !important;
+  color: var(--jgc-color-text) !important;
 }
 
 .report-directory-page .report-card.jgc-card p {
-  color: #f5f7f3 !important;
+  color: var(--jgc-color-text-muted) !important;
 }
 
 .report-form-page .grid.jgc-form-grid {
@@ -94,6 +94,16 @@
 .report-form-page .status.jgc-notice:empty,
 .report-form-page .subtitle.jgc-notice:empty {
   display: none;
+}
+
+.report-form-page .report-section-flush {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.report-form-page .report-reference-copy {
+  margin-bottom: var(--jgc-space-3);
 }
 
 #reportsSection.jgc-report-admin {
