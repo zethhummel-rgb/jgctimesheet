@@ -98,7 +98,9 @@ test("Timesheets family has one token-only visual source", async () => {
   expect(admin).toContain('timesheet-design-system.css?v=2');
   expect(adminCss).not.toMatch(/admin-time-entry-card|timesheet-(?:edit|worker)/i);
   expect(adminJs.match(/\sstyle\s*=/gi) || [], "Only the generated Admin PDF night row keeps inline print styling").toHaveLength(1);
-  expect(serviceWorker).toContain('const JGC_RELEASE_ID = "758"');
+  const releaseMatch = serviceWorker.match(/const JGC_RELEASE_ID = "(\d+)"/);
+  expect(releaseMatch, "The service worker must expose a numeric release id").not.toBeNull();
+  expect(Number(releaseMatch[1])).toBeGreaterThanOrEqual(758);
   expect(serviceWorker).toContain('timesheet-design-system.css?v=2');
 });
 

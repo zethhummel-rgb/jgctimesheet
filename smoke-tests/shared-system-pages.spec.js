@@ -95,6 +95,24 @@ test("the nine migrated pages have one visual source of truth", async () => {
   }
 });
 
+test("embedded Admin Policies uses the same shared components", async () => {
+  const adminSource = fs.readFileSync(path.join(portalRoot, "admin.html"), "utf8");
+  const adminNoticesSource = fs.readFileSync(path.join(portalRoot, "admin-notices.js"), "utf8");
+  const section = adminSource.match(/<div id="noticePolicySection"[\s\S]*?(?=<div id="reportsSection")/)?.[0] || "";
+
+  expect(section).not.toBe("");
+  expect(section).not.toMatch(/\sstyle\s*=/i);
+  expect(section).toContain("jgc-policy-admin");
+  expect(section).toContain("jgc-form-grid");
+  expect(section).toContain("jgc-field");
+  expect(section).toContain("jgc-input");
+  expect(section).toContain("jgc-textarea");
+  expect(section).toContain("jgc-button");
+  expect(section).toContain("jgc-notice");
+  expect(adminNoticesSource).toContain('class="jgc-table jgc-table--wide"');
+  expect(adminNoticesSource).toContain("jgc-button--danger");
+});
+
 for (const viewport of [
   { name: "desktop", width: 1280, height: 900 },
   { name: "phone", width: 390, height: 844 }
@@ -244,6 +262,39 @@ test("admin notice and policy tables can be swiped horizontally on phones", asyn
     return element.scrollLeft;
   });
   expect(scrolled).toBeGreaterThan(0);
+  await context.close();
+});
+
+test("embedded Admin Policies form stays contained on phones", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await installState(page, "admin");
+  await page.goto("/admin.html?tab=noticePolicy", { waitUntil: "domcontentloaded" });
+
+  const section = page.locator("#noticePolicySection");
+  await expect(section).toBeVisible({ timeout: 10000 });
+  await expect(section.locator("#announcementTitle")).toBeVisible();
+  await section.locator("details").nth(1).evaluate((details) => { details.open = true; });
+  await expect(section.locator("#policyTitle")).toBeVisible();
+
+  const layout = await section.evaluate((element) => {
+    const sectionRect = element.getBoundingClientRect();
+    const controls = Array.from(element.querySelectorAll("input, textarea, button")).filter((control) => control.offsetParent !== null);
+    return {
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth,
+      sectionContained: sectionRect.left >= -1 && sectionRect.right <= document.documentElement.clientWidth + 1,
+      controlsContained: controls.every((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.left >= sectionRect.left - 1 && rect.right <= sectionRect.right + 1;
+      }),
+      shortestButton: Math.min(...controls.filter((control) => control.tagName === "BUTTON").map((button) => button.getBoundingClientRect().height))
+    };
+  });
+  expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.sectionContained).toBe(true);
+  expect(layout.controlsContained).toBe(true);
+  expect(layout.shortestButton).toBeGreaterThanOrEqual(44);
   await context.close();
 });
 

@@ -100,7 +100,7 @@ function renderAnnouncementReadDetails(announcement) {
     return `
         <details>
             <summary>${uniqueReadCount}/${targetAccounts.length} read</summary>
-            <div class="table-wrap jgc-table-wrap" style="margin-top:8px;" role="region" aria-label="Announcement read status; swipe horizontally to see all columns" tabindex="0">
+            <div class="table-wrap jgc-table-wrap jgc-section" role="region" aria-label="Announcement read status; swipe horizontally to see all columns" tabindex="0">
                 <table class="jgc-table jgc-table--wide">
                     <thead>
                         <tr><th>Worker</th><th>Email</th><th>Status</th><th>Read At</th></tr>
@@ -150,10 +150,10 @@ function renderAnnouncements() {
                         <tr>
                             <td>${escapeHtml(announcement.title)}</td>
                             <td>${escapeHtml(announcement.body || "")}</td>
-                            <td>${announcementUrls[announcement.id] ? '<a class="file-link" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${announcementUrls[announcement.id] ? '<a class="file-link jgc-button" href="' + announcementUrls[announcement.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
                             <td>${renderAnnouncementReadDetails(announcement)}</td>
                             <td>${escapeHtml(formatDate(announcement.created_at))}</td>
-                            <td><button type="button" class="delete-button" onclick="deleteAnnouncement('${escapeHtml(announcement.id)}')">Delete</button></td>
+                            <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAnnouncement('${escapeHtml(announcement.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>
@@ -581,10 +581,10 @@ function renderPolicies() {
                             <td>${escapeHtml(policy.title)}</td>
                             <td>${escapeHtml(policy.category || "General")}</td>
                             <td>${escapeHtml(policy.description || "")}</td>
-                            <td>${policyUrls[policy.id] ? '<a class="file-link" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
+                            <td>${policyUrls[policy.id] ? '<a class="file-link jgc-button" href="' + policyUrls[policy.id] + '" target="_blank" rel="noopener">Open PDF</a>' : "-"}</td>
                             <td>${Number(policy.sort_order || 0)}</td>
                             <td>${escapeHtml(formatDate(policy.created_at))}</td>
-                            <td><button type="button" class="delete-button" onclick="deletePolicy('${escapeHtml(policy.id)}')">Delete</button></td>
+                            <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deletePolicy('${escapeHtml(policy.id)}')">Delete</button></td>
                         </tr>
                     `).join("")}
                 </tbody>

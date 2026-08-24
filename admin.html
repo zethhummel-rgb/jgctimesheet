@@ -584,66 +584,66 @@
     <iframe class="admin-task-frame" data-src="tasks.html?embedded=1&admin=1" title="Admin Tasks" scrolling="no"></iframe>
 </div>
 
-<div id="noticePolicySection" class="card" hidden>
-    <h2>Notice / Policy</h2>
-    <details class="sub-card admin-collapsible-panel" open>
+<div id="noticePolicySection" class="card jgc-panel jgc-policy-admin" hidden>
+    <h2 class="jgc-section-title">Notice / Policy</h2>
+    <details class="sub-card admin-collapsible-panel jgc-section" open>
         <summary>Announcements / Notices</summary>
-        <div class="announcement-grid" style="margin-top:12px;">
-            <div>
-                <label>Title</label>
-                <input id="announcementTitle" placeholder="Example: Safety meeting Friday">
+        <div class="announcement-grid jgc-form-grid">
+            <div class="jgc-field">
+                <label class="jgc-label">Title</label>
+                <input id="announcementTitle" class="jgc-input" placeholder="Example: Safety meeting Friday">
             </div>
-            <div>
-                <label>Expires On (optional)</label>
-                <input id="announcementExpires" type="date">
+            <div class="jgc-field">
+                <label class="jgc-label">Expires On (optional)</label>
+                <input id="announcementExpires" class="jgc-input" type="date">
             </div>
-            <div class="full">
-                <label>Message</label>
-                <textarea id="announcementBody" placeholder="Write the announcement here"></textarea>
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label">Message</label>
+                <textarea id="announcementBody" class="jgc-textarea" placeholder="Write the announcement here"></textarea>
             </div>
-            <div class="full">
-                <label>Attach PDF (optional)</label>
-                <input id="announcementFile" type="file" accept="application/pdf,.pdf">
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label">Attach PDF (optional)</label>
+                <input id="announcementFile" class="jgc-input" type="file" accept="application/pdf,.pdf">
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button type="button" onclick="publishAnnouncement()">Publish Announcement</button>
-            <button class="secondary" type="button" onclick="loadAnnouncements()">Refresh Announcements</button>
+        <div class="actions jgc-actions">
+            <button class="jgc-button" type="button" onclick="publishAnnouncement()">Publish Announcement</button>
+            <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadAnnouncements()">Refresh Announcements</button>
         </div>
-        <div id="announcementStatus" class="small" style="margin-top:10px;"></div>
-        <div id="announcementsList" class="small" style="margin-top:12px;">Loading announcements...</div>
+        <div id="announcementStatus" class="small jgc-notice"></div>
+        <div id="announcementsList" class="small jgc-section">Loading announcements...</div>
     </details>
 
-    <details class="sub-card admin-collapsible-panel" style="margin-top:14px;">
+    <details class="sub-card admin-collapsible-panel jgc-section">
         <summary>Policies</summary>
-        <div class="announcement-grid" style="margin-top:12px;">
-            <div>
-                <label>Policy Title</label>
-                <input id="policyTitle" placeholder="Example: Fall Protection Policy">
+        <div class="announcement-grid jgc-form-grid">
+            <div class="jgc-field">
+                <label class="jgc-label">Policy Title</label>
+                <input id="policyTitle" class="jgc-input" placeholder="Example: Fall Protection Policy">
             </div>
-            <div>
-                <label>Category</label>
-                <input id="policyCategory" placeholder="Example: Safety" value="General">
+            <div class="jgc-field">
+                <label class="jgc-label">Category</label>
+                <input id="policyCategory" class="jgc-input" placeholder="Example: Safety" value="General">
             </div>
-            <div>
-                <label>Display Order</label>
-                <input id="policyOrder" type="number" value="0">
+            <div class="jgc-field">
+                <label class="jgc-label">Display Order</label>
+                <input id="policyOrder" class="jgc-input" type="number" value="0">
             </div>
-            <div class="full">
-                <label>Description</label>
-                <textarea id="policyDescription" placeholder="Short description for employees"></textarea>
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label">Description</label>
+                <textarea id="policyDescription" class="jgc-textarea" placeholder="Short description for employees"></textarea>
             </div>
-            <div class="full">
-                <label>Policy PDF</label>
-                <input id="policyFile" type="file" accept="application/pdf,.pdf">
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label">Policy PDF</label>
+                <input id="policyFile" class="jgc-input" type="file" accept="application/pdf,.pdf">
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button type="button" onclick="publishPolicy()">Add Policy</button>
-            <button class="secondary" type="button" onclick="loadPolicies()">Refresh Policies</button>
+        <div class="actions jgc-actions">
+            <button class="jgc-button" type="button" onclick="publishPolicy()">Add Policy</button>
+            <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadPolicies()">Refresh Policies</button>
         </div>
-        <div id="policyStatus" class="small" style="margin-top:10px;"></div>
-        <div id="policiesList" class="small" style="margin-top:12px;">Loading policies...</div>
+        <div id="policyStatus" class="small jgc-notice"></div>
+        <div id="policiesList" class="small jgc-section">Loading policies...</div>
     </details>
 </div>
 
@@ -1125,7 +1125,7 @@
 <script src="admin-backups.js?v=3"></script>
 <script src="admin-contacts.js?v=1"></script>
 <script src="admin-vacation.js?v=4"></script>
-<script src="admin-notices.js?v=2"></script>
+<script src="admin-notices.js?v=3"></script>
 <script src="admin-certificates.js?v=3"></script>
 <script src="admin-inspections.js?v=4"></script>
 <script src="admin-reports.js?v=3"></script>
