@@ -1,7 +1,18 @@
-/* Permit-family compatibility layer for the shared JGC design system. */
+/* Permit-family layout. All visual values come from the shared JGC design tokens. */
+.permit-directory-page,
+.permit-directory-page *,
+.permit-form-page,
+.permit-form-page * {
+  box-sizing: border-box;
+}
+
 body.permit-directory-page.jgc-page,
 body.permit-form-page.jgc-page {
-  padding: 20px;
+  min-width: 0;
+  min-height: 100dvh;
+  margin: 0;
+  padding: var(--jgc-space-5);
+  overflow-x: hidden;
 }
 
 .permit-page-shell.jgc-page-shell,
@@ -14,55 +25,59 @@ body.permit-form-page.jgc-page {
 
 .permit-page-header.jgc-page-header {
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: var(--jgc-space-3);
 }
 
 .permit-page-header .logo-wrap.jgc-brand {
-  max-width: 347px;
-  margin: 0 auto 8px;
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  margin: 0 auto var(--jgc-space-2);
 }
 
 .permit-page-header .logo-wrap.jgc-brand img {
+  display: block;
   width: 100%;
-  max-width: 347px;
+  height: auto;
+  margin-inline: auto;
 }
 
-.permit-page-header .user-bar {
+.permit-page-header :is(.user-bar, .jgc-page-user) {
   margin: 0 auto;
+  color: var(--jgc-color-text-muted);
+  text-align: center;
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
 }
 
 .permit-page-shell .container.jgc-panel {
+  width: min(100%, 1200px);
+  min-width: 0;
   margin-inline: auto;
-  border-radius: 8px;
 }
 
-.permit-page-shell .jgc-page-title {
-  letter-spacing: 0;
-}
-
-.permit-directory-page .permit-card.jgc-card {
-  display: block;
-  padding: 16px;
-  color: #1f2a24;
-  background: #ffffff;
-  border: 1px solid #c6cec5;
-  border-top: 4px solid #3f7d4d;
-  box-shadow: none;
-}
-
-.permit-directory-page .permit-card.jgc-card:hover {
-  border-color: #3f7d4d;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.14);
-}
-
-.permit-page-shell .subtitle.jgc-section-title {
+.permit-page-shell .jgc-page-title,
+.permit-page-shell .jgc-section-heading {
   text-align: center;
+}
+
+.permit-page-shell .jgc-section-heading {
+  margin-block: var(--jgc-space-4) var(--jgc-space-3);
+  color: var(--jgc-color-text);
   font-weight: 700;
+}
+
+.permit-directory-page .permit-grid {
+  min-width: 0;
+}
+
+.permit-directory-page .permit-card.jgc-link-card {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
 }
 
 .permit-form-page .grid.jgc-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--jgc-space-3);
 }
 
 .permit-form-page .jgc-field,
@@ -70,37 +85,93 @@ body.permit-form-page.jgc-page {
   min-width: 0;
 }
 
-.permit-form-page .jgc-label {
-  margin-bottom: 4px;
+.permit-form-page .jgc-label,
+.permit-form-page > label,
+.permit-form-page .container > label {
+  display: block;
+  margin-bottom: var(--jgc-space-1);
+  color: var(--jgc-color-text);
+  font-weight: 700;
 }
 
 .permit-form-page .jgc-input,
 .permit-form-page .jgc-select,
 .permit-form-page .jgc-textarea {
-  min-height: 40px;
-  padding: 8px;
-  border-radius: 4px;
+  min-height: var(--jgc-control-height);
 }
 
 .permit-form-page .jgc-textarea {
-  min-height: 85px;
+  min-height: 88px;
 }
 
 .permit-form-page .section.jgc-section {
-  margin-top: 20px;
-  padding-top: 14px;
+  margin-top: var(--jgc-space-5);
+  padding-top: var(--jgc-space-4);
   padding-bottom: 0;
 }
 
 .permit-form-page .section.jgc-section .jgc-section-title {
-  margin-bottom: 12px;
+  margin-bottom: var(--jgc-space-3);
+}
+
+.permit-form-page .check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--jgc-space-2);
+  min-height: var(--jgc-control-height);
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border-bottom: 1px solid var(--jgc-color-border-soft);
+}
+
+.permit-form-page .check-row input,
+.permit-form-page .radio-stack input[type="radio"] {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--jgc-color-brand-500);
+}
+
+.permit-form-page .radio-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jgc-space-2);
+}
+
+.permit-form-page .radio-stack label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--jgc-space-2);
+  min-height: var(--jgc-control-height);
+  margin: 0;
+  padding: var(--jgc-space-2) var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-md);
+  font-weight: 500;
+  touch-action: manipulation;
 }
 
 .permit-form-page #permitStatus.jgc-notice {
   display: block;
-  color: #ffffff;
-  background: #dc3545;
+  margin-bottom: var(--jgc-space-4);
+  color: var(--jgc-color-on-brand);
   border-left: 0;
+  border-radius: var(--jgc-radius-md);
+  text-align: center;
+  font-size: var(--jgc-font-size-lg);
+  font-weight: 800;
+}
+
+.permit-form-page #permitStatus.jgc-notice--danger {
+  background: var(--jgc-color-badge-danger);
+}
+
+.permit-form-page #permitStatus.jgc-notice--success {
+  background: var(--jgc-color-badge-success);
 }
 
 .permit-form-page #inspectionSaveStatus.jgc-notice:empty {
@@ -108,17 +179,21 @@ body.permit-form-page.jgc-page {
 }
 
 .permit-page-shell .actions.jgc-actions {
-  margin-top: 20px;
+  margin-top: var(--jgc-space-5);
 }
 
 @media (max-width: 768px) {
   body.permit-directory-page.jgc-page,
   body.permit-form-page.jgc-page {
-    padding: 12px;
+    padding: var(--jgc-space-3);
+  }
+
+  .permit-page-shell .container.jgc-panel {
+    padding: var(--jgc-space-4);
   }
 
   .permit-form-page .grid.jgc-form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .permit-form-page .jgc-field--full {
@@ -128,9 +203,10 @@ body.permit-form-page.jgc-page {
   .permit-form-page .jgc-input,
   .permit-form-page .jgc-select,
   .permit-form-page .jgc-textarea {
-    font-size: 16px;
+    font-size: var(--jgc-font-size-md);
   }
 
+  .permit-page-shell .actions.jgc-actions,
   .permit-page-shell .actions.jgc-actions .jgc-button {
     width: 100%;
   }
@@ -139,16 +215,20 @@ body.permit-form-page.jgc-page {
 @media print {
   body.permit-form-page.jgc-page {
     padding: 0;
+    color: var(--jgc-color-text-dark);
+    background: var(--jgc-color-input);
   }
 
-  .permit-page-header,
-  .permit-page-shell .actions {
+  .permit-page-header.jgc-page-header,
+  .permit-page-shell .actions.jgc-actions,
+  .permit-page-shell #inspectionSaveStatus {
     display: none;
   }
 
   .permit-page-shell .container.jgc-panel {
-    box-shadow: none;
+    color: var(--jgc-color-text-dark);
+    background: var(--jgc-color-input);
     border: 0;
-    padding: 0;
+    box-shadow: none;
   }
 }

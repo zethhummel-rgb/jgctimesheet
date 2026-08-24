@@ -20,7 +20,6 @@ const removedStylesheets = [
   "policy-design-system.css",
   "reset-password-design-system.css",
   "subcontractor-design-system.css",
-  "permit-design-system.css",
   "report-design-system.css"
 ];
 
