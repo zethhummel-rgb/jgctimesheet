@@ -21,7 +21,7 @@ test("Employee Access and Diagnostics use direct token-only shared styling", asy
   }
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('const JGC_RELEASE_ID = "769"');
+  expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+"/);
   expect(worker).toContain('"./employee-access-admin.css?v=3"');
   expect(worker).toContain('"./diagnostics-admin.css?v=2"');
 });

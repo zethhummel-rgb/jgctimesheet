@@ -6,438 +6,29 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>JGC Portal - Limited Access</title>
-  <link rel="stylesheet" href="styles.css?v=3" />
-  <style>
-    :root {
-      color-scheme: dark;
-      --limited-bg: #06130f;
-      --limited-panel: #0d1d18;
-      --limited-panel-soft: #10261d;
-      --limited-border: rgba(67, 205, 93, 0.34);
-      --limited-green: #35d452;
-      --limited-text: #f4f7f5;
-      --limited-muted: #b8c5be;
-      --limited-danger: #ff746d;
-      --limited-warning: #f3c65f;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      max-width: 100%;
-      overflow-x: hidden;
-    }
-
-    body {
-      min-height: 100vh;
-      margin: 0;
-      padding: 28px 18px 110px;
-      background: var(--limited-bg);
-      color: var(--limited-text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .limited-shell {
-      width: min(1180px, 100%);
-      margin: 0 auto;
-    }
-
-    .limited-hero {
-      padding: 34px 0 22px;
-      text-align: center;
-    }
-
-    .limited-logo {
-      display: block;
-      width: min(300px, 72vw);
-      height: auto;
-      margin: 0 auto 26px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(30px, 5vw, 42px);
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-
-    .limited-user {
-      margin: 9px 0 0;
-      color: var(--limited-muted);
-      font-size: 16px;
-    }
-
-    .limited-notice {
-      margin: 0 0 18px;
-      padding: 15px 17px;
-      border-left: 4px solid var(--limited-warning);
-      background: var(--limited-panel-soft);
-      color: var(--limited-text);
-      line-height: 1.45;
-    }
-
-    .limited-notice strong {
-      color: var(--limited-warning);
-    }
-
-    .limited-tabs {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 18px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--limited-border);
-    }
-
-    .limited-tab,
-    .limited-button {
-      min-height: 44px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 7px;
-      background: #17231f;
-      color: var(--limited-text);
-      font: inherit;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .limited-tab:hover,
-    .limited-tab:focus-visible,
-    .limited-button:hover,
-    .limited-button:focus-visible {
-      border-color: var(--limited-green);
-      outline: none;
-    }
-
-    .limited-tab.active {
-      border-color: var(--limited-green);
-      background: var(--limited-green);
-      color: #041108;
-    }
-
-    .limited-panel {
-      display: none;
-      min-height: 280px;
-      padding: 18px;
-      border: 1px solid var(--limited-border);
-      border-top: 4px solid var(--limited-green);
-      border-radius: 7px;
-      background: var(--limited-panel);
-    }
-
-    .limited-panel.active {
-      display: block;
-    }
-
-    .limited-panel-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-
-    .limited-panel h2 {
-      margin: 0;
-      color: var(--limited-green);
-      font-size: 25px;
-      letter-spacing: 0;
-    }
-
-    .limited-panel-note {
-      margin: 4px 0 0;
-      color: var(--limited-muted);
-      line-height: 1.4;
-    }
-
-    .limited-count {
-      flex: 0 0 auto;
-      min-width: 34px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      background: #174c2a;
-      color: #ffffff;
-      text-align: center;
-      font-weight: 800;
-    }
-
-    .limited-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .limited-record {
-      padding: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.13);
-      border-radius: 7px;
-      background: #101d18;
-    }
-
-    .limited-record-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .limited-record h3 {
-      margin: 0;
-      color: #ffffff;
-      font-size: 18px;
-      letter-spacing: 0;
-      overflow-wrap: anywhere;
-    }
-
-    .limited-record-meta {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .limited-meta-item {
-      min-width: 0;
-      color: var(--limited-muted);
-      line-height: 1.35;
-      overflow-wrap: anywhere;
-    }
-
-    .limited-meta-item strong {
-      display: block;
-      margin-bottom: 2px;
-      color: var(--limited-text);
-      font-size: 12px;
-      text-transform: uppercase;
-    }
-
-    .limited-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 13px;
-    }
-
-    .limited-button {
-      width: auto;
-      min-height: 38px;
-      padding: 8px 13px;
-      background: #118d40;
-    }
-
-    .limited-button.secondary {
-      background: #1a2823;
-    }
-
-    .limited-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      padding: 5px 9px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 999px;
-      background: #176d36;
-      color: #ffffff;
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .limited-badge.warning {
-      background: #745811;
-    }
-
-    .limited-badge.danger {
-      background: #8d2823;
-    }
-
-    .limited-empty,
-    .limited-loading,
-    .limited-error {
-      padding: 28px 16px;
-      border: 1px dashed rgba(255, 255, 255, 0.2);
-      border-radius: 7px;
-      color: var(--limited-muted);
-      text-align: center;
-    }
-
-    .limited-error {
-      border-color: rgba(255, 116, 109, 0.6);
-      color: #ffd4d1;
-    }
-
-    .limited-details {
-      margin-top: 13px;
-      padding-top: 13px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .limited-details summary {
-      color: var(--limited-green);
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .limited-entry-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .limited-entry {
-      padding: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      background: #0a1612;
-      color: var(--limited-muted);
-      line-height: 1.35;
-    }
-
-    .limited-entry strong {
-      display: block;
-      color: var(--limited-text);
-    }
-
-    .limited-modal[hidden] {
-      display: none;
-    }
-
-    .limited-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 10020;
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      background: rgba(0, 0, 0, 0.76);
-    }
-
-    .limited-modal-card {
-      width: min(720px, 100%);
-      max-height: min(80vh, 760px);
-      overflow-y: auto;
-      padding: 20px;
-      border: 1px solid var(--limited-border);
-      border-top: 4px solid var(--limited-green);
-      border-radius: 7px;
-      background: var(--limited-panel);
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
-    }
-
-    .limited-modal-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 14px;
-    }
-
-    .limited-modal-head h2 {
-      margin: 0;
-      color: var(--limited-green);
-      letter-spacing: 0;
-    }
-
-    .limited-modal-close {
-      width: 42px;
-      min-width: 42px;
-      height: 42px;
-      margin: 0;
-      padding: 0;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 6px;
-      background: #1a2823;
-      color: #ffffff;
-      font-size: 20px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .limited-detail-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin: 0;
-    }
-
-    .limited-detail-list div {
-      padding: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      background: #0a1612;
-    }
-
-    .limited-detail-list dt {
-      color: var(--limited-muted);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    .limited-detail-list dd {
-      margin: 4px 0 0;
-      color: #ffffff;
-      line-height: 1.4;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-    }
-
-    @media (max-width: 780px) {
-      body {
-        padding: 18px 12px 104px;
-      }
-
-      .limited-hero {
-        padding-top: 24px;
-      }
-
-      .limited-tabs {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .limited-record-meta,
-      .limited-entry-grid,
-      .limited-detail-list {
-        grid-template-columns: 1fr;
-      }
-
-      .limited-panel {
-        padding: 14px;
-      }
-
-      .limited-record-head {
-        display: block;
-      }
-
-      .limited-record-head .limited-badge {
-        margin-top: 8px;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7" />
+  <link rel="stylesheet" href="limited-access.css?v=1" />
 </head>
-<body>
-  <main class="limited-shell">
-    <header class="limited-hero">
+<body class="limited-access-page jgc-page">
+  <main class="limited-shell jgc-page-shell">
+    <header class="limited-hero jgc-page-header">
       <img class="limited-logo" src="logo.webp" alt="John Gordon Construction" />
       <h1>Limited Access</h1>
       <p class="limited-user" id="limitedUser">Checking account access...</p>
     </header>
 
-    <div class="limited-notice">
+    <div class="limited-notice jgc-notice jgc-notice--warning">
       <strong>Read-only personal access.</strong> You can review your own records below. Scheduling, submissions, editing, and other portal areas are unavailable for this account.
     </div>
 
-    <nav class="limited-tabs" aria-label="Personal records">
-      <button class="limited-tab" type="button" data-section="certificates">Certificates</button>
-      <button class="limited-tab" type="button" data-section="timesheets">Timesheets</button>
-      <button class="limited-tab" type="button" data-section="inspections">Inspections</button>
-      <button class="limited-tab" type="button" data-section="reports">Reports</button>
+    <nav class="limited-tabs jgc-tabs" aria-label="Personal records">
+      <button class="limited-tab jgc-tab" type="button" data-section="certificates">Certificates</button>
+      <button class="limited-tab jgc-tab" type="button" data-section="timesheets">Timesheets</button>
+      <button class="limited-tab jgc-tab" type="button" data-section="inspections">Inspections</button>
+      <button class="limited-tab jgc-tab" type="button" data-section="reports">Reports</button>
     </nav>
 
-    <section class="limited-panel" id="certificatesPanel" data-panel="certificates">
+    <section class="limited-panel jgc-panel" id="certificatesPanel" data-panel="certificates">
       <div class="limited-panel-head">
         <div>
           <h2>Certificates</h2>
@@ -448,7 +39,7 @@
       <div id="certificatesContent" class="limited-loading">Open this section to load your certificates.</div>
     </section>
 
-    <section class="limited-panel" id="timesheetsPanel" data-panel="timesheets">
+    <section class="limited-panel jgc-panel" id="timesheetsPanel" data-panel="timesheets">
       <div class="limited-panel-head">
         <div>
           <h2>Timesheets</h2>
@@ -459,7 +50,7 @@
       <div id="timesheetsContent" class="limited-loading">Open this section to load your timesheets.</div>
     </section>
 
-    <section class="limited-panel" id="inspectionsPanel" data-panel="inspections">
+    <section class="limited-panel jgc-panel" id="inspectionsPanel" data-panel="inspections">
       <div class="limited-panel-head">
         <div>
           <h2>Inspections</h2>
@@ -470,7 +61,7 @@
       <div id="inspectionsContent" class="limited-loading">Open this section to load your inspections.</div>
     </section>
 
-    <section class="limited-panel" id="reportsPanel" data-panel="reports">
+    <section class="limited-panel jgc-panel" id="reportsPanel" data-panel="reports">
       <div class="limited-panel-head">
         <div>
           <h2>Reports</h2>
