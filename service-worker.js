@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "771";
+const JGC_RELEASE_ID = "772";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -48,6 +48,7 @@ const JGC_APP_SHELL = [
   "./admin.html",
   "./estimating/index.html",
   "./accounts.html",
+  "./accounts-admin.css?v=1",
   "./notification-settings.html",
   "./reset-password.html",
   "./aerial-lifts.html",
