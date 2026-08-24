@@ -79,6 +79,55 @@ function Get-LocalAssetPath {
     return $path
 }
 
+function Get-ComparableFileHash {
+    param(
+        [string]$Path,
+        [string]$RelativePath
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $extension = [System.IO.Path]::GetExtension($RelativePath).ToLowerInvariant()
+    $textExtensions = @(
+        ".bat", ".cmd", ".css", ".csv", ".html", ".js", ".json", ".jsx",
+        ".md", ".mjs", ".ps1", ".sql", ".svg", ".toml", ".ts", ".tsx",
+        ".txt", ".webmanifest", ".xml", ".yaml", ".yml"
+    )
+    $normalizedRelativePath = $RelativePath.Replace("/", "\")
+    $isGeneratedBinary =
+        $normalizedRelativePath -like "estimating\assets\*.js" -or
+        $normalizedRelativePath -like "estimating\supplier-import\*" -or
+        $normalizedRelativePath -like "estimating-app\public\supplier-import\*"
+
+    if (($textExtensions -contains $extension) -and -not $isGeneratedBinary) {
+        $normalizedBytes = [byte[]]::new($bytes.Length)
+        $writeIndex = 0
+
+        for ($readIndex = 0; $readIndex -lt $bytes.Length; $readIndex++) {
+            if ($bytes[$readIndex] -eq 13) {
+                if (($readIndex + 1) -lt $bytes.Length -and $bytes[$readIndex + 1] -eq 10) {
+                    $readIndex++
+                }
+                $normalizedBytes[$writeIndex] = 10
+            } else {
+                $normalizedBytes[$writeIndex] = $bytes[$readIndex]
+            }
+            $writeIndex++
+        }
+
+        if ($writeIndex -ne $normalizedBytes.Length) {
+            [Array]::Resize([ref]$normalizedBytes, $writeIndex)
+        }
+        $bytes = $normalizedBytes
+    }
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace("-", "")
+    } finally {
+        $sha256.Dispose()
+    }
+}
+
 $PortalRoot = (Resolve-Path -LiteralPath $PortalRoot).Path
 $requestedRootName = Split-Path -Leaf $PortalRoot
 $requestedRootParent = Split-Path -Parent $PortalRoot
@@ -379,15 +428,15 @@ if (-not (Test-Path -LiteralPath $MirrorRoot -PathType Container)) {
             continue
         }
 
-        $sourceHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
-        $mirrorHash = (Get-FileHash -LiteralPath $mirrorPath -Algorithm SHA256).Hash
+        $sourceHash = Get-ComparableFileHash -Path $sourcePath -RelativePath $relativePath
+        $mirrorHash = Get-ComparableFileHash -Path $mirrorPath -RelativePath $relativePath
         if ($sourceHash -ne $mirrorHash) {
             $mirrorProblems.Add(("Mirror differs: {0}" -f $relativePath))
         }
     }
 
     if ($mirrorProblems.Count -eq 0) {
-        Write-ReleaseResult "PASS" ("GitHub mirror matches {0} release files." -f $releaseFiles.Count)
+        Write-ReleaseResult "PASS" ("GitHub mirror matches {0} release files (text line endings normalized)." -f $releaseFiles.Count)
     } else {
         foreach ($problem in $mirrorProblems) {
             Write-ReleaseResult "FAIL" $problem

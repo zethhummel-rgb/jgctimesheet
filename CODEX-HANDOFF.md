@@ -297,7 +297,7 @@ The release checker validates:
 - Page opening without uncaught JavaScript errors.
 - Key tabs and controls.
 - Service-worker registration/control.
-- Exact mirror equality between the primary folder and the authoritative sibling deployment checkout when `-MirrorRoot` is set to `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\GitHub\jgctimesheet`.
+- Content equality between the primary folder and the authoritative sibling deployment checkout when `-MirrorRoot` is set to `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\GitHub\jgctimesheet`. Text line endings are normalized during comparison; generated/binary assets remain byte-exact.
 
 Release checks must be run against the exact current task files and current `origin/main`; older test counts and commit SHAs are historical only.
 
