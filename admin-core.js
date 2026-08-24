@@ -66,8 +66,10 @@ let editingLiveTimesheetEntryId = "";
 let editingEquipmentId = "";
 let adminDataLoaded = false;
 let adminDataLoading = false;
+let adminInitialDataLoadFailed = false;
 let pendingAdminTabRender = "";
 let adminTabDataLoaded = new Set();
+let adminTabDataFailed = new Set();
 let adminTabDataLoading = {};
 let adminScheduleReferenceDataLoaded = false;
 let adminScheduleReferenceDataPromise = null;
@@ -92,6 +94,7 @@ const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "times
 let currentAdminTab = "";
 let activeSafetyRecordsSubtab = "inspections";
 let safetyRecordsSubtabDataLoaded = new Set();
+let safetyRecordsSubtabDataFailed = new Set();
 let safetyRecordsSubtabDataLoading = {};
 
 if (!isAdminWorker(currentWorker, worker.role)) {
@@ -219,13 +222,21 @@ function ensureSafetyRecordsSubtabData(subtab) {
     }
 
     safetyRecordsSubtabDataLoading[requestedSubtab] = true;
+    let loadSucceeded = false;
     loadSafetyRecordsSubtabData(requestedSubtab)
-        .catch((error) => logAdminLoadError("lazy load safety records " + requestedSubtab, error))
-        .finally(() => {
+        .then(() => {
+            loadSucceeded = true;
             safetyRecordsSubtabDataLoaded.add(requestedSubtab);
+            safetyRecordsSubtabDataFailed.delete(requestedSubtab);
+        })
+        .catch((error) => {
+            safetyRecordsSubtabDataFailed.add(requestedSubtab);
+            logAdminLoadError("lazy load safety records " + requestedSubtab, error);
+        })
+        .finally(() => {
             safetyRecordsSubtabDataLoading[requestedSubtab] = false;
 
-            if (getActiveAdminTab() === "safetyRecords" && getActiveSafetyRecordsSubtab() === requestedSubtab) {
+            if (loadSucceeded && getActiveAdminTab() === "safetyRecords" && getActiveSafetyRecordsSubtab() === requestedSubtab) {
                 renderSafetyRecordsPanel(requestedSubtab);
             }
         });
@@ -314,15 +325,21 @@ function ensureAdminTabData(tab) {
         section.setAttribute("aria-busy", "true");
     }
     loadAdminTabData(tab)
-        .catch((error) => logAdminLoadError("lazy load " + tab, error))
-        .finally(() => {
+        .then(() => {
             adminTabDataLoaded.add(tab);
+            adminTabDataFailed.delete(tab);
+        })
+        .catch((error) => {
+            adminTabDataFailed.add(tab);
+            logAdminLoadError("lazy load " + tab, error);
+        })
+        .finally(() => {
             adminTabDataLoading[tab] = false;
             if (section) {
                 section.removeAttribute("aria-busy");
             }
 
-            if (getActiveAdminTab() === tab) {
+            if (adminTabDataLoaded.has(tab) && getActiveAdminTab() === tab) {
                 renderActiveAdminTab(tab);
             }
         });
@@ -736,6 +753,10 @@ function formatDate(value) {
 
 function logAdminLoadError(label, error) {
     if (error) {
+        if (error.adminLoadLogged) {
+            return;
+        }
+
         console.warn("Admin load issue - " + label + ":", error);
         if (typeof window.logJgcDiagnostic === "function") {
             window.logJgcDiagnostic({
@@ -801,20 +822,99 @@ function renderImmediateAdminSectionsSafely() {
     });
 }
 
-async function runAdminQueries(definitions) {
-    const results = await Promise.all(definitions.map((definition, index) =>
-        Promise.resolve(definition.query()).then((result) => {
-            if (result && result.error) {
-                logAdminLoadError(definition.label || ("query " + index), result.error);
-            }
+const ADMIN_QUERY_RETRY_DELAYS_MS = [500, 1500];
 
-            return result || { data: [] };
-        }).catch((error) => {
-            logAdminLoadError(definition.label || ("query " + index), error);
-            return { data: [], error };
-        })
-    ));
+function isTransientAdminNetworkError(error) {
+    if (!error) {
+        return false;
+    }
 
+    const status = Number(error.status || error.statusCode || 0);
+    if (status === 408 || status === 425 || status === 429 || status >= 500) {
+        return true;
+    }
+
+    const code = String(error.code || "").trim().toUpperCase();
+    if (["ECONNABORTED", "ECONNRESET", "ENETDOWN", "ENETUNREACH", "ETIMEDOUT", "NETWORK_ERROR"].includes(code)) {
+        return true;
+    }
+
+    if (code) {
+        return false;
+    }
+
+    const message = String(error.message || error).toLowerCase();
+    return [
+        "load failed",
+        "failed to fetch",
+        "network request failed",
+        "networkerror",
+        "the internet connection appears to be offline",
+        "connection was lost"
+    ].some((fragment) => message.includes(fragment));
+}
+
+function waitForAdminQueryRetry(delayMs) {
+    return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function executeAdminQueryWithRetry(definition, index) {
+    const label = definition.label || ("query " + index);
+    const maximumAttempts = ADMIN_QUERY_RETRY_DELAYS_MS.length + 1;
+
+    for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+        let result;
+
+        try {
+            result = await Promise.resolve(definition.query());
+        } catch (error) {
+            result = { data: [], error };
+        }
+
+        result = result || { data: [] };
+        if (!result.error) {
+            return { label, result, attempts: attempt };
+        }
+
+        const canRetry = attempt < maximumAttempts && isTransientAdminNetworkError(result.error);
+        if (!canRetry) {
+            return { label, result, attempts: attempt };
+        }
+
+        await waitForAdminQueryRetry(ADMIN_QUERY_RETRY_DELAYS_MS[attempt - 1]);
+    }
+
+    return { label, result: { data: [], error: new Error("Admin query failed.") }, attempts: maximumAttempts };
+}
+
+function createAdminQueryBatchError(failures) {
+    const labels = failures.map((failure) => failure.label).join(", ");
+    const error = new Error("Admin data could not load: " + labels);
+    error.name = "AdminDataLoadError";
+    error.adminLoadLogged = true;
+    error.adminLoadLabel = labels;
+    error.failures = failures.map((failure) => ({
+        label: failure.label,
+        attempts: failure.attempts,
+        error: failure.result.error
+    }));
+    return error;
+}
+
+async function runAdminQueries(definitions, options = {}) {
+    const outcomes = await Promise.all(definitions.map(executeAdminQueryWithRetry));
+    const failures = outcomes.filter((outcome) => outcome.result && outcome.result.error);
+
+    failures.forEach((failure) => {
+        logAdminLoadError(failure.label, failure.result.error);
+    });
+
+    if (failures.length && !options.allowPartial) {
+        throw createAdminQueryBatchError(failures);
+    }
+
+    const results = outcomes.map((outcome) => outcome.result || { data: [] });
+    results.adminFailures = failures;
     return results;
 }
 
@@ -951,6 +1051,7 @@ async function loadAdminData(options = {}) {
 
     adminDataLoading = true;
     adminDataLoaded = false;
+    adminInitialDataLoadFailed = false;
 
     try {
         const sessionResult = await supabaseClient.auth.getSession();
@@ -968,7 +1069,9 @@ async function loadAdminData(options = {}) {
                 { label: "approved work order workers", query: () => supabaseClient.from("work_order_labour_workers").select("*").order("display_name", { ascending: true }) },
                 { label: "employee page access", query: () => supabaseClient.from("employee_feature_access").select("worker_id,feature_key,enabled") },
                 { label: "subcontractor activity", query: () => supabaseClient.from("subcontractor_portal_activity").select("*").order("created_at", { ascending: false }).limit(80) }
-            ]);
+            ], { allowPartial: true });
+
+            adminInitialDataLoadFailed = adminDataResults.adminFailures.length > 0;
 
             const [liveTimesheetResult, vacationResult, scheduleResult, accountResult, jobsResult, workOrderWorkerResult, employeeFeatureAccessResult, subcontractorActivityResult] = adminDataResults;
 
@@ -998,7 +1101,9 @@ async function loadAdminData(options = {}) {
             jobDashboardContentLoaded = false;
             jobDashboardContentLoading = null;
             adminTabDataLoaded = new Set(["summary", "vacation", "adminTools", "jobDashboard"]);
+            adminTabDataFailed = new Set();
             safetyRecordsSubtabDataLoaded = new Set();
+            safetyRecordsSubtabDataFailed = new Set();
             safetyRecordsSubtabDataLoading = {};
             adminDataLoaded = true;
             renderImmediateAdminSectionsSafely();
@@ -1118,8 +1223,11 @@ async function loadAdminData(options = {}) {
         await safeAdminSetupStep("prepare policy URLs", preparePolicyUrls);
         initializeAdminSummaryBaselines();
         adminTabDataLoaded = new Set(ADMIN_ALLOWED_TABS);
+        adminTabDataFailed = new Set();
         safetyRecordsSubtabDataLoaded = new Set(SAFETY_RECORDS_SUBTABS);
+        safetyRecordsSubtabDataFailed = new Set();
         safetyRecordsSubtabDataLoading = {};
+        adminInitialDataLoadFailed = false;
         adminDataLoaded = true;
         renderAdminSectionsSafely();
         showTab(pendingAdminTabRender || getActiveAdminTab(), { persist: false });
@@ -1134,6 +1242,30 @@ async function loadAdminData(options = {}) {
 
 async function loadAllAdminData() {
     await loadAdminData({ full: true });
+}
+
+function retryFailedAdminLoadsAfterReconnect() {
+    if (!supabaseClient) {
+        return;
+    }
+
+    if (adminInitialDataLoadFailed && !adminDataLoading) {
+        loadAdminData().catch((error) => logAdminLoadError("reconnect refresh", error));
+        return;
+    }
+
+    const activeTab = getActiveAdminTab();
+    if (adminTabDataFailed.has(activeTab) && !adminTabDataLoading[activeTab]) {
+        ensureAdminTabData(activeTab);
+        return;
+    }
+
+    if (activeTab === "safetyRecords") {
+        const activeSubtab = getActiveSafetyRecordsSubtab();
+        if (safetyRecordsSubtabDataFailed.has(activeSubtab) && !safetyRecordsSubtabDataLoading[activeSubtab]) {
+            ensureSafetyRecordsSubtabData(activeSubtab);
+        }
+    }
 }
 
 async function signOut() {
@@ -1163,5 +1295,6 @@ if (supplierContactPhoneInput) {
     });
 }
 
+window.addEventListener("online", retryFailedAdminLoadsAfterReconnect);
 loadAdminData();
 showTab(getRequestedAdminTab(), { persist: false });
