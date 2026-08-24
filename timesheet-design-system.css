@@ -173,3 +173,1484 @@
     overflow: visible !important;
   }
 }
+
+/* Employee Timesheet layout. Kept here so the family has one visual source. */
+body.timesheet-page {
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--jgc-color-brand-500) 16%, transparent), transparent 34%),
+        linear-gradient(135deg, var(--jgc-color-page-deep) 0%, var(--jgc-color-page) 45%, var(--jgc-color-page-deep) 100%);
+      padding: 20px;
+      margin: 0;
+      color: var(--jgc-color-text);
+      min-height: 100vh;
+    }
+
+    .timesheet-page .card {
+      background:
+        linear-gradient(145deg, color-mix(in srgb, var(--jgc-color-brand-500) 6%, transparent), transparent 40%),
+        color-mix(in srgb, var(--jgc-color-surface) 94%, transparent);
+      padding: 18px;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 22%, transparent);
+      border-top: 4px solid var(--jgc-color-brand-500);
+      box-shadow: 0 20px 48px color-mix(in srgb, var(--jgc-color-page-deep) 32%, transparent), inset 0 1px 0 color-mix(in srgb, var(--jgc-color-on-brand) 4%, transparent);
+    }
+
+    .timesheet-page .page-title {
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .timesheet-page .timesheet-shell {
+      width: min(100%, 1200px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.82fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .timesheet-page .form-card {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .timesheet-page .logo-wrap {
+      max-width: 347px;
+      margin: 0 auto 2px;
+      text-align: center;
+    }
+
+    .timesheet-page .logo-wrap img {
+      width: 100%;
+      max-width: 347px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .timesheet-page .entries-card {
+      grid-column: 1 / -1;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .timesheet-page .wo-timesheet-card {
+      display: none;
+      width: min(100%, 1200px);
+      margin: 0 auto 16px;
+      padding: 16px;
+      border: 2px solid color-mix(in srgb, var(--jgc-color-brand-400) 82%, transparent);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--jgc-color-brand-700) 58%, transparent), color-mix(in srgb, var(--jgc-color-page-deep) 96%, transparent)),
+        var(--jgc-color-page);
+      box-shadow: 0 18px 42px color-mix(in srgb, var(--jgc-color-page-deep) 38%, transparent), 0 0 0 1px color-mix(in srgb, var(--jgc-color-on-brand) 5%, transparent) inset;
+    }
+
+    .timesheet-page .wo-timesheet-card.active {
+      display: block;
+    }
+
+    .timesheet-page .wo-timesheet-card h3 {
+      margin: 0 0 4px;
+      color: var(--jgc-color-on-brand);
+      font-size: clamp(24px, 4vw, 36px);
+      line-height: 1;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      text-shadow: 0 2px 4px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent);
+    }
+
+    .timesheet-page .wo-timesheet-card .small {
+      color: var(--jgc-color-text);
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 12px !important;
+      text-shadow: 0 1px 3px color-mix(in srgb, var(--jgc-color-page-deep) 45%, transparent);
+    }
+
+    .timesheet-page .week-submit-banner {
+      display: none;
+      width: min(100%, 1200px);
+      margin: 0 auto 16px;
+      padding: 16px;
+      border: 2px solid color-mix(in srgb, var(--jgc-color-brand-400) 78%, transparent);
+      border-left-width: 8px;
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent), color-mix(in srgb, var(--jgc-color-brand-700) 24%, transparent)),
+        color-mix(in srgb, var(--jgc-color-page-deep) 98%, transparent);
+      box-shadow: 0 18px 42px color-mix(in srgb, var(--jgc-color-page-deep) 34%, transparent), 0 0 0 1px color-mix(in srgb, var(--jgc-color-on-brand) 5%, transparent) inset;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .timesheet-page .week-submit-banner.active {
+      display: flex;
+    }
+
+    .timesheet-page .week-submit-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .timesheet-page .week-submit-copy strong {
+      color: var(--jgc-color-on-brand);
+      font-size: clamp(18px, 3vw, 26px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .timesheet-page .week-submit-copy span {
+      color: color-mix(in srgb, var(--jgc-color-brand-400) 16%, var(--jgc-color-text));
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .timesheet-page .week-submit-banner button {
+      width: auto;
+      min-width: 170px;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .timesheet-page .wo-request-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .timesheet-page .wo-request-button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      text-align: left;
+      background: color-mix(in srgb, var(--jgc-color-surface) 86%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 35%, transparent);
+      border-radius: 10px;
+      padding: 14px;
+      color: var(--jgc-color-on-brand);
+      box-shadow: 0 10px 22px color-mix(in srgb, var(--jgc-color-page-deep) 22%, transparent), 0 0 0 1px color-mix(in srgb, var(--jgc-color-on-brand) 4%, transparent) inset;
+    }
+
+    .timesheet-page .wo-request-button:hover {
+      background: color-mix(in srgb, var(--jgc-color-brand-800) 95%, transparent);
+    }
+
+    .timesheet-page .wo-request-title {
+      font-weight: 900;
+      color: var(--jgc-color-on-brand);
+      font-size: clamp(18px, 3vw, 26px);
+      line-height: 1.12;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .timesheet-page .wo-request-meta,
+    .timesheet-page .wo-request-detail {
+      color: color-mix(in srgb, var(--jgc-color-on-brand) 95%, transparent);
+      font-size: 14px;
+      line-height: 1.35;
+      display: block;
+    }
+
+    .timesheet-page .wo-request-action {
+      align-self: center;
+      justify-self: end;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: var(--jgc-color-brand-400);
+      color: var(--jgc-color-page);
+      font-weight: 900;
+      white-space: nowrap;
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .timesheet-page .user-bar {
+      max-width: 460px;
+      margin: 0 auto 12px;
+      color: var(--jgc-color-on-brand);
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px color-mix(in srgb, var(--jgc-color-page-deep) 25%, transparent);
+    }
+
+    .timesheet-page .sign-out {
+      width: auto;
+      padding: 5px 10px;
+      margin-left: 8px;
+      margin-bottom: 0;
+      background: var(--jgc-color-input-border);
+      font-size: 12px;
+    }
+
+    .timesheet-page .sign-out:hover {
+      background: var(--jgc-color-input-border);
+    }
+
+    .timesheet-page .home-button {
+      width: auto;
+      padding: 5px 10px;
+      margin-left: 8px;
+      margin-bottom: 0;
+      background: var(--jgc-color-input-border);
+      font-size: 12px;
+    }
+
+    .timesheet-page .home-button:hover {
+      background: var(--jgc-color-input-border);
+    }
+
+    .timesheet-page h2 {
+      margin-top: 0;
+      margin-bottom: 5px;
+      text-align: center;
+      color: var(--jgc-color-on-brand);
+      text-shadow: 0 1px 2px color-mix(in srgb, var(--jgc-color-page-deep) 30%, transparent);
+    }
+
+    .timesheet-page h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: var(--jgc-color-brand-500);
+    }
+
+    .timesheet-page label {
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--jgc-color-text);
+    }
+
+    .timesheet-page input, .timesheet-page button, .timesheet-page select, .timesheet-page textarea {
+      width: 100%;
+      padding: 12px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+      min-height: 44px;
+      font-size: 15px;
+    }
+
+    .timesheet-page input, .timesheet-page select, .timesheet-page textarea {
+      background: var(--jgc-color-input);
+      border: 1px solid var(--jgc-color-text-muted);
+      border-radius: 8px;
+      color: var(--jgc-color-surface-soft);
+    }
+
+    .timesheet-page input:focus, .timesheet-page select:focus, .timesheet-page textarea:focus {
+      border-color: var(--jgc-color-brand-500);
+      outline: 2px solid color-mix(in srgb, var(--jgc-color-brand-500) 24%, transparent);
+    }
+
+    .timesheet-page button {
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: bold;
+      min-height: 44px;
+    }
+
+    .timesheet-page button:hover {
+      background: linear-gradient(135deg, var(--jgc-color-brand-400), var(--jgc-color-brand-600));
+    }
+
+    .timesheet-page .small {
+      font-size: 12px;
+      color: var(--jgc-color-text-muted);
+    }
+
+    .timesheet-page .status {
+      min-height: 18px;
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--jgc-color-brand-500);
+      font-weight: bold;
+    }
+
+    .timesheet-page .table-wrap {
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+
+    .timesheet-page table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+      background: color-mix(in srgb, var(--jgc-color-page) 96%, transparent);
+      color: var(--jgc-color-text);
+    }
+
+    .timesheet-page .entries-card .table-wrap {
+      overflow-x: hidden;
+    }
+
+    .timesheet-page .entries-card table {
+      min-width: 0;
+      table-layout: fixed;
+    }
+
+    .timesheet-page .entries-card th,
+    .timesheet-page .entries-card td {
+      padding: 8px 6px;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .timesheet-page .entry-cell-detail {
+      display: block;
+      margin-top: 3px;
+      color: var(--jgc-color-text-muted);
+      font-size: 11px;
+      line-height: 1.25;
+      font-weight: normal;
+    }
+
+    .timesheet-page .mobile-week-summary {
+      display: none;
+    }
+
+    .timesheet-page .mobile-edit-summary {
+      display: none;
+    }
+
+    .timesheet-page .weekly-summary-view-toggle {
+      display: none;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      margin: 8px 0 12px;
+    }
+
+    .timesheet-page .weekly-summary-view-toggle span {
+      color: var(--jgc-color-text-muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .timesheet-page .weekly-summary-view-toggle button {
+      width: auto;
+      min-height: 34px;
+      padding: 7px 10px;
+      margin: 0;
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 14%, transparent);
+      color: var(--jgc-color-text);
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .timesheet-page .weekly-summary-view-toggle button.active-view {
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      color: var(--jgc-color-on-brand);
+      border-color: color-mix(in srgb, var(--jgc-color-brand-500) 72%, transparent);
+    }
+
+    .timesheet-page .mobile-week-card {
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 24%, transparent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--jgc-color-page) 92%, transparent);
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .timesheet-page .mobile-week-card-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+      padding: 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 8%, transparent);
+    }
+
+    .timesheet-page .mobile-week-card-title {
+      color: var(--jgc-color-brand-500);
+      font-weight: 900;
+      font-size: 17px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .timesheet-page .mobile-week-card-number {
+      color: var(--jgc-color-text-muted);
+      font-size: 12px;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .timesheet-page .mobile-week-card-total {
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
+      color: var(--jgc-color-text);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .timesheet-page .mobile-week-day-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      padding: 9px 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 8%, transparent);
+    }
+
+    .timesheet-page .mobile-week-day-row:last-child {
+      border-bottom: 0;
+    }
+
+    .timesheet-page .mobile-week-day-name {
+      color: var(--jgc-color-text);
+      font-weight: 800;
+      min-width: 42px;
+    }
+
+    .timesheet-page .mobile-week-day-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .timesheet-page .mobile-week-day-value {
+      color: var(--jgc-color-brand-500);
+      font-weight: 900;
+      text-align: right;
+      margin-left: auto;
+    }
+
+    .timesheet-page .mobile-week-detail {
+      grid-column: 2;
+      color: var(--jgc-color-text-muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .timesheet-page .mobile-edit-card .mobile-week-card-header {
+      grid-template-columns: 1fr;
+    }
+
+    .timesheet-page .mobile-edit-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      color: var(--jgc-color-text-muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .timesheet-page .mobile-edit-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 10px 12px 12px;
+    }
+
+    .timesheet-page .mobile-edit-actions button {
+      width: 100%;
+      margin: 0;
+      min-width: 0;
+    }
+
+    .timesheet-page .mobile-edit-card .mobile-week-detail {
+      grid-column: auto;
+      margin-top: 6px;
+    }
+
+    .timesheet-page .entries-card th:first-child,
+    .timesheet-page .entries-card td:first-child {
+      width: 22%;
+    }
+
+    .timesheet-page .entries-card th:nth-child(2),
+    .timesheet-page .entries-card td:nth-child(2) {
+      width: 13%;
+    }
+
+    .timesheet-page .entries-card th:nth-child(3),
+    .timesheet-page .entries-card td:nth-child(3) {
+      width: 9%;
+    }
+
+    .timesheet-page th, .timesheet-page td {
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 24%, transparent);
+      padding: 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .timesheet-page th {
+      background: color-mix(in srgb, var(--jgc-color-brand-800) 96%, transparent);
+      color: var(--jgc-color-text);
+      font-weight: bold;
+    }
+
+    .timesheet-page tbody tr:nth-child(even) {
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 3.5%, transparent);
+    }
+
+    .timesheet-page td:first-child,
+    .timesheet-page td:nth-child(2),
+    .timesheet-page th:first-child,
+    .timesheet-page th:nth-child(2) {
+      text-align: left;
+    }
+
+    .timesheet-page .empty-cell {
+      color: var(--jgc-color-text-muted);
+    }
+
+    .timesheet-page .email-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .timesheet-page .email-actions button {
+      width: auto;
+      min-width: 140px;
+      margin: 0;
+    }
+
+    .timesheet-page .email-note {
+      font-size: 13px;
+      color: var(--jgc-color-text-muted);
+      font-weight: bold;
+    }
+
+    .timesheet-page .edit-table-wrap {
+      max-width: 360px;
+    }
+
+    .timesheet-page .edit-table {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .timesheet-page .edit-table th,
+    .timesheet-page .edit-table td {
+      padding: 6px;
+      font-size: 12px;
+    }
+
+    .timesheet-page .check-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 4px 0 10px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .timesheet-page .check-row input {
+      width: auto;
+      margin: 0;
+    }
+
+    .timesheet-page .job-picker {
+      position: relative;
+    }
+
+    .timesheet-page .job-dropdown {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% - 4px);
+      z-index: 30;
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 42%, transparent);
+      border-radius: 8px;
+      background: var(--jgc-color-input);
+      box-shadow: 0 14px 32px color-mix(in srgb, var(--jgc-color-page-deep) 36%, transparent);
+    }
+
+    .timesheet-page .job-dropdown.open {
+      display: block;
+    }
+
+    .timesheet-page .job-option {
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 0;
+      border: 0;
+      border-bottom: 1px solid var(--jgc-color-text-muted);
+      background: var(--jgc-color-input);
+      color: var(--jgc-color-surface-soft);
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.25;
+      box-shadow: none;
+    }
+
+    .timesheet-page .job-option:hover,
+    .timesheet-page .job-option:focus {
+      background: var(--jgc-color-text);
+      color: var(--jgc-color-surface-soft);
+      outline: none;
+    }
+
+    .timesheet-page .job-option:last-child {
+      border-bottom: 0;
+    }
+
+    .timesheet-page .job-option-number {
+      font-weight: 800;
+      color: var(--jgc-color-brand-700);
+    }
+
+    .timesheet-page .job-option-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .timesheet-page .job-option-type {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--jgc-color-text);
+      color: var(--jgc-color-brand-800);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-700) 28%, transparent);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .timesheet-page .job-option-type.contract {
+      background: var(--jgc-color-input);
+      color: var(--jgc-color-surface-soft);
+      border-color: color-mix(in srgb, var(--jgc-color-surface-soft) 22%, transparent);
+    }
+
+    .timesheet-page .job-option-name {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .timesheet-page .job-option-empty {
+      padding: 11px 12px;
+      color: var(--jgc-color-text-muted);
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .timesheet-page .edit-button {
+      width: auto;
+      min-width: 70px;
+      padding: 6px 8px;
+      margin: 0;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .timesheet-page .edit-actions {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+      width: 100%;
+      white-space: nowrap;
+      flex-wrap: nowrap;
+    }
+
+    .timesheet-page .delete-entry-button {
+      width: auto;
+      min-width: 70px;
+      padding: 6px 8px;
+      margin: 0;
+      font-size: 12px;
+      background: var(--jgc-color-danger);
+    }
+
+    .timesheet-page .delete-entry-button:hover {
+      background: var(--jgc-color-danger-dark);
+    }
+
+    .timesheet-page .cancel-edit {
+      display: none;
+      background: var(--jgc-color-input-border);
+    }
+
+    .timesheet-page .field-hidden {
+      display: none !important;
+    }
+
+    .timesheet-page .tab-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .timesheet-page .tab-buttons button {
+      width: auto;
+      margin: 0;
+      padding: 7px 12px;
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 13%, transparent);
+    }
+
+    .timesheet-page .tab-buttons button.active-tab {
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+    }
+
+    .timesheet-page .entries-utility-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .timesheet-page .entry-utility-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .timesheet-page .entry-utility-buttons button {
+      width: auto;
+      margin: 0;
+      padding: 6px 10px;
+      min-height: 36px;
+      font-size: 12px;
+      min-width: 118px;
+    }
+
+    .timesheet-page .previous-week {
+      margin-top: 14px;
+    }
+
+    .timesheet-page .calendar-card {
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .timesheet-page .timesheet-calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .timesheet-page .timesheet-calendar-header button {
+      width: auto;
+      min-width: 92px;
+      margin: 0;
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 14%, transparent);
+    }
+
+    .timesheet-page .timesheet-calendar-title {
+      font-weight: bold;
+      color: var(--jgc-color-text);
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .timesheet-page .timesheet-calendar-quick {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 10px;
+    }
+
+    .timesheet-page .timesheet-calendar-quick button {
+      width: auto;
+      min-width: 110px;
+      margin: 0;
+      padding: 7px 12px;
+      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+    }
+
+    .timesheet-page .timesheet-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .timesheet-page .calendar-day-name {
+      padding: 6px 4px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--jgc-color-text-muted);
+    }
+
+    .timesheet-page .timesheet-day {
+      min-height: 82px;
+      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--jgc-color-page) 95%, transparent);
+      color: var(--jgc-color-text);
+      padding: 6px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+
+    .timesheet-page .timesheet-day:hover {
+      border-color: var(--jgc-color-brand-500);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent), 0 8px 20px color-mix(in srgb, var(--jgc-color-page-deep) 28%, transparent);
+      transform: translateY(-1px);
+    }
+
+    .timesheet-page .timesheet-day.outside-month {
+      opacity: 0.38;
+    }
+
+    .timesheet-page .timesheet-day.current-week {
+      background: color-mix(in srgb, var(--jgc-color-brand-500) 12%, transparent);
+      border-color: color-mix(in srgb, var(--jgc-color-brand-500) 36%, transparent);
+    }
+
+    .timesheet-page .timesheet-day.today-day {
+      box-shadow: inset 0 0 0 2px var(--jgc-color-brand-500);
+    }
+
+    .timesheet-page .timesheet-day.has-current-entry {
+      border-color: color-mix(in srgb, var(--jgc-color-brand-500) 65%, transparent);
+    }
+
+    .timesheet-page .timesheet-day.has-previous-submission {
+      background: color-mix(in srgb, var(--jgc-color-info) 10%, transparent);
+      border-color: color-mix(in srgb, var(--jgc-color-info) 44%, transparent);
+    }
+
+    .timesheet-page .timesheet-day.selected-day {
+      background: linear-gradient(145deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
+      color: var(--jgc-color-on-brand);
+      border-color: var(--jgc-color-brand-500);
+    }
+
+    .timesheet-page .timesheet-day.selected-day .calendar-pill {
+      background: color-mix(in srgb, var(--jgc-color-on-brand) 20%, transparent);
+      color: var(--jgc-color-on-brand);
+    }
+
+    .timesheet-page .timesheet-day-number {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .timesheet-page .timesheet-day-meta {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .timesheet-page .calendar-pill {
+      display: inline-block;
+      padding: 2px 5px;
+      border-radius: 999px;
+      font-size: 10px;
+      line-height: 1.25;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .timesheet-page .draft-pill {
+      background: color-mix(in srgb, var(--jgc-color-brand-500) 18%, transparent);
+      color: color-mix(in srgb, var(--jgc-color-brand-400) 16%, var(--jgc-color-text));
+    }
+
+    .timesheet-page .submitted-pill {
+      background: color-mix(in srgb, var(--jgc-color-info) 18%, transparent);
+      color: color-mix(in srgb, var(--jgc-color-info) 18%, var(--jgc-color-text));
+    }
+
+    .timesheet-page .day-status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-top: 6px;
+      box-shadow: 0 0 8px color-mix(in srgb, var(--jgc-color-on-brand) 20%, transparent);
+      flex: 0 0 auto;
+    }
+
+    .timesheet-page .status-work {
+      background: var(--jgc-color-brand-500);
+    }
+
+    .timesheet-page .status-vacation {
+      background: var(--jgc-color-warning);
+    }
+
+    .timesheet-page .status-sick {
+      background: var(--jgc-color-danger);
+    }
+
+    .timesheet-page .status-holiday {
+      background: var(--jgc-color-info);
+    }
+
+    .timesheet-page .status-submitted {
+      background: var(--jgc-color-info);
+    }
+
+    .timesheet-page .status-missing {
+      background: var(--jgc-color-input-border);
+    }
+
+    .timesheet-page .calendar-legend {
+      display: flex;
+      gap: 10px 14px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 12px;
+      color: var(--jgc-color-text-muted);
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .timesheet-page .calendar-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 720px) {
+      body.timesheet-page {
+        padding: 10px;
+      }
+
+      .timesheet-page .card {
+        padding: 12px;
+      }
+
+      .timesheet-page .timesheet-shell {
+        display: block;
+      }
+
+      .timesheet-page .form-card {
+        position: static;
+      }
+
+      .timesheet-page .wo-timesheet-card {
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+
+      .timesheet-page .week-submit-banner {
+        padding: 14px;
+        margin-bottom: 12px;
+        align-items: stretch;
+      }
+
+      .timesheet-page .week-submit-banner.active {
+        display: grid;
+      }
+
+      .timesheet-page .week-submit-banner button {
+        width: 100%;
+      }
+
+      .timesheet-page .wo-request-button {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .timesheet-page .wo-request-action {
+        justify-self: start;
+        margin-top: 2px;
+      }
+
+      .timesheet-page .logo-wrap {
+        max-width: 260px;
+      }
+
+      .timesheet-page h2 {
+        font-size: 22px;
+      }
+
+      .timesheet-page input, .timesheet-page button, .timesheet-page select, .timesheet-page textarea {
+        min-height: 44px;
+        font-size: 16px;
+      }
+
+      .timesheet-page #submitButton {
+        min-height: 52px;
+      }
+
+    .timesheet-page .sign-out,
+    .timesheet-page .edit-button,
+    .timesheet-page .delete-entry-button {
+      min-height: 34px;
+      font-size: 13px;
+    }
+
+    .timesheet-page .edit-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: grid;
+    }
+
+    .timesheet-page .edit-button,
+    .timesheet-page .delete-entry-button {
+      width: 100%;
+      min-width: 0;
+      padding-left: 6px;
+      padding-right: 6px;
+      box-sizing: border-box;
+      font-size: 11px;
+    }
+
+      .timesheet-page .email-actions,
+      .timesheet-page .timesheet-calendar-header {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .timesheet-page .email-actions button {
+        width: 100%;
+      }
+
+      .timesheet-page .entries-card h3 {
+        margin-bottom: 12px;
+      }
+
+      .timesheet-page .entries-utility-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        width: 100%;
+        margin-bottom: 12px;
+      }
+
+      .timesheet-page .tab-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin: 0;
+      }
+
+      .timesheet-page .tab-buttons button {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        padding: 7px 4px;
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.15;
+        white-space: normal;
+      }
+
+      .timesheet-page .entry-utility-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .timesheet-page .entry-utility-buttons button {
+        width: 100%;
+        min-width: 0;
+        padding: 7px 8px;
+        min-height: 36px;
+        font-size: 12px;
+        line-height: 1.15;
+        margin: 0;
+      }
+
+      .timesheet-page .entry-utility-buttons button:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+      }
+
+      .timesheet-page .email-note {
+        text-align: center;
+      }
+
+      .timesheet-page .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .timesheet-page table {
+        min-width: 520px;
+      }
+
+      .timesheet-page .entries-card .table-wrap {
+        overflow-x: hidden;
+      }
+
+      .timesheet-page .entries-card table {
+        min-width: 0;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      .timesheet-page .weekly-summary-view-toggle {
+        display: flex;
+      }
+
+      .timesheet-page .weekly-summary-view.mobile-cards .weekly-summary-table-wrap {
+        display: none;
+      }
+
+      .timesheet-page .weekly-summary-view.mobile-cards .mobile-week-summary {
+        display: block;
+      }
+
+      .timesheet-page .weekly-summary-view.mobile-table .weekly-summary-table-wrap {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .timesheet-page .weekly-summary-view.mobile-table .weekly-summary-table-wrap table {
+        min-width: 860px;
+        table-layout: auto;
+      }
+
+      .timesheet-page .weekly-summary-view.mobile-table .mobile-week-summary {
+        display: none;
+      }
+
+      .timesheet-page .mobile-edit-summary {
+        display: block;
+      }
+
+      .timesheet-page .mobile-week-card {
+        margin: 10px 0;
+      }
+
+      .timesheet-page th, .timesheet-page td {
+        padding: 3px;
+        font-size: 10px;
+      }
+
+      .timesheet-page .entries-card th,
+      .timesheet-page .entries-card td {
+        padding: 6px 3px;
+        font-size: 10px;
+        line-height: 1.2;
+      }
+
+      .timesheet-page .entries-card th:first-child,
+      .timesheet-page .entries-card td:first-child {
+        width: 24%;
+      }
+
+      .timesheet-page .entries-card th:nth-child(2),
+      .timesheet-page .entries-card td:nth-child(2) {
+        width: 15%;
+      }
+
+      .timesheet-page .entries-card th:nth-child(3),
+      .timesheet-page .entries-card td:nth-child(3) {
+        width: 10%;
+      }
+
+      .timesheet-page .table-wrap td input[type="checkbox"][disabled] {
+        width: 18px !important;
+        height: 18px !important;
+        min-width: 18px !important;
+        min-height: 18px !important;
+        transform: none !important;
+        margin: 0 auto;
+        display: block;
+      }
+
+      .timesheet-page .edit-table-wrap {
+        display: none;
+      }
+
+      .timesheet-page .edit-table th,
+      .timesheet-page .edit-table td {
+        font-size: 14px;
+      }
+
+      .timesheet-page .timesheet-day {
+        min-height: 64px;
+        padding: 5px;
+      }
+
+      .timesheet-page .timesheet-day-number {
+        font-size: 13px;
+      }
+
+      .timesheet-page .timesheet-day-meta {
+        font-size: 10px;
+      }
+
+      .timesheet-page .calendar-pill {
+        font-size: 9px;
+        padding: 2px 4px;
+      }
+    }
+
+/* Admin Timesheets layout and record groups. */
+#timesheetsSection .timesheet-edit-panel {
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--jgc-color-success) 55%, transparent);
+    border-radius: 8px;
+    background: var(--jgc-color-surface);
+    color: var(--jgc-color-text);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--jgc-color-success) 12%, transparent), 0 12px 30px color-mix(in srgb, var(--jgc-color-page-deep) 25%, transparent);
+}
+
+#timesheetsSection .timesheet-edit-panel h3 {
+    margin-top: 0;
+    color: var(--jgc-color-success);
+}
+
+#timesheetsSection .timesheet-edit-panel label,
+#timesheetsSection .timesheet-edit-panel .small {
+    color: var(--jgc-color-text);
+}
+
+#timesheetsSection .timesheet-edit-panel input,
+#timesheetsSection .timesheet-edit-panel select,
+#timesheetsSection .timesheet-edit-panel textarea {
+    background: var(--jgc-color-input);
+    color: var(--jgc-color-text-dark);
+    border: 1px solid var(--jgc-color-input-border);
+}
+
+#timesheetsSection .timesheet-worker-group {
+    margin: 12px 0;
+    border: 1px solid color-mix(in srgb, var(--jgc-color-success) 35%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jgc-color-surface) 72%, transparent);
+    overflow: hidden;
+}
+
+#timesheetsSection .timesheet-worker-group summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    color: var(--jgc-color-text);
+    font-weight: bold;
+    list-style: none;
+}
+
+#timesheetsSection .timesheet-worker-group summary::-webkit-details-marker {
+    display: none;
+}
+
+#timesheetsSection .timesheet-worker-group summary::after {
+    content: "+";
+    color: var(--jgc-color-success);
+    font-size: 22px;
+    line-height: 1;
+}
+
+#timesheetsSection .timesheet-worker-group[open] summary::after {
+    content: "-";
+}
+
+#timesheetsSection .timesheet-worker-meta {
+    color: var(--jgc-color-text-muted);
+    font-size: 12px;
+    font-weight: normal;
+}
+
+#timesheetsSection .timesheet-worker-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--jgc-color-success);
+    color: var(--jgc-color-text-dark);
+    font-size: 13px;
+    font-weight: bold;
+}
+
+#timesheetsSection .timesheet-worker-body {
+    padding: 0 14px 14px;
+}
+
+#timesheetsSection .timesheet-edit-table input,
+#timesheetsSection .timesheet-edit-table select {
+    min-width: 90px;
+}
+
+#timesheetsSection .timesheet-edit-table .job-name-input {
+    min-width: 160px;
+}
+
+#timesheetsSection .admin-time-entry-card {
+    margin-bottom: 14px;
+    background: var(--jgc-color-surface);
+    border: 1px solid color-mix(in srgb, var(--jgc-color-success) 45%, transparent);
+    border-top: 4px solid var(--jgc-color-success);
+    color: var(--jgc-color-text);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--jgc-color-success) 12%, transparent), 0 12px 30px color-mix(in srgb, var(--jgc-color-page-deep) 25%, transparent);
+}
+
+#timesheetsSection .admin-time-entry-card h3 {
+    color: var(--jgc-color-success);
+}
+
+#timesheetsSection .admin-time-entry-card summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--jgc-space-3);
+    margin: -2px 0 0;
+    color: var(--jgc-color-success);
+    font-size: var(--jgc-font-size-lg);
+    font-weight: bold;
+    list-style: none;
+}
+
+#timesheetsSection .admin-time-entry-card summary::-webkit-details-marker {
+    display: none;
+}
+
+#timesheetsSection .admin-time-entry-card summary::after {
+    content: "+";
+    color: var(--jgc-color-success);
+    font-size: var(--jgc-space-6);
+    line-height: 1;
+}
+
+#timesheetsSection .admin-time-entry-card[open] summary {
+    margin-bottom: 10px;
+}
+
+#timesheetsSection .admin-time-entry-card[open] summary::after {
+    content: "-";
+}
+
+#timesheetsSection .admin-time-entry-card label,
+#timesheetsSection .admin-time-entry-card .small {
+    color: var(--jgc-color-text) !important;
+}
+
+#timesheetsSection .admin-time-entry-card input,
+#timesheetsSection .admin-time-entry-card select,
+#timesheetsSection .admin-time-entry-card textarea {
+    background: var(--jgc-color-input);
+    color: var(--jgc-color-text-dark);
+    border-color: var(--jgc-color-input-border);
+}
+
+#timesheetsSection .admin-time-entry-card input::placeholder,
+#timesheetsSection .admin-time-entry-card textarea::placeholder {
+    color: color-mix(in srgb, var(--jgc-color-text-dark) 65%, transparent);
+}
+
+#timesheetsSection .admin-time-entry-card .checkbox-line {
+    display: flex;
+    align-items: center;
+    gap: var(--jgc-space-2);
+    color: var(--jgc-color-text) !important;
+    font-weight: bold;
+}
+
+#timesheetsSection .admin-time-entry-card .checkbox-line input {
+    width: auto;
+}
+
+.timesheet-page .timesheet-retention-note,
+#timesheetsSection .timesheet-admin-copy--compact {
+    margin-bottom: var(--jgc-space-2);
+}
+
+#timesheetsSection .timesheet-admin-copy {
+    margin-bottom: 10px;
+}
+
+#timesheetsSection .timesheet-admin-copy--empty {
+    margin-bottom: 14px;
+}
+
+#timesheetsSection .timesheet-admin-actions--top {
+    margin-top: 10px;
+}
+
+#timesheetsSection .timesheet-admin-actions--load-more {
+    margin-top: var(--jgc-space-3);
+}
+
+#timesheetsSection .timesheet-admin-actions--refresh {
+    margin-bottom: 10px;
+}
+
+#timesheetsSection .timesheet-admin-status {
+    margin-top: var(--jgc-space-2);
+}
+
+#timesheetsSection .timesheet-live-week-heading {
+    margin: 14px 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--jgc-space-3);
+    flex-wrap: wrap;
+}
+
+#timesheetsSection .timesheet-live-week-title {
+    color: var(--jgc-color-success);
+    font-weight: bold;
+}
+
+#timesheetsSection .timesheet-live-day-title {
+    margin: 10px 0 var(--jgc-space-1);
+    color: var(--jgc-color-text);
+    font-weight: bold;
+}
+
+#timesheetsSection .timesheet-admin-table {
+    margin-top: 10px;
+}
+
+#timesheetsSection .timesheet-admin-total,
+#timesheetsSection .timesheet-admin-field-label {
+    margin-top: 10px;
+}
+
+#timesheetsSection .timesheet-admin-note {
+    margin-top: 6px;
+}

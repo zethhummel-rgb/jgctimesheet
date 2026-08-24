@@ -134,7 +134,7 @@ function renderSubmittedTimesheetEmployeeGroups(rows, filter) {
                 <div class="timesheet-worker-body">
                     ${renderSubmittedTimesheetTable(visibleWeeks)}
                     ${remaining ? `
-                        <div class="actions" style="margin-top:12px;">
+                        <div class="actions timesheet-admin-actions--load-more">
                             <button type="button" class="secondary" data-submitted-worker-key="${escapeHtml(group.key)}" onclick="loadMoreSubmittedTimesheets(this)">Load ${Math.min(remaining, ADMIN_SUBMITTED_TIMESHEET_BATCH_SIZE)} more</button>
                             <span class="small">Showing ${visibleWeeks.length} of ${group.weeks.length} submitted weeks</span>
                         </div>
@@ -1524,8 +1524,8 @@ function renderLiveTimesheetEntries(filter) {
                             const days = getTimesheetDayNames().filter((day) => weekRows.some((row) => row.day === day));
 
                             return `
-                                <div style="margin:14px 0 6px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                                    <div style="font-weight:bold;color:#27d447;">
+                                <div class="timesheet-live-week-heading">
+                                    <div class="timesheet-live-week-title">
                                         ${escapeHtml(formatAdminLiveTimesheetWeekLabel(weekStart))} - ${weekTotal.toFixed(2)} hrs
                                     </div>
                                     ${renderAdminLiveTimesheetSubmitButton(worker, weekStart)}
@@ -1537,7 +1537,7 @@ function renderLiveTimesheetEntries(filter) {
                                     const groupedDayRows = groupAdminLiveTimesheetRows(dayRows);
 
                                     return `
-                                        <div style="margin:10px 0 4px;font-weight:bold;color:#f7fff7;">
+                                        <div class="timesheet-live-day-title">
                                             ${escapeHtml(day)}${dayDate && dayDate.date ? " - " + escapeHtml(formatTimesheetPdfDate(dayDate.date)) : ""} - ${dayTotal.toFixed(2)} hrs
                                         </div>
                                         <div class="table-wrap">
@@ -1595,7 +1595,7 @@ function renderLiveTimesheetEntries(filter) {
 
     const currentHtml = currentRows.length
         ? renderWorkerGroups(currentRows)
-        : '<div class="small" style="margin-bottom:14px;">No current-week live entries found.</div>';
+        : '<div class="small timesheet-admin-copy--empty">No current-week live entries found.</div>';
     const olderWorkerCount = new Set(olderRows.map((row) => row.worker || "Unknown Worker")).size;
     notifyOlderTimesheetEntries(olderRows, olderWorkerCount);
     const olderHtml = olderRows.length
@@ -1609,7 +1609,7 @@ function renderLiveTimesheetEntries(filter) {
                     <span class="timesheet-worker-count" title="Workers with older live entries">${olderWorkerCount}</span>
                 </summary>
                 <div class="timesheet-worker-body">
-                    <div class="small" style="margin-bottom:8px;">These are old work rows still sitting in live timesheets. Old vacation, sick, and holiday rows are hidden here because those are tracked in the Vacation and leave admin sections.</div>
+                    <div class="small timesheet-admin-copy--compact">These are old work rows still sitting in live timesheets. Old vacation, sick, and holiday rows are hidden here because those are tracked in the Vacation and leave admin sections.</div>
                     ${renderWorkerGroups(olderRows, { older: true, open: Boolean(filter) })}
                 </div>
             </details>
@@ -1617,7 +1617,7 @@ function renderLiveTimesheetEntries(filter) {
         : "";
     return `
         <h3>Live Entries Before Weekly Submit</h3>
-        <div class="small" style="margin-bottom:8px;">Main employee panels show only the current week. Older work rows are collapsed below for cleanup; older vacation, sick, and holiday placeholders stay in the data but are not shown here.</div>
+        <div class="small timesheet-admin-copy--compact">Main employee panels show only the current week. Older work rows are collapsed below for cleanup; older vacation, sick, and holiday placeholders stay in the data but are not shown here.</div>
         ${currentHtml}
         ${olderHtml}
     `;
@@ -1721,7 +1721,7 @@ function renderLiveTimesheetEditPanel(entry) {
     panel.hidden = false;
     panel.innerHTML = `
         <h3>Edit Live Timesheet Entry</h3>
-        <div class="small" style="margin-bottom:10px;">${escapeHtml(entry.worker_name || "")}</div>
+        <div class="small timesheet-admin-copy">${escapeHtml(entry.worker_name || "")}</div>
         <div class="announcement-grid">
             <div>
                 <label>Week Start</label>
@@ -1767,11 +1767,11 @@ function renderLiveTimesheetEditPanel(entry) {
             <label><input id="liveTimesheetLunch" type="checkbox" ${entry.took_lunch ? "checked" : ""}> Lunch</label>
             <label><input id="liveTimesheetNight" type="checkbox" ${entry.night_work ? "checked" : ""}> Night Work</label>
         </div>
-        <div class="actions" style="margin-top:10px;">
+        <div class="actions timesheet-admin-actions--top">
             <button type="button" onclick="saveLiveTimesheetEntryEdit()">Save Live Entry</button>
             <button type="button" class="secondary" onclick="cancelLiveTimesheetEntryEdit()">Cancel</button>
         </div>
-        <div id="liveTimesheetEditStatus" class="small" style="margin-top:8px;"></div>
+        <div id="liveTimesheetEditStatus" class="small timesheet-admin-status"></div>
     `;
 
     updateLiveTimesheetJobNumberMode();
@@ -2148,7 +2148,7 @@ function viewSubmittedTimesheetHours(id) {
     panel.innerHTML = `
         <h3>Submitted Timesheet Hours</h3>
         <div class="small"><strong>${escapeHtml(week.worker_name || "")}</strong> - ${escapeHtml(week.week_label || "")}</div>
-        <div class="table-wrap" style="margin-top:10px;">
+        <div class="table-wrap timesheet-admin-table">
             <table>
                 <thead>
                     <tr><th>Date</th><th>Day</th><th>Job / Site</th><th>Job #</th><th>Type</th><th>Time</th><th>Lunch</th><th>Night</th><th>Hours</th></tr>
@@ -2176,9 +2176,9 @@ function viewSubmittedTimesheetHours(id) {
                 </tbody>
             </table>
         </div>
-        <div class="small" style="margin-top:10px;"><strong>Total Hours:</strong> ${totalHours.toFixed(2)}</div>
-        ${week.note ? '<div class="small" style="margin-top:6px;"><strong>Note:</strong> ' + escapeHtml(week.note) + '</div>' : ""}
-        <div class="actions" style="margin-top:10px;">
+        <div class="small timesheet-admin-total"><strong>Total Hours:</strong> ${totalHours.toFixed(2)}</div>
+        ${week.note ? '<div class="small timesheet-admin-note"><strong>Note:</strong> ' + escapeHtml(week.note) + '</div>' : ""}
+        <div class="actions timesheet-admin-actions--top">
             <button type="button" class="secondary" onclick="closeSubmittedTimesheetHours()">Close</button>
         </div>
     `;
@@ -2200,9 +2200,9 @@ function renderTimesheetEditPanel(week) {
     panel.innerHTML = `
         <h3>Edit Submitted Timesheet</h3>
         <div class="small"><strong>${escapeHtml(week.worker_name || "")}</strong> - ${escapeHtml(week.week_label || "")}</div>
-        <label style="margin-top:10px;">Admin Note</label>
+        <label class="timesheet-admin-field-label">Admin Note</label>
         <textarea id="adminTimesheetNote">${escapeHtml(week.note || "")}</textarea>
-        <div class="table-wrap" style="margin-top:10px;">
+        <div class="table-wrap timesheet-admin-table">
             <table class="timesheet-edit-table">
                 <thead>
                     <tr>
@@ -2225,12 +2225,12 @@ function renderTimesheetEditPanel(week) {
                 </tbody>
             </table>
         </div>
-        <div class="actions" style="margin-top:10px;">
+        <div class="actions timesheet-admin-actions--top">
             <button type="button" onclick="addAdminTimesheetEditRow()">Add Entry</button>
             <button type="button" onclick="saveSubmittedTimesheetEdits()">Save Changes</button>
             <button type="button" class="secondary" onclick="cancelSubmittedTimesheetEdit()">Cancel</button>
         </div>
-        <div id="timesheetEditStatus" class="small" style="margin-top:8px;"></div>
+        <div id="timesheetEditStatus" class="small timesheet-admin-status"></div>
     `;
 }
 
