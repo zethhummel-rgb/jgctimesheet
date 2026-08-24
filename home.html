@@ -6,7 +6,7 @@
   <title>JGC Portal - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="jgc-design-system.css?v=7" />
-  <link rel="stylesheet" href="home-design-system.css?v=2" />
+  <link rel="stylesheet" href="home-design-system.css?v=3" />
 </head>
 
 <body class="home-dashboard-page jgc-page jgc-system-page">
@@ -908,13 +908,31 @@ async function acknowledgeHomeAnnouncement(announcementId) {
   await loadAnnouncements();
 }
 
+function syncHomeSidebarScrollLock() {
+  const shell = document.querySelector(".app-shell");
+  const collapsed = shell.classList.contains("sidebar-collapsed");
+  const shouldLock = !collapsed && window.matchMedia("(max-width: 980px)").matches;
+  document.documentElement.classList.toggle("home-sidebar-open", shouldLock);
+  document.body.classList.toggle("home-sidebar-open", shouldLock);
+}
+
 function toggleSidebar() {
   const shell = document.querySelector(".app-shell");
   shell.classList.toggle("sidebar-collapsed");
   const collapsed = shell.classList.contains("sidebar-collapsed");
   const button = document.getElementById("sidebarToggle");
   button.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+  syncHomeSidebarScrollLock();
+
+  if (!collapsed && window.matchMedia("(max-width: 980px)").matches) {
+    const sidebar = shell.querySelector(".sidebar");
+    if (sidebar) {
+      sidebar.scrollTop = 0;
+    }
+  }
 }
+
+window.addEventListener("resize", syncHomeSidebarScrollLock);
 
 function getTodayBounds() {
   const start = new Date();

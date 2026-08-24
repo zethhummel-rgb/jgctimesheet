@@ -141,14 +141,14 @@ test("Employee Home uses one token-only visual source", async () => {
   expect(source).not.toMatch(/\sstyle\s*=/i);
   expect(source).not.toContain('href="styles.css');
   expect(source).toContain('jgc-design-system.css?v=7');
-  expect(source).toContain('home-design-system.css?v=2');
+  expect(source).toContain('home-design-system.css?v=3');
   expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(source).not.toContain('class="mobile-bottom-nav"');
   expect(source).not.toContain('id="moreSheet"');
   expect(source.match(/class="feature-card jgc-card"/g) || []).toHaveLength(16);
   expect(css, "Home CSS must use shared tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(serviceWorker).toContain('"./home-design-system.css?v=2"');
+  expect(serviceWorker).toContain('"./home-design-system.css?v=3"');
 });
 
 for (const viewport of [
@@ -181,6 +181,27 @@ for (const viewport of [
     expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
     expect(dimensions.smallestControl).toBeGreaterThanOrEqual(44);
     expect(dimensions.cardColumns).toBe(viewport.name === "desktop" ? 4 : (viewport.name === "portrait" ? 2 : 3));
+
+    if (viewport.name !== "desktop") {
+      await expect(page.locator(".jgc-admin-global-search")).toBeVisible();
+      await expect(page.locator(".jgc-notification-bell")).toBeVisible();
+      const headerLayout = await page.evaluate(() => {
+        const profile = document.querySelector(".profile-block").getBoundingClientRect();
+        const search = document.querySelector(".jgc-admin-global-search").getBoundingClientRect();
+        const bell = document.querySelector(".jgc-notification-bell").getBoundingClientRect();
+        return {
+          profileLeft: profile.left,
+          searchRight: window.innerWidth - search.right,
+          bellRight: window.innerWidth - bell.right,
+          controlGap: bell.left - search.right
+        };
+      });
+      expect(headerLayout.profileLeft).toBeLessThanOrEqual(16);
+      expect(headerLayout.searchRight).toBeGreaterThan(headerLayout.bellRight);
+      expect(headerLayout.bellRight).toBeLessThanOrEqual(16);
+      expect(headerLayout.controlGap).toBeGreaterThanOrEqual(6);
+      expect(headerLayout.controlGap).toBeLessThanOrEqual(16);
+    }
 
     for (const selector of [".welcome-strip h1", ".stat-value", ".feature-card h2"]) {
       expect(await contrastRatio(page, selector), `${selector} must meet normal-text contrast`).toBeGreaterThanOrEqual(4.5);
@@ -215,6 +236,55 @@ for (const viewport of [
     await context.close();
   });
 }
+
+test("Employee Home mobile hamburger locks the page and scrolls through every link", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await installState(page);
+  await page.goto("/home.html", { waitUntil: "domcontentloaded" });
+
+  const sidebar = page.locator(".sidebar");
+  await expect(sidebar).not.toBeVisible();
+  await page.locator("#sidebarToggle").click();
+  await expect(sidebar).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/home-sidebar-open/);
+  await expect(page.locator("body")).toHaveClass(/home-sidebar-open/);
+
+  const lockedState = await page.evaluate(() => ({
+    htmlOverflow: getComputedStyle(document.documentElement).overflow,
+    bodyOverflow: getComputedStyle(document.body).overflow,
+    sidebarOverflow: getComputedStyle(document.querySelector(".sidebar")).overflowY
+  }));
+  expect(lockedState.htmlOverflow).toBe("hidden");
+  expect(lockedState.bodyOverflow).toBe("hidden");
+  expect(lockedState.sidebarOverflow).toBe("auto");
+
+  await sidebar.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const menuState = await page.evaluate(() => {
+    const menu = document.querySelector(".sidebar");
+    const lastLink = menu.querySelector(".side-link:last-child").getBoundingClientRect();
+    const bottomNav = document.querySelector(".jgc-mobile-bottom-nav").getBoundingClientRect();
+    return {
+      reachedBottom: menu.scrollTop + menu.clientHeight >= menu.scrollHeight - 2,
+      lastLinkBottom: lastLink.bottom,
+      bottomNavTop: bottomNav.top
+    };
+  });
+  expect(menuState.reachedBottom).toBe(true);
+  expect(menuState.lastLinkBottom).toBeLessThanOrEqual(menuState.bottomNavTop - 4);
+  await expect(page.locator(".side-link").last()).toBeVisible();
+
+  await page.locator("#sidebarToggle").click();
+  await expect(sidebar).not.toBeVisible();
+  await expect(page.locator("html")).not.toHaveClass(/home-sidebar-open/);
+  await expect(page.locator("body")).not.toHaveClass(/home-sidebar-open/);
+  expect(errors).toEqual([]);
+  await context.close();
+});
 
 test("Employee Home keeps profile, schedule, sidebar and shared navigation controls", async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
