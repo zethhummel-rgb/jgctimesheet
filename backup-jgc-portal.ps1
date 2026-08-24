@@ -52,6 +52,39 @@ function Get-NormalizedRelativePath($Root, $Path) {
   return $Path.Substring($Root.Length).TrimStart("\", "/") -replace "\\", "/"
 }
 
+function Test-PortalBackupDirectoryExcluded($Name) {
+  $excludedNames = @(
+    ".git", ".agents", ".codex", ".pnpm-store", "node_modules",
+    "JGC Portal Backups", "tmp", "temp", "output", "outputs"
+  )
+
+  if ($Name -in $excludedNames) {
+    return $true
+  }
+
+  return $Name.StartsWith(".codex-", [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-PortalBackupFiles($Root) {
+  $rootDirectory = Get-Item -LiteralPath $Root
+  $pendingDirectories = [System.Collections.Generic.Stack[System.IO.DirectoryInfo]]::new()
+  $pendingDirectories.Push($rootDirectory)
+
+  while ($pendingDirectories.Count -gt 0) {
+    $directory = $pendingDirectories.Pop()
+    foreach ($item in @(Get-ChildItem -LiteralPath $directory.FullName -Force -ErrorAction Stop)) {
+      if ($item.PSIsContainer) {
+        if (-not (Test-PortalBackupDirectoryExcluded -Name $item.Name)) {
+          $pendingDirectories.Push($item)
+        }
+        continue
+      }
+
+      Write-Output $item
+    }
+  }
+}
+
 function Get-FileSha256($Path) {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
@@ -251,15 +284,8 @@ function Get-PortalSourceInventory($Root) {
   $sourcePattern = '\.from\(\s*["'']([a-zA-Z0-9_]+)["'']\s*\)'
   $bucketPattern = '\.storage\.from\(\s*["'']([a-zA-Z0-9_-]+)["'']\s*\)'
   $sqlPattern = '(?im)\b(?:create\s+table(?:\s+if\s+not\s+exists)?|alter\s+table(?:\s+if\s+exists)?|references)\s+(?:public\.)?["'']?([a-z_][a-z0-9_]*)'
-  $excluded = @(".git", ".agents", ".codex", "node_modules", "JGC Portal Backups")
-
-  foreach ($file in Get-ChildItem -LiteralPath $Root -Recurse -File) {
+  foreach ($file in Get-PortalBackupFiles -Root $Root) {
     $relative = Get-NormalizedRelativePath -Root $Root -Path $file.FullName
-    $parts = $relative -split "/"
-    if (@($parts | Where-Object { $excluded -contains $_ }).Count -gt 0) {
-      continue
-    }
-
     $extension = $file.Extension.ToLowerInvariant()
     if ($extension -in @(".html", ".js", ".ts")) {
       $content = Get-Content -LiteralPath $file.FullName -Raw
@@ -496,19 +522,14 @@ function Test-TextFileForSecret($Path) {
 }
 
 function Copy-PortalWebsite($Root, $Destination) {
-  $excludedDirectories = @(".git", ".agents", ".codex", "node_modules", "JGC Portal Backups")
   $excludedNames = @("backup-secrets.json", "credentials.json")
   $sensitiveExtensions = @(".key", ".pem", ".pfx", ".p12")
   $inventory = [System.Collections.Generic.List[object]]::new()
   $failures = [System.Collections.Generic.List[object]]::new()
   $bytes = [int64]0
 
-  foreach ($file in Get-ChildItem -LiteralPath $Root -Recurse -File) {
+  foreach ($file in Get-PortalBackupFiles -Root $Root) {
     $relative = Get-NormalizedRelativePath -Root $Root -Path $file.FullName
-    $parts = $relative -split "/"
-    if (@($parts | Where-Object { $excludedDirectories -contains $_ }).Count -gt 0) {
-      continue
-    }
     if ($excludedNames -contains $file.Name -or $file.Name -like ".env*" -or $sensitiveExtensions -contains $file.Extension.ToLowerInvariant()) {
       continue
     }
@@ -687,6 +708,7 @@ $credential = Get-BackupCredential -Path $CredentialPath -Root $PortalRoot
 $script:RedactionKey = [string]$credential.key
 
 Write-Step "Running Supabase authentication and schema preflight..."
+$unhandledBackupFailure = $false
 try {
   $preflight = Test-SupabasePreflight -Url $credential.url -Key $credential.key
 } catch {
@@ -971,10 +993,36 @@ try {
   Write-Step "Backup validation PASS."
   Write-Step "Backup complete: $zipPath"
   Write-Output $zipPath
+} catch {
+  $unhandledBackupFailure = $true
+  $fatalError = Get-SafeErrorMessage $_
+  $failureLogPath = Join-Path $BackupRoot ($backupName + "-FAILED.txt")
+  $failureLog = @(
+    "JGC Portal Backup Failed",
+    "Time: $((Get-Date).ToString('o'))",
+    "Portal source: $PortalRoot",
+    "Error: $fatalError"
+  ) -join [Environment]::NewLine
+
+  try {
+    Write-Utf8Text -Path $failureLogPath -Value $failureLog
+  } catch {
+    Write-Step ("Local failure log could not be written: " + (Get-SafeErrorMessage $_))
+  }
+
+  Write-BackupDiagnostic -Url $credential.url -Key $credential.key -Severity "error" -EventType "backup_failed" -Message "Backup stopped before a validated ZIP could be created." -Details @{
+    error = $fatalError
+    failureLog = $failureLogPath
+  }
+  Write-Error ("Backup stopped before a validated ZIP could be created. " + $fatalError)
 } finally {
   $script:RedactionKey = ""
   if (Test-Path -LiteralPath $workRoot) {
     Write-Step "Cleaning temporary backup files..."
     Remove-Item -LiteralPath $workRoot -Recurse -Force
   }
+}
+
+if ($unhandledBackupFailure) {
+  exit 1
 }

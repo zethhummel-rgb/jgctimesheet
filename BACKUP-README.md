@@ -2,6 +2,8 @@
 
 The backup runs locally on Zeth's Windows account. It exports portal files, every database table/view discovered through the Supabase Data API, and every permanent Supabase Storage bucket.
 
+Development-only folders are pruned before the portal-file scan begins. This includes temporary worktrees, package caches, `node_modules`, `tmp`, and generated output folders. They are not required to restore the Portal and must not be allowed to interrupt a production backup.
+
 The private `digital-po-temp` bucket is intentionally excluded. It contains short-lived PO PDFs and receipt images waiting for confirmed email delivery. The permanent PO record, material rows, receipt metadata, email status, and audit history are database records and are included in every backup.
 
 ## One-time credential setup
@@ -46,6 +48,8 @@ A backup is `PASSED` only when:
 - The completed ZIP is reopened and its manifest, JSON files, inventories, counts, and file sizes validate.
 
 Any required database export failure marks the backup `FAILED`. An authentication failure stops before a ZIP is created.
+
+If an unexpected local error stops the job before a validated ZIP can be produced, the backup folder receives a matching `jgc-portal-backup-...-FAILED.txt` file and the failure is also sent to Portal Diagnostics when Supabase is reachable.
 
 ## Restore readiness
 
