@@ -1,0 +1,353 @@
+.equipment-qr-modal {
+    width: min(560px, 100%);
+}
+
+.equipment-documents-modal {
+    width: min(760px, 100%);
+}
+
+.equipment-documents-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.equipment-documents-header .modal-close-button {
+    flex: 0 0 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 8px;
+    font-size: 18px;
+}
+
+.equipment-document-panel {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--jgc-color-on-brand) 4%, transparent);
+}
+
+.equipment-document-panel h3 {
+    margin: 0 0 6px;
+    color: var(--jgc-color-brand-500);
+}
+
+.equipment-document-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.equipment-document-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 12%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--jgc-color-on-brand) 4%, transparent);
+}
+
+.equipment-document-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--jgc-color-on-brand);
+    font-weight: 800;
+}
+
+@media (max-width: 620px) {
+    .equipment-document-row {
+        grid-template-columns: 1fr;
+    }
+
+    .equipment-document-row .actions {
+        margin-top: 0;
+    }
+}
+
+/* Phase 9 design-system compatibility for Equipment / Vehicles administration. */
+#equipmentSection.jgc-panel {
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    padding: 16px;
+    color: var(--jgc-color-text);
+    background: var(--jgc-color-surface);
+    border: 0;
+    border-top: 4px solid var(--jgc-color-brand-600);
+    border-radius: 8px;
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--jgc-color-page-deep) 18%, transparent);
+}
+
+#equipmentSection .admin-collapsible-panel.jgc-card {
+    padding: 0;
+    color: var(--jgc-color-text);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--jgc-color-surface-raised) 95%, transparent), color-mix(in srgb, var(--jgc-color-surface) 95%, transparent));
+    border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 45%, transparent);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+#equipmentSection details.sub-card.jgc-card:not(.admin-collapsible-panel) {
+    padding: 14px;
+    color: var(--jgc-color-text);
+    background: var(--jgc-color-surface-raised);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+#equipmentSection .announcement-grid.jgc-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+#equipmentSection .jgc-field.full,
+#equipmentSection .jgc-field--full {
+    grid-column: 1 / -1;
+}
+
+#equipmentSection .jgc-label {
+    margin-bottom: 4px;
+    color: var(--jgc-color-text-muted);
+    font-size: 13px;
+}
+
+#equipmentSection .jgc-input,
+#equipmentSection .jgc-select,
+#equipmentSection .jgc-textarea,
+.equipment-documents-modal .jgc-input {
+    min-height: 0;
+    padding: 8px;
+    color: var(--jgc-color-text-dark);
+    background: var(--jgc-color-input);
+    border: 1px solid var(--jgc-color-input-border);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+#equipmentSection .jgc-textarea {
+    min-height: 110px;
+    margin-top: 10px;
+}
+
+#equipmentSection button.jgc-button,
+.equipment-qr-modal button.jgc-button,
+.equipment-documents-modal button.jgc-button {
+    min-height: 0;
+    padding: 10px 14px;
+    background: var(--jgc-color-brand-700);
+    border: 0;
+    border-radius: 4px;
+}
+
+#equipmentSection button.jgc-button--secondary,
+.equipment-qr-modal button.jgc-button--secondary,
+.equipment-documents-modal button.jgc-button--secondary {
+    background: var(--jgc-color-surface-soft);
+}
+
+#equipmentSection button.jgc-button--danger,
+.equipment-documents-modal button.jgc-button--danger {
+    background: var(--jgc-color-danger);
+}
+
+#equipmentExpiryAlerts.jgc-notice,
+#equipmentStatus.jgc-notice,
+#equipmentDocumentsStatus.jgc-notice {
+    padding: 0;
+    background: transparent;
+    border-left: 0;
+}
+
+#equipmentSection .table-wrap.jgc-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
+#equipmentSection table.jgc-table {
+    min-width: 820px;
+    color: var(--jgc-color-text);
+    background: var(--jgc-color-on-brand);
+}
+
+#equipmentSection table.jgc-table th,
+#equipmentSection table.jgc-table td {
+    padding: 7px;
+    color: var(--jgc-color-text);
+    white-space: normal;
+}
+
+#equipmentSection table.jgc-table th {
+    background: var(--jgc-color-table-header);
+}
+
+@media (min-width: 1100px) {
+    #equipmentSection.jgc-panel {
+        width: calc(100vw - 40px);
+        max-width: 1760px;
+        box-sizing: border-box;
+    }
+
+    #equipmentSection .table-wrap.jgc-table-wrap {
+        overflow-x: visible;
+    }
+
+    #equipmentSection table.jgc-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+    }
+
+    #equipmentSection table.jgc-table th,
+    #equipmentSection table.jgc-table td {
+        padding: 5px 4px;
+        font-size: 11px;
+        overflow-wrap: anywhere;
+    }
+
+    #equipmentSection table.jgc-table th:nth-child(1) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(2) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(3) { width: 5%; }
+    #equipmentSection table.jgc-table th:nth-child(8) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(10) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(12) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(13) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(15) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(16) { width: 7%; }
+    #equipmentSection table.jgc-table th:nth-child(17) { width: 6%; }
+    #equipmentSection table.jgc-table th:nth-child(18) { width: 7%; }
+
+    #equipmentSection table.jgc-table .actions {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    #equipmentSection table.jgc-table button.jgc-button {
+        width: 100%;
+        padding: 6px 4px;
+        font-size: 10px;
+    }
+}
+
+#equipmentSection .jgc-empty-state {
+    color: var(--jgc-color-text-muted);
+}
+
+.equipment-qr-modal.jgc-modal__dialog,
+.equipment-documents-modal.jgc-modal__dialog {
+    width: min(560px, 100%);
+    padding: 16px;
+    color: var(--jgc-color-on-brand);
+    background: var(--jgc-color-page-deep);
+    border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent);
+    border-radius: 10px;
+    box-shadow: 0 24px 80px color-mix(in srgb, var(--jgc-color-page-deep) 55%, transparent);
+}
+
+.equipment-documents-modal.jgc-modal__dialog {
+    width: min(760px, 100%);
+}
+
+.equipment-document-panel.jgc-card {
+    padding: 14px;
+    color: var(--jgc-color-on-brand);
+    background: color-mix(in srgb, var(--jgc-color-on-brand) 4%, transparent);
+    border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+@media (max-width: 780px) {
+    #equipmentSection.jgc-panel {
+        padding: 12px;
+    }
+
+    #equipmentSection .announcement-grid.jgc-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #equipmentSection .jgc-field.full,
+    #equipmentSection .jgc-field--full {
+        grid-column: auto;
+    }
+
+    #equipmentSection .jgc-input,
+    #equipmentSection .jgc-select,
+    #equipmentSection .jgc-textarea,
+    .equipment-documents-modal .jgc-input {
+        font-size: 16px;
+    }
+}
+
+.equipment-qr-print-area {
+    margin: 12px 0;
+    padding: 18px;
+    border-radius: 8px;
+    background: var(--jgc-color-on-brand);
+    color: var(--jgc-color-text-dark);
+    text-align: center;
+}
+
+.equipment-qr-print-area img {
+    max-width: 220px;
+    height: auto;
+    margin-bottom: 10px;
+}
+
+.equipment-qr-print-area img[hidden],
+.equipment-qr-print-area canvas[hidden] {
+    display: none !important;
+}
+
+.equipment-qr-print-area h3,
+.equipment-qr-print-area p,
+.equipment-qr-print-area a {
+    color: var(--jgc-color-text-dark);
+}
+
+.equipment-qr-print-area canvas {
+    display: block;
+    margin: 12px auto;
+    width: 220px;
+    height: 220px;
+    border: 1px solid var(--jgc-color-border-soft);
+}
+
+.equipment-qr-print-area .equipment-qr-image {
+    display: block;
+    width: 220px;
+    height: 220px;
+    margin: 12px auto;
+    border: 1px solid var(--jgc-color-border-soft);
+    object-fit: contain;
+}
+
+.equipment-qr-link {
+    display: block;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    color: var(--jgc-color-brand-700) !important;
+}
+
+.equipment-qr-fallback {
+    color: var(--jgc-color-danger-dark);
+    font-weight: 800;
+}
+
+#equipmentSection .equipment-section-heading { margin: var(--jgc-space-5) 0 var(--jgc-space-2); color: var(--jgc-color-brand-500); }
+#equipmentSection .equipment-maintenance-heading { margin-top: var(--jgc-space-6); }
+#equipmentSection .equipment-maintenance-copy { margin-bottom: var(--jgc-space-2); }
+#equipmentSection .equipment-maintenance-category { margin: var(--jgc-space-4) 0 var(--jgc-space-2); color: var(--jgc-color-brand-500); }
+#equipmentSection .equipment-maintenance-empty { margin-bottom: var(--jgc-space-3); }
+#equipmentSection .equipment-maintenance-unit { margin: var(--jgc-space-2) 0 var(--jgc-space-3); }
+#equipmentSection .equipment-maintenance-unit > summary { cursor: pointer; color: var(--jgc-color-brand-500); font-weight: 900; }
+#equipmentSection .equipment-table-spaced { margin-top: var(--jgc-space-2); }
+#equipmentSection .equipment-entry-panel { margin-bottom: var(--jgc-space-4); }
+#equipmentSection .equipment-status-top { margin-top: var(--jgc-space-3); }
+#equipmentSection .equipment-list-top { margin-top: var(--jgc-space-3); }
+.equipment-documents-modal .equipment-document-input { margin-top: var(--jgc-space-3); }

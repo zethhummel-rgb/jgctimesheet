@@ -61,8 +61,8 @@ function renderEquipmentExpiryAlerts() {
 
     panel.innerHTML = `
         <strong>Expiry Notifications:</strong> ${alerts.length} equipment/vehicle inspection${alerts.length === 1 ? "" : "s"} expiring within 30 days.
-        <div class="table-wrap" style="margin-top:8px;">
-            <table>
+        <div class="table-wrap jgc-table-wrap equipment-table-spaced">
+            <table class="jgc-table">
                 <thead>
                     <tr><th>Name</th><th>ID #</th><th>Operator</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
                 </thead>
@@ -180,7 +180,7 @@ function setEquipmentStatus(message, isError = false) {
     }
 
     status.textContent = message;
-    status.style.color = isError ? "#ffb4b4" : "";
+    status.classList.toggle("jgc-notice--danger", Boolean(isError));
 }
 
 function clearEquipmentForm() {
@@ -410,7 +410,7 @@ function setEquipmentDocumentsStatus(message, isError) {
     }
 
     status.textContent = message || "";
-    status.style.color = isError ? "#ffb4b4" : "";
+    status.classList.toggle("jgc-notice--danger", Boolean(isError));
 }
 
 function renderEquipmentDocumentRows(documents, emptyMessage) {
@@ -491,7 +491,6 @@ async function openEquipmentDocuments(id) {
 
     const modal = document.getElementById("equipmentDocumentsModal");
     modal.classList.add("open");
-    modal.style.display = "flex";
 
     try {
         await ensureEquipmentQrToken(id);
@@ -509,7 +508,6 @@ function closeEquipmentDocumentsModal(event) {
 
     const modal = document.getElementById("equipmentDocumentsModal");
     modal.classList.remove("open");
-    modal.style.display = "none";
     activeEquipmentDocumentsId = "";
 }
 
@@ -755,7 +753,6 @@ async function openEquipmentQr(id) {
         renderEquipmentQrCode(url, canvas, image, fallback);
 
         modal.classList.add("open");
-        modal.style.display = "flex";
         setEquipmentStatus("QR code ready.");
     } catch (error) {
         setEquipmentStatus(error && error.message ? error.message : "QR code could not be opened.", true);
@@ -828,7 +825,6 @@ async function openVehicleInspectionQr(id) {
         renderEquipmentQrCode(url, canvas, image, fallback);
 
         modal.classList.add("open");
-        modal.style.display = "flex";
         setEquipmentStatus("Vehicle QR code ready.");
     } catch (error) {
         setEquipmentStatus(error && error.message ? error.message : "Vehicle QR code could not be opened.", true);
@@ -878,7 +874,6 @@ function closeEquipmentQrModal(event) {
     const modal = document.getElementById("equipmentQrModal");
     if (modal) {
         modal.classList.remove("open");
-        modal.style.display = "";
     }
 }
 
@@ -981,7 +976,7 @@ function renderEquipment() {
     const maintenanceHtml = renderEquipmentMaintenanceLogTable();
 
     list.innerHTML = groups.map((group) => `
-        <h3 class="jgc-section-title" style="margin:18px 0 8px;color:#2f6f3c;">${group.category}</h3>
+        <h3 class="jgc-section-title equipment-section-heading">${group.category}</h3>
         <div class="table-wrap jgc-table-wrap">
             <table class="jgc-table">
                 <thead>
@@ -1037,8 +1032,8 @@ function renderEquipmentMaintenanceLogTable() {
     const grouped = groupMaintenanceLogsByCategoryAndUnit(rows);
 
     return `
-        <h3 class="jgc-section-title" style="margin:22px 0 8px;color:#2f6f3c;">Maintenance Work Log</h3>
-        <div class="small" style="margin-bottom:8px;">Equipment, trailer, and vehicle appointments from the schedule are logged here for maintenance tracking.</div>
+        <h3 class="jgc-section-title equipment-section-heading equipment-maintenance-heading">Maintenance Work Log</h3>
+        <div class="small equipment-maintenance-copy">Equipment, trailer, and vehicle appointments from the schedule are logged here for maintenance tracking.</div>
         ${rows.length ? ["Vehicles", "Trailers", "Equipment"].map((category) => renderMaintenanceCategoryGroup(category, grouped[category] || new Map())).join("") : '<div class="small jgc-empty-state">No maintenance work has been scheduled yet.</div>'}
     `;
 }
@@ -1089,16 +1084,16 @@ function renderMaintenanceCategoryGroup(category, unitMap) {
         .sort((a, b) => String(a.unitName || "").localeCompare(String(b.unitName || "")));
 
     return `
-        <h4 style="margin:16px 0 8px;color:#2f6f3c;">${escapeHtml(category)}</h4>
-        ${units.length ? units.map((unit) => renderMaintenanceUnitGroup(unit)).join("") : '<div class="small jgc-empty-state" style="margin-bottom:10px;">No maintenance logged for this group.</div>'}
+        <h4 class="equipment-maintenance-category">${escapeHtml(category)}</h4>
+        ${units.length ? units.map((unit) => renderMaintenanceUnitGroup(unit)).join("") : '<div class="small jgc-empty-state equipment-maintenance-empty">No maintenance logged for this group.</div>'}
     `;
 }
 
 function renderMaintenanceUnitGroup(unit) {
     return `
-        <details class="sub-card jgc-card" style="margin:8px 0 12px;" open>
-            <summary style="cursor:pointer;font-weight:900;color:#2f6f3c;">${escapeHtml(unit.unitName)} (${unit.rows.length})</summary>
-            <div class="table-wrap jgc-table-wrap" style="margin-top:8px;">
+        <details class="sub-card jgc-card equipment-maintenance-unit" open>
+            <summary>${escapeHtml(unit.unitName)} (${unit.rows.length})</summary>
+            <div class="table-wrap jgc-table-wrap equipment-table-spaced">
                 <table class="jgc-table">
                     <thead>
                         <tr><th>Date</th><th>Time</th><th>Reason</th><th>Status</th><th>Completed</th><th>Notes</th><th>Actions</th></tr>

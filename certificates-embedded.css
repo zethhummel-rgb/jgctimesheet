@@ -1,0 +1,66 @@
+/* Embedded Admin Certificates geometry; all visual values inherit portal tokens. */
+#certificatesSection.jgc-panel {
+  max-width: var(--jgc-page-width);
+  margin-inline: auto;
+}
+
+#certificatesSection .certificate-admin-spaced {
+  margin-top: var(--jgc-space-3);
+}
+
+#certificatesSection .certificate-admin-alerts {
+  margin-bottom: var(--jgc-space-3);
+}
+
+#certificatesSection .certificate-training-matrix {
+  margin-bottom: var(--jgc-space-4);
+}
+
+#certificatesSection .certificate-admin-divider {
+  height: 1px;
+  margin: var(--jgc-space-5) 0;
+  border: 0;
+  background: var(--jgc-color-border);
+}
+
+#certificatesSection .training-matrix-table {
+  min-width: 980px;
+}
+
+#certificatesSection .training-matrix-table th:first-child,
+#certificatesSection .training-matrix-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--jgc-color-table-row);
+  font-weight: 700;
+}
+
+#certificatesSection .training-matrix-table th:first-child {
+  background: var(--jgc-color-table-header);
+}
+
+#certificatesSection .matrix-cell {
+  min-width: 135px;
+  line-height: 1.3;
+}
+
+#certificatesSection .matrix-status {
+  display: inline-flex;
+  margin-top: var(--jgc-space-1);
+}
+
+#certificatesSection .certificate-alert-table {
+  margin-top: var(--jgc-space-2);
+}
+
+@media (max-width: 700px) {
+  #certificatesSection.jgc-panel {
+    padding: var(--jgc-space-4);
+  }
+
+  #certificatesSection .announcement-grid.jgc-form-grid,
+  #certificatesSection .filters.jgc-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -79,7 +79,7 @@ function renderCertificateExpiryAlerts() {
 
     panel.innerHTML = `
         <strong>Expiry Notifications:</strong> ${alerts.length} certificate${alerts.length === 1 ? "" : "s"} expiring within 30 days.
-        <div class="table-wrap jgc-table-wrap" style="margin-top:8px;">
+        <div class="table-wrap jgc-table-wrap certificate-alert-table">
             <table class="jgc-table">
                 <thead>
                     <tr><th>Worker</th><th>Certificate</th><th>Expiry</th><th>Days Left</th><th>Email Status</th></tr>
@@ -224,7 +224,7 @@ function renderAdminCertificateTable(rows) {
                                 <td>${escapeHtml(certificate.certificate_name)}</td>
                                 <td>${certificate.expiry_date ? escapeHtml(certificate.expiry_date) : "-"}</td>
                                 <td><span class="jgc-badge ${tone}">${escapeHtml(status)}</span></td>
-                                <td>${certificateUrls[certificate.id] ? '<a class="file-link" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
+                                <td>${certificateUrls[certificate.id] ? '<a class="file-link jgc-button" href="' + certificateUrls[certificate.id] + '" target="_blank" rel="noopener">Open</a>' : "Refresh needed"}</td>
                                 <td><button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteAdminCertificate('${escapeHtml(certificate.id)}')">Delete</button></td>
                             </tr>
                         `;

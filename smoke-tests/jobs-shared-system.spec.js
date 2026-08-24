@@ -117,7 +117,7 @@ test("Jobs family uses shared tokens without employee-page legacy CSS", async ()
   const source = fs.readFileSync(path.join(portalRoot, "jobs.html"), "utf8");
   const featureCss = fs.readFileSync(path.join(portalRoot, "jobs-design-system.css"), "utf8");
   const adminCss = fs.readFileSync(path.join(portalRoot, "admin.css"), "utf8");
-  const firstAdminJobsBlock = adminCss.match(/\.job-dashboard-card[\s\S]*?(?=\.equipment-qr-modal)/)?.[0] || "";
+  const firstAdminJobsBlock = adminCss.match(/\.job-dashboard-card[\s\S]*?(?=\.detail-list)/)?.[0] || "";
   const secondAdminJobsBlock = adminCss.match(/\.job-dashboard-shell[\s\S]*?(?=@media \(max-width: 900px\) \{\s*\.employee-profile-layout)/)?.[0] || "";
 
   expect(source).not.toMatch(/<style\b/i);

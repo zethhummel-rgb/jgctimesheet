@@ -6,12 +6,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Admin</title>
+  <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
   <link rel="stylesheet" href="styles.css?v=3">
   <link rel="stylesheet" href="report-design-system.css?v=1">
   <link rel="stylesheet" href="timesheet-design-system.css?v=2">
   <link rel="stylesheet" href="tasks-design-system.css?v=2">
   <link rel="stylesheet" href="jobs-design-system.css?v=3">
-<link rel="stylesheet" href="admin.css?v=13">
+<link rel="stylesheet" href="admin.css?v=14">
+<link rel="stylesheet" href="certificates-embedded.css?v=1">
+<link rel="stylesheet" href="equipment-admin.css?v=1">
 <link rel="stylesheet" href="work-orders-design-system.css?v=1">
 <link rel="stylesheet" href="schedule-design-system.css?v=3">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
@@ -491,48 +494,48 @@
     <div id="adminInspectionViewPanel" class="sub-card" style="margin-top:14px;" hidden></div>
 </div>
 
-<div id="certificatesSection" class="card" hidden>
-    <h2>Certificates</h2>
-    <div id="certificateExpiryAlerts" class="small" style="margin-bottom:12px;">Checking expiry notifications...</div>
-    <h3>Add Certificate For Employee</h3>
-    <div class="announcement-grid">
-        <div>
-            <label>Employee</label>
-            <select id="adminCertificateWorker"></select>
+<div id="certificatesSection" class="card jgc-panel" hidden>
+    <h2 class="jgc-section-title">Certificates</h2>
+    <div id="certificateExpiryAlerts" class="small jgc-notice certificate-admin-alerts" aria-live="polite">Checking expiry notifications...</div>
+    <h3 class="jgc-section-title">Add Certificate For Employee</h3>
+    <div class="announcement-grid jgc-form-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="adminCertificateWorker">Employee</label>
+            <select class="jgc-select" id="adminCertificateWorker"></select>
         </div>
-        <div>
-            <label>Certificate Name</label>
-            <input id="adminCertificateName" placeholder="Example: Working at Heights">
+        <div class="jgc-field">
+            <label class="jgc-label" for="adminCertificateName">Certificate Name</label>
+            <input class="jgc-input" id="adminCertificateName" placeholder="Example: Working at Heights">
         </div>
-        <div>
-            <label>Expiry Date</label>
-            <input id="adminCertificateExpiry" type="date">
+        <div class="jgc-field">
+            <label class="jgc-label" for="adminCertificateExpiry">Expiry Date</label>
+            <input class="jgc-input" id="adminCertificateExpiry" type="date">
         </div>
-        <div>
-            <label>Certificate File</label>
-            <input id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+        <div class="jgc-field">
+            <label class="jgc-label" for="adminCertificateFile">Certificate File</label>
+            <input class="jgc-input" id="adminCertificateFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
         </div>
-        <div class="full">
-            <label>Notes</label>
-            <textarea id="adminCertificateNotes" placeholder="Optional notes"></textarea>
+        <div class="full jgc-field jgc-field--full">
+            <label class="jgc-label" for="adminCertificateNotes">Notes</label>
+            <textarea class="jgc-textarea" id="adminCertificateNotes" placeholder="Optional notes"></textarea>
         </div>
     </div>
-    <div class="actions" style="margin-top:10px;">
-        <button type="button" onclick="uploadAdminCertificate()">Upload Certificate</button>
+    <div class="actions jgc-actions certificate-admin-spaced">
+        <button class="jgc-button" type="button" onclick="uploadAdminCertificate()">Upload Certificate</button>
     </div>
-    <div id="adminCertificateStatus" class="small" style="margin-top:10px;"></div>
-    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
-    <h3>Training Matrix</h3>
-    <div id="certificateTrainingMatrix" class="small" style="margin-bottom:16px;">Loading training matrix...</div>
-    <hr style="border:0;border-top:1px solid #d7ded5;margin:18px 0;">
-    <div class="filters">
-        <div>
-            <label>Worker</label>
-            <input id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
+    <div id="adminCertificateStatus" class="small jgc-notice certificate-admin-spaced" role="status" aria-live="polite"></div>
+    <hr class="certificate-admin-divider">
+    <h3 class="jgc-section-title">Training Matrix</h3>
+    <div id="certificateTrainingMatrix" class="small certificate-training-matrix">Loading training matrix...</div>
+    <hr class="certificate-admin-divider">
+    <div class="filters jgc-filter-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="certificateWorkerFilter">Worker</label>
+            <input class="jgc-input" id="certificateWorkerFilter" oninput="renderCertificates()" placeholder="Filter worker">
         </div>
-        <div>
-            <label>Status</label>
-            <select id="certificateStatusFilter" onchange="renderCertificates()">
+        <div class="jgc-field">
+            <label class="jgc-label" for="certificateStatusFilter">Status</label>
+            <select class="jgc-select" id="certificateStatusFilter" onchange="renderCertificates()">
                 <option value="">All</option>
                 <option value="Expired">Expired</option>
                 <option value="Expiring Soon">Expiring Soon</option>
@@ -719,10 +722,10 @@
 
 <div id="equipmentSection" class="card jgc-panel" hidden>
     <h2 class="jgc-section-title">Equipment / Vehicles</h2>
-    <div id="equipmentExpiryAlerts" class="small jgc-notice" style="margin-bottom:12px;" aria-live="polite">Checking inspection expiry notifications...</div>
-    <details id="equipmentEntryPanel" class="sub-card admin-collapsible-panel jgc-card" style="margin-bottom:14px;">
+    <div id="equipmentExpiryAlerts" class="small jgc-notice equipment-entry-panel" aria-live="polite">Checking inspection expiry notifications...</div>
+    <details id="equipmentEntryPanel" class="sub-card admin-collapsible-panel jgc-card equipment-entry-panel">
         <summary>Add / Edit Equipment Entry</summary>
-        <div class="announcement-grid jgc-form-grid" style="margin-top:12px;">
+        <div class="announcement-grid jgc-form-grid equipment-status-top">
             <div class="jgc-field">
                 <label class="jgc-label" for="equipmentName">Name of Equipment / Vehicle</label>
                 <input class="jgc-input" id="equipmentName" placeholder="Example: Truck 04, Telehandler, Forklift">
@@ -812,14 +815,14 @@
                 <textarea class="jgc-textarea" id="equipmentNotes" placeholder="Optional notes"></textarea>
             </div>
         </div>
-        <div class="actions jgc-actions" style="margin-top:10px;">
+        <div class="actions jgc-actions equipment-status-top">
             <button id="equipmentSaveButton" class="jgc-button" type="button" onclick="saveEquipment()">Add Equipment / Vehicle</button>
             <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="clearEquipmentForm()">Clear</button>
             <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadEquipment()">Refresh Equipment</button>
         </div>
     </details>
-    <div id="equipmentStatus" class="small jgc-notice" style="margin-top:10px;" aria-live="polite"></div>
-    <div id="equipmentList" class="small" style="margin-top:12px;">Loading equipment and vehicles...</div>
+    <div id="equipmentStatus" class="small jgc-notice equipment-status-top" role="status" aria-live="polite"></div>
+    <div id="equipmentList" class="small equipment-list-top">Loading equipment and vehicles...</div>
 </div>
 
 <div id="equipmentQrModal" class="admin-schedule-modal-backdrop" onclick="closeEquipmentQrModal(event)">
@@ -857,7 +860,7 @@
         <section class="equipment-document-panel jgc-card">
             <h3 class="jgc-section-title">Lift Manuals</h3>
             <div class="small">Upload one or more PDF manuals for this lift.</div>
-            <input class="jgc-input" id="equipmentManualFiles" type="file" accept=".pdf,application/pdf" multiple style="margin-top:10px;">
+            <input class="jgc-input equipment-document-input" id="equipmentManualFiles" type="file" accept=".pdf,application/pdf" multiple>
             <div class="actions jgc-actions">
                 <button type="button" class="jgc-button" onclick="uploadEquipmentDocuments('manual')">Upload Manuals</button>
             </div>
@@ -867,7 +870,7 @@
         <section class="equipment-document-panel jgc-card">
             <h3 class="jgc-section-title">Yearly Inspection Report</h3>
             <div class="small">Upload the current PDF report. A new upload replaces the existing report.</div>
-            <input class="jgc-input" id="equipmentYearlyInspectionFile" type="file" accept=".pdf,application/pdf" style="margin-top:10px;">
+            <input class="jgc-input equipment-document-input" id="equipmentYearlyInspectionFile" type="file" accept=".pdf,application/pdf">
             <div class="actions jgc-actions">
                 <button type="button" class="jgc-button" onclick="uploadEquipmentDocuments('yearly_inspection')">Upload / Replace Report</button>
             </div>
@@ -1127,13 +1130,13 @@
 <script src="admin-contacts.js?v=2"></script>
 <script src="admin-vacation.js?v=4"></script>
 <script src="admin-notices.js?v=3"></script>
-<script src="admin-certificates.js?v=3"></script>
+<script src="admin-certificates.js?v=4"></script>
 <script src="admin-inspections.js?v=4"></script>
 <script src="admin-reports.js?v=3"></script>
 <script src="admin-employee-profile.js?v=1"></script>
 <script src="admin-jobs.js?v=7"></script>
 <script src="admin-work-orders.js?v=3"></script>
-<script src="admin-equipment.js?v=1"></script>
+<script src="admin-equipment.js?v=2"></script>
 <script src="admin-timesheets.js?v=10"></script>
 <script src="admin-summary.js?v=2"></script>
 <script src="admin-core.js?v=5"></script>
