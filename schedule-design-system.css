@@ -215,12 +215,14 @@
   background: var(--schedule-mine-bg);
 }
 
-.schedule-page .schedule-calendar-scroll {
+.schedule-page .schedule-calendar-scroll,
+.jgc-schedule-admin .admin-schedule-calendar-scroll {
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   border-radius: var(--jgc-radius-lg);
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .schedule-page .calendar-grid,
@@ -234,6 +236,10 @@
   background: var(--jgc-color-border);
   border: 1px solid var(--jgc-color-border);
   border-radius: var(--jgc-radius-lg);
+}
+
+.jgc-schedule-admin .admin-schedule-grid {
+  min-width: 900px;
 }
 
 .schedule-page .calendar-head,
@@ -524,12 +530,13 @@
   text-align: center;
 }
 
+.schedule-page .schedule-agenda,
 .jgc-schedule-admin .admin-schedule-agenda {
   display: none;
   gap: var(--jgc-space-3);
 }
 
-.jgc-schedule-admin .admin-agenda-toolbar {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -541,28 +548,28 @@
   border-radius: var(--jgc-radius-lg);
 }
 
-.jgc-schedule-admin .admin-agenda-toolbar strong {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-toolbar strong {
   color: var(--jgc-color-brand-400);
 }
 
-.jgc-schedule-admin .admin-agenda-toolbar button {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-toolbar button {
   width: auto;
   padding: var(--jgc-space-2) 10px;
   border-radius: var(--jgc-radius-pill);
 }
 
-.jgc-schedule-admin .admin-agenda-day-group {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-day-group {
   display: grid;
   gap: 7px;
 }
 
-.jgc-schedule-admin .admin-agenda-day-header {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-day-header {
   color: var(--jgc-color-text);
   font-size: var(--jgc-font-size-sm);
   font-weight: 900;
 }
 
-.jgc-schedule-admin .admin-agenda-item {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-item {
   display: grid;
   width: 100%;
   grid-template-columns: 74px minmax(0, 1fr);
@@ -577,40 +584,40 @@
   cursor: pointer;
 }
 
-.jgc-schedule-admin .admin-agenda-item.vehicle {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-item.vehicle {
   border-left-color: var(--schedule-vehicle-bg);
 }
 
-.jgc-schedule-admin .admin-agenda-item.training {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-item.training {
   border-left-color: var(--schedule-training-bg);
 }
 
-.jgc-schedule-admin .admin-agenda-item.general {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-item.general {
   border-left-color: var(--jgc-color-text-muted);
 }
 
-.jgc-schedule-admin .admin-agenda-item.vacation {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-item.vacation {
   border-left-color: var(--schedule-vacation-bg);
 }
 
-.jgc-schedule-admin .admin-agenda-time,
-.jgc-schedule-admin .admin-agenda-title,
-.jgc-schedule-admin .admin-agenda-meta {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-time,
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-title,
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-meta {
   display: block;
   color: var(--jgc-color-text-dark);
 }
 
-.jgc-schedule-admin .admin-agenda-time,
-.jgc-schedule-admin .admin-agenda-meta {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-time,
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-meta {
   font-size: var(--jgc-font-size-xs);
 }
 
-.jgc-schedule-admin .admin-agenda-time,
-.jgc-schedule-admin .admin-agenda-title {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-time,
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-title {
   font-weight: 900;
 }
 
-.jgc-schedule-admin .admin-agenda-meta {
+:is(.schedule-page, .jgc-schedule-admin) .admin-agenda-meta {
   margin-top: 3px;
   line-height: 1.35;
 }
@@ -851,7 +858,17 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (orientation: portrait) and (max-width: 960px) {
+  .schedule-page .calendar-controls,
+  .schedule-page .legend,
+  .schedule-page .schedule-calendar-scroll {
+    display: none;
+  }
+
+  .schedule-page .schedule-agenda {
+    display: grid;
+  }
+
   .jgc-schedule-admin .admin-schedule-header,
   .jgc-schedule-admin .admin-schedule-controls {
     display: grid;
@@ -875,6 +892,39 @@
 
   .jgc-schedule-modal .admin-schedule-form-grid .full {
     grid-column: 1;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 721px) and (max-width: 960px) {
+  .schedule-page .schedule-calendar-scroll,
+  .jgc-schedule-admin .admin-schedule-calendar-scroll {
+    overflow-x: hidden;
+  }
+
+  .schedule-page .calendar-grid,
+  .jgc-schedule-admin .admin-schedule-grid {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .schedule-page .calendar-head,
+  .schedule-page .day,
+  .jgc-schedule-admin .admin-schedule-head,
+  .schedule-page .day,
+  .jgc-schedule-admin .admin-schedule-day {
+    min-width: 0;
+    padding: var(--jgc-space-1);
+  }
+
+  .jgc-schedule-admin .admin-schedule-day {
+    min-height: 88px;
+  }
+
+  .schedule-page .day-item,
+  .jgc-schedule-admin .admin-schedule-item {
+    padding: 3px var(--jgc-space-1);
+    font-size: 10px;
   }
 }
 

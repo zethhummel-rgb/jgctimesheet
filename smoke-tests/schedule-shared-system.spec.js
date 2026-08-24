@@ -178,20 +178,22 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=7');
-  expect(pageSource).toContain('schedule-design-system.css?v=2');
+  expect(pageSource).toContain('schedule-design-system.css?v=3');
+  expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=12');
-  expect(adminSource).toContain('schedule-design-system.css?v=2');
+  expect(adminSource).toContain('schedule-design-system.css?v=3');
+  expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
   expect(adminSource).not.toMatch(/adminSchedule[^>]*style=/i);
   expect(adminCss).not.toContain(".admin-schedule-summary");
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
-  expect(serviceWorker).toContain('const JGC_RELEASE_ID = "753"');
+  expect(serviceWorker).toContain('const JGC_RELEASE_ID = "754"');
   expect(serviceWorker).toContain('"./admin.css?v=12"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=2"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=3"');
 });
 
 for (const viewport of [
@@ -233,11 +235,14 @@ for (const viewport of [
     });
 
     expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
-    expect(dimensions.firstButtonHeight).toBeGreaterThanOrEqual(44);
     expect(dimensions.fieldOverflows).toEqual([]);
     if (viewport.name === "phone") {
       expect(dimensions.layoutColumns.trim().split(/\s+/)).toHaveLength(1);
-      expect(dimensions.calendarScrollable).toBe(true);
+      await expect(page.locator("#scheduleAgenda")).toBeVisible();
+      await expect(page.locator(".schedule-calendar-scroll")).toBeHidden();
+      await expect(page.locator("#scheduleAgenda .admin-agenda-item")).toHaveCount(2);
+      const firstAgendaButton = await page.locator("#scheduleAgenda button.admin-agenda-item").first().boundingBox();
+      expect(firstAgendaButton.height).toBeGreaterThanOrEqual(44);
       const bottomNav = page.locator(".jgc-mobile-bottom-nav");
       await expect(bottomNav).toBeVisible();
       await page.evaluate(() => window.scrollTo(0, Math.max(0, document.documentElement.scrollHeight / 2)));
@@ -245,6 +250,7 @@ for (const viewport of [
       expect(Math.abs((navBox.y + navBox.height) - viewport.height)).toBeLessThanOrEqual(1);
     } else {
       expect(dimensions.layoutColumns.trim().split(/\s+/)).toHaveLength(2);
+      expect(dimensions.firstButtonHeight).toBeGreaterThanOrEqual(44);
     }
 
     for (const selector of [".card", ".calendar-head", ".day-item.work", ".day-item.vacation", ".jgc-button"]) {
@@ -263,6 +269,48 @@ for (const viewport of [
     await context.close();
   });
 }
+
+test("Employee Schedule fits all seven calendar columns in phone landscape", async ({ browser }) => {
+  const viewport = { width: 844, height: 390 };
+  const context = await browser.newContext({ viewport });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await installState(page, "worker");
+  await page.goto("/schedule.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator(".schedule-calendar-scroll")).toBeVisible();
+  await expect(page.locator("#scheduleAgenda")).toBeHidden();
+  await expect(page.locator("#scheduleCalendar .calendar-head")).toHaveCount(7);
+
+  const dimensions = await page.evaluate(() => {
+    const wrapper = document.querySelector(".schedule-calendar-scroll");
+    const calendar = document.getElementById("scheduleCalendar");
+    const columnWidths = Array.from(calendar.querySelectorAll(".calendar-head")).map((head) => head.getBoundingClientRect().width);
+    return {
+      bodyWidth: document.body.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth,
+      wrapperWidth: wrapper.clientWidth,
+      wrapperScrollWidth: wrapper.scrollWidth,
+      calendarWidth: calendar.getBoundingClientRect().width,
+      minimumColumnWidth: Math.min(...columnWidths)
+    };
+  });
+
+  expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
+  expect(dimensions.wrapperScrollWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
+  expect(dimensions.calendarWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
+  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(70);
+  if (process.env.JGC_SCHEDULE_SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({
+      path: path.join(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, "schedule-employee-landscape.png"),
+      fullPage: true
+    });
+  }
+  expect(errors).toEqual([]);
+  await context.close();
+});
 
 test("Admin Schedule switches to its contained mobile agenda and modal", async ({ browser }) => {
   const viewport = { width: 390, height: 844 };
@@ -312,6 +360,49 @@ test("Admin Schedule switches to its contained mobile agenda and modal", async (
     });
   }
 
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
+test("Admin Schedule fits all seven calendar columns in phone landscape", async ({ browser }) => {
+  const viewport = { width: 844, height: 390 };
+  const context = await browser.newContext({ viewport });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await installState(page, "admin");
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderAdminScheduleCalendar === "function");
+
+  await expect(page.locator("#adminScheduleCalendar")).toBeVisible();
+  await expect(page.locator("#adminScheduleAgenda")).toBeHidden();
+  await expect(page.locator("#adminScheduleCalendar .admin-schedule-head")).toHaveCount(7);
+
+  const dimensions = await page.evaluate(() => {
+    const wrapper = document.querySelector(".admin-schedule-calendar-scroll");
+    const calendar = document.getElementById("adminScheduleCalendar");
+    const columnWidths = Array.from(calendar.querySelectorAll(".admin-schedule-head")).map((head) => head.getBoundingClientRect().width);
+    return {
+      bodyWidth: document.body.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth,
+      wrapperWidth: wrapper.clientWidth,
+      wrapperScrollWidth: wrapper.scrollWidth,
+      calendarWidth: calendar.getBoundingClientRect().width,
+      minimumColumnWidth: Math.min(...columnWidths)
+    };
+  });
+
+  expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
+  expect(dimensions.wrapperScrollWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
+  expect(dimensions.calendarWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
+  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(70);
+  if (process.env.JGC_SCHEDULE_SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({
+      path: path.join(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, "schedule-admin-landscape.png"),
+      fullPage: true
+    });
+  }
   expect(errors).toEqual([]);
   await context.close();
 });

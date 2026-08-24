@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Schedule</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
-<link rel="stylesheet" href="schedule-design-system.css?v=2">
+<link rel="stylesheet" href="schedule-design-system.css?v=3">
 </head>
 <body class="schedule-page jgc-page jgc-system-page">
 <main class="page schedule-page-shell jgc-page-shell jgc-page-shell--wide">
@@ -68,6 +68,7 @@
       <div class="schedule-calendar-scroll">
         <div id="scheduleCalendar" class="calendar-grid"></div>
       </div>
+      <div id="scheduleAgenda" class="schedule-agenda small">Loading schedule...</div>
     </section>
 
     <aside class="schedule-sidebar">
@@ -554,6 +555,124 @@ function getEventsForDate(dateValue) {
 
 function getVacationsForDate(dateValue) {
   return vacationRequests.filter((request) => vacationTouchesDate(request, dateValue));
+}
+
+function formatScheduleAgendaDayHeader(value) {
+  const date = makeLocalDate(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const dateValue = formatDateValue(date);
+  const prefix = dateValue === formatDateValue(today)
+    ? "Today"
+    : dateValue === formatDateValue(tomorrow)
+      ? "Tomorrow"
+      : date.toLocaleDateString("en-CA", { weekday: "short" });
+
+  return prefix + " - " + date.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
+function getScheduleVacationAgendaRange(request) {
+  const start = makeLocalDate(request.start_date);
+  const end = makeLocalDate(request.end_date || request.start_date);
+  const startText = start.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  const endText = end.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  return startText === endText ? startText : startText + " to " + endText;
+}
+
+function buildScheduleAgendaItems() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayValue = formatDateValue(today);
+  const scheduleItems = getVisibleScheduleEvents()
+    .filter((event) => String(event.event_date || "") >= todayValue)
+    .map((event) => {
+      const type = getEventType(event);
+      return {
+        id: event.id || "",
+        source: "schedule",
+        type,
+        date: event.event_date,
+        sortTime: event.start_time || "99:99",
+        title: getEventDisplayTitle(event),
+        meta: [
+          getEventTypeLabel(type),
+          [formatTime(event.start_time), event.end_time ? "to " + formatTime(event.end_time) : ""].filter(Boolean).join(" "),
+          event.job_number ? "Job #: " + event.job_number : "",
+          event.location || ""
+        ].filter(Boolean).join(" | ")
+      };
+    });
+  const vacationItems = (vacationRequests || [])
+    .filter((request) => String(request.end_date || request.start_date || "") >= todayValue)
+    .map((request) => {
+      const startValue = String(request.start_date || "");
+      const endValue = String(request.end_date || request.start_date || "");
+      return {
+        id: request.id || "",
+        source: "vacation",
+        type: "vacation",
+        date: startValue < todayValue && todayValue <= endValue ? todayValue : startValue,
+        sortTime: "99:99",
+        title: "Vacation - " + (request.worker_display_name || request.worker_name || "Employee"),
+        meta: getScheduleVacationAgendaRange(request)
+      };
+    });
+
+  return scheduleItems.concat(vacationItems)
+    .filter((item) => item.date)
+    .sort((a, b) => {
+      const dateDifference = String(a.date || "").localeCompare(String(b.date || ""));
+      return dateDifference || String(a.sortTime || "").localeCompare(String(b.sortTime || ""));
+    })
+    .slice(0, 7);
+}
+
+function selectScheduleAgendaDate(value) {
+  selectedDate = makeLocalDate(value);
+  document.getElementById("eventDate").value = value;
+  renderCalendar();
+  renderSelectedDate();
+  document.querySelector(".schedule-sidebar").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderScheduleAgenda() {
+  const list = document.getElementById("scheduleAgenda");
+  const items = buildScheduleAgendaItems();
+
+  if (!items.length) {
+    list.innerHTML = '<div class="admin-agenda-toolbar"><strong>Upcoming Schedule</strong></div><div class="small">No upcoming schedule items found.</div>';
+    return;
+  }
+
+  const groups = items.reduce((grouped, item) => {
+    grouped[item.date] = grouped[item.date] || [];
+    grouped[item.date].push(item);
+    return grouped;
+  }, {});
+
+  list.innerHTML = `
+    <div class="admin-agenda-toolbar"><strong>Upcoming Schedule</strong></div>
+    ${Object.keys(groups).map((dateValue) => `
+      <div class="admin-agenda-day-group">
+        <div class="admin-agenda-day-header">${escapeHtml(formatScheduleAgendaDayHeader(dateValue))}</div>
+        ${groups[dateValue].map((item) => {
+          const timeText = item.sortTime === "99:99" ? "All day" : formatTime(item.sortTime);
+          const content = `
+            <span class="admin-agenda-time">${escapeHtml(timeText)}</span>
+            <span>
+              <span class="admin-agenda-title">${escapeHtml(item.title)}</span>
+              <span class="admin-agenda-meta">${escapeHtml(item.meta)}</span>
+            </span>
+          `;
+          return item.source === "schedule"
+            ? `<button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="selectScheduleAgendaDate('${escapeHtml(item.date)}')">${content}</button>`
+            : `<div class="admin-agenda-item ${escapeHtml(item.type)}">${content}</div>`;
+        }).join("")}
+      </div>
+    `).join("")}
+  `;
 }
 
 function renderCalendar() {
@@ -1093,6 +1212,7 @@ async function loadScheduleData() {
   renderEmployeeChecks();
   clearScheduleForm();
   renderCalendar();
+  renderScheduleAgenda();
   renderSelectedDate();
 }
 
