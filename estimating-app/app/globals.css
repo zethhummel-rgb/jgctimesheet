@@ -1,30 +1,4 @@
-:root {
-  --navy-950: #082b22;
-  --navy-900: #103d31;
-  --navy-800: #175342;
-  --navy-700: #1d6a52;
-  --blue-600: #25835f;
-  --blue-100: #e9f5ef;
-  --green-700: #116d47;
-  --green-600: #1b9664;
-  --green-100: #e7f5ee;
-  --amber-700: #9a6200;
-  --amber-500: #e8a11b;
-  --amber-100: #fff4d9;
-  --red-700: #b42318;
-  --red-100: #feeceb;
-  --slate-900: #18212b;
-  --slate-700: #435466;
-  --slate-600: #5f7183;
-  --slate-500: #748598;
-  --slate-300: #cbd5df;
-  --slate-200: #e1e7ed;
-  --slate-100: #f2f5f7;
-  --slate-50: #f7f9fb;
-  --white: #ffffff;
-  --shadow-sm: 0 1px 2px rgba(11, 31, 51, 0.06), 0 1px 6px rgba(11, 31, 51, 0.04);
-  --shadow-md: 0 10px 28px rgba(11, 31, 51, 0.08);
-}
+/* Core colours and shadows come from estimator-theme.css. */
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
@@ -102,14 +76,14 @@ input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 }
 
 * { box-sizing: border-box; }
-html { background: var(--slate-50); }
-body { margin: 0; background: var(--slate-50); color: var(--slate-900); font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; }
+html { background: var(--jgc-estimator-page, var(--slate-50)); }
+body { margin: 0; background: var(--jgc-estimator-page, var(--slate-50)); color: var(--slate-900); font-family: var(--jgc-estimator-font-family, "Segoe UI", Arial, sans-serif); font-size: 14px; }
 button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 button, select { cursor: pointer; }
 input, select, textarea { color: var(--slate-900); }
 textarea { resize: vertical; }
-button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(38, 114, 184, 0.25); outline-offset: 1px; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--jgc-color-warning, #f1bf4b); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 .desk-shell { min-height: 100vh; }

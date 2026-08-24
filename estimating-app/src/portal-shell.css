@@ -1,26 +1,26 @@
 .estimator-portal-strip {
   align-items: center;
-  background: #f3f8f5;
-  border-bottom: 1px solid #cee0d7;
-  color: #48675b;
+  background: var(--jgc-estimator-green-100, #f3f8f5);
+  border-bottom: 1px solid var(--jgc-estimator-slate-200, #cee0d7);
+  color: var(--jgc-estimator-slate-700, #48675b);
   display: flex;
-  font: 600 13px/1.2 "Segoe UI", Arial, sans-serif;
+  font: 600 13px/1.2 var(--jgc-estimator-font-family, "Segoe UI", Arial, sans-serif);
   gap: 18px;
   min-height: 42px;
   padding: 0 22px 0 266px;
 }
 
-.estimator-portal-strip a { color: #176b50; text-decoration: none; }
-.estimator-portal-strip span { color: #155d43; }
+.estimator-portal-strip a { color: var(--jgc-estimator-green-700, #176b50); text-decoration: none; }
+.estimator-portal-strip span { color: var(--jgc-estimator-green-700, #155d43); }
 .estimator-portal-strip small { margin-left: auto; }
 
 .estimator-gate {
   align-items: center;
-  background: #f5f7f9;
-  color: #102a43;
+  background: var(--jgc-estimator-page, #f5f7f9);
+  color: var(--jgc-estimator-navy-900, #102a43);
   display: flex;
   flex-direction: column;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--jgc-estimator-font-family, "Segoe UI", Arial, sans-serif);
   justify-content: center;
   min-height: 100vh;
   padding: 30px;
@@ -29,9 +29,9 @@
 
 .estimator-gate-mark {
   align-items: center;
-  background: #176b50;
+  background: var(--jgc-estimator-green-700, #176b50);
   border-radius: 14px;
-  color: #fff;
+  color: var(--jgc-color-on-brand, #fff);
   display: flex;
   font-size: 24px;
   font-weight: 800;
@@ -41,10 +41,10 @@
 }
 .estimator-gate-logo { width: 58px; height: 58px; border-radius: 14px; object-fit: cover; box-shadow: 0 8px 22px rgba(12,80,57,.16); }
 
-.estimator-gate p { color: #2672b8; font-size: 12px; font-weight: 800; letter-spacing: .12em; margin: 18px 0 4px; }
+.estimator-gate p { color: var(--jgc-estimator-blue-600, #2672b8); font-size: 12px; font-weight: 800; letter-spacing: .12em; margin: 18px 0 4px; }
 .estimator-gate h1 { font-size: clamp(25px, 5vw, 38px); margin: 6px 0 10px; }
-.estimator-gate > span { color: #5f7183; max-width: 520px; }
-.gate-button { background: #176b50; border-radius: 8px; color: #fff; font-weight: 700; margin-top: 24px; padding: 12px 18px; text-decoration: none; }
+.estimator-gate > span { color: var(--jgc-estimator-slate-600, #5f7183); max-width: 520px; }
+.gate-button { background: var(--jgc-estimator-green-700, #176b50); border-radius: var(--jgc-radius-lg, 8px); color: var(--jgc-color-on-brand, #fff); font-weight: 700; margin-top: 24px; padding: 12px 18px; text-decoration: none; }
 
 @media (max-width: 1020px) {
   .estimator-portal-strip { padding: 0 14px; }

@@ -1,0 +1,67 @@
+/*
+ * JGC Estimate Desk theme adapter
+ *
+ * The Portal design system owns the shared brand, status, typography, radius,
+ * and focus tokens. The Estimate Desk intentionally remains a lighter work
+ * surface, so its neutral palette is defined here instead of being mixed into
+ * the React feature stylesheet.
+ */
+
+:root {
+  --jgc-estimator-navy-950: #082b22;
+  --jgc-estimator-navy-900: #103d31;
+  --jgc-estimator-navy-800: #175342;
+  --jgc-estimator-navy-700: #1d6a52;
+  --jgc-estimator-blue-600: #25835f;
+  --jgc-estimator-blue-100: #e9f5ef;
+  --jgc-estimator-green-700: var(--jgc-color-brand-700, #116d47);
+  --jgc-estimator-green-600: var(--jgc-color-brand-600, #1b9664);
+  --jgc-estimator-green-100: #e7f5ee;
+  --jgc-estimator-amber-700: #9a6200;
+  --jgc-estimator-amber-500: var(--jgc-color-warning, #e8a11b);
+  --jgc-estimator-amber-100: #fff4d9;
+  --jgc-estimator-red-700: var(--jgc-color-danger, #b42318);
+  --jgc-estimator-red-100: #feeceb;
+  --jgc-estimator-slate-900: #18212b;
+  --jgc-estimator-slate-700: #435466;
+  --jgc-estimator-slate-600: #5f7183;
+  --jgc-estimator-slate-500: #748598;
+  --jgc-estimator-slate-300: #cbd5df;
+  --jgc-estimator-slate-200: #e1e7ed;
+  --jgc-estimator-slate-100: #f2f5f7;
+  --jgc-estimator-slate-50: #f7f9fb;
+  --jgc-estimator-white: #ffffff;
+  --jgc-estimator-page: var(--jgc-estimator-slate-50);
+  --jgc-estimator-surface: var(--jgc-estimator-white);
+  --jgc-estimator-font-family: "Segoe UI", var(--jgc-font-family, Arial, sans-serif);
+  --jgc-estimator-shadow-sm: 0 1px 2px rgba(11, 31, 51, 0.06), 0 1px 6px rgba(11, 31, 51, 0.04);
+  --jgc-estimator-shadow-md: 0 10px 28px rgba(11, 31, 51, 0.08);
+  --jgc-estimator-focus-ring: 0 0 0 3px rgba(19, 132, 63, 0.2);
+
+  /* Compatibility aliases keep feature geometry and workflows unchanged. */
+  --navy-950: var(--jgc-estimator-navy-950);
+  --navy-900: var(--jgc-estimator-navy-900);
+  --navy-800: var(--jgc-estimator-navy-800);
+  --navy-700: var(--jgc-estimator-navy-700);
+  --blue-600: var(--jgc-estimator-blue-600);
+  --blue-100: var(--jgc-estimator-blue-100);
+  --green-700: var(--jgc-estimator-green-700);
+  --green-600: var(--jgc-estimator-green-600);
+  --green-100: var(--jgc-estimator-green-100);
+  --amber-700: var(--jgc-estimator-amber-700);
+  --amber-500: var(--jgc-estimator-amber-500);
+  --amber-100: var(--jgc-estimator-amber-100);
+  --red-700: var(--jgc-estimator-red-700);
+  --red-100: var(--jgc-estimator-red-100);
+  --slate-900: var(--jgc-estimator-slate-900);
+  --slate-700: var(--jgc-estimator-slate-700);
+  --slate-600: var(--jgc-estimator-slate-600);
+  --slate-500: var(--jgc-estimator-slate-500);
+  --slate-300: var(--jgc-estimator-slate-300);
+  --slate-200: var(--jgc-estimator-slate-200);
+  --slate-100: var(--jgc-estimator-slate-100);
+  --slate-50: var(--jgc-estimator-slate-50);
+  --white: var(--jgc-estimator-white);
+  --shadow-sm: var(--jgc-estimator-shadow-sm);
+  --shadow-md: var(--jgc-estimator-shadow-md);
+}
