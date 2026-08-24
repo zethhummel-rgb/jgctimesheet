@@ -1,4 +1,173 @@
-/* Safety acknowledgement compatibility layer for the shared JGC design system. */
+/* Safety acknowledgement layout. All visual values inherit shared portal tokens. */
+
+body {
+    font-family: var(--jgc-font-family);
+    background: var(--jgc-color-page);
+    margin: 0;
+    padding: 16px;
+    color: var(--jgc-color-text);
+}
+
+.logo-wrap {
+    max-width: 260px;
+    margin: 0 auto 14px;
+    text-align: center;
+}
+
+.logo-wrap img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--jgc-color-surface);
+    border-top: 5px solid var(--jgc-color-brand-500);
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: var(--jgc-shadow-md);
+}
+
+h1 {
+    margin: 0 0 6px;
+    color: var(--jgc-color-brand-500);
+    font-size: 26px;
+}
+
+.subtitle {
+    margin-bottom: 16px;
+    color: var(--jgc-color-text-muted);
+    font-weight: bold;
+}
+
+.record-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.meta-item {
+    border: 1px solid var(--jgc-color-border-soft);
+    border-radius: 7px;
+    padding: 10px;
+    background: var(--jgc-color-surface-raised);
+}
+
+.meta-label {
+    display: block;
+    font-size: 12px;
+    color: var(--jgc-color-text-muted);
+    font-weight: bold;
+}
+
+.meta-value {
+    display: block;
+    margin-top: 4px;
+    color: var(--jgc-color-text);
+    font-weight: bold;
+}
+
+label {
+    display: block;
+    margin: 12px 0 5px;
+    font-weight: bold;
+}
+
+select,
+input,
+textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px;
+    border: 1px solid var(--jgc-color-input-border);
+    border-radius: 6px;
+    font-size: 16px;
+    background: var(--jgc-color-input);
+}
+
+textarea {
+    min-height: 72px;
+    resize: vertical;
+}
+
+.ack-check {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    margin: 14px 0;
+    padding: 12px;
+    background: var(--jgc-color-surface-raised);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-radius: 7px;
+    color: var(--jgc-color-text) !important;
+}
+
+.ack-check input {
+    width: auto;
+    flex: 0 0 auto;
+    margin-top: 3px;
+}
+
+.ack-check span {
+    color: var(--jgc-color-text) !important;
+    opacity: 1 !important;
+    line-height: 1.35;
+    text-shadow: none !important;
+    -webkit-text-fill-color: var(--jgc-color-text);
+}
+
+button {
+    width: 100%;
+    border: none;
+    border-radius: 7px;
+    padding: 13px 15px;
+    background: var(--jgc-color-brand-700);
+    color: var(--jgc-color-on-brand);
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--jgc-color-brand-800);
+}
+
+button:disabled {
+    background: var(--jgc-color-surface-soft);
+    cursor: default;
+}
+
+.status {
+    min-height: 22px;
+    margin-top: 12px;
+    color: var(--jgc-color-brand-500);
+    font-weight: bold;
+}
+
+.error {
+    color: var(--jgc-color-danger);
+}
+
+.hidden {
+    display: none;
+}
+
+@media (max-width: 640px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 14px;
+    }
+
+    .record-meta {
+        grid-template-columns: 1fr;
+    }
+}
 
 html,
 body.acknowledgement-page {
@@ -11,9 +180,9 @@ body.acknowledgement-page {
   min-height: 100vh;
   margin: 0;
   padding: 16px;
-  color: #1f2a24;
-  background: #0b1f18;
-  font-family: Arial, sans-serif;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-page);
+  font-family: var(--jgc-font-family);
 }
 
 .acknowledgement-page .logo-wrap.jgc-brand {
@@ -35,18 +204,18 @@ body.acknowledgement-page {
   min-width: 0;
   margin: 0 auto;
   padding: 18px;
-  color: #1f2a24;
-  background: #fbfcf9;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
   border: 0;
-  border-top: 5px solid #32c848;
+  border-top: 5px solid var(--jgc-color-brand-500);
   border-radius: 8px;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--jgc-shadow-md);
   box-sizing: border-box;
 }
 
 .acknowledgement-page .acknowledgement-shell .jgc-page-title {
   margin: 0 0 6px;
-  color: #0b5e3b;
+  color: var(--jgc-color-brand-500);
   font-size: 26px;
   letter-spacing: 0;
 }
@@ -60,9 +229,9 @@ body.acknowledgement-page {
 
 .acknowledgement-page .meta-item.jgc-card {
   padding: 10px;
-  color: #1f2a24;
-  background: #f3f7f2;
-  border: 1px solid #cbd6cb;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
   border-radius: 7px;
   box-shadow: none;
 }
@@ -74,7 +243,7 @@ body.acknowledgement-page {
 .acknowledgement-page label.jgc-label {
   display: block;
   margin: 12px 0 5px;
-  color: #1f2a24;
+  color: var(--jgc-color-text);
   font-size: 16px;
   font-weight: 700;
 }
@@ -83,13 +252,13 @@ body.acknowledgement-page {
 .acknowledgement-page .jgc-select,
 .acknowledgement-page .jgc-textarea {
   width: 100%;
-  min-height: 0;
+  min-height: var(--jgc-control-height);
   padding: 11px;
-  color: #1f2a24;
-  background: #ffffff;
-  border: 1px solid #b9c7b9;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid var(--jgc-color-input-border);
   border-radius: 6px;
-  font-family: Arial, sans-serif;
+  font-family: var(--jgc-font-family);
   font-size: 16px;
   line-height: normal;
   box-sizing: border-box;
@@ -106,9 +275,9 @@ body.acknowledgement-page {
   align-items: flex-start;
   margin: 14px 0;
   padding: 12px;
-  color: #14251a !important;
-  background: #eef6ee;
-  border: 1px solid #cbd6cb;
+  color: var(--jgc-color-text) !important;
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
   border-radius: 7px;
   box-shadow: none;
 }
@@ -116,13 +285,13 @@ body.acknowledgement-page {
 .acknowledgement-page button.jgc-button {
   display: inline-flex;
   width: 100%;
-  min-height: 0;
+  min-height: var(--jgc-control-height);
   padding: 13px 15px;
-  color: #ffffff;
-  background: #0b5e3b;
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-700);
   border: 0;
   border-radius: 7px;
-  font-family: Arial, sans-serif;
+  font-family: var(--jgc-font-family);
   font-size: 17px;
   font-weight: 700;
   line-height: normal;
@@ -130,13 +299,13 @@ body.acknowledgement-page {
 }
 
 .acknowledgement-page button.jgc-button:hover {
-  background: #08452b;
+  background: var(--jgc-color-brand-800);
   filter: none;
 }
 
 .acknowledgement-page button.jgc-button:disabled {
-  color: #ffffff;
-  background: #7b8580;
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-surface-soft);
   opacity: 1;
   cursor: default;
 }
