@@ -8,3 +8,12 @@ jgc-portal-backup-*/
 node_modules/
 playwright-report/
 test-results/
+
+# Local Codex release worktrees, caches, and generated QA output.
+.codex-*/
+.pnpm-store/
+GitHub/
+output/
+outputs/
+tmp/
+smoke-tests/screenshots/

@@ -1,6 +1,6 @@
 # JGC Portal Codex Handoff
 
-Updated: August 2, 2026
+Updated: August 24, 2026
 
 ## Instructions For The New Codex Task
 
@@ -9,47 +9,37 @@ Continue working on the existing JGC Portal. Do not create a replacement project
 Use these existing folders:
 
 - Primary working folder: `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\index.html`
-- Deployment mirror: `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\index.html\GitHub\jgctimesheet`
+- Authoritative deployment checkout: `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\GitHub\jgctimesheet`
+- Obsolete nested copy (do not use): `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\index.html\GitHub\jgctimesheet`
 - GitHub repository: `https://github.com/zethhummel-rgb/jgctimesheet.git`
 - Production branch: `main`
 
 For every completed code change:
 
 1. Inspect the current files and Git state before editing.
-2. Work in the primary folder and preserve all unrelated user changes.
-3. Mirror every changed deployable file to the matching path under `GitHub\jgctimesheet`.
+2. Fetch `origin` and create a clean `codex/<task>` branch/worktree from the latest `origin/main`. Preserve all unrelated user changes in the primary folder.
+3. Make and test the scoped change in that clean worktree. Never use the obsolete nested copy as a source or deployment target.
 4. Advance `JGC_RELEASE_ID` in `service-worker.js` for deployable page, JavaScript, CSS, or asset changes.
 5. Keep shared `?v=` asset versions consistent on every page that references the changed asset.
 6. Run `run-jgc-release-check.bat` before publishing. Run focused Playwright tests while developing.
 7. Stage only the files belonging to the current task. Do not stage the entire dirty tree.
-8. Commit the verified change with a clear message and push it to GitHub `main`.
-9. Report the commit SHA and push result to the user.
+8. Commit the verified change with a clear message, push its branch, and merge it into GitHub `main` when publishing is authorized.
+9. Fast-forward the authoritative deployment checkout to the merged `origin/main`.
+10. Synchronize only the audited changed files back into the primary folder, then verify those files match the merged commit.
+11. Report the commit SHA, merge/push result, deployment result, and the two local synchronization results to the user.
 
 The user explicitly wants Codex to commit and push completed work. If a push is rejected because GitHub is ahead, fetch and integrate carefully. Never use `git reset --hard`, force-push, or discard local changes.
 
-## Critical Git State
+## Current Git State
 
-The primary folder is not a clean checkout. At the time of this handoff:
+The primary folder was reconciled to `origin/main` on August 24, 2026. Local Codex worktrees and generated QA folders are intentionally ignored so they remain available without polluting Git status.
 
-- Local branch: `main`
-- Local HEAD: `39f09e0 Organize admin safety records`
-- Git reports local `main` as `ahead 4, behind 1216` relative to `origin/main`.
-- The primary folder contains many modified and untracked files representing ongoing portal work.
-- Do not pull, merge, rebase, reset, or broadly restore this working folder until its changes have been audited.
-- Do not assume a file is disposable because it is untracked.
-
-The current GitHub tip known at handoff is:
-
-- `3892c1b Fix safety report template syntax`
-- Before it: `e2dcb60 Unify JSA PDF exports`
-- Before it: `619575f Improve JSA report viewing`
-- Before it: `98c7cf4 Limit inspection management actions`
-
-Recent verified publishing used a clean worktree at:
-
-`C:\Users\Zeth\AppData\Local\Temp\jgc-jsa-signoff-publish-20260731`
-
-That worktree was on `codex/jsa-signoff-flow`, tracking the production history. Check whether it still exists and is clean before using it. A safe publishing pattern is to prepare and test the exact task files in a clean worktree based on the latest `origin/main`, then commit only those files. Never replace the primary working folder with the clean worktree.
+- Primary branch: `main`, tracking `origin/main`.
+- Authoritative deployment checkout: the sibling `Documents\GitHub\jgctimesheet` repository listed above.
+- The old nested `index.html\GitHub\jgctimesheet` folder is retained only as an ignored historical copy and must not be used for releases.
+- A pre-cleanup Git history bundle and full Portal backup were created before reconciliation.
+- Always fetch first and confirm the current `origin/main` SHA; do not rely on a SHA written in this handoff.
+- Use a clean task worktree for every new change. Never replace the primary working folder wholesale with a clean worktree.
 
 ## Product And Architecture
 
@@ -307,22 +297,19 @@ The release checker validates:
 - Page opening without uncaught JavaScript errors.
 - Key tabs and controls.
 - Service-worker registration/control.
-- Exact mirror equality between the primary folder and `GitHub\jgctimesheet`.
+- Exact mirror equality between the primary folder and the authoritative sibling deployment checkout when `-MirrorRoot` is set to `C:\Users\Zeth\OneDrive - JOHN GORDON CONSTRUCTION INC\Documents\GitHub\jgctimesheet`.
 
-The clean publishing copy at commit `3892c1b` passed all 47 smoke tests. The primary dirty folder must be retested after its pending changes are reconciled.
+Release checks must be run against the exact current task files and current `origin/main`; older test counts and commit SHAs are historical only.
 
 The last critical syntax bug fixed was in `todays-inspections.html`: a template expression had a missing empty-string branch. If Diagnostics shows old `Missing } in template expression` or `Unexpected token` entries from July 31, those are historical browser reports and may be resolved after confirming the deployed build is newer than `3892c1b`.
 
 ## Known Remaining Work And Risks
 
-1. Reconcile the primary folder, deployment mirror, and `origin/main`. The primary folder contains newer work but its branch history is far behind GitHub.
-2. Audit every modified/untracked primary file before choosing what belongs in production. Do not mass-copy or mass-stage.
-3. Confirm whether the late-July Supabase migrations have been applied in production.
-4. Confirm the nested deployment mirror contains new shared files such as `jsa-pdf.js`, employee feature-access assets, and safety acknowledgement migrations.
-5. Run the full release checker against the exact files intended for the next deployment.
-6. Verify recent business-critical workflows against production Supabase: JSA signatures, Toolbox Talk dedupe, Employee Feature Access, limited accounts, PO device limits, PO stale-sync reconciliation, WO number generation, and Job Notes reminders.
-7. Resolve historical Diagnostics entries only after confirming the underlying deployed issue is fixed.
-8. Continue expanding focused smoke tests whenever a new critical button, page, or workflow is added.
+1. Confirm whether the late-July Supabase migrations have been applied in production.
+2. Run the full release checker against the exact files intended for every deployment.
+3. Verify recent business-critical workflows against production Supabase: JSA signatures, Toolbox Talk dedupe, Employee Feature Access, limited accounts, PO device limits, PO stale-sync reconciliation, WO number generation, and Job Notes reminders.
+4. Resolve historical Diagnostics entries only after confirming the underlying deployed issue is fixed.
+5. Continue expanding focused smoke tests whenever a new critical button, page, or workflow is added.
 
 ## Decisions That Must Not Be Reversed
 
@@ -330,7 +317,7 @@ The last critical syntax bug fixed was in `todays-inspections.html`: a template 
 - Do not create a second repository or work in a different project folder.
 - Do not overwrite, reset, or revert unrelated dirty files.
 - Do not commit every changed file merely because the working tree is dirty.
-- Do not edit only one copy of a deployable file; keep the primary folder and `GitHub\jgctimesheet` mirror aligned.
+- Do not edit only one copy of a deployable file; after merge, synchronize the audited task files into both the primary folder and the authoritative sibling deployment checkout.
 - Do not remove offline support or PO number blocks.
 - Do not change PO numbering below 30000.
 - Do not reintroduce PO sharing/assignment.
@@ -364,11 +351,11 @@ Run these read-only checks before changing anything:
 
 ```powershell
 git status --short --branch
+git fetch origin
 git log -8 --oneline --decorate
 git log origin/main -8 --oneline --decorate
 git diff --stat
-git diff -- GitHub/jgctimesheet
 ```
 
-Then read this handoff plus the architecture, design, and release documents. Identify the exact files for the user's newest request, inspect both copies, and state which version is newer before editing. Keep the scope narrow, run focused tests, run the release checker, and publish only the verified task files.
+Then read this handoff plus the architecture, design, and release documents. Identify the exact files for the user's newest request and create a clean worktree from the refreshed `origin/main`. Keep the scope narrow, run focused tests, run the release checker, and publish only the verified task files. After merge, fast-forward the authoritative sibling checkout and synchronize only the audited changed files into the primary folder.
 
