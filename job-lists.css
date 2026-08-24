@@ -1,5 +1,5 @@
 .job-lists-page {
-  --job-list-complete: #6d7a73;
+  --job-list-complete: var(--jgc-color-input-border);
   overflow-x: hidden;
 }
 
@@ -10,7 +10,7 @@
 .job-lists-page .job-list-editor-modal {
   place-items: stretch;
   padding: 0;
-  background: #06110d;
+  background: var(--jgc-color-page);
 }
 
 .job-lists-page .job-list-note-editor {
@@ -18,7 +18,7 @@
   height: 100dvh;
   max-height: 100dvh;
   padding: 0;
-  background: #07150f;
+  background: var(--jgc-color-page-deep);
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -35,7 +35,7 @@
   min-height: 72px;
   margin: 0;
   padding: 12px max(20px, calc((100vw - 1040px) / 2));
-  background: rgba(7, 21, 15, 0.98);
+  background: var(--jgc-nav-mobile-background);
   border-bottom: 1px solid var(--jgc-color-border);
 }
 
@@ -114,7 +114,7 @@
 
 .job-list-note-options {
   margin: var(--jgc-space-4) 0;
-  background: rgba(12, 39, 28, 0.5);
+  background: var(--jgc-color-surface-raised);
   border: 1px solid var(--jgc-color-border-soft);
   border-radius: var(--jgc-radius-md);
 }
@@ -181,7 +181,7 @@
 .job-list-note-page {
   min-height: 48vh;
   padding: 4px var(--jgc-space-3) var(--jgc-space-5);
-  background: rgba(10, 32, 23, 0.42);
+  background: var(--jgc-color-notice);
   border-top: 2px solid var(--jgc-color-brand-500);
   border-bottom: 1px solid var(--jgc-color-border);
 }
@@ -238,7 +238,7 @@
 
 .job-list-job-directory {
   overflow: hidden;
-  background: rgba(5, 24, 17, 0.58);
+  background: var(--jgc-color-page-deep);
   border: 1px solid var(--jgc-color-border);
   border-radius: var(--jgc-radius-md);
 }
@@ -281,7 +281,7 @@
   overflow-wrap: anywhere;
   margin: 0;
   color: var(--jgc-color-text);
-  font-size: var(--jgc-font-size-base);
+  font-size: var(--jgc-font-size-md);
   line-height: 1.25;
 }
 
@@ -381,7 +381,7 @@
 }
 
 .job-list-note-copy strong {
-  font-size: var(--jgc-font-size-base);
+  font-size: var(--jgc-font-size-md);
   line-height: 1.2;
 }
 
@@ -423,7 +423,7 @@
   min-width: 0;
   overflow: hidden;
   padding: var(--jgc-space-4);
-  background: #0b1d16;
+  background: var(--jgc-color-surface-raised);
   border: 1px solid var(--jgc-color-border);
   border-left: 4px solid var(--jgc-color-brand-500);
   border-radius: var(--jgc-radius-md);
@@ -498,8 +498,8 @@
   gap: 6px;
   padding: 4px 8px;
   color: var(--jgc-color-warning);
-  background: rgba(143, 101, 15, 0.2);
-  border: 1px solid rgba(224, 170, 42, 0.55);
+  background: var(--jgc-color-badge-warning);
+  border: 1px solid var(--jgc-color-warning);
   border-radius: var(--jgc-radius-sm);
   font-size: var(--jgc-font-size-sm);
 }
@@ -510,7 +510,7 @@
   display: grid;
   place-items: center;
   padding: 0;
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   background: var(--jgc-color-danger);
   border: 0;
   border-radius: 50%;
@@ -588,7 +588,7 @@
 }
 
 .job-list-check.is-complete .job-list-check-box {
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   background: var(--jgc-color-success);
   border-color: var(--jgc-color-success);
 }
@@ -722,7 +722,7 @@
 }
 
 .job-list-item-edit-row.is-complete .job-list-edit-bullet {
-  color: #ffffff;
+  color: var(--jgc-color-on-brand);
   background: var(--jgc-color-success);
   border-color: var(--jgc-color-success);
 }
@@ -826,8 +826,8 @@
   justify-content: flex-end;
   margin-top: auto;
   padding: var(--jgc-space-3) 0 calc(var(--jgc-space-3) + env(safe-area-inset-bottom, 0px));
-  background: rgba(7, 21, 15, 0.97);
-  box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.24);
+  background: var(--jgc-nav-mobile-background);
+  box-shadow: var(--jgc-bottom-nav-shadow);
 }
 
 .job-list-autosave-status {
@@ -846,7 +846,7 @@
 }
 
 .job-list-autosave-status.is-error {
-  color: #ffaaa4;
+  color: var(--jgc-color-on-brand);
 }
 
 .job-list-read-only {
@@ -904,7 +904,7 @@
 }
 
 .job-list-admin-table td {
-  background: rgba(8, 25, 19, 0.72);
+  background: var(--jgc-color-surface-raised);
 }
 
 .job-list-admin-table strong,
@@ -1067,7 +1067,7 @@
   }
 
   .job-list-note-header h2 {
-    font-size: var(--jgc-font-size-base);
+    font-size: var(--jgc-font-size-md);
   }
 
   .job-list-note-header .job-list-muted {

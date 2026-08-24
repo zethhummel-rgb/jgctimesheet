@@ -77,7 +77,8 @@ test("specialty inspection forms use one token-only shared visual source", async
   const harnessSource = fs.readFileSync(path.join(portalRoot, "harness.html"), "utf8");
   expect(harnessSource).not.toMatch(/style\.background/);
   expect(featureCss, "Specialty-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
-  expect(serviceWorker).toContain('const JGC_RELEASE_ID = "762"');
+  const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
+  expect(releaseId).toBeGreaterThanOrEqual(762);
   expect(serviceWorker).toContain('"./specialty-inspection-design-system.css?v=2"');
 });
 

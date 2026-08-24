@@ -8,11 +8,10 @@
   <meta name="theme-color" content="#0b5e3b">
   <title>JGC Portal - Job Notes Admin</title>
   <link rel="manifest" href="manifest.json?v=7">
-  <link rel="stylesheet" href="styles.css?v=3">
   <link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
-  <link rel="stylesheet" href="job-lists.css?v=10">
+  <link rel="stylesheet" href="job-lists.css?v=11">
 </head>
-<body class="jgc-page job-lists-page job-lists-admin-page">
+<body class="jgc-page jgc-system-page job-lists-page job-lists-admin-page">
   <main class="jgc-page-shell jgc-page-shell--wide job-lists-shell">
     <header class="jgc-page-header">
       <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
@@ -32,10 +31,10 @@
     </div>
 
     <section class="job-list-admin-stats" aria-label="Job note totals">
-      <div class="job-list-stat"><strong id="jobListsOpenCount">0</strong><span>Open</span></div>
-      <div class="job-list-stat"><strong id="jobListsCompletedCount">0</strong><span>Completed</span></div>
-      <div class="job-list-stat"><strong id="jobListsDeletedCount">0</strong><span>Deleted</span></div>
-      <div class="job-list-stat"><strong id="jobListsDueCount">0</strong><span>Due reminders</span></div>
+      <div class="jgc-card job-list-stat"><strong id="jobListsOpenCount">0</strong><span>Open</span></div>
+      <div class="jgc-card job-list-stat"><strong id="jobListsCompletedCount">0</strong><span>Completed</span></div>
+      <div class="jgc-card job-list-stat"><strong id="jobListsDeletedCount">0</strong><span>Deleted</span></div>
+      <div class="jgc-card job-list-stat"><strong id="jobListsDueCount">0</strong><span>Due reminders</span></div>
     </section>
 
     <section class="jgc-panel">
@@ -58,8 +57,8 @@
         </div>
       </div>
 
-      <div class="job-list-admin-table-wrap">
-        <table class="job-list-admin-table">
+      <div class="jgc-table-wrap job-list-admin-table-wrap">
+        <table class="jgc-table jgc-table--wide job-list-admin-table">
           <thead>
             <tr>
               <th>Note</th>
