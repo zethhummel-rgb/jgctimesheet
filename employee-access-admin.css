@@ -16,7 +16,7 @@
 
 .employee-access-intro p {
   margin-top: 6px;
-  color: var(--jgc-text-muted, #b9c8c1);
+  color: var(--jgc-color-text-muted);
 }
 
 .employee-access-counts {
@@ -29,8 +29,8 @@
   display: grid;
   min-width: 92px;
   padding: 10px 12px;
-  border: 1px solid var(--jgc-border, #2e5a45);
-  background: var(--jgc-surface-2, #10271d);
+  border: 1px solid var(--jgc-color-border);
+  background: var(--jgc-color-surface-raised);
 }
 
 .employee-access-counts strong {
@@ -69,7 +69,7 @@
 
 .employee-access-person small {
   margin-top: 3px;
-  color: var(--jgc-text-muted, #b9c8c1);
+  color: var(--jgc-color-text-muted);
 }
 
 .employee-access-edit {
@@ -80,7 +80,7 @@
   width: 22px;
   height: 22px;
   margin: 0;
-  accent-color: #35d45c;
+  accent-color: var(--jgc-color-success);
 }
 
 .employee-access-check:disabled {
@@ -89,13 +89,13 @@
 }
 
 .employee-access-unavailable {
-  color: var(--jgc-text-muted, #b9c8c1);
+  color: var(--jgc-color-text-muted);
 }
 
 .employee-access-requirement {
   display: block;
   margin-top: 5px;
-  color: var(--jgc-text-muted, #b9c8c1);
+  color: var(--jgc-color-text-muted);
   font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
@@ -116,7 +116,7 @@
 .employee-access-feature-head small {
   display: block;
   margin-top: 4px;
-  color: var(--jgc-text-muted, #b9c8c1);
+  color: var(--jgc-color-text-muted);
   font-weight: 400;
 }
 
