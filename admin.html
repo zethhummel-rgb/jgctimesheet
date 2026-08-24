@@ -11,7 +11,8 @@
   <link rel="stylesheet" href="timesheet-design-system.css?v=1">
   <link rel="stylesheet" href="tasks-design-system.css?v=2">
   <link rel="stylesheet" href="jobs-design-system.css?v=3">
-<link rel="stylesheet" href="admin.css?v=12">
+<link rel="stylesheet" href="admin.css?v=13">
+<link rel="stylesheet" href="work-orders-design-system.css?v=1">
 <link rel="stylesheet" href="schedule-design-system.css?v=3">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
 </head>
@@ -893,14 +894,14 @@
     <div id="jobsList" class="small" style="margin-top:12px;">Loading jobs...</div>
 </div>
 
-<div id="workOrdersSection" class="card jgc-panel" hidden>
+<div id="workOrdersSection" class="card jgc-panel jgc-work-orders-admin" hidden>
     <h2>Work Orders</h2>
-    <div class="small" style="margin-bottom:12px;">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
-    <div class="actions jgc-actions" style="margin-top:10px;">
+    <div class="small wo-section-intro">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
+    <div class="actions jgc-actions wo-actions-spaced">
         <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadAdminWorkOrders()">Refresh Work Orders</button>
         <button class="jgc-button" type="button" onclick="window.location.href='work-orders.html'">Open Work Orders Page</button>
     </div>
-    <div id="adminWorkOrdersSummary" class="small" style="margin-top:12px;">Loading Work Order summary...</div>
+    <div id="adminWorkOrdersSummary" class="small wo-summary-spaced">Loading Work Order summary...</div>
     <div class="admin-wo-management jgc-section">
         <div class="wo-management-tabs jgc-tabs" role="tablist" aria-label="Admin Work Order Management Views">
             <button id="adminWoActiveTabButton" type="button" role="tab" aria-selected="true" class="active jgc-tab" onclick="setAdminWorkOrderManagementView('active')">Active WOs</button>
@@ -939,7 +940,7 @@
             </div>
             <iframe id="adminWorkOrderEditorFrame" class="admin-wo-editor-frame" title="Admin Work Order Editor" scrolling="no"></iframe>
         </div>
-        <div id="adminWorkOrdersList" class="small" style="margin-top:12px;">Loading Work Orders...</div>
+        <div id="adminWorkOrdersList" class="small wo-list-spaced">Loading Work Orders...</div>
     </div>
 </div>
 
@@ -1130,7 +1131,7 @@
 <script src="admin-reports.js?v=3"></script>
 <script src="admin-employee-profile.js?v=1"></script>
 <script src="admin-jobs.js?v=7"></script>
-<script src="admin-work-orders.js?v=2"></script>
+<script src="admin-work-orders.js?v=3"></script>
 <script src="admin-equipment.js?v=1"></script>
 <script src="admin-timesheets.js?v=10"></script>
 <script src="admin-summary.js?v=2"></script>

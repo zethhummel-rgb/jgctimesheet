@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "754";
+const JGC_RELEASE_ID = "755";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -57,7 +57,7 @@ const JGC_APP_SHELL = [
   "./tele-handler.html",
   "./policies-admin.html",
   "./styles.css?v=3",
-  "./admin.css?v=12",
+  "./admin.css?v=13",
   "./admin-global-search.css?v=5",
   "./accounting-admin.css?v=5",
   "./jgc-design-system.css?v=7",
@@ -70,6 +70,7 @@ const JGC_APP_SHELL = [
   "./directory-design-system.css?v=1",
   "./jobs-design-system.css?v=3",
   "./schedule-design-system.css?v=3",
+  "./work-orders-design-system.css?v=1",
   "./vacation-design-system.css?v=2",
   "./specialty-inspection-design-system.css?v=1",
   "./qr-inspection-design-system.css?v=1",
@@ -99,7 +100,7 @@ const JGC_APP_SHELL = [
   "./admin-reports.js?v=3",
   "./admin-employee-profile.js?v=1",
   "./admin-jobs.js?v=7",
-  "./admin-work-orders.js?v=2",
+  "./admin-work-orders.js?v=3",
   "./admin-equipment.js?v=1",
   "./admin-timesheets.js?v=10",
   "./admin-summary.js?v=2",

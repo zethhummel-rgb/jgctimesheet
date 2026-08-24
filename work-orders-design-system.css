@@ -1,0 +1,1018 @@
+/*
+ * JGC Work Orders
+ *
+ * Employee and Admin Work Orders share this token-only visual layer.
+ * Workflow selectors remain available as JavaScript hooks.
+ */
+
+body.work-orders-page {
+  font-family: var(--jgc-font-family);
+  background: var(--jgc-color-page);
+  color: var(--jgc-color-text);
+  margin: 0;
+  padding: 20px;
+}
+
+body.work-orders-page.jgc-page {
+  background: var(--jgc-color-page);
+  color: var(--jgc-color-text);
+  padding: 20px;
+}
+
+.work-orders-page .page.jgc-page-shell {
+  width: 100%;
+  max-width: 1220px;
+  padding: 0;
+}
+
+.work-orders-page .work-order-page-header.jgc-page-header {
+  display: block;
+  margin-bottom: 0;
+}
+
+.work-orders-page .work-order-page-header.jgc-page-header h1 {
+  color: var(--jgc-color-brand-400);
+  font-size: 2em;
+}
+
+.work-orders-page .card.jgc-panel {
+  background: var(--jgc-color-surface);
+  border: 1px solid var(--jgc-color-border);
+  border-top: 4px solid var(--jgc-color-brand-400);
+  border-radius: var(--jgc-radius-lg);
+  padding: 16px;
+  box-shadow: var(--jgc-shadow-md);
+}
+
+.work-orders-page .jgc-button {
+  min-height: var(--jgc-control-height);
+  padding: 10px 14px;
+  background: var(--jgc-color-brand-600);
+  border: 0;
+  border-radius: var(--jgc-radius-sm);
+  font-family: var(--jgc-font-family);
+}
+
+.work-orders-page .jgc-button.secondary,
+.work-orders-page .jgc-button--secondary {
+  background: var(--jgc-color-surface-soft);
+}
+
+.work-orders-page .jgc-button.delete-button,
+.work-orders-page .jgc-button--danger {
+  background: var(--jgc-color-danger);
+}
+
+.work-orders-page .jgc-input,
+.work-orders-page .jgc-select,
+.work-orders-page .jgc-textarea {
+  min-height: var(--jgc-control-height);
+  padding: 10px;
+  border: 1px solid var(--jgc-color-input-border);
+  border-radius: var(--jgc-radius-md);
+  background: var(--jgc-color-input);
+  color: var(--jgc-color-text-dark);
+  font-family: var(--jgc-font-family);
+  font-size: 15px;
+}
+
+.work-orders-page .wo-management-tabs.jgc-tabs {
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding-bottom: 0;
+  overflow: visible;
+}
+
+.work-orders-page .wo-management-tabs .jgc-tab {
+  flex: 0 1 auto;
+  min-height: var(--jgc-control-height);
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--jgc-radius-sm);
+  font-size: inherit;
+}
+
+.work-orders-page .pill.jgc-badge {
+  min-height: 0;
+  padding: 3px 8px;
+  border: 0;
+  color: var(--jgc-color-text-dark);
+}
+
+.work-orders-page .pill.jgc-badge.ready_for_submission {
+  color: var(--jgc-color-badge-warning);
+}
+
+.work-orders-page .pill.jgc-badge.submitted {
+  color: var(--jgc-color-badge-info);
+}
+
+.work-orders-page .form-grid.jgc-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.work-orders-page .filters.jgc-filter-grid {
+  grid-template-columns: 1fr 160px 150px;
+}
+
+.work-orders-page .form-section.jgc-section {
+  padding-block: 0;
+  border-top: 0;
+}
+
+body.work-orders-page.embedded-work-order {
+  padding: 0;
+  background: var(--jgc-color-page);
+  min-height: 0;
+  overflow: hidden;
+}
+
+html.embedded-work-order-root {
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.work-orders-page.embedded-work-order .logo-wrap,
+body.work-orders-page.embedded-work-order .work-order-page-header,
+body.work-orders-page.embedded-work-order h1,
+body.work-orders-page.embedded-work-order #currentUser,
+body.work-orders-page.embedded-work-order .top-actions,
+body.work-orders-page.embedded-work-order #workOrderManagementCard {
+  display: none;
+}
+
+body.work-orders-page.embedded-work-order #jgcNotificationBell {
+  display: none !important;
+}
+
+body.work-orders-page.embedded-work-order .page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+body.work-orders-page.embedded-work-order .card {
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: none;
+}
+
+.work-orders-page .page {
+  max-width: 1220px;
+  margin: 0 auto;
+}
+
+.work-orders-page .logo-wrap {
+  max-width: 260px;
+  margin: 0 auto 10px;
+}
+
+.work-orders-page .logo-wrap img {
+  width: 100%;
+  display: block;
+}
+
+.work-orders-page h1,
+.work-orders-page h2,
+.work-orders-page h3 {
+  color: var(--jgc-color-brand-400);
+}
+
+.work-orders-page h1 {
+  text-align: center;
+  margin: 0 0 8px;
+}
+
+.work-orders-page .small {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+}
+
+.work-orders-page .top-actions,
+.work-orders-page .actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.work-orders-page .top-actions {
+  justify-content: center;
+  margin: 14px 0;
+}
+
+.work-orders-page .grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
+.work-orders-page .card {
+  background: var(--jgc-color-surface);
+  border: 1px solid var(--jgc-color-border);
+  border-top: 4px solid var(--jgc-color-brand-400);
+  border-radius: var(--jgc-radius-lg);
+  padding: 16px;
+  box-shadow: var(--jgc-shadow-md);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.work-orders-page .collapse-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  color: var(--jgc-color-brand-400);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.work-orders-page .collapse-header h2 {
+  margin: 0;
+}
+
+.work-orders-page .collapse-header span {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+}
+
+.work-orders-page .collapse-body {
+  margin-top: 14px;
+}
+
+.work-orders-page .collapse-body[hidden] {
+  display: none;
+}
+
+.work-orders-page .form-section {
+  margin-top: 18px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.work-orders-page .form-section.collapsible {
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 14%, transparent);
+  border-radius: var(--jgc-radius-lg);
+  padding: 12px;
+  background: color-mix(in srgb, var(--jgc-color-text) 2.5%, transparent);
+}
+
+.work-orders-page .form-section-header {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  color: var(--jgc-color-brand-400);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.work-orders-page .form-section-header h3 {
+  margin: 0;
+}
+
+.work-orders-page .form-section-body {
+  margin-top: 12px;
+}
+
+.work-orders-page .form-section-body[hidden] {
+  display: none;
+}
+
+.work-orders-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.work-orders-page .full {
+  grid-column: 1 / -1;
+}
+
+.work-orders-page label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.work-orders-page input,
+.work-orders-page select,
+.work-orders-page textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: var(--jgc-radius-md);
+  border: 1px solid var(--jgc-color-input-border);
+  background: var(--jgc-color-input);
+  color: var(--jgc-color-text-dark);
+  font-size: 15px;
+}
+
+.work-orders-page input[readonly] {
+  background: color-mix(in srgb, var(--jgc-color-input) 84%, var(--jgc-color-input-border));
+  color: color-mix(in srgb, var(--jgc-color-text-dark) 78%, var(--jgc-color-input-border));
+  cursor: not-allowed;
+}
+
+.work-orders-page textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.work-orders-page button {
+  background: var(--jgc-color-brand-600);
+  color: var(--jgc-color-on-brand);
+  border: none;
+  padding: 10px 14px;
+  border-radius: var(--jgc-radius-sm);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.work-orders-page button.secondary {
+  background: var(--jgc-color-surface-soft);
+}
+
+.work-orders-page button.delete-button {
+  background: var(--jgc-color-danger);
+}
+
+.work-orders-page button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.work-orders-page .filters {
+  display: grid;
+  grid-template-columns: 1fr 160px 150px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.work-orders-page .table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.work-orders-page .wo-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.work-orders-page #managementBody {
+  min-width: 0;
+}
+
+.work-orders-page #woList .wo-management-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.work-orders-page #woList .wo-management-table table {
+  min-width: 820px;
+}
+
+.work-orders-page #woList .wo-management-table .actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.work-orders-page #woList .wo-management-table .actions button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.work-orders-page .wo-management-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+
+.work-orders-page .wo-management-tabs button {
+  width: auto;
+  background: var(--jgc-color-surface-soft);
+}
+
+.work-orders-page .wo-management-tabs button.active {
+  background: var(--jgc-color-brand-400);
+  color: var(--jgc-color-page);
+}
+
+.work-orders-page table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  background: var(--jgc-color-page-deep);
+}
+
+.work-orders-page th,
+.work-orders-page td {
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 16%, transparent);
+  padding: 9px;
+  text-align: left;
+  vertical-align: top;
+  font-size: var(--jgc-font-size-sm);
+}
+
+.work-orders-page th {
+  background: var(--jgc-color-brand-800);
+}
+
+.work-orders-page .pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--jgc-radius-pill);
+  background: color-mix(in srgb, var(--jgc-color-success) 18%, var(--jgc-color-input));
+  color: var(--jgc-color-text-dark);
+  font-weight: bold;
+  font-size: var(--jgc-font-size-xs);
+}
+
+.work-orders-page .pill.draft {
+  background: color-mix(in srgb, var(--jgc-color-success) 18%, var(--jgc-color-input));
+}
+
+.work-orders-page .pill.ready_for_submission {
+  background: color-mix(in srgb, var(--jgc-color-warning) 34%, var(--jgc-color-input));
+  color: var(--jgc-color-badge-warning);
+}
+
+.work-orders-page .pill.pending-submission {
+  max-width: 118px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+.work-orders-page .pill.submitted {
+  background: color-mix(in srgb, var(--jgc-color-info) 24%, var(--jgc-color-input));
+  color: var(--jgc-color-badge-info);
+}
+
+.work-orders-page .po-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1.4fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.work-orders-page .misc-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.work-orders-page .item-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 14%, transparent);
+  border-radius: var(--jgc-radius-md);
+  background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
+}
+
+.work-orders-page .item-row .wide {
+  grid-column: 1 / -1;
+}
+
+.work-orders-page .item-row button {
+  align-self: end;
+}
+
+.work-orders-page .section-actions {
+  margin: 8px 0 16px;
+}
+
+.work-orders-page .pdf-frame {
+  background: var(--jgc-color-on-brand);
+  color: var(--jgc-color-text-dark);
+}
+
+.work-orders-page .employee-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.work-orders-page .employee-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 14%, transparent);
+  border-radius: var(--jgc-radius-md);
+  background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
+  cursor: pointer;
+}
+
+.work-orders-page .employee-check input {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.work-orders-page .employee-check span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-orders-page .job-search-wrap {
+  position: relative;
+}
+
+.work-orders-page .job-suggestions {
+  display: none;
+  margin-top: 6px;
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-md);
+  background: var(--jgc-color-page-deep);
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.work-orders-page .job-suggestions.open {
+  display: grid;
+}
+
+.work-orders-page .job-suggestion {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--jgc-color-text);
+  text-align: left;
+  white-space: normal;
+}
+
+.work-orders-page .job-suggestion:hover,
+.work-orders-page .job-suggestion:focus {
+  background: color-mix(in srgb, var(--jgc-color-brand-400) 18%, transparent);
+}
+
+.work-orders-page .labour-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.work-orders-page .manual-labour-panel {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 14%, transparent);
+  border-radius: var(--jgc-radius-md);
+  background: color-mix(in srgb, var(--jgc-color-text) 4%, transparent);
+}
+
+.work-orders-page .manual-labour-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.work-orders-page .manual-labour-toggle input {
+  width: auto;
+}
+
+.work-orders-page .manual-labour-grid {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 10px;
+}
+
+.work-orders-page .manual-labour-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.work-orders-page .manual-labour-row {
+  display: grid;
+  grid-template-columns: 1fr 180px auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.work-orders-page .manual-labour-row .danger {
+  width: auto;
+  min-width: 44px;
+  padding: 10px 12px;
+}
+
+.work-orders-page .manual-labour-actions {
+  margin-top: 10px;
+}
+
+.work-orders-page .labour-metric {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 22%, transparent);
+  border-radius: var(--jgc-radius-md);
+  background: color-mix(in srgb, var(--jgc-color-page-deep) 58%, transparent);
+}
+
+.work-orders-page .labour-metric strong {
+  display: block;
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-lg);
+}
+
+.work-orders-page .complete-text {
+  color: var(--jgc-color-link-hover);
+  font-weight: bold;
+}
+
+.work-orders-page .missing-text {
+  color: var(--jgc-color-warning);
+  font-weight: bold;
+}
+
+.work-orders-page .locked-note {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--jgc-color-warning) 35%, transparent);
+  border-radius: var(--jgc-radius-md);
+  background: color-mix(in srgb, var(--jgc-color-warning) 12%, transparent);
+  color: var(--jgc-color-badge-warning-text);
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 920px) {
+  body.work-orders-page {
+    padding: 12px;
+  }
+
+  body.work-orders-page.jgc-page {
+    padding: 12px;
+  }
+
+  .work-orders-page .grid,
+.work-orders-page .form-grid,
+.work-orders-page .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .form-grid.jgc-form-grid,
+.work-orders-page .filters.jgc-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .po-row {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .labour-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .manual-labour-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .manual-labour-row {
+    grid-template-columns: 1fr;
+  }
+
+  .work-orders-page .employee-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 7px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .work-orders-page .employee-check {
+    flex: 1 1 calc(50% - 7px);
+    width: auto;
+    max-width: calc(50% - 7px);
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px;
+  }
+
+  .work-orders-page #labourPreview {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .work-orders-page #labourPreview .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .work-orders-page #labourPreview table {
+    min-width: 560px;
+  }
+
+  .work-orders-page button {
+    width: 100%;
+  }
+
+  .work-orders-page #woList .wo-management-table .actions button {
+    width: auto;
+    padding: 6px 8px;
+    font-size: var(--jgc-font-size-xs);
+  }
+
+  .work-orders-page .wo-management-tabs button {
+    width: auto;
+    flex: 1 1 140px;
+  }
+
+  .work-orders-page #woList .wo-management-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .work-orders-page .page {
+    overflow-x: hidden;
+  }
+}
+
+@media (max-width: 480px) {
+  .work-orders-page .employee-check {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
+
+.work-orders-page .wo-current-user {
+  text-align: center;
+}
+
+:is(.work-orders-page, .jgc-work-orders-admin) .wo-section-intro {
+  margin-bottom: var(--jgc-space-3);
+}
+
+:is(.work-orders-page, .jgc-work-orders-admin) .wo-actions-spaced {
+  margin-top: var(--jgc-space-3);
+}
+
+.work-orders-page .wo-actions-bottom {
+  margin-top: 14px;
+}
+
+.work-orders-page .wo-labour-actions {
+  margin-bottom: 10px;
+}
+
+.work-orders-page .wo-status-line {
+  margin-top: 6px;
+}
+
+.work-orders-page .wo-digital-po-refresh {
+  display: flex;
+  align-items: flex-end;
+}
+
+.work-orders-page .wo-digital-po-status {
+  margin: 10px 0;
+}
+
+.work-orders-page .wo-linked-wrap {
+  margin-top: 14px;
+}
+
+.work-orders-page .wo-equipment-help {
+  margin-bottom: var(--jgc-space-2);
+}
+
+.work-orders-page .wo-form-status,
+.jgc-work-orders-admin .wo-summary-spaced,
+.jgc-work-orders-admin .wo-list-spaced {
+  margin-top: 10px;
+}
+
+.work-orders-page .wo-empty-message {
+  padding: 9px 10px;
+}
+
+.work-orders-page .wo-empty-list-message {
+  margin-top: var(--jgc-space-3);
+}
+
+.work-orders-page .wo-inline-checkbox {
+  width: auto;
+  margin-right: var(--jgc-space-2);
+}
+
+.work-orders-page .locked-note[hidden] {
+  display: none;
+}
+
+.jgc-work-orders-admin .admin-wo-management {
+  margin-top: var(--jgc-space-3);
+}
+
+.jgc-work-orders-admin .filters {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) minmax(145px, 175px);
+}
+
+.jgc-work-orders-admin .admin-wo-management-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  border-radius: var(--jgc-radius-lg);
+  -webkit-overflow-scrolling: touch;
+}
+
+.jgc-work-orders-admin .admin-wo-management-table table {
+  min-width: 920px;
+}
+
+.jgc-work-orders-admin .admin-wo-management-table .actions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.jgc-work-orders-admin .admin-wo-management-table .actions button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.jgc-work-orders-admin .admin-wo-editor-panel {
+  margin: 14px 0;
+  padding: var(--jgc-space-3);
+  border: 1px solid var(--jgc-color-border);
+  border-top: 4px solid var(--jgc-color-brand-400);
+  border-radius: var(--jgc-radius-lg);
+  background: var(--jgc-color-surface);
+}
+
+.jgc-work-orders-admin .admin-wo-editor-panel[hidden] {
+  display: none;
+}
+
+.jgc-work-orders-admin .admin-wo-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.jgc-work-orders-admin .admin-wo-editor-header h3 {
+  margin: 0;
+}
+
+.jgc-work-orders-admin .admin-wo-editor-frame {
+  display: block;
+  width: 100%;
+  height: 720px;
+  min-height: 720px;
+  overflow: hidden;
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-lg);
+  background: var(--jgc-color-page);
+}
+
+.jgc-work-orders-admin .wo-management-tabs {
+  display: flex;
+  gap: var(--jgc-space-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--jgc-space-3);
+}
+
+.jgc-work-orders-admin .wo-management-tabs button {
+  width: auto;
+  background: var(--jgc-color-surface-soft);
+  color: var(--jgc-color-text);
+}
+
+.jgc-work-orders-admin .wo-management-tabs button.active {
+  background: var(--jgc-color-brand-500);
+  color: var(--jgc-color-page);
+}
+
+.jgc-work-orders-admin .pill {
+  display: inline-block;
+  padding: 3px var(--jgc-space-2);
+  border-radius: var(--jgc-radius-pill);
+  color: var(--jgc-color-text-dark);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 700;
+}
+
+.jgc-work-orders-admin .pill.draft {
+  background: color-mix(in srgb, var(--jgc-color-success) 18%, var(--jgc-color-input));
+}
+
+.jgc-work-orders-admin .pill.ready_for_submission {
+  color: var(--jgc-color-badge-warning);
+  background: color-mix(in srgb, var(--jgc-color-warning) 34%, var(--jgc-color-input));
+}
+
+.jgc-work-orders-admin .pill.pending-submission {
+  max-width: 118px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+.jgc-work-orders-admin .pill.submitted {
+  color: var(--jgc-color-badge-info);
+  background: color-mix(in srgb, var(--jgc-color-info) 24%, var(--jgc-color-input));
+}
+
+.jgc-work-orders-admin .summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  gap: var(--jgc-space-2);
+}
+
+.jgc-work-orders-admin .summary-tile {
+  min-height: 108px;
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text) !important;
+  background: var(--jgc-color-surface-raised) !important;
+  border: 1px solid var(--jgc-color-border);
+  border-top: 1px solid var(--jgc-color-border);
+  box-shadow: inset 0 -5px 0 var(--jgc-color-brand-500), var(--jgc-shadow-sm);
+}
+
+.jgc-work-orders-admin .summary-tile,
+.jgc-work-orders-admin .summary-tile * {
+  color: var(--jgc-color-text) !important;
+}
+
+.jgc-work-orders-admin .summary-tile h3 {
+  margin: 0 0 var(--jgc-space-2);
+  font-size: var(--jgc-font-size-md);
+}
+
+.jgc-work-orders-admin .summary-value {
+  color: var(--jgc-color-brand-400) !important;
+  font-size: 30px;
+}
+
+.jgc-work-orders-admin .summary-detail {
+  margin-top: var(--jgc-space-1);
+  color: var(--jgc-color-text-muted) !important;
+}
+
+@media (max-width: 720px) {
+  .jgc-work-orders-admin .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .jgc-work-orders-admin .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jgc-work-orders-admin .summary-tile {
+    min-height: 96px;
+    padding: var(--jgc-space-3);
+  }
+
+  .jgc-work-orders-admin .admin-wo-editor-header,
+  .jgc-work-orders-admin .admin-wo-editor-header .jgc-actions {
+    align-items: stretch;
+  }
+
+  .jgc-work-orders-admin .admin-wo-editor-header .jgc-actions,
+  .jgc-work-orders-admin .admin-wo-editor-header .jgc-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 440px) {
+  .jgc-work-orders-admin .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

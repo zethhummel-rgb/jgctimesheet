@@ -297,7 +297,7 @@ function renderAdminWorkOrders() {
     }
 
     if (!filtered.length) {
-        list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (adminWorkOrderManagementView === "submitted" ? "past" : "active") + ' Work Orders found.</div>';
+        list.innerHTML = '<div class="small wo-list-spaced">No ' + (adminWorkOrderManagementView === "submitted" ? "past" : "active") + ' Work Orders found.</div>';
         return;
     }
 

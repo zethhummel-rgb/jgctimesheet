@@ -6,776 +6,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JGC Portal - Work Orders</title>
-<link rel="stylesheet" href="styles.css?v=3">
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #061411;
-  color: #ffffff;
-  margin: 0;
-  padding: 20px;
-}
-
-body.work-orders-page.jgc-page {
-  background: #061411;
-  color: #ffffff;
-  padding: 20px;
-}
-
-.work-orders-page .page.jgc-page-shell {
-  width: 100%;
-  max-width: 1220px;
-  padding: 0;
-}
-
-.work-orders-page .work-order-page-header.jgc-page-header {
-  display: block;
-  margin-bottom: 0;
-}
-
-.work-orders-page .work-order-page-header.jgc-page-header h1 {
-  color: #37d650;
-  font-size: 2em;
-}
-
-.work-orders-page .card.jgc-panel {
-  background: #102018;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-top: 4px solid #37d650;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
-}
-
-.work-orders-page .jgc-button {
-  min-height: 0;
-  padding: 10px 14px;
-  background: #14883f;
-  border: 0;
-  border-radius: 5px;
-  font-family: Arial, sans-serif;
-}
-
-.work-orders-page .jgc-button.secondary,
-.work-orders-page .jgc-button--secondary {
-  background: #26352d;
-}
-
-.work-orders-page .jgc-button.delete-button,
-.work-orders-page .jgc-button--danger {
-  background: #b42323;
-}
-
-.work-orders-page .jgc-input,
-.work-orders-page .jgc-select,
-.work-orders-page .jgc-textarea {
-  min-height: 0;
-  padding: 10px;
-  border: 1px solid #6d7d70;
-  border-radius: 6px;
-  background: #f7faf6;
-  color: #102018;
-  font-family: Arial, sans-serif;
-  font-size: 15px;
-}
-
-.work-orders-page .wo-management-tabs.jgc-tabs {
-  flex-wrap: wrap;
-  margin: 0 0 12px;
-  padding-bottom: 0;
-  overflow: visible;
-}
-
-.work-orders-page .wo-management-tabs .jgc-tab {
-  flex: 0 1 auto;
-  min-height: 0;
-  padding: 10px 14px;
-  border: 0;
-  border-radius: 5px;
-  font-size: inherit;
-}
-
-.work-orders-page .pill.jgc-badge {
-  min-height: 0;
-  padding: 3px 8px;
-  border: 0;
-  color: #102018;
-}
-
-.work-orders-page .pill.jgc-badge.ready_for_submission {
-  color: #634900;
-}
-
-.work-orders-page .pill.jgc-badge.submitted {
-  color: #0d3c72;
-}
-
-.work-orders-page .form-grid.jgc-form-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.work-orders-page .filters.jgc-filter-grid {
-  grid-template-columns: 1fr 160px 150px;
-}
-
-.work-orders-page .form-section.jgc-section {
-  padding-block: 0;
-  border-top: 0;
-}
-
-body.embedded-work-order {
-  padding: 0;
-  background: #061411;
-  min-height: 0;
-  overflow: hidden;
-}
-
-html.embedded-work-order-root {
-  min-height: 0;
-  overflow: hidden;
-}
-
-body.embedded-work-order .logo-wrap,
-body.embedded-work-order .work-order-page-header,
-body.embedded-work-order h1,
-body.embedded-work-order #currentUser,
-body.embedded-work-order .top-actions,
-body.embedded-work-order #workOrderManagementCard {
-  display: none;
-}
-
-body.work-orders-page.embedded-work-order #jgcNotificationBell {
-  display: none !important;
-}
-
-body.embedded-work-order .page {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-}
-
-body.embedded-work-order .card {
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.page {
-  max-width: 1220px;
-  margin: 0 auto;
-}
-
-.logo-wrap {
-  max-width: 260px;
-  margin: 0 auto 10px;
-}
-
-.logo-wrap img {
-  width: 100%;
-  display: block;
-}
-
-h1,
-h2,
-h3 {
-  color: #37d650;
-}
-
-h1 {
-  text-align: center;
-  margin: 0 0 8px;
-}
-
-.small {
-  color: #d7e6d6;
-  font-size: 13px;
-}
-
-.top-actions,
-.actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.top-actions {
-  justify-content: center;
-  margin: 14px 0;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  align-items: start;
-  min-width: 0;
-}
-
-.card {
-  background: #102018;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-top: 4px solid #37d650;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
-  min-width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.collapse-header {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: transparent;
-  color: #37d650;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-}
-
-.collapse-header h2 {
-  margin: 0;
-}
-
-.collapse-header span {
-  color: #d7e6d6;
-  font-size: 13px;
-}
-
-.collapse-body {
-  margin-top: 14px;
-}
-
-.collapse-body[hidden] {
-  display: none;
-}
-
-.form-section {
-  margin-top: 18px;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.form-section.collapsible {
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 8px;
-  padding: 12px;
-  background: rgba(255,255,255,0.025);
-}
-
-.form-section-header {
-  width: 100%;
-  padding: 0;
-  background: transparent;
-  color: #37d650;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  text-align: left;
-}
-
-.form-section-header h3 {
-  margin: 0;
-}
-
-.form-section-body {
-  margin-top: 12px;
-}
-
-.form-section-body[hidden] {
-  display: none;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.full {
-  grid-column: 1 / -1;
-}
-
-label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #6d7d70;
-  background: #f7faf6;
-  color: #102018;
-  font-size: 15px;
-}
-
-input[readonly] {
-  background: #dfe7df;
-  color: #344239;
-  cursor: not-allowed;
-}
-
-textarea {
-  min-height: 130px;
-  resize: vertical;
-}
-
-button {
-  background: #14883f;
-  color: #ffffff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-button.secondary {
-  background: #26352d;
-}
-
-button.delete-button {
-  background: #b42323;
-}
-
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.filters {
-  display: grid;
-  grid-template-columns: 1fr 160px 150px;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.table-wrap {
-  overflow-x: auto;
-  overflow-y: hidden;
-  width: 100%;
-  max-width: 100%;
-  -webkit-overflow-scrolling: touch;
-}
-
-.wo-table-scroll {
-  overflow-x: auto;
-  width: 100%;
-  max-width: 100%;
-  -webkit-overflow-scrolling: touch;
-}
-
-#managementBody {
-  min-width: 0;
-}
-
-#woList .wo-management-table {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
-}
-
-#woList .wo-management-table table {
-  min-width: 820px;
-}
-
-#woList .wo-management-table .actions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-}
-
-#woList .wo-management-table .actions button {
-  width: auto;
-  white-space: nowrap;
-}
-
-.wo-management-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 0 0 12px;
-}
-
-.wo-management-tabs button {
-  width: auto;
-  background: #26352d;
-}
-
-.wo-management-tabs button.active {
-  background: #37d650;
-  color: #061411;
-}
-
-table {
-  width: 100%;
-  min-width: 860px;
-  border-collapse: collapse;
-  background: #0b1714;
-}
-
-th,
-td {
-  border: 1px solid rgba(255,255,255,0.16);
-  padding: 9px;
-  text-align: left;
-  vertical-align: top;
-  font-size: 13px;
-}
-
-th {
-  background: #12371e;
-}
-
-.pill {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #dcefdc;
-  color: #102018;
-  font-weight: bold;
-  font-size: 12px;
-}
-
-.pill.draft {
-  background: #dcefdc;
-}
-
-.pill.ready_for_submission {
-  background: #fff2c2;
-  color: #634900;
-}
-
-.pill.pending-submission {
-  max-width: 118px;
-  line-height: 1.2;
-  text-align: center;
-  white-space: normal;
-}
-
-.pill.submitted {
-  background: #cfe4ff;
-  color: #0d3c72;
-}
-
-.po-row {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1.4fr auto;
-  gap: 8px;
-  margin-bottom: 8px;
-  align-items: center;
-}
-
-.misc-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  margin-bottom: 8px;
-  align-items: center;
-}
-
-.item-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 7px;
-  background: rgba(255,255,255,0.04);
-}
-
-.item-row .wide {
-  grid-column: 1 / -1;
-}
-
-.item-row button {
-  align-self: end;
-}
-
-.section-actions {
-  margin: 8px 0 16px;
-}
-
-.pdf-frame {
-  background: #ffffff;
-  color: #111111;
-}
-
-.employee-picker {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.employee-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 9px;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 6px;
-  background: rgba(255,255,255,0.04);
-  cursor: pointer;
-}
-
-.employee-check input {
-  flex: 0 0 auto;
-  width: auto;
-}
-
-.employee-check span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.job-search-wrap {
-  position: relative;
-}
-
-.job-suggestions {
-  display: none;
-  margin-top: 6px;
-  border: 1px solid rgba(99, 205, 107, 0.28);
-  border-radius: 6px;
-  background: #0b1714;
-  max-height: 220px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.job-suggestions.open {
-  display: grid;
-}
-
-.job-suggestion {
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  border-radius: 0;
-  background: transparent;
-  color: #f7fff7;
-  text-align: left;
-  white-space: normal;
-}
-
-.job-suggestion:hover,
-.job-suggestion:focus {
-  background: rgba(55, 214, 80, 0.18);
-}
-
-.labour-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.manual-labour-panel {
-  margin: 10px 0;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 7px;
-  background: rgba(255,255,255,0.04);
-}
-
-.manual-labour-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.manual-labour-toggle input {
-  width: auto;
-}
-
-.manual-labour-grid {
-  display: grid;
-  grid-template-columns: 1fr 180px;
-  gap: 10px;
-}
-
-.manual-labour-rows {
-  display: grid;
-  gap: 10px;
-}
-
-.manual-labour-row {
-  display: grid;
-  grid-template-columns: 1fr 180px auto;
-  gap: 10px;
-  align-items: end;
-}
-
-.manual-labour-row .danger {
-  width: auto;
-  min-width: 44px;
-  padding: 10px 12px;
-}
-
-.manual-labour-actions {
-  margin-top: 10px;
-}
-
-.labour-metric {
-  padding: 10px;
-  border: 1px solid rgba(99, 205, 107, 0.22);
-  border-radius: 6px;
-  background: rgba(0,0,0,0.16);
-}
-
-.labour-metric strong {
-  display: block;
-  color: #37d650;
-  font-size: 20px;
-}
-
-.complete-text {
-  color: #5dff76;
-  font-weight: bold;
-}
-
-.missing-text {
-  color: #ffbf69;
-  font-weight: bold;
-}
-
-.locked-note {
-  padding: 10px;
-  border: 1px solid rgba(255, 191, 105, 0.35);
-  border-radius: 6px;
-  background: rgba(255, 191, 105, 0.12);
-  color: #ffdda8;
-  font-weight: bold;
-  margin-bottom: 12px;
-}
-
-@media (max-width: 920px) {
-  body {
-    padding: 12px;
-  }
-
-  body.work-orders-page.jgc-page {
-    padding: 12px;
-  }
-
-  .grid,
-  .form-grid,
-  .filters {
-    grid-template-columns: 1fr;
-  }
-
-  .work-orders-page .form-grid.jgc-form-grid,
-  .work-orders-page .filters.jgc-filter-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .po-row {
-    grid-template-columns: 1fr;
-  }
-
-  .item-row {
-    grid-template-columns: 1fr;
-  }
-
-  .labour-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .manual-labour-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .manual-labour-row {
-    grid-template-columns: 1fr;
-  }
-
-  .employee-picker {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 7px;
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .employee-check {
-    flex: 1 1 calc(50% - 7px);
-    width: auto;
-    max-width: calc(50% - 7px);
-    min-width: 0;
-    box-sizing: border-box;
-    padding: 8px;
-  }
-
-  #labourPreview {
-    max-width: 100%;
-    overflow: hidden;
-  }
-
-  #labourPreview .table-wrap {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-
-  #labourPreview table {
-    min-width: 560px;
-  }
-
-  button {
-    width: 100%;
-  }
-
-  #woList .wo-management-table .actions button {
-    width: auto;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-
-  .wo-management-tabs button {
-    width: auto;
-    flex: 1 1 140px;
-  }
-
-  #woList .wo-management-table {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .page {
-    overflow-x: hidden;
-  }
-}
-
-@media (max-width: 480px) {
-  .employee-check {
-    flex-basis: 100%;
-    max-width: 100%;
-  }
-}
-</style>
+<meta name="theme-color" content="#0b5e3b">
+<link rel="manifest" href="manifest.json?v=7">
+<link rel="stylesheet" href="jgc-design-system.css?v=7" data-jgc-design-system="7">
+<link rel="stylesheet" href="work-orders-design-system.css?v=1">
 </head>
-<body class="work-orders-page jgc-page">
+<body class="work-orders-page jgc-page jgc-system-page">
 <main class="page jgc-page-shell jgc-page-shell--wide">
   <header class="work-order-page-header jgc-page-header">
     <div class="logo-wrap jgc-brand">
@@ -783,7 +19,7 @@ th {
     </div>
 
     <h1>Work Orders</h1>
-    <div id="currentUser" class="small" style="text-align:center;"></div>
+    <div id="currentUser" class="small wo-current-user"></div>
   </header>
 
   <div class="top-actions jgc-actions">
@@ -821,8 +57,8 @@ th {
 
     <section id="workOrderFormCard" class="card jgc-panel">
       <h2 id="formTitle">New Work Order</h2>
-      <div class="small" style="margin-bottom:12px;">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
-      <div id="lockedNotice" class="locked-note" style="display:none;">This Work Order has been submitted and is locked.</div>
+      <div class="small wo-section-intro">Create and manage Work Order drafts with PO numbers, labour, equipment, rentals, materials, and PDF/email submission.</div>
+      <div id="lockedNotice" class="locked-note" hidden>This Work Order has been submitted and is locked.</div>
 
       <div class="form-grid jgc-form-grid">
         <div class="jgc-field">
@@ -840,7 +76,7 @@ th {
             <option value="ready_for_submission">Ready For Submission</option>
             <option value="submitted" disabled>Submitted - locked</option>
           </select>
-          <div id="woSubmittedInfo" class="small" style="margin-top:6px;"></div>
+          <div id="woSubmittedInfo" class="small wo-status-line"></div>
         </div>
         <div class="jgc-field">
           <label>Customer PO#</label>
@@ -877,7 +113,7 @@ th {
 
       <div class="form-section jgc-section">
         <h3>Labour</h3>
-        <div class="small" style="margin-bottom:8px;">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
+        <div class="small wo-equipment-help">Select the employees expected on this Work Order. Matching checks same employee, same job number, and same date.</div>
         <div id="employeePicker" class="employee-picker small">Loading employees...</div>
         <div class="manual-labour-panel">
           <label class="manual-labour-toggle">
@@ -891,7 +127,7 @@ th {
             </div>
           </div>
         </div>
-        <div class="actions jgc-actions" style="margin-bottom:10px;">
+        <div class="actions jgc-actions wo-labour-actions">
           <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="refreshLabourPreview()">Refresh Labour Match</button>
         </div>
         <div id="labourPreview" class="small">Select employees to preview labour.</div>
@@ -910,13 +146,13 @@ th {
             <label for="digitalPoWorkOrderDate">PO Date</label>
             <input id="digitalPoWorkOrderDate" class="jgc-input" type="date">
           </div>
-          <div style="display:flex;align-items:end;">
+          <div class="wo-digital-po-refresh">
             <button id="refreshDigitalPoOptionsButton" type="button" class="secondary jgc-button jgc-button--secondary">Refresh Digital POs</button>
           </div>
         </div>
-        <div id="digitalPoWorkOrderStatus" class="small" style="margin:10px 0;">Select a job and date.</div>
+        <div id="digitalPoWorkOrderStatus" class="small wo-digital-po-status">Select a job and date.</div>
         <div id="digitalPoAvailableList"></div>
-        <div id="digitalPoLinkedWrap" style="margin-top:14px;" hidden>
+        <div id="digitalPoLinkedWrap" class="wo-linked-wrap" hidden>
           <label>Linked Digital Portal POs</label>
           <div id="digitalPoLinkedList"></div>
         </div>
@@ -967,7 +203,7 @@ th {
           <span id="equipmentToggleText">Show</span>
         </button>
         <div id="equipmentSectionBody" class="form-section-body" hidden>
-          <div class="small" style="margin-bottom:8px;">Select lifts only. Trailers are tracked under Travelling.</div>
+          <div class="small wo-equipment-help">Select lifts only. Trailers are tracked under Travelling.</div>
           <div id="equipmentRows"></div>
           <div class="section-actions jgc-actions">
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="addEquipmentRow()">Add Equipment</button>
@@ -999,13 +235,13 @@ th {
         </div>
       </div>
 
-<div class="actions jgc-actions" style="margin-top:14px;">
+<div class="actions jgc-actions wo-actions-bottom">
   <button id="saveButton" class="jgc-button" type="button" onclick="saveWorkOrder()">Save Draft</button>
   <button id="submitButton" class="jgc-button" type="button" onclick="submitCurrentWorkOrder()">Submit Work Order</button>
   <button id="earlySubmitButton" type="button" class="secondary jgc-button jgc-button--secondary" onclick="submitCurrentWorkOrderEarly()">Early Submission</button>
   <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetWorkOrderForm()">Clear</button>
 </div>
-      <div id="formStatus" class="small" style="margin-top:10px;"></div>
+      <div id="formStatus" class="small wo-form-status"></div>
     </section>
   </div>
 </main>
@@ -1455,7 +691,7 @@ function renderJobSearchSuggestions() {
   const matches = getFilteredJobSuggestions(input.value);
 
   if (!matches.length) {
-    list.innerHTML = '<div class="small" style="padding:9px 10px;">No matching jobs found.</div>';
+    list.innerHTML = '<div class="small wo-empty-message">No matching jobs found.</div>';
     list.classList.add("open");
     return;
   }
@@ -1984,7 +1220,7 @@ function addEquipmentRow(rowData) {
     </div>
     <div class="wide">
       <label>
-        <input data-equipment-field="transportation_required" type="checkbox" ${rowData && rowData.transportation_required ? "checked" : ""} style="width:auto;margin-right:8px;">
+        <input class="wo-inline-checkbox" data-equipment-field="transportation_required" type="checkbox" ${rowData && rowData.transportation_required ? "checked" : ""}>
         Was the lift floated to site by tow truck?
       </label>
     </div>
@@ -2157,7 +1393,7 @@ function addTravelRow(rowData) {
     </div>
     <div class="wide">
       <label>
-        <input data-travel-field="trailer_used" type="checkbox" ${trailerUsed ? "checked" : ""} onchange="toggleTravelTrailer(this)" style="width:auto;margin-right:8px;">
+        <input class="wo-inline-checkbox" data-travel-field="trailer_used" type="checkbox" ${trailerUsed ? "checked" : ""} onchange="toggleTravelTrailer(this)">
         Trailer used
       </label>
     </div>
@@ -2247,7 +1483,7 @@ function resetWorkOrderForm(options) {
   }
   editingWorkOrderId = "";
   document.getElementById("formTitle").textContent = "New Work Order";
-  document.getElementById("lockedNotice").style.display = "none";
+  document.getElementById("lockedNotice").hidden = true;
   document.getElementById("saveButton").textContent = "Save Draft";
   document.getElementById("saveButton").disabled = false;
   document.getElementById("submitButton").disabled = false;
@@ -2310,7 +1546,7 @@ function finishWorkOrderAndStartNext(message) {
 }
 
 function setFormLocked(isLocked) {
-  document.getElementById("lockedNotice").style.display = isLocked ? "block" : "none";
+  document.getElementById("lockedNotice").hidden = !isLocked;
   document.getElementById("saveButton").disabled = isLocked;
   document.getElementById("submitButton").disabled = isLocked;
   document.querySelectorAll("#workOrderFormCard input, #workOrderFormCard select, #workOrderFormCard textarea").forEach((field) => {
@@ -2455,7 +1691,7 @@ function renderWorkOrders() {
   status.textContent = filtered.length + " " + (workOrderManagementView === "submitted" ? "submitted" : "active") + " work order" + (filtered.length === 1 ? "" : "s") + " shown.";
 
   if (!filtered.length) {
-    list.innerHTML = '<div class="small" style="margin-top:12px;">No ' + (workOrderManagementView === "submitted" ? "submitted" : "active") + ' work orders found.</div>';
+    list.innerHTML = '<div class="small wo-empty-list-message">No ' + (workOrderManagementView === "submitted" ? "submitted" : "active") + ' work orders found.</div>';
     return;
   }
 
