@@ -119,8 +119,8 @@ test("directory family uses one token-only shared visual source", async () => {
 
   expect(featureCss, "Directory-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(adminSource).toContain('directory-design-system.css?v=2');
-  expect(adminSource).toContain('id="contactsSection" class="card jgc-panel jgc-directory-admin"');
-  expect(adminSource).toContain('id="subcontractorsSuppliersSection" class="card jgc-panel jgc-directory-admin"');
+  expect(adminSource).toMatch(/id="contactsSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-directory-admin\b/);
+  expect(adminSource).toMatch(/id="subcontractorsSuppliersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-directory-admin\b/);
   expect(adminContacts).not.toMatch(/\sstyle\s*=/i);
   expect(adminContacts).toContain("jgc-table jgc-table--wide");
   expect(serviceWorker).toContain('"./directory-design-system.css?v=2"');

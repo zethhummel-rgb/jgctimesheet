@@ -10,15 +10,17 @@ test("Notification Settings uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=7');
-  expect(html).toContain('notification-settings-design-system.css?v=2');
-  expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
+  expect(html).toContain('notification-settings-design-system.css?v=3');
+  expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-system-page\b/i);
+  expect(html).toMatch(/<h1\b[^>]*\bjgc-page-title\b[^>]*>Notification Settings<\/h1>/i);
+  expect(html).toMatch(/id="currentUser"[^>]*\bjgc-page-user\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
   expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('"./notification-settings-design-system.css?v=2"');
+  expect(worker).toContain('"./notification-settings-design-system.css?v=3"');
 });
 
 for (const viewport of [
@@ -36,6 +38,13 @@ for (const viewport of [
       const shell = document.querySelector(".notification-settings-shell").getBoundingClientRect();
       const tableWrap = document.querySelector(".table-wrap");
       const tabs = document.querySelector(".tabs");
+      const title = document.querySelector("body > h1").getBoundingClientRect();
+      const toolbar = document.querySelector(".toolbar");
+      const toolbarStyle = getComputedStyle(toolbar);
+      const toolbarButtons = Array.from(toolbar.querySelectorAll("button")).map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      });
       return {
         viewport: document.documentElement.clientWidth,
         bodyWidth: document.body.scrollWidth,
@@ -43,6 +52,9 @@ for (const viewport of [
         tableOverflow: getComputedStyle(tableWrap).overflowX,
         tableScrollable: tableWrap.scrollWidth > tableWrap.clientWidth,
         tabsOverflow: getComputedStyle(tabs).overflowX,
+        titleCenterOffset: Math.abs((title.left + title.right) / 2 - document.documentElement.clientWidth / 2),
+        toolbarGap: parseFloat(toolbarStyle.columnGap || toolbarStyle.gap || "0"),
+        toolbarButtons,
         controlsContained: Array.from(document.querySelectorAll("input, textarea, button, a")).every((element) => {
           const rect = element.getBoundingClientRect();
           const scrollRegion = element.closest(".table-wrap, .tabs");
@@ -57,7 +69,11 @@ for (const viewport of [
     expect(layout.controlsContained).toBe(true);
     expect(["auto", "scroll"]).toContain(layout.tableOverflow);
     expect(["auto", "scroll"]).toContain(layout.tabsOverflow);
+    expect(layout.titleCenterOffset).toBeLessThanOrEqual(1);
+    expect(layout.toolbarGap).toBeGreaterThanOrEqual(12);
+    expect(layout.toolbarButtons.every((button) => button.height >= 44)).toBe(true);
     if (viewport.name === "phone") expect(layout.tableScrollable).toBe(true);
+    if (viewport.name === "phone") expect(layout.toolbarButtons.every((button) => button.width > 300)).toBe(true);
     await context.close();
   });
 }
