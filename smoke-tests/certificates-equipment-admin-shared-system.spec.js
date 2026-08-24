@@ -76,7 +76,7 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
 
   expect(adminPage).toContain('certificates-embedded.css?v=1');
   expect(adminPage).toContain('equipment-admin.css?v=1');
-  expect(adminPage).toContain('admin.css?v=14');
+  expect(adminPage).toContain('admin.css?v=15');
   expect(adminPage).toContain('admin-certificates.js?v=4');
   expect(adminPage).toContain('admin-equipment.js?v=2');
   const certificatesSection = adminPage.match(/<div id="certificatesSection"[\s\S]*?(?=<div id="vacationSection")/)?.[0] || "";
@@ -99,7 +99,7 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
 
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(765);
-  for (const asset of ["certificates-admin.css?v=1", "certificates-embedded.css?v=1", "equipment-admin.css?v=1", "admin.css?v=14", "admin-certificates.js?v=4", "admin-equipment.js?v=2"]) {
+  for (const asset of ["certificates-admin.css?v=1", "certificates-embedded.css?v=1", "equipment-admin.css?v=1", "admin.css?v=15", "admin-certificates.js?v=4", "admin-equipment.js?v=2"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });
