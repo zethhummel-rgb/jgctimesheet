@@ -85,20 +85,31 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     ensure(rowHeights.reduce((sum, height) => sum + height, 0) + (options.gap ?? 7));
     rows.forEach((row, rowIndex) => {
       let currentX = x;
-      row.forEach((run) => {
+      const placedRuns = row.map((run) => {
         const runFont = fontFor(run);
         const runSize = sizeFor(run);
         const runWidth = runFont.widthOfTextAtSize(run.text, runSize);
-        if (run.style.highlight) page.drawRectangle({
-          x: currentX - 1,
-          y: y - 1,
+        const placedRun = { run, runFont, runSize, runWidth, x: currentX };
+        currentX += runWidth;
+        return placedRun;
+      });
+      placedRuns.forEach(({ run, runFont, runSize, runWidth, x: runX }) => {
+        if (!run.style.highlight) return;
+        const fullFontHeight = runFont.heightAtSize(runSize, { descender: true });
+        const ascenderHeight = runFont.heightAtSize(runSize, { descender: false });
+        const descenderHeight = Math.max(0, fullFontHeight - ascenderHeight);
+        const verticalPadding = Math.max(1, runSize * 0.18);
+        page.drawRectangle({
+          x: runX - 1,
+          y: y - descenderHeight - verticalPadding,
           width: runWidth + 2,
-          height: runSize + 3,
+          height: fullFontHeight + verticalPadding * 2,
           color: run.style.highlight === "green" ? rgb(0.78, 0.94, 0.84) : rgb(1, 0.94, 0.45),
         });
-        page.drawText(run.text, { x: currentX, y, size: runSize, font: runFont, color: dark });
-        if (run.style.underline && run.text.trim()) page.drawLine({ start: { x: currentX, y: y - 1.5 }, end: { x: currentX + runWidth, y: y - 1.5 }, thickness: 0.65, color: dark });
-        currentX += runWidth;
+      });
+      placedRuns.forEach(({ run, runFont, runSize, runWidth, x: runX }) => {
+        page.drawText(run.text, { x: runX, y, size: runSize, font: runFont, color: dark });
+        if (run.style.underline && run.text.trim()) page.drawLine({ start: { x: runX, y: y - 1.5 }, end: { x: runX + runWidth, y: y - 1.5 }, thickness: 0.65, color: dark });
       });
       y -= rowHeights[rowIndex];
     });
