@@ -42,8 +42,8 @@ function renderContacts() {
     }
 
     list.innerHTML = `
-        <div class="table-wrap">
-            <table>
+        <div class="table-wrap jgc-table-wrap" role="region" aria-label="Contacts; swipe horizontally to see all columns" tabindex="0">
+            <table class="jgc-table jgc-table--wide">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -65,9 +65,9 @@ function renderContacts() {
                             <td>${escapeHtml(contact.notes || "")}</td>
                             <td>${Number(contact.sort_order || 0)}</td>
                             <td>
-                                <div class="actions">
-                                    <button type="button" class="secondary" onclick="editContact('${escapeHtml(contact.id)}')">Edit</button>
-                                    <button type="button" class="delete-button" onclick="deleteContact('${escapeHtml(contact.id)}')">Delete</button>
+                                <div class="actions jgc-actions jgc-actions--compact">
+                                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editContact('${escapeHtml(contact.id)}')">Edit</button>
+                                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteContact('${escapeHtml(contact.id)}')">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -364,15 +364,15 @@ function renderSubcontractorSupplierContactList(entry) {
         const contactName = String(contact.contact_name || "").trim();
         const phoneDisplay = formatSupplierPhoneNumber(contact.phone || "");
         return `
-        <div class="detail-item supplier-contact-card" style="margin-bottom:8px;">
+        <div class="detail-item supplier-contact-card">
             <strong>${escapeHtml(contactName || "Unnamed contact")}</strong>
             ${contact.role ? '<div>' + escapeHtml(contact.role) + '</div>' : ""}
             ${phoneDisplay ? '<div><a href="tel:' + escapeHtml(phoneDisplay) + '">' + escapeHtml(phoneDisplay) + '</a></div>' : ""}
             ${contact.email ? '<div><a href="mailto:' + escapeHtml(contact.email) + '">' + escapeHtml(contact.email) + '</a></div>' : ""}
             ${contact.notes ? '<div class="small">' + escapeHtml(contact.notes) + '</div>' : ""}
-            <div class="actions" style="margin-top:6px;">
-                <button type="button" class="secondary" onclick="editSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Edit Contact</button>
-                <button type="button" class="delete-button" onclick="deleteSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Delete Contact</button>
+            <div class="actions jgc-actions jgc-actions--compact">
+                <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Edit Contact</button>
+                <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteSubcontractorSupplierContact('${escapeHtml(contact.id)}')">Delete Contact</button>
             </div>
         </div>
     `;
@@ -388,7 +388,7 @@ function renderSubcontractorSupplierCompanyPanel(entry) {
     const contactCount = contacts.length + " contact" + (contacts.length === 1 ? "" : "s");
 
     return `
-        <details class="supplier-company-panel" ${isOpen ? "open" : ""}>
+        <details class="supplier-company-panel jgc-archive" ${isOpen ? "open" : ""}>
             <summary class="supplier-company-summary">
                 <span class="supplier-company-title">
                     <strong>${escapeHtml(entry.company_name || "Unnamed company")}</strong>
@@ -403,14 +403,14 @@ function renderSubcontractorSupplierCompanyPanel(entry) {
                     <div class="supplier-company-meta"><strong>Order</strong>${Number(entry.sort_order || 0)}</div>
                     <div class="supplier-company-meta"><strong>Notes</strong>${escapeHtml(entry.notes || "-")}</div>
                 </div>
-                <h3 style="margin:0 0 8px;color:#32dc55;">Contacts</h3>
+                <h3 class="jgc-section-title">Contacts</h3>
                 <div class="supplier-company-contacts">
                     ${contacts.length ? renderSubcontractorSupplierContactList(entry) : '<div class="small">No contacts added yet.</div>'}
                 </div>
-                <div class="actions">
-                    <button type="button" class="secondary" onclick="editSubcontractorSupplier('${escapeHtml(entry.id)}')">Edit Company</button>
-                    <button type="button" onclick="selectSubcontractorSupplierForContact('${escapeHtml(entry.id)}')">Add Contact</button>
-                    <button type="button" class="delete-button" onclick="deleteSubcontractorSupplier('${escapeHtml(entry.id)}')">Delete Company</button>
+                <div class="actions jgc-actions">
+                    <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="editSubcontractorSupplier('${escapeHtml(entry.id)}')">Edit Company</button>
+                    <button type="button" class="jgc-button" onclick="selectSubcontractorSupplierForContact('${escapeHtml(entry.id)}')">Add Contact</button>
+                    <button type="button" class="delete-button jgc-button jgc-button--danger" onclick="deleteSubcontractorSupplier('${escapeHtml(entry.id)}')">Delete Company</button>
                 </div>
             </div>
         </details>
@@ -430,7 +430,7 @@ function renderSubcontractorSuppliers() {
     }
 
     list.innerHTML = `
-        <div class="small" style="margin-bottom:8px;">${subcontractorSuppliers.length} compan${subcontractorSuppliers.length === 1 ? "y" : "ies"} shown. Open a company to view contacts or edit it.</div>
+        <div class="small jgc-directory-summary">${subcontractorSuppliers.length} compan${subcontractorSuppliers.length === 1 ? "y" : "ies"} shown. Open a company to view contacts or edit it.</div>
         <div class="supplier-company-list">
             ${subcontractorSuppliers.map(renderSubcontractorSupplierCompanyPanel).join("")}
         </div>

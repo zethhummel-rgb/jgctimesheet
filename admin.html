@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="work-orders-design-system.css?v=1">
 <link rel="stylesheet" href="schedule-design-system.css?v=3">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
+<link rel="stylesheet" href="directory-design-system.css?v=2">
 </head>
 
 <body>
@@ -944,53 +945,53 @@
     </div>
 </div>
 
-<div id="contactsSection" class="card" hidden>
-    <h2>Contacts</h2>
-    <div class="filters">
-        <div>
-            <label>Name</label>
-            <input id="contactName" placeholder="Name">
+<div id="contactsSection" class="card jgc-panel jgc-directory-admin" hidden>
+    <h2 class="jgc-section-title">Contacts</h2>
+    <div class="filters jgc-form-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactName">Name</label>
+            <input class="jgc-input" id="contactName" placeholder="Name">
         </div>
-        <div>
-            <label>Role / Description</label>
-            <input id="contactRole" placeholder="Example: Safety, Payroll, Supervisor">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactRole">Role / Description</label>
+            <input class="jgc-input" id="contactRole" placeholder="Example: Safety, Payroll, Supervisor">
         </div>
-        <div>
-            <label>Phone</label>
-            <input id="contactPhone" placeholder="Phone number">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactPhone">Phone</label>
+            <input class="jgc-input" id="contactPhone" placeholder="Phone number">
         </div>
-        <div>
-            <label>Email</label>
-            <input id="contactEmail" type="email" placeholder="Email address">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactEmail">Email</label>
+            <input class="jgc-input" id="contactEmail" type="email" placeholder="Email address">
         </div>
-        <div>
-            <label>Order</label>
-            <input id="contactOrder" type="number" value="0">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactOrder">Order</label>
+            <input class="jgc-input" id="contactOrder" type="number" value="0">
         </div>
-        <div>
-            <label>Notes</label>
-            <input id="contactNotes" placeholder="Optional note">
+        <div class="jgc-field">
+            <label class="jgc-label" for="contactNotes">Notes</label>
+            <input class="jgc-input" id="contactNotes" placeholder="Optional note">
         </div>
     </div>
-    <div class="actions" style="margin-top:10px;">
-        <button id="contactSaveButton" type="button" onclick="saveContact()">Add Contact</button>
-        <button class="secondary" type="button" onclick="clearContactForm()">Clear</button>
-        <button class="secondary" type="button" onclick="loadContacts()">Refresh Contacts</button>
+    <div class="actions jgc-actions jgc-section">
+        <button class="jgc-button" id="contactSaveButton" type="button" onclick="saveContact()">Add Contact</button>
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="clearContactForm()">Clear</button>
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadContacts()">Refresh Contacts</button>
     </div>
-    <div id="contactStatus" class="small" style="margin-top:10px;"></div>
-    <div id="contactsList" class="small" style="margin-top:12px;">Loading contacts...</div>
+    <div id="contactStatus" class="small jgc-notice" aria-live="polite"></div>
+    <div id="contactsList" class="small jgc-section jgc-directory-list">Loading contacts...</div>
 </div>
 
-<div id="subcontractorsSuppliersSection" class="card" hidden>
-    <h2>Subcontractors / Suppliers</h2>
-    <div class="filters">
-        <div>
-            <label>Company Name</label>
-            <input id="supplierCompanyName" placeholder="Company name">
+<div id="subcontractorsSuppliersSection" class="card jgc-panel jgc-directory-admin" hidden>
+    <h2 class="jgc-section-title">Subcontractors / Suppliers</h2>
+    <div class="filters jgc-form-grid">
+        <div class="jgc-field">
+            <label class="jgc-label" for="supplierCompanyName">Company Name</label>
+            <input class="jgc-input" id="supplierCompanyName" placeholder="Company name">
         </div>
-        <div>
-            <label>Category</label>
-            <select id="supplierCategory">
+        <div class="jgc-field">
+            <label class="jgc-label" for="supplierCategory">Category</label>
+            <select class="jgc-input" id="supplierCategory">
                 <option value="Subcontractor">Subcontractor</option>
                 <option value="Supplier">Supplier</option>
                 <option value="Rental">Rental</option>
@@ -998,68 +999,68 @@
                 <option value="Other">Other</option>
             </select>
         </div>
-        <div>
-            <label>Service / Trade</label>
-            <input id="supplierServiceType" placeholder="Example: Electrical, Concrete, Rentals">
+        <div class="jgc-field">
+            <label class="jgc-label" for="supplierServiceType">Service / Trade</label>
+            <input class="jgc-input" id="supplierServiceType" placeholder="Example: Electrical, Concrete, Rentals">
         </div>
-        <div>
-            <label>Order</label>
-            <input id="supplierOrder" type="number" value="0">
+        <div class="jgc-field">
+            <label class="jgc-label" for="supplierOrder">Order</label>
+            <input class="jgc-input" id="supplierOrder" type="number" value="0">
         </div>
-        <div>
-            <label>Notes</label>
-            <input id="supplierNotes" placeholder="Optional note">
+        <div class="jgc-field">
+            <label class="jgc-label" for="supplierNotes">Notes</label>
+            <input class="jgc-input" id="supplierNotes" placeholder="Optional note">
         </div>
     </div>
-    <div class="actions" style="margin-top:10px;">
-        <button id="supplierSaveButton" type="button" onclick="saveSubcontractorSupplier()">Add Company</button>
-        <button class="secondary" type="button" onclick="clearSubcontractorSupplierForm()">Clear</button>
-        <button class="secondary" type="button" onclick="loadSubcontractorSuppliers()">Refresh Entries</button>
+    <div class="actions jgc-actions jgc-section">
+        <button class="jgc-button" id="supplierSaveButton" type="button" onclick="saveSubcontractorSupplier()">Add Company</button>
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="clearSubcontractorSupplierForm()">Clear</button>
+        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadSubcontractorSuppliers()">Refresh Entries</button>
     </div>
-    <div id="supplierStatus" class="small" style="margin-top:10px;"></div>
+    <div id="supplierStatus" class="small jgc-notice" aria-live="polite"></div>
 
-    <div class="sub-card supplier-contact-editor" style="margin-top:14px;">
-        <h3>Contacts for Selected Company</h3>
-        <div id="supplierSelectedCompany" class="small" style="margin-bottom:10px;">Select a company below, or save a new company first.</div>
-        <div class="filters">
-            <div class="full">
-                <label>Company</label>
-                <input id="supplierContactCompanySearch" list="supplierContactCompanyOptions" placeholder="Start typing company name" autocomplete="off">
+    <div class="sub-card supplier-contact-editor jgc-card jgc-section">
+        <h3 class="jgc-section-title">Contacts for Selected Company</h3>
+        <div id="supplierSelectedCompany" class="small">Select a company below, or save a new company first.</div>
+        <div class="filters jgc-form-grid">
+            <div class="full jgc-field jgc-field--full">
+                <label class="jgc-label" for="supplierContactCompanySearch">Company</label>
+                <input class="jgc-input" id="supplierContactCompanySearch" list="supplierContactCompanyOptions" placeholder="Start typing company name" autocomplete="off">
                 <datalist id="supplierContactCompanyOptions"></datalist>
             </div>
-            <div>
-                <label>Contact Name</label>
-                <input id="supplierContactName" placeholder="Example: John Smith">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactName">Contact Name</label>
+                <input class="jgc-input" id="supplierContactName" placeholder="Example: John Smith">
             </div>
-            <div>
-                <label>Role / Department</label>
-                <input id="supplierContactRole" placeholder="Example: Dispatch, Sales, Accounting">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactRole">Role / Department</label>
+                <input class="jgc-input" id="supplierContactRole" placeholder="Example: Dispatch, Sales, Accounting">
             </div>
-            <div>
-                <label>Phone</label>
-                <input id="supplierContactPhone" inputmode="tel" placeholder="Example: (613) 555-1234">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactPhone">Phone</label>
+                <input class="jgc-input" id="supplierContactPhone" inputmode="tel" placeholder="Example: (613) 555-1234">
             </div>
-            <div>
-                <label>Email</label>
-                <input id="supplierContactEmail" type="email" placeholder="Email address">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactEmail">Email</label>
+                <input class="jgc-input" id="supplierContactEmail" type="email" placeholder="Email address">
             </div>
-            <div>
-                <label>Order</label>
-                <input id="supplierContactOrder" type="number" value="0">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactOrder">Order</label>
+                <input class="jgc-input" id="supplierContactOrder" type="number" value="0">
             </div>
-            <div>
-                <label>Notes</label>
-                <input id="supplierContactNotes" placeholder="Optional contact note">
+            <div class="jgc-field">
+                <label class="jgc-label" for="supplierContactNotes">Notes</label>
+                <input class="jgc-input" id="supplierContactNotes" placeholder="Optional contact note">
             </div>
         </div>
-        <div class="actions" style="margin-top:10px;">
-            <button id="supplierContactSaveButton" type="button" onclick="saveSubcontractorSupplierContact()">Add Contact</button>
-            <button class="secondary" type="button" onclick="clearSubcontractorSupplierContactForm()">Clear Contact</button>
+        <div class="actions jgc-actions">
+            <button class="jgc-button" id="supplierContactSaveButton" type="button" onclick="saveSubcontractorSupplierContact()">Add Contact</button>
+            <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="clearSubcontractorSupplierContactForm()">Clear Contact</button>
         </div>
-        <div id="supplierContactStatus" class="small" style="margin-top:10px;"></div>
+        <div id="supplierContactStatus" class="small jgc-notice" aria-live="polite"></div>
     </div>
 
-    <div id="subcontractorsSuppliersAdminList" class="small" style="margin-top:12px;">Loading subcontractors and suppliers...</div>
+    <div id="subcontractorsSuppliersAdminList" class="small jgc-section jgc-directory-list">Loading subcontractors and suppliers...</div>
 </div>
 
 <div id="backupsSection" class="card" hidden>
@@ -1123,7 +1124,7 @@
 <script src="jsa-pdf.js?v=1"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="admin-backups.js?v=3"></script>
-<script src="admin-contacts.js?v=1"></script>
+<script src="admin-contacts.js?v=2"></script>
 <script src="admin-vacation.js?v=4"></script>
 <script src="admin-notices.js?v=3"></script>
 <script src="admin-certificates.js?v=3"></script>

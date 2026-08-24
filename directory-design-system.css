@@ -1,11 +1,15 @@
-/* Phase 15: employee directory-family compatibility layer. */
+/* Contacts and supplier directory layout. All visual values come from shared JGC tokens. */
 .directory-page,
-.directory-page * {
+.directory-page *,
+.jgc-directory-admin,
+.jgc-directory-admin * {
   box-sizing: border-box;
 }
 
 .directory-page {
   min-width: 0;
+  min-height: 100dvh;
+  margin: 0;
   overflow-x: hidden;
 }
 
@@ -15,9 +19,36 @@
   margin-inline: auto;
 }
 
-.directory-page .logo-wrap,
-.directory-page .user-bar,
-.directory-page .actions,
+.directory-page .logo-wrap {
+  width: min(var(--jgc-page-brand-width), calc(100vw - var(--jgc-page-brand-gutter)));
+  margin: 0 auto var(--jgc-space-2);
+  text-align: center;
+}
+
+.directory-page .logo-wrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.directory-page .jgc-page-title,
+.directory-page .user-bar {
+  text-align: center;
+}
+
+.directory-page .user-bar {
+  margin-bottom: var(--jgc-space-3);
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
+.directory-page .actions {
+  max-width: 100%;
+  margin: 0 auto var(--jgc-space-3);
+}
+
 .directory-page .panel,
 .directory-page .contacts-grid,
 .directory-page .contact-card,
@@ -25,25 +56,219 @@
 .directory-page .supplier-contact {
   min-width: 0;
   max-width: 100%;
-  box-sizing: border-box;
 }
 
-.directory-page .contact-card,
-.directory-page .contact-line,
-.directory-page .supplier-contact {
+.directory-page .panel {
+  margin-inline: auto;
+}
+
+.directory-page .contacts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--jgc-space-3);
+}
+
+.directory-page .contact-card {
+  padding: var(--jgc-space-4);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-top: 4px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: inset 0 -4px 0 var(--jgc-color-border), var(--jgc-shadow-sm);
   overflow-wrap: anywhere;
 }
 
-.directory-page .supplier-search input {
-  max-width: 100%;
-  box-sizing: border-box;
+.directory-page .contact-card h2 {
+  margin: 0 0 var(--jgc-space-2);
+  color: var(--jgc-color-text);
+  font-size: var(--jgc-font-size-lg);
+}
+
+.directory-page .contact-role {
+  margin-bottom: var(--jgc-space-3);
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 800;
+}
+
+.directory-page .contact-line {
+  margin-block: var(--jgc-space-2);
+  overflow-wrap: anywhere;
+}
+
+.directory-page .contact-line a,
+.directory-page .supplier-contact a {
+  color: var(--jgc-color-link-hover);
+  font-weight: 700;
+}
+
+.directory-page .small,
+.jgc-directory-admin .small {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+}
+
+.directory-page .supplier-search,
+.directory-page .supplier-results-summary {
+  margin-bottom: var(--jgc-space-3);
+}
+
+.directory-page .supplier-contact-list {
+  margin-top: var(--jgc-space-3);
+  padding-top: var(--jgc-space-3);
+  border-top: 1px solid var(--jgc-color-border-soft);
+}
+
+.directory-page .supplier-contact {
+  margin-top: var(--jgc-space-2);
+  padding: var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
+}
+
+.directory-page .supplier-contact:first-child {
+  margin-top: 0;
+}
+
+.jgc-directory-admin .jgc-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+
+.jgc-directory-admin .jgc-section,
+.jgc-directory-admin .jgc-card {
+  min-width: 0;
+}
+
+.jgc-directory-admin .jgc-notice,
+.jgc-directory-admin .jgc-directory-list,
+.jgc-directory-admin .jgc-directory-summary,
+.jgc-directory-admin .supplier-contact-editor {
+  margin-top: var(--jgc-space-3);
+}
+
+.jgc-directory-admin .supplier-company-list {
+  display: grid;
+  gap: var(--jgc-space-3);
+}
+
+.jgc-directory-admin .supplier-company-panel {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+}
+
+.jgc-directory-admin .supplier-company-panel[open] {
+  border-color: var(--jgc-color-brand-400);
+  box-shadow: var(--jgc-shadow-sm);
+}
+
+.jgc-directory-admin .supplier-company-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--jgc-space-3);
+  align-items: center;
+  min-height: var(--jgc-control-height);
+  padding: var(--jgc-space-3) var(--jgc-space-4);
+  cursor: pointer;
+  list-style: none;
+}
+
+.jgc-directory-admin .supplier-company-summary::-webkit-details-marker {
+  display: none;
+}
+
+.jgc-directory-admin .supplier-company-summary::after {
+  content: "+";
+  color: var(--jgc-color-brand-400);
+  font-size: var(--jgc-font-size-lg);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.jgc-directory-admin .supplier-company-panel[open] .supplier-company-summary::after {
+  content: "−";
+}
+
+.jgc-directory-admin .supplier-company-title {
+  min-width: 0;
+}
+
+.jgc-directory-admin .supplier-company-title strong,
+.jgc-directory-admin .supplier-company-title span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.jgc-directory-admin .supplier-company-title strong {
+  color: var(--jgc-color-text);
+}
+
+.jgc-directory-admin .supplier-company-title span {
+  margin-top: var(--jgc-space-1);
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
+}
+
+.jgc-directory-admin .supplier-company-count {
+  min-width: 78px;
+  padding: var(--jgc-space-1) var(--jgc-space-2);
+  color: var(--jgc-admin-tab-active-text);
+  background: var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-pill);
+  text-align: center;
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 900;
+}
+
+.jgc-directory-admin .supplier-company-body {
+  padding: 0 var(--jgc-space-4) var(--jgc-space-4);
+}
+
+.jgc-directory-admin .supplier-company-meta-grid,
+.jgc-directory-admin .supplier-company-contacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: var(--jgc-space-2);
+}
+
+.jgc-directory-admin .supplier-company-meta-grid {
+  margin-bottom: var(--jgc-space-3);
+}
+
+.jgc-directory-admin .supplier-company-meta,
+.jgc-directory-admin .supplier-contact-card {
+  min-width: 0;
+  padding: var(--jgc-space-3);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.jgc-directory-admin .supplier-company-meta strong,
+.jgc-directory-admin .supplier-contact-card strong {
+  display: block;
+  margin-bottom: var(--jgc-space-1);
+  color: var(--jgc-color-brand-400);
+}
+
+.jgc-directory-admin .supplier-contact-card a {
+  color: var(--jgc-color-link-hover);
+  font-weight: 700;
+}
+
+.jgc-directory-admin .supplier-company-contacts {
+  margin: var(--jgc-space-2) 0 var(--jgc-space-3);
 }
 
 @media (max-width: 720px) {
-  .directory-page {
-    padding-inline: 14px;
-  }
-
   .directory-page .directory-page-shell {
     width: 100%;
   }
@@ -52,12 +277,22 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .directory-page .actions {
+  .directory-page .actions,
+  .directory-page .actions .jgc-button {
     width: 100%;
   }
 
   .directory-page .supplier-search input {
-    font-size: 16px;
+    font-size: var(--jgc-font-size-md);
+  }
+
+  .jgc-directory-admin .supplier-company-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .jgc-directory-admin .supplier-company-count {
+    grid-column: 1 / -1;
+    width: fit-content;
   }
 }
 
