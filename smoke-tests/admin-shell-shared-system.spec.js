@@ -17,7 +17,7 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
 
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
-  expect(html).toContain('jgc-design-system.css?v=7');
+  expect(html).toContain('jgc-design-system.css?v=8');
   expect(html).toContain('admin-shell-design-system.css?v=3');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
   expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');
@@ -40,19 +40,19 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   ]) {
     expect(html).toMatch(new RegExp(`id=["']${id}["'][^>]*\\bjgc-admin-feature-surface\\b`));
   }
-  expect(html).toContain('src="common.js?v=39"');
+  expect(html).toContain('src="common.js?v=40"');
 
   for (const css of [shellCss, searchCss]) {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(|hsla?\(|color:\s*(?:white|black)\b/i);
     expect(css).toContain("var(--jgc-color-");
   }
 
-  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "6";');
-  expect(worker).toContain('const JGC_RELEASE_ID = "780";');
+  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "7";');
+  expect(worker).toContain('const JGC_RELEASE_ID = "781";');
   expect(worker).toContain('"./admin-shell-design-system.css?v=3"');
-  expect(worker).toContain('"./admin-global-search.css?v=6"');
-  expect(worker).toContain('"./admin-global-search.js?v=6"');
-  expect(worker).toContain('"./common.js?v=39"');
+  expect(worker).toContain('"./admin-global-search.css?v=7"');
+  expect(worker).toContain('"./admin-global-search.js?v=7"');
+  expect(worker).toContain('"./common.js?v=40"');
 });
 
 async function visibleLayout(page, selector) {

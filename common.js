@@ -47,9 +47,16 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "7";
+const JGC_DESIGN_SYSTEM_VERSION = "8";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
-const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "6";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "7";
+const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
+const JGC_THEME_STORAGE_KEY = "jgcPortalTheme";
+const JGC_THEME_ACCOUNT_STORAGE_PREFIX = "jgcPortalTheme:";
+const JGC_THEME_PENDING_STORAGE_PREFIX = "jgcPortalThemePending:";
+const JGC_THEME_CHOICES = new Set(["dark", "light"]);
+let JGC_THEME_PREFERENCE_USER_ID = "";
+let JGC_THEME_CHANGE_REVISION = 0;
 const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
@@ -461,16 +468,80 @@ if (document.readyState === "loading") {
   applyJgcPortalName();
 }
 
-function applyJgcTheme() {
-  if (!document.body || document.querySelector(".app-shell")) {
+function normalizeJgcThemePreference(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return JGC_THEME_CHOICES.has(normalized) ? normalized : "dark";
+}
+
+function getStoredJgcThemePreference(userId) {
+  try {
+    const accountTheme = userId
+      ? localStorage.getItem(JGC_THEME_ACCOUNT_STORAGE_PREFIX + userId)
+      : "";
+    return normalizeJgcThemePreference(accountTheme || localStorage.getItem(JGC_THEME_STORAGE_KEY));
+  } catch (error) {
+    return "dark";
+  }
+}
+
+function storeJgcThemePreference(theme, userId) {
+  const normalized = normalizeJgcThemePreference(theme);
+  try {
+    localStorage.setItem(JGC_THEME_STORAGE_KEY, normalized);
+    if (userId) {
+      localStorage.setItem(JGC_THEME_ACCOUNT_STORAGE_PREFIX + userId, normalized);
+    }
+  } catch (error) {
+    console.warn("The appearance preference could not be cached in this browser.", error);
+  }
+  return normalized;
+}
+
+function updateJgcThemeMeta(theme) {
+  if (!document.head) {
     return;
   }
 
-  document.body.classList.add("jgc-theme");
+  const normalized = normalizeJgcThemePreference(theme);
+  let themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (!themeMeta) {
+    themeMeta = document.createElement("meta");
+    themeMeta.name = "theme-color";
+    document.head.appendChild(themeMeta);
+  }
+  themeMeta.content = normalized === "light" ? "#597265" : "#0b5e3b";
 }
 
+function updateJgcAppearanceSettingsUi(theme) {
+  const normalized = normalizeJgcThemePreference(theme);
+  document.querySelectorAll("[data-jgc-theme-choice]").forEach(function(button) {
+    const selected = button.getAttribute("data-jgc-theme-choice") === normalized;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function applyJgcTheme(theme) {
+  const normalized = normalizeJgcThemePreference(theme || getStoredJgcThemePreference(JGC_THEME_PREFERENCE_USER_ID));
+  document.documentElement.setAttribute("data-jgc-theme", normalized);
+  document.documentElement.style.colorScheme = normalized;
+
+  if (document.body) {
+    document.body.classList.add("jgc-theme");
+    document.body.classList.toggle("jgc-theme--light", normalized === "light");
+    document.body.classList.toggle("jgc-theme--dark", normalized === "dark");
+  }
+
+  updateJgcThemeMeta(normalized);
+  updateJgcAppearanceSettingsUi(normalized);
+  window.dispatchEvent(new CustomEvent("jgc-theme-change", { detail: { theme: normalized } }));
+  return normalized;
+}
+
+applyJgcTheme(getStoredJgcThemePreference());
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", applyJgcTheme);
+  document.addEventListener("DOMContentLoaded", function() { applyJgcTheme(); });
 } else {
   applyJgcTheme();
 }
@@ -3070,23 +3141,23 @@ function activateTimesheetTableContrastFeature() {
     body.jgc-theme .entries-card tbody tr,
     body.jgc-theme .entries-card tbody tr:nth-child(even),
     body.jgc-theme .entries-card tbody tr:nth-child(odd) {
-      background: rgba(8, 18, 18, 0.92) !important;
-      color: #f5f7f3 !important;
+      background: var(--jgc-color-table) !important;
+      color: var(--jgc-color-text) !important;
     }
 
     body.jgc-theme .entries-card tbody td,
     body.jgc-theme .entries-card tbody tr:nth-child(even) td,
     body.jgc-theme .entries-card tbody tr:nth-child(odd) td {
-      background: rgba(255, 255, 255, 0.03) !important;
-      color: #f5f7f3 !important;
+      background: var(--jgc-color-table-row) !important;
+      color: var(--jgc-color-text) !important;
     }
 
     body.jgc-theme .entries-card tbody tr:nth-child(even) td {
-      background: rgba(255, 255, 255, 0.06) !important;
+      background: var(--jgc-color-table-row-alt) !important;
     }
 
     body.jgc-theme .entries-card .empty-cell {
-      color: #bac4bd !important;
+      color: var(--jgc-color-text-muted) !important;
     }
   `;
   document.head.appendChild(style);
@@ -3120,6 +3191,244 @@ function shouldActivateJgcAdminGlobalSearch() {
   const worker = getCurrentWorkerRecord();
   return shouldActivateJgcNotificationBell() && worker && worker.status === "approved";
 }
+
+function shouldActivateJgcAppearanceSettings() {
+  return shouldActivateJgcAdminGlobalSearch();
+}
+
+function setJgcAppearanceSettingsStatus(message, state) {
+  const status = document.getElementById("jgcAppearanceSettingsStatus");
+  if (!status) {
+    return;
+  }
+  status.textContent = message || "";
+  status.setAttribute("data-state", state || "idle");
+}
+
+async function getJgcThemePreferenceIdentity(client) {
+  const activeClient = client || createJgcSupabaseClient();
+  if (!activeClient) {
+    return { client: null, user: null };
+  }
+
+  const userResult = await activeClient.auth.getUser();
+  const user = userResult && userResult.data && userResult.data.user;
+  if (userResult && userResult.error) {
+    throw userResult.error;
+  }
+  return { client: activeClient, user: user || null };
+}
+
+async function saveJgcThemePreference(theme) {
+  JGC_THEME_CHANGE_REVISION += 1;
+  const normalized = storeJgcThemePreference(theme, JGC_THEME_PREFERENCE_USER_ID);
+  applyJgcTheme(normalized);
+  setJgcAppearanceSettingsStatus("Saving to your account...", "saving");
+
+  try {
+    const identity = await getJgcThemePreferenceIdentity();
+    if (!identity.user) {
+      throw new Error("Your signed-in account could not be confirmed.");
+    }
+
+    JGC_THEME_PREFERENCE_USER_ID = identity.user.id;
+    storeJgcThemePreference(normalized, identity.user.id);
+
+    const result = await identity.client
+      .from(JGC_THEME_PREFERENCE_TABLE)
+      .upsert({
+        user_id: identity.user.id,
+        theme: normalized,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id" });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    localStorage.removeItem(JGC_THEME_PENDING_STORAGE_PREFIX + identity.user.id);
+    setJgcAppearanceSettingsStatus("Saved to your account.", "saved");
+  } catch (error) {
+    if (JGC_THEME_PREFERENCE_USER_ID) {
+      try {
+        localStorage.setItem(
+          JGC_THEME_PENDING_STORAGE_PREFIX + JGC_THEME_PREFERENCE_USER_ID,
+          normalized
+        );
+      } catch (storageError) {
+        console.warn("The pending appearance preference could not be cached.", storageError);
+      }
+    }
+    console.warn("The appearance preference could not sync to the account.", error);
+    setJgcAppearanceSettingsStatus(
+      "Saved on this device. Account sync will retry next time.",
+      "warning"
+    );
+  }
+}
+
+async function loadJgcThemePreference() {
+  if (!shouldActivateJgcAppearanceSettings()) {
+    return;
+  }
+
+  const startingRevision = JGC_THEME_CHANGE_REVISION;
+  try {
+    const identity = await getJgcThemePreferenceIdentity();
+    if (!identity.user) {
+      return;
+    }
+    if (startingRevision !== JGC_THEME_CHANGE_REVISION) {
+      return;
+    }
+
+    JGC_THEME_PREFERENCE_USER_ID = identity.user.id;
+    const accountStorageKey = JGC_THEME_ACCOUNT_STORAGE_PREFIX + identity.user.id;
+    const cachedAccountTheme = localStorage.getItem(accountStorageKey);
+    if (JGC_THEME_CHOICES.has(String(cachedAccountTheme || "").toLowerCase())) {
+      applyJgcTheme(cachedAccountTheme);
+    }
+
+    const pendingTheme = localStorage.getItem(JGC_THEME_PENDING_STORAGE_PREFIX + identity.user.id);
+    if (JGC_THEME_CHOICES.has(String(pendingTheme || "").toLowerCase())) {
+      applyJgcTheme(pendingTheme);
+      await saveJgcThemePreference(pendingTheme);
+      return;
+    }
+
+    const result = await identity.client
+      .from(JGC_THEME_PREFERENCE_TABLE)
+      .select("theme")
+      .eq("user_id", identity.user.id)
+      .maybeSingle();
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    if (startingRevision !== JGC_THEME_CHANGE_REVISION) {
+      return;
+    }
+
+    if (result.data && JGC_THEME_CHOICES.has(String(result.data.theme || "").toLowerCase())) {
+      const remoteTheme = storeJgcThemePreference(result.data.theme, identity.user.id);
+      localStorage.removeItem(JGC_THEME_PENDING_STORAGE_PREFIX + identity.user.id);
+      applyJgcTheme(remoteTheme);
+      setJgcAppearanceSettingsStatus("Saved to your account.", "saved");
+      return;
+    }
+
+    const initialTheme = JGC_THEME_CHOICES.has(String(cachedAccountTheme || "").toLowerCase())
+      ? cachedAccountTheme
+      : "dark";
+    await saveJgcThemePreference(initialTheme);
+  } catch (error) {
+    console.warn("The account appearance preference could not be loaded.", error);
+    setJgcAppearanceSettingsStatus(
+      "Using this device's saved appearance. Account sync will retry next time.",
+      "warning"
+    );
+  }
+}
+
+function toggleJgcAppearanceSettings(forceOpen) {
+  const panel = document.getElementById("jgcAppearanceSettingsPanel");
+  const button = document.getElementById("jgcAppearanceSettingsButton");
+  if (!panel || !button) {
+    return;
+  }
+
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : panel.hidden;
+  panel.hidden = !shouldOpen;
+  button.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen) {
+    updateJgcAppearanceSettingsUi(document.documentElement.getAttribute("data-jgc-theme"));
+  }
+}
+
+function activateJgcAppearanceSettings() {
+  if (!shouldActivateJgcAppearanceSettings() || document.getElementById("jgcAppearanceSettings")) {
+    return;
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "jgcAppearanceSettings";
+  wrapper.className = "jgc-appearance-settings";
+  wrapper.innerHTML = `
+    <button id="jgcAppearanceSettingsButton" class="jgc-appearance-settings__button" type="button" aria-label="Open appearance settings" aria-expanded="false" aria-controls="jgcAppearanceSettingsPanel">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.16.38.37.72.6 1 .3.36.69.58 1.1.6h.1v4h-.1a1.7 1.7 0 0 0-1.7.4Z"></path>
+      </svg>
+    </button>
+    <section id="jgcAppearanceSettingsPanel" class="jgc-appearance-settings__panel" role="dialog" aria-modal="false" aria-labelledby="jgcAppearanceSettingsTitle" hidden>
+      <header class="jgc-appearance-settings__header">
+        <div>
+          <span>Settings</span>
+          <strong id="jgcAppearanceSettingsTitle">Appearance</strong>
+        </div>
+        <button type="button" data-jgc-appearance-close>Close</button>
+      </header>
+      <div class="jgc-appearance-settings__body">
+        <p>Choose how the Portal looks for your account.</p>
+        <div class="jgc-appearance-settings__choices" aria-label="Choose Portal appearance">
+          <button type="button" data-jgc-theme-choice="dark" aria-pressed="false">
+            <span class="jgc-theme-preview jgc-theme-preview--dark" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span><strong>Dark</strong><small>Current deep green theme</small></span>
+            <b aria-hidden="true">✓</b>
+          </button>
+          <button type="button" data-jgc-theme-choice="light" aria-pressed="false">
+            <span class="jgc-theme-preview jgc-theme-preview--light" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span><strong>Light</strong><small>Clean green and grey theme</small></span>
+            <b aria-hidden="true">✓</b>
+          </button>
+        </div>
+        <div id="jgcAppearanceSettingsStatus" class="jgc-appearance-settings__status" data-state="idle" aria-live="polite">Loading your account preference...</div>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(wrapper);
+  const button = document.getElementById("jgcAppearanceSettingsButton");
+  button.addEventListener("click", function(event) {
+    event.stopPropagation();
+    if (globalThis.JGCAdminGlobalSearch && typeof globalThis.JGCAdminGlobalSearch.close === "function") {
+      globalThis.JGCAdminGlobalSearch.close();
+    }
+    toggleJgcNotificationPanel(false);
+    toggleJgcAppearanceSettings();
+  });
+
+  wrapper.querySelector("[data-jgc-appearance-close]").addEventListener("click", function() {
+    toggleJgcAppearanceSettings(false);
+  });
+  wrapper.querySelectorAll("[data-jgc-theme-choice]").forEach(function(themeButton) {
+    themeButton.addEventListener("click", function() {
+      saveJgcThemePreference(themeButton.getAttribute("data-jgc-theme-choice"));
+    });
+  });
+  document.addEventListener("click", function(event) {
+    const panel = document.getElementById("jgcAppearanceSettingsPanel");
+    if (panel && !panel.hidden && !wrapper.contains(event.target)) {
+      toggleJgcAppearanceSettings(false);
+    }
+  });
+  document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape") {
+      toggleJgcAppearanceSettings(false);
+    }
+  });
+
+  updateJgcAppearanceSettingsUi(document.documentElement.getAttribute("data-jgc-theme"));
+  runJgcBackgroundTask(loadJgcThemePreference, 900);
+}
+
+window.JGCAppearanceSettings = {
+  open: function() { toggleJgcAppearanceSettings(true); },
+  close: function() { toggleJgcAppearanceSettings(false); },
+  setTheme: saveJgcThemePreference,
+  getTheme: function() { return normalizeJgcThemePreference(document.documentElement.getAttribute("data-jgc-theme")); }
+};
 
 function loadJgcAdminGlobalSearchStyles() {
   if (document.querySelector('link[data-jgc-admin-global-search="true"]')) {
@@ -4598,11 +4907,12 @@ function injectJgcNotificationBellStyles() {
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      border: 1px solid rgba(64, 220, 78, 0.45);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 48%, transparent);
+      border-top: 4px solid var(--jgc-color-brand-400);
       border-radius: 10px;
-      background: rgba(7, 26, 22, 0.98);
-      color: #ffffff;
-      box-shadow: 0 24px 58px rgba(0, 0, 0, 0.55);
+      background: var(--jgc-color-surface);
+      color: var(--jgc-color-text);
+      box-shadow: var(--jgc-shadow-lg);
     }
 
     .jgc-notification-panel[hidden] {
@@ -4617,18 +4927,18 @@ function injectJgcNotificationBellStyles() {
       justify-content: space-between;
       gap: 10px;
       padding: 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      border-bottom: 1px solid var(--jgc-color-border-soft);
     }
 
     .jgc-notification-panel-footer {
-      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      border-top: 1px solid var(--jgc-color-border-soft);
       border-bottom: 0;
       align-items: flex-start;
       flex-wrap: wrap;
     }
 
     .jgc-notification-panel-header strong {
-      color: #2ee64f;
+      color: var(--jgc-color-brand-500);
       font-size: 18px;
     }
 
@@ -4637,10 +4947,10 @@ function injectJgcNotificationBellStyles() {
       width: auto !important;
       min-width: 0 !important;
       padding: 8px 10px !important;
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 1px solid var(--jgc-color-border);
       border-radius: 6px;
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
+      background: var(--jgc-color-surface-raised);
+      color: var(--jgc-color-text);
       font-size: 12px;
       font-weight: 800;
       cursor: pointer;
@@ -4648,6 +4958,7 @@ function injectJgcNotificationBellStyles() {
 
     .jgc-notification-panel-footer button {
       background: #159447;
+      color: var(--jgc-color-on-brand);
     }
 
     .jgc-notification-push-row {
@@ -4659,7 +4970,7 @@ function injectJgcNotificationBellStyles() {
 
     .jgc-notification-push-status {
       flex: 1 1 auto;
-      color: rgba(255, 255, 255, 0.72);
+      color: var(--jgc-color-text-muted);
       font-size: 12px;
       line-height: 1.35;
     }
@@ -4687,7 +4998,7 @@ function injectJgcNotificationBellStyles() {
 
     #jgcPushToggleButton[data-push-enabled="true"] {
       padding: 4px 7px !important;
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--jgc-color-surface-raised);
       font-size: 10px;
       line-height: 1.1;
       opacity: 0.78;
@@ -4710,20 +5021,20 @@ function injectJgcNotificationBellStyles() {
       margin: 0 0 8px !important;
       padding: 11px !important;
       display: block;
-      border: 1px solid rgba(64, 220, 78, 0.24);
+      border: 1px solid var(--jgc-color-border);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      color: #ffffff;
+      background: var(--jgc-color-surface-raised);
+      color: var(--jgc-color-text);
       text-align: left;
       cursor: pointer;
     }
 
     .jgc-notification-item:hover {
-      background: rgba(46, 230, 79, 0.12);
+      background: color-mix(in srgb, var(--jgc-color-brand-500) 12%, var(--jgc-color-surface-raised));
     }
 
     .jgc-notification-item-title {
-      color: #ffffff;
+      color: var(--jgc-color-text);
       font-size: 14px;
       font-weight: 800;
       line-height: 1.25;
@@ -4732,7 +5043,7 @@ function injectJgcNotificationBellStyles() {
     .jgc-notification-item-message,
     .jgc-notification-empty,
     .jgc-notification-time {
-      color: rgba(255, 255, 255, 0.78);
+      color: var(--jgc-color-text-muted);
       font-size: 12px;
       line-height: 1.35;
     }
@@ -4743,7 +5054,7 @@ function injectJgcNotificationBellStyles() {
 
     .jgc-notification-time {
       margin-top: 7px;
-      color: rgba(255, 255, 255, 0.58);
+      color: var(--jgc-color-text-muted);
       font-weight: 700;
     }
 
@@ -5035,6 +5346,9 @@ function activateJgcNotificationBell() {
     event.stopPropagation();
     if (globalThis.JGCAdminGlobalSearch && typeof globalThis.JGCAdminGlobalSearch.close === "function") {
       globalThis.JGCAdminGlobalSearch.close();
+    }
+    if (globalThis.JGCAppearanceSettings && typeof globalThis.JGCAppearanceSettings.close === "function") {
+      globalThis.JGCAppearanceSettings.close();
     }
     toggleJgcNotificationPanel();
   });
@@ -5338,6 +5652,7 @@ function activateJgcEnhancements() {
   activateGlobalTopNavigation();
   activateMobileBottomNavigation();
   activateJgcPwaRefresh();
+  activateJgcAppearanceSettings();
   activateJgcNotificationBell();
   activateJgcAdminGlobalSearch();
   activateJgcContactsFeature();

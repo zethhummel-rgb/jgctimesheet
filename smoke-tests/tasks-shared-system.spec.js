@@ -156,7 +156,7 @@ test("Tasks page uses the shared visual source without inline or legacy CSS", as
 
   expect(source).not.toMatch(/<style\b/i);
   expect(source).not.toContain("styles.css");
-  expect(source).toContain('jgc-design-system.css?v=7');
+  expect(source).toContain('jgc-design-system.css?v=8');
   expect(source).toContain('tasks-design-system.css?v=2');
   expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Tasks-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);

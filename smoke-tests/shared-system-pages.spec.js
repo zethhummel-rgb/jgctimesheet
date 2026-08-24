@@ -86,7 +86,7 @@ test("the nine migrated pages have one visual source of truth", async () => {
   for (const file of sharedPages) {
     const source = fs.readFileSync(path.join(portalRoot, file), "utf8");
     expect(source, `${file} must not retain inline CSS`).not.toMatch(/<style\b/i);
-    expect(source, `${file} must load design-system version 7`).toContain('jgc-design-system.css?v=7');
+    expect(source, `${file} must load design-system version 8`).toContain('jgc-design-system.css?v=8');
     expect(source, `${file} must opt into the centralized component system`).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     for (const stylesheet of removedStylesheets) {
       expect(source, `${file} must not load ${stylesheet}`).not.toContain(stylesheet);
@@ -130,7 +130,7 @@ for (const viewport of [
       await page.goto(`/${file}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(150);
 
-      await expect(page.locator('link[data-jgc-design-system="7"]')).toHaveCount(1);
+      await expect(page.locator('link[data-jgc-design-system="8"]')).toHaveCount(1);
       const dimensions = await page.evaluate(() => ({
         bodyWidth: document.body.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,

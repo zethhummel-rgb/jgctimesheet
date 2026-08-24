@@ -140,15 +140,15 @@ test("Employee Home uses one token-only visual source", async () => {
   expect(source).not.toMatch(/<style\b/i);
   expect(source).not.toMatch(/\sstyle\s*=/i);
   expect(source).not.toContain('href="styles.css');
-  expect(source).toContain('jgc-design-system.css?v=7');
-  expect(source).toContain('home-design-system.css?v=3');
+  expect(source).toContain('jgc-design-system.css?v=8');
+  expect(source).toContain('home-design-system.css?v=4');
   expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(source).not.toContain('class="mobile-bottom-nav"');
   expect(source).not.toContain('id="moreSheet"');
   expect(source.match(/class="feature-card jgc-card"/g) || []).toHaveLength(16);
   expect(css, "Home CSS must use shared tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(serviceWorker).toContain('"./home-design-system.css?v=3"');
+  expect(serviceWorker).toContain('"./home-design-system.css?v=4"');
 });
 
 for (const viewport of [

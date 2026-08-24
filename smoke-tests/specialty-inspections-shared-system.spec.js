@@ -69,7 +69,7 @@ test("specialty inspection forms use one token-only shared visual source", async
     expect(source, `${file} must not write inline styles`).not.toMatch(/\sstyle\s*=/i);
     expect(source, `${file} must not load the legacy portal stylesheet`).not.toContain('href="styles.css');
     expect(source, `${file} must not load the legacy inspection mobile stylesheet`).not.toContain("inspection-mobile.css");
-    expect(source).toContain('jgc-design-system.css?v=7');
+    expect(source).toContain('jgc-design-system.css?v=8');
     expect(source).toContain('specialty-inspection-design-system.css?v=2');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }

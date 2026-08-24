@@ -199,7 +199,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(pageHead).not.toMatch(/<style\b/i);
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain('href="styles.css');
-  expect(pageSource).toContain('jgc-design-system.css?v=7');
+  expect(pageSource).toContain('jgc-design-system.css?v=8');
   expect(pageSource).toContain('work-orders-design-system.css?v=1');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Work Orders CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);

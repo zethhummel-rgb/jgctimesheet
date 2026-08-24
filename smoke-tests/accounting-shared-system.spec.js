@@ -12,7 +12,7 @@ test("Accounting Admin uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
 
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=7');
+  expect(html).toContain('jgc-design-system.css?v=8');
   expect(html).toContain('accounting-admin.css?v=6');
   expect(html).toContain('accounting-admin.js?v=10');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-system-page\b/i);
@@ -26,7 +26,7 @@ test("Accounting Admin uses one token-only visual source", async () => {
   expect(script).toContain('accounting-table-wrap jgc-table-wrap');
   expect(script).toContain('accounting-table jgc-table');
   expect(script).toContain('accounting-empty jgc-empty-state');
-  expect(worker).toContain('const JGC_RELEASE_ID = "780"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "781"');
   expect(worker).toContain('"./accounting-admin.css?v=6"');
   expect(worker).toContain('"./accounting-admin.js?v=10"');
 });
