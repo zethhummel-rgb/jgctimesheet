@@ -14,6 +14,9 @@ export type Confidence = "Low" | "Low-Medium" | "Medium" | "High" | "Project-spe
 export type ProposalStyle = "jgc-classic" | "section-summary" | "detailed";
 export type ProposalTaxDisplay = "extra" | "breakdown";
 export type CustomerQuoteType = "Proposal Quote" | "Budget Quote";
+export type ProposalCostBreakdownCategory = "labour" | "materials" | "subcontractors" | "coordination";
+export type ProposalSubcontractorBreakdownMode = "combined" | "individual";
+export const defaultProposalCostBreakdownCategories: ProposalCostBreakdownCategory[] = ["labour", "materials", "subcontractors", "coordination"];
 
 export interface PriceBookItem {
   id: string;
@@ -211,6 +214,9 @@ export interface Quote {
   proposalAttention?: string;
   proposalAttentionContactId?: string;
   proposalShowCostBreakdown?: boolean;
+  proposalBreakdownCategories?: ProposalCostBreakdownCategory[];
+  proposalSubcontractorBreakdownMode?: ProposalSubcontractorBreakdownMode;
+  /** Retained for older saved quotes. Customer breakdown amounts now always include markup. */
   proposalBreakdownIncludesMarkup?: boolean;
   scopeSummary: string;
   inclusions: string;
@@ -977,7 +983,11 @@ export function normalizeAppState(state: AppState): AppState {
       ownerName: quote.ownerName ?? quote.preparedBy ?? "",
       customerQuoteType: quote.customerQuoteType ?? (quote.quoteType === "Budgetary" ? "Budget Quote" : "Proposal Quote"),
       proposalShowCostBreakdown: quote.proposalShowCostBreakdown ?? false,
-      proposalBreakdownIncludesMarkup: quote.proposalBreakdownIncludesMarkup ?? true,
+      proposalBreakdownCategories: Array.isArray(quote.proposalBreakdownCategories)
+        ? [...new Set(quote.proposalBreakdownCategories.filter((category): category is ProposalCostBreakdownCategory => defaultProposalCostBreakdownCategories.includes(category as ProposalCostBreakdownCategory)))]
+        : [...defaultProposalCostBreakdownCategories],
+      proposalSubcontractorBreakdownMode: quote.proposalSubcontractorBreakdownMode === "individual" ? "individual" : "combined",
+      proposalBreakdownIncludesMarkup: true,
       lines: quote.lines.map((line) => {
         const priceBookItem = state.priceBook.find((item) => item.code === line.priceBookCode);
         const subcontractorName = line.vendorName?.trim()

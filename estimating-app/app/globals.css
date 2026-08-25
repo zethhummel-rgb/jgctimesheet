@@ -33,7 +33,23 @@ input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 .overview-search-empty strong { color: var(--navy-900); }
 .overview-search-empty span { color: var(--slate-500); font-size: 12px; }
 .fixed-tax-row > strong { color: var(--green-700); }
-.proposal-breakdown-controls { padding: 0 22px 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.proposal-breakdown-controls { padding: 0 22px 22px; display: grid; gap: 12px; }
+.proposal-breakdown-master { min-height: 64px; border-color: #9bcdb8; background: var(--green-100); }
+.proposal-breakdown-options { padding: 16px; display: grid; gap: 13px; border: 1px solid var(--slate-200); border-radius: 8px; background: #fff; }
+.proposal-breakdown-option-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.proposal-breakdown-option-heading strong, .proposal-breakdown-option-heading small { display: block; }
+.proposal-breakdown-option-heading strong { color: var(--navy-900); }
+.proposal-breakdown-option-heading small { margin-top: 3px; color: var(--slate-500); }
+.proposal-breakdown-option-heading > span { padding: 5px 8px; border-radius: 999px; background: var(--green-100); color: var(--green-700); font-size: 9px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
+.proposal-breakdown-category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.proposal-subcontractor-mode { margin: 0; padding: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border: 1px solid var(--slate-200); border-radius: 7px; background: var(--slate-50); }
+.proposal-subcontractor-mode legend { padding: 0 5px; color: var(--navy-900); font-size: 11px; font-weight: 850; }
+.proposal-subcontractor-mode > label { min-height: 56px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--slate-200); border-radius: 6px; background: #fff; }
+.proposal-subcontractor-mode input { margin-top: 3px; }
+.proposal-subcontractor-mode strong, .proposal-subcontractor-mode small { display: block; }
+.proposal-subcontractor-mode strong { color: var(--navy-900); }
+.proposal-subcontractor-mode small { margin-top: 2px; color: var(--slate-500); }
+.proposal-breakdown-empty-warning { margin: 0; padding: 10px 12px; border-left: 3px solid var(--red-700); border-radius: 5px; background: var(--red-100); color: var(--red-700); font-weight: 750; }
 
 /* Quote revision workflow */
 .locked-banner .button { margin-left: auto; flex: 0 0 auto; }
@@ -1076,7 +1092,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .hybrid-company-contact { width: 100%; display: flex; align-items: end; justify-content: space-between; gap: 20px; text-align: left; }
 .hybrid-company-contact address { text-align: right; }
 .proposal-cost-breakdown { width: min(100%, 420px); margin: 16px 0 0 auto; padding: 13px 15px; border: 1px solid var(--slate-200); border-radius: 6px; background: var(--slate-50); break-inside: avoid; }
-.proposal-cost-breakdown h2 { margin: 0 0 7px; color: var(--navy-900); font-size: 12px; }
+.proposal-cost-breakdown h2 { margin: 0 0 7px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--navy-900); font-size: 12px; }
+.proposal-cost-breakdown h2 small { color: var(--green-700); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; }
+.proposal-cost-breakdown > p { margin: 8px 0; color: var(--slate-500); font-size: 10px; }
 .proposal-cost-breakdown > div, .proposal-cost-breakdown footer { min-height: 27px; display: flex; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--slate-200); }
 .proposal-cost-breakdown footer { margin-top: 4px; padding-top: 4px; border-top: 2px solid var(--green-600); color: var(--navy-900); font-weight: 850; }
 .review-build-ups { display: grid; gap: 13px; }
@@ -1169,7 +1187,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .filter-tabs button { flex: 1 1 72px; min-width: 0; }
   .sticky-quote-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
   .sticky-quote-summary > div { min-width: 0; border-left: 0; }
-  .proposal-breakdown-controls { padding-inline: 15px; grid-template-columns: 1fr; }
+  .proposal-breakdown-controls { padding-inline: 15px; }
+  .proposal-breakdown-option-heading { align-items: stretch; flex-direction: column; }
+  .proposal-breakdown-option-heading > span { width: fit-content; }
+  .proposal-breakdown-category-grid, .proposal-subcontractor-mode { grid-template-columns: 1fr; }
   .review-built-up-card > header, .review-subcontractor-card { align-items: flex-start; flex-direction: column; }
   .review-built-up-card > header > div:last-child { text-align: left; }
   .review-subcontractor-card > strong { white-space: normal; }

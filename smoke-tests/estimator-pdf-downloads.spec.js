@@ -171,3 +171,47 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   expect(filledDocument.getForm().getTextField(signatureField.getName()).getText()).toBe("Test Customer");
   expect(filledDocument.getForm().getTextField(dateField.getName()).getText()).toBe("August 21, 2026");
 });
+
+test("proposal cost breakdown selects marked-up categories and lists subcontractors separately", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  await page.getByRole("checkbox", { name: /Show cost breakdown on proposal/ }).check();
+  await expect(page.locator(".proposal-breakdown-options")).toBeVisible();
+  await expect(page.getByText("Every displayed amount includes its applicable markup.")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /All subcontractors in one price/ })).toBeChecked();
+
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+  await expect(page.locator(".proposal-cost-breakdown")).toContainText("Subcontractors$20,640.00");
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("checkbox", { name: /^Labour/ }).uncheck();
+  await page.getByRole("checkbox", { name: /^Materials/ }).uncheck();
+  await page.getByRole("checkbox", { name: /^Coordination/ }).uncheck();
+  await page.getByRole("radio", { name: /Each subcontractor separately/ }).check();
+
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+  const breakdown = page.locator(".proposal-cost-breakdown");
+  await expect(breakdown).toContainText("Markup included");
+  await expect(breakdown).toContainText("Demo Drywall Vendor — Drywall");
+  await expect(breakdown).toContainText("Demo Electrical Vendor — Electrical");
+  await expect(breakdown).toContainText("Demo Painting Vendor — Painting");
+  await expect(breakdown).toContainText("$1,680.00");
+  await expect(breakdown).toContainText("$960.00");
+  await expect(breakdown).toContainText("$18,000.00");
+  await expect(breakdown.locator(":scope > div")).toHaveCount(3);
+
+  const [proposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const proposalPath = testInfo.outputPath("selected-cost-breakdown-proposal.pdf");
+  await proposalDownload.saveAs(proposalPath);
+  const proposalText = await extractPdfText(proposalPath);
+  expect(proposalText).toContain("Amounts include markup");
+  expect(proposalText).toContain("Demo Drywall Vendor");
+  expect(proposalText).toContain("Demo Electrical Vendor");
+  expect(proposalText).toContain("Demo Painting Vendor");
+  expect(proposalText).toContain("$1,680.00");
+  expect(proposalText).toContain("$960.00");
+  expect(proposalText).toContain("$18,000.00");
+});

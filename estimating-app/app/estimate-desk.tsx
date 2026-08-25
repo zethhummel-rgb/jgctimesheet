@@ -12,6 +12,7 @@ import {
   type ProposalFormatCommand,
 } from "../lib/proposal-rich-text";
 import {
+  defaultProposalCostBreakdownCategories,
   buildUpItemTotal,
   createDefaultState,
   effectiveUnitCost,
@@ -28,6 +29,7 @@ import {
   type Job,
   type JobCostEntry,
   type PriceBookItem,
+  type ProposalCostBreakdownCategory,
   type ProposalStyle,
   type PurchaseOrder,
   type Quote,
@@ -39,6 +41,7 @@ import {
   type VendorContact,
   type ViewKey,
 } from "../lib/estimator-data";
+import { proposalCostBreakdownRows, selectedProposalCostBreakdownCategories } from "../lib/proposal-cost-breakdown";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
 // leave an already-open quote pointing at an old, removed download file.
@@ -650,37 +653,6 @@ function divisionSummaries(quote: Quote) {
   });
 }
 
-function quoteCostCategories(quote: Quote) {
-  const direct = { labour: 0, materials: 0, subcontractors: 0, other: 0 };
-  const sell = { labour: 0, materials: 0, subcontractors: 0, other: 0 };
-  quote.lines.filter((line) => line.included).forEach((line) => {
-    const lineDirect = lineDirectCost(line);
-    const lineSell = lineSellPrice(line, quote.defaultMarkup);
-    const factor = lineDirect > 0 ? lineSell / lineDirect : 0;
-    const add = (key: keyof typeof direct, amount: number) => {
-      direct[key] += amount;
-      sell[key] += amount * factor;
-    };
-    if (line.costBuildUp) {
-      const totals = lineBuildUpTotals(line);
-      add("labour", totals.labour * line.quantity);
-      add("materials", totals.materials * line.quantity);
-      add("subcontractors", totals.subcontractors * line.quantity);
-      add("other", totals.other * line.quantity);
-    } else if (line.costType === "Labour") add("labour", lineDirect);
-    else if (line.costType === "Material") add("materials", lineDirect);
-    else if (line.costType === "Sub / Vendor") add("subcontractors", lineDirect);
-    else if (line.costType === "Labour & Materials") {
-      add("labour", lineDirect / 2);
-      add("materials", lineDirect / 2);
-    } else add("other", lineDirect);
-  });
-  return {
-    direct: Object.fromEntries(Object.entries(direct).map(([key, value]) => [key, Math.round(value * 100) / 100])) as typeof direct,
-    sell: Object.fromEntries(Object.entries(sell).map(([key, value]) => [key, Math.round(value * 100) / 100])) as typeof sell,
-  };
-}
-
 function dollarsInWords(value: number): string {
   const belowTwenty = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
@@ -1072,6 +1044,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       proposalAttention: "",
       proposalAttentionContactId: "",
       proposalShowCostBreakdown: false,
+      proposalBreakdownCategories: [...defaultProposalCostBreakdownCategories],
+      proposalSubcontractorBreakdownMode: "combined",
       proposalBreakdownIncludesMarkup: true,
       scopeSummary: "",
       inclusions: "",
@@ -1672,6 +1646,12 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
     setOpen(false);
     inputRef.current?.blur();
   };
+  const addCustomOption = () => {
+    if (!onAdd) return;
+    onAdd(query.trim());
+    setOpen(false);
+    inputRef.current?.blur();
+  };
   return (
     <div className="saved-data-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}>
       <input
@@ -1694,9 +1674,9 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
       {open && !disabled && (
         <div className="saved-data-results" role="listbox" style={mobileResultsStyle}>
           <div className="saved-data-results-heading" role="presentation"><strong>Select {ariaLabel}</strong><span>{matches.length} saved option{matches.length === 1 ? "" : "s"}</span></div>
-          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onPointerDown={(event) => event.preventDefault()} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
+          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); chooseOption(option); } }} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
           {!matches.length && <div className="saved-data-empty">No saved matches</div>}
-          {onAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onClick={() => { onAdd(query.trim()); setOpen(false); inputRef.current?.blur(); }}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
+          {onAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); addCustomOption(); } }} onClick={addCustomOption}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
         </div>
       )}
     </div>
@@ -2443,6 +2423,13 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
 }) {
   const selectedClient = state.clients.find((client) => client.id === quote.clientId);
   const clientContacts = selectedClient?.contacts ?? [];
+  const breakdownCategories = selectedProposalCostBreakdownCategories(quote);
+  const toggleBreakdownCategory = (category: ProposalCostBreakdownCategory, checked: boolean) => {
+    const selected = new Set(breakdownCategories);
+    if (checked) selected.add(category);
+    else selected.delete(category);
+    updateField("proposalBreakdownCategories", defaultProposalCostBreakdownCategories.filter((candidate) => selected.has(candidate)));
+  };
   const saveAttentionContact = (name: string) => {
     const cleanName = name.trim();
     if (!selectedClient || !cleanName) return;
@@ -2502,8 +2489,22 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       <section className="panel form-panel full-span">
         <div className="panel-heading"><div><span className="eyebrow">CUSTOMER PRICING</span><h2>Optional cost breakdown</h2></div><span className="client-safe-chip">Lump sum remains standard</span></div>
         <div className="proposal-breakdown-controls">
-          <label className="check-field"><input type="checkbox" checked={quote.proposalShowCostBreakdown ?? false} disabled={locked} onChange={(event) => updateField("proposalShowCostBreakdown", event.target.checked)} /><span><strong>Show cost breakdown on proposal</strong><small>Show customer-facing Labour, Materials, Subcontractors and Other totals.</small></span></label>
-          <label className="check-field"><input type="checkbox" checked={quote.proposalBreakdownIncludesMarkup ?? true} disabled={locked || !quote.proposalShowCostBreakdown} onChange={(event) => updateField("proposalBreakdownIncludesMarkup", event.target.checked)} /><span><strong>Include markup in breakdown totals</strong><small>When off, markup is shown as its own separate line.</small></span></label>
+          <label className="check-field proposal-breakdown-master"><input type="checkbox" checked={quote.proposalShowCostBreakdown ?? false} disabled={locked} onChange={(event) => updateField("proposalShowCostBreakdown", event.target.checked)} /><span><strong>Show cost breakdown on proposal</strong><small>Choose which marked-up selling-price categories the customer can see.</small></span></label>
+          {quote.proposalShowCostBreakdown && <div className="proposal-breakdown-options">
+            <div className="proposal-breakdown-option-heading"><div><strong>Select the lines to show</strong><small>Every displayed amount includes its applicable markup.</small></div><span>Customer-facing</span></div>
+            <div className="proposal-breakdown-category-grid">
+              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("labour")} disabled={locked} onChange={(event) => toggleBreakdownCategory("labour", event.target.checked)} /><span><strong>Labour</strong><small>Marked-up labour selling price</small></span></label>
+              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("materials")} disabled={locked} onChange={(event) => toggleBreakdownCategory("materials", event.target.checked)} /><span><strong>Materials</strong><small>Marked-up material selling price</small></span></label>
+              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("subcontractors")} disabled={locked} onChange={(event) => toggleBreakdownCategory("subcontractors", event.target.checked)} /><span><strong>Subcontractors</strong><small>Marked-up subcontractor selling price</small></span></label>
+              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("coordination")} disabled={locked} onChange={(event) => toggleBreakdownCategory("coordination", event.target.checked)} /><span><strong>Coordination</strong><small>Marked-up equipment, permits and other coordination costs</small></span></label>
+            </div>
+            {breakdownCategories.includes("subcontractors") && <fieldset className="proposal-subcontractor-mode" disabled={locked}>
+              <legend>How should subcontractors appear?</legend>
+              <label><input type="radio" name="proposal-subcontractor-breakdown" value="combined" checked={(quote.proposalSubcontractorBreakdownMode ?? "combined") === "combined"} onChange={() => updateField("proposalSubcontractorBreakdownMode", "combined")} /><span><strong>All subcontractors in one price</strong><small>Show one combined Subcontractors line.</small></span></label>
+              <label><input type="radio" name="proposal-subcontractor-breakdown" value="individual" checked={quote.proposalSubcontractorBreakdownMode === "individual"} onChange={() => updateField("proposalSubcontractorBreakdownMode", "individual")} /><span><strong>Each subcontractor separately</strong><small>Show the company and trade, such as “Aurele St. Jean — Plumber”.</small></span></label>
+            </fieldset>}
+            {!breakdownCategories.length && <p className="proposal-breakdown-empty-warning">Select at least one line before generating the proposal.</p>}
+          </div>}
         </div>
       </section>
     </div>
@@ -3328,7 +3329,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   const notes = proposalTextLines(quote.proposalNotes);
   const sections = sectionSummaries(quote);
   const taxExtra = true;
-  const categoryTotals = quoteCostCategories(quote);
+  const costBreakdownRows = proposalCostBreakdownRows(state, quote);
   const company = {
     phone: state.settings.companyPhone ?? "(613) 932-1293",
     fax: state.settings.companyFax ?? "(613) 937-3656",
@@ -3403,12 +3404,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p><ProposalRichText value={quote.inclusions} /></p></div>}{quote.exclusions && <div><span>Excluded</span><p><ProposalRichText value={quote.exclusions} /></p></div>}</div>}
             </section>
             {sharedOptional}
-            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{([
-              ["Labour", "labour"],
-              ["Materials", "materials"],
-              ["Subcontractors", "subcontractors"],
-              ["Other direct costs", "other"],
-            ] as const).filter(([, key]) => categoryTotals.direct[key] > 0).map(([label, key]) => <div key={key}><span>{label}</span><strong>{money((quote.proposalBreakdownIncludesMarkup ?? true) ? categoryTotals.sell[key] : categoryTotals.direct[key])}</strong></div>)}{!(quote.proposalBreakdownIncludesMarkup ?? true) && <div><span>Markup</span><strong>{money(totals.profit)}</strong></div>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
+            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown <small>Markup included</small></h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
             <section className="hybrid-lump-sum">
               <div><span>LUMP SUM PROPOSAL</span><p>Complete the Scope of Work above in a good and workmanlike manner.</p><small>{dollarsInWords(totals.subtotal)} Dollars</small></div>
               <div><strong>{money(totals.subtotal)}</strong><span>HST Extra</span></div>
