@@ -5,6 +5,8 @@ import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-pri
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, type PortalJobOption } from "../src/portal-api";
 import {
+  defaultClosingProposalScopeLine,
+  isDefaultClosingProposalScopeLine,
   proposalFormatTokens,
   proposalTextHtml,
   proposalTextLines,
@@ -456,10 +458,12 @@ function placeProposalEditorCaret(editor: HTMLElement, edge: "start" | "end") {
   selection?.addRange(range);
 }
 
-function NumberedScopeEditor({ value, disabled, onChange }: {
+function NumberedScopeEditor({ value, disabled, pinnedLastLine, onChange, onDeletePinnedLine }: {
   value: string;
   disabled: boolean;
+  pinnedLastLine?: string;
   onChange: (value: string) => void;
+  onDeletePinnedLine?: (value: string) => void;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const dragLinesRef = useRef<string[]>([]);
@@ -467,6 +471,13 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const lines = value.split(/\r?\n/);
+  const pinnedLineIndex = pinnedLastLine ? lines.findIndex((line) => isDefaultClosingProposalScopeLine(line)) : -1;
+  const keepPinnedLineLast = (candidateLines: string[]) => {
+    if (!pinnedLastLine) return candidateLines;
+    const remaining = candidateLines.filter((line) => !isDefaultClosingProposalScopeLine(line));
+    return [...remaining, pinnedLastLine];
+  };
+  const commitLines = (candidateLines: string[]) => onChange(keepPinnedLineLast(candidateLines).join("\n"));
   useEffect(() => () => dragCleanupRef.current?.(), []);
   const focusLine = (index: number, edge: "start" | "end" = "start") => {
     window.requestAnimationFrame(() => {
@@ -478,7 +489,7 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
     const replacements = nextValue.replace(/\r/g, "").split("\n");
     const nextLines = [...lines];
     nextLines.splice(index, 1, ...replacements);
-    onChange(nextLines.join("\n"));
+    commitLines(nextLines);
     if (replacements.length > 1) focusLine(index + replacements.length - 1, "end");
   };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
@@ -487,7 +498,7 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
       const [before, after] = splitProposalRichEditor(event.currentTarget);
       const nextLines = [...lines];
       nextLines.splice(index, 1, before, after);
-      onChange(nextLines.join("\n"));
+      commitLines(nextLines);
       focusLine(index + 1);
       return;
     }
@@ -496,7 +507,7 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
       const previous = lines[index - 1] ?? "";
       const nextLines = [...lines];
       nextLines.splice(index - 1, 2, previous + (lines[index] ?? ""));
-      onChange(nextLines.join("\n"));
+      commitLines(nextLines);
       focusLine(index - 1, "end");
     }
   };
@@ -505,12 +516,14 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
     const nextLines = [...sourceLines];
     const [movedLine] = nextLines.splice(fromIndex, 1);
     nextLines.splice(toIndex, 0, movedLine);
-    onChange(nextLines.join("\n"));
-    return nextLines;
+    const normalizedLines = keepPinnedLineLast(nextLines);
+    onChange(normalizedLines.join("\n"));
+    return normalizedLines;
   };
   const deleteLine = (index: number) => {
     const nextLines = lines.length > 1 ? lines.filter((_, lineIndex) => lineIndex !== index) : [""];
-    onChange(nextLines.join("\n"));
+    if (index === pinnedLineIndex && onDeletePinnedLine) onDeletePinnedLine(nextLines.join("\n"));
+    else commitLines(nextLines);
     focusLine(Math.min(index, nextLines.length - 1));
   };
   const startDragging = (event: React.PointerEvent<HTMLButtonElement>, index: number) => {
@@ -553,17 +566,22 @@ function NumberedScopeEditor({ value, disabled, onChange }: {
     <div ref={editorRef} className="numbered-scope-editor" role="group" aria-labelledby="proposal-scope-label">
       {!disabled && <ProposalFormattingToolbar scopeRef={editorRef} compact />}
       <div className="numbered-scope-list">
-        {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} dragging={draggingIndex === index} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} onMove={(toIndex) => { moveLine(index, toIndex); focusLine(toIndex); }} onDragStart={(event) => startDragging(event, index)} onDelete={() => deleteLine(index)} lineCount={lines.length} />)}
+        {lines.map((line, index) => <NumberedScopeLine key={index} index={index} value={line} disabled={disabled} pinned={index === pinnedLineIndex} dragging={draggingIndex === index} onChange={(nextValue) => replaceLine(index, nextValue)} onKeyDown={(event) => handleKeyDown(event, index)} onMove={(toIndex) => { moveLine(index, toIndex); focusLine(toIndex); }} onDragStart={(event) => startDragging(event, index)} onDelete={() => deleteLine(index)} lineCount={lines.length} />)}
       </div>
-      {!disabled && <button type="button" className="numbered-scope-add" onClick={() => { onChange(`${value}\n`); focusLine(lines.length); }}>＋ Add scope item</button>}
+      {!disabled && <button type="button" className="numbered-scope-add" onClick={() => {
+        const nextLines = pinnedLineIndex >= 0 ? [...lines.slice(0, pinnedLineIndex), "", ...lines.slice(pinnedLineIndex)] : [...lines, ""];
+        onChange(nextLines.join("\n"));
+        focusLine(pinnedLineIndex >= 0 ? pinnedLineIndex : lines.length);
+      }}>＋ Add scope item</button>}
     </div>
   );
 }
 
-function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDown, onMove, onDragStart, onDelete, lineCount }: {
+function NumberedScopeLine({ index, value, disabled, pinned, dragging, onChange, onKeyDown, onMove, onDragStart, onDelete, lineCount }: {
   index: number;
   value: string;
   disabled: boolean;
+  pinned: boolean;
   dragging: boolean;
   onChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
@@ -584,8 +602,8 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
     localValueRef.current = value;
   }, [value]);
   return (
-    <div className={`numbered-scope-row${dragging ? " dragging" : ""}`} data-scope-row-index={index}>
-      {!disabled && <button type="button" className="numbered-scope-drag" aria-label={`Move proposal scope item ${index + 1}`} title="Drag to reorder" onPointerDown={onDragStart} onKeyDown={(event) => {
+    <div className={`numbered-scope-row${pinned ? " pinned" : ""}${dragging ? " dragging" : ""}`} data-scope-row-index={index}>
+      {!disabled && <button type="button" className="numbered-scope-drag" aria-label={pinned ? "Closing proposal scope item stays last" : `Move proposal scope item ${index + 1}`} title={pinned ? "Closing scope item stays last" : "Drag to reorder"} disabled={pinned} onPointerDown={onDragStart} onKeyDown={(event) => {
         if (event.key === "ArrowUp" && index > 0) { event.preventDefault(); onMove(index - 1); }
         if (event.key === "ArrowDown" && index < lineCount - 1) { event.preventDefault(); onMove(index + 1); }
       }}>⠿</button>}
@@ -595,10 +613,12 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
         className="numbered-scope-input"
         data-proposal-rich-editor
         data-scope-line={index}
-        contentEditable={!disabled}
+        contentEditable={!disabled && !pinned}
         role="textbox"
         aria-label={`Proposal scope item ${index + 1}`}
         aria-disabled={disabled}
+        aria-readonly={pinned || disabled}
+        title={pinned ? "Default closing scope item. Delete it if it is not needed." : undefined}
         data-placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"}
         suppressContentEditableWarning
         onInput={(event) => {
@@ -1092,7 +1112,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       depositPercent: 0,
       proposalStyle: state.settings.defaultProposalStyle ?? "jgc-classic",
       proposalTaxDisplay: state.settings.defaultProposalTaxDisplay ?? "extra",
-      proposalScope: "",
+      proposalScope: defaultClosingProposalScopeLine,
+      proposalClosingScopeRemoved: false,
       proposalNotes: "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others",
       proposalAttention: "",
       proposalAttentionContactId: "",
@@ -2546,7 +2567,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       <section className="panel form-panel full-span">
         <div className="panel-heading"><div><span className="eyebrow">SCOPE FOUNDATION</span><h2>What are we pricing?</h2></div><span className="client-safe-chip">Customer-facing</span></div>
         <div className="form-grid two-column">
-          <div className="field full"><span id="proposal-scope-label">Proposal Scope Lines <em>Press Enter for the next numbered item</em></span><NumberedScopeEditor value={quote.proposalScope ?? ""} disabled={locked} onChange={(value) => updateField("proposalScope", value)} /></div>
+          <div className="field full"><span id="proposal-scope-label">Proposal Scope Lines <em>Press Enter for the next numbered item</em></span><NumberedScopeEditor value={quote.proposalScope ?? ""} disabled={locked} pinnedLastLine={quote.proposalClosingScopeRemoved ? undefined : defaultClosingProposalScopeLine} onChange={(value) => updateField("proposalScope", value)} onDeletePinnedLine={(value) => { updateField("proposalClosingScopeRemoved", true); updateField("proposalScope", value); }} /></div>
           <div className="field full"><span>Proposal Notes <em>One item per line</em></span><ProposalRichEditor label="Proposal Notes" rows={4} value={quote.proposalNotes ?? ""} disabled={locked} onChange={(value) => updateField("proposalNotes", value)} placeholder="Access, working hours, permits and project assumptions." /></div>
           <div className="field"><span>Inclusions</span><ProposalRichEditor label="Inclusions" rows={5} value={quote.inclusions} disabled={locked} onChange={(value) => updateField("inclusions", value)} placeholder="What the price includes" /></div>
           <div className="field"><span>Exclusions</span><ProposalRichEditor label="Exclusions" rows={5} value={quote.exclusions} disabled={locked} onChange={(value) => updateField("exclusions", value)} placeholder="What is specifically excluded" /></div>

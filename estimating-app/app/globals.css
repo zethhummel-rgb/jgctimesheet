@@ -275,12 +275,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .numbered-scope-drag { border-right: 1px solid var(--slate-200); font-size: 19px; }
 .numbered-scope-drag:hover, .numbered-scope-drag:focus-visible { outline: none; background: var(--green-100); color: var(--green-700); }
 .numbered-scope-drag:active { cursor: grabbing; }
+.numbered-scope-row.pinned .numbered-scope-drag { background: var(--green-100); color: var(--green-700); cursor: default; }
 .numbered-scope-delete { border-left: 1px solid var(--slate-200); color: var(--red-700); cursor: pointer; font-size: 21px; }
 .numbered-scope-delete:hover, .numbered-scope-delete:focus-visible { outline: none; background: var(--red-100); }
 .numbered-scope-row.dragging { position: relative; z-index: 2; background: var(--green-100); box-shadow: 0 5px 16px rgba(11,31,51,.16); opacity: .88; }
 .field .numbered-scope-input { min-height: 42px; padding: 10px 12px; overflow-wrap: anywhere; border: 0; border-radius: 0; background: #fff; color: var(--navy-900); line-height: 1.45; outline: none; }
 .field .numbered-scope-input:focus { border: 0; box-shadow: none; }
 .field .numbered-scope-input[aria-disabled="true"] { background: var(--slate-100); color: var(--slate-600); }
+.field .numbered-scope-row.pinned .numbered-scope-input { background: #f5fbf7; color: var(--navy-900); }
 .numbered-scope-add { width: 100%; min-height: 38px; padding: 8px 12px; border: 0; border-top: 1px solid var(--slate-200); background: var(--slate-50); color: var(--green-700); font-weight: 800; text-align: left; cursor: pointer; }
 .numbered-scope-add:hover { background: var(--green-100); }
 .numbered-scope-editor:has([aria-disabled="true"]) { background: var(--slate-100); }
