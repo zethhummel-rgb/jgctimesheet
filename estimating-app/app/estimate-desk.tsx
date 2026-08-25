@@ -12,9 +12,9 @@ import {
   type ProposalFormatCommand,
 } from "../lib/proposal-rich-text";
 import {
-  defaultProposalCostBreakdownCategories,
   buildUpItemTotal,
   createDefaultState,
+  defaultProposalCostBreakdownCategories,
   effectiveUnitCost,
   lineBuildUpTotals,
   lineDirectCost,
@@ -41,7 +41,7 @@ import {
   type VendorContact,
   type ViewKey,
 } from "../lib/estimator-data";
-import { proposalCostBreakdownRows, selectedProposalCostBreakdownCategories } from "../lib/proposal-cost-breakdown";
+import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
@@ -1098,7 +1098,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       proposalAttentionContactId: "",
       proposalShowCostBreakdown: false,
       proposalBreakdownCategories: [...defaultProposalCostBreakdownCategories],
-      proposalSubcontractorBreakdownMode: "combined",
+      proposalBreakdownLineIds: [],
       proposalBreakdownIncludesMarkup: true,
       scopeSummary: "",
       inclusions: "",
@@ -2485,11 +2485,19 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
   const selectedClient = state.clients.find((client) => client.id === quote.clientId);
   const clientContacts = selectedClient?.contacts ?? [];
   const breakdownCategories = selectedProposalCostBreakdownCategories(quote);
+  const breakdownLineOptions = proposalCostBreakdownLineOptions(state, quote);
+  const breakdownLineIds = selectedProposalCostBreakdownLineIds(quote);
   const toggleBreakdownCategory = (category: ProposalCostBreakdownCategory, checked: boolean) => {
     const selected = new Set(breakdownCategories);
     if (checked) selected.add(category);
     else selected.delete(category);
     updateField("proposalBreakdownCategories", defaultProposalCostBreakdownCategories.filter((candidate) => selected.has(candidate)));
+  };
+  const toggleBreakdownLine = (lineId: string, checked: boolean) => {
+    const selected = new Set(breakdownLineIds);
+    if (checked) selected.add(lineId);
+    else selected.delete(lineId);
+    updateField("proposalBreakdownLineIds", breakdownLineOptions.map((option) => option.id).filter((candidate) => selected.has(candidate)));
   };
   const saveAttentionContact = (name: string) => {
     const cleanName = name.trim();
@@ -2550,21 +2558,20 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       <section className="panel form-panel full-span">
         <div className="panel-heading"><div><span className="eyebrow">CUSTOMER PRICING</span><h2>Optional cost breakdown</h2></div><span className="client-safe-chip">Lump sum remains standard</span></div>
         <div className="proposal-breakdown-controls">
-          <label className="check-field proposal-breakdown-master"><input type="checkbox" checked={quote.proposalShowCostBreakdown ?? false} disabled={locked} onChange={(event) => updateField("proposalShowCostBreakdown", event.target.checked)} /><span><strong>Show cost breakdown on proposal</strong><small>Choose which marked-up selling-price categories the customer can see.</small></span></label>
+          <label className="check-field proposal-breakdown-master"><input type="checkbox" checked={quote.proposalShowCostBreakdown ?? false} disabled={locked} onChange={(event) => updateField("proposalShowCostBreakdown", event.target.checked)} /><span><strong>Show cost breakdown on proposal</strong><small>Choose category totals, individual estimate lines, or both.</small></span></label>
           {quote.proposalShowCostBreakdown && <div className="proposal-breakdown-options">
-            <div className="proposal-breakdown-option-heading"><div><strong>Select the lines to show</strong><small>Every displayed amount includes its applicable markup.</small></div><span>Customer-facing</span></div>
+            <div className="proposal-breakdown-option-heading"><div><strong>Select the category totals to show</strong><small>Selected individual lines are removed from these totals so nothing is counted twice.</small></div><span>Customer-facing</span></div>
             <div className="proposal-breakdown-category-grid">
               <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("labour")} disabled={locked} onChange={(event) => toggleBreakdownCategory("labour", event.target.checked)} /><span><strong>Labour</strong><small>Marked-up labour selling price</small></span></label>
               <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("materials")} disabled={locked} onChange={(event) => toggleBreakdownCategory("materials", event.target.checked)} /><span><strong>Materials</strong><small>Marked-up material selling price</small></span></label>
-              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("subcontractors")} disabled={locked} onChange={(event) => toggleBreakdownCategory("subcontractors", event.target.checked)} /><span><strong>Subcontractors</strong><small>Marked-up subcontractor selling price</small></span></label>
+              <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("subcontractors")} disabled={locked} onChange={(event) => toggleBreakdownCategory("subcontractors", event.target.checked)} /><span><strong>Subcontractors</strong><small>One combined marked-up price for all unselected subcontractor lines</small></span></label>
               <label className="check-field"><input type="checkbox" checked={breakdownCategories.includes("coordination")} disabled={locked} onChange={(event) => toggleBreakdownCategory("coordination", event.target.checked)} /><span><strong>Coordination</strong><small>Marked-up equipment, permits and other coordination costs</small></span></label>
             </div>
-            {breakdownCategories.includes("subcontractors") && <fieldset className="proposal-subcontractor-mode" disabled={locked}>
-              <legend>How should subcontractors appear?</legend>
-              <label><input type="radio" name="proposal-subcontractor-breakdown" value="combined" checked={(quote.proposalSubcontractorBreakdownMode ?? "combined") === "combined"} onChange={() => updateField("proposalSubcontractorBreakdownMode", "combined")} /><span><strong>All subcontractors in one price</strong><small>Show one combined Subcontractors line.</small></span></label>
-              <label><input type="radio" name="proposal-subcontractor-breakdown" value="individual" checked={quote.proposalSubcontractorBreakdownMode === "individual"} onChange={() => updateField("proposalSubcontractorBreakdownMode", "individual")} /><span><strong>Each subcontractor separately</strong><small>Show the company and trade, such as “Aurele St. Jean — Plumber”.</small></span></label>
-            </fieldset>}
-            {!breakdownCategories.length && <p className="proposal-breakdown-empty-warning">Select at least one line before generating the proposal.</p>}
+            <div className="proposal-breakdown-option-heading proposal-breakdown-line-heading"><div><strong>Select individual estimate lines to show</strong><small>Each selected line shows its marked-up selling price. Subcontractors use the company name and trade/work description.</small></div><span>{breakdownLineOptions.length} line{breakdownLineOptions.length === 1 ? "" : "s"}</span></div>
+            {breakdownLineOptions.length ? <div className="proposal-breakdown-line-list">
+              {breakdownLineOptions.map((option) => <label key={option.id} className="check-field proposal-breakdown-line-choice"><input type="checkbox" checked={breakdownLineIds.includes(option.id)} disabled={locked} onChange={(event) => toggleBreakdownLine(option.id, event.target.checked)} /><span><strong>{option.label}</strong><small>{money(option.amount)} selling price · {option.costType}</small></span></label>)}
+            </div> : <p className="proposal-breakdown-empty-warning">Add an included estimate line before selecting individual proposal breakdown items.</p>}
+            {!breakdownCategories.length && !breakdownLineIds.length && <p className="proposal-breakdown-empty-warning">Select at least one category or estimate line. The unselected balance will remain under General Conditions/Coordination and Markup.</p>}
           </div>}
         </div>
       </section>

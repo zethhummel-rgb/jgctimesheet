@@ -172,22 +172,25 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   expect(filledDocument.getForm().getTextField(dateField.getName()).getText()).toBe("August 21, 2026");
 });
 
-test("proposal cost breakdown selects marked-up categories and lists subcontractors separately", async ({ page }, testInfo) => {
+test("proposal cost breakdown combines categories and supports marked-up estimate lines", async ({ page }, testInfo) => {
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Details/ }).click();
 
   await page.getByRole("checkbox", { name: /Show cost breakdown on proposal/ }).check();
   await expect(page.locator(".proposal-breakdown-options")).toBeVisible();
-  await expect(page.getByText("Every displayed amount includes its applicable markup.")).toBeVisible();
-  await expect(page.getByRole("radio", { name: /All subcontractors in one price/ })).toBeChecked();
+  await expect(page.getByText("Selected individual lines are removed from these totals so nothing is counted twice.")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^Subcontractors/ })).toBeChecked();
 
-  await page.getByRole("tab", { name: /Proposal/ }).click();
-  await expect(page.locator(".proposal-cost-breakdown")).toContainText("Subcontractors$20,640.00");
-  await page.getByRole("tab", { name: /Details/ }).click();
   await page.getByRole("checkbox", { name: /^Labour/ }).uncheck();
   await page.getByRole("checkbox", { name: /^Materials/ }).uncheck();
   await page.getByRole("checkbox", { name: /^Coordination/ }).uncheck();
-  await page.getByRole("radio", { name: /Each subcontractor separately/ }).check();
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+  await expect(page.locator(".proposal-cost-breakdown")).toContainText("Subcontractors$20,640.00");
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("checkbox", { name: /^Subcontractors/ }).uncheck();
+  await page.getByRole("checkbox", { name: /Demo Drywall Vendor — Drywall/ }).check();
+  await page.getByRole("checkbox", { name: /Demo Electrical Vendor — Electrical/ }).check();
+  await page.getByRole("checkbox", { name: /Demo Painting Vendor — Painting/ }).check();
 
   await page.getByRole("tab", { name: /Proposal/ }).click();
   const breakdown = page.locator(".proposal-cost-breakdown");
@@ -195,7 +198,7 @@ test("proposal cost breakdown selects marked-up categories and lists subcontract
   await expect(breakdown).toContainText("Demo Drywall Vendor — Drywall");
   await expect(breakdown).toContainText("Demo Electrical Vendor — Electrical");
   await expect(breakdown).toContainText("Demo Painting Vendor — Painting");
-  await expect(breakdown).toContainText("John Gordon");
+  await expect(breakdown).toContainText("General Conditions/Coordination and Markup");
   await expect(breakdown).toContainText("$1,680.00");
   await expect(breakdown).toContainText("$960.00");
   await expect(breakdown).toContainText("$18,000.00");
@@ -215,7 +218,7 @@ test("proposal cost breakdown selects marked-up categories and lists subcontract
   await proposalDownload.saveAs(proposalPath);
   const proposalText = await extractPdfText(proposalPath);
   expect(proposalText).not.toContain("Amounts include markup");
-  expect(proposalText).toContain("John Gordon");
+  expect(proposalText).toContain("General Conditions/Coordination and Markup");
   expect(proposalText).toContain("Demo Drywall Vendor");
   expect(proposalText).toContain("Demo Electrical Vendor");
   expect(proposalText).toContain("Demo Painting Vendor");

@@ -13,9 +13,17 @@ import {
 
 export interface ProposalCostBreakdownRow {
   key: string;
-  category: ProposalCostBreakdownCategory | "john-gordon";
+  category: ProposalCostBreakdownCategory | "line-item" | "general-conditions";
   label: string;
   amount: number;
+}
+
+export interface ProposalCostBreakdownLineOption {
+  id: string;
+  label: string;
+  amount: number;
+  costType: QuoteLine["costType"];
+  subcontractor: boolean;
 }
 
 export function selectedProposalCostBreakdownCategories(quote: Quote): ProposalCostBreakdownCategory[] {
@@ -24,34 +32,64 @@ export function selectedProposalCostBreakdownCategories(quote: Quote): ProposalC
     : defaultProposalCostBreakdownCategories;
 }
 
-function subcontractorLabel(state: AppState, line: QuoteLine, fallback: string) {
+function isSubcontractorLine(line: QuoteLine) {
+  if (line.costType === "Sub / Vendor") return true;
+  const items = line.costBuildUp?.items ?? [];
+  return items.length > 0 && items.every((item) => item.kind === "Subcontractor");
+}
+
+function subcontractorLabel(state: AppState, line: QuoteLine) {
   const typedName = line.vendorName?.trim() || "";
   const vendor = state.vendors.find((candidate) => candidate.id === line.vendorId)
     ?? state.vendors.find((candidate) => typedName && candidate.name.trim().toLocaleLowerCase() === typedName.toLocaleLowerCase());
-  const name = typedName || vendor?.name.trim() || fallback.trim() || line.description.trim() || "Subcontractor";
-  const trade = vendor?.trade?.trim() || "";
-  return trade && trade.toLocaleLowerCase() !== name.toLocaleLowerCase() ? `${name} — ${trade}` : name;
+  const description = line.description.trim();
+  const buildUpWork = line.costBuildUp?.items.find((item) => item.kind === "Subcontractor")?.description.trim() || "";
+  const name = typedName || vendor?.name.trim() || description || "Subcontractor";
+  const work = vendor?.trade?.trim()
+    || (description && description.toLocaleLowerCase() !== name.toLocaleLowerCase() ? description : "")
+    || buildUpWork;
+  return work && work.toLocaleLowerCase() !== name.toLocaleLowerCase() ? `${name} — ${work}` : name;
+}
+
+export function proposalCostBreakdownLineOptions(state: AppState, quote: Quote): ProposalCostBreakdownLineOption[] {
+  return quote.lines
+    .filter((line) => line.included && lineSellPrice(line, quote.defaultMarkup) > 0)
+    .map((line) => {
+      const subcontractor = isSubcontractorLine(line);
+      return {
+        id: line.id,
+        label: subcontractor ? subcontractorLabel(state, line) : line.description.trim() || line.costType,
+        amount: lineSellPrice(line, quote.defaultMarkup),
+        costType: line.costType,
+        subcontractor,
+      };
+    });
+}
+
+export function selectedProposalCostBreakdownLineIds(quote: Quote): string[] {
+  const availableLineIds = new Set(quote.lines.filter((line) => line.included && lineSellPrice(line, quote.defaultMarkup) > 0).map((line) => line.id));
+  if (Array.isArray(quote.proposalBreakdownLineIds)) {
+    return [...new Set(quote.proposalBreakdownLineIds.filter((lineId) => availableLineIds.has(lineId)))];
+  }
+
+  // Preserve older quotes that used the former individual-subcontractor mode.
+  if (quote.proposalSubcontractorBreakdownMode === "individual" && selectedProposalCostBreakdownCategories(quote).includes("subcontractors")) {
+    return quote.lines.filter((line) => availableLineIds.has(line.id) && isSubcontractorLine(line)).map((line) => line.id);
+  }
+  return [];
 }
 
 export function proposalCostBreakdownRows(state: AppState, quote: Quote): ProposalCostBreakdownRow[] {
   const selected = new Set(selectedProposalCostBreakdownCategories(quote));
+  const selectedLineIds = new Set(selectedProposalCostBreakdownLineIds(quote));
+  const lineOptions = proposalCostBreakdownLineOptions(state, quote);
   const totals: Record<ProposalCostBreakdownCategory, number> = {
     labour: 0,
     materials: 0,
     subcontractors: 0,
     coordination: 0,
   };
-  const individualSubcontractors = new Map<string, { label: string; amount: number }>();
-
-  const addSubcontractor = (label: string, amount: number) => {
-    if (amount <= 0) return;
-    const normalized = label.trim().toLocaleLowerCase();
-    const existing = individualSubcontractors.get(normalized) ?? { label, amount: 0 };
-    existing.amount += amount;
-    individualSubcontractors.set(normalized, existing);
-  };
-
-  quote.lines.filter((line) => line.included).forEach((line) => {
+  quote.lines.filter((line) => line.included && !selectedLineIds.has(line.id)).forEach((line) => {
     const directTotal = lineDirectCost(line);
     const sellTotal = lineSellPrice(line, quote.defaultMarkup);
     if (sellTotal <= 0) return;
@@ -74,17 +112,13 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
         const directAmount = buildUpItemTotal(item) * Math.max(0, line.quantity || 0);
         if (item.kind === "Labour") add("labour", directAmount);
         else if (item.kind === "Material") add("materials", directAmount);
-        else if (item.kind === "Subcontractor") {
-          const sellAmount = add("subcontractors", directAmount);
-          addSubcontractor(subcontractorLabel(state, line, item.description), sellAmount);
-        } else add("coordination", directAmount);
+        else if (item.kind === "Subcontractor") add("subcontractors", directAmount);
+        else add("coordination", directAmount);
       });
     } else if (line.costType === "Labour") add("labour", directTotal);
     else if (line.costType === "Material") add("materials", directTotal);
-    else if (line.costType === "Sub / Vendor") {
-      const sellAmount = add("subcontractors", directTotal);
-      addSubcontractor(subcontractorLabel(state, line, line.description), sellAmount);
-    } else if (line.costType === "Labour & Materials") {
+    else if (line.costType === "Sub / Vendor") add("subcontractors", directTotal);
+    else if (line.costType === "Labour & Materials") {
       add("labour", directTotal / 2);
       add("materials", directTotal / 2);
     } else add("coordination", directTotal);
@@ -93,7 +127,9 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
     if (unallocatedSell > 0.005) totals.coordination += unallocatedSell;
   });
 
-  const rows: ProposalCostBreakdownRow[] = [];
+  const rows: ProposalCostBreakdownRow[] = lineOptions
+    .filter((option) => selectedLineIds.has(option.id))
+    .map((option) => ({ key: `line-${option.id}`, category: "line-item", label: option.label, amount: roundMoney(option.amount) }));
   const addCombined = (category: ProposalCostBreakdownCategory, label: string) => {
     const amount = roundMoney(totals[category]);
     if (selected.has(category) && amount > 0) rows.push({ key: category, category, label, amount });
@@ -102,13 +138,7 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
   addCombined("labour", "Labour");
   addCombined("materials", "Materials");
   if (selected.has("subcontractors") && totals.subcontractors > 0) {
-    if (quote.proposalSubcontractorBreakdownMode === "individual" && individualSubcontractors.size > 0) {
-      [...individualSubcontractors.values()]
-        .sort((left, right) => left.label.localeCompare(right.label, "en-CA"))
-        .forEach((entry, index) => rows.push({ key: `subcontractor-${index}`, category: "subcontractors", label: entry.label, amount: roundMoney(entry.amount) }));
-    } else {
-      rows.push({ key: "subcontractors", category: "subcontractors", label: "Subcontractors", amount: roundMoney(totals.subcontractors) });
-    }
+    rows.push({ key: "subcontractors", category: "subcontractors", label: "Subcontractors", amount: roundMoney(totals.subcontractors) });
   }
   addCombined("coordination", "Coordination");
 
@@ -127,13 +157,13 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
   }
   const visibleRows = rows.filter((row) => row.amount > 0);
   displayedTotalCents = visibleRows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0);
-  const johnGordonCents = Math.max(0, proposalTotalCents - displayedTotalCents);
-  if (johnGordonCents > 0) {
+  const remainingCents = Math.max(0, proposalTotalCents - displayedTotalCents);
+  if (remainingCents > 0) {
     visibleRows.push({
-      key: "john-gordon",
-      category: "john-gordon",
-      label: "John Gordon",
-      amount: johnGordonCents / 100,
+      key: "general-conditions",
+      category: "general-conditions",
+      label: "General Conditions/Coordination and Markup",
+      amount: remainingCents / 100,
     });
   }
   return visibleRows;
