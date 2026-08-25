@@ -111,10 +111,29 @@ test("mobile client picker stays inside the visible viewport and selects immedia
 
   const firstClient = results.getByRole("option").first();
   const selectedName = (await firstClient.locator("strong").textContent())?.trim();
-  await firstClient.click();
+  await firstClient.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, button: 0 });
+  await firstClient.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, button: 0 });
   await expect(clientPicker).toHaveValue(selectedName || "");
   await expect(clientPicker).toHaveAttribute("aria-expanded", "false");
   await expect(results).toHaveCount(0);
+});
+
+test("mobile proposal cost-breakdown choices stay readable and contained", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("checkbox", { name: /Show cost breakdown on proposal/ }).check();
+
+  await expect(page.getByRole("checkbox", { name: /^Labour/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^Materials/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^Subcontractors/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^Coordination/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /All subcontractors in one price/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Each subcontractor separately/ })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test("pricing controls accept whole-number typed percentages and stay synchronized with sliders", async ({ page }) => {

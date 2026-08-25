@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { AppState, Quote } from "./estimator-data";
-import { lineBuildUpTotals, lineDirectCost, lineSellPrice, quoteTotals } from "./estimator-data";
+import { quoteTotals } from "./estimator-data";
+import { proposalCostBreakdownRows } from "./proposal-cost-breakdown";
 import { proposalTextLines, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
 
 const PAGE = { width: 612, height: 792, margin: 46 };
@@ -180,30 +181,19 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   if (quote.exclusions) richParagraph(quote.exclusions, { prefix: "Excluded: ", size: 8, forceBold: true, gap: 6 });
 
   const totals = quoteTotals(quote);
-  if (quote.proposalShowCostBreakdown) {
+  const costBreakdownRows = proposalCostBreakdownRows(state, quote);
+  if (quote.proposalShowCostBreakdown && costBreakdownRows.length) {
     heading("03", "Cost Breakdown");
-    const direct = { Labour: 0, Materials: 0, Subcontractors: 0, Other: 0 };
-    const sell = { ...direct };
-    quote.lines.filter((line) => line.included).forEach((line) => {
-      const lineDirect = lineDirectCost(line);
-      const factor = lineDirect > 0 ? lineSellPrice(line, quote.defaultMarkup) / lineDirect : 0;
-      const add = (key: keyof typeof direct, value: number) => { direct[key] += value; sell[key] += value * factor; };
-      if (line.costBuildUp) {
-        const built = lineBuildUpTotals(line);
-        add("Labour", built.labour * line.quantity); add("Materials", built.materials * line.quantity);
-        add("Subcontractors", built.subcontractors * line.quantity); add("Other", built.other * line.quantity);
-      } else if (line.costType === "Labour") add("Labour", lineDirect);
-      else if (line.costType === "Material") add("Materials", lineDirect);
-      else if (line.costType === "Sub / Vendor") add("Subcontractors", lineDirect);
-      else add("Other", lineDirect);
+    text("Amounts include markup", PAGE.margin + 8, 7, regular, grey);
+    y -= 14;
+    costBreakdownRows.forEach((row) => {
+      const labelLines = wrap(row.label, regular, 9, PAGE.width - PAGE.margin * 2 - 125);
+      const rowHeight = Math.max(19, labelLines.length * 11 + 5);
+      ensure(rowHeight);
+      labelLines.forEach((labelLine, lineIndex) => page.drawText(labelLine, { x: PAGE.margin + 8, y: y - lineIndex * 11, size: 9, font: regular, color: dark }));
+      page.drawText(`$${row.amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 95, y, size: 9, font: bold, color: dark });
+      y -= rowHeight;
     });
-    const values = quote.proposalBreakdownIncludesMarkup === false ? direct : sell;
-    Object.entries(values).filter(([, value]) => value > 0).forEach(([label, value]) => {
-      ensure(19); text(label, PAGE.margin + 8, 9); page.drawText(`$${value.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 95, y, size: 9, font: bold, color: dark }); y -= 19;
-    });
-    if (quote.proposalBreakdownIncludesMarkup === false) {
-      text("Markup", PAGE.margin + 8, 9); page.drawText(`$${totals.profit.toLocaleString("en-CA", { minimumFractionDigits: 2 })}`, { x: PAGE.width - PAGE.margin - 95, y, size: 9, font: bold, color: dark }); y -= 19;
-    }
   }
   const lumpSumHeight = 72;
   ensure(lumpSumHeight + 14);
