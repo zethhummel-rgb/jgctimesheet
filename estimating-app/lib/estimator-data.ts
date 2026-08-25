@@ -1,3 +1,5 @@
+import { normalizeProposalScopeClosingLine } from "./proposal-rich-text";
+
 export type ViewKey =
   | "dashboard"
   | "quotes"
@@ -210,6 +212,7 @@ export interface Quote {
   proposalStyle?: ProposalStyle;
   proposalTaxDisplay?: ProposalTaxDisplay;
   proposalScope?: string;
+  proposalClosingScopeRemoved?: boolean;
   proposalNotes?: string;
   proposalAttention?: string;
   proposalAttentionContactId?: string;
@@ -882,7 +885,8 @@ export function createDefaultState(): AppState {
         depositPercent: 0,
         proposalStyle: "jgc-classic",
         proposalTaxDisplay: "extra",
-        proposalScope: "Painting and finish work as described in the estimate\nSelective demolition, patching and making good\nDemobilize and leave the site in a clean fashion",
+        proposalScope: "Painting and finish work as described in the estimate\nSelective demolition, patching and making good\nDemobilize and leave site in a clean fashion",
+        proposalClosingScopeRemoved: false,
         proposalNotes: jgcProposalNotes,
         proposalAttention: "",
         scopeSummary: "Demo estimate showing the intended JGC workflow. Verify every description, quantity and price before use.",
@@ -975,7 +979,8 @@ export function normalizeAppState(state: AppState): AppState {
       status: quote.status === "Sent" ? "Finished" : quote.status,
       proposalStyle: quote.proposalStyle ?? "jgc-classic",
       proposalTaxDisplay: quote.proposalTaxDisplay ?? "extra",
-      proposalScope: quote.proposalScope ?? "",
+      proposalScope: normalizeProposalScopeClosingLine(quote.proposalScope, quote.proposalClosingScopeRemoved === true),
+      proposalClosingScopeRemoved: quote.proposalClosingScopeRemoved === true,
       proposalNotes: quote.proposalNotes ?? jgcProposalNotes,
       proposalAttention: quote.proposalAttention ?? "",
       proposalAttentionContactId: quote.proposalAttentionContactId ?? "",

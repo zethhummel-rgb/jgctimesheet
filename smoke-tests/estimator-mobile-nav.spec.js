@@ -278,6 +278,39 @@ test("proposal scope items can be reordered and deleted", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Proposal scope item 1" })).toHaveText("First item");
 });
 
+test("default demobilization scope stays last until it is intentionally deleted", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const editor = page.getByRole("group", { name: /Proposal Scope Lines/ });
+  const closingText = "Demobilize and leave site in a clean fashion";
+  const scopeItems = editor.getByRole("textbox", { name: /Proposal scope item/ });
+  await expect(scopeItems.last()).toHaveText(closingText);
+  await expect(scopeItems.last()).toHaveAttribute("aria-readonly", "true");
+
+  await editor.getByRole("button", { name: "Add scope item" }).click();
+  await expect(scopeItems.last()).toHaveText(closingText);
+  await scopeItems.nth((await scopeItems.count()) - 2).fill("Final cleanup inspection");
+  await expect(scopeItems.last()).toHaveText(closingText);
+
+  const addedLineNumber = await scopeItems.count() - 1;
+  await editor.getByRole("button", { name: `Move proposal scope item ${addedLineNumber}` }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(scopeItems.last()).toHaveText(closingText);
+
+  const closingRow = editor.locator(".numbered-scope-row").filter({ hasText: closingText });
+  await closingRow.getByRole("button", { name: /Delete proposal scope item/ }).click();
+  await expect(editor.getByText(closingText, { exact: true })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: /Review/ }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await expect(editor.getByText(closingText, { exact: true })).toHaveCount(0);
+});
+
 test("proposal text formatting is visible in the editor, preview and PDF", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");

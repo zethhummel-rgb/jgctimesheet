@@ -26,6 +26,8 @@ export const proposalFormatTokens: Record<ProposalFormatCommand, [string, string
   large: ["[lg]", "[/lg]"],
 };
 
+export const defaultClosingProposalScopeLine = "Demobilize and leave site in a clean fashion";
+
 const tokenPattern = /\[(\/)?(b|i|u|hy|hg|sm|lg)\]/gi;
 
 function copyStyle(style: ProposalTextStyle): ProposalTextStyle {
@@ -88,4 +90,18 @@ export function proposalTextPlain(value?: string) {
 
 export function proposalTextLines(value?: string) {
   return String(value ?? "").split(/\r?\n/).map((line) => line.trim()).filter((line) => proposalTextPlain(line).trim().length > 0);
+}
+
+export function isDefaultClosingProposalScopeLine(value?: string) {
+  const plain = proposalTextPlain(value).trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  return plain === defaultClosingProposalScopeLine.toLocaleLowerCase()
+    || plain === "demobilize and leave the site in a clean fashion";
+}
+
+export function normalizeProposalScopeClosingLine(value?: string, removed = false) {
+  const lines = String(value ?? "").replace(/\r/g, "").split("\n");
+  if (removed) return lines.join("\n");
+  const otherLines = lines.filter((line) => !isDefaultClosingProposalScopeLine(line));
+  const meaningfulLines = otherLines.filter((line) => proposalTextPlain(line).trim().length > 0);
+  return [...meaningfulLines, defaultClosingProposalScopeLine].join("\n");
 }
