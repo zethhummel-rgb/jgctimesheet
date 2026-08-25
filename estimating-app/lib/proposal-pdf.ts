@@ -184,8 +184,6 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const costBreakdownRows = proposalCostBreakdownRows(state, quote);
   if (quote.proposalShowCostBreakdown && costBreakdownRows.length) {
     heading("03", "Cost Breakdown");
-    text("Amounts include markup", PAGE.margin + 8, 7, regular, grey);
-    y -= 14;
     costBreakdownRows.forEach((row) => {
       const labelLines = wrap(row.label, regular, 9, PAGE.width - PAGE.margin * 2 - 125);
       const rowHeight = Math.max(19, labelLines.length * 11 + 5);

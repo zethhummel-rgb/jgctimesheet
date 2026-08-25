@@ -3465,7 +3465,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p><ProposalRichText value={quote.inclusions} /></p></div>}{quote.exclusions && <div><span>Excluded</span><p><ProposalRichText value={quote.exclusions} /></p></div>}</div>}
             </section>
             {sharedOptional}
-            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown <small>Markup included</small></h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
+            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
             <section className="hybrid-lump-sum">
               <div><span>LUMP SUM PROPOSAL</span><p>Complete the Scope of Work above in a good and workmanlike manner.</p><small>{dollarsInWords(totals.subtotal)} Dollars</small></div>
               <div><strong>{money(totals.subtotal)}</strong><span>HST Extra</span></div>
