@@ -42,13 +42,12 @@ input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 .proposal-breakdown-option-heading small { margin-top: 3px; color: var(--slate-500); }
 .proposal-breakdown-option-heading > span { padding: 5px 8px; border-radius: 999px; background: var(--green-100); color: var(--green-700); font-size: 9px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
 .proposal-breakdown-category-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.proposal-subcontractor-mode { margin: 0; padding: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border: 1px solid var(--slate-200); border-radius: 7px; background: var(--slate-50); }
-.proposal-subcontractor-mode legend { padding: 0 5px; color: var(--navy-900); font-size: 11px; font-weight: 850; }
-.proposal-subcontractor-mode > label { min-height: 56px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--slate-200); border-radius: 6px; background: #fff; }
-.proposal-subcontractor-mode input { margin-top: 3px; }
-.proposal-subcontractor-mode strong, .proposal-subcontractor-mode small { display: block; }
-.proposal-subcontractor-mode strong { color: var(--navy-900); }
-.proposal-subcontractor-mode small { margin-top: 2px; color: var(--slate-500); }
+.proposal-breakdown-line-heading { padding-top: 4px; border-top: 1px solid var(--slate-200); }
+.proposal-breakdown-line-list { max-height: min(430px, 58vh); padding-right: 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; overflow-y: auto; overscroll-behavior: contain; }
+.proposal-breakdown-line-choice { min-width: 0; align-items: flex-start; }
+.proposal-breakdown-line-choice > span { min-width: 0; }
+.proposal-breakdown-line-choice strong, .proposal-breakdown-line-choice small { display: block; overflow-wrap: anywhere; }
+.proposal-breakdown-line-choice small { margin-top: 3px; color: var(--slate-500); }
 .proposal-breakdown-empty-warning { margin: 0; padding: 10px 12px; border-left: 3px solid var(--red-700); border-radius: 5px; background: var(--red-100); color: var(--red-700); font-weight: 750; }
 
 /* Quote revision workflow */
@@ -1192,7 +1191,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .proposal-breakdown-controls { padding-inline: 15px; }
   .proposal-breakdown-option-heading { align-items: stretch; flex-direction: column; }
   .proposal-breakdown-option-heading > span { width: fit-content; }
-  .proposal-breakdown-category-grid, .proposal-subcontractor-mode { grid-template-columns: 1fr; }
+  .proposal-breakdown-category-grid, .proposal-breakdown-line-list { grid-template-columns: 1fr; }
   .review-built-up-card > header, .review-subcontractor-card { align-items: flex-start; flex-direction: column; }
   .review-built-up-card > header > div:last-child { text-align: left; }
   .review-subcontractor-card > strong { white-space: normal; }

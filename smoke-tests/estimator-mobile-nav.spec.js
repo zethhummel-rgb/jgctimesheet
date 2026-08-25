@@ -131,8 +131,11 @@ test("mobile proposal cost-breakdown choices stay readable and contained", async
   await expect(page.getByRole("checkbox", { name: /^Materials/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /^Subcontractors/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /^Coordination/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /All subcontractors in one price/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Each subcontractor separately/ })).toBeVisible();
+  await expect(page.getByText("Select individual estimate lines to show")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Demo Drywall Vendor — Drywall/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Painting materials allowance/ })).toBeVisible();
+  await expect(page.locator(".proposal-breakdown-line-choice input[type='checkbox']")).toHaveCount(9);
+  await expect(page.getByRole("radio")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 

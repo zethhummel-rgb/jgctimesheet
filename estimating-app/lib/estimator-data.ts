@@ -215,6 +215,7 @@ export interface Quote {
   proposalAttentionContactId?: string;
   proposalShowCostBreakdown?: boolean;
   proposalBreakdownCategories?: ProposalCostBreakdownCategory[];
+  proposalBreakdownLineIds?: string[];
   proposalSubcontractorBreakdownMode?: ProposalSubcontractorBreakdownMode;
   /** Retained for older saved quotes. Customer breakdown amounts now always include markup. */
   proposalBreakdownIncludesMarkup?: boolean;
@@ -986,6 +987,9 @@ export function normalizeAppState(state: AppState): AppState {
       proposalBreakdownCategories: Array.isArray(quote.proposalBreakdownCategories)
         ? [...new Set(quote.proposalBreakdownCategories.filter((category): category is ProposalCostBreakdownCategory => defaultProposalCostBreakdownCategories.includes(category as ProposalCostBreakdownCategory)))]
         : [...defaultProposalCostBreakdownCategories],
+      proposalBreakdownLineIds: Array.isArray(quote.proposalBreakdownLineIds)
+        ? [...new Set(quote.proposalBreakdownLineIds.filter((lineId): lineId is string => typeof lineId === "string" && quote.lines.some((line) => line.id === lineId)))]
+        : undefined,
       proposalSubcontractorBreakdownMode: quote.proposalSubcontractorBreakdownMode === "individual" ? "individual" : "combined",
       proposalBreakdownIncludesMarkup: true,
       lines: quote.lines.map((line) => {
