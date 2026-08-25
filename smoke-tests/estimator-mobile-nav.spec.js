@@ -165,6 +165,25 @@ test("proposal scope editor visibly numbers every scope item", async ({ page }) 
   await expect(secondItem).toHaveText("Demobilize and leave the site clean");
 });
 
+test("proposal rich-text editors keep the caret while typing", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const scopeItem = page.getByRole("textbox", { name: "Proposal scope item 1" });
+  await scopeItem.fill("");
+  await scopeItem.pressSequentially("Scope typed forward");
+  await expect(scopeItem).toHaveText("Scope typed forward");
+
+  const notesEditor = page.getByRole("textbox", { name: "Proposal Notes" });
+  await notesEditor.fill("");
+  await notesEditor.pressSequentially("Notes typed forward");
+  await expect(notesEditor).toHaveText("Notes typed forward");
+});
+
 test("proposal scope items can be reordered and deleted", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");

@@ -386,11 +386,15 @@ function ProposalRichEditor({ value, disabled, onChange, label, placeholder, row
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const localValueRef = useRef(value);
   useLayoutEffect(() => {
     const editor = editorRef.current;
-    if (!editor || document.activeElement === editor) return;
+    if (!editor) return;
+    const isLocalUpdate = value === localValueRef.current;
+    if (document.activeElement === editor && isLocalUpdate) return;
     const html = proposalTextHtml(value);
     if (editor.innerHTML !== html) editor.innerHTML = html;
+    localValueRef.current = value;
   }, [value]);
   return (
     <div ref={shellRef} className="proposal-rich-shell">
@@ -406,8 +410,11 @@ function ProposalRichEditor({ value, disabled, onChange, label, placeholder, row
         data-placeholder={placeholder ?? ""}
         style={{ minHeight: `${Math.max(3, rows) * 22}px` }}
         suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }}
-        onInput={(event) => onChange(proposalEditorValue(event.currentTarget))}
+        onInput={(event) => {
+          const nextValue = proposalEditorValue(event.currentTarget);
+          localValueRef.current = nextValue;
+          onChange(nextValue);
+        }}
         onPaste={(event) => {
           event.preventDefault();
           document.execCommand("insertText", false, event.clipboardData.getData("text/plain"));
@@ -562,11 +569,15 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
   lineCount: number;
 }) {
   const inputRef = useRef<HTMLDivElement>(null);
+  const localValueRef = useRef(value);
   useLayoutEffect(() => {
     const input = inputRef.current;
-    if (!input || document.activeElement === input) return;
+    if (!input) return;
+    const isLocalUpdate = value === localValueRef.current;
+    if (document.activeElement === input && isLocalUpdate) return;
     const html = proposalTextHtml(value);
     if (input.innerHTML !== html) input.innerHTML = html;
+    localValueRef.current = value;
   }, [value]);
   return (
     <div className={`numbered-scope-row${dragging ? " dragging" : ""}`} data-scope-row-index={index}>
@@ -586,8 +597,11 @@ function NumberedScopeLine({ index, value, disabled, dragging, onChange, onKeyDo
         aria-disabled={disabled}
         data-placeholder={index === 0 ? "Supply labour and materials to complete…" : "Next scope item…"}
         suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }}
-        onInput={(event) => onChange(proposalEditorValue(event.currentTarget))}
+        onInput={(event) => {
+          const nextValue = proposalEditorValue(event.currentTarget);
+          localValueRef.current = nextValue;
+          onChange(nextValue);
+        }}
         onKeyDown={onKeyDown}
         onPaste={(event) => { event.preventDefault(); document.execCommand("insertText", false, event.clipboardData.getData("text/plain")); }}
       />
