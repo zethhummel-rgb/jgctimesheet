@@ -191,14 +191,21 @@ test("proposal cost breakdown selects marked-up categories and lists subcontract
 
   await page.getByRole("tab", { name: /Proposal/ }).click();
   const breakdown = page.locator(".proposal-cost-breakdown");
-  await expect(breakdown).toContainText("Markup included");
+  await expect(breakdown).not.toContainText("Markup included");
   await expect(breakdown).toContainText("Demo Drywall Vendor — Drywall");
   await expect(breakdown).toContainText("Demo Electrical Vendor — Electrical");
   await expect(breakdown).toContainText("Demo Painting Vendor — Painting");
+  await expect(breakdown).toContainText("John Gordon");
   await expect(breakdown).toContainText("$1,680.00");
   await expect(breakdown).toContainText("$960.00");
   await expect(breakdown).toContainText("$18,000.00");
-  await expect(breakdown.locator(":scope > div")).toHaveCount(3);
+  await expect(breakdown.locator(":scope > div")).toHaveCount(4);
+
+  const displayedAmounts = await breakdown.locator(":scope > div strong").allTextContents();
+  const proposalTotalText = await breakdown.locator("footer strong").innerText();
+  const currencyValue = (value) => Number(value.replace(/[^0-9.-]/g, ""));
+  const displayedTotalCents = displayedAmounts.reduce((sum, value) => sum + Math.round(currencyValue(value) * 100), 0);
+  expect(displayedTotalCents).toBe(Math.round(currencyValue(proposalTotalText) * 100));
 
   const [proposalDownload] = await Promise.all([
     page.waitForEvent("download"),
@@ -207,7 +214,8 @@ test("proposal cost breakdown selects marked-up categories and lists subcontract
   const proposalPath = testInfo.outputPath("selected-cost-breakdown-proposal.pdf");
   await proposalDownload.saveAs(proposalPath);
   const proposalText = await extractPdfText(proposalPath);
-  expect(proposalText).toContain("Amounts include markup");
+  expect(proposalText).not.toContain("Amounts include markup");
+  expect(proposalText).toContain("John Gordon");
   expect(proposalText).toContain("Demo Drywall Vendor");
   expect(proposalText).toContain("Demo Electrical Vendor");
   expect(proposalText).toContain("Demo Painting Vendor");

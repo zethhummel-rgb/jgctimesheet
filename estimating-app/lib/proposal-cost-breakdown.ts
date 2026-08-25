@@ -3,6 +3,7 @@ import {
   defaultProposalCostBreakdownCategories,
   lineDirectCost,
   lineSellPrice,
+  quoteTotals,
   roundMoney,
   type AppState,
   type ProposalCostBreakdownCategory,
@@ -12,7 +13,7 @@ import {
 
 export interface ProposalCostBreakdownRow {
   key: string;
-  category: ProposalCostBreakdownCategory;
+  category: ProposalCostBreakdownCategory | "john-gordon";
   label: string;
   amount: number;
 }
@@ -110,5 +111,30 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
     }
   }
   addCombined("coordination", "Coordination");
-  return rows;
+
+  const proposalTotalCents = Math.round(quoteTotals(quote).subtotal * 100);
+  let displayedTotalCents = rows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0);
+
+  // Independently rounded category/vendor rows can very rarely exceed the
+  // proposal by a cent. Reduce the final visible row first so the customer
+  // breakdown always reconciles exactly without displaying a negative balance.
+  let overageCents = Math.max(0, displayedTotalCents - proposalTotalCents);
+  for (let index = rows.length - 1; index >= 0 && overageCents > 0; index -= 1) {
+    const rowCents = Math.round(rows[index].amount * 100);
+    const correctionCents = Math.min(rowCents, overageCents);
+    rows[index] = { ...rows[index], amount: (rowCents - correctionCents) / 100 };
+    overageCents -= correctionCents;
+  }
+  const visibleRows = rows.filter((row) => row.amount > 0);
+  displayedTotalCents = visibleRows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0);
+  const johnGordonCents = Math.max(0, proposalTotalCents - displayedTotalCents);
+  if (johnGordonCents > 0) {
+    visibleRows.push({
+      key: "john-gordon",
+      category: "john-gordon",
+      label: "John Gordon",
+      amount: johnGordonCents / 100,
+    });
+  }
+  return visibleRows;
 }
