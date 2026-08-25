@@ -28,7 +28,7 @@ export interface ProposalCostBreakdownLineOption {
 
 export function selectedProposalCostBreakdownCategories(quote: Quote): ProposalCostBreakdownCategory[] {
   return Array.isArray(quote.proposalBreakdownCategories)
-    ? quote.proposalBreakdownCategories
+    ? quote.proposalBreakdownCategories.filter((category) => defaultProposalCostBreakdownCategories.includes(category))
     : defaultProposalCostBreakdownCategories;
 }
 
@@ -140,7 +140,6 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
   if (selected.has("subcontractors") && totals.subcontractors > 0) {
     rows.push({ key: "subcontractors", category: "subcontractors", label: "Subcontractors", amount: roundMoney(totals.subcontractors) });
   }
-  addCombined("coordination", "Coordination");
 
   const proposalTotalCents = Math.round(quoteTotals(quote).subtotal * 100);
   let displayedTotalCents = rows.reduce((sum, row) => sum + Math.round(row.amount * 100), 0);

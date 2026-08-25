@@ -183,7 +183,6 @@ test("proposal cost breakdown combines categories and supports marked-up estimat
 
   await page.getByRole("checkbox", { name: /^Labour/ }).uncheck();
   await page.getByRole("checkbox", { name: /^Materials/ }).uncheck();
-  await page.getByRole("checkbox", { name: /^Coordination/ }).uncheck();
   await page.getByRole("tab", { name: /Proposal/ }).click();
   await expect(page.locator(".proposal-cost-breakdown")).toContainText("Subcontractors$20,640.00");
   await page.getByRole("tab", { name: /Details/ }).click();
