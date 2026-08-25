@@ -130,10 +130,12 @@ test("mobile proposal cost-breakdown choices stay readable and contained", async
   await expect(page.getByRole("checkbox", { name: /^Labour/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /^Materials/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /^Subcontractors/ })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /^Coordination/ })).toBeVisible();
+  await expect(page.locator(".proposal-breakdown-category-grid input[type='checkbox']")).toHaveCount(3);
+  await expect(page.getByRole("checkbox", { name: /^CoordinationMarked-up equipment/ })).toHaveCount(0);
   await expect(page.getByText("Select individual estimate lines to show")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Demo Drywall Vendor — Drywall/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Painting materials allowance/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /Site setup and miscellaneous materials/ })).toBeVisible();
   await expect(page.locator(".proposal-breakdown-line-choice input[type='checkbox']")).toHaveCount(9);
   await expect(page.getByRole("radio")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
@@ -469,7 +471,10 @@ test("subcontractor lines allow an optional quote number and separate added cost
   const vendor = mainRow.getByRole("combobox", { name: /Vendor for line/ });
   await vendor.fill("Demo Painting");
   await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
-  await mainRow.locator(".direct-unit-cost-cell input").fill("4600");
+  const directUnitCost = mainRow.locator(".direct-unit-cost-cell input");
+  await directUnitCost.fill("4600");
+  await expect(directUnitCost).toHaveValue("4600");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$4,600.00");
   await expect(mainRow).toContainText("Quote # optional");
 
   const detail = page.locator(".line-detail-panel");
@@ -539,7 +544,10 @@ test("estimate direct costs always round up to whole dollars", async ({ page }) 
   await expect(mainRow.locator(".direct-cost-cell")).toContainText("$1,479.00");
   await expect(page.locator(".line-detail-pricing")).toContainText("$1,774.80");
 
-  await unitCost.fill("1478");
+  await unitCost.click();
+  await unitCost.press("Control+A");
+  await unitCost.pressSequentially("1478");
+  await expect(unitCost).toHaveValue("1478");
   await expect(mainRow.locator(".direct-cost-cell")).toContainText("$1,478.00");
 });
 

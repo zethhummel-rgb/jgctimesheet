@@ -16,7 +16,7 @@ export type ProposalTaxDisplay = "extra" | "breakdown";
 export type CustomerQuoteType = "Proposal Quote" | "Budget Quote";
 export type ProposalCostBreakdownCategory = "labour" | "materials" | "subcontractors" | "coordination";
 export type ProposalSubcontractorBreakdownMode = "combined" | "individual";
-export const defaultProposalCostBreakdownCategories: ProposalCostBreakdownCategory[] = ["labour", "materials", "subcontractors", "coordination"];
+export const defaultProposalCostBreakdownCategories: ProposalCostBreakdownCategory[] = ["labour", "materials", "subcontractors"];
 
 export interface PriceBookItem {
   id: string;
