@@ -2,6 +2,7 @@ import { createDefaultState, normalizeAppState, type AppState, type Job, type Ve
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
 import { normalizeMaterialName } from "../lib/material-price-workbook";
 import { normalizeSupplierSku } from "../lib/supplier-price-parser";
+import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 
 type SupabaseResult<T> = { data: T | null; error: { message?: string } | null; count?: number | null };
 
@@ -22,6 +23,7 @@ interface PortalBridgeWindow extends Window {
 const bridgeWindow = window as PortalBridgeWindow;
 const STATE_ID = "main";
 let stateRevision = 0;
+let stateBase: AppState | null = null;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -248,11 +250,15 @@ async function getState(client: any) {
     const inserted = await client.from("estimator_workspaces").insert({ id: STATE_ID, payload: initial }).select("updated_at,revision").single();
     if (inserted.error) throw new Error(inserted.error.message || "Estimator workspace could not be initialized.");
     stateRevision = Number(inserted.data.revision) || 1;
-    return { state: syncPortalData(initial, references.vendors, references.portalJobs), updatedAt: inserted.data.updated_at, revision: stateRevision };
+    const state = syncPortalData(initial, references.vendors, references.portalJobs);
+    stateBase = stripPortalSnapshots(state);
+    return { state, updatedAt: inserted.data.updated_at, revision: stateRevision };
   }
   const state = normalizeAppState(data.payload as AppState);
   stateRevision = Number(data.revision) || 1;
-  return { state: syncPortalData(state, references.vendors, references.portalJobs), updatedAt: data.updated_at, revision: stateRevision };
+  const syncedState = syncPortalData(state, references.vendors, references.portalJobs);
+  stateBase = stripPortalSnapshots(syncedState);
+  return { state: syncedState, updatedAt: data.updated_at, revision: stateRevision };
 }
 
 function stripPortalSnapshots(state: AppState) {
@@ -266,17 +272,55 @@ function stripPortalSnapshots(state: AppState) {
 async function putState(client: any, request: Request) {
   const body = await request.json() as { state?: AppState };
   if (!body.state || !Array.isArray(body.state.quotes) || !Array.isArray(body.state.priceBook)) return json({ error: "A complete estimator workspace is required." }, 400);
+  const localState = stripPortalSnapshots(body.state);
   const result = await client
     .from("estimator_workspaces")
-    .update({ payload: stripPortalSnapshots(body.state), updated_at: new Date().toISOString() })
+    .update({ payload: localState, updated_at: new Date().toISOString() })
     .eq("id", STATE_ID)
     .eq("revision", stateRevision)
     .select("updated_at,revision")
     .maybeSingle();
   if (result.error) throw new Error(result.error.message || "Estimator workspace could not be saved.");
-  if (!result.data) return json({ error: "This estimate changed in another browser. Refresh before continuing so no work is overwritten." }, 409);
-  stateRevision = Number(result.data.revision) || stateRevision + 1;
-  return json({ saved: true, updatedAt: result.data.updated_at, revision: stateRevision });
+  if (result.data) {
+    stateRevision = Number(result.data.revision) || stateRevision + 1;
+    stateBase = localState;
+    return json({ saved: true, updatedAt: result.data.updated_at, revision: stateRevision });
+  }
+
+  const latest = await client
+    .from("estimator_workspaces")
+    .select("payload,updated_at,revision")
+    .eq("id", STATE_ID)
+    .maybeSingle();
+  if (latest.error) throw new Error(latest.error.message || "The latest estimator workspace could not be loaded.");
+  if (!latest.data) return json({ error: "The shared estimator workspace is unavailable. Refresh and try again." }, 409);
+
+  const remoteState = normalizeAppState(latest.data.payload as AppState);
+  const baseState = stateBase ?? remoteState;
+  stateRevision = Number(latest.data.revision) || stateRevision;
+  stateBase = remoteState;
+  const merged = mergeConcurrentEstimatorState(baseState, localState, remoteState);
+  if (!merged.state) {
+    return json({
+      error: "The same estimate field changed in another browser. Tap the save warning to keep this browser's current value, or refresh to use the shared value.",
+      conflicts: merged.conflicts,
+    }, 409);
+  }
+
+  const retry = await client
+    .from("estimator_workspaces")
+    .update({ payload: merged.state, updated_at: new Date().toISOString() })
+    .eq("id", STATE_ID)
+    .eq("revision", stateRevision)
+    .select("updated_at,revision")
+    .maybeSingle();
+  if (retry.error) throw new Error(retry.error.message || "Estimator workspace could not be merged.");
+  if (!retry.data) return json({ error: "The estimator changed again while saving. Tap the save warning to retry." }, 409);
+
+  stateRevision = Number(retry.data.revision) || stateRevision + 1;
+  stateBase = merged.state;
+  const refreshed = await getState(client);
+  return json({ ...refreshed, saved: true, merged: true });
 }
 
 async function getSupplierCatalog(client: any, url: URL) {

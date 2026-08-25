@@ -136,6 +136,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-600); }
 .save-indicator.saving .save-dot { background: var(--blue-600); animation: pulse 1.2s infinite; }
 .save-indicator.error .save-dot, .save-indicator.offline .save-dot { background: var(--amber-500); }
+.save-indicator.error { cursor: pointer; }
+.save-indicator.error:focus-visible { outline: 3px solid rgba(194,130,0,.24); outline-offset: 5px; border-radius: 4px; }
 @keyframes pulse { 50% { opacity: .35; } }
 .page-canvas { max-width: 1600px; margin: 0 auto; padding: 30px 32px 112px; }
 .page-stack { display: flex; flex-direction: column; gap: 22px; }

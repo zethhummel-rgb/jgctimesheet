@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, type PortalJobOption } from "../src/portal-api";
@@ -42,6 +42,7 @@ import {
   type ViewKey,
 } from "../lib/estimator-data";
 import { proposalCostBreakdownRows, selectedProposalCostBreakdownCategories } from "../lib/proposal-cost-breakdown";
+import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
 // leave an already-open quote pointing at an old, removed download file.
@@ -838,6 +839,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [ready, setReady] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
   const [lastSaved, setLastSaved] = useState("");
+  const [saveErrorMessage, setSaveErrorMessage] = useState("");
   const [view, setView] = useState<ViewKey>("dashboard");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -857,6 +859,65 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [pendingCreateJobQuoteId, setPendingCreateJobQuoteId] = useState<string | null>(null);
   const [purchaseOrderEditor, setPurchaseOrderEditor] = useState<PurchaseOrderEditorState>(null);
   const saveTimer = useRef<number | null>(null);
+  const saveInFlight = useRef(false);
+  const pendingSave = useRef<AppState | null>(null);
+  const lastSavedSnapshot = useRef("");
+  const latestState = useRef(state);
+  latestState.current = state;
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveInFlight.current || !pendingSave.current) return;
+    const stateToSave = pendingSave.current;
+    pendingSave.current = null;
+    saveInFlight.current = true;
+    setSaveStatus("saving");
+    setSaveErrorMessage("");
+    let saved = false;
+    try {
+      const response = await fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: stateToSave }),
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        updatedAt?: string;
+        merged?: boolean;
+        state?: AppState;
+      };
+      if (!response.ok) throw new Error(result.error || "The estimate could not be saved.");
+
+      if (result.merged && result.state) {
+        const remoteState = normalizeAppState(result.state);
+        const newerLocalState = pendingSave.current;
+        lastSavedSnapshot.current = JSON.stringify(remoteState);
+        if (newerLocalState) {
+          const rebased = mergeConcurrentEstimatorState(stateToSave, newerLocalState, remoteState);
+          if (!rebased.state) throw new Error("New changes overlap with another browser. Tap the save warning to retry your current values.");
+          pendingSave.current = rebased.state;
+          setState(rebased.state);
+        } else {
+          setState(remoteState);
+        }
+      } else {
+        lastSavedSnapshot.current = JSON.stringify(stateToSave);
+      }
+
+      setLastSaved(result.updatedAt || new Date().toISOString());
+      saved = true;
+    } catch (error) {
+      if (!pendingSave.current) pendingSave.current = stateToSave;
+      setSaveErrorMessage(error instanceof Error ? error.message : "The estimate could not be saved.");
+      setSaveStatus("error");
+    } finally {
+      saveInFlight.current = false;
+      if (saved && pendingSave.current) {
+        window.setTimeout(() => void flushPendingSave(), 0);
+      } else if (saved) {
+        setSaveStatus("saved");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -867,13 +928,16 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       })
       .then((payload) => {
         if (!active) return;
-        setState(normalizeAppState(payload.state));
+        const loadedState = normalizeAppState(payload.state);
+        lastSavedSnapshot.current = JSON.stringify(loadedState);
+        setState(loadedState);
         setLastSaved(payload.updatedAt);
         setSaveStatus("saved");
         setReady(true);
       })
       .catch(() => {
         if (!active) return;
+        lastSavedSnapshot.current = JSON.stringify(latestState.current);
         setSaveStatus("offline");
         setReady(true);
       });
@@ -903,27 +967,16 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
 
   useEffect(() => {
     if (!ready) return;
+    const snapshot = JSON.stringify(state);
+    if (snapshot === lastSavedSnapshot.current) return;
+    pendingSave.current = state;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     setSaveStatus("saving");
-    saveTimer.current = window.setTimeout(async () => {
-      try {
-        const response = await fetch("/api/state", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ state }),
-        });
-        if (!response.ok) throw new Error("Save failed");
-        const result = (await response.json()) as { updatedAt: string };
-        setLastSaved(result.updatedAt);
-        setSaveStatus("saved");
-      } catch {
-        setSaveStatus("error");
-      }
-    }, 700);
+    saveTimer.current = window.setTimeout(() => void flushPendingSave(), 700);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [state, ready]);
+  }, [state, ready, flushPendingSave]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -1454,7 +1507,15 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           </div>
           <div className="topbar-actions">
             <a className="button secondary compact portal-return-button" href="../admin.html?tab=summary"><span aria-hidden="true">←</span> Return to Portal</a>
-            <div className={`save-indicator ${saveStatus}`} title={lastSaved ? `Last saved ${shortDate(lastSaved)}` : ""}>
+            <div
+              className={`save-indicator ${saveStatus}`}
+              title={saveErrorMessage || (lastSaved ? `Last saved ${shortDate(lastSaved)}` : "")}
+              role={saveStatus === "error" ? "button" : undefined}
+              tabIndex={saveStatus === "error" ? 0 : undefined}
+              aria-label={saveStatus === "error" ? "Retry saving estimate" : undefined}
+              onClick={saveStatus === "error" ? () => void flushPendingSave() : undefined}
+              onKeyDown={saveStatus === "error" ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void flushPendingSave(); } } : undefined}
+            >
               <span className="save-dot" />
               {saveStatus === "loading" && "Loading"}
               {saveStatus === "saving" && "Saving…"}
