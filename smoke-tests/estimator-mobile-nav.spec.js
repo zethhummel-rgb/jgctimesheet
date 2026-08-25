@@ -136,6 +136,43 @@ test("mobile proposal cost-breakdown choices stay readable and contained", async
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test("estimator autosave queues rapid changes instead of sending overlapping saves", async ({ page }) => {
+  let activeSaves = 0;
+  let maximumActiveSaves = 0;
+  const savedStates = [];
+
+  await page.route("**/api/state", async (route) => {
+    if (route.request().method() !== "PUT") {
+      return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Use local QA state" }) });
+    }
+    activeSaves += 1;
+    maximumActiveSaves = Math.max(maximumActiveSaves, activeSaves);
+    savedStates.push(route.request().postDataJSON().state);
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+    activeSaves -= 1;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ saved: true, updatedAt: new Date().toISOString() }) });
+  });
+
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Details/ }).click();
+
+  const projectName = page.getByRole("textbox", { name: /Project name/ });
+  await projectName.fill("First queued value");
+  await expect.poll(() => savedStates.length).toBe(1);
+  await projectName.fill("Newest queued value");
+  await page.waitForTimeout(900);
+  expect(maximumActiveSaves).toBe(1);
+
+  await expect.poll(() => savedStates.length).toBe(2);
+  await expect(page.getByText("All changes saved")).toBeVisible();
+  expect(maximumActiveSaves).toBe(1);
+  const finalQuote = savedStates.at(-1).quotes.find((quote) => quote.number === "JGC-Q-2026-0001");
+  expect(finalQuote.project).toBe("Newest queued value");
+});
+
 test("pricing controls accept whole-number typed percentages and stay synchronized with sliders", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
