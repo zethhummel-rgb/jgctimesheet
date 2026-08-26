@@ -35,6 +35,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   const expandedLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   const description = expandedLine.locator("input.description-input");
   await description.fill("Stairwell framing");
+  await expandedLine.locator("select.division-input").selectOption({ label: "Division 03 – Concrete" });
   await page.waitForTimeout(50);
   const labour = page.locator(".labour-group .build-up-row").last();
   await labour.getByLabel("Labour description").fill("Four-person framing crew");
@@ -60,9 +61,24 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await page.locator(".subcontractor-add-button").click();
   const typedVendorLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   await typedVendorLine.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals Inc.");
+  await typedVendorLine.locator("select.division-input").selectOption({ label: "Division 03 – Concrete" });
   await page.waitForTimeout(50);
   await typedVendorLine.locator(".direct-unit-cost-cell input").fill("2580");
   await page.locator(".line-detail-panel").getByLabel(/Subcontractor quote #/).fill("AG-2026-15");
+  await page.waitForTimeout(50);
+
+  await page.locator(".subcontractor-add-button").click();
+  const divisionOneVendorLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  await divisionOneVendorLine.getByRole("combobox", { name: /Vendor for line/ }).fill("Division One Mechanical");
+  await divisionOneVendorLine.locator("select.division-input").selectOption({ label: "Div 01 – General Requirements" });
+  await divisionOneVendorLine.locator(".direct-unit-cost-cell input").fill("600");
+  await page.waitForTimeout(50);
+
+  await page.getByRole("button", { name: /Custom line/ }).click();
+  const divisionOneGeneralLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  await divisionOneGeneralLine.locator("input.description-input").fill("Division one site setup");
+  await divisionOneGeneralLine.locator("select.division-input").selectOption({ label: "Div 01 – General Requirements" });
+  await divisionOneGeneralLine.locator(".direct-unit-cost-cell input").fill("350");
   await page.waitForTimeout(50);
 
   const [estimateDownload] = await Promise.all([
@@ -82,6 +98,14 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   expect(estimateText).toContain("$9,600.00");
   expect(estimateText).toContain("$1,922.50");
   expect(estimateText).toMatch(/Stairwell framing.*\$9,600\.00.*\$1,922\.50.*\$11,523\.00/);
+  const divisionOneVendorIndex = estimateText.indexOf("Division One Mechanical");
+  const divisionThreeVendorIndex = estimateText.indexOf("Agway Metals Inc.");
+  const divisionOneGeneralIndex = estimateText.indexOf("Division one site setup");
+  const divisionThreeGeneralIndex = estimateText.indexOf("Stairwell framing");
+  expect(divisionOneVendorIndex).toBeGreaterThan(-1);
+  expect(divisionOneVendorIndex).toBeLessThan(divisionThreeVendorIndex);
+  expect(divisionThreeVendorIndex).toBeLessThan(divisionOneGeneralIndex);
+  expect(divisionOneGeneralIndex).toBeLessThan(divisionThreeGeneralIndex);
   expect(estimateText).toContain("Included direct cost");
   expect(estimateText).toContain("Markup %");
   expect(estimateText).toContain("Markup amount");

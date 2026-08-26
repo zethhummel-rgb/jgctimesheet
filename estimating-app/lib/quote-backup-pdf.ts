@@ -545,7 +545,11 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   ];
   const orderedLines = quote.lines
     .map((line, originalIndex) => ({ line, originalIndex }))
-    .sort((left, right) => Number(right.line.costType === "Sub / Vendor") - Number(left.line.costType === "Sub / Vendor") || left.originalIndex - right.originalIndex);
+    .sort((left, right) => {
+      const groupOrder = Number(left.line.costType !== "Sub / Vendor") - Number(right.line.costType !== "Sub / Vendor");
+      const divisionOrder = Number(divisionNumber(left.line.division)) - Number(divisionNumber(right.line.division));
+      return groupOrder || divisionOrder || left.originalIndex - right.originalIndex;
+    });
   const vendorCount = orderedLines.filter(({ line }) => line.costType === "Sub / Vendor").length;
   const rows = orderedLines.map(({ line }) => {
     const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
