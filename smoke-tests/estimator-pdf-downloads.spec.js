@@ -278,6 +278,8 @@ test("PDF download menu keeps editable filenames on mobile", async ({ page }) =>
 test("Proposal PDF has fillable acceptance and date fields", async ({ page }, testInfo) => {
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Proposal/ }).click();
+  await expect(page.locator(".hybrid-lump-sum")).toHaveCSS("background-color", "rgb(239, 248, 242)");
+  await expect(page.locator(".hybrid-lump-sum")).toHaveCSS("color", "rgb(16, 61, 49)");
 
   const [proposalDownload] = await Promise.all([
     page.waitForEvent("download"),
@@ -285,22 +287,31 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   ]);
   const proposalPath = testInfo.outputPath("fillable-proposal.pdf");
   await proposalDownload.saveAs(proposalPath);
+  const proposalText = await extractPdfText(proposalPath);
+  for (const heading of ["GENERAL CONTRACTOR", "QUOTATION", "QUOTE NUMBER", "PREPARED FOR", "PROJECT SCOPE", "Scope of Work", "ASSUMPTIONS & CLARIFICATIONS", "LUMP SUM PROPOSAL", "Terms", "ACCEPTANCE"]) {
+    expect(proposalText).toContain(heading);
+  }
 
   const { PDFDocument } = require("../estimating-app/node_modules/pdf-lib/cjs/index.js");
   const proposalDocument = await PDFDocument.load(fs.readFileSync(proposalPath));
   const fields = proposalDocument.getForm().getFields();
   const signatureField = fields.find((field) => field.getName().startsWith("jgc_acceptance_signature_"));
+  const printNameField = fields.find((field) => field.getName().startsWith("jgc_acceptance_print_name_"));
   const dateField = fields.find((field) => field.getName().startsWith("jgc_acceptance_date_"));
 
   expect(signatureField).toBeTruthy();
+  expect(printNameField).toBeTruthy();
   expect(dateField).toBeTruthy();
   expect(signatureField.needsAppearancesUpdate()).toBe(false);
+  expect(printNameField.needsAppearancesUpdate()).toBe(false);
   expect(dateField.needsAppearancesUpdate()).toBe(false);
 
-  signatureField.setText("Test Customer");
+  signatureField.setText("Accepted");
+  printNameField.setText("Test Customer");
   dateField.setText("August 21, 2026");
   const filledDocument = await PDFDocument.load(await proposalDocument.save());
-  expect(filledDocument.getForm().getTextField(signatureField.getName()).getText()).toBe("Test Customer");
+  expect(filledDocument.getForm().getTextField(signatureField.getName()).getText()).toBe("Accepted");
+  expect(filledDocument.getForm().getTextField(printNameField.getName()).getText()).toBe("Test Customer");
   expect(filledDocument.getForm().getTextField(dateField.getName()).getText()).toBe("August 21, 2026");
 });
 
