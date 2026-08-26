@@ -219,45 +219,38 @@ async function downloadQuoteBackup(state: AppState, quote: Quote) {
   }
 }
 
-async function downloadCustomerProposal(state: AppState, quote: Quote) {
+async function downloadCustomerProposal(state: AppState, quote: Quote, filename?: string) {
   try {
     const { downloadProposalPdf } = await proposalPdfModule;
-    await downloadProposalPdf(state, quote);
+    await downloadProposalPdf(state, quote, filename);
+    return true;
   } catch {
     window.alert("The proposal PDF could not be created. Please try again.");
+    return false;
   }
 }
 
-async function downloadEstimateOnly(state: AppState, quote: Quote) {
+async function downloadEstimateOnly(state: AppState, quote: Quote, filename?: string) {
   try {
     const { downloadEstimatePdf } = await quoteBackupPdfModule;
-    await downloadEstimatePdf({ state, quote });
+    await downloadEstimatePdf({ state, quote }, filename);
+    return true;
   } catch (error) {
     console.error("Unable to create estimate PDF", error);
     window.alert("The Estimate PDF could not be created. Please refresh and try again.");
+    return false;
   }
 }
 
-async function downloadBreakdownOnly(state: AppState, quote: Quote) {
+async function downloadBreakdownOnly(state: AppState, quote: Quote, filename?: string) {
   try {
     const { downloadBreakdownPdf } = await quoteBackupPdfModule;
-    await downloadBreakdownPdf({ state, quote });
+    await downloadBreakdownPdf({ state, quote }, filename);
+    return true;
   } catch (error) {
     console.error("Unable to create breakdown PDF", error);
     window.alert("The Breakdown PDF could not be created. Please refresh and try again.");
-  }
-}
-
-async function downloadQuotePackage(state: AppState, quote: Quote) {
-  try {
-    const { downloadEstimatePdf, downloadBreakdownPdf } = await quoteBackupPdfModule;
-    const { downloadProposalPdf } = await proposalPdfModule;
-    await downloadProposalPdf(state, quote);
-    await downloadEstimatePdf({ state, quote });
-    if (quote.lines.some((line) => line.costBuildUp)) await downloadBreakdownPdf({ state, quote });
-  } catch (error) {
-    console.error("Unable to create the quote PDF package", error);
-    window.alert("One or more quote PDFs could not be created. Your quote is still safely saved. Please refresh and try again.");
+    return false;
   }
 }
 
@@ -2351,6 +2344,94 @@ function QuoteFinishModal({ quote, warningCount, onCancel, onConfirm }: { quote:
   );
 }
 
+type PdfDownloadKind = "proposal" | "estimate" | "breakdown";
+
+function defaultPdfFilenames(quote: Quote): Record<PdfDownloadKind, string> {
+  const project = quote.project || "Untitled";
+  return {
+    proposal: `${quote.number} - ${project}.pdf`,
+    estimate: `Estimate - ${quote.number} - ${project}.pdf`,
+    breakdown: `Breakdown - ${quote.number} - ${project}.pdf`,
+  };
+}
+
+function PdfDownloadMenu({ state, quote, onClose }: { state: AppState; quote: Quote; onClose: () => void }) {
+  const [filenames, setFilenames] = useState(() => defaultPdfFilenames(quote));
+  const [downloading, setDownloading] = useState<PdfDownloadKind | null>(null);
+  const [downloaded, setDownloaded] = useState<PdfDownloadKind | null>(null);
+  const hasBreakdown = quote.lines.some((line) => line.costBuildUp);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !downloading) onClose();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [downloading, onClose]);
+
+  const updateFilename = (kind: PdfDownloadKind, value: string) => {
+    setFilenames((current) => ({ ...current, [kind]: value }));
+    if (downloaded === kind) setDownloaded(null);
+  };
+
+  const download = async (kind: PdfDownloadKind) => {
+    if (downloading || (kind === "breakdown" && !hasBreakdown)) return;
+    setDownloading(kind);
+    setDownloaded(null);
+    const succeeded = kind === "proposal"
+      ? await downloadCustomerProposal(state, quote, filenames.proposal)
+      : kind === "estimate"
+        ? await downloadEstimateOnly(state, quote, filenames.estimate)
+        : await downloadBreakdownOnly(state, quote, filenames.breakdown);
+    setDownloading(null);
+    if (succeeded) setDownloaded(kind);
+  };
+
+  const rows: { kind: PdfDownloadKind; title: string; description: string; available: boolean }[] = [
+    { kind: "proposal", title: "Proposal PDF", description: "Customer-facing scope, price and acceptance page", available: true },
+    { kind: "estimate", title: "Estimate PDF", description: "Internal estimate lines, costs, markup and totals", available: true },
+    { kind: "breakdown", title: "Breakdown PDF", description: hasBreakdown ? "Internal built-up labour and material worksheets" : "Add a built-up estimate item to create this PDF", available: hasBreakdown },
+  ];
+
+  return (
+    <div className="modal-layer pdf-download-layer" role="presentation" onMouseDown={() => { if (!downloading) onClose(); }}>
+      <section className="modal-card pdf-download-menu" role="dialog" aria-modal="true" aria-labelledby="pdf-download-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div><span className="eyebrow">QUOTE DOCUMENTS</span><h2 id="pdf-download-title">Download PDFs</h2></div>
+          <button type="button" aria-label="Close PDF downloads" disabled={!!downloading} onClick={onClose}>×</button>
+        </header>
+        <div className="pdf-download-intro">
+          <strong>Choose and save one PDF at a time.</strong>
+          <p>This works reliably on phones and computers. You can change any filename before downloading.</p>
+        </div>
+        <div className="pdf-download-list">
+          {rows.map((row) => (
+            <section className={`pdf-download-row${row.available ? "" : " is-unavailable"}`} key={row.kind}>
+              <div className="pdf-download-copy"><span aria-hidden="true">{row.kind === "proposal" ? "▤" : row.kind === "estimate" ? "▦" : "▥"}</span><div><h3>{row.title}</h3><p>{row.description}</p></div></div>
+              <label className="field pdf-filename-field">
+                <span>{row.title} filename</span>
+                <input aria-label={`${row.title} filename`} value={filenames[row.kind]} disabled={!row.available || !!downloading} maxLength={140} spellCheck={false} onFocus={(event) => event.currentTarget.select()} onChange={(event) => updateFilename(row.kind, event.target.value)} />
+              </label>
+              <button type="button" className="button primary pdf-file-download-button" disabled={!row.available || !!downloading} onClick={() => void download(row.kind)}>
+                {downloading === row.kind ? "Preparing…" : downloaded === row.kind ? "✓ Downloaded — download again" : `⇩ Download ${row.title.replace(" PDF", "")}`}
+              </button>
+            </section>
+          ))}
+        </div>
+        <footer className="pdf-download-footer">
+          <span role="status">{downloaded ? `${rows.find((row) => row.kind === downloaded)?.title} download started.` : "Your quote stays open while you save each file."}</span>
+          <button type="button" className="button secondary" disabled={!!downloading} onClick={onClose}>Done</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function QuoteWorkspace({
   state,
   setState,
@@ -2391,6 +2472,7 @@ function QuoteWorkspace({
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
 }) {
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
+  const [pdfDownloadMenuOpen, setPdfDownloadMenuOpen] = useState(false);
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const locked = quote.status === "Won" || quote.status === "Lost";
@@ -2424,7 +2506,7 @@ function QuoteWorkspace({
           <div className="identity-badges"><StatusPill status={quoteDisplayStatus(quote)} /><ReadinessPill quote={quote} vendors={state.vendors} /></div>
         </div>
         <div className="quote-primary-actions">
-          <button className="button secondary quote-package-download" onClick={() => void downloadQuotePackage(state, quote)}>⇩ Download Proposal, Estimate, Breakdown</button>
+          <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
           {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
           {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
@@ -2498,6 +2580,7 @@ function QuoteWorkspace({
           </section>
         </div>
       )}
+      {pdfDownloadMenuOpen && <PdfDownloadMenu state={state} quote={quote} onClose={() => setPdfDownloadMenuOpen(false)} />}
     </div>
   );
 }
