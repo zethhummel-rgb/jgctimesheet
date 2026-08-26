@@ -810,6 +810,34 @@ test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Full quote backup/ })).toHaveCount(0);
 });
 
+test("finished quote actions do not cover the quote identity at laptop widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("button", { name: "Finish quote" }).click();
+  await page.getByRole("dialog", { name: /Mark .* as Finished/ }).getByRole("button", { name: "Finish quote" }).click();
+  await expect(page.getByRole("button", { name: "Re-open quote" })).toBeVisible();
+
+  const layout = await page.locator(".quote-topline").evaluate((topline) => {
+    const identity = topline.querySelector(".quote-identity");
+    const badges = topline.querySelector(".identity-badges");
+    const actions = topline.querySelector(".quote-primary-actions");
+    if (!identity || !badges || !actions) throw new Error("Quote heading layout is incomplete");
+    const box = (element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    return { topline: box(topline), identity: box(identity), badges: box(badges), actions: box(actions) };
+  });
+
+  expect(layout.actions.top).toBeGreaterThanOrEqual(layout.identity.bottom - 1);
+  expect(layout.actions.left).toBeGreaterThanOrEqual(layout.topline.left - 1);
+  expect(layout.actions.right).toBeLessThanOrEqual(layout.topline.right + 1);
+  expect(layout.badges.right).toBeLessThanOrEqual(layout.identity.right + 1);
+});
+
 test("material price book offers direct manual entry without replacing import", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: /Price Book/ }).click();
