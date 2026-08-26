@@ -759,7 +759,7 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
       });
     }
 
-    if (line.priceOverride !== null) warnings.push({ key: `${line.id}-price-override`, message: `${label} has a manual customer-price override.` });
+    if (line.priceOverride !== null) warnings.push({ key: `${line.id}-price-override`, message: `${label} uses a legacy customer-price override. Edit its Direct unit cost to replace it.` });
     if (line.vendorQuoteExpiry) {
       const twoWeeks = addDays(today(), 14);
       if (line.vendorQuoteExpiry <= twoWeeks) {
@@ -2761,10 +2761,14 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
     }, 40);
   };
   const updateLine = (lineId: string, patch: Partial<QuoteLine>) => {
+    const replacesLegacyPriceOverride = ["quantity", "projectCost", "catalogCost", "markupOverride", "costBuildUp"]
+      .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
     mutateQuote(quote.id, (current) => ({
       ...current,
       acknowledgedWarnings: {},
-      lines: current.lines.map((line) => (line.id === lineId ? { ...line, ...patch } : line)),
+      lines: current.lines.map((line) => (line.id === lineId
+        ? { ...line, ...patch, ...(replacesLegacyPriceOverride ? { priceOverride: null } : {}) }
+        : line)),
     }));
   };
   const updateLineVendor = (line: QuoteLine, typedName: string) => {
@@ -3070,7 +3074,6 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                               <label className="field"><span>{line.costType === "Sub / Vendor" ? <>Subcontractor quote # <em>Optional</em></> : "Quote / source reference"}</span><input value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={line.costType === "Sub / Vendor" ? "Enter only when the subcontractor provides one" : "Supplier reference or takeoff"} /></label>
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>}
-                              <label className="field"><span>Customer-price override</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.priceOverride ?? ""} disabled={locked} onChange={(event) => updateLine(line.id, { priceOverride: event.target.value === "" ? null : Number(event.target.value) })} placeholder={money(sell)} /></div></label>
                               <label className="field full internal-field"><span>Internal scope, assumptions and notes <em>Hidden from customer</em></span><textarea rows={3} value={lineInternalDetails(line)} disabled={locked} onChange={(event) => updateLine(line.id, { internalScope: event.target.value, internalNote: "" })} /></label>
                             </div>
                           </div>

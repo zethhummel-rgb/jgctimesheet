@@ -351,6 +351,28 @@ test("new quotes start with a blank scope item before the deletable closing demo
   await expect(editor.getByText(closingText, { exact: true })).toHaveCount(0);
 });
 
+test("price book lines use one editable direct unit cost and calculate markup from it", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "New quote" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+
+  const catalogSearch = page.getByRole("combobox", { name: "Search products and services" });
+  await catalogSearch.fill("Coordination");
+  await page.getByRole("option", { name: /Coordination \/ project administration allowance/ }).click();
+
+  const line = page.locator(".estimate-table tbody > tr").first();
+  const directUnitCost = line.locator(".direct-unit-cost-cell input");
+  await expect(directUnitCost).toBeEditable();
+  await directUnitCost.fill("175");
+  await expect(line.locator(".direct-cost-cell")).toContainText("$175.00");
+
+  const details = page.locator(".line-detail-panel");
+  await expect(details.getByText("Customer-price override", { exact: true })).toHaveCount(0);
+  const markup = Number(await details.getByRole("spinbutton", { name: /Markup for/ }).inputValue());
+  await expect(details.locator(".line-detail-pricing strong")).toHaveText(`$${(175 * (1 + markup / 100)).toFixed(2)}`);
+});
+
 test("proposal text formatting is visible in the editor, preview and PDF", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
