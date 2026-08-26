@@ -454,6 +454,64 @@ test("numeric inputs ignore mouse-wheel and arrow-key stepping", async ({ page }
   await expect(unitCost).not.toBeFocused();
 });
 
+test("mobile built-up material search selects the tapped saved price", async ({ page }) => {
+  const supplierCatalogRequests = [];
+  await page.route(/\/api\/supplier-catalog(?:\?|$)/, async (route) => {
+    supplierCatalogRequests.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [{
+          id: "catalog-concrete-1",
+          supplierId: "supplier-bmr",
+          supplierName: "BMR",
+          supplierSku: "CONCRETE-001",
+          productName: "Concrete Daubois Pre-mix, 30 kg",
+          rawDescription: "Concrete Daubois Pre-mix, 30 kg",
+          normalizedName: "concrete daubois pre mix 30 kg",
+          division: "Div 03 – Concrete",
+          unit: "Each",
+          rawUnit: "Each",
+          listPrice: 6.03,
+          netCost: 6.03,
+          effectiveDate: "2026-08-25",
+          validUntil: "2026-09-25",
+          latestImportId: "import-concrete-1",
+        }],
+        total: 1,
+        imports: [],
+      }),
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: "Built-up item" }).click();
+  await expect(page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row) input.description-input")).toBeFocused();
+
+  const materialSearch = page.getByRole("combobox", { name: "Search saved material prices" });
+  await materialSearch.fill("concrete");
+  await expect.poll(() => supplierCatalogRequests).toEqual(expect.arrayContaining([expect.stringContaining("q=concrete")]));
+  await expect(materialSearch).toHaveValue("concrete");
+  await expect(materialSearch).toHaveAttribute("aria-expanded", "true");
+  const results = page.locator(".build-up-material-results");
+  await expect(results).toBeVisible();
+  const firstResult = results.getByRole("option").first();
+  await firstResult.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, button: 0 });
+  await firstResult.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, button: 0 });
+
+  const selectedMaterial = page.locator(".material-group .build-up-row").last();
+  await expect(selectedMaterial.getByLabel("Material description")).toHaveValue("Concrete Daubois Pre-mix, 30 kg");
+  await expect(selectedMaterial.getByLabel(/quantity/)).toHaveValue("1");
+  await expect(selectedMaterial.getByLabel(/unit cost/)).toHaveValue("6.03");
+  await expect(selectedMaterial).toContainText("BMR · price saved 2026-08-25");
+  await expect(results).toHaveCount(0);
+});
+
 test("expanded estimate lines keep pricing controls in the detail header", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
