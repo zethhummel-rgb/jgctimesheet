@@ -462,27 +462,45 @@ test("mobile built-up material search selects the tapped saved price", async ({ 
   const supplierCatalogRequests = [];
   await page.route(/\/api\/supplier-catalog(?:\?|$)/, async (route) => {
     supplierCatalogRequests.push(route.request().url());
+    const query = new URL(route.request().url()).searchParams.get("q") || "";
+    const material = query.toLowerCase().includes("lumber") ? {
+      id: "catalog-lumber-1",
+      supplierId: "supplier-bmr",
+      supplierName: "BMR",
+      supplierSku: "LUMBER-001",
+      productName: "2x6x10 PT",
+      rawDescription: "2x6x10 PT",
+      normalizedName: "2x6x10 pt",
+      division: "Div 06 – Wood",
+      unit: "Each",
+      rawUnit: "Each",
+      listPrice: 13.45,
+      netCost: 13.45,
+      effectiveDate: "2026-08-25",
+      validUntil: "2026-09-25",
+      latestImportId: "import-lumber-1",
+    } : {
+      id: "catalog-concrete-1",
+      supplierId: "supplier-bmr",
+      supplierName: "BMR",
+      supplierSku: "CONCRETE-001",
+      productName: "Concrete Daubois Pre-mix, 30 kg",
+      rawDescription: "Concrete Daubois Pre-mix, 30 kg",
+      normalizedName: "concrete daubois pre mix 30 kg",
+      division: "Div 03 – Concrete",
+      unit: "Each",
+      rawUnit: "Each",
+      listPrice: 6.03,
+      netCost: 6.03,
+      effectiveDate: "2026-08-25",
+      validUntil: "2026-09-25",
+      latestImportId: "import-concrete-1",
+    };
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        items: [{
-          id: "catalog-concrete-1",
-          supplierId: "supplier-bmr",
-          supplierName: "BMR",
-          supplierSku: "CONCRETE-001",
-          productName: "Concrete Daubois Pre-mix, 30 kg",
-          rawDescription: "Concrete Daubois Pre-mix, 30 kg",
-          normalizedName: "concrete daubois pre mix 30 kg",
-          division: "Div 03 – Concrete",
-          unit: "Each",
-          rawUnit: "Each",
-          listPrice: 6.03,
-          netCost: 6.03,
-          effectiveDate: "2026-08-25",
-          validUntil: "2026-09-25",
-          latestImportId: "import-concrete-1",
-        }],
+        items: [material],
         total: 1,
         imports: [],
       }),
@@ -497,6 +515,10 @@ test("mobile built-up material search selects the tapped saved price", async ({ 
   await page.getByRole("button", { name: "Built-up item" }).click();
   await expect(page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row) input.description-input")).toBeFocused();
 
+  const materialRows = page.locator(".material-group .build-up-row");
+  await expect(materialRows).toHaveCount(1);
+  await expect(materialRows.first().getByLabel("Material description")).toHaveValue("");
+
   const materialSearch = page.getByRole("combobox", { name: "Search saved material prices" });
   await materialSearch.fill("concrete");
   await expect.poll(() => supplierCatalogRequests).toEqual(expect.arrayContaining([expect.stringContaining("q=concrete")]));
@@ -508,12 +530,30 @@ test("mobile built-up material search selects the tapped saved price", async ({ 
   await firstResult.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, button: 0 });
   await firstResult.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, button: 0 });
 
-  const selectedMaterial = page.locator(".material-group .build-up-row").last();
+  await expect(materialRows).toHaveCount(1);
+  const selectedMaterial = materialRows.first();
   await expect(selectedMaterial.getByLabel("Material description")).toHaveValue("Concrete Daubois Pre-mix, 30 kg");
   await expect(selectedMaterial.getByLabel(/quantity/)).toHaveValue("1");
   await expect(selectedMaterial.getByLabel(/unit cost/)).toHaveValue("6.03");
   await expect(selectedMaterial).toContainText("BMR · price saved 2026-08-25");
+  await expect(selectedMaterial.getByLabel(/quantity/)).toBeFocused();
   await expect(results).toHaveCount(0);
+
+  await materialSearch.fill("lumber");
+  await expect.poll(() => supplierCatalogRequests).toEqual(expect.arrayContaining([expect.stringContaining("q=lumber")]));
+  const secondResult = page.locator(".build-up-material-results").getByRole("option").first();
+  await expect(secondResult).toContainText("2x6x10 PT");
+  await secondResult.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, button: 0 });
+  await secondResult.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, button: 0 });
+
+  await expect(materialRows).toHaveCount(2);
+  const secondMaterial = materialRows.nth(1);
+  await expect(secondMaterial.getByLabel("Material description")).toHaveValue("2x6x10 PT");
+  await expect(secondMaterial.getByLabel(/quantity/)).toBeFocused();
+  await expect.poll(async () => {
+    const box = await secondMaterial.boundingBox();
+    return Boolean(box && box.y >= 0 && box.y + box.height <= 844);
+  }).toBe(true);
 });
 
 test("expanded estimate lines keep pricing controls in the detail header", async ({ page }) => {

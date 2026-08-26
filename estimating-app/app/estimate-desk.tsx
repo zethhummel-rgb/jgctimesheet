@@ -3009,6 +3009,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const [materialMatches, setMaterialMatches] = useState<SupplierCatalogItemRecord[]>([]);
   const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
   const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
+  const [pendingMaterialRowId, setPendingMaterialRowId] = useState<string | null>(null);
   const items = line.costBuildUp?.items ?? [];
   const labourItems = items.filter((item) => item.kind === "Labour");
   const materialItems = items.filter((item) => item.kind === "Material");
@@ -3039,6 +3040,18 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [materialSearch]);
 
+  useEffect(() => {
+    if (!pendingMaterialRowId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = document.getElementById(`build-up-row-${pendingMaterialRowId}`);
+      if (!row) return;
+      row.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      row.querySelector<HTMLInputElement>('[data-build-up-field="quantity"]')?.focus({ preventScroll: true });
+      setPendingMaterialRowId(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [materialItems, pendingMaterialRowId]);
+
   const commitItems = (nextItems: QuoteCostBuildUpItem[]) => updateLine(line.id, { costBuildUp: { items: nextItems } });
   const updateItem = (itemId: string, patch: Partial<QuoteCostBuildUpItem>) => commitItems(items.map((item) => item.id === itemId ? { ...item, ...patch } : item));
   const removeItem = (itemId: string) => commitItems(items.filter((item) => item.id !== itemId));
@@ -3047,6 +3060,13 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const addSubcontractor = () => commitItems([...items, newBuildUpItem("Subcontractor", { unit: "LS" })]);
   const addOther = () => commitItems([...items, newBuildUpItem("Other", { unit: "LS" })]);
   const addPricedMaterial = (material: SupplierCatalogItemRecord) => {
+    const blankMaterial = materialItems.find((item) => (
+      !item.description.trim()
+      && item.quantity === 0
+      && item.unitCost === 0
+      && !item.source.trim()
+      && !item.priceSourceSnapshot
+    ));
     const pricedItem = newBuildUpItem("Material", {
       description: material.productName,
       quantity: 1,
@@ -3068,19 +3088,29 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
         netUnitCost: material.netCost,
       },
     });
-    commitItems([...items, pricedItem]);
+    if (blankMaterial) pricedItem.id = blankMaterial.id;
+    const nextItems = blankMaterial
+      ? items.map((item) => item.id === blankMaterial.id ? pricedItem : item)
+      : (() => {
+        const lastMaterialIndex = items.reduce((lastIndex, item, index) => item.kind === "Material" ? index : lastIndex, -1);
+        const lastLabourIndex = items.reduce((lastIndex, item, index) => item.kind === "Labour" ? index : lastIndex, -1);
+        const insertionIndex = lastMaterialIndex >= 0 ? lastMaterialIndex + 1 : lastLabourIndex + 1;
+        return [...items.slice(0, insertionIndex), pricedItem, ...items.slice(insertionIndex)];
+      })();
+    setPendingMaterialRowId(pricedItem.id);
+    commitItems(nextItems);
     setMaterialSearch("");
     setMaterialMatches([]);
     setMaterialSearchOpen(false);
   };
 
   const renderCostRow = (item: QuoteCostBuildUpItem) => (
-    <div className="build-up-row" key={item.id}>
+    <div className="build-up-row" id={`build-up-row-${item.id}`} key={item.id}>
       <div className="build-up-description-cell">
         <input value={item.description} disabled={locked} onChange={(event) => updateItem(item.id, { description: event.target.value })} placeholder={item.kind === "Labour" ? "e.g. 4-person framing crew" : item.kind === "Subcontractor" ? "e.g. Quoted work" : item.kind === "Other" ? "e.g. Shipping or perforation" : "e.g. 2x12x16 SPF"} aria-label={`${item.kind} description`} />
         {item.priceSourceSnapshot ? <small className="supplier-source">{item.priceSourceSnapshot.supplierName} · price saved {item.priceSourceSnapshot.effectiveDate || "without a date"}</small> : <input className="build-up-source-input" value={item.source} disabled={locked} onChange={(event) => updateItem(item.id, { source: event.target.value })} placeholder={item.kind === "Labour" ? "Crew or rate note (optional)" : "Supplier or source (optional)"} aria-label={`${item.kind} source`} />}
       </div>
-      <input type="number" min="0" step="0.01" value={item.quantity || ""} disabled={locked} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })} placeholder="0" aria-label={`${item.description || item.kind} quantity`} />
+      <input type="number" min="0" step="0.01" value={item.quantity || ""} disabled={locked} data-build-up-field="quantity" onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })} placeholder="0" aria-label={`${item.description || item.kind} quantity`} />
       <input value={item.unit} disabled={locked} onChange={(event) => updateItem(item.id, { unit: event.target.value })} placeholder={item.kind === "Labour" ? "hr" : "Each"} aria-label={`${item.description || item.kind} unit`} />
       <div className="build-up-money-input"><span>$</span><input type="number" min="0" step="0.01" value={item.unitCost || ""} disabled={locked} onChange={(event) => updateItem(item.id, { unitCost: Number(event.target.value) })} placeholder="0.00" aria-label={`${item.description || item.kind} unit cost`} /></div>
       <strong>{money(buildUpItemTotal(item))}</strong>
