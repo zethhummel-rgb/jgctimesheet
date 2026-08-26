@@ -118,6 +118,42 @@ test("mobile client picker stays inside the visible viewport and selects immedia
   await expect(results).toHaveCount(0);
 });
 
+test("client and vendor directories and selectors stay alphabetical", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Clients", exact: true }).click();
+
+  const addClient = async (name) => {
+    await page.getByRole("button", { name: "Add client" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox", { name: /Client name/ }).fill(name);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+  };
+
+  await addClient("Alpha Client");
+  await addClient("Zulu Client");
+  const expectedClients = ["Alpha Client", "BGIS — demo only", "Zulu Client"];
+  await expect.poll(() => page.locator(".entity-grid .entity-card h2").allTextContents()).toEqual(expectedClients);
+
+  await page.getByRole("button", { name: "New quote" }).click();
+  const clientPicker = page.getByRole("combobox", { name: "Client" });
+  await clientPicker.fill("");
+  await expect.poll(() => page.locator(".saved-data-results [role='option'] strong").allTextContents()).toEqual(expectedClients);
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Vendors", exact: true }).click();
+  const expectedVendors = ["Demo Drywall Vendor", "Demo Electrical Vendor", "Demo Painting Vendor"];
+  await expect.poll(() => page.locator(".vendor-grid .vendor-card h2").allTextContents()).toEqual(expectedVendors);
+
+  await page.getByRole("button", { name: "New quote" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.locator(".subcontractor-add-button").click();
+  const vendorPicker = page.getByRole("combobox", { name: "Vendor for line 1" });
+  await vendorPicker.fill("");
+  await expect.poll(() => page.locator(".saved-data-results [role='option'] strong").allTextContents()).toEqual(expectedVendors);
+});
+
 test("mobile proposal cost-breakdown choices stay readable and contained", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");

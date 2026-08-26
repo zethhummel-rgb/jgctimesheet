@@ -711,12 +711,18 @@ function clientName(state: AppState, clientId: string) {
   return state.clients.find((client) => client.id === clientId)?.name ?? "Client not selected";
 }
 
+const displayNameCollator = new Intl.Collator("en-CA", { sensitivity: "base", numeric: true });
+
+function alphabeticalByName<T extends { name: string }>(items: readonly T[]) {
+  return [...items].sort((left, right) => displayNameCollator.compare(left.name.trim(), right.name.trim()));
+}
+
 function isSubcontractor(vendor: Vendor) {
   return (vendor.category ?? (vendor.trade === "Material Supplier" ? "Supplier" : "Subcontractor")) === "Subcontractor";
 }
 
 function activeSubcontractors(vendors: Vendor[]) {
-  return vendors.filter((vendor) => vendor.status === "Active" && isSubcontractor(vendor));
+  return alphabeticalByName(vendors.filter((vendor) => vendor.status === "Active" && isSubcontractor(vendor)));
 }
 
 function quoteReadiness(quote: Quote, vendors: Vendor[]) {
@@ -2539,7 +2545,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       <section className="panel form-panel">
         <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 7</span></div>
         <div className="form-grid two-column">
-          <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={state.clients.map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
+          <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={alphabeticalByName(state.clients).map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
           <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, contact.phone].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
           <label className="field">
             <span>Site name <em>Search saved sites or add a new one</em></span>
@@ -3647,7 +3653,7 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const updateClient = (clientId: string, updater: (client: Client) => Client) => setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === clientId ? updater(client) : client) }));
   const normalized = search.toLowerCase();
-  const clients = state.clients.filter((client) => `${client.name} ${client.contact} ${(client.contacts ?? []).map((contact) => `${contact.name} ${contact.role}`).join(" ")} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized));
+  const clients = alphabeticalByName(state.clients.filter((client) => `${client.name} ${client.contact} ${(client.contacts ?? []).map((contact) => `${contact.name} ${contact.role}`).join(" ")} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized)));
   return (
     <div className="page-stack">
       <PageHeading eyebrow="RELATIONSHIPS" title="Clients and sites" description="Keep the customer, contact and work location consistent across every quote." actions={<button className="button primary" onClick={onAdd}>＋ Add client</button>} />
@@ -3865,7 +3871,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
   const [message, setMessage] = useState("");
   const [newContacts, setNewContacts] = useState<Record<string, Partial<VendorContact>>>({});
   const normalized = search.toLowerCase();
-  const vendors = state.vendors.filter((vendor) => isSubcontractor(vendor) && `${vendor.name} ${vendor.trade} ${vendor.contact} ${vendor.email} ${vendor.phone} ${(vendor.contacts ?? []).map((contact) => `${contact.name} ${contact.role} ${contact.email} ${contact.phone}`).join(" ")}`.toLowerCase().includes(normalized));
+  const vendors = alphabeticalByName(state.vendors.filter((vendor) => isSubcontractor(vendor) && `${vendor.name} ${vendor.trade} ${vendor.contact} ${vendor.email} ${vendor.phone} ${(vendor.contacts ?? []).map((contact) => `${contact.name} ${contact.role} ${contact.email} ${contact.phone}`).join(" ")}`.toLowerCase().includes(normalized)));
   const updateVendor = <K extends keyof Vendor>(vendorId: string, field: K, value: Vendor[K]) => {
     setState((current) => ({
       ...current,
