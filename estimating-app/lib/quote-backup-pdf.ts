@@ -484,7 +484,7 @@ class BackupPdfBuilder {
       const index = pages.indexOf(page);
       if (index < 0) return;
       page.drawLine({ start: { x: MARGIN, y: 34 }, end: { x: PAGE_WIDTH - MARGIN, y: 34 }, thickness: 0.5, color: colour.line });
-      page.drawText(ascii(`${this.quote.number} - ${this.documentLabel} - ${section}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
+      page.drawText(ascii(`${this.quote.number} - Rev ${this.quote.revision} - ${this.documentLabel} - ${section}`), { x: MARGIN, y: 21, size: 6.8, font: this.regular, color: colour.muted });
       const pageNumber = `Page ${index + 1} of ${pages.length}`;
       page.drawText(pageNumber, { x: PAGE_WIDTH - MARGIN - this.regular.widthOfTextAtSize(pageNumber, 6.8), y: 21, size: 6.8, font: this.regular, color: colour.muted });
     });
@@ -545,7 +545,11 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   ];
   const orderedLines = quote.lines
     .map((line, originalIndex) => ({ line, originalIndex }))
-    .sort((left, right) => Number(right.line.costType === "Sub / Vendor") - Number(left.line.costType === "Sub / Vendor") || left.originalIndex - right.originalIndex);
+    .sort((left, right) => {
+      const groupOrder = Number(left.line.costType !== "Sub / Vendor") - Number(right.line.costType !== "Sub / Vendor");
+      const divisionOrder = Number(divisionNumber(left.line.division)) - Number(divisionNumber(right.line.division));
+      return groupOrder || divisionOrder || left.originalIndex - right.originalIndex;
+    });
   const vendorCount = orderedLines.filter(({ line }) => line.costType === "Sub / Vendor").length;
   const rows = orderedLines.map(({ line }) => {
     const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
@@ -1071,7 +1075,7 @@ function downloadPdfBytes(bytes: Uint8Array, filename: string) {
 export async function downloadEstimatePdf(options: InternalEstimatePdfOptions, requestedFilename?: string) {
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createEstimatePdf({ ...options, logoBytes });
-  const defaultFilename = `Estimate - ${options.quote.number} - ${options.quote.project || "Untitled"}`;
+  const defaultFilename = `Estimate - ${options.quote.number} - Rev ${options.quote.revision} - ${options.quote.project || "Untitled"}`;
   const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
   downloadPdfBytes(bytes, `${safeFileName(filenameBase)}.pdf`);
 }
@@ -1080,7 +1084,7 @@ export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions, 
   if (!options.quote.lines.some((line) => line.costBuildUp)) return;
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createBreakdownPdf({ ...options, logoBytes });
-  const defaultFilename = `Breakdown - ${options.quote.number} - ${options.quote.project || "Untitled"}`;
+  const defaultFilename = `Breakdown - ${options.quote.number} - Rev ${options.quote.revision} - ${options.quote.project || "Untitled"}`;
   const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
   downloadPdfBytes(bytes, `${safeFileName(filenameBase)}.pdf`);
 }
@@ -1088,5 +1092,5 @@ export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions, 
 export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createQuoteBackupPdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - ${options.quote.project || "Untitled"}`)} - Complete Quote Backup.pdf`);
+  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - Rev ${options.quote.revision} - ${options.quote.project || "Untitled"}`)} - Complete Quote Backup.pdf`);
 }

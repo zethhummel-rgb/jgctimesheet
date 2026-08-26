@@ -430,6 +430,44 @@ test("missing exclusions remain recommended without blocking Finish quote", asyn
   await finishQuote.click();
   await page.getByRole("dialog", { name: /Mark .* as Finished/ }).getByRole("button", { name: "Finish quote" }).click();
   await expect(page.locator(".identity-badges")).toContainText("Finished");
+  await expect(page.locator(".locked-banner")).toContainText("finished quote is locked and read-only");
+  await expect(page.getByRole("button", { name: "Re-open quote" })).toBeVisible();
+
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await expect(page.getByRole("textbox", { name: /Project name/ })).toBeDisabled();
+  const originalProject = await page.getByRole("textbox", { name: /Project name/ }).inputValue();
+
+  await page.getByRole("button", { name: "Re-open quote" }).click();
+  const reopenRevisionOne = page.getByRole("dialog", { name: "Re-open as Revision 1?" });
+  await expect(reopenRevisionOne).toContainText("finished Estimate, Breakdown and Proposal will be frozen in History");
+  await reopenRevisionOne.getByRole("button", { name: "Create Revision 1" }).click();
+  await expect(page.getByText("JGC-Q-2026-0001 · REV 1")).toBeVisible();
+  await expect(page.locator(".identity-badges")).toContainText("Draft");
+
+  await page.getByRole("tab", { name: /Details/ }).click();
+  const revisionOneProject = page.getByRole("textbox", { name: /Project name/ });
+  await expect(revisionOneProject).toBeEnabled();
+  await revisionOneProject.fill(`${originalProject} - revised`);
+
+  await page.getByRole("button", { name: "Finish quote" }).click();
+  await page.getByRole("dialog", { name: /Mark .* as Finished/ }).getByRole("button", { name: "Finish quote" }).click();
+  await expect(page.locator(".identity-badges")).toContainText("Finished");
+  await page.getByRole("button", { name: "Re-open quote" }).click();
+  await page.getByRole("dialog", { name: "Re-open as Revision 2?" }).getByRole("button", { name: "Create Revision 2" }).click();
+  await expect(page.getByText("JGC-Q-2026-0001 · REV 2")).toBeVisible();
+
+  await page.getByRole("tab", { name: /History/ }).click();
+  await expect(page.getByRole("button", { name: /Original finished quote/ })).toBeVisible();
+  const revisionOneHistory = page.getByRole("button", { name: /Finished Revision 1/ });
+  await expect(revisionOneHistory).toBeVisible();
+  await revisionOneHistory.click();
+  const savedRevision = page.getByRole("dialog", { name: /Revision 1/ });
+  await expect(savedRevision).toContainText(`${originalProject} - revised`);
+  await savedRevision.getByRole("button", { name: "Download saved PDFs" }).click();
+  const savedPdfMenu = page.getByRole("dialog", { name: "Download PDFs" });
+  await expect(savedPdfMenu.getByLabel("Proposal PDF filename")).toHaveValue(/Rev 1/);
+  await expect(savedPdfMenu.getByLabel("Estimate PDF filename")).toHaveValue(/Rev 1/);
+  await expect(savedPdfMenu.getByLabel("Breakdown PDF filename")).toHaveValue(/Rev 1/);
 });
 
 test("estimate search shows up to ten products before scrolling internally", async ({ page }) => {

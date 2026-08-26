@@ -254,7 +254,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
 export async function downloadProposalPdf(state: AppState, quote: Quote, requestedFilename?: string) {
   const bytes = await createProposalPdf(state, quote);
   const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: "application/pdf" });
-  const defaultFilename = `${quote.number} - ${quote.project || "Proposal"}`;
+  const defaultFilename = `${quote.number} - Rev ${quote.revision} - ${quote.project || "Proposal"}`;
   const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
   const filename = `${safeName(filenameBase) || safeName(defaultFilename)}.pdf`;
   const url = URL.createObjectURL(blob);
