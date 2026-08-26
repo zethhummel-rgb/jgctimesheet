@@ -103,5 +103,6 @@ export function normalizeProposalScopeClosingLine(value?: string, removed = fals
   if (removed) return lines.join("\n");
   const otherLines = lines.filter((line) => !isDefaultClosingProposalScopeLine(line));
   const meaningfulLines = otherLines.filter((line) => proposalTextPlain(line).trim().length > 0);
-  return [...meaningfulLines, defaultClosingProposalScopeLine].join("\n");
+  const editableLines = meaningfulLines.length ? meaningfulLines : [""];
+  return [...editableLines, defaultClosingProposalScopeLine].join("\n");
 }

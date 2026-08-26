@@ -1112,7 +1112,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       depositPercent: 0,
       proposalStyle: state.settings.defaultProposalStyle ?? "jgc-classic",
       proposalTaxDisplay: state.settings.defaultProposalTaxDisplay ?? "extra",
-      proposalScope: defaultClosingProposalScopeLine,
+      proposalScope: `\n${defaultClosingProposalScopeLine}`,
       proposalClosingScopeRemoved: false,
       proposalNotes: "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others",
       proposalAttention: "",

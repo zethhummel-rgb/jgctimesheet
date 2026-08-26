@@ -278,17 +278,21 @@ test("proposal scope items can be reordered and deleted", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Proposal scope item 1" })).toHaveText("First item");
 });
 
-test("default demobilization scope stays last until it is intentionally deleted", async ({ page }) => {
+test("new quotes start with a blank scope item before the deletable closing demobilization item", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
-  await page.getByRole("button", { name: "Company-wide" }).click();
-  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
-  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
-  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("button", { name: "New quote" }).click();
 
   const editor = page.getByRole("group", { name: /Proposal Scope Lines/ });
   const closingText = "Demobilize and leave site in a clean fashion";
   const scopeItems = editor.getByRole("textbox", { name: /Proposal scope item/ });
+  await expect(scopeItems).toHaveCount(2);
+  await expect(scopeItems.first()).toHaveText("");
+  await expect(scopeItems.first()).toHaveAttribute("aria-readonly", "false");
+  await expect(scopeItems.nth(1)).toHaveText(closingText);
+  await expect(scopeItems.nth(1)).toHaveAttribute("aria-readonly", "true");
+
+  await scopeItems.first().fill("Supply labour and materials to complete the work");
   await expect(scopeItems.last()).toHaveText(closingText);
   await expect(scopeItems.last()).toHaveAttribute("aria-readonly", "true");
 
