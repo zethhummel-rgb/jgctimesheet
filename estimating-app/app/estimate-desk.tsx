@@ -264,6 +264,14 @@ async function downloadPurchaseOrder(state: AppState, job: Job, purchaseOrder: P
   }
 }
 
+function frozenQuoteSnapshot(quote: Quote) {
+  return JSON.stringify({
+    ...quote,
+    status: "Finished" as const,
+    revisions: [],
+  });
+}
+
 function percent(value: number, digits = 1) {
   return `${(value * 100).toFixed(digits)}%`;
 }
@@ -1072,15 +1080,23 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     ].slice(0, 100),
   });
 
-  const mutateQuote = (quoteId: string, updater: (quote: Quote) => Quote, activity?: { title: string; detail: string }) => {
+  const mutateQuote = (
+    quoteId: string,
+    updater: (quote: Quote) => Quote,
+    activity?: { title: string; detail: string },
+    allowLocked = false,
+  ) => {
     setState((current) => {
+      let changed = false;
       const next = {
         ...current,
-        quotes: current.quotes.map((quote) =>
-          quote.id === quoteId ? { ...updater(quote), updatedAt: new Date().toISOString() } : quote,
-        ),
+        quotes: current.quotes.map((quote) => {
+          if (quote.id !== quoteId || (!allowLocked && quote.status !== "Draft")) return quote;
+          changed = true;
+          return { ...updater(quote), updatedAt: new Date().toISOString() };
+        }),
       };
-      return activity ? addActivity(next, quoteId, activity.title, activity.detail) : next;
+      return activity && changed ? addActivity(next, quoteId, activity.title, activity.detail) : next;
     });
   };
 
@@ -1231,12 +1247,13 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
               status: "Finished",
               issuedAt: current.sentAt || new Date().toISOString(),
               total: quoteTotals(current).total,
-              snapshot: JSON.stringify(current),
+              snapshot: frozenQuoteSnapshot(current),
             },
           ],
         };
       },
       { title: "Editable revision created", detail: `Revision ${quote.revision + 1} was opened for changes. Revision ${quote.revision} remains frozen in History.` },
+      true,
     );
     setQuoteTab("estimate");
   };
@@ -1268,7 +1285,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             : item,
         ),
       };
-      return addActivity(next, quote.id, "Quote finished", `${quote.number} Rev ${quote.revision} was marked Finished and remains editable.`);
+      return addActivity(next, quote.id, "Quote finished and locked", `${quote.number} Rev ${quote.revision} was marked Finished and locked. Re-open Quote will preserve it before creating the next revision.`);
     });
     setPendingFinishQuoteId(null);
   };
@@ -1329,7 +1346,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             updatedAt: new Date().toISOString(),
             revisions: item.revisions.some((revision) => revision.revision === item.revision)
               ? item.revisions
-              : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished", issuedAt: item.sentAt || new Date().toISOString(), total: quoteTotals(item).total, snapshot: JSON.stringify({ ...item, status: "Finished" }) }],
+              : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished", issuedAt: item.sentAt || new Date().toISOString(), total: quoteTotals(item).total, snapshot: frozenQuoteSnapshot(item) }],
           } : item),
           jobs: current.jobs.some((item) => item.quoteId === quote.id) ? current.jobs : [job, ...current.jobs],
         },
@@ -1351,6 +1368,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       quote.id,
       (current) => ({ ...current, status: "Lost", lostReason: reason }),
       { title: "Quote closed as lost", detail: reason || "No reason recorded." },
+      true,
     );
   };
 
@@ -2333,7 +2351,7 @@ function QuoteFinishModal({ quote, warningCount, onCancel, onConfirm }: { quote:
         </header>
         <div className="confirm-content">
           <div className="confirm-line-name"><span>{quote.project || "Project not named"}</span><strong>{warningCount} reviewed warning{warningCount === 1 ? "" : "s"}</strong></div>
-          <p>The quote will remain editable. Nothing is locked or made into a Portal job until you use <strong>Make into job</strong>.</p>
+          <p>This exact revision will be locked and read-only. If the customer requests a change, use <strong>Re-open quote</strong> to preserve these documents in History and create the next editable revision.</p>
         </div>
         <footer className="confirm-actions">
           <button className="button secondary" onClick={onCancel}>Keep editing</button>
@@ -2348,10 +2366,11 @@ type PdfDownloadKind = "proposal" | "estimate" | "breakdown";
 
 function defaultPdfFilenames(quote: Quote): Record<PdfDownloadKind, string> {
   const project = quote.project || "Untitled";
+  const revision = `Rev ${quote.revision}`;
   return {
-    proposal: `${quote.number} - ${project}.pdf`,
-    estimate: `Estimate - ${quote.number} - ${project}.pdf`,
-    breakdown: `Breakdown - ${quote.number} - ${project}.pdf`,
+    proposal: `${quote.number} - ${revision} - ${project}.pdf`,
+    estimate: `Estimate - ${quote.number} - ${revision} - ${project}.pdf`,
+    breakdown: `Breakdown - ${quote.number} - ${revision} - ${project}.pdf`,
   };
 }
 
@@ -2475,7 +2494,7 @@ function QuoteWorkspace({
   const [pdfDownloadMenuOpen, setPdfDownloadMenuOpen] = useState(false);
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
-  const locked = quote.status === "Won" || quote.status === "Lost";
+  const locked = quote.status !== "Draft";
   const linkedJob = state.jobs.find((job) => job.quoteId === quote.id) ?? null;
   const linkedPurchaseOrders = linkedJob?.purchaseOrders ?? [];
   const tabs: { key: QuoteTab; label: string; badge?: number }[] = [
@@ -2509,6 +2528,7 @@ function QuoteWorkspace({
           <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
           {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
+          {quote.status === "Finished" && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>Re-open quote</button>}
           {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
           {quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
         </div>
@@ -2517,10 +2537,9 @@ function QuoteWorkspace({
       {locked && (
         <div className="locked-banner">
           <span>🔒</span>
-          <div><strong>This {quote.status.toLowerCase()} quote is preserved and read-only.</strong><p>The estimate used for the job or closed quote remains intact for history and audit reference.</p></div>
+          <div><strong>This {quote.status.toLowerCase()} quote is locked and read-only.</strong><p>{quote.status === "Finished" ? "Re-open it to preserve this Estimate, Breakdown and Proposal in History before Revision " + (quote.revision + 1) + " becomes editable." : "The estimate used for the job or closed quote remains intact for history and audit reference."}</p></div>
         </div>
       )}
-      {quote.status === "Finished" && <div className="finished-banner"><span>✓</span><div><strong>This quote is finished but still editable.</strong><p>Make any client-requested changes directly. Use Make into job only after the quote is accepted.</p></div></div>}
 
       <div className="quote-tabs" role="tablist" aria-label="Quote workflow">
         {tabs.map((item, index) => (
@@ -2566,16 +2585,16 @@ function QuoteWorkspace({
         <div className="modal-layer" role="presentation" onMouseDown={() => setRevisionConfirmOpen(false)}>
           <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="create-revision-title" onMouseDown={(event) => event.stopPropagation()}>
             <header>
-              <div><span className="eyebrow">PRESERVE THE ORIGINAL</span><h2 id="create-revision-title">Start Revision {quote.revision + 1}?</h2></div>
+              <div><span className="eyebrow">PRESERVE THE FINISHED VERSION</span><h2 id="create-revision-title">Re-open as Revision {quote.revision + 1}?</h2></div>
               <button aria-label="Close" onClick={() => setRevisionConfirmOpen(false)}>×</button>
             </header>
             <div className="confirm-content">
               <div className="revision-confirm-summary"><span>Finished version</span><strong>{quote.number} · Revision {quote.revision}</strong></div>
-              <p>The finished version will be frozen in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
+              <p>The finished Estimate, Breakdown and Proposal will be frozen in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
             </div>
             <footer className="confirm-actions">
-              <button className="button secondary" onClick={() => setRevisionConfirmOpen(false)}>Keep finished</button>
-              <button className="button primary" onClick={() => { setRevisionConfirmOpen(false); createRevision(quote); }}>Create editable revision</button>
+              <button className="button secondary" onClick={() => setRevisionConfirmOpen(false)}>Keep locked</button>
+              <button className="button primary" onClick={() => { setRevisionConfirmOpen(false); createRevision(quote); }}>Create Revision {quote.revision + 1}</button>
             </footer>
           </section>
         </div>
@@ -3659,26 +3678,28 @@ function savedRevisionQuote(snapshot: string): Quote | null {
 
 function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
   const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
+  const [savedPdfQuote, setSavedPdfQuote] = useState<Quote | null>(null);
   const activity = state.activity.filter((entry) => entry.quoteId === quote.id);
   const selectedRevision = quote.revisions.find((revision) => revision.id === selectedRevisionId) ?? null;
   const selectedSnapshot = selectedRevision ? savedRevisionQuote(selectedRevision.snapshot) : null;
-  const currentVersionLabel = quote.status === "Draft" ? "Current editable quote" : quote.status === "Finished" ? "Current finished editable quote" : `Current ${quote.status.toLowerCase()} version`;
+  const currentVersionLabel = quote.status === "Draft" ? "Current editable revision" : quote.status === "Finished" ? "Current finished and locked revision" : `Current ${quote.status.toLowerCase()} version`;
 
   return (
     <>
       <div className="history-layout">
         <section className="panel">
-          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 7 OF 7</span><h2>Quote history</h2><p>The accepted estimate is frozen here when a finished quote is made into a job.</p></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 7 OF 7</span><h2>Quote history</h2><p>Each finished revision is frozen here when the quote is re-opened. Its Estimate, Breakdown and Proposal can be regenerated exactly from the saved snapshot.</p></div></div>
           <div className="revision-list">
             <div className="revision-card current"><div className="revision-marker">R{quote.revision}</div><div><strong>{currentVersionLabel}</strong><span>Last changed {timeAgo(quote.updatedAt)}</span></div><div><strong>{money(quoteTotals(quote).total)}</strong><small>incl. {quote.taxName}</small></div></div>
             {[...quote.revisions].reverse().map((revision) => (
               <button type="button" className="revision-card revision-card-button" key={revision.id} onClick={() => setSelectedRevisionId(revision.id)}>
                 <div className="revision-marker">R{revision.revision}</div>
-                <div><strong>{revision.revision === 0 ? "Original accepted quote" : "Accepted revision"}</strong><span>Saved {shortDate(revision.issuedAt)}</span><small>View saved version →</small></div>
+                <div><strong>{revision.revision === 0 ? "Original finished quote" : `Finished Revision ${revision.revision}`}</strong><span>Saved {shortDate(revision.issuedAt)}</span><small>View saved documents →</small></div>
                 <div><strong>{money(revision.total)}</strong><small>frozen snapshot</small></div>
               </button>
             ))}
-            {!quote.revisions.length && (quote.status === "Draft" || quote.status === "Finished") && <p className="empty-copy">When this quote is made into a job, the accepted estimate will be saved here as a locked snapshot.</p>}
+            {!quote.revisions.length && quote.status === "Draft" && <p className="empty-copy">Finish this quote to lock the original. If it is later re-opened, the original documents will be preserved here before Revision 1 becomes editable.</p>}
+            {!quote.revisions.length && quote.status === "Finished" && <p className="empty-copy">This finished revision is locked as the current version. Re-open it to move these exact documents into saved History and begin Revision {quote.revision + 1}.</p>}
           </div>
         </section>
         <section className="panel">
@@ -3716,11 +3737,12 @@ function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
             </div>
             <footer className="revision-preview-actions">
               <span>This is a read-only copy. The current revision remains unchanged.</span>
-              <div><button className="button secondary" onClick={() => setSelectedRevisionId(null)}>Close</button><button className="button primary" onClick={() => void downloadQuoteBackup(state, selectedSnapshot)}>Download this version</button></div>
+              <div><button className="button secondary" onClick={() => setSelectedRevisionId(null)}>Close</button><button className="button secondary" onClick={() => void downloadQuoteBackup(state, selectedSnapshot)}>Complete backup</button><button className="button primary" onClick={() => setSavedPdfQuote(selectedSnapshot)}>Download saved PDFs</button></div>
             </footer>
           </section>
         </div>
       )}
+      {savedPdfQuote && <PdfDownloadMenu state={state} quote={savedPdfQuote} onClose={() => setSavedPdfQuote(null)} />}
     </>
   );
 }
