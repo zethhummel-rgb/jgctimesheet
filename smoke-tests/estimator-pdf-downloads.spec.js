@@ -280,6 +280,9 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   await page.getByRole("tab", { name: /Proposal/ }).click();
   await expect(page.locator(".hybrid-lump-sum")).toHaveCSS("background-color", "rgb(239, 248, 242)");
   await expect(page.locator(".hybrid-lump-sum")).toHaveCSS("color", "rgb(16, 61, 49)");
+  const signoffSpacer = page.locator(".hybrid-signoff > div").first();
+  await expect(signoffSpacer).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(signoffSpacer).toHaveCSS("border-left-width", "0px");
 
   const [proposalDownload] = await Promise.all([
     page.waitForEvent("download"),

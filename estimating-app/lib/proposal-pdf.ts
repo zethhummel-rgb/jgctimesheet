@@ -246,15 +246,17 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const scope = proposalTextLines(quote.proposalScope ?? "").length ? proposalTextLines(quote.proposalScope ?? "") : quote.lines.filter((item) => item.included).map((item) => item.description).filter(Boolean);
   scope.forEach((item, index) => {
     const itemLines = Math.max(1, wrap(proposalTextPlain(item), regular, 8.2, metaWidth - 46).length);
-    const rowHeight = Math.max(23, itemLines * 10 + 8);
+    const rowHeight = Math.max(28, itemLines * 10 + 14);
     ensure(rowHeight);
     const rowTop = y;
-    page.drawCircle({ x: PAGE.margin + 13, y: y + 2, size: 8, color: bluePanel });
+    const contentBaseline = rowTop - 9;
+    page.drawCircle({ x: PAGE.margin + 13, y: rowTop - 7, size: 8, color: bluePanel });
     const number = String(index + 1);
-    page.drawText(number, { x: PAGE.margin + 13 - bold.widthOfTextAtSize(number, 6.2) / 2, y: y - 0.5, size: 6.2, font: bold, color: green });
+    page.drawText(number, { x: PAGE.margin + 13 - bold.widthOfTextAtSize(number, 6.2) / 2, y: contentBaseline - 0.5, size: 6.2, font: bold, color: green });
+    y = contentBaseline;
     richParagraph(item, { x: PAGE.margin + 32, width: metaWidth - 40, size: 8.2, gap: 3 });
     y = Math.min(y, rowTop - rowHeight);
-    page.drawLine({ start: { x: PAGE.margin, y: y + 4 }, end: { x: PAGE.width - PAGE.margin, y: y + 4 }, thickness: 0.55, color: line });
+    page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.55, color: line });
   });
   y -= 8;
 
@@ -360,8 +362,6 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   // proposal needs another page, it should not leave the signoff orphaned.
   ensure(43 + 67 + 16);
   const signoffTop = y;
-  page.drawRectangle({ x: PAGE.margin, y: y - 20, width: metaWidth - 153, height: 11, color: bluePanel });
-  page.drawRectangle({ x: PAGE.margin, y: y - 20, width: 3, height: 11, color: green });
   page.drawText("Respectfully submitted,", { x: PAGE.width - PAGE.margin - 135, y: y - 7, size: 5.8, font: regular, color: grey });
   page.drawText(state.settings.signatoryName || quote.preparedBy || "JGC Estimating", { x: PAGE.width - PAGE.margin - 135, y: y - 19, size: 6.8, font: bold, color: dark });
   page.drawText("John Gordon Construction", { x: PAGE.width - PAGE.margin - 135, y: y - 28, size: 5.5, font: regular, color: green });
