@@ -746,7 +746,13 @@ test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
   await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
 
-  await expect(page.getByRole("button", { name: "Download Proposal, Estimate, Breakdown" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download PDFs" })).toBeVisible();
+  await page.getByRole("button", { name: "Download PDFs" }).click();
+  await expect(page.getByRole("dialog", { name: "Download PDFs" })).toBeVisible();
+  await expect(page.getByLabel("Proposal PDF filename")).toBeVisible();
+  await expect(page.getByLabel("Estimate PDF filename")).toBeVisible();
+  await expect(page.getByLabel("Breakdown PDF filename")).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
   await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /Duplicate/ })).toHaveCount(0);
   await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /PDF backup/ })).toHaveCount(0);
 

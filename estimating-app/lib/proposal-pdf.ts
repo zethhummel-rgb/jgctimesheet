@@ -251,10 +251,12 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   return pdf.save();
 }
 
-export async function downloadProposalPdf(state: AppState, quote: Quote) {
+export async function downloadProposalPdf(state: AppState, quote: Quote, requestedFilename?: string) {
   const bytes = await createProposalPdf(state, quote);
   const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: "application/pdf" });
-  const filename = `${safeName(`${quote.number} - ${quote.project || "Proposal"}`)}.pdf`;
+  const defaultFilename = `${quote.number} - ${quote.project || "Proposal"}`;
+  const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
+  const filename = `${safeName(filenameBase) || safeName(defaultFilename)}.pdf`;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url; link.download = filename; link.rel = "noopener";

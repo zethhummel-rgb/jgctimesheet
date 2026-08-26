@@ -1068,17 +1068,21 @@ function downloadPdfBytes(bytes: Uint8Array, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function downloadEstimatePdf(options: InternalEstimatePdfOptions) {
+export async function downloadEstimatePdf(options: InternalEstimatePdfOptions, requestedFilename?: string) {
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createEstimatePdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`Estimate - ${options.quote.number} - ${options.quote.project || "Untitled"}`)}.pdf`);
+  const defaultFilename = `Estimate - ${options.quote.number} - ${options.quote.project || "Untitled"}`;
+  const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
+  downloadPdfBytes(bytes, `${safeFileName(filenameBase)}.pdf`);
 }
 
-export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions) {
+export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions, requestedFilename?: string) {
   if (!options.quote.lines.some((line) => line.costBuildUp)) return;
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createBreakdownPdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`Breakdown - ${options.quote.number} - ${options.quote.project || "Untitled"}`)}.pdf`);
+  const defaultFilename = `Breakdown - ${options.quote.number} - ${options.quote.project || "Untitled"}`;
+  const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
+  downloadPdfBytes(bytes, `${safeFileName(filenameBase)}.pdf`);
 }
 
 export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {

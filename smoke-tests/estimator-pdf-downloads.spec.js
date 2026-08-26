@@ -123,24 +123,61 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
     expect(pageText).not.toContain("Final selling price");
   });
 
-  const packageDownloads = [];
-  page.on("download", (download) => packageDownloads.push(download.suggestedFilename()));
-  await page.getByRole("button", { name: "Download Proposal, Estimate, Breakdown" }).click();
-  await expect.poll(() => packageDownloads.length).toBe(3);
-  expect(packageDownloads.some((name) => name.startsWith("Estimate - "))).toBe(true);
-  expect(packageDownloads.some((name) => name.startsWith("Breakdown - "))).toBe(true);
-  expect(packageDownloads.some((name) => !name.startsWith("Estimate - ") && !name.startsWith("Breakdown - "))).toBe(true);
+  await page.getByRole("button", { name: "Download PDFs" }).click();
+  const menu = page.getByRole("dialog", { name: "Download PDFs" });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByLabel("Proposal PDF filename")).toHaveValue(/^JGC-Q-2026-0001 - .+\.pdf$/);
+  await expect(menu.getByLabel("Estimate PDF filename")).toHaveValue(/^Estimate - JGC-Q-2026-0001 - .+\.pdf$/);
+  await expect(menu.getByLabel("Breakdown PDF filename")).toHaveValue(/^Breakdown - JGC-Q-2026-0001 - .+\.pdf$/);
+
+  await menu.getByLabel("Proposal PDF filename").fill("Lancaster customer proposal");
+  const [menuProposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    menu.getByRole("button", { name: "Download Proposal" }).click(),
+  ]);
+  expect(menuProposalDownload.suggestedFilename()).toBe("Lancaster customer proposal.pdf");
+
+  const [menuEstimateDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    menu.getByRole("button", { name: "Download Estimate" }).click(),
+  ]);
+  expect(menuEstimateDownload.suggestedFilename()).toMatch(/^Estimate - JGC-Q-2026-0001 - .+\.pdf$/);
+
+  const [menuBreakdownDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    menu.getByRole("button", { name: "Download Breakdown" }).click(),
+  ]);
+  expect(menuBreakdownDownload.suggestedFilename()).toMatch(/^Breakdown - JGC-Q-2026-0001 - .+\.pdf$/);
+  await menu.getByRole("button", { name: "Done" }).click();
+  await expect(menu).toBeHidden();
 });
 
-test("quote package omits an empty Breakdown PDF", async ({ page }) => {
+test("PDF download menu disables an empty Breakdown PDF", async ({ page }) => {
   await openDemoQuote(page);
-  const downloads = [];
-  page.on("download", (download) => downloads.push(download.suggestedFilename()));
-  await page.getByRole("button", { name: "Download Proposal, Estimate, Breakdown" }).click();
-  await expect.poll(() => downloads.length).toBe(2);
-  await page.waitForTimeout(400);
-  expect(downloads).toHaveLength(2);
-  expect(downloads.some((name) => name.startsWith("Breakdown - "))).toBe(false);
+  await page.getByRole("button", { name: "Download PDFs" }).click();
+  const menu = page.getByRole("dialog", { name: "Download PDFs" });
+  await expect(menu.getByRole("button", { name: "Download Proposal" })).toBeEnabled();
+  await expect(menu.getByRole("button", { name: "Download Estimate" })).toBeEnabled();
+  await expect(menu.getByRole("button", { name: "Download Breakdown" })).toBeDisabled();
+  await expect(menu).toContainText("Add a built-up estimate item to create this PDF");
+});
+
+test("PDF download menu keeps editable filenames on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openDemoQuote(page);
+  await page.getByRole("button", { name: "Download PDFs" }).click();
+  const menu = page.getByRole("dialog", { name: "Download PDFs" });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByLabel("Proposal PDF filename")).toBeVisible();
+  await expect(menu.getByLabel("Estimate PDF filename")).toBeVisible();
+  await expect(menu.getByLabel("Breakdown PDF filename")).toBeVisible();
+  await menu.getByLabel("Estimate PDF filename").fill("Mobile internal estimate.pdf");
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    menu.getByRole("button", { name: "Download Estimate" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe("Mobile internal estimate.pdf");
+  await expect(menu.getByRole("status")).toContainText("Estimate PDF download started");
 });
 
 test("Proposal PDF has fillable acceptance and date fields", async ({ page }, testInfo) => {
