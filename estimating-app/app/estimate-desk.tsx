@@ -847,7 +847,7 @@ function newBuiltUpLine(section = "General"): QuoteLine {
     sourceNote: "Detailed labour and material cost build-up.",
     costBuildUp: {
       items: [
-        newBuildUpItem("Labour", { description: "Crew labour" }),
+        newBuildUpItem("Labour"),
         newBuildUpItem("Material"),
       ],
     },
@@ -2998,7 +2998,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       sourceNote: line.sourceNote || "Detailed labour and material cost build-up.",
       costBuildUp: {
         items: [
-          newBuildUpItem("Labour", { description: "Crew labour" }),
+          newBuildUpItem("Labour"),
           newBuildUpItem("Material"),
         ],
       },
@@ -3242,7 +3242,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   });
   const updateItem = (itemId: string, patch: Partial<QuoteCostBuildUpItem>) => commitItems(items.map((item) => item.id === itemId ? { ...item, ...patch } : item));
   const removeItem = (itemId: string) => commitItems(items.filter((item) => item.id !== itemId));
-  const addLabour = () => commitItems([...items, newBuildUpItem("Labour", { description: "Crew labour" })]);
+  const addLabour = () => commitItems([...items, newBuildUpItem("Labour")]);
   const addManualMaterial = () => commitItems([...items, newBuildUpItem("Material")]);
   const addSubcontractor = () => commitItems([...items, newBuildUpItem("Subcontractor", { unit: "LS" })]);
   const addOther = () => commitItems([...items, newBuildUpItem("Other", { unit: "LS" })]);
@@ -3857,7 +3857,7 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
               <div className="entity-card-actions"><div>{quotes[0] ? <button className="button secondary compact" onClick={() => onOpenQuote(quotes[0].id)}>Open latest quote</button> : <span>No quotes yet</span>}<button className="button secondary compact" onClick={() => setEditingClientId(editing ? null : client.id)}>{editing ? "Done" : "Edit client"}</button></div><span>{client.email || client.phone || "Contact details not recorded"}</span></div>
               {editing && <div className="client-editor">
                 <label className="field"><span>Client name</span><input value={client.name} onChange={(event) => updateClient(client.id, (current) => ({ ...current, name: event.target.value }))} /></label>
-                <div className="client-editor-section"><header><div><span className="eyebrow">SITES &amp; ADDRESSES</span><strong>{client.sites.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, sites: [...current.sites, { id: uid("site"), label: "New site", address: "" }] }))}>＋ Site</button></header>{client.sites.map((site) => <div className="client-editor-row" key={site.id}><input aria-label="Site name" value={site.label} onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, label: event.target.value } : item) }))} /><input aria-label="Site address" value={site.address} placeholder="Address" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, address: event.target.value } : item) }))} /><button aria-label={`Remove ${site.label}`} onClick={() => updateClient(client.id, (current) => ({ ...current, sites: current.sites.filter((item) => item.id !== site.id) }))}>×</button></div>)}</div>
+                <div className="client-editor-section"><header><div><span className="eyebrow">SITES &amp; ADDRESSES</span><strong>{client.sites.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, sites: [...current.sites, { id: uid("site"), label: "", address: "" }] }))}>＋ Site</button></header>{client.sites.map((site) => <div className="client-editor-row" key={site.id}><input aria-label="Site name" value={site.label} placeholder="New site" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, label: event.target.value } : item) }))} /><input aria-label="Site address" value={site.address} placeholder="Address" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, address: event.target.value } : item) }))} /><button aria-label={`Remove ${site.label || "site"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, sites: current.sites.filter((item) => item.id !== site.id) }))}>×</button></div>)}</div>
                 <div className="client-editor-section"><header><div><span className="eyebrow">ATTENTION CONTACTS</span><strong>{contacts.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: [...(current.contacts ?? []), { id: uid("client-contact"), name: "", role: "", email: "", phone: "" }] }))}>＋ Contact</button></header>{contacts.map((contact) => <div className="client-contact-editor" key={contact.id}><input aria-label="Contact name" value={contact.name} placeholder="New contact" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, name: event.target.value } : item) }))} /><input aria-label="Contact role" value={contact.role} placeholder="Role / department" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, role: event.target.value } : item) }))} /><input aria-label="Contact email" type="email" value={contact.email} placeholder="Email" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, email: event.target.value } : item) }))} /><input aria-label="Contact phone" value={formatPhoneNumber(contact.phone)} inputMode="numeric" autoComplete="tel" maxLength={14} placeholder="Phone" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, phone: formatPhoneNumber(event.target.value) } : item) }))} /><button aria-label={`Remove ${contact.name || "contact"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).filter((item) => item.id !== contact.id) }))}>×</button></div>)}</div>
               </div>}
             </section>
@@ -4142,7 +4142,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
                       <div className="vendor-contact-actions"><button className="button primary compact" onClick={() => void saveContact(vendor, contact)} disabled={busy}>Save</button><button className="button danger-ghost compact" onClick={() => void removeContact(contact)} disabled={busy}>Remove</button></div>
                     </div>; })}</div>
                     <div className="vendor-new-contact">
-                      <label className="field"><span>New contact name</span><input value={String(draft.name ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], name: event.target.value } }))} /></label>
+                      <label className="field"><span>New contact name</span><input value={String(draft.name ?? "")} placeholder="New contact" onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], name: event.target.value } }))} /></label>
                       <label className="field"><span>Role / title</span><input value={String(draft.role ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], role: event.target.value } }))} placeholder="Owner, estimator, plumber…" /></label>
                       <label className="field"><span>Phone</span><input value={formatPhoneNumber(String(draft.phone ?? ""))} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], phone: formatPhoneNumber(event.target.value) } }))} inputMode="numeric" autoComplete="tel" maxLength={14} /></label>
                       <label className="field"><span>Email</span><input type="email" value={String(draft.email ?? "")} onChange={(event) => setNewContacts((current) => ({ ...current, [vendor.id]: { ...current[vendor.id], email: event.target.value } }))} /></label>
