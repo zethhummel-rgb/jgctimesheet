@@ -828,6 +828,25 @@ body.login-page.jgc-page {
   background: color-mix(in srgb, var(--jgc-color-brand-400) 12%, transparent);
 }
 
+:root[data-jgc-theme="light"] .login-page button.public-tool-button.jgc-button {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-warning);
+}
+
+:root[data-jgc-theme="light"] .login-page button.public-tool-button.jgc-button:hover {
+  background: var(--jgc-color-warning);
+}
+
+:root[data-jgc-theme="light"] .login-page button.subcontractor-access-button.jgc-button {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border-color: var(--jgc-color-border);
+}
+
+:root[data-jgc-theme="light"] .login-page button.subcontractor-access-button.jgc-button:hover {
+  background: var(--jgc-color-surface-soft);
+}
+
 .login-page .status.jgc-notice,
 .login-page .subcontractor-status.jgc-notice {
   min-height: 18px;
