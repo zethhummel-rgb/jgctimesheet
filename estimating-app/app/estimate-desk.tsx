@@ -9,6 +9,7 @@ import {
   isDefaultClosingProposalScopeLine,
   proposalFormatTokens,
   proposalTextHtml,
+  proposalTextHtmlLines,
   proposalTextLines,
   proposalTextPlain,
   type ProposalFormatCommand,
@@ -316,7 +317,11 @@ function serializeProposalEditorNode(node: Node): string {
   else if (node.tagName === "MARK") wrapped = `[hy]${wrapped}[/hy]`;
   else if (node.matches("span.proposal-font-small")) wrapped = `[sm]${wrapped}[/sm]`;
   else if (node.matches("span.proposal-font-large")) wrapped = `[lg]${wrapped}[/lg]`;
-  if (/^(DIV|P)$/.test(node.tagName) && node.nextSibling) wrapped += "\n";
+  if (/^(DIV|P)$/.test(node.tagName)) {
+    const previousTag = node.previousSibling instanceof HTMLElement ? node.previousSibling.tagName : "";
+    if (node.previousSibling && !/^(BR|DIV|P)$/.test(previousTag)) wrapped = `\n${wrapped}`;
+    if (node.nextSibling) wrapped += "\n";
+  }
   return wrapped;
 }
 
@@ -445,6 +450,16 @@ function ProposalRichEditor({ value, disabled, onChange, label, placeholder, row
 
 function ProposalRichText({ value }: { value?: string }) {
   return <span className="proposal-rich-output" dangerouslySetInnerHTML={{ __html: proposalTextHtml(value) }} />;
+}
+
+function ProposalClarificationLines({ value }: { value?: string }) {
+  return (
+    <div className="proposal-clarification-lines">
+      {proposalTextHtmlLines(value).map((html, index) => (
+        <p className="proposal-clarification-line" key={index} dangerouslySetInnerHTML={{ __html: html }} />
+      ))}
+    </div>
+  );
 }
 
 function splitProposalRichEditor(editor: HTMLElement) {
@@ -3711,7 +3726,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
             <section className="hybrid-document-section hybrid-notes-section">
               <header><span>02</span><div><small>ASSUMPTIONS & CLARIFICATIONS</small><h2>Notes</h2></div></header>
               {notes.length > 0 ? <ul className="hybrid-notes-list">{notes.map((item, index) => <li key={index}><ProposalRichText value={item} /></li>)}</ul> : <p className="hybrid-empty-note">No additional project notes recorded.</p>}
-              {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><p><ProposalRichText value={quote.inclusions} /></p></div>}{quote.exclusions && <div><span>Excluded</span><p><ProposalRichText value={quote.exclusions} /></p></div>}</div>}
+              {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><ProposalClarificationLines value={quote.inclusions} /></div>}{quote.exclusions && <div><span>Excluded</span><ProposalClarificationLines value={quote.exclusions} /></div>}</div>}
             </section>
             {sharedOptional}
             {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
@@ -3736,7 +3751,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
           </>
         )}
 
-        {style !== "jgc-classic" && <section className="proposal-bottom-grid"><div className="proposal-terms"><h3>Inclusions</h3><p><ProposalRichText value={quote.inclusions || "As specifically listed above."} /></p><h3>Exclusions</h3><p><ProposalRichText value={quote.exclusions || "No exclusions recorded."} /></p><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p></div><ProposalTotals quote={quote} totals={totals} taxExtra={taxExtra} /></section>}
+        {style !== "jgc-classic" && <section className="proposal-bottom-grid"><div className="proposal-terms"><h3>Inclusions</h3><ProposalClarificationLines value={quote.inclusions || "As specifically listed above."} /><h3>Exclusions</h3><ProposalClarificationLines value={quote.exclusions || "No exclusions recorded."} /><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p></div><ProposalTotals quote={quote} totals={totals} taxExtra={taxExtra} /></section>}
         {style === "jgc-classic" && !taxExtra && <ProposalTotals quote={quote} totals={totals} taxExtra={false} />}
         <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p><p><strong>HST Extra</strong></p></section>
         <section className={`proposal-signoff ${style === "jgc-classic" ? "hybrid-signoff" : ""}`}><div /><div><span>Respectfully submitted,</span><strong>{company.signatory}</strong><small>John Gordon Construction</small></div></section>

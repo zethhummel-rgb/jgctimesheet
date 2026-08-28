@@ -405,6 +405,54 @@ test("Proposal PDF safely exports pasted inclusion and exclusion characters", as
   expect(proposalText).toContain('Asbestos - lead... "unknown"');
 });
 
+test("proposal preview and PDF keep inclusion and exclusion lines aligned", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Details/ }).click();
+  const inclusions = page.getByRole("textbox", { name: "Inclusions" });
+  await inclusions.fill("- Walking the entire vacant lot and cleaning all garbage");
+  await inclusions.press("End");
+  await inclusions.press("Enter");
+  await inclusions.pressSequentially("- Dumpster will be available for debris");
+  const exclusions = page.getByRole("textbox", { name: "Exclusions" });
+  await exclusions.fill("- Flagging to be by others");
+  await exclusions.press("End");
+  await exclusions.press("Enter");
+  await exclusions.pressSequentially("- We are not cleaning anything under water in the swamp");
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+
+  const previewColumns = page.locator(".hybrid-clarifications > div");
+  await expect(previewColumns).toHaveCount(2);
+  await expect(previewColumns.nth(0).locator(".proposal-clarification-line")).toHaveText([
+    "- Walking the entire vacant lot and cleaning all garbage",
+    "- Dumpster will be available for debris",
+  ]);
+  await expect(previewColumns.nth(1).locator(".proposal-clarification-line")).toHaveText([
+    "- Flagging to be by others",
+    "- We are not cleaning anything under water in the swamp",
+  ]);
+
+  const [proposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const proposalPath = testInfo.outputPath("aligned-inclusions-exclusions.pdf");
+  await proposalDownload.saveAs(proposalPath);
+  const items = await extractPdfPageItems(proposalPath);
+  const findWord = (word) => items.find((item) => item.text.includes(word));
+  const walking = findWord("Walking");
+  const dumpster = findWord("Dumpster");
+  const flagging = findWord("Flagging");
+  const swamp = findWord("swamp");
+  expect(walking).toBeTruthy();
+  expect(dumpster).toBeTruthy();
+  expect(flagging).toBeTruthy();
+  expect(swamp).toBeTruthy();
+  expect(Math.abs(walking.y - flagging.y)).toBeLessThan(0.5);
+  expect(Math.abs(dumpster.y - swamp.y)).toBeLessThan(0.5);
+  expect(walking.y).toBeGreaterThan(dumpster.y);
+  expect(walking.x).toBeLessThan(flagging.x);
+});
+
 test("Proposal preview and PDF always round the final quote upward to a whole dollar", async ({ page }, testInfo) => {
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Estimate/ }).click();
