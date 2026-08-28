@@ -2731,6 +2731,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [supplierCatalogMatches, setSupplierCatalogMatches] = useState<SupplierCatalogItemRecord[]>([]);
   const [supplierSearchLoading, setSupplierSearchLoading] = useState(false);
+  const [directCostDrafts, setDirectCostDrafts] = useState<Record<string, string>>({});
   const totals = quoteTotals(quote);
   const appliedItems = state.priceBook.filter((item) => item.active);
   const normalizedCatalogSearch = catalogSearch.trim().toLocaleLowerCase();
@@ -2779,6 +2780,32 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         ? { ...line, ...patch, ...(replacesLegacyPriceOverride ? { priceOverride: null } : {}) }
         : line)),
     }));
+  };
+  const directCostInputValue = (line: QuoteLine, buildUpTotal: number) => {
+    if (line.costBuildUp) return buildUpTotal;
+    if (Object.prototype.hasOwnProperty.call(directCostDrafts, line.id)) return directCostDrafts[line.id];
+    if (line.projectCost === 0 && line.catalogCost !== null) return "";
+    return line.projectCost ?? line.catalogCost ?? "";
+  };
+  const startDirectCostEdit = (line: QuoteLine) => {
+    setDirectCostDrafts((current) => ({
+      ...current,
+      [line.id]: line.projectCost === 0 && line.catalogCost !== null
+        ? ""
+        : String(line.projectCost ?? line.catalogCost ?? ""),
+    }));
+  };
+  const changeDirectCost = (lineId: string, value: string) => {
+    setDirectCostDrafts((current) => ({ ...current, [lineId]: value }));
+    updateLine(lineId, { projectCost: value === "" ? 0 : Number(value) });
+  };
+  const finishDirectCostEdit = (lineId: string, value: string) => {
+    updateLine(lineId, { projectCost: value === "" ? 0 : Number(value) });
+    setDirectCostDrafts((current) => {
+      const next = { ...current };
+      delete next[lineId];
+      return next;
+    });
   };
   const updateLineVendor = (line: QuoteLine, typedName: string) => {
     const subcontractorName = typedName.trim();
@@ -3038,7 +3065,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
                       <td className="direct-unit-cost-cell" data-label="Direct unit cost">
-                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={line.costBuildUp ? buildUpTotals.total : line.projectCost ?? line.catalogCost ?? ""} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { projectCost: event.target.value === "" ? null : Number(event.target.value) })} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
+                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={directCostInputValue(line, buildUpTotals.total)} disabled={locked || !!line.costBuildUp} onFocus={() => startDirectCostEdit(line)} onChange={(event) => changeDirectCost(line.id, event.target.value)} onBlur={(event) => finishDirectCostEdit(line.id, event.target.value)} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
                         {line.costBuildUp ? <div className="build-up-mini-totals">{line.costType === "Sub / Vendor" ? <><span>Vendor {money(buildUpTotals.subcontractors)}</span><span>Other {money(buildUpTotals.other)}</span></> : <><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></>}</div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
                       <td className="direct-cost-cell" data-label="Direct cost"><strong>{money(direct)}</strong></td>
