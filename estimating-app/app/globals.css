@@ -1144,8 +1144,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sub-pricing-badge { padding: 3px 7px; border-radius: 999px; background: var(--green-100); color: var(--green-700); font-size: 9px; font-weight: 850; text-transform: uppercase; }.sub-pricing-badge.budget { background: var(--amber-100); color: var(--amber-700); }
 .vendor-contact-editor.is-main { border-color: var(--green-600); box-shadow: inset 3px 0 0 var(--green-600); }
 .vendor-main-contact-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }.vendor-main-contact-row > span { color: var(--green-700); font-size: 10px; font-weight: 850; text-transform: uppercase; }
-.sub-quote-hint { color: var(--blue-600); text-align: left; }
-.sub-quote-hint.missing { color: var(--red-700); font-weight: 800; }
+.subcontractor-main-cell { min-width: 0; display: grid; gap: 5px; }
+.sub-quote-inline-field { max-width: calc(100% - 8px); margin-left: 8px; display: grid; grid-template-columns: max-content minmax(80px, 1fr); align-items: center; gap: 7px; }
+.sub-quote-inline-field > span { color: var(--slate-500); font-size: 9px; font-weight: 800; line-height: 1.15; white-space: nowrap; }
+.sub-quote-inline-field em { color: var(--blue-600); font-size: 8px; font-style: normal; font-weight: 750; }
+.sub-quote-inline-field input { width: 100%; min-width: 0; height: 27px; padding: 3px 7px; border: 1px solid var(--slate-200); border-radius: 5px; background: var(--slate-50); color: var(--navy-900); font-size: 11px; outline: none; }
+.sub-quote-inline-field input:focus { border-color: var(--green-600); box-shadow: 0 0 0 2px rgba(25, 135, 84, .12); }
+.sub-quote-inline-field input:disabled { cursor: not-allowed; opacity: .72; }
 .subcontract-po-panel { overflow: hidden; }
 .subcontract-po-panel .panel-heading p { max-width: 720px; margin: 5px 0 0; color: var(--slate-600); }
 .quote-po-layout { gap: 16px; }

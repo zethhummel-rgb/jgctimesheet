@@ -77,7 +77,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await typedVendorLine.locator("select.division-input").selectOption({ label: "Division 03 – Concrete" });
   await page.waitForTimeout(50);
   await typedVendorLine.locator(".direct-unit-cost-cell input").fill("2580");
-  await page.locator(".line-detail-panel").getByLabel(/Subcontractor quote #/).fill("AG-2026-15");
+  await typedVendorLine.getByLabel(/Subcontractor quote #/).fill("AG-2026-15");
   await page.waitForTimeout(50);
 
   await page.locator(".subcontractor-add-button").click();
