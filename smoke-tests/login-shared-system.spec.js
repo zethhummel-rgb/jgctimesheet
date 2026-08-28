@@ -11,7 +11,7 @@ test("Login uses one token-only visual source", async () => {
 
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=8');
-  expect(html).toContain('login-design-system.css?v=2');
+  expect(html).toContain('login-design-system.css?v=3');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -20,9 +20,28 @@ test("Login uses one token-only visual source", async () => {
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('const JGC_RELEASE_ID = "802"');
-  expect(worker).toContain('"./login-design-system.css?v=2"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "803"');
+  expect(worker).toContain('"./login-design-system.css?v=3"');
 });
+
+async function contrastRatio(page, selector) {
+  return page.locator(selector).evaluate((element) => {
+    function parseRgb(value) {
+      return (String(value).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    }
+    function luminance(rgb) {
+      const values = rgb.map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+      });
+      return (0.2126 * values[0]) + (0.7152 * values[1]) + (0.0722 * values[2]);
+    }
+    const style = getComputedStyle(element);
+    const foreground = luminance(parseRgb(style.color));
+    const background = luminance(parseRgb(style.backgroundColor));
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+}
 
 for (const viewport of [
   { name: "desktop", width: 1280, height: 900 },
@@ -60,6 +79,26 @@ for (const viewport of [
     expect(layout.controlsContained).toBe(true);
     expect(layout.shortestControl).toBeGreaterThanOrEqual(44);
     expect(layout.brandVisible).toBe(viewport.name === "desktop");
+    await context.close();
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "phone", width: 390, height: 844 }
+]) {
+  test(`light-theme public login actions stay readable on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport });
+    const page = await context.newPage();
+    await page.addInitScript(() => localStorage.setItem("jgcPortalTheme", "light"));
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+
+    await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+    for (const selector of [".public-tool-button-top", ".subcontractor-access-button"]) {
+      await expect(page.locator(selector)).toBeVisible();
+      expect(await contrastRatio(page, selector), `${selector} must meet normal-text contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+
     await context.close();
   });
 }
