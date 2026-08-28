@@ -1113,7 +1113,9 @@ export function lineSellPrice(line: QuoteLine, defaultMarkup: number): number {
 export function quoteTotals(quote: Quote) {
   const includedLines = quote.lines.filter((line) => line.included);
   const directCost = roundMoney(includedLines.reduce((sum, line) => sum + lineDirectCost(line), 0));
-  const subtotal = roundMoney(includedLines.reduce((sum, line) => sum + lineSellPrice(line, quote.defaultMarkup), 0));
+  // Customer proposal prices are always issued as whole dollars. Round upward
+  // so a calculated price such as $4,123.01 is quoted as $4,124.00 everywhere.
+  const subtotal = Math.ceil(roundMoney(includedLines.reduce((sum, line) => sum + lineSellPrice(line, quote.defaultMarkup), 0)));
   const tax = roundMoney(subtotal * quote.taxRate);
   const total = roundMoney(subtotal + tax);
   const profit = roundMoney(subtotal - directCost);
