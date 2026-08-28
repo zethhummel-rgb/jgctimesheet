@@ -389,7 +389,12 @@ test("price book lines use one editable direct unit cost and calculate markup fr
   const line = page.locator(".estimate-table tbody > tr").first();
   const directUnitCost = line.locator(".direct-unit-cost-cell input");
   await expect(directUnitCost).toBeEditable();
-  await directUnitCost.fill("175");
+  await expect(directUnitCost).toHaveValue("250");
+  await directUnitCost.selectText();
+  await directUnitCost.press("Backspace");
+  await expect(directUnitCost).toHaveValue("");
+  await expect(line.locator(".direct-cost-cell")).toContainText("$0.00");
+  await directUnitCost.pressSequentially("175");
   await expect(line.locator(".direct-cost-cell")).toContainText("$175.00");
 
   const details = page.locator(".line-detail-panel");
