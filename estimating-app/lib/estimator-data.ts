@@ -154,6 +154,8 @@ export interface QuoteLine {
   vendorQuoteDate: string;
   vendorQuoteExpiry: string;
   vendorPricingMode?: "Quoted" | "Budget";
+  vendorActualCost?: number | null;
+  vendorOverrideCost?: number | null;
   liveQuote: boolean;
   confidence: Confidence;
   low: number | null;
@@ -816,7 +818,7 @@ demoLines.push({
 
 export function createDefaultState(): AppState {
   return {
-    version: 10,
+    version: 11,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -1002,6 +1004,9 @@ export function normalizeAppState(state: AppState): AppState {
         const subcontractorName = line.vendorName?.trim()
           || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name.trim()
           || "";
+        const legacySubcontractorCost = line.costType === "Sub / Vendor"
+          ? line.projectCost ?? line.catalogCost ?? (line.costBuildUp ? lineBuildUpTotals(line).total : null)
+          : null;
         return {
           ...line,
           description: line.costType === "Sub / Vendor" && !line.description?.trim()
@@ -1009,6 +1014,8 @@ export function normalizeAppState(state: AppState): AppState {
             : line.description,
           division: line.division ?? (priceBookItem ? constructionDivision(priceBookItem.category) : "Div 01 – General Requirements"),
           vendorPricingMode: line.vendorPricingMode ?? (line.vendorReference?.trim() ? "Quoted" : "Budget"),
+          vendorActualCost: Number.isFinite(line.vendorActualCost) ? Math.max(0, Number(line.vendorActualCost)) : legacySubcontractorCost,
+          vendorOverrideCost: Number.isFinite(line.vendorOverrideCost) ? Math.max(0, Number(line.vendorOverrideCost)) : null,
           costBuildUp: line.costBuildUp
             ? {
                 items: Array.isArray(line.costBuildUp.items)
@@ -1092,8 +1099,25 @@ export function lineBuildUpTotals(line: QuoteLine) {
 }
 
 export function effectiveUnitCost(line: QuoteLine): number {
+  if (line.costType === "Sub / Vendor" && line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined) {
+    return Math.max(0, line.vendorOverrideCost);
+  }
   if (line.costBuildUp) return lineBuildUpTotals(line).total;
+  if (line.costType === "Sub / Vendor" && line.vendorActualCost !== null && line.vendorActualCost !== undefined) {
+    return Math.max(0, line.vendorActualCost);
+  }
   return line.projectCost ?? line.catalogCost ?? 0;
+}
+
+export function subcontractorActualUnitCost(line: QuoteLine): number {
+  if (line.costType !== "Sub / Vendor") return effectiveUnitCost(line);
+  if (line.vendorActualCost !== null && line.vendorActualCost !== undefined) return Math.max(0, line.vendorActualCost);
+  if (line.costBuildUp) return lineBuildUpTotals(line).total;
+  return Math.max(0, line.projectCost ?? line.catalogCost ?? 0);
+}
+
+export function subcontractorActualDirectCost(line: QuoteLine): number {
+  return roundMoney(Math.max(0, line.quantity || 0) * subcontractorActualUnitCost(line));
 }
 
 export function preciseLineDirectCost(line: QuoteLine): number {
