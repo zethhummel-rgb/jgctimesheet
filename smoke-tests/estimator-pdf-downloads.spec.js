@@ -398,6 +398,26 @@ test("Proposal PDF safely exports pasted inclusion and exclusion characters", as
   expect(proposalText).toContain('Asbestos - lead... "unknown"');
 });
 
+test("Proposal preview and PDF always round the final quote upward to a whole dollar", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  const firstEstimateLine = page.locator(".estimate-table tbody > tr:not(.line-detail-row)").first();
+  await firstEstimateLine.locator(".direct-unit-cost-cell input").fill("15000.01");
+  await expect(page.locator(".sticky-quote-summary")).toContainText("$27,482.00");
+
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+  await expect(page.locator(".hybrid-lump-sum")).toContainText("$27,482.00");
+  const [proposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const proposalPath = testInfo.outputPath("whole-dollar-proposal.pdf");
+  await proposalDownload.saveAs(proposalPath);
+  const proposalText = await extractPdfText(proposalPath);
+  expect(proposalText).toContain("$27,482.00");
+  expect(proposalText).not.toContain("$27,481.01");
+});
+
 test("proposal cost breakdown combines categories and supports marked-up estimate lines", async ({ page }, testInfo) => {
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Details/ }).click();

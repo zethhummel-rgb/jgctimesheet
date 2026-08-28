@@ -269,7 +269,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     y = contentBaseline;
     richParagraph(item, { x: PAGE.margin + 32, width: metaWidth - 40, size: 8.2, gap: 3 });
     y = Math.min(y, rowTop - rowHeight);
-    page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.55, color: line });
+    page.drawLine({ start: { x: PAGE.margin + 32, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.55, color: line });
   });
   y -= 8;
 
