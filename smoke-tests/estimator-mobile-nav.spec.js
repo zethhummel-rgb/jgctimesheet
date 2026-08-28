@@ -785,6 +785,7 @@ test("subcontractor lines allow an optional quote number and separate added cost
 });
 
 test("subcontractor override drives the estimate while the PO keeps the actual quote", async ({ page }) => {
+  test.setTimeout(35_000);
   await page.addInitScript(() => {
     window.JGC_ESTIMATOR_PORTAL_JOBS = [{
       id: "portal-job-26123",
@@ -827,6 +828,9 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await jobDialog.getByRole("option", { name: /26123.*Estimator subcontractor override test/ }).click();
   await jobDialog.getByRole("button", { name: "Make into job" }).click();
 
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 26123");
+  await expect(page.getByRole("heading", { name: "Create POs from accepted estimate lines" })).toBeVisible();
+
   const poSourceRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-ACTUAL-17" });
   await expect(poSourceRow).toContainText("$4,600.00");
   await expect(poSourceRow).toContainText("JGC carried $5,250.00");
@@ -835,6 +839,26 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await expect(poDialog.getByLabel("Unit cost")).toHaveValue("4600");
   await expect(poDialog.getByLabel("Pre-tax amount")).toHaveValue("4600");
   await expect(poDialog).toContainText("no JGC override or customer markup");
+  await poDialog.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("button", { name: "Open accepted quote" }).click();
+  await expect(page.locator(".identity-badges")).toContainText("Won");
+  await expect(page.getByRole("button", { name: "Re-open quote" })).toBeVisible();
+  await page.getByRole("button", { name: "All quotes" }).click();
+  await expect(page.locator(".page-stack")).not.toContainText("JGC-Q-2026-0001");
+
+  const primaryNavigation = page.getByRole("navigation", { name: "Primary navigation" });
+  await primaryNavigation.getByRole("button", { name: /Jobs/ }).click();
+  await page.getByRole("textbox", { name: "Search jobs" }).fill("26123");
+  await page.locator(".jobs-table tbody tr").filter({ hasText: "26123" }).click();
+  await page.getByRole("button", { name: "Open accepted quote" }).click();
+  await page.getByRole("button", { name: "Re-open quote" }).click();
+  const revisionDialog = page.getByRole("dialog", { name: "Re-open as Revision 1?" });
+  await expect(revisionDialog).toContainText("accepted Estimate, Breakdown and Proposal will be preserved in History");
+  await revisionDialog.getByRole("button", { name: "Create Revision 1" }).click();
+  await page.getByRole("button", { name: "All quotes" }).click();
+  await page.getByLabel("Search quotes").fill("JGC-Q-2026-0001");
+  await expect(page.locator(".quotes-table tbody tr").filter({ hasText: "JGC-Q-2026-0001" })).toContainText("Draft");
 });
 
 test("typed subcontractor names automatically become the line description", async ({ page }) => {
