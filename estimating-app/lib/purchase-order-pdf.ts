@@ -70,9 +70,19 @@ function drawRight(page: PDFPage, font: PDFFont, text: string, size: number, x: 
   page.drawText(safe, { x: x + width - font.widthOfTextAtSize(safe, size), y, size, font, color });
 }
 
+function drawFittedText(page: PDFPage, font: PDFFont, text: string, size: number, x: number, y: number, width: number, color = colour.slate, minimumSize = 6.5) {
+  let safe = ascii(text);
+  const measured = font.widthOfTextAtSize(safe, size);
+  const fittedSize = measured > width ? Math.max(minimumSize, size * width / measured) : size;
+  while (safe.length > 1 && font.widthOfTextAtSize(safe, fittedSize) > width) {
+    safe = `${safe.slice(0, -2).trimEnd()}...`;
+  }
+  page.drawText(safe, { x, y, size: fittedSize, font, color });
+}
+
 function drawLabelValue(page: PDFPage, regular: PDFFont, bold: PDFFont, label: string, value: string, x: number, y: number, width: number) {
   page.drawText(ascii(label).toUpperCase(), { x, y, size: 7, font: bold, color: colour.muted });
-  const lines = wrapText(regular, value || "-", 9.5, width);
+  const lines = wrapText(bold, value || "-", 9.5, width);
   lines.slice(0, 2).forEach((line, index) => page.drawText(line, { x, y: y - 14 - index * 11, size: 9.5, font: index === 0 ? bold : regular, color: colour.navy }));
 }
 
@@ -150,8 +160,11 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   page.drawRectangle({ x: MARGIN, y: 507, width: 254, height: 101, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
   page.drawRectangle({ x: MARGIN + 266, y: 507, width: 266, height: 101, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
   page.drawText("TO", { x: MARGIN + 12, y: 590, size: 8, font: bold, color: colour.blue });
-  page.drawText(ascii(po.vendorName || "Subcontractor not recorded"), { x: MARGIN + 12, y: 571, size: 12, font: bold, color: colour.navy });
-  [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean).slice(0, 3).forEach((line, index) => page.drawText(ascii(line), { x: MARGIN + 12, y: 554 - index * 12, size: 8.5, font: regular, color: colour.slate }));
+  const vendorTextWidth = 230;
+  const vendorLines = wrapText(bold, po.vendorName || "Subcontractor not recorded", 12, vendorTextWidth).slice(0, 2);
+  vendorLines.forEach((line, index) => page.drawText(line, { x: MARGIN + 12, y: 571 - index * 13, size: 12, font: bold, color: colour.navy }));
+  const vendorContactY = 554 - Math.max(0, vendorLines.length - 1) * 13;
+  [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean).slice(0, 3).forEach((line, index) => drawFittedText(page, regular, line, 8.5, MARGIN + 12, vendorContactY - index * 11, vendorTextWidth, colour.slate));
 
   drawLabelValue(page, regular, bold, "Job name", job.project, MARGIN + 278, 590, 242);
   drawLabelValue(page, regular, bold, "Client / location", `${client?.name ?? "Client not recorded"}${quote?.site ? ` - ${quote.site}` : ""}`, MARGIN + 278, 553, 242);

@@ -16,6 +16,15 @@ async function extractPdfPagesText(pdfPath) {
   return pages;
 }
 
+async function extractPdfPageItems(pdfPath, pageNumber = 1) {
+  const pdfJsPath = path.resolve(__dirname, "../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs = await import(pathToFileURL(pdfJsPath).href);
+  const document = await pdfjs.getDocument({ data: new Uint8Array(fs.readFileSync(pdfPath)), disableWorker: true }).promise;
+  const page = await document.getPage(pageNumber);
+  const content = await page.getTextContent();
+  return content.items.map((item) => ({ text: item.str, x: item.transform[4], y: item.transform[5], width: item.width }));
+}
+
 async function extractPdfText(pdfPath) {
   return (await extractPdfPagesText(pdfPath)).join("\n");
 }
@@ -39,6 +48,59 @@ async function finishAndReopenAsRevisionOne(page) {
   await page.getByRole("dialog", { name: "Re-open as Revision 1?" }).getByRole("button", { name: "Create Revision 1" }).click();
   await expect(page.getByText("JGC-Q-2026-0001 · REV 1")).toBeVisible();
 }
+
+test("Purchase Order PDF keeps long vendor and job names inside their panels", async ({ page }, testInfo) => {
+  const sourceAssets = path.resolve(__dirname, "../estimating/assets");
+  const purchaseOrderModule = fs.readdirSync(sourceAssets).find((name) => /^purchase-order-pdf-.*\.js$/.test(name));
+  expect(purchaseOrderModule).toBeTruthy();
+  const options = {
+    state: {
+      settings: {
+        companyName: "John Gordon Construction Inc.",
+        companyPhone: "(613) 932-1293",
+        companyFax: "(613) 937-3656",
+        companyAddress: "830 Campbell St. Unit 3",
+        companyCity: "Cornwall, Ontario",
+        companyPostalCode: "K6H 6L7",
+        signatoryName: "Zeth Hummel",
+      },
+      quotes: [{ id: "quote-1", site: "Brockville Station" }],
+      clients: [{ id: "client-1", name: "Via Rail Canada" }],
+    },
+    job: { id: "job-1", jobNumber: "26122", project: "Public Washroom Occupancy Light", quoteId: "quote-1", clientId: "client-1" },
+    purchaseOrder: {
+      number: "26122",
+      vendorName: "Industrial Electric Contractors Brockville Limited",
+      vendorContact: "Andrew Jarvo",
+      vendorEmail: "ajarvo@iecbl.ca",
+      vendorPhone: "6138897236",
+      vendorQuoteNumber: "2026-0826-01",
+      issueDate: "2026-08-28",
+      shipBy: "Your Means",
+      shipVia: "Your Means",
+      fob: "Job Site",
+      shipTo: "Brockville Station",
+      authorizedBy: "Zeth Hummel",
+      taxRate: 0.13,
+      notes: "The purchase order number must appear on all invoices and documents relating to this order.",
+      lines: [{ description: "Industrial Electric Contractors Brockville Limited", sourceReference: "2026-0826-01", quantity: 1, unit: "LS", unitCost: 1971, amount: 1971 }],
+    },
+  };
+  await page.goto("/estimating/index.html?dev=1");
+  const bytes = await page.evaluate(async ({ modulePath, pdfOptions }) => {
+    const { createPurchaseOrderPdf } = await import(modulePath);
+    return Array.from(await createPurchaseOrderPdf(pdfOptions));
+  }, { modulePath: `/estimating/assets/${purchaseOrderModule}`, pdfOptions: options });
+  const pdfPath = testInfo.outputPath("long-purchase-order.pdf");
+  fs.writeFileSync(pdfPath, Buffer.from(bytes));
+  const items = await extractPdfPageItems(pdfPath);
+  const vendorItems = items.filter((item) => item.y >= 550 && item.y <= 575 && /Industrial|Brockville Limited/.test(item.text));
+  const jobItems = items.filter((item) => item.y >= 560 && item.y <= 580 && /Public Washroom|Occupancy Light/.test(item.text));
+  expect(vendorItems.map((item) => item.text).join(" ")).toContain("Industrial Electric Contractors Brockville Limited");
+  expect(jobItems.map((item) => item.text).join(" ")).toContain("Public Washroom Occupancy Light");
+  expect(vendorItems.every((item) => item.x >= 52 && item.x + item.width <= 282)).toBe(true);
+  expect(jobItems.every((item) => item.x >= 318 && item.x + item.width <= 560)).toBe(true);
+});
 
 test("Estimate and Breakdown buttons download separate internal PDFs", async ({ page }, testInfo) => {
   await openDemoQuote(page);
