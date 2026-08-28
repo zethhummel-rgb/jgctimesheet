@@ -49,7 +49,7 @@ async function finishAndReopenAsRevisionOne(page) {
   await expect(page.getByText("JGC-Q-2026-0001 · REV 1")).toBeVisible();
 }
 
-test("Purchase Order PDF keeps long vendor and job names inside their panels", async ({ page }, testInfo) => {
+test("Purchase Order PDF keeps long names inside their panels and uses a descriptive filename", async ({ page }, testInfo) => {
   const sourceAssets = path.resolve(__dirname, "../estimating/assets");
   const purchaseOrderModule = fs.readdirSync(sourceAssets).find((name) => /^purchase-order-pdf-.*\.js$/.test(name));
   expect(purchaseOrderModule).toBeTruthy();
@@ -87,12 +87,15 @@ test("Purchase Order PDF keeps long vendor and job names inside their panels", a
     },
   };
   await page.goto("/estimating/index.html?dev=1");
-  const bytes = await page.evaluate(async ({ modulePath, pdfOptions }) => {
-    const { createPurchaseOrderPdf } = await import(modulePath);
-    return Array.from(await createPurchaseOrderPdf(pdfOptions));
+  const result = await page.evaluate(async ({ modulePath, pdfOptions }) => {
+    const { createPurchaseOrderPdf, purchaseOrderPdfFilename } = await import(modulePath);
+    return {
+      bytes: Array.from(await createPurchaseOrderPdf(pdfOptions)),
+      filename: purchaseOrderPdfFilename(pdfOptions),
+    };
   }, { modulePath: `/estimating/assets/${purchaseOrderModule}`, pdfOptions: options });
   const pdfPath = testInfo.outputPath("long-purchase-order.pdf");
-  fs.writeFileSync(pdfPath, Buffer.from(bytes));
+  fs.writeFileSync(pdfPath, Buffer.from(result.bytes));
   const items = await extractPdfPageItems(pdfPath);
   const vendorItems = items.filter((item) => item.y >= 550 && item.y <= 575 && /Industrial|Brockville Limited/.test(item.text));
   const jobItems = items.filter((item) => item.y >= 560 && item.y <= 580 && /Public Washroom|Occupancy Light/.test(item.text));
@@ -103,6 +106,7 @@ test("Purchase Order PDF keeps long vendor and job names inside their panels", a
   expect(jobItems.every((item) => item.x >= 318 && item.x + item.width <= 560)).toBe(true);
   expect(dateItem).toBeTruthy();
   expect(dateItem.y).toBeGreaterThanOrEqual(504);
+  expect(result.filename).toBe("JGC-PO-26122 - Industrial Electric Contractors Brockville Limited - Public Washroom Occupancy Light.pdf");
 });
 
 test("Estimate and Breakdown buttons download separate internal PDFs", async ({ page }, testInfo) => {
