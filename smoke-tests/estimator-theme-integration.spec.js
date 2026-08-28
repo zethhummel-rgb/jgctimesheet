@@ -24,6 +24,27 @@ test("Estimate Desk uses the Portal design system and one token-only theme adapt
   expect(worker).toContain('"./estimator-theme.css?v=1"');
 });
 
+test("Estimator builds retain the previous release runtime for already-open tabs", async () => {
+  const estimatorRoot = path.resolve(__dirname, "../estimating");
+  const assetsRoot = path.join(estimatorRoot, "assets");
+  const html = fs.readFileSync(path.join(estimatorRoot, "index.html"), "utf8");
+  const currentMain = html.match(/assets\/(index-[A-Za-z0-9_-]+\.js)/)?.[1];
+  expect(currentMain).toBeTruthy();
+
+  const previousMainFiles = fs.readdirSync(assetsRoot)
+    .filter((name) => /^index-[A-Za-z0-9_-]+\.js$/.test(name) && name !== currentMain);
+  expect(previousMainFiles.length).toBeGreaterThan(0);
+
+  for (const previousMain of previousMainFiles) {
+    const source = fs.readFileSync(path.join(assetsRoot, previousMain), "utf8");
+    const dependencies = [...source.matchAll(/["']\.\/([^"']+\.js)["']/g)].map((match) => match[1]);
+    expect(dependencies.length).toBeGreaterThan(0);
+    for (const dependency of dependencies) {
+      expect(fs.existsSync(path.join(assetsRoot, dependency)), `${previousMain} requires ${dependency}`).toBe(true);
+    }
+  }
+});
+
 for (const viewport of [
   { name: "desktop", width: 1440, height: 900 },
   { name: "phone", width: 390, height: 844 }
