@@ -723,20 +723,25 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await page.getByRole("tab", { name: /Estimate/ }).click();
   await page.locator(".subcontractor-add-button").click();
 
-  const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
-  const vendor = mainRow.getByRole("combobox", { name: /Vendor for line/ });
+  const vendor = page.getByRole("combobox", { name: /Vendor for line/ }).last();
+  const mainRow = vendor.locator("xpath=ancestor::tr[1]");
   await vendor.fill("Demo Painting");
   await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
   const directUnitCost = mainRow.locator(".direct-unit-cost-cell input");
   await directUnitCost.fill("4600");
   await expect(directUnitCost).toHaveValue("4600");
   await expect(mainRow.locator(".direct-cost-cell")).toContainText("$4,600.00");
-  await expect(mainRow).toContainText("Quote # optional");
+  const quoteNumber = mainRow.getByLabel(/Subcontractor quote #/);
+  await expect(quoteNumber).toBeEnabled();
+  await expect(quoteNumber).toHaveAttribute("placeholder", "Enter quote #");
+  await mainRow.getByRole("button", { name: /Finish/ }).click();
+  await expect(page.locator(".line-detail-panel")).toHaveCount(0);
+  await quoteNumber.fill("PAINT-2026-81");
+  await expect(quoteNumber).toHaveValue("PAINT-2026-81");
+  await mainRow.getByRole("button", { name: /Edit details/ }).click();
 
   const detail = page.locator(".line-detail-panel");
-  const quoteNumber = detail.getByLabel(/Subcontractor quote #/);
-  await expect(quoteNumber).toBeEnabled();
-  await expect(quoteNumber).toHaveAttribute("placeholder", "Enter only when the subcontractor provides one");
+  await expect(detail.getByLabel(/Subcontractor quote #/)).toHaveCount(0);
   await detail.getByRole("button", { name: "Add quote cost breakdown" }).click();
 
   const worksheet = page.locator(".build-up-worksheet");
@@ -758,6 +763,14 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$4,600.00");
   await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$650.00");
   await expect(worksheet.locator(".subcontractor-build-up-summary")).toContainText("$5,250.00");
+
+  await mainRow.getByRole("button", { name: /Finish/ }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mainRow.scrollIntoViewIfNeeded();
+  await expect.poll(async () => {
+    const bounds = await quoteNumber.boundingBox();
+    return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
+  }).toBe(true);
 
   await page.getByRole("tab", { name: /Review/ }).click();
   await expect(page.getByText(/needs the subcontractor quote number/i)).toHaveCount(0);
