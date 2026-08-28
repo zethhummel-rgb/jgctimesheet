@@ -157,8 +157,10 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   page.drawText("IMPORTANT", { x: MARGIN + 12, y: 635, size: 7.5, font: bold, color: colour.green });
   page.drawText("The purchase order number must appear on all invoices and documents relating to this order.", { x: MARGIN + 79, y: 634, size: 8.5, font: regular, color: colour.slate });
 
-  page.drawRectangle({ x: MARGIN, y: 507, width: 254, height: 101, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
-  page.drawRectangle({ x: MARGIN + 266, y: 507, width: 266, height: 101, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
+  // Keep the final metadata value comfortably above the panel border. The PO
+  // date baseline is at y=506, so the former y=507 panel floor clipped it.
+  page.drawRectangle({ x: MARGIN, y: 500, width: 254, height: 108, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
+  page.drawRectangle({ x: MARGIN + 266, y: 500, width: 266, height: 108, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
   page.drawText("TO", { x: MARGIN + 12, y: 590, size: 8, font: bold, color: colour.blue });
   const vendorTextWidth = 230;
   const vendorLines = wrapText(bold, po.vendorName || "Subcontractor not recorded", 12, vendorTextWidth).slice(0, 2);
