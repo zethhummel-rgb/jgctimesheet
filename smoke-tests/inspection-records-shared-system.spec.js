@@ -28,13 +28,13 @@ test("inspection records screens and Admin Safety Records use token-only visual 
   const adminCss = fs.readFileSync(path.join(portalRoot, "admin.css"), "utf8");
   const safetyCss = fs.readFileSync(path.join(portalRoot, "safety-records-admin.css"), "utf8");
   expect(adminSource).toContain('admin.css?v=16');
-  expect(adminSource).toContain('safety-records-admin.css?v=1');
+  expect(adminSource).toContain('safety-records-admin.css?v=2');
   expect(adminCss).not.toMatch(/\.admin-safety-record-tile|\.inspection-sheet/);
   expect(safetyCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(safetyCss).toContain("var(--jgc-color-");
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["inspection-history-today.css?v=1", "inspection-history-previous.css?v=1", "safety-records-admin.css?v=1", "admin.css?v=16"]) {
+  for (const asset of ["inspection-history-today.css?v=1", "inspection-history-previous.css?v=1", "safety-records-admin.css?v=2", "admin.css?v=16"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });
@@ -100,3 +100,42 @@ test("Admin Safety Records tiles and inspection sheet stay contained on phones",
   expect(layout.sheet.right).toBeLessThanOrEqual(layout.viewport + 1);
   await context.close();
 });
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "phone", width: 390, height: 844 }
+]) {
+  test(`Admin Safety Records tiles meet light-theme contrast on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+    await page.locator("html").evaluate((node) => node.setAttribute("data-jgc-theme", "light"));
+    await page.locator("#safetyRecordsSection").evaluate((node) => node.removeAttribute("hidden"));
+
+    const ratios = await page.locator(".admin-safety-record-tile").evaluateAll((tiles) => {
+      function parseRgb(value) {
+        return (String(value).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+      }
+      function luminance(rgb) {
+        const values = rgb.map((channel) => {
+          const normalized = channel / 255;
+          return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+        });
+        return (0.2126 * values[0]) + (0.7152 * values[1]) + (0.0722 * values[2]);
+      }
+      return tiles.flatMap((tile) => {
+        const background = luminance(parseRgb(getComputedStyle(tile).backgroundColor));
+        return Array.from(tile.querySelectorAll("strong, span")).map((label) => {
+          const foreground = luminance(parseRgb(getComputedStyle(label).color));
+          return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+        });
+      });
+    });
+
+    expect(ratios).toHaveLength(6);
+    for (const ratio of ratios) {
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    }
+    await context.close();
+  });
+}
