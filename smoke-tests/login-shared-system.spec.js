@@ -20,7 +20,7 @@ test("Login uses one token-only visual source", async () => {
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('const JGC_RELEASE_ID = "803"');
+  expect(worker).toContain('const JGC_RELEASE_ID = "804"');
   expect(worker).toContain('"./login-design-system.css?v=3"');
 });
 
