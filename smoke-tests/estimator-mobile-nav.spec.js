@@ -784,6 +784,59 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await expect(reviewCard).toContainText("$5,250.00");
 });
 
+test("subcontractor override drives the estimate while the PO keeps the actual quote", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.JGC_ESTIMATOR_PORTAL_JOBS = [{
+      id: "portal-job-26123",
+      jobNumber: "26123",
+      jobName: "Estimator subcontractor override test",
+      customer: "BGIS",
+      address: "Cornwall, ON",
+      active: true,
+    }];
+  });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.locator(".subcontractor-add-button").click();
+
+  const vendor = page.getByRole("combobox", { name: /Vendor for line/ }).last();
+  const mainRow = vendor.locator("xpath=ancestor::tr[1]");
+  await vendor.fill("Demo Painting");
+  await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
+  await mainRow.getByLabel(/Subcontractor quote #/).fill("PAINT-ACTUAL-17");
+
+  const details = page.locator(".line-detail-panel");
+  await details.getByLabel(/Actual quoted amount/).fill("4600");
+  await details.getByLabel(/JGC override amount/).fill("5250");
+  await expect(mainRow.locator(".direct-unit-cost-cell input")).toHaveValue("5250");
+  await expect(mainRow.locator(".direct-cost-cell")).toContainText("$5,250.00");
+  await expect(details.locator(".line-detail-pricing")).toContainText("$6,300.00");
+
+  await mainRow.getByRole("button", { name: /Finish/ }).click();
+  await page.getByRole("button", { name: "Finish quote" }).click();
+  const finishDialog = page.getByRole("dialog", { name: /Mark .* as Finished/ });
+  if (await finishDialog.count()) await finishDialog.getByRole("button", { name: "Finish quote" }).click();
+  await page.getByRole("button", { name: "Make into job" }).click();
+
+  const jobDialog = page.getByRole("dialog", { name: "Make into job" });
+  const portalJob = jobDialog.getByRole("combobox", { name: "Portal job" });
+  await portalJob.fill("26123");
+  await jobDialog.getByRole("option", { name: /26123.*Estimator subcontractor override test/ }).click();
+  await jobDialog.getByRole("button", { name: "Make into job" }).click();
+
+  const poSourceRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-ACTUAL-17" });
+  await expect(poSourceRow).toContainText("$4,600.00");
+  await expect(poSourceRow).toContainText("JGC carried $5,250.00");
+  await poSourceRow.getByRole("button", { name: "Create PO" }).click();
+  const poDialog = page.getByRole("dialog", { name: "Create purchase order" });
+  await expect(poDialog.getByLabel("Unit cost")).toHaveValue("4600");
+  await expect(poDialog.getByLabel("Pre-tax amount")).toHaveValue("4600");
+  await expect(poDialog).toContainText("no JGC override or customer markup");
+});
+
 test("typed subcontractor names automatically become the line description", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();

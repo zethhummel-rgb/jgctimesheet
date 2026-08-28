@@ -24,6 +24,8 @@ import {
   normalizeAppState,
   preciseLineDirectCost,
   quoteTotals,
+  subcontractorActualDirectCost,
+  subcontractorActualUnitCost,
   type AppState,
   type Client,
   type ClientContact,
@@ -860,6 +862,8 @@ function newSubcontractorLine(section = "General"): QuoteLine {
     unit: "LS",
     liveQuote: true,
     vendorPricingMode: "Quoted",
+    vendorActualCost: null,
+    vendorOverrideCost: null,
     confidence: "Project-specific",
     sourceNote: "Current subcontractor quote.",
   };
@@ -2258,8 +2262,8 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
       description: sourceLine.description,
       quantity: sourceLine.quantity,
       unit: sourceLine.unit,
-      unitCost: effectiveUnitCost(sourceLine),
-      amount: preciseLineDirectCost(sourceLine),
+      unitCost: subcontractorActualUnitCost(sourceLine),
+      amount: subcontractorActualDirectCost(sourceLine),
       sourceReference: sourceLine.vendorReference,
     }] : [],
     createdAt: now,
@@ -2306,7 +2310,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
               <label className="field"><span>HST rate</span><div className="input-suffix"><input type="number" min="0" step="0.1" value={draft.taxRate * 100} onChange={(event) => update("taxRate", Number(event.target.value) / 100)} /><span>%</span></div></label>
             </div>
             <div className="po-line-editor">
-              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>Subcontractor line</h3></div><span className="po-cost-rule">Uses direct estimate cost - no customer markup</span></div>
+              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>Subcontractor line</h3></div><span className="po-cost-rule">Uses actual subcontractor quote - no JGC override or customer markup</span></div>
               {draft.lines.slice(0, 1).map((line) => (
                 <div className="po-line-grid" key={line.id}>
                   <label className="field po-description"><span>Description</span><textarea rows={3} value={line.description} onChange={(event) => { updateLine({ description: event.target.value }); setError(""); }} /></label>
@@ -2772,7 +2776,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
     }, 40);
   };
   const updateLine = (lineId: string, patch: Partial<QuoteLine>) => {
-    const replacesLegacyPriceOverride = ["quantity", "projectCost", "catalogCost", "markupOverride", "costBuildUp"]
+    const replacesLegacyPriceOverride = ["quantity", "projectCost", "catalogCost", "markupOverride", "costBuildUp", "vendorActualCost", "vendorOverrideCost"]
       .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
     mutateQuote(quote.id, (current) => ({
       ...current,
@@ -2785,26 +2789,35 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   const directCostInputValue = (line: QuoteLine, buildUpTotal: number) => {
     if (line.costBuildUp) return buildUpTotal;
     if (Object.prototype.hasOwnProperty.call(directCostDrafts, line.id)) return directCostDrafts[line.id];
+    if (line.costType === "Sub / Vendor") return effectiveUnitCost(line) || "";
     if (line.projectCost === 0 && line.catalogCost !== null) return "";
     return line.projectCost ?? line.catalogCost ?? "";
   };
   const startDirectCostEdit = (line: QuoteLine) => {
     setDirectCostDrafts((current) => ({
       ...current,
-      [line.id]: line.projectCost === 0 && line.catalogCost !== null
+      [line.id]: line.costType === "Sub / Vendor"
+        ? String(effectiveUnitCost(line) || "")
+        : line.projectCost === 0 && line.catalogCost !== null
         ? ""
         : String(line.projectCost ?? line.catalogCost ?? ""),
     }));
   };
-  const changeDirectCost = (lineId: string, value: string) => {
-    setDirectCostDrafts((current) => ({ ...current, [lineId]: value }));
-    updateLine(lineId, { projectCost: value === "" ? 0 : Number(value) });
+  const directCostPatch = (line: QuoteLine, value: string): Partial<QuoteLine> => {
+    const parsed = value === "" ? null : Math.max(0, Number(value));
+    if (line.costType !== "Sub / Vendor") return { projectCost: parsed ?? 0 };
+    if (line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined) return { vendorOverrideCost: parsed };
+    return { vendorActualCost: parsed, projectCost: parsed };
   };
-  const finishDirectCostEdit = (lineId: string, value: string) => {
-    updateLine(lineId, { projectCost: value === "" ? 0 : Number(value) });
+  const changeDirectCost = (line: QuoteLine, value: string) => {
+    setDirectCostDrafts((current) => ({ ...current, [line.id]: value }));
+    updateLine(line.id, directCostPatch(line, value));
+  };
+  const finishDirectCostEdit = (line: QuoteLine, value: string) => {
+    updateLine(line.id, directCostPatch(line, value));
     setDirectCostDrafts((current) => {
       const next = { ...current };
-      delete next[lineId];
+      delete next[line.id];
       return next;
     });
   };
@@ -2845,6 +2858,8 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       vendorReference: "",
       vendorQuoteDate: "",
       vendorQuoteExpiry: "",
+      vendorActualCost: item.costType === "Sub / Vendor" ? item.typical : null,
+      vendorOverrideCost: null,
       liveQuote: item.liveQuote,
       confidence: item.confidence,
       low: item.low,
@@ -2918,6 +2933,8 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
       catalogCost: item.typical,
       vendorId: defaultVendor?.id ?? null,
       vendorName: defaultVendor ? "" : item.defaultVendorName ?? "",
+      vendorActualCost: item.costType === "Sub / Vendor" ? item.typical : null,
+      vendorOverrideCost: null,
       liveQuote: item.liveQuote,
       confidence: item.confidence,
       low: item.low,
@@ -2975,12 +2992,13 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   };
   const enableSubcontractorCostBreakdown = (line: QuoteLine) => {
     const vendor = line.vendorName || (line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name ?? "" : "");
-    const baseCost = line.projectCost ?? line.catalogCost ?? 0;
+    const baseCost = subcontractorActualUnitCost(line);
     updateLine(line.id, {
       priceBookCode: null,
       priceSourceSnapshot: undefined,
       catalogCost: null,
       projectCost: null,
+      vendorActualCost: baseCost,
       confidence: "Project-specific",
       sourceNote: line.sourceNote || "Subcontractor price plus separately quoted extras.",
       costBuildUp: {
@@ -3066,7 +3084,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
                       <td className="direct-unit-cost-cell" data-label="Direct unit cost">
-                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={directCostInputValue(line, buildUpTotals.total)} disabled={locked || !!line.costBuildUp} onFocus={() => startDirectCostEdit(line)} onChange={(event) => changeDirectCost(line.id, event.target.value)} onBlur={(event) => finishDirectCostEdit(line.id, event.target.value)} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
+                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={directCostInputValue(line, buildUpTotals.total)} disabled={locked || !!line.costBuildUp} onFocus={() => startDirectCostEdit(line)} onChange={(event) => changeDirectCost(line, event.target.value)} onBlur={(event) => finishDirectCostEdit(line, event.target.value)} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
                         {line.costBuildUp ? <div className="build-up-mini-totals">{line.costType === "Sub / Vendor" ? <><span>Vendor {money(buildUpTotals.subcontractors)}</span><span>Other {money(buildUpTotals.other)}</span></> : <><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></>}</div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
                       <td className="direct-cost-cell" data-label="Direct cost"><strong>{money(direct)}</strong></td>
@@ -3108,6 +3126,8 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                             <div className="form-grid four-column">
                               {line.costType === "Sub / Vendor" && <label className="field"><span>Subcontractor <em>Search or type a name</em></span><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search subcontractors" ariaLabel="Subcontractor" allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /></label>}
                               {line.costType === "Sub / Vendor" && <label className="check-field"><input type="checkbox" checked={(line.vendorPricingMode ?? "Quoted") === "Budget"} disabled={locked} onChange={(event) => updateLine(line.id, { vendorPricingMode: event.target.checked ? "Budget" : "Quoted", liveQuote: !event.target.checked })} /><span><strong>Budget allowance</strong><small>Use an estimated subcontractor cost; a quote number is not required.</small></span></label>}
+                              {line.costType === "Sub / Vendor" && <label className="field"><span>Actual quoted amount <em>Used for the subcontractor PO</em></span><div className="input-prefix"><span>$</span><input aria-label={`Actual quoted amount for ${line.description || `line ${index + 1}`}`} type="number" min="0" step="0.01" value={line.vendorActualCost ?? ""} disabled={locked} onChange={(event) => { const value = event.target.value === "" ? null : Math.max(0, Number(event.target.value)); updateLine(line.id, { vendorActualCost: value, ...(!line.costBuildUp ? { projectCost: value } : {}) }); }} placeholder="0.00" /></div></label>}
+                              {line.costType === "Sub / Vendor" && <label className="field"><span>JGC override amount <em>Optional carried estimate cost</em></span><div className="input-prefix"><span>$</span><input aria-label={`JGC override amount for ${line.description || `line ${index + 1}`}`} type="number" min="0" step="0.01" value={line.vendorOverrideCost ?? ""} disabled={locked} onChange={(event) => updateLine(line.id, { vendorOverrideCost: event.target.value === "" ? null : Math.max(0, Number(event.target.value)) })} placeholder="Uses actual quote when blank" /></div></label>}
                               {line.costType !== "Sub / Vendor" && <label className="field"><span>Quote / source reference</span><input value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder="Supplier reference or takeoff" /></label>}
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote date</span><input type="date" value={line.vendorQuoteDate} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteDate: event.target.value })} /></label>}
                               {line.costType === "Sub / Vendor" && (line.vendorPricingMode ?? "Quoted") === "Quoted" && <label className="field"><span>Vendor quote expiry</span><input type="date" value={line.vendorQuoteExpiry} disabled={locked} onChange={(event) => updateLine(line.id, { vendorQuoteExpiry: event.target.value })} /></label>}
@@ -3200,7 +3220,12 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
     return () => window.cancelAnimationFrame(frame);
   }, [materialItems, pendingMaterialRowId]);
 
-  const commitItems = (nextItems: QuoteCostBuildUpItem[]) => updateLine(line.id, { costBuildUp: { items: nextItems } });
+  const commitItems = (nextItems: QuoteCostBuildUpItem[]) => updateLine(line.id, {
+    costBuildUp: { items: nextItems },
+    ...(subcontractorBreakdown ? {
+      vendorActualCost: nextItems.reduce((sum, item) => sum + buildUpItemTotal(item), 0),
+    } : {}),
+  });
   const updateItem = (itemId: string, patch: Partial<QuoteCostBuildUpItem>) => commitItems(items.map((item) => item.id === itemId ? { ...item, ...patch } : item));
   const removeItem = (itemId: string) => commitItems(items.filter((item) => item.id !== itemId));
   const addLabour = () => commitItems([...items, newBuildUpItem("Labour", { description: "Crew labour" })]);
@@ -3479,7 +3504,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
       {subcontractorLines.length > 0 && (
         <section className="review-build-ups review-subcontractors-only">
           <div className="review-section-heading"><span className="eyebrow">SUBCONTRACTOR REVIEW</span><h2>Quoted and budget subcontractors</h2><p>Confirm which subcontractor prices are firm quotations and which are estimating allowances.</p></div>
-          {subcontractorLines.map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}{line.costBuildUp ? " · Includes added costs" : ""}</p></div><strong>{money(lineDirectCost(line))}</strong></article>)}
+          {subcontractorLines.map((line) => <article className="review-subcontractor-card" key={line.id}><div><span className={`sub-pricing-badge ${(line.vendorPricingMode ?? "Quoted").toLowerCase()}`}>{(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget Allowance" : "Actual Quote"}</span><h3>{line.description || "Subcontractor work"}</h3><p>{line.vendorName || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name || "Subcontractor not selected"}{line.vendorReference ? ` · Quote #${line.vendorReference}` : ""}{line.costBuildUp ? " · Includes added costs" : ""}</p>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined && <small>Actual quote {money(subcontractorActualDirectCost(line))} · JGC carried amount shown at right</small>}</div><strong>{money(lineDirectCost(line))}</strong></article>)}
         </section>
       )}
       <section className="panel review-utility-actions">
@@ -4175,7 +4200,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
           <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
         </section>
         <section className="panel subcontract-po-panel">
-          <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's direct cost and quote number. Customer markup is never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
+          <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's actual quoted amount and quote number. JGC carried overrides and customer markup are never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
           {subcontractLines.length ? (
             <div className="data-table-wrap">
               <table className="data-table po-source-table">
@@ -4189,7 +4214,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
                       <td data-label="Subcontractor"><strong>{vendorName}</strong><small>{vendor?.trade || "Subcontractor"}</small></td>
                       <td data-label="Accepted estimate line"><strong>{line.description}</strong><small>{line.quantity} {line.unit} · {line.division || line.section}</small></td>
                       <td data-label="Vendor quote #">{line.vendorReference ? <strong>{line.vendorReference}</strong> : <span className="po-missing-reference">Not entered</span>}</td>
-                      <td data-label="Direct cost"><strong>{money(lineDirectCost(line))}</strong><small>Pre-tax</small></td>
+                      <td data-label="Direct cost"><strong>{money(subcontractorActualDirectCost(line))}</strong><small>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined ? `Actual quote · JGC carried ${money(lineDirectCost(line))}` : "Actual quote · Pre-tax"}</small></td>
                       <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{linkedPurchaseOrder.status}</small></> : <span className="po-not-created">Not created</span>}</td>
                       <td className="po-row-actions">
                         {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>Edit PO</button><button className="button primary compact" onClick={() => void downloadPurchaseOrder(state, job, linkedPurchaseOrder)}>Download PDF</button></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
