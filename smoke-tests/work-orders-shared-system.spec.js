@@ -200,12 +200,14 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain('href="styles.css');
   expect(pageSource).toContain('jgc-design-system.css?v=8');
-  expect(pageSource).toContain('work-orders-design-system.css?v=1');
+  expect(pageSource).toContain('work-orders-design-system.css?v=2');
+  expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="resetWorkOrderForm()"');
+  expect(pageSource).toContain('jgc-button--secondary wo-top-action--primary" onclick="refreshWorkOrders()"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Work Orders CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=16');
-  expect(adminSource).toContain('work-orders-design-system.css?v=1');
+  expect(adminSource).toContain('work-orders-design-system.css?v=2');
   expect(adminSource).toContain('admin-work-orders.js?v=3');
   expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
   expect(adminWorkOrders).not.toMatch(/class="small" style=/i);
@@ -214,7 +216,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
 
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=16"');
-  expect(serviceWorker).toContain('"./work-orders-design-system.css?v=1"');
+  expect(serviceWorker).toContain('"./work-orders-design-system.css?v=2"');
   expect(serviceWorker).toContain('"./admin-work-orders.js?v=3"');
 });
 
@@ -286,6 +288,31 @@ for (const viewport of [
     }
 
     expect(errors).toEqual([]);
+    await context.close();
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 900 },
+  { name: "phone", width: 390, height: 844 }
+]) {
+  test(`light-theme Work Orders top actions stay readable on ${viewport.name}`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport });
+    const page = await context.newPage();
+    const data = await installState(page, "worker");
+    await page.addInitScript(({ userId }) => {
+      localStorage.setItem("jgcPortalTheme", "light");
+      localStorage.setItem(`jgcPortalTheme:${userId}`, "light");
+    }, { userId: data.state.user.id });
+    await page.goto("/work-orders.html", { waitUntil: "domcontentloaded" });
+
+    await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+    for (const label of ["New Work Order", "Refresh"]) {
+      const button = page.locator(".top-actions .wo-top-action--primary", { hasText: label });
+      await expect(button).toBeVisible();
+      expect(await contrastRatio(page, `.top-actions .wo-top-action--primary:has-text("${label}")`), `${label} must meet light-theme text contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+
     await context.close();
   });
 }
