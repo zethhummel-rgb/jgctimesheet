@@ -898,6 +898,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [pendingDeleteQuoteId, setPendingDeleteQuoteId] = useState<string | null>(null);
   const [pendingFinishQuoteId, setPendingFinishQuoteId] = useState<string | null>(null);
   const [pendingCreateJobQuoteId, setPendingCreateJobQuoteId] = useState<string | null>(null);
+  const [pendingJobNavigationId, setPendingJobNavigationId] = useState<string | null>(null);
   const [purchaseOrderEditor, setPurchaseOrderEditor] = useState<PurchaseOrderEditorState>(null);
   const saveTimer = useRef<number | null>(null);
   const saveInFlight = useRef(false);
@@ -1078,6 +1079,15 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const selectedQuote = selectedQuoteId ? state.quotes.find((quote) => quote.id === selectedQuoteId) ?? null : null;
   const selectedJob = selectedJobId ? state.jobs.find((job) => job.id === selectedJobId) ?? null : null;
 
+  useLayoutEffect(() => {
+    if (!pendingJobNavigationId || !state.jobs.some((job) => job.id === pendingJobNavigationId)) return;
+    setSelectedJobId(pendingJobNavigationId);
+    setView("jobs");
+    setSidebarOpen(false);
+    setSearch("");
+    setPendingJobNavigationId(null);
+  }, [pendingJobNavigationId, state.jobs]);
+
   const openView = (nextView: ViewKey) => {
     setView(nextView);
     setSidebarOpen(false);
@@ -1242,28 +1252,31 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const createRevision = (quote: Quote) => {
-    if (quote.status !== "Finished") return;
+    if (quote.status !== "Finished" && quote.status !== "Won") return;
     mutateQuote(
       quote.id,
       (current) => {
-        if (current.status !== "Finished") return current;
+        if (current.status !== "Finished" && current.status !== "Won") return current;
+        const frozenRevisions = current.revisions.some((revision) => revision.revision === current.revision)
+          ? current.revisions
+          : [
+              ...current.revisions,
+              {
+                id: uid("revision"),
+                revision: current.revision,
+                status: current.status,
+                issuedAt: current.sentAt || current.wonAt || new Date().toISOString(),
+                total: quoteTotals(current).total,
+                snapshot: frozenQuoteSnapshot(current),
+              },
+            ];
         return {
           ...current,
           revision: current.revision + 1,
           status: "Draft",
           sentAt: "",
           acknowledgedWarnings: {},
-          revisions: [
-            ...current.revisions,
-            {
-              id: uid("revision"),
-              revision: current.revision,
-              status: "Finished",
-              issuedAt: current.sentAt || new Date().toISOString(),
-              total: quoteTotals(current).total,
-              snapshot: frozenQuoteSnapshot(current),
-            },
-          ],
+          revisions: frozenRevisions,
         };
       },
       { title: "Editable revision created", detail: `Revision ${quote.revision + 1} was opened for changes. Revision ${quote.revision} remains frozen in History.` },
@@ -1371,8 +1384,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     );
     setPendingCreateJobQuoteId(null);
     setSelectedQuoteId(null);
-    setSelectedJobId(job.id);
     setView("jobs");
+    setPendingJobNavigationId(job.id);
   };
 
   const markQuoteLost = (quote: Quote) => {
@@ -2107,6 +2120,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
   const normalized = search.toLowerCase();
   const quotes = state.quotes.filter((quote) => {
+    if (quote.status === "Won") return false;
     const status = quoteDisplayStatus(quote);
     const matchesStatus = statusFilter === "All" || status === statusFilter;
     const haystack = `${quote.number} ${quote.preparedBy} ${clientName(state, quote.clientId)} ${quote.site} ${quote.project} ${quote.reference}`.toLowerCase();
@@ -2171,7 +2185,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" /></div>
         <div className="filter-tabs" role="group" aria-label="Filter quotes by status">
-          {[{ value: "All", label: "All" }, { value: "Draft", label: "Draft" }, { value: "Finished", label: "Finished" }, { value: "Won", label: "Won" }, { value: "Lost", label: "Lost" }, { value: "Expired", label: "Expired" }].map((status) => (
+          {[{ value: "All", label: "All" }, { value: "Draft", label: "Draft" }, { value: "Finished", label: "Finished" }, { value: "Lost", label: "Lost" }, { value: "Expired", label: "Expired" }].map((status) => (
             <button key={status.value} className={statusFilter === status.value ? "active" : ""} onClick={() => { setStatusFilter(status.value); setLibraryPath([]); }}>{status.label}</button>
           ))}
         </div>
@@ -2542,7 +2556,7 @@ function QuoteWorkspace({
           <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
           {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
-          {quote.status === "Finished" && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>Re-open quote</button>}
+          {(quote.status === "Finished" || quote.status === "Won") && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>Re-open quote</button>}
           {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
           {quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
         </div>
@@ -2599,12 +2613,12 @@ function QuoteWorkspace({
         <div className="modal-layer" role="presentation" onMouseDown={() => setRevisionConfirmOpen(false)}>
           <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="create-revision-title" onMouseDown={(event) => event.stopPropagation()}>
             <header>
-              <div><span className="eyebrow">PRESERVE THE FINISHED VERSION</span><h2 id="create-revision-title">Re-open as Revision {quote.revision + 1}?</h2></div>
+              <div><span className="eyebrow">{quote.status === "Won" ? "PRESERVE THE ACCEPTED VERSION" : "PRESERVE THE FINISHED VERSION"}</span><h2 id="create-revision-title">Re-open as Revision {quote.revision + 1}?</h2></div>
               <button aria-label="Close" onClick={() => setRevisionConfirmOpen(false)}>×</button>
             </header>
             <div className="confirm-content">
-              <div className="revision-confirm-summary"><span>Finished version</span><strong>{quote.number} · Revision {quote.revision}</strong></div>
-              <p>The finished Estimate, Breakdown and Proposal will be frozen in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
+              <div className="revision-confirm-summary"><span>{quote.status === "Won" ? "Accepted version" : "Finished version"}</span><strong>{quote.number} · Revision {quote.revision}</strong></div>
+              <p>The {quote.status === "Won" ? "accepted" : "finished"} Estimate, Breakdown and Proposal will be {quote.status === "Won" ? "preserved" : "frozen"} in History. Revision {quote.revision + 1} will be an editable copy where you can add, remove or change estimate items and proposal wording.</p>
             </div>
             <footer className="confirm-actions">
               <button className="button secondary" onClick={() => setRevisionConfirmOpen(false)}>Keep locked</button>
