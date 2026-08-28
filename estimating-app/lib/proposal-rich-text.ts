@@ -72,8 +72,8 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export function proposalTextHtml(value?: string) {
-  return proposalTextRuns(value).map((run) => {
+function proposalRunsHtml(runs: ProposalTextRun[]) {
+  return runs.map((run) => {
     let html = escapeHtml(run.text).replace(/\n/g, "<br>");
     if (run.style.bold) html = `<strong>${html}</strong>`;
     if (run.style.italic) html = `<em>${html}</em>`;
@@ -82,6 +82,26 @@ export function proposalTextHtml(value?: string) {
     if (run.style.size !== "normal") html = `<span class="proposal-font-${run.style.size}">${html}</span>`;
     return html;
   }).join("");
+}
+
+export function proposalTextHtml(value?: string) {
+  return proposalRunsHtml(proposalTextRuns(value));
+}
+
+export function proposalTextRunLines(value?: string) {
+  const lines: ProposalTextRun[][] = [[]];
+  proposalTextRuns(value).forEach((run) => {
+    const pieces = run.text.split(/\r?\n/);
+    pieces.forEach((piece, index) => {
+      if (piece) lines.at(-1)?.push({ ...run, text: piece });
+      if (index < pieces.length - 1) lines.push([]);
+    });
+  });
+  return lines.filter((line) => line.some((run) => run.text.trim().length > 0));
+}
+
+export function proposalTextHtmlLines(value?: string) {
+  return proposalTextRunLines(value).map(proposalRunsHtml);
 }
 
 export function proposalTextPlain(value?: string) {

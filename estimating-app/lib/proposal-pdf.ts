@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import type { AppState, Quote } from "./estimator-data";
 import { lineSellPrice, quoteTotals } from "./estimator-data";
 import { proposalCostBreakdownRows } from "./proposal-cost-breakdown";
-import { proposalTextLines, proposalTextPlain, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
+import { proposalTextLines, proposalTextPlain, proposalTextRunLines, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
 
 const PAGE = { width: 612, height: 792, margin: 30 };
 const green = rgb(0.07, 0.43, 0.28);
@@ -90,13 +90,13 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     wrapped.forEach((line) => { text(line, x, size, font); y -= size + 3; });
     y -= options.gap ?? 7;
   };
-  const richParagraph = (value: string, options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
+  const richRunsParagraph = (sourceRuns: ProposalTextRun[], options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
     const x = options.x ?? PAGE.margin;
     const width = options.width ?? PAGE.width - PAGE.margin * 2;
     const baseSize = options.size ?? 9;
     const runs: ProposalTextRun[] = [
       ...(options.prefix ? [{ text: options.prefix, style: { bold: options.forceBold ?? false, italic: false, underline: false, size: "normal" as const } }] : []),
-      ...proposalTextRuns(value).map((run) => ({ ...run, text: pdfSafeText(run.text), style: { ...run.style, bold: options.forceBold || run.style.bold } })),
+      ...sourceRuns.map((run) => ({ ...run, text: pdfSafeText(run.text), style: { ...run.style, bold: options.forceBold || run.style.bold } })),
     ];
     const fontFor = (run: ProposalTextRun) => run.style.bold && run.style.italic ? boldItalic : run.style.bold ? bold : run.style.italic ? italic : regular;
     const sizeFor = (run: ProposalTextRun) => baseSize * (run.style.size === "large" ? 1.22 : run.style.size === "small" ? 0.82 : 1);
@@ -150,6 +150,9 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
       y -= rowHeights[rowIndex];
     });
     y -= options.gap ?? 7;
+  };
+  const richParagraph = (value: string, options: { x?: number; width?: number; size?: number; gap?: number; prefix?: string; forceBold?: boolean } = {}) => {
+    richRunsParagraph(proposalTextRuns(value), options);
   };
   const rightText = (value: string, right: number, baseline: number, size = 9, font = regular, color = dark) => {
     const safeValue = pdfSafeText(value);
@@ -275,8 +278,14 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
 
   const notes = proposalTextLines(quote.proposalNotes ?? "");
   const notesLineCount = Math.max(1, notes.reduce((sum, item) => sum + Math.max(1, wrap(proposalTextPlain(item), regular, 7.2, metaWidth - 55).length), 0));
-  const clarificationLineCount = (quote.inclusions ? Math.max(1, wrap(proposalTextPlain(quote.inclusions), regular, 6.8, (metaWidth - 42) / 2).length) : 0) + (quote.exclusions ? Math.max(1, wrap(proposalTextPlain(quote.exclusions), regular, 6.8, (metaWidth - 42) / 2).length) : 0);
-  const notesHeight = Math.max(67, 38 + notesLineCount * 10 + (clarificationLineCount ? 18 + Math.ceil(clarificationLineCount / 2) * 9 : 0));
+  const inclusionLines = proposalTextRunLines(quote.inclusions);
+  const exclusionLines = proposalTextRunLines(quote.exclusions);
+  const clarificationWidth = (metaWidth - 52) / 2;
+  const clarificationHeight = Math.max(
+    inclusionLines.reduce((sum, lineRuns) => sum + Math.max(1, wrap(lineRuns.map((run) => run.text).join(""), regular, 6.8, clarificationWidth).length) * 9.8 + 1, 0),
+    exclusionLines.reduce((sum, lineRuns) => sum + Math.max(1, wrap(lineRuns.map((run) => run.text).join(""), bold, 6.8, clarificationWidth).length) * 9.8 + 1, 0),
+  );
+  const notesHeight = Math.max(67, 38 + notesLineCount * 10 + (clarificationHeight ? 23 + clarificationHeight : 0));
   ensure(notesHeight + 12);
   const notesTop = y;
   page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: metaWidth, height: notesHeight, color: panel });
@@ -291,23 +300,27 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     page.drawText("No additional project notes recorded.", { x: PAGE.margin + 17, y, size: 7, font: regular, color: grey });
     y -= 12;
   }
-  if (quote.inclusions || quote.exclusions) {
+  if (inclusionLines.length || exclusionLines.length) {
     y -= 3;
     page.drawLine({ start: { x: PAGE.margin + 17, y }, end: { x: PAGE.width - PAGE.margin - 17, y }, thickness: 0.55, color: line });
     y -= 11;
-    const clarificationWidth = (metaWidth - 52) / 2;
-    if (quote.inclusions) {
-      page.drawText("INCLUDED", { x: PAGE.margin + 17, y, size: 5.5, font: bold, color: green });
-      y -= 10;
-      richParagraph(quote.inclusions, { x: PAGE.margin + 17, width: clarificationWidth, size: 6.8, gap: 0 });
+    const clarificationTop = y;
+    let inclusionEnd = clarificationTop;
+    if (inclusionLines.length) {
+      page.drawText("INCLUDED", { x: PAGE.margin + 17, y: clarificationTop, size: 5.5, font: bold, color: green });
+      y = clarificationTop - 10;
+      inclusionLines.forEach((lineRuns) => richRunsParagraph(lineRuns, { x: PAGE.margin + 17, width: clarificationWidth, size: 6.8, gap: 1 }));
+      inclusionEnd = y;
     }
-    if (quote.exclusions) {
+    let exclusionEnd = clarificationTop;
+    if (exclusionLines.length) {
       const exclusionX = PAGE.margin + 31 + clarificationWidth;
-      page.drawText("EXCLUDED", { x: exclusionX, y: y + 10, size: 5.5, font: bold, color: dark });
-      const savedY = y;
-      richParagraph(quote.exclusions, { x: exclusionX, width: clarificationWidth, size: 6.8, forceBold: true, gap: 0 });
-      y = Math.min(y, savedY);
+      page.drawText("EXCLUDED", { x: exclusionX, y: clarificationTop, size: 5.5, font: bold, color: dark });
+      y = clarificationTop - 10;
+      exclusionLines.forEach((lineRuns) => richRunsParagraph(lineRuns, { x: exclusionX, width: clarificationWidth, size: 6.8, forceBold: true, gap: 1 }));
+      exclusionEnd = y;
     }
+    y = Math.min(inclusionEnd, exclusionEnd);
   }
   y = Math.min(y, notesTop - notesHeight - 12);
 
