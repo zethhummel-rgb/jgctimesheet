@@ -17,6 +17,18 @@ function safeName(value: string) {
   return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim();
 }
 
+function pdfSafeText(value: unknown) {
+  return String(value ?? "")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/\u2022/g, "-")
+    .replace(/\u00a0/g, " ")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7e\n\r\t]/g, "");
+}
+
 function money(value: number) {
   const amount = Number.isFinite(value) ? value : 0;
   return `$${amount.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -38,7 +50,7 @@ function dollarsInWords(value: number): string {
 
 function wrap(text: string, font: PDFFont, size: number, width: number) {
   const result: string[] = [];
-  for (const paragraph of String(text || "").split(/\r?\n/)) {
+  for (const paragraph of pdfSafeText(text).split(/\r?\n/)) {
     const words = paragraph.trim().split(/\s+/).filter(Boolean);
     let current = "";
     for (const word of words) {
@@ -66,7 +78,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   };
   const ensure = (height: number) => { if (y - height < PAGE.margin) newPage(); };
   const text = (value: string, x: number, size = 9, font = regular, color = dark) => {
-    page.drawText(value, { x, y, size, font, color });
+    page.drawText(pdfSafeText(value), { x, y, size, font, color });
   };
   const paragraph = (value: string, options: { x?: number; width?: number; size?: number; font?: PDFFont; gap?: number } = {}) => {
     const x = options.x ?? PAGE.margin;
@@ -84,7 +96,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     const baseSize = options.size ?? 9;
     const runs: ProposalTextRun[] = [
       ...(options.prefix ? [{ text: options.prefix, style: { bold: options.forceBold ?? false, italic: false, underline: false, size: "normal" as const } }] : []),
-      ...proposalTextRuns(value).map((run) => ({ ...run, style: { ...run.style, bold: options.forceBold || run.style.bold } })),
+      ...proposalTextRuns(value).map((run) => ({ ...run, text: pdfSafeText(run.text), style: { ...run.style, bold: options.forceBold || run.style.bold } })),
     ];
     const fontFor = (run: ProposalTextRun) => run.style.bold && run.style.italic ? boldItalic : run.style.bold ? bold : run.style.italic ? italic : regular;
     const sizeFor = (run: ProposalTextRun) => baseSize * (run.style.size === "large" ? 1.22 : run.style.size === "small" ? 0.82 : 1);
@@ -140,7 +152,8 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     y -= options.gap ?? 7;
   };
   const rightText = (value: string, right: number, baseline: number, size = 9, font = regular, color = dark) => {
-    page.drawText(value, { x: right - font.widthOfTextAtSize(value, size), y: baseline, size, font, color });
+    const safeValue = pdfSafeText(value);
+    page.drawText(safeValue, { x: right - font.widthOfTextAtSize(safeValue, size), y: baseline, size, font, color });
   };
   const formatDate = (value: string) => {
     if (!value) return "Not recorded";

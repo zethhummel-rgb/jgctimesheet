@@ -233,7 +233,8 @@ async function downloadCustomerProposal(state: AppState, quote: Quote, filename?
     const { downloadProposalPdf } = await proposalPdfModule;
     await downloadProposalPdf(state, quote, filename);
     return true;
-  } catch {
+  } catch (error) {
+    console.error("Unable to create proposal PDF", error);
     window.alert("The proposal PDF could not be created. Please try again.");
     return false;
   }

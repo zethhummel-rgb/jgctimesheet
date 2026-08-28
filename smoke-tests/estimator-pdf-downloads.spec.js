@@ -380,6 +380,24 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   expect(filledDocument.getForm().getTextField(dateField.getName()).getText()).toBe("August 21, 2026");
 });
 
+test("Proposal PDF safely exports pasted inclusion and exclusion characters", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("textbox", { name: "Inclusions" }).fill("Owner’s café fixtures • supplied separately ✅");
+  await page.getByRole("textbox", { name: "Exclusions" }).fill("Asbestos — lead… “unknown” 🚫");
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+
+  const [proposalDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const proposalPath = testInfo.outputPath("safe-inclusions-exclusions.pdf");
+  await proposalDownload.saveAs(proposalPath);
+  const proposalText = await extractPdfText(proposalPath);
+  expect(proposalText).toContain("Owner's cafe fixtures - supplied separately");
+  expect(proposalText).toContain('Asbestos - lead... "unknown"');
+});
+
 test("proposal cost breakdown combines categories and supports marked-up estimate lines", async ({ page }, testInfo) => {
   await openDemoQuote(page);
   await page.getByRole("tab", { name: /Details/ }).click();
