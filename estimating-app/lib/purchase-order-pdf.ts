@@ -48,6 +48,23 @@ function shortDate(value: string) {
   return parsed.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
 }
 
+function safeFilenamePart(value: unknown, fallback: string) {
+  const cleaned = ascii(value)
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .trim();
+  return cleaned || fallback;
+}
+
+export function purchaseOrderPdfFilename(options: PurchaseOrderPdfOptions) {
+  const poNumber = safeFilenamePart(options.purchaseOrder.number || options.job.jobNumber, "Unnumbered");
+  const vendor = safeFilenamePart(options.purchaseOrder.vendorName, "Subcontractor");
+  const project = safeFilenamePart(options.job.project, "Project");
+  const filename = `JGC-PO-${poNumber} - ${vendor} - ${project}`.slice(0, 180).replace(/[. ]+$/g, "");
+  return `${filename}.pdf`;
+}
+
 function wrapText(font: PDFFont, text: string, size: number, width: number) {
   const words = ascii(text).replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   if (!words.length) return [""];
@@ -282,9 +299,8 @@ export async function downloadPurchaseOrderPdf(options: PurchaseOrderPdfOptions)
   const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  const safePoNumber = ascii(options.purchaseOrder.number || options.job.jobNumber).replace(/[^A-Za-z0-9._-]+/g, "-");
   anchor.href = url;
-  anchor.download = `JGC-PO-${safePoNumber}.pdf`;
+  anchor.download = purchaseOrderPdfFilename(options);
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
