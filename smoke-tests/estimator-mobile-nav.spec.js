@@ -154,13 +154,22 @@ test("client and vendor directories and selectors stay alphabetical", async ({ p
   await expect.poll(() => page.locator(".saved-data-results [role='option'] strong").allTextContents()).toEqual(expectedVendors);
 });
 
-test("new contacts start blank and Estimator phone fields format Canadian numbers", async ({ page }) => {
+test("new sites and contacts start blank with faint prompts and Estimator phone fields format Canadian numbers", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Clients", exact: true }).click();
 
   await page.getByRole("button", { name: "Edit client" }).click();
+  await page.getByRole("button", { name: "＋ Site" }).click();
+
+  const newSiteName = page.getByRole("textbox", { name: "Site name" }).last();
+  const newSiteAddress = page.getByRole("textbox", { name: "Site address" }).last();
+  await expect(newSiteName).toHaveValue("");
+  await expect(newSiteName).toHaveAttribute("placeholder", "New site");
+  await expect(newSiteAddress).toHaveValue("");
+  await expect(newSiteAddress).toHaveAttribute("placeholder", "Address");
+
   await page.getByRole("button", { name: "＋ Contact" }).click();
 
   const newContactName = page.getByRole("textbox", { name: "Contact name" }).last();
@@ -640,6 +649,10 @@ test("mobile built-up material search selects the tapped saved price", async ({ 
   await page.getByRole("tab", { name: /Estimate/ }).click();
   await page.getByRole("button", { name: "Built-up item" }).click();
   await expect(page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row) input.description-input")).toBeFocused();
+
+  const initialLabourDescription = page.locator(".labour-group .build-up-row").first().getByLabel("Labour description");
+  await expect(initialLabourDescription).toHaveValue("");
+  await expect(initialLabourDescription).toHaveAttribute("placeholder", "e.g. 4-person framing crew");
 
   const materialRows = page.locator(".material-group .build-up-row");
   await expect(materialRows).toHaveCount(1);
