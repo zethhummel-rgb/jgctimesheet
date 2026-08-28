@@ -60,6 +60,9 @@ for (const viewport of [
       const primaryButton = document.querySelector(".button.primary");
       const panel = document.querySelector(".panel");
       const sidebar = document.querySelector(".sidebar");
+      const welcomeHeading = document.querySelector(".welcome-panel h1");
+      const welcomeCopy = document.querySelector(".welcome-panel p");
+      const welcomeEyebrow = document.querySelector(".welcome-panel .eyebrow.inverse");
       return {
         brand: rootStyle.getPropertyValue("--green-600").trim(),
         page: rootStyle.getPropertyValue("--jgc-estimator-page").trim(),
@@ -69,6 +72,9 @@ for (const viewport of [
         primaryBackground: primaryButton ? getComputedStyle(primaryButton).backgroundColor : "",
         panelBackground: panel ? getComputedStyle(panel).backgroundColor : "",
         sidebarBackground: sidebar ? getComputedStyle(sidebar).backgroundImage : "",
+        welcomeHeadingColor: welcomeHeading ? getComputedStyle(welcomeHeading).color : "",
+        welcomeCopyColor: welcomeCopy ? getComputedStyle(welcomeCopy).color : "",
+        welcomeEyebrowColor: welcomeEyebrow ? getComputedStyle(welcomeEyebrow).color : "",
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         stylesheets: Array.from(document.styleSheets).map((sheet) => sheet.href || "")
       };
@@ -82,6 +88,9 @@ for (const viewport of [
     expect(themeState.primaryBackground).toBe("rgb(19, 132, 63)");
     expect(themeState.panelBackground).toBe("rgb(255, 255, 255)");
     expect(themeState.sidebarBackground).toContain("linear-gradient");
+    expect(themeState.welcomeHeadingColor).toBe("rgb(255, 255, 255)");
+    expect(themeState.welcomeCopyColor).toBe("rgb(230, 243, 237)");
+    expect(themeState.welcomeEyebrowColor).toBe("rgb(185, 243, 215)");
     expect(themeState.overflow).toBeLessThanOrEqual(1);
     expect(themeState.stylesheets.some((href) => /\/estimating\/assets\/index-[^/]+\.css/.test(href))).toBe(true);
     await expect(page.locator('link[data-jgc-design-system="8"][data-jgc-estimator-theme="1"]')).toHaveCount(1);
