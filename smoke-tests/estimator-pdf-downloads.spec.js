@@ -96,10 +96,13 @@ test("Purchase Order PDF keeps long vendor and job names inside their panels", a
   const items = await extractPdfPageItems(pdfPath);
   const vendorItems = items.filter((item) => item.y >= 550 && item.y <= 575 && /Industrial|Brockville Limited/.test(item.text));
   const jobItems = items.filter((item) => item.y >= 560 && item.y <= 580 && /Public Washroom|Occupancy Light/.test(item.text));
+  const dateItem = items.find((item) => item.text === "August 28, 2026");
   expect(vendorItems.map((item) => item.text).join(" ")).toContain("Industrial Electric Contractors Brockville Limited");
   expect(jobItems.map((item) => item.text).join(" ")).toContain("Public Washroom Occupancy Light");
   expect(vendorItems.every((item) => item.x >= 52 && item.x + item.width <= 282)).toBe(true);
   expect(jobItems.every((item) => item.x >= 318 && item.x + item.width <= 560)).toBe(true);
+  expect(dateItem).toBeTruthy();
+  expect(dateItem.y).toBeGreaterThanOrEqual(504);
 });
 
 test("Estimate and Breakdown buttons download separate internal PDFs", async ({ page }, testInfo) => {
