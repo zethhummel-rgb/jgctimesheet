@@ -154,6 +154,31 @@ test("client and vendor directories and selectors stay alphabetical", async ({ p
   await expect.poll(() => page.locator(".saved-data-results [role='option'] strong").allTextContents()).toEqual(expectedVendors);
 });
 
+test("new contacts start blank and Estimator phone fields format Canadian numbers", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Clients", exact: true }).click();
+
+  await page.getByRole("button", { name: "Edit client" }).click();
+  await page.getByRole("button", { name: "＋ Contact" }).click();
+
+  const newContactName = page.getByRole("textbox", { name: "Contact name" }).last();
+  const newContactPhone = page.getByRole("textbox", { name: "Contact phone" }).last();
+  await expect(newContactName).toHaveValue("");
+  await expect(newContactName).toHaveAttribute("placeholder", "New contact");
+  await expect(newContactPhone).toHaveAttribute("inputmode", "numeric");
+  await expect(newContactPhone).toHaveAttribute("maxlength", "14");
+  await newContactPhone.fill("abc6131231234xyz");
+  await expect(newContactPhone).toHaveValue("1-613-123-1234");
+
+  await page.getByRole("button", { name: "Add client" }).click();
+  const dialogPhone = page.getByRole("dialog").getByRole("textbox", { name: "Phone" });
+  await dialogPhone.fill("16135559876");
+  await expect(dialogPhone).toHaveValue("1-613-555-9876");
+  await expect(dialogPhone).toHaveAttribute("inputmode", "numeric");
+});
+
 test("mobile proposal cost-breakdown choices stay readable and contained", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
