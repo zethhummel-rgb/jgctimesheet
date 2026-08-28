@@ -200,6 +200,12 @@ body.work-orders-page.embedded-work-order .card {
   margin: 14px 0;
 }
 
+.work-orders-page .top-actions .wo-top-action--primary {
+  background: var(--jgc-color-brand-600);
+  color: var(--jgc-color-on-brand);
+  border-color: var(--jgc-color-brand-600);
+}
+
 .work-orders-page .grid {
   display: grid;
   grid-template-columns: 1fr;
