@@ -1526,6 +1526,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     return <SettingsPage state={state} setState={setState} />;
   };
 
+  const draftQuoteCount = state.quotes.filter((quote) => quote.status === "Draft").length;
+
   return (
     <div className="desk-shell">
       <aside id="estimate-navigation" className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
@@ -1543,7 +1545,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             <button key={item.key} className={view === item.key ? "active" : ""} onClick={() => openView(item.key)}>
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               {item.label}
-              {item.key === "quotes" && <span className="nav-count">{state.quotes.filter((quote) => quote.status === "Draft").length}</span>}
+              {item.key === "quotes" && <span className="nav-count" title={`${draftQuoteCount} draft quote${draftQuoteCount === 1 ? "" : "s"}`}>{draftQuoteCount} draft{draftQuoteCount === 1 ? "" : "s"}</span>}
             </button>
           ))}
         </nav>
@@ -2047,6 +2049,7 @@ type LibraryRecord<T> = {
   client: LibraryPathPart;
   location: LibraryPathPart;
   value: number;
+  draftCount?: number;
 };
 
 const libraryLevels = [
@@ -2079,12 +2082,13 @@ function LibraryFolders<T>({ records, path, setPath, noun, renderItems }: {
   const level = libraryLevels[path.length];
   const grouped = Array.from(scoped.reduce((groups, record) => {
     const part = libraryPart(record as LibraryRecord<unknown>, path.length);
-    const current = groups.get(part.key) ?? { part, count: 0, value: 0 };
+    const current = groups.get(part.key) ?? { part, count: 0, value: 0, draftCount: 0 };
     current.count += 1;
     current.value += record.value;
+    current.draftCount += record.draftCount ?? 0;
     groups.set(part.key, current);
     return groups;
-  }, new Map<string, { part: LibraryPathPart; count: number; value: number }>()).values()).sort((a, b) => {
+  }, new Map<string, { part: LibraryPathPart; count: number; value: number; draftCount: number }>()).values()).sort((a, b) => {
     if (level.field === "year") return b.part.label.localeCompare(a.part.label, undefined, { numeric: true });
     return a.part.label.localeCompare(b.part.label, undefined, { numeric: true });
   });
@@ -2097,7 +2101,7 @@ function LibraryFolders<T>({ records, path, setPath, noun, renderItems }: {
         {grouped.map((group) => (
           <button key={group.part.key} className="library-folder" onClick={() => setPath([...path, group.part])}>
             <span className="library-folder-icon" aria-hidden="true">▰</span>
-            <span><small>{level.name}</small><strong>{group.part.label}</strong><em>{group.count} {noun}{group.count === 1 ? "" : "s"} · {money(group.value)}</em></span>
+            <span><small>{level.name}</small><strong>{group.part.label}</strong><em>{group.count} {noun}{group.count === 1 ? "" : "s"} · {money(group.value)}</em>{group.draftCount > 0 && <i className="folder-draft-count">{group.draftCount} draft{group.draftCount === 1 ? "" : "s"}</i>}</span>
             <b aria-hidden="true">›</b>
           </button>
         ))}
@@ -2139,6 +2143,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
       client: { key: quote.clientId || "__no_client__", label: clientLabel },
       location: { key: location.toLocaleLowerCase(), label: location },
       value: quoteTotals(quote).subtotal,
+      draftCount: quote.status === "Draft" ? 1 : 0,
     };
   });
 
@@ -2153,7 +2158,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
               const totals = quoteTotals(quote);
               return (
                 <tr key={quote.id} onClick={() => onOpenQuote(quote.id)}>
-                  <td data-label="Quote"><strong>{quote.number}</strong><small>Revision {quote.revision}{quote.demo ? " · Demo" : ""} · {quote.preparedBy || "Unassigned"}</small></td>
+                  <td data-label="Quote"><span className="quote-number-line"><strong>{quote.number}</strong>{quote.status === "Draft" && <i className="quote-draft-badge">Draft</i>}</span><small>Revision {quote.revision}{quote.demo ? " · Demo" : ""} · {quote.preparedBy || "Unassigned"}</small></td>
                   <td data-label="Client / project"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.site || "No location"} · {quote.project || "Project not named"}</small></td>
                   <td data-label="Price"><strong>{money(totals.subtotal)}</strong><small>{money(totals.total)} incl. {quote.taxName}</small></td>
                   <td data-label="Margin"><strong>{money(totals.profit)}</strong><small>{percent(totals.margin)} margin</small></td>
@@ -2573,7 +2578,7 @@ function QuoteWorkspace({
         {tabs.map((item, index) => (
           <button key={item.key} role="tab" aria-selected={tab === item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}>
             <span className="tab-number">{index + 1}</span>{item.label}
-            {!!item.badge && <span className={`tab-badge ${item.key === "review" && readiness.blockers.length ? "danger" : ""}`}>{item.badge}</span>}
+            {!!item.badge && <span className={`tab-badge ${item.key === "review" ? (readiness.blockers.length ? "danger" : "warning") : "info"}`}>{item.badge}</span>}
           </button>
         ))}
       </div>

@@ -41,6 +41,21 @@ test("estimator mobile navigation stays pinned to the viewport at every scroll p
   }
 });
 
+test("quote draft total traces from the sidebar through folders and into the quote", async ({ page }) => {
+  await page.goto("/estimating/index.html?dev=1");
+
+  const draftTotal = page.locator(".primary-nav .nav-count");
+  await expect(draftTotal).toHaveText(/^\d+ drafts?$/);
+  await page.getByRole("button", { name: /Quotes/ }).click();
+  await expect(page.locator(".library-folder .folder-draft-count").first()).toHaveText(/^\d+ drafts?$/);
+
+  await expect(page.locator(".library-folder .folder-draft-count").first()).toHaveCSS("background-color", "rgb(38, 114, 184)");
+  await page.getByRole("textbox", { name: "Search quotes" }).fill("JGC-Q-2026-0001");
+  await expect(page.locator(".quotes-table .quote-draft-badge")).toHaveText("Draft");
+  await page.locator(".quotes-table tbody tr").first().click();
+  await expect(page.locator(".quote-tabs .tab-badge.info").first()).toBeVisible();
+});
+
 test("overview search finds and opens quotes by client, site, project or reference", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
