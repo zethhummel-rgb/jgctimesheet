@@ -183,22 +183,29 @@ for (const viewport of [
     expect(dimensions.cardColumns).toBe(viewport.name === "desktop" ? 4 : (viewport.name === "portrait" ? 2 : 3));
 
     if (viewport.name !== "desktop") {
+      await expect(page.locator(".jgc-appearance-settings")).toBeVisible();
       await expect(page.locator(".jgc-admin-global-search")).toBeVisible();
       await expect(page.locator(".jgc-notification-bell")).toBeVisible();
       const headerLayout = await page.evaluate(() => {
         const profile = document.querySelector(".profile-block").getBoundingClientRect();
+        const appearance = document.querySelector(".jgc-appearance-settings").getBoundingClientRect();
         const search = document.querySelector(".jgc-admin-global-search").getBoundingClientRect();
         const bell = document.querySelector(".jgc-notification-bell").getBoundingClientRect();
         return {
           profileLeft: profile.left,
+          appearanceRight: window.innerWidth - appearance.right,
           searchRight: window.innerWidth - search.right,
           bellRight: window.innerWidth - bell.right,
+          appearanceGap: search.left - appearance.right,
           controlGap: bell.left - search.right
         };
       });
       expect(headerLayout.profileLeft).toBeLessThanOrEqual(16);
+      expect(headerLayout.appearanceRight).toBeGreaterThan(headerLayout.searchRight);
       expect(headerLayout.searchRight).toBeGreaterThan(headerLayout.bellRight);
       expect(headerLayout.bellRight).toBeLessThanOrEqual(16);
+      expect(headerLayout.appearanceGap).toBeGreaterThanOrEqual(6);
+      expect(headerLayout.appearanceGap).toBeLessThanOrEqual(16);
       expect(headerLayout.controlGap).toBeGreaterThanOrEqual(6);
       expect(headerLayout.controlGap).toBeLessThanOrEqual(16);
     }

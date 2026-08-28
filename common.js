@@ -3346,6 +3346,20 @@ function toggleJgcAppearanceSettings(forceOpen) {
   }
 }
 
+function syncJgcAppearanceSettingsPosition(wrapper) {
+  const useHomeMobileHeader = document.body.classList.contains("home-dashboard-page")
+    && window.matchMedia("(max-width: 980px)").matches;
+
+  if (useHomeMobileHeader) {
+    // Home keeps Search 62px from the right and Notifications 12px from the right.
+    // Continue that evenly spaced action group with Appearance at 112px.
+    wrapper.style.right = "112px";
+    return;
+  }
+
+  wrapper.style.removeProperty("right");
+}
+
 function activateJgcAppearanceSettings() {
   if (!shouldActivateJgcAppearanceSettings() || document.getElementById("jgcAppearanceSettings")) {
     return;
@@ -3389,6 +3403,10 @@ function activateJgcAppearanceSettings() {
   `;
 
   document.body.appendChild(wrapper);
+  syncJgcAppearanceSettingsPosition(wrapper);
+  window.addEventListener("resize", function() {
+    syncJgcAppearanceSettingsPosition(wrapper);
+  }, { passive: true });
   const button = document.getElementById("jgcAppearanceSettingsButton");
   button.addEventListener("click", function(event) {
     event.stopPropagation();
