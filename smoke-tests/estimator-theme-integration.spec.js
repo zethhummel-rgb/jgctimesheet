@@ -96,5 +96,22 @@ for (const viewport of [
     await expect(page.locator('link[data-jgc-design-system="8"][data-jgc-estimator-theme="1"]')).toHaveCount(1);
     const badThemeRequest = await page.evaluate(() => performance.getEntriesByType("resource").some((entry) => entry.name.includes("/estimating/jgc-design-system.css")));
     expect(badThemeRequest).toBe(false);
+
+    const lightWelcomeState = await page.evaluate(() => {
+      document.documentElement.setAttribute("data-jgc-theme", "light");
+      const welcomeHeading = document.querySelector(".welcome-panel h1");
+      const welcomeCopy = document.querySelector(".welcome-panel p");
+      const welcomeEyebrow = document.querySelector(".welcome-panel .eyebrow.inverse");
+      return {
+        selectedTheme: document.documentElement.getAttribute("data-jgc-theme"),
+        heading: welcomeHeading ? getComputedStyle(welcomeHeading).color : "",
+        copy: welcomeCopy ? getComputedStyle(welcomeCopy).color : "",
+        eyebrow: welcomeEyebrow ? getComputedStyle(welcomeEyebrow).color : ""
+      };
+    });
+    expect(lightWelcomeState.selectedTheme).toBe("light");
+    expect(lightWelcomeState.heading).toBe("rgb(255, 255, 255)");
+    expect(lightWelcomeState.copy).toBe("rgb(230, 243, 237)");
+    expect(lightWelcomeState.eyebrow).toBe("rgb(185, 243, 215)");
   });
 }

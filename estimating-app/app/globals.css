@@ -178,6 +178,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .welcome-panel .eyebrow.inverse { color: #b9f3d7 !important; }
 .welcome-panel h1 { max-width: 700px; margin: 8px 0 10px; color: #fff !important; font-size: clamp(28px, 3.2vw, 44px); line-height: 1.04; letter-spacing: -.045em; }
 .welcome-panel p { max-width: 760px; margin: 0; color: #e6f3ed !important; font-size: 15px; line-height: 1.55; }
+:root[data-jgc-theme="light"] body.jgc-theme .welcome-panel .eyebrow.inverse { color: #b9f3d7 !important; }
+:root[data-jgc-theme="light"] body.jgc-theme .welcome-panel h1 { color: #fff !important; }
+:root[data-jgc-theme="light"] body.jgc-theme .welcome-panel p { color: #e6f3ed !important; }
 .welcome-actions { width: 220px; flex: 0 0 220px; display: grid; justify-items: stretch; gap: 8px; }
 .welcome-actions img { width: 100%; height: 76px; object-fit: contain; filter: drop-shadow(0 5px 12px rgba(0,0,0,.18)); }
 .welcome-panel.compact { min-height: 104px; padding: 16px 26px; gap: 22px; }
