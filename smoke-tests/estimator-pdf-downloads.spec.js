@@ -256,6 +256,26 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   expect(menuBreakdownDownload.suggestedFilename()).toMatch(/^Breakdown - JGC-Q-2026-0001 - .+\.pdf$/);
   await menu.getByRole("button", { name: "Done" }).click();
   await expect(menu).toBeHidden();
+  const finishPrompt = page.getByRole("dialog", { name: "Is this quote finished?" });
+  await expect(finishPrompt).toBeVisible();
+  await finishPrompt.getByRole("button", { name: "No — keep editing" }).click();
+  await expect(page.getByRole("button", { name: "Finish quote" })).toBeVisible();
+});
+
+test("PDF Done can finish and lock a ready draft quote", async ({ page }) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Review/ }).click();
+  const warningButton = page.locator(".readiness-checks").getByRole("button", { name: /Acknowledge reviewed warnings/ });
+  if (await warningButton.count()) await warningButton.click();
+
+  await page.getByRole("button", { name: "Download PDFs" }).click();
+  await page.getByRole("dialog", { name: "Download PDFs" }).getByRole("button", { name: "Done" }).click();
+  const finishPrompt = page.getByRole("dialog", { name: "Is this quote finished?" });
+  await expect(finishPrompt).toContainText("lock this revision");
+  await finishPrompt.getByRole("button", { name: "Yes — finish quote" }).click();
+
+  await expect(page.getByRole("button", { name: "Re-open quote" })).toBeVisible();
+  await expect(page.locator(".locked-banner")).toContainText("locked and read-only");
 });
 
 test("reopened quote PDFs all carry the editable revision number", async ({ page }, testInfo) => {
@@ -294,6 +314,7 @@ test("reopened quote PDFs all carry the editable revision number", async ({ page
   expect(downloaded.breakdown).toContain("Revision 1");
 
   await menu.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("dialog", { name: "Is this quote finished?" }).getByRole("button", { name: "No — keep editing" }).click();
   await page.getByRole("tab", { name: /History/ }).click();
   await page.getByRole("button", { name: /Original finished quote/ }).click();
   const savedRevision = page.getByRole("dialog", { name: /Revision 0/ });

@@ -961,6 +961,7 @@ test("quote PDF actions are separated by workflow page", async ({ page }) => {
   await expect(page.getByLabel("Estimate PDF filename")).toBeVisible();
   await expect(page.getByLabel("Breakdown PDF filename")).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("dialog", { name: "Is this quote finished?" }).getByRole("button", { name: "No — keep editing" }).click();
   await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /Duplicate/ })).toHaveCount(0);
   await expect(page.locator(".quote-primary-actions").getByRole("button", { name: /PDF backup/ })).toHaveCount(0);
 
