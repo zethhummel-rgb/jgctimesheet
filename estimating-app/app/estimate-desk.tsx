@@ -2422,7 +2422,7 @@ function defaultPdfFilenames(quote: Quote): Record<PdfDownloadKind, string> {
   };
 }
 
-function PdfDownloadMenu({ state, quote, onClose }: { state: AppState; quote: Quote; onClose: () => void }) {
+function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: AppState; quote: Quote; onClose: () => void; onDone?: () => void }) {
   const [filenames, setFilenames] = useState(() => defaultPdfFilenames(quote));
   const [downloading, setDownloading] = useState<PdfDownloadKind | null>(null);
   const [downloaded, setDownloaded] = useState<PdfDownloadKind | null>(null);
@@ -2492,7 +2492,28 @@ function PdfDownloadMenu({ state, quote, onClose }: { state: AppState; quote: Qu
         </div>
         <footer className="pdf-download-footer">
           <span role="status">{downloaded ? `${rows.find((row) => row.kind === downloaded)?.title} download started.` : "Your quote stays open while you save each file."}</span>
-          <button type="button" className="button secondary" disabled={!!downloading} onClick={onClose}>Done</button>
+          <button type="button" className="button secondary" disabled={!!downloading} onClick={onDone}>Done</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function PdfFinishPrompt({ quote, onNo, onYes }: { quote: Quote; onNo: () => void; onYes: () => void }) {
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onNo}>
+      <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdf-finish-prompt-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div><span className="eyebrow">QUOTE DOCUMENTS SAVED</span><h2 id="pdf-finish-prompt-title">Is this quote finished?</h2></div>
+          <button type="button" aria-label="Keep quote open" onClick={onNo}>×</button>
+        </header>
+        <div className="confirm-content">
+          <div className="confirm-line-name"><span>{quote.number}</span><strong>{quote.project || "Project not named"}</strong></div>
+          <p>Choose Yes to run the final checks and lock this revision. Choose No if you still need to make changes.</p>
+        </div>
+        <footer className="confirm-actions">
+          <button type="button" className="button secondary" onClick={onNo}>No — keep editing</button>
+          <button type="button" className="button primary" onClick={onYes}>Yes — finish quote</button>
         </footer>
       </section>
     </div>
@@ -2540,6 +2561,7 @@ function QuoteWorkspace({
 }) {
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
   const [pdfDownloadMenuOpen, setPdfDownloadMenuOpen] = useState(false);
+  const [pdfFinishPromptOpen, setPdfFinishPromptOpen] = useState(false);
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const locked = quote.status !== "Draft";
@@ -2647,7 +2669,27 @@ function QuoteWorkspace({
           </section>
         </div>
       )}
-      {pdfDownloadMenuOpen && <PdfDownloadMenu state={state} quote={quote} onClose={() => setPdfDownloadMenuOpen(false)} />}
+      {pdfDownloadMenuOpen && (
+        <PdfDownloadMenu
+          state={state}
+          quote={quote}
+          onClose={() => setPdfDownloadMenuOpen(false)}
+          onDone={() => {
+            setPdfDownloadMenuOpen(false);
+            if (quote.status === "Draft") setPdfFinishPromptOpen(true);
+          }}
+        />
+      )}
+      {pdfFinishPromptOpen && quote.status === "Draft" && (
+        <PdfFinishPrompt
+          quote={quote}
+          onNo={() => setPdfFinishPromptOpen(false)}
+          onYes={() => {
+            setPdfFinishPromptOpen(false);
+            finalizeQuote(quote);
+          }}
+        />
+      )}
     </div>
   );
 }
