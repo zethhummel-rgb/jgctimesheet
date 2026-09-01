@@ -198,6 +198,25 @@ function phoneWithExtension(phone: string, extension?: string) {
   return cleanExtension ? `${phone} Ext. ${cleanExtension}` : phone;
 }
 
+async function copyPlainText(value: string) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("The email address could not be copied.");
+}
+
 function internalPriceBookCode(name: string, items: PriceBookItem[]) {
   const base = name
     .trim()
@@ -3906,7 +3925,16 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
 }) {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [emailCopyState, setEmailCopyState] = useState<{ clientId: string; status: "copied" | "failed" } | null>(null);
   const updateClient = (clientId: string, updater: (client: Client) => Client) => setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === clientId ? updater(client) : client) }));
+  const copyClientEmail = async (clientId: string, email: string) => {
+    try {
+      await copyPlainText(email);
+      setEmailCopyState({ clientId, status: "copied" });
+    } catch {
+      setEmailCopyState({ clientId, status: "failed" });
+    }
+  };
   const normalized = search.toLowerCase();
   const clients = alphabeticalByName(state.clients.filter((client) => `${client.name} ${client.contact} ${(client.contacts ?? []).map((contact) => `${contact.name} ${contact.role}`).join(" ")} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized)));
   return (
@@ -3919,13 +3947,18 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
           const openValue = quotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
           const contacts = client.contacts ?? [];
           const editing = editingClientId === client.id;
+          const displayEmail = contacts.find((contact) => contact.email.trim())?.email.trim() || client.email.trim();
+          const copyStatus = emailCopyState?.clientId === client.id ? emailCopyState.status : null;
           return (
             <section className="entity-card" key={client.id}>
               <div className="entity-card-head"><div className="entity-monogram">{client.name.slice(0, 2).toUpperCase()}</div><div><h2>{client.name}</h2><p>{contacts.length ? `${contacts.length} attention contact${contacts.length === 1 ? "" : "s"}` : "No contacts recorded"}</p></div>{client.demo && <span className="demo-chip">Demo</span>}</div>
               <div className="entity-stats"><div><span>Open value</span><strong>{money(openValue)}</strong></div><div><span>Quotes</span><strong>{quotes.length}</strong></div><div><span>Sites</span><strong>{client.sites.length}</strong></div></div>
               <div className="site-list"><span className="eyebrow">WORK SITES</span>{client.sites.length ? client.sites.map((site) => <div key={site.id}><strong>{site.label}</strong><span>{site.address || "Address not recorded"}</span></div>) : <p>No work sites yet.</p>}</div>
               {!!contacts.length && <div className="client-contact-summary"><span className="eyebrow">ATTENTION CONTACTS</span>{contacts.map((contact) => <span key={contact.id}><strong>{contact.name}</strong>{contact.role ? ` · ${contact.role}` : ""}</span>)}</div>}
-              <div className="entity-card-actions"><div>{quotes[0] ? <button className="button secondary compact" onClick={() => onOpenQuote(quotes[0].id)}>Open latest quote</button> : <span>No quotes yet</span>}<button className="button secondary compact" onClick={() => setEditingClientId(editing ? null : client.id)}>{editing ? "Done" : "Edit client"}</button></div><span>{client.email || client.phone || "Contact details not recorded"}</span></div>
+              <div className="entity-card-actions">
+                <div>{quotes[0] ? <button className="button secondary compact" onClick={() => onOpenQuote(quotes[0].id)}>Open latest quote</button> : <span>No quotes yet</span>}<button className="button secondary compact" onClick={() => setEditingClientId(editing ? null : client.id)}>{editing ? "Done" : "Edit client"}</button></div>
+                {displayEmail ? <div className="client-email-copy"><span>{displayEmail}</span><button type="button" aria-label={`Copy ${displayEmail}`} aria-live="polite" onClick={() => void copyClientEmail(client.id, displayEmail)}><span aria-hidden="true">⧉</span>{copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Try again" : "Copy"}</button></div> : <span>{client.phone || "Contact details not recorded"}</span>}
+              </div>
               {editing && <div className="client-editor">
                 <label className="field"><span>Client name</span><input value={client.name} onChange={(event) => updateClient(client.id, (current) => ({ ...current, name: event.target.value }))} /></label>
                 <div className="client-editor-section"><header><div><span className="eyebrow">SITES &amp; ADDRESSES</span><strong>{client.sites.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, sites: [...current.sites, { id: uid("site"), label: "", address: "" }] }))}>＋ Site</button></header>{client.sites.map((site) => <div className="client-editor-row" key={site.id}><input aria-label="Site name" value={site.label} placeholder="New site" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, label: event.target.value } : item) }))} /><input aria-label="Site address" value={site.address} placeholder="Address" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, address: event.target.value } : item) }))} /><button aria-label={`Remove ${site.label || "site"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, sites: current.sites.filter((item) => item.id !== site.id) }))}>×</button></div>)}</div>

@@ -1323,6 +1323,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .client-contact-summary > span:not(.eyebrow) { color: var(--slate-600); font-size: 11px; }
 .client-contact-summary strong { color: var(--navy-900); }
 .entity-card-actions > div { display: flex; gap: 7px; }
+.entity-card-actions .client-email-copy { min-width: 0; align-items: center; justify-content: flex-end; gap: 6px; color: var(--slate-500); font-size: 10px; }
+.client-email-copy > span { min-width: 0; overflow-wrap: anywhere; }
+.client-email-copy > button { min-height: 28px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; border: 1px solid var(--slate-300); border-radius: 6px; background: var(--slate-50); color: var(--green-700); font: inherit; font-weight: 850; cursor: pointer; }
+.client-email-copy > button:hover, .client-email-copy > button:focus-visible { border-color: var(--green-600); background: var(--green-100); outline: 0; }
+.client-email-copy > button > span { font-size: 13px; line-height: 1; }
 .client-editor { margin: 16px -20px -20px; border-top: 1px solid var(--slate-200); background: var(--slate-50); }
 .client-editor > .field { padding: 16px 18px 0; }
 .client-editor-section { padding: 17px 18px; }
@@ -1387,6 +1392,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .range-control > div { width: 100%; grid-template-columns: minmax(0, 1fr) 76px; }
   .finished-banner { align-items: flex-start; }
   .client-editor { margin-inline: -20px; }
+  .entity-card-actions { align-items: flex-start; flex-direction: column; }
+  .entity-card-actions .client-email-copy { width: 100%; justify-content: flex-start; }
   .client-editor-row, .client-contact-editor { grid-template-columns: 1fr; }
   .client-editor-row > button, .client-contact-editor > button { width: 44px; height: 44px; justify-self: end; }
   .breakdown-toolbar { align-items: stretch; flex-direction: column; }

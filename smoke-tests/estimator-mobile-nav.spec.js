@@ -169,6 +169,40 @@ test("client and vendor directories and selectors stay alphabetical", async ({ p
   await expect.poll(() => page.locator(".saved-data-results [role='option'] strong").allTextContents()).toEqual(expectedVendors);
 });
 
+test("client cards copy attention email addresses on desktop and mobile", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "isSecureContext", { value: true, configurable: true });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value) => {
+          window.__copiedEstimatorEmail = value;
+        },
+      },
+    });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Clients", exact: true }).click();
+  await page.getByRole("button", { name: "Add client" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: /Client name/ }).fill("Copy Email Client");
+  await dialog.getByRole("textbox", { name: "First attention contact" }).fill("Casey Contact");
+  await dialog.getByRole("textbox", { name: "Email" }).fill("casey@example.com");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+
+  const card = page.locator(".entity-card").filter({ hasText: "Copy Email Client" });
+  const copyButton = card.getByRole("button", { name: "Copy casey@example.com" });
+  await expect(copyButton).toBeVisible();
+  await expect(copyButton).toContainText("Copy");
+  await copyButton.click();
+  await expect.poll(() => page.evaluate(() => window.__copiedEstimatorEmail)).toBe("casey@example.com");
+  await expect(copyButton).toContainText("Copied");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("new sites and contacts start blank with faint prompts and Estimator phone fields format Canadian numbers", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
