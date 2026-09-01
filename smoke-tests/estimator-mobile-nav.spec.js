@@ -944,6 +944,69 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await expect(page.locator(".quotes-table tbody tr").filter({ hasText: "JGC-Q-2026-0001" })).toContainText("Draft");
 });
 
+test("same-vendor subcontractor quotes combine into one job purchase order", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.addInitScript(() => {
+    window.JGC_ESTIMATOR_PORTAL_JOBS = [{
+      id: "portal-job-26124",
+      jobNumber: "26124",
+      jobName: "Combined subcontractor PO test",
+      customer: "BGIS",
+      address: "Cornwall, ON",
+      active: true,
+    }];
+  });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+
+  await page.locator(".subcontractor-add-button").click();
+  const materialsVendor = page.getByRole("combobox", { name: /Vendor for line/ }).last();
+  const materialsRow = materialsVendor.locator("xpath=ancestor::tr[1]");
+  await materialsVendor.fill("Demo Painting");
+  await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
+  await materialsRow.getByLabel(/Subcontractor quote #/).fill("PAINT-MATERIALS-18");
+  const materialsDetails = page.locator(".line-detail-panel");
+  await materialsDetails.getByLabel(/Actual quoted amount/).fill("1800");
+  await expect(materialsRow.locator(".direct-cost-cell")).toContainText("$1,800.00");
+  await materialsRow.getByRole("button", { name: /Finish/ }).click();
+
+  await page.getByRole("button", { name: "Finish quote" }).click();
+  const finishDialog = page.getByRole("dialog", { name: /Mark .* as Finished/ });
+  if (await finishDialog.count()) await finishDialog.getByRole("button", { name: "Finish quote" }).click();
+  await page.getByRole("button", { name: "Make into job" }).click();
+  const jobDialog = page.getByRole("dialog", { name: "Make into job" });
+  const portalJob = jobDialog.getByRole("combobox", { name: "Portal job" });
+  await portalJob.fill("26124");
+  await jobDialog.getByRole("option", { name: /26124.*Combined subcontractor PO test/ }).click();
+  await jobDialog.getByRole("button", { name: "Make into job" }).click();
+
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 26124");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const materialsPoRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-MATERIALS-18" });
+  await materialsPoRow.getByRole("button", { name: "Create PO" }).click();
+  const poDialog = page.getByRole("dialog", { name: "Create purchase order" });
+  await expect(poDialog.getByRole("heading", { name: "Combine quotes from Demo Painting Vendor" })).toBeVisible();
+  await expect(poDialog).toContainText("PAINT-DEMO");
+  await expect(poDialog).toContainText("PAINT-MATERIALS-18");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await poDialog.locator(".po-combine-option").filter({ hasText: "PAINT-DEMO" }).getByRole("checkbox").check();
+  await expect(poDialog.getByLabel("Unit cost")).toHaveCount(2);
+  await expect(poDialog.getByLabel("Unit cost").nth(0)).toHaveValue("15000");
+  await expect(poDialog.getByLabel("Unit cost").nth(1)).toHaveValue("1800");
+  await expect(poDialog).toContainText("$16,800.00");
+  await expect(poDialog.getByLabel("Vendor quote #s")).toHaveValue("PAINT-DEMO, PAINT-MATERIALS-18");
+  await poDialog.getByRole("button", { name: "Create combined PO" }).click();
+
+  const combinedPoRows = page.locator(".po-source-table tbody tr").filter({ hasText: /PAINT-(DEMO|MATERIALS-18)/ });
+  await expect(combinedPoRows).toHaveCount(2);
+  await expect(combinedPoRows.nth(0)).toContainText("26124");
+  await expect(combinedPoRows.nth(1)).toContainText("26124");
+  await expect(page.locator(".subcontract-po-panel .po-count-chip")).toHaveText("1 PO");
+});
+
 test("typed subcontractor names automatically become the line description", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
