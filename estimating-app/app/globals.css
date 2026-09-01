@@ -1331,7 +1331,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .client-editor-section > header strong { margin-top: 3px; display: block; color: var(--navy-900); font-size: 12px; }
 .client-editor-row, .client-contact-editor { margin-top: 8px; display: grid; gap: 8px; }
 .client-editor-row { grid-template-columns: 1fr 1.7fr 36px; }
-.client-contact-editor { grid-template-columns: 1.1fr 1fr 1.35fr 1fr 36px; }
+.client-contact-editor { grid-template-columns: 1.1fr 1fr 1.3fr .9fr .42fr 36px; }
 .client-editor-row input, .client-contact-editor input { width: 100%; min-width: 0; min-height: 39px; padding: 8px 10px; border: 1px solid var(--slate-300); border-radius: 6px; background: #fff; }
 .client-editor-row > button, .client-contact-editor > button { width: 36px; min-height: 36px; border: 1px solid #efb5b0; border-radius: 6px; background: #fff; color: var(--red-700); font-size: 18px; }
 

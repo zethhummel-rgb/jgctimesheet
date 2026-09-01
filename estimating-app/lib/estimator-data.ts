@@ -58,6 +58,7 @@ export interface ClientContact {
   role: string;
   email: string;
   phone: string;
+  extension?: string;
 }
 
 export interface Client {
@@ -953,9 +954,9 @@ export function normalizeAppState(state: AppState): AppState {
       ...client,
       sites: Array.isArray(client.sites) ? client.sites : [],
       contacts: Array.isArray(client.contacts)
-        ? client.contacts.map((contact) => ({ ...contact, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "" }))
+        ? client.contacts.map((contact) => ({ ...contact, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "", extension: contact.extension ?? "" }))
         : client.contact?.trim()
-          ? [{ id: `contact-${client.id}-legacy`, name: client.contact.trim(), role: "", email: client.email ?? "", phone: client.phone ?? "" }]
+          ? [{ id: `contact-${client.id}-legacy`, name: client.contact.trim(), role: "", email: client.email ?? "", phone: client.phone ?? "", extension: "" }]
           : [],
     })),
     vendors: state.vendors.map((vendor) => ({

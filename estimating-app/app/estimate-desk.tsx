@@ -189,6 +189,15 @@ function formatPhoneNumber(value: string) {
   return ["1", ...sections].join("-");
 }
 
+function formatPhoneExtension(value: string) {
+  return value.replace(/\D/g, "").slice(0, 8);
+}
+
+function phoneWithExtension(phone: string, extension?: string) {
+  const cleanExtension = formatPhoneExtension(extension ?? "");
+  return cleanExtension ? `${phone} Ext. ${cleanExtension}` : phone;
+}
+
 function internalPriceBookCode(name: string, items: PriceBookItem[]) {
   const base = name
     .trim()
@@ -1318,7 +1327,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
                 : [...client.sites, { id: uid("site"), label: siteName, address: quote.address?.trim() ?? "" }];
               const contacts = client.contacts ?? [];
               const attentionAlreadySaved = attentionName && contacts.some((contact) => contact.name.trim().toLocaleLowerCase() === attentionName.toLocaleLowerCase());
-              return { ...client, sites, contacts: attentionName && !attentionAlreadySaved ? [...contacts, { id: uid("client-contact"), name: attentionName, role: "", email: "", phone: "" }] : contacts };
+              return { ...client, sites, contacts: attentionName && !attentionAlreadySaved ? [...contacts, { id: uid("client-contact"), name: attentionName, role: "", email: "", phone: "", extension: "" }] : contacts };
             })
           : current.clients,
         quotes: current.quotes.map((item) =>
@@ -2727,7 +2736,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
       updateField("proposalAttention", existing.name);
       return;
     }
-    const contact: ClientContact = { id: uid("client-contact"), name: cleanName, role: "", email: "", phone: "" };
+    const contact: ClientContact = { id: uid("client-contact"), name: cleanName, role: "", email: "", phone: "", extension: "" };
     setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === selectedClient.id ? { ...client, contacts: [...(client.contacts ?? []), contact] } : client) }));
     updateField("proposalAttentionContactId", contact.id);
     updateField("proposalAttention", contact.name);
@@ -2738,7 +2747,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
         <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 7</span></div>
         <div className="form-grid two-column">
           <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={alphabeticalByName(state.clients).map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
-          <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, contact.phone].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
+          <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, phoneWithExtension(contact.phone, contact.extension)].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
           <label className="field">
             <span>Site name <em>Search saved sites or add a new one</em></span>
             <SearchablePicker value={quote.site} options={(selectedClient?.sites ?? []).map((site) => ({ id: site.id, label: site.label, detail: site.address }))} disabled={locked || !quote.clientId} placeholder={quote.clientId ? "Search saved sites" : "Select a client first"} ariaLabel="Site name" allowCustom onChange={(value) => { updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateField("address", saved?.address ?? ""); }} onSelect={(option) => { const site = selectedClient?.sites.find((candidate) => candidate.id === option.id); updateField("site", option.label); updateField("address", site?.address ?? ""); }} onAdd={(value) => { updateField("site", value); updateField("address", ""); }} addLabel="Use new site" />
@@ -3920,7 +3929,20 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
               {editing && <div className="client-editor">
                 <label className="field"><span>Client name</span><input value={client.name} onChange={(event) => updateClient(client.id, (current) => ({ ...current, name: event.target.value }))} /></label>
                 <div className="client-editor-section"><header><div><span className="eyebrow">SITES &amp; ADDRESSES</span><strong>{client.sites.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, sites: [...current.sites, { id: uid("site"), label: "", address: "" }] }))}>＋ Site</button></header>{client.sites.map((site) => <div className="client-editor-row" key={site.id}><input aria-label="Site name" value={site.label} placeholder="New site" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, label: event.target.value } : item) }))} /><input aria-label="Site address" value={site.address} placeholder="Address" onChange={(event) => updateClient(client.id, (current) => ({ ...current, sites: current.sites.map((item) => item.id === site.id ? { ...item, address: event.target.value } : item) }))} /><button aria-label={`Remove ${site.label || "site"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, sites: current.sites.filter((item) => item.id !== site.id) }))}>×</button></div>)}</div>
-                <div className="client-editor-section"><header><div><span className="eyebrow">ATTENTION CONTACTS</span><strong>{contacts.length} saved</strong></div><button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: [...(current.contacts ?? []), { id: uid("client-contact"), name: "", role: "", email: "", phone: "" }] }))}>＋ Contact</button></header>{contacts.map((contact) => <div className="client-contact-editor" key={contact.id}><input aria-label="Contact name" value={contact.name} placeholder="New contact" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, name: event.target.value } : item) }))} /><input aria-label="Contact role" value={contact.role} placeholder="Role / department" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, role: event.target.value } : item) }))} /><input aria-label="Contact email" type="email" value={contact.email} placeholder="Email" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, email: event.target.value } : item) }))} /><input aria-label="Contact phone" value={formatPhoneNumber(contact.phone)} inputMode="numeric" autoComplete="tel" maxLength={14} placeholder="Phone" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, phone: formatPhoneNumber(event.target.value) } : item) }))} /><button aria-label={`Remove ${contact.name || "contact"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).filter((item) => item.id !== contact.id) }))}>×</button></div>)}</div>
+                <div className="client-editor-section">
+                  <header>
+                    <div><span className="eyebrow">ATTENTION CONTACTS</span><strong>{contacts.length} saved</strong></div>
+                    <button className="button secondary compact" onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: [...(current.contacts ?? []), { id: uid("client-contact"), name: "", role: "", email: "", phone: "", extension: "" }] }))}>＋ Contact</button>
+                  </header>
+                  {contacts.map((contact) => <div className="client-contact-editor" key={contact.id}>
+                    <input aria-label="Contact name" value={contact.name} placeholder="New contact" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, name: event.target.value } : item) }))} />
+                    <input aria-label="Contact role" value={contact.role} placeholder="Role / department" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, role: event.target.value } : item) }))} />
+                    <input aria-label="Contact email" type="email" value={contact.email} placeholder="Email" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, email: event.target.value } : item) }))} />
+                    <input aria-label="Contact phone" value={formatPhoneNumber(contact.phone)} inputMode="numeric" autoComplete="tel" maxLength={14} placeholder="Phone" onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, phone: formatPhoneNumber(event.target.value) } : item) }))} />
+                    <input aria-label="Contact extension" value={contact.extension ?? ""} inputMode="numeric" autoComplete="off" placeholder="Ext." onChange={(event) => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).map((item) => item.id === contact.id ? { ...item, extension: formatPhoneExtension(event.target.value) } : item) }))} />
+                    <button aria-label={`Remove ${contact.name || "contact"}`} onClick={() => updateClient(client.id, (current) => ({ ...current, contacts: (current.contacts ?? []).filter((item) => item.id !== contact.id) }))}>×</button>
+                  </div>)}
+                </div>
               </div>}
             </section>
           );
@@ -4410,7 +4432,8 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
       const contactName = String(form.get("contact") || "").trim();
       const contactEmail = String(form.get("email") || "").trim();
       const contactPhone = formatPhoneNumber(String(form.get("phone") || ""));
-      const client: Client = { id: uid("client"), name: String(form.get("name") || "").trim(), contact: contactName, email: contactEmail, phone: contactPhone, contacts: contactName ? [{ id: uid("client-contact"), name: contactName, role: String(form.get("contactRole") || "").trim(), email: contactEmail, phone: contactPhone }] : [], sites: String(form.get("siteLabel") || "").trim() ? [{ id: uid("site"), label: String(form.get("siteLabel") || "").trim(), address: String(form.get("address") || "").trim() }] : [], notes: "" };
+      const contactExtension = formatPhoneExtension(String(form.get("extension") || ""));
+      const client: Client = { id: uid("client"), name: String(form.get("name") || "").trim(), contact: contactName, email: contactEmail, phone: contactPhone, contacts: contactName ? [{ id: uid("client-contact"), name: contactName, role: String(form.get("contactRole") || "").trim(), email: contactEmail, phone: contactPhone, extension: contactExtension }] : [], sites: String(form.get("siteLabel") || "").trim() ? [{ id: uid("site"), label: String(form.get("siteLabel") || "").trim(), address: String(form.get("address") || "").trim() }] : [], notes: "" };
       if (!client.name) return;
       onSubmit({ ...state, clients: [client, ...state.clients] });
       return;
@@ -4454,7 +4477,16 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
       <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><span className="eyebrow">QUICK ADD</span><h2 id="modal-title">{titles[modal.kind]}</h2></div><button aria-label="Close" onClick={onClose}>×</button></header>
         <form onSubmit={handleSubmit}>
-          {modal.kind === "client" && <div className="form-grid two-column"><label className="field full"><span>Client name <b>*</b></span><input name="name" autoFocus required autoComplete="off" /></label><label className="field"><span>First attention contact</span><input name="contact" autoComplete="off" /></label><label className="field"><span>Role / department</span><input name="contactRole" autoComplete="off" /></label><label className="field"><span>Phone</span><input name="phone" inputMode="numeric" autoComplete="tel" maxLength={14} onInput={(event) => { event.currentTarget.value = formatPhoneNumber(event.currentTarget.value); }} /></label><label className="field"><span>Email</span><input name="email" type="email" autoComplete="off" /></label><label className="field"><span>First site label</span><input name="siteLabel" autoComplete="off" placeholder="e.g. Cornwall Armouries" /></label><label className="field"><span>Address</span><input name="address" autoComplete="off" /></label></div>}
+          {modal.kind === "client" && <div className="form-grid two-column">
+            <label className="field full"><span>Client name <b>*</b></span><input name="name" autoFocus required autoComplete="off" /></label>
+            <label className="field"><span>First attention contact</span><input name="contact" autoComplete="off" /></label>
+            <label className="field"><span>Role / department</span><input name="contactRole" autoComplete="off" /></label>
+            <label className="field"><span>Phone</span><input name="phone" inputMode="numeric" autoComplete="tel" maxLength={14} onInput={(event) => { event.currentTarget.value = formatPhoneNumber(event.currentTarget.value); }} /></label>
+            <label className="field"><span>Extension</span><input name="extension" inputMode="numeric" autoComplete="off" placeholder="Ext." onInput={(event) => { event.currentTarget.value = formatPhoneExtension(event.currentTarget.value); }} /></label>
+            <label className="field"><span>Email</span><input name="email" type="email" autoComplete="off" /></label>
+            <label className="field"><span>First site label</span><input name="siteLabel" autoComplete="off" placeholder="e.g. Cornwall Armouries" /></label>
+            <label className="field"><span>Address</span><input name="address" autoComplete="off" /></label>
+          </div>}
           {modal.kind === "vendor" && <div className="form-grid two-column"><div className="field full actual-entry-note"><strong>Subcontractor record</strong><small>When the portal is connected, this list will come from Subs/Suppliers records categorized as Subcontractor.</small></div><label className="field full"><span>Subcontractor company <b>*</b></span><input name="name" autoFocus required /></label><label className="field"><span>Trade / service type</span><input name="trade" placeholder="Painting, electrical…" /></label><label className="field"><span>Contact</span><input name="contact" /></label><label className="field"><span>Email</span><input name="email" type="email" /></label><label className="field"><span>Phone</span><input name="phone" inputMode="numeric" autoComplete="tel" maxLength={14} onInput={(event) => { event.currentTarget.value = formatPhoneNumber(event.currentTarget.value); }} /></label><label className="field full"><span>Notes</span><textarea name="notes" rows={3} /></label></div>}
           {modal.kind === "pricebook" && <div className="form-grid two-column">
             <label className="field full"><span>Product / service name <b>*</b></span><input name="name" autoFocus required placeholder="e.g. Interior painting" /></label>
