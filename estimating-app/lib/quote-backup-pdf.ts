@@ -255,14 +255,14 @@ class BackupPdfBuilder {
     this.drawHeader();
     this.page.drawText(ascii(this.section.toUpperCase()), {
       x: MARGIN,
-      y: 690,
+      y: 642,
       size: 8,
       font: this.bold,
       color: colour.blue,
     });
     this.page.drawText(ascii(continuation ? `${this.section} - continued` : this.section), {
       x: MARGIN,
-      y: 665,
+      y: 617,
       size: continuation ? 17 : 23,
       font: this.bold,
       color: colour.navy,
@@ -270,14 +270,14 @@ class BackupPdfBuilder {
     if (!continuation && this.sectionSubtitle) {
       this.page.drawText(ascii(this.sectionSubtitle), {
         x: MARGIN,
-        y: 646,
+        y: 598,
         size: 8.5,
         font: this.regular,
         color: colour.muted,
       });
-      this.y = 625;
+      this.y = 577;
     } else {
-      this.y = 640;
+      this.y = 592;
     }
   }
 
@@ -315,12 +315,42 @@ class BackupPdfBuilder {
       });
     });
     this.page.drawLine({ start: { x: MARGIN, y: 717 }, end: { x: PAGE_WIDTH - MARGIN, y: 717 }, thickness: 1.5, color: colour.green });
-    this.page.drawText(ascii(`${this.quote.number}  |  Revision ${this.quote.revision}  |  ${this.quote.project || "Project not named"}`), {
+    this.page.drawText(ascii(`${this.quote.number}  |  Revision ${this.quote.revision}`), {
       x: MARGIN,
       y: 705,
       size: 7.5,
       font: this.regular,
       color: colour.muted,
+    });
+
+    const metadataY = 660;
+    const metadataHeight = 35;
+    const projectWidth = 306;
+    const metadataGap = 14;
+    const siteX = MARGIN + projectWidth + metadataGap;
+    const siteWidth = CONTENT_WIDTH - projectWidth - metadataGap;
+    this.page.drawRectangle({
+      x: MARGIN,
+      y: metadataY,
+      width: CONTENT_WIDTH,
+      height: metadataHeight,
+      color: colour.light,
+      borderColor: colour.line,
+      borderWidth: 0.5,
+    });
+    this.page.drawLine({
+      start: { x: siteX - metadataGap / 2, y: metadataY },
+      end: { x: siteX - metadataGap / 2, y: metadataY + metadataHeight },
+      thickness: 0.5,
+      color: colour.line,
+    });
+    this.page.drawText("PROJECT TITLE", { x: MARGIN + 8, y: 685, size: 6.2, font: this.bold, color: colour.blue });
+    this.page.drawText("SITE", { x: siteX + 8, y: 685, size: 6.2, font: this.bold, color: colour.blue });
+    wrapText(this.quote.project || "Project not named", this.bold, 7.1, projectWidth - 16).slice(0, 2).forEach((line, index) => {
+      this.page.drawText(line, { x: MARGIN + 8, y: 672 - index * 9, size: 7.1, font: this.bold, color: colour.navy });
+    });
+    wrapText(this.quote.site || "Site not recorded", this.bold, 7.1, siteWidth - 16).slice(0, 2).forEach((line, index) => {
+      this.page.drawText(line, { x: siteX + 8, y: 672 - index * 9, size: 7.1, font: this.bold, color: colour.navy });
     });
   }
 
