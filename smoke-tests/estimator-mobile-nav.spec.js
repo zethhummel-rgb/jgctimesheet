@@ -822,10 +822,14 @@ test("subcontractor lines allow an optional quote number and separate added cost
   const quoteNumber = mainRow.getByLabel(/Subcontractor quote #/);
   await expect(quoteNumber).toBeEnabled();
   await expect(quoteNumber).toHaveAttribute("placeholder", "Enter quote #");
+  const quoteDescription = mainRow.getByLabel(/Subcontractor quote description/);
+  await expect(quoteDescription).toHaveValue("Demo Painting Vendor");
+  await quoteDescription.fill("Interior painting labour and materials");
   await mainRow.getByRole("button", { name: /Finish/ }).click();
   await expect(page.locator(".line-detail-panel")).toHaveCount(0);
   await quoteNumber.fill("PAINT-2026-81");
   await expect(quoteNumber).toHaveValue("PAINT-2026-81");
+  await expect(quoteDescription).toHaveValue("Interior painting labour and materials");
   await mainRow.getByRole("button", { name: /Edit details/ }).click();
 
   const detail = page.locator(".line-detail-panel");
@@ -857,6 +861,10 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await mainRow.scrollIntoViewIfNeeded();
   await expect.poll(async () => {
     const bounds = await quoteNumber.boundingBox();
+    return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
+  }).toBe(true);
+  await expect.poll(async () => {
+    const bounds = await quoteDescription.boundingBox();
     return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
   }).toBe(true);
 
@@ -967,6 +975,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   const materialsRow = materialsVendor.locator("xpath=ancestor::tr[1]");
   await materialsVendor.fill("Demo Painting");
   await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
+  await materialsRow.getByLabel(/Subcontractor quote description/).fill("Paint materials package");
   await materialsRow.getByLabel(/Subcontractor quote #/).fill("PAINT-MATERIALS-18");
   const materialsDetails = page.locator(".line-detail-panel");
   await materialsDetails.getByLabel(/Actual quoted amount/).fill("1800");
@@ -991,6 +1000,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(poDialog.getByRole("heading", { name: "Combine quotes from Demo Painting Vendor" })).toBeVisible();
   await expect(poDialog).toContainText("PAINT-DEMO");
   await expect(poDialog).toContainText("PAINT-MATERIALS-18");
+  await expect(poDialog).toContainText("Paint materials package");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await poDialog.locator(".po-combine-option").filter({ hasText: "PAINT-DEMO" }).getByRole("checkbox").check();
   await expect(poDialog.getByLabel("Unit cost")).toHaveCount(2);
