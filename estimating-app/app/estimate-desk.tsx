@@ -189,6 +189,27 @@ function formatPhoneNumber(value: string) {
   return ["1", ...sections].join("-");
 }
 
+function purchaseOrderLineFromQuoteLine(line: QuoteLine): PurchaseOrder["lines"][number] {
+  return {
+    id: uid("po-line"),
+    quoteLineId: line.id,
+    description: line.description,
+    quantity: line.quantity,
+    unit: line.unit,
+    unitCost: subcontractorActualUnitCost(line),
+    amount: subcontractorActualDirectCost(line),
+    sourceReference: line.vendorReference,
+  };
+}
+
+function quoteLineVendorKey(state: AppState, line: QuoteLine) {
+  const savedVendor = line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId) : null;
+  const vendorName = (savedVendor?.name ?? line.vendorName ?? "").trim().toLocaleLowerCase();
+  if (vendorName) return `name:${vendorName}`;
+  if (line.vendorId) return `id:${line.vendorId}`;
+  return `line:${line.id}`;
+}
+
 function formatPhoneExtension(value: string) {
   return value.replace(/\D/g, "").slice(0, 8);
 }
@@ -2299,6 +2320,18 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   onSave: (purchaseOrder: PurchaseOrder) => void;
 }) {
   const sourceVendor = sourceLine?.vendorId ? state.vendors.find((vendor) => vendor.id === sourceLine.vendorId) : null;
+  const sourceVendorKey = sourceLine ? quoteLineVendorKey(state, sourceLine) : "";
+  const committedQuoteLineIds = new Set((job.purchaseOrders ?? [])
+    .filter((item) => item.status !== "Void" && item.id !== purchaseOrder?.id)
+    .flatMap((item) => item.lines.map((line) => line.quoteLineId)));
+  const combinableSourceLines = sourceLine
+    ? quote.lines.filter((line) => (
+        line.included
+        && line.costType === "Sub / Vendor"
+        && quoteLineVendorKey(state, line) === sourceVendorKey
+        && !committedQuoteLineIds.has(line.id)
+      ))
+    : [];
   const now = new Date().toISOString();
   const initial: PurchaseOrder = purchaseOrder ?? {
     id: uid("po"),
@@ -2318,16 +2351,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     authorizedBy: state.settings.signatoryName ?? quote.preparedBy ?? "Zeth Hummel",
     taxRate: quote.taxRate,
     notes: "The purchase order number must appear on all invoices and documents relating to this order. Complete only the work described and obtain written approval before any extra work.",
-    lines: sourceLine ? [{
-      id: uid("po-line"),
-      quoteLineId: sourceLine.id,
-      description: sourceLine.description,
-      quantity: sourceLine.quantity,
-      unit: sourceLine.unit,
-      unitCost: subcontractorActualUnitCost(sourceLine),
-      amount: subcontractorActualDirectCost(sourceLine),
-      sourceReference: sourceLine.vendorReference,
-    }] : [],
+    lines: sourceLine ? [purchaseOrderLineFromQuoteLine(sourceLine)] : [],
     createdAt: now,
     updatedAt: now,
   };
@@ -2336,16 +2360,43 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   const subtotal = draft.lines.reduce((sum, line) => sum + line.amount, 0);
   const hst = subtotal * draft.taxRate;
   const update = <K extends keyof PurchaseOrder>(key: K, value: PurchaseOrder[K]) => setDraft((current) => ({ ...current, [key]: value }));
-  const updateLine = (patch: Partial<PurchaseOrder["lines"][number]>) => setDraft((current) => ({
+  const updateLine = (lineId: string, patch: Partial<PurchaseOrder["lines"][number]>) => setDraft((current) => ({
     ...current,
-    lines: current.lines.map((line, index) => index === 0 ? { ...line, ...patch } : line),
+    lines: current.lines.map((line) => line.id === lineId ? { ...line, ...patch } : line),
   }));
+  const updateLineReference = (lineId: string, sourceReference: string) => setDraft((current) => {
+    const lines = current.lines.map((line) => line.id === lineId ? { ...line, sourceReference } : line);
+    return { ...current, lines, vendorQuoteNumber: lines.map((line) => line.sourceReference.trim()).filter(Boolean).join(", ") };
+  });
+  const selectSourceLine = (line: QuoteLine, selected: boolean) => setDraft((current) => {
+    const selectedIds = new Set(current.lines.map((item) => item.quoteLineId));
+    if (selected) selectedIds.add(line.id);
+    else selectedIds.delete(line.id);
+    const currentByQuoteLine = new Map(current.lines.map((item) => [item.quoteLineId, item]));
+    const lines = combinableSourceLines
+      .filter((item) => selectedIds.has(item.id))
+      .map((item) => currentByQuoteLine.get(item.id) ?? purchaseOrderLineFromQuoteLine(item));
+    return { ...current, lines, vendorQuoteNumber: lines.map((item) => item.sourceReference.trim()).filter(Boolean).join(", ") };
+  });
+  const selectAllSourceLines = () => setDraft((current) => {
+    const currentByQuoteLine = new Map(current.lines.map((item) => [item.quoteLineId, item]));
+    const lines = combinableSourceLines.map((line) => currentByQuoteLine.get(line.id) ?? purchaseOrderLineFromQuoteLine(line));
+    return { ...current, lines, vendorQuoteNumber: lines.map((line) => line.sourceReference.trim()).filter(Boolean).join(", ") };
+  });
+  const useSourceLineOnly = () => {
+    if (!sourceLine) return;
+    setDraft((current) => {
+      const line = current.lines.find((item) => item.quoteLineId === sourceLine.id) ?? purchaseOrderLineFromQuoteLine(sourceLine);
+      return { ...current, lines: [line], vendorQuoteNumber: line.sourceReference.trim() };
+    });
+  };
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!draft.number.trim()) return setError("Enter the JGC purchase order number.");
     if (!draft.vendorName.trim()) return setError("Enter the subcontractor company name.");
-    if (!draft.lines.length || !draft.lines[0].description.trim()) return setError("Enter the work being authorized.");
-    if (!(draft.lines[0].amount > 0)) return setError("Enter a purchase order amount above zero.");
+    if (!draft.lines.length) return setError("Select at least one subcontractor quote for this PO.");
+    if (draft.lines.some((line) => !line.description.trim())) return setError("Enter the work being authorized for every selected quote.");
+    if (draft.lines.some((line) => !(line.amount > 0))) return setError("Enter a purchase order amount above zero for every selected quote.");
     onSave({ ...draft, number: draft.number.trim(), vendorName: draft.vendorName.trim(), updatedAt: new Date().toISOString() });
   };
   return (
@@ -2355,11 +2406,29 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
         <form onSubmit={submit}>
           <div className="purchase-order-form">
             <div className="po-source-banner"><div><span>JOB</span><strong>{job.jobNumber} · {job.project}</strong></div><div><span>ACCEPTED QUOTE</span><strong>{quote.number} · Rev {quote.revision}</strong></div></div>
+            {!purchaseOrder && combinableSourceLines.length > 1 && (
+              <section className="po-combine-panel" aria-labelledby="po-combine-title">
+                <div className="po-combine-heading">
+                  <div><span className="eyebrow">SAME SUBCONTRACTOR</span><h3 id="po-combine-title">Combine quotes from {draft.vendorName || "this company"}</h3><p>Select the quotes that belong on this PO. Each quote stays visible as its own authorized line with its original quote number and actual amount.</p></div>
+                  <button type="button" className="button secondary compact" onClick={draft.lines.length === combinableSourceLines.length ? useSourceLineOnly : selectAllSourceLines}>
+                    {draft.lines.length === combinableSourceLines.length ? "Use this quote only" : `Combine all ${combinableSourceLines.length} quotes`}
+                  </button>
+                </div>
+                <div className="po-combine-options">
+                  {combinableSourceLines.map((line) => (
+                    <label className="po-combine-option" key={line.id}>
+                      <input type="checkbox" checked={draft.lines.some((item) => item.quoteLineId === line.id)} onChange={(event) => { selectSourceLine(line, event.target.checked); setError(""); }} />
+                      <span><strong>{line.description || "Subcontractor work"}</strong><small>Quote #{line.vendorReference || "not entered"} · Actual amount {money(subcontractorActualDirectCost(line))}</small></span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            )}
             <div className="form-grid four-column">
               <label className="field"><span>JGC PO number <b>*</b></span><input autoFocus value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
               <label className="field"><span>Status</span><select value={draft.status} onChange={(event) => update("status", event.target.value as PurchaseOrder["status"])}><option>Draft</option><option>Issued</option><option>Void</option></select></label>
-              <label className="field"><span>Vendor quote #</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
+              <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
               <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
               <label className="field"><span>Email</span><input type="email" value={draft.vendorEmail} onChange={(event) => update("vendorEmail", event.target.value)} /></label>
@@ -2372,24 +2441,29 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
               <label className="field"><span>HST rate</span><div className="input-suffix"><input type="number" min="0" step="0.1" value={draft.taxRate * 100} onChange={(event) => update("taxRate", Number(event.target.value) / 100)} /><span>%</span></div></label>
             </div>
             <div className="po-line-editor">
-              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>Subcontractor line</h3></div><span className="po-cost-rule">Uses actual subcontractor quote - no JGC override or customer markup</span></div>
-              {draft.lines.slice(0, 1).map((line) => (
-                <div className="po-line-grid" key={line.id}>
-                  <label className="field po-description"><span>Description</span><textarea rows={3} value={line.description} onChange={(event) => { updateLine({ description: event.target.value }); setError(""); }} /></label>
-                  <label className="field"><span>Qty</span><input type="number" min="0" step="0.01" value={line.quantity} onChange={(event) => { const quantity = Number(event.target.value); updateLine({ quantity, amount: Math.round(quantity * line.unitCost * 100) / 100 }); }} /></label>
-                  <label className="field"><span>Unit</span><input value={line.unit} onChange={(event) => updateLine({ unit: event.target.value })} /></label>
-                  <label className="field"><span>Unit cost</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.unitCost} onChange={(event) => { const unitCost = Number(event.target.value); updateLine({ unitCost, amount: Math.round(line.quantity * unitCost * 100) / 100 }); }} /></div></label>
-                  <label className="field"><span>Pre-tax amount</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.amount} onChange={(event) => { updateLine({ amount: Number(event.target.value) }); setError(""); }} /></div></label>
-                  <label className="field po-reference"><span>Source quote #</span><input value={line.sourceReference} onChange={(event) => { updateLine({ sourceReference: event.target.value }); update("vendorQuoteNumber", event.target.value); }} /></label>
-                </div>
-              ))}
+              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>{draft.lines.length === 1 ? "Subcontractor quote line" : `${draft.lines.length} subcontractor quote lines`}</h3></div><span className="po-cost-rule">Uses actual subcontractor quotes - no JGC override or customer markup</span></div>
+              <div className="po-authorized-lines">
+                {draft.lines.map((line, index) => (
+                  <article className="po-authorized-line" key={line.id}>
+                    {draft.lines.length > 1 && <div className="po-authorized-line-label"><span>QUOTE LINE {index + 1}</span><strong>{line.sourceReference ? `#${line.sourceReference}` : "Quote number not entered"}</strong></div>}
+                    <div className="po-line-grid">
+                      <label className="field po-description"><span>Description</span><textarea rows={3} value={line.description} onChange={(event) => { updateLine(line.id, { description: event.target.value }); setError(""); }} /></label>
+                      <label className="field"><span>Qty</span><input type="number" min="0" step="0.01" value={line.quantity} onChange={(event) => { const quantity = Number(event.target.value); updateLine(line.id, { quantity, amount: Math.round(quantity * line.unitCost * 100) / 100 }); }} /></label>
+                      <label className="field"><span>Unit</span><input value={line.unit} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></label>
+                      <label className="field"><span>Unit cost</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.unitCost} onChange={(event) => { const unitCost = Number(event.target.value); updateLine(line.id, { unitCost, amount: Math.round(line.quantity * unitCost * 100) / 100 }); }} /></div></label>
+                      <label className="field"><span>Pre-tax amount</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="0.01" value={line.amount} onChange={(event) => { updateLine(line.id, { amount: Number(event.target.value) }); setError(""); }} /></div></label>
+                      <label className="field po-reference"><span>Source quote #</span><input value={line.sourceReference} onChange={(event) => updateLineReference(line.id, event.target.value)} /></label>
+                    </div>
+                  </article>
+                ))}
+              </div>
               <div className="po-total-preview"><div><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div><span>HST</span><strong>{money(hst)}</strong></div><div className="grand"><span>Total</span><strong>{money(subtotal + hst)}</strong></div></div>
             </div>
             <label className="field"><span>PO instructions / notes</span><textarea rows={3} value={draft.notes} onChange={(event) => update("notes", event.target.value)} /></label>
             {error && <p className="field-error" role="alert">{error}</p>}
             <div className="estimating-boundary-note"><strong>Saved as a snapshot</strong><p>This PO keeps its own subcontractor, quote number and amount. Later estimate changes will not rewrite it.</p></div>
           </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">{purchaseOrder ? "Save PO changes" : "Create PO"}</button></footer>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">{purchaseOrder ? "Save PO changes" : draft.lines.length > 1 ? "Create combined PO" : "Create PO"}</button></footer>
         </form>
       </section>
     </div>

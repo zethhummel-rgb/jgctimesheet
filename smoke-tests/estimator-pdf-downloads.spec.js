@@ -74,7 +74,7 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
       vendorContact: "Andrew Jarvo",
       vendorEmail: "ajarvo@iecbl.ca",
       vendorPhone: "6138897236",
-      vendorQuoteNumber: "2026-0826-01",
+      vendorQuoteNumber: "2026-0826-01, 2026-0826-02",
       issueDate: "2026-08-28",
       shipBy: "Your Means",
       shipVia: "Your Means",
@@ -83,7 +83,10 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
       authorizedBy: "Zeth Hummel",
       taxRate: 0.13,
       notes: "The purchase order number must appear on all invoices and documents relating to this order.",
-      lines: [{ description: "Industrial Electric Contractors Brockville Limited", sourceReference: "2026-0826-01", quantity: 1, unit: "LS", unitCost: 1971, amount: 1971 }],
+      lines: [
+        { description: "Electrical installation labour", sourceReference: "2026-0826-01", quantity: 1, unit: "LS", unitCost: 1200, amount: 1200 },
+        { description: "Occupancy light materials", sourceReference: "2026-0826-02", quantity: 1, unit: "LS", unitCost: 771, amount: 771 },
+      ],
     },
   };
   await page.goto("/estimating/index.html?dev=1");
@@ -100,12 +103,17 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
   const vendorItems = items.filter((item) => item.y >= 550 && item.y <= 575 && /Industrial|Brockville Limited/.test(item.text));
   const jobItems = items.filter((item) => item.y >= 560 && item.y <= 580 && /Public Washroom|Occupancy Light/.test(item.text));
   const dateItem = items.find((item) => item.text === "August 28, 2026");
+  const pdfText = items.map((item) => item.text).join(" ");
   expect(vendorItems.map((item) => item.text).join(" ")).toContain("Industrial Electric Contractors Brockville Limited");
   expect(jobItems.map((item) => item.text).join(" ")).toContain("Public Washroom Occupancy Light");
   expect(vendorItems.every((item) => item.x >= 52 && item.x + item.width <= 282)).toBe(true);
   expect(jobItems.every((item) => item.x >= 318 && item.x + item.width <= 560)).toBe(true);
   expect(dateItem).toBeTruthy();
   expect(dateItem.y).toBeGreaterThanOrEqual(504);
+  expect(pdfText).toContain("Electrical installation labour");
+  expect(pdfText).toContain("Occupancy light materials");
+  expect(pdfText).toContain("2026-0826-01");
+  expect(pdfText).toContain("2026-0826-02");
   expect(result.filename).toBe("JGC-PO-26122 - Industrial Electric Contractors Brockville Limited - Public Washroom Occupancy Light.pdf");
 });
 
