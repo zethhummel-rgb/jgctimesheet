@@ -189,18 +189,39 @@ test("new sites and contacts start blank with faint prompts and Estimator phone 
 
   const newContactName = page.getByRole("textbox", { name: "Contact name" }).last();
   const newContactPhone = page.getByRole("textbox", { name: "Contact phone" }).last();
+  const newContactExtension = page.getByRole("textbox", { name: "Contact extension" }).last();
   await expect(newContactName).toHaveValue("");
   await expect(newContactName).toHaveAttribute("placeholder", "New contact");
   await expect(newContactPhone).toHaveAttribute("inputmode", "numeric");
   await expect(newContactPhone).toHaveAttribute("maxlength", "14");
   await newContactPhone.fill("abc6131231234xyz");
   await expect(newContactPhone).toHaveValue("1-613-123-1234");
+  await expect(newContactExtension).toHaveValue("");
+  await expect(newContactExtension).toHaveAttribute("placeholder", "Ext.");
+  await expect(newContactExtension).toHaveAttribute("inputmode", "numeric");
+  await newContactExtension.fill("Ext. 2468");
+  await expect(newContactExtension).toHaveValue("2468");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("button", { name: "Edit client", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Contact extension" }).last()).toHaveValue("2468");
 
   await page.getByRole("button", { name: "Add client" }).click();
-  const dialogPhone = page.getByRole("dialog").getByRole("textbox", { name: "Phone" });
+  const dialog = page.getByRole("dialog");
+  const dialogPhone = dialog.getByRole("textbox", { name: "Phone" });
+  const dialogExtension = dialog.getByRole("textbox", { name: "Extension" });
+  await dialog.getByRole("textbox", { name: /Client name/ }).fill("Extension Test Client");
+  await dialog.getByRole("textbox", { name: "First attention contact" }).fill("Pat Contact");
   await dialogPhone.fill("16135559876");
   await expect(dialogPhone).toHaveValue("1-613-555-9876");
   await expect(dialogPhone).toHaveAttribute("inputmode", "numeric");
+  await dialogExtension.fill("x321");
+  await expect(dialogExtension).toHaveValue("321");
+  await expect(dialogExtension).toHaveAttribute("placeholder", "Ext.");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  const savedClient = page.locator(".entity-card").filter({ hasText: "Extension Test Client" });
+  await savedClient.getByRole("button", { name: "Edit client" }).click();
+  await expect(savedClient.getByRole("textbox", { name: "Contact phone" })).toHaveValue("1-613-555-9876");
+  await expect(savedClient.getByRole("textbox", { name: "Contact extension" })).toHaveValue("321");
 });
 
 test("mobile proposal cost-breakdown choices stay readable and contained", async ({ page }) => {
