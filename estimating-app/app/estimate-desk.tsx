@@ -26,6 +26,7 @@ import {
   preciseLineDirectCost,
   proposalSignatoryName,
   quoteTotals,
+  roundMoney,
   subcontractorActualDirectCost,
   subcontractorActualUnitCost,
   type AppState,
@@ -1448,6 +1449,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       archivedAt: "",
       acceptedRevenue: totals.subtotal,
       originalCostBudget: totals.directCost,
+      acceptedQuoteRevision: quote.revision,
+      acceptedQuoteSnapshot: frozenQuoteSnapshot(quote),
       approvedRevenueChanges: 0,
       approvedCostChanges: 0,
       estimateToComplete: totals.directCost,
@@ -4403,11 +4406,86 @@ function portalLabourTotals(actuals: PortalLabourActual[]) {
   }), { hours: 0, submittedHours: 0, provisionalHours: 0, loadedCost: 0, missingRateHours: 0 });
 }
 
+function acceptedQuoteBasis(job: Job, linkedQuote: Quote | undefined) {
+  const savedAcceptedQuote = savedRevisionQuote(job.acceptedQuoteSnapshot ?? "");
+  if (savedAcceptedQuote) {
+    return {
+      quote: savedAcceptedQuote,
+      revision: job.acceptedQuoteRevision ?? savedAcceptedQuote.revision,
+    };
+  }
+  if (!linkedQuote) return { quote: null, revision: null };
+  const acceptedAt = Date.parse(job.acceptedAt);
+  const acceptedRevision = linkedQuote.revisions
+    .map((revision) => ({ revision, quote: savedRevisionQuote(revision.snapshot) }))
+    .filter((entry) => entry.quote && (!Number.isFinite(acceptedAt) || Date.parse(entry.revision.issuedAt) <= acceptedAt + 60_000))
+    .sort((left, right) => right.revision.revision - left.revision.revision)[0];
+  if (acceptedRevision?.quote) return { quote: acceptedRevision.quote, revision: acceptedRevision.revision.revision };
+  return { quote: linkedQuote, revision: linkedQuote.revision };
+}
+
+function isLabourHourUnit(unit: string) {
+  return /^(?:h|hr|hrs|hour|hours)$/i.test(unit.trim());
+}
+
+function labourBudgetForQuote(quote: Quote | null) {
+  let carriedCost = 0;
+  let carriedHours = 0;
+  let labourSources = 0;
+  let unitemizedHourSources = 0;
+  let unallocatedMixedCost = 0;
+  let unallocatedMixedLines = 0;
+  if (!quote) return { carriedCost, carriedHours, labourSources, unitemizedHourSources, unallocatedMixedCost, unallocatedMixedLines };
+
+  quote.lines.filter((line) => line.included).forEach((line) => {
+    const lineQuantity = Math.max(0, line.quantity || 0);
+    if (line.costBuildUp) {
+      const labourItems = line.costBuildUp.items.filter((item) => item.kind === "Labour");
+      const buildUpTotals = lineBuildUpTotals(line);
+      const directCostBeforeRounding = buildUpTotals.total * lineQuantity;
+      const labourCostBeforeRounding = buildUpTotals.labour * lineQuantity;
+      if (labourCostBeforeRounding > 0) {
+        carriedCost += directCostBeforeRounding > 0
+          ? lineDirectCost(line) * (labourCostBeforeRounding / directCostBeforeRounding)
+          : labourCostBeforeRounding;
+        labourSources += 1;
+        const hourlyItems = labourItems.filter((item) => isLabourHourUnit(item.unit));
+        carriedHours += hourlyItems.reduce((sum, item) => sum + Math.max(0, item.quantity || 0) * lineQuantity, 0);
+        if (hourlyItems.length !== labourItems.length) unitemizedHourSources += 1;
+      }
+      return;
+    }
+    if (line.costType === "Labour") {
+      carriedCost += lineDirectCost(line);
+      labourSources += 1;
+      if (isLabourHourUnit(line.unit)) carriedHours += lineQuantity;
+      else unitemizedHourSources += 1;
+      return;
+    }
+    if (line.costType === "Labour & Materials") {
+      unallocatedMixedCost += lineDirectCost(line);
+      unallocatedMixedLines += 1;
+    }
+  });
+
+  return {
+    carriedCost: roundMoney(carriedCost),
+    carriedHours: roundMoney(carriedHours),
+    labourSources,
+    unitemizedHourSources,
+    unallocatedMixedCost: roundMoney(unallocatedMixedCost),
+    unallocatedMixedLines,
+  };
+}
+
 function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   const manualActual = job.costs.filter((entry) => entry.type !== "Commitment").reduce((sum, entry) => sum + entry.preTaxAmount, 0);
-  const manualLabourHours = job.costs.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
+  const manualLabourEntries = job.costs.filter((entry) => entry.type === "Labour");
+  const manualLabourCost = manualLabourEntries.reduce((sum, entry) => sum + entry.preTaxAmount, 0);
+  const manualLabourHours = manualLabourEntries.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
   const portalLabour = portalLabourTotals(portalActuals);
   const actual = manualActual + portalLabour.loadedCost;
+  const actualLabourCost = manualLabourCost + portalLabour.loadedCost;
   const labourHours = manualLabourHours + portalLabour.hours;
   const revisedRevenue = job.acceptedRevenue + job.approvedRevenueChanges;
   const revisedBudget = job.originalCostBudget + job.approvedCostChanges;
@@ -4415,7 +4493,7 @@ function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   const profit = revisedRevenue - forecastCost;
   const margin = revisedRevenue > 0 ? profit / revisedRevenue : 0;
   const variance = revisedBudget - forecastCost;
-  return { actual, manualActual, manualLabourHours, portalLabour, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
+  return { actual, manualActual, manualLabourCost, manualLabourHours, portalLabour, actualLabourCost, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
 }
 
 function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
@@ -4446,6 +4524,12 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
     const jobPortalLabour = portalLabourForJob(job, portalLabourActuals);
     const totals = jobTotals(job, jobPortalLabour);
     const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
+    const acceptedBasis = acceptedQuoteBasis(job, linkedQuote);
+    const labourBudget = labourBudgetForQuote(acceptedBasis.quote);
+    const labourRemaining = roundMoney(labourBudget.carriedCost - totals.actualLabourCost);
+    const labourBudgetUsed = labourBudget.carriedCost > 0 ? totals.actualLabourCost / labourBudget.carriedCost : null;
+    const labourHoursAreComplete = labourBudget.labourSources > 0 && labourBudget.unitemizedHourSources === 0;
+    const labourHoursRemaining = labourHoursAreComplete ? roundMoney(labourBudget.carriedHours - totals.labourHours) : null;
     const quoteReference = linkedQuote?.number ?? "Quote unavailable";
     const subcontractLines = linkedQuote?.lines.filter((line) => line.included && line.costType === "Sub / Vendor") ?? [];
     const purchaseOrders = job.purchaseOrders ?? [];
@@ -4465,7 +4549,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
         <section className="job-kpi-grid">
           <div><span>Accepted quote</span><strong>{money(totals.revisedRevenue)}</strong><small>Pre-tax estimate</small></div>
           <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>
-          <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current` : "No Portal hours yet"}</small></div>
+          <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current${totals.manualLabourHours > 0 ? ` · ${numberFormatter.format(totals.manualLabourHours)} adjustment` : ""}` : totals.manualLabourHours > 0 ? `${numberFormatter.format(totals.manualLabourHours)} manual adjustment` : "No Portal hours yet"}</small></div>
           <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
         </section>
         <section className="panel subcontract-po-panel">
@@ -4523,18 +4607,37 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
             </div>
             {!job.costs.length && <div className="empty-state compact-empty"><span>$</span><h3>No other actuals entered</h3><p>Employee labour appears automatically above. Add supplier, material, subcontractor, equipment or other job costs here.</p></div>}
           </section>
-          <aside className="panel forecast-panel">
-            <div className="panel-heading"><div><span className="eyebrow">ESTIMATE CHECK</span><h2>Cost outlook</h2></div></div>
-            <div className="forecast-lines">
-              <div><span>Accepted estimate cost</span><strong>{money(job.originalCostBudget)}</strong></div>
-              <div><span>Actual cost to date</span><strong>{money(totals.actual)}</strong></div>
-              <div className="forecast-subtotal"><span>Estimate remaining</span><strong>{money(job.originalCostBudget - totals.actual)}</strong></div>
-              <label><span>Estimated cost still to come</span><div className="input-prefix"><span>$</span><input type="number" value={job.estimateToComplete} onChange={(event) => setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.id === job.id ? { ...item, estimateToComplete: Number(event.target.value) } : item) }))} /></div></label>
-              <div className="forecast-grand"><span>Forecast final cost</span><strong>{money(totals.forecastCost)}</strong></div>
-              <div className={totals.variance < 0 ? "text-danger" : "text-success"}><span>Estimate variance</span><strong>{money(totals.variance)}</strong></div>
-            </div>
-            <label className="field"><span>Estimate follow-up notes</span><textarea rows={4} value={job.notes} onChange={(event) => setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.id === job.id ? { ...item, notes: event.target.value } : item) }))} /></label>
-          </aside>
+          <div className="job-insight-column">
+            <aside className={`panel labour-comparison-panel ${labourRemaining < 0 ? "is-over" : "is-within"}`}>
+              <div className="panel-heading"><div><span className="eyebrow">LABOUR CHECK · ACCEPTED REV {acceptedBasis.revision ?? "—"}</span><h2>Labour budget vs actual</h2><p>Compares direct labour carried in the accepted estimate with Portal-loaded labour and manual labour adjustments.</p></div></div>
+              <div className="labour-comparison-summary">
+                <div><span>Carried labour</span><strong>{money(labourBudget.carriedCost)}</strong><small>Accepted direct cost</small></div>
+                <div><span>Actual labour</span><strong>{money(totals.actualLabourCost)}</strong><small>{totals.manualLabourCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal · ${money(totals.manualLabourCost)} adjustment` : "Portal loaded cost"}</small></div>
+              </div>
+              <div className="labour-comparison-lines">
+                <div className={labourRemaining < 0 ? "text-danger" : "text-success"}><span>{labourRemaining < 0 ? "Over carried labour" : "Labour remaining"}</span><strong>{money(Math.abs(labourRemaining))}</strong></div>
+                <div><span>Labour budget used</span><strong>{labourBudgetUsed === null ? "—" : percent(labourBudgetUsed)}</strong></div>
+                <div><span>Carried hours</span><strong>{labourBudget.carriedHours > 0 ? `${numberFormatter.format(labourBudget.carriedHours)}${labourBudget.unitemizedHourSources > 0 ? "+" : ""}` : "Not itemized"}</strong></div>
+                <div><span>Actual hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong></div>
+                <div><span>Hours variance</span><strong className={labourHoursRemaining !== null && labourHoursRemaining < 0 ? "text-danger" : labourHoursRemaining !== null ? "text-success" : ""}>{labourHoursRemaining === null ? "Needs full estimate hours" : labourHoursRemaining < 0 ? `${numberFormatter.format(Math.abs(labourHoursRemaining))} over` : `${numberFormatter.format(labourHoursRemaining)} remaining`}</strong></div>
+              </div>
+              {labourBudget.unallocatedMixedLines > 0 && <div className="labour-comparison-note warning"><strong>Mixed cost not guessed</strong><p>{money(labourBudget.unallocatedMixedCost)} across {labourBudget.unallocatedMixedLines} Labour &amp; Materials line{labourBudget.unallocatedMixedLines === 1 ? " is" : "s are"} not included because the accepted estimate has no labour/material split.</p></div>}
+              {labourBudget.labourSources === 0 && <div className="labour-comparison-note warning"><strong>No separate labour was carried</strong><p>Add explicit Labour rows or a built-up labour worksheet on future estimates to create an exact comparison.</p></div>}
+              {totals.portalLabour.missingRateHours > 0 && <div className="labour-comparison-note warning"><strong>Actual labour cost is incomplete</strong><p>{numberFormatter.format(totals.portalLabour.missingRateHours)} hour{totals.portalLabour.missingRateHours === 1 ? " is" : "s are"} waiting for an effective employee rate.</p></div>}
+            </aside>
+            <aside className="panel forecast-panel">
+              <div className="panel-heading"><div><span className="eyebrow">ESTIMATE CHECK</span><h2>Cost outlook</h2></div></div>
+              <div className="forecast-lines">
+                <div><span>Accepted estimate cost</span><strong>{money(job.originalCostBudget)}</strong></div>
+                <div><span>Actual cost to date</span><strong>{money(totals.actual)}</strong></div>
+                <div className="forecast-subtotal"><span>Estimate remaining</span><strong>{money(job.originalCostBudget - totals.actual)}</strong></div>
+                <label><span>Estimated cost still to come</span><div className="input-prefix"><span>$</span><input type="number" value={job.estimateToComplete} onChange={(event) => setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.id === job.id ? { ...item, estimateToComplete: Number(event.target.value) } : item) }))} /></div></label>
+                <div className="forecast-grand"><span>Forecast final cost</span><strong>{money(totals.forecastCost)}</strong></div>
+                <div className={totals.variance < 0 ? "text-danger" : "text-success"}><span>Estimate variance</span><strong>{money(totals.variance)}</strong></div>
+              </div>
+              <label className="field"><span>Estimate follow-up notes</span><textarea rows={4} value={job.notes} onChange={(event) => setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.id === job.id ? { ...item, notes: event.target.value } : item) }))} /></label>
+            </aside>
+          </div>
         </div>
       </div>
     );

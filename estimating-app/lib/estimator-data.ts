@@ -306,6 +306,8 @@ export interface Job {
   archivedAt?: string;
   acceptedRevenue: number;
   originalCostBudget: number;
+  acceptedQuoteRevision?: number;
+  acceptedQuoteSnapshot?: string;
   approvedRevenueChanges: number;
   approvedCostChanges: number;
   estimateToComplete: number;
@@ -1042,6 +1044,8 @@ export function normalizeAppState(state: AppState): AppState {
       portalActive: job.portalActive ?? null,
       portalLastSyncedAt: job.portalLastSyncedAt ?? "",
       archivedAt: job.archivedAt ?? "",
+      acceptedQuoteRevision: Number.isFinite(job.acceptedQuoteRevision) ? Number(job.acceptedQuoteRevision) : undefined,
+      acceptedQuoteSnapshot: typeof job.acceptedQuoteSnapshot === "string" ? job.acceptedQuoteSnapshot : "",
       purchaseOrders: Array.isArray(job.purchaseOrders)
         ? job.purchaseOrders.map((purchaseOrder) => ({
             ...purchaseOrder,
