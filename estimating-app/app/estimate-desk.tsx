@@ -322,9 +322,11 @@ async function downloadPurchaseOrder(state: AppState, job: Job, purchaseOrder: P
   try {
     const { downloadPurchaseOrderPdf } = await purchaseOrderPdfModule;
     await downloadPurchaseOrderPdf({ state, job, purchaseOrder });
+    return true;
   } catch (error) {
     console.error("Unable to create purchase order PDF", error);
     window.alert("The purchase order PDF could not be created. The PO is still safely saved. Refresh this page and try again.");
+    return false;
   }
 }
 
@@ -334,6 +336,33 @@ function frozenQuoteSnapshot(quote: Quote) {
     status: "Finished" as const,
     revisions: [],
   });
+}
+
+function purchaseOrderSubtotal(purchaseOrder: PurchaseOrder) {
+  return Math.round(purchaseOrder.lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0) * 100) / 100;
+}
+
+function frozenPurchaseOrderSnapshot(purchaseOrder: PurchaseOrder) {
+  return JSON.stringify({
+    ...purchaseOrder,
+    status: "Issued" as const,
+    revisions: [],
+  });
+}
+
+function savedPurchaseOrderSnapshot(snapshot: string): PurchaseOrder | null {
+  try {
+    const parsed = JSON.parse(snapshot) as PurchaseOrder;
+    return parsed && Array.isArray(parsed.lines) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function purchaseOrderStatusLabel(purchaseOrder: PurchaseOrder) {
+  if (purchaseOrder.status === "Issued") return "Final";
+  if (purchaseOrder.status === "Draft") return `Revision ${purchaseOrder.revision} in progress`;
+  return "Void";
 }
 
 function percent(value: number, digits = 1) {
@@ -1540,9 +1569,78 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           };
         }),
       };
-      return addActivity(next, purchaseOrderJob.quoteId, existingPurchaseOrder ? "Purchase order updated" : "Purchase order created", `${purchaseOrder.number} for ${purchaseOrder.vendorName}.`);
+      return addActivity(
+        next,
+        purchaseOrderJob.quoteId,
+        existingPurchaseOrder ? "Purchase order revision saved" : "Final purchase order created",
+        `${purchaseOrder.number} Rev ${purchaseOrder.revision} for ${purchaseOrder.vendorName}${existingPurchaseOrder ? " remains editable until its PDF is downloaded." : " was saved as Final."}`,
+      );
     });
     setPurchaseOrderEditor(null);
+  };
+
+  const openPurchaseOrder = (jobId: string, purchaseOrderId: string) => {
+    const sourceJob = state.jobs.find((job) => job.id === jobId);
+    const sourcePurchaseOrder = sourceJob?.purchaseOrders?.find((purchaseOrder) => purchaseOrder.id === purchaseOrderId);
+    if (!sourceJob || !sourcePurchaseOrder || sourcePurchaseOrder.status === "Void") return;
+    if (sourcePurchaseOrder.status === "Draft") {
+      setPurchaseOrderEditor({ jobId, purchaseOrderId });
+      return;
+    }
+    const nextRevision = sourcePurchaseOrder.revision + 1;
+    setState((current) => {
+      const next = {
+        ...current,
+        jobs: current.jobs.map((job) => {
+          if (job.id !== jobId) return job;
+          return {
+            ...job,
+            purchaseOrders: (job.purchaseOrders ?? []).map((purchaseOrder) => {
+              if (purchaseOrder.id !== purchaseOrderId || purchaseOrder.status !== "Issued") return purchaseOrder;
+              const revisions = purchaseOrder.revisions.some((revision) => revision.revision === purchaseOrder.revision)
+                ? purchaseOrder.revisions
+                : [...purchaseOrder.revisions, {
+                    id: uid("po-revision"),
+                    revision: purchaseOrder.revision,
+                    finalizedAt: purchaseOrder.finalizedAt || purchaseOrder.updatedAt,
+                    subtotal: purchaseOrderSubtotal(purchaseOrder),
+                    snapshot: frozenPurchaseOrderSnapshot(purchaseOrder),
+                  }];
+              return {
+                ...purchaseOrder,
+                revision: nextRevision,
+                status: "Draft" as const,
+                finalizedAt: "",
+                revisions,
+                updatedAt: new Date().toISOString(),
+              };
+            }),
+          };
+        }),
+      };
+      return addActivity(next, sourceJob.quoteId, "Purchase order revision opened", `${sourcePurchaseOrder.number} Rev ${sourcePurchaseOrder.revision} was frozen in PO History. Revision ${nextRevision} is now editable.`);
+    });
+    setPurchaseOrderEditor({ jobId, purchaseOrderId });
+  };
+
+  const downloadAndFinalizePurchaseOrder = async (jobId: string, purchaseOrderId: string) => {
+    const current = latestState.current;
+    const job = current.jobs.find((item) => item.id === jobId);
+    const purchaseOrder = job?.purchaseOrders?.find((item) => item.id === purchaseOrderId);
+    if (!job || !purchaseOrder) return;
+    const finalizedAt = new Date().toISOString();
+    const printable = purchaseOrder.status === "Draft"
+      ? { ...purchaseOrder, status: "Issued" as const, finalizedAt, updatedAt: finalizedAt }
+      : purchaseOrder;
+    const succeeded = await downloadPurchaseOrder(current, job, printable);
+    if (!succeeded || purchaseOrder.status !== "Draft") return;
+    setState((saved) => addActivity({
+      ...saved,
+      jobs: saved.jobs.map((item) => item.id !== jobId ? item : {
+        ...item,
+        purchaseOrders: (item.purchaseOrders ?? []).map((po) => po.id === purchaseOrderId ? printable : po),
+      }),
+    }, job.quoteId, "Purchase order revision finalized", `${printable.number} Rev ${printable.revision} was downloaded and locked as Final.`));
   };
 
   const renderContent = () => {
@@ -1569,7 +1667,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             setExpandedLineId={setExpandedLineId}
             catalogToAdd={catalogToAdd}
             setCatalogToAdd={setCatalogToAdd}
-            onEditPurchaseOrder={(jobId, purchaseOrderId) => setPurchaseOrderEditor({ jobId, purchaseOrderId })}
+            onEditPurchaseOrder={openPurchaseOrder}
+            onDownloadPurchaseOrder={downloadAndFinalizePurchaseOrder}
           />
         );
       }
@@ -1616,7 +1715,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onAddCost={(jobId) => setModal({ kind: "jobCost", jobId })}
           onOpenQuote={openQuote}
           onCreatePurchaseOrder={(jobId, lineId) => setPurchaseOrderEditor({ jobId, lineId })}
-          onEditPurchaseOrder={(jobId, purchaseOrderId) => setPurchaseOrderEditor({ jobId, purchaseOrderId })}
+          onEditPurchaseOrder={openPurchaseOrder}
+          onDownloadPurchaseOrder={downloadAndFinalizePurchaseOrder}
           portalLabourActuals={portalLabourActuals}
           jobCostingStatus={jobCostingStatus}
           jobCostingMessage={jobCostingMessage}
@@ -2373,7 +2473,8 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   const initial: PurchaseOrder = purchaseOrder ?? {
     id: uid("po"),
     number: job.jobNumber,
-    status: "Draft",
+    revision: 0,
+    status: "Issued",
     vendorId: sourceVendor?.id ?? sourceLine?.vendorId ?? null,
     vendorName: sourceVendor?.name ?? sourceLine?.vendorName?.trim() ?? "",
     vendorContact: sourceVendor?.contact ?? "",
@@ -2389,6 +2490,8 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     taxRate: quote.taxRate,
     notes: "The purchase order number must appear on all invoices and documents relating to this order. Complete only the work described and obtain written approval before any extra work.",
     lines: sourceLine ? [purchaseOrderLineFromQuoteLine(sourceLine)] : [],
+    revisions: [],
+    finalizedAt: now,
     createdAt: now,
     updatedAt: now,
   };
@@ -2439,7 +2542,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   return (
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <section className="modal-card purchase-order-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-order-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">SUBCONTRACTOR COMMITMENT</span><h2 id="purchase-order-title">{purchaseOrder ? `Edit PO ${purchaseOrder.number}` : "Create purchase order"}</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
+        <header><div><span className="eyebrow">SUBCONTRACTOR COMMITMENT</span><h2 id="purchase-order-title">{purchaseOrder ? `Edit PO ${purchaseOrder.number} · Revision ${purchaseOrder.revision}` : "Create purchase order"}</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
         <form onSubmit={submit}>
           <div className="purchase-order-form">
             <div className="po-source-banner"><div><span>JOB</span><strong>{job.jobNumber} · {job.project}</strong></div><div><span>ACCEPTED QUOTE</span><strong>{quote.number} · Rev {quote.revision}</strong></div></div>
@@ -2464,7 +2567,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
             <div className="form-grid four-column">
               <label className="field"><span>JGC PO number <b>*</b></span><input autoFocus value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
-              <label className="field"><span>Status</span><select value={draft.status} onChange={(event) => update("status", event.target.value as PurchaseOrder["status"])}><option>Draft</option><option>Issued</option><option>Void</option></select></label>
+              <div className="field po-lifecycle-field"><span>Status</span><strong>{purchaseOrder ? `Revision ${draft.revision} in progress` : "Final when created"}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
               <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
@@ -2498,9 +2601,9 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
             </div>
             <label className="field"><span>PO instructions / notes</span><textarea rows={3} value={draft.notes} onChange={(event) => update("notes", event.target.value)} /></label>
             {error && <p className="field-error" role="alert">{error}</p>}
-            <div className="estimating-boundary-note"><strong>Saved as a snapshot</strong><p>This PO keeps its own subcontractor, quote number and amount. Later estimate changes will not rewrite it.</p></div>
+            <div className="estimating-boundary-note"><strong>{purchaseOrder ? "Revision is safely separated" : "Created as a Final PO"}</strong><p>{purchaseOrder ? `Revision ${draft.revision - 1} is frozen in PO History. Save this work as needed; Revision ${draft.revision} becomes Final and locks when its PDF is downloaded.` : "This PO is locked as Final as soon as it is created. Use Revise PO later to preserve this version in History before making a change."}</p></div>
           </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">{purchaseOrder ? "Save PO changes" : draft.lines.length > 1 ? "Create combined PO" : "Create PO"}</button></footer>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">{purchaseOrder ? "Save revision" : draft.lines.length > 1 ? "Create final combined PO" : "Create final PO"}</button></footer>
         </form>
       </section>
     </div>
@@ -2678,6 +2781,7 @@ function QuoteWorkspace({
   catalogToAdd,
   setCatalogToAdd,
   onEditPurchaseOrder,
+  onDownloadPurchaseOrder,
 }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
@@ -2697,6 +2801,7 @@ function QuoteWorkspace({
   catalogToAdd: string;
   setCatalogToAdd: (code: string) => void;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
+  onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
 }) {
   const [revisionConfirmOpen, setRevisionConfirmOpen] = useState(false);
   const [pdfDownloadMenuOpen, setPdfDownloadMenuOpen] = useState(false);
@@ -2777,7 +2882,7 @@ function QuoteWorkspace({
         {tab === "review" && <QuoteReview state={state} quote={quote} locked={locked} mutateQuote={mutateQuote} setTab={setTab} finalizeQuote={finalizeQuote} duplicateQuote={duplicateQuote} />}
         {tab === "divisions" && <QuoteDivisions quote={quote} />}
         {tab === "proposal" && <QuoteProposal state={state} quote={quote} />}
-        {tab === "purchase-orders" && linkedJob && <QuotePurchaseOrders state={state} quote={quote} job={linkedJob} onEditPurchaseOrder={onEditPurchaseOrder} />}
+        {tab === "purchase-orders" && linkedJob && <QuotePurchaseOrders state={state} quote={quote} job={linkedJob} onEditPurchaseOrder={onEditPurchaseOrder} onDownloadPurchaseOrder={onDownloadPurchaseOrder} />}
         {tab === "history" && <QuoteHistory state={state} quote={quote} />}
       </div>
 
@@ -3730,11 +3835,33 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
   );
 }
 
-function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder }: {
+function PurchaseOrderHistory({ state, job, purchaseOrder }: { state: AppState; job: Job; purchaseOrder: PurchaseOrder }) {
+  if (!purchaseOrder.revisions.length) return null;
+  return (
+    <details className="po-revision-history">
+      <summary>History ({purchaseOrder.revisions.length})</summary>
+      <div>
+        {[...purchaseOrder.revisions].reverse().map((revision) => {
+          const snapshot = savedPurchaseOrderSnapshot(revision.snapshot);
+          return (
+            <article key={revision.id}>
+              <span><strong>Revision {revision.revision}</strong><small>Final · {shortDate(revision.finalizedAt)}</small></span>
+              <span><strong>{money(revision.subtotal)}</strong><small>Pre-tax</small></span>
+              <button type="button" className="button secondary compact" disabled={!snapshot} onClick={() => { if (snapshot) void downloadPurchaseOrder(state, job, snapshot); }}>Download</button>
+            </article>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder, onDownloadPurchaseOrder }: {
   state: AppState;
   quote: Quote;
   job: Job;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
+  onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
 }) {
   const purchaseOrders = job.purchaseOrders ?? [];
   const activePurchaseOrders = purchaseOrders.filter((purchaseOrder) => purchaseOrder.status !== "Void");
@@ -3757,14 +3884,14 @@ function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder }: {
 
       <section className="quote-po-kpis" aria-label="Purchase order summary">
         <div><span>Total POs</span><strong>{purchaseOrders.length}</strong><small>Attached to this quote</small></div>
-        <div><span>Issued</span><strong>{issuedCount}</strong><small>Released commitments</small></div>
-        <div><span>Draft</span><strong>{draftCount}</strong><small>Still being prepared</small></div>
+        <div><span>Final</span><strong>{issuedCount}</strong><small>Locked commitments</small></div>
+        <div><span>Revisions</span><strong>{draftCount}</strong><small>Currently in progress</small></div>
         <div><span>Job</span><strong>{job.jobNumber}</strong><small>{job.status} · {quote.project || "Project not named"}</small></div>
       </section>
 
       <section className="panel subcontract-po-panel quote-po-list-panel">
         <div className="panel-heading">
-          <div><span className="eyebrow">PURCHASE ORDER REGISTER</span><h2>Attached purchase orders</h2><p>Edit or download a PO here without leaving the quote.</p></div>
+          <div><span className="eyebrow">PURCHASE ORDER REGISTER</span><h2>Attached purchase orders</h2><p>Final POs stay locked. Start a revision to make changes without replacing the previous version.</p></div>
           <span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span>
         </div>
         <div className="data-table-wrap">
@@ -3774,15 +3901,16 @@ function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder }: {
               const preTax = purchaseOrder.lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
               return (
                 <tr key={purchaseOrder.id}>
-                  <td data-label="PO number"><strong>{purchaseOrder.number || "Not assigned"}</strong></td>
+                  <td data-label="PO number"><strong>{purchaseOrder.number || "Not assigned"}</strong><small>Revision {purchaseOrder.revision}</small></td>
                   <td data-label="Subcontractor"><strong>{purchaseOrder.vendorName || "Not recorded"}</strong><small>{purchaseOrder.vendorContact || purchaseOrder.vendorEmail || "No contact selected"}</small></td>
                   <td data-label="Vendor quote #">{purchaseOrder.vendorQuoteNumber || "—"}</td>
                   <td data-label="PO date">{shortDate(purchaseOrder.issueDate)}</td>
-                  <td data-label="Status"><span className={`po-status po-${purchaseOrder.status.toLowerCase()}`}>{purchaseOrder.status}</span></td>
+                  <td data-label="Status"><span className={`po-status po-${purchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(purchaseOrder)}</span></td>
                   <td data-label="Pre-tax"><strong>{money(preTax)}</strong></td>
                   <td className="po-row-actions">
-                    <button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, purchaseOrder.id)}>Edit PO</button>
-                    <button className="button primary compact" onClick={() => void downloadPurchaseOrder(state, job, purchaseOrder)}>Download PDF</button>
+                    <button className="button secondary compact" disabled={purchaseOrder.status === "Void"} onClick={() => onEditPurchaseOrder(job.id, purchaseOrder.id)}>{purchaseOrder.status === "Draft" ? "Continue revision" : "Revise PO"}</button>
+                    <button className="button primary compact" disabled={purchaseOrder.status === "Void"} onClick={() => onDownloadPurchaseOrder(job.id, purchaseOrder.id)}>{purchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button>
+                    <PurchaseOrderHistory state={state} job={job} purchaseOrder={purchaseOrder} />
                   </td>
                 </tr>
               );
@@ -4496,7 +4624,7 @@ function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   return { actual, manualActual, manualLabourCost, manualLabourHours, portalLabour, actualLabourCost, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
 }
 
-function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   job: Job | null;
@@ -4506,6 +4634,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
   onCreatePurchaseOrder: (jobId: string, lineId: string) => void;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
+  onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   portalLabourActuals: PortalLabourActual[];
   jobCostingStatus: JobCostingStatus;
   jobCostingMessage: string;
@@ -4568,9 +4697,9 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
                       <td data-label="Accepted estimate line"><strong>{line.description}</strong><small>{line.quantity} {line.unit} · {line.division || line.section}</small></td>
                       <td data-label="Vendor quote #">{line.vendorReference ? <strong>{line.vendorReference}</strong> : <span className="po-missing-reference">Not entered</span>}</td>
                       <td data-label="Direct cost"><strong>{money(subcontractorActualDirectCost(line))}</strong><small>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined ? `Actual quote · JGC carried ${money(lineDirectCost(line))}` : "Actual quote · Pre-tax"}</small></td>
-                      <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{linkedPurchaseOrder.status}</small></> : <span className="po-not-created">Not created</span>}</td>
+                      <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small>Revision {linkedPurchaseOrder.revision}</small><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(linkedPurchaseOrder)}</small></> : <span className="po-not-created">Not created</span>}</td>
                       <td className="po-row-actions">
-                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>Edit PO</button><button className="button primary compact" onClick={() => void downloadPurchaseOrder(state, job, linkedPurchaseOrder)}>Download PDF</button></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
+                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Continue revision" : "Revise PO"}</button><button className="button primary compact" onClick={() => onDownloadPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={linkedPurchaseOrder} /></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
                       </td>
                     </tr>
                   );

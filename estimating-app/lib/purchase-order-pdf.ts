@@ -59,9 +59,10 @@ function safeFilenamePart(value: unknown, fallback: string) {
 
 export function purchaseOrderPdfFilename(options: PurchaseOrderPdfOptions) {
   const poNumber = safeFilenamePart(options.purchaseOrder.number || options.job.jobNumber, "Unnumbered");
+  const revision = Number.isFinite(options.purchaseOrder.revision) ? Math.max(0, Number(options.purchaseOrder.revision)) : 0;
   const vendor = safeFilenamePart(options.purchaseOrder.vendorName, "Subcontractor");
   const project = safeFilenamePart(options.job.project, "Project");
-  const filename = `JGC-PO-${poNumber} - ${vendor} - ${project}`.slice(0, 180).replace(/[. ]+$/g, "");
+  const filename = `JGC-PO-${poNumber} - Rev ${revision} - ${vendor} - ${project}`.slice(0, 180).replace(/[. ]+$/g, "");
   return `${filename}.pdf`;
 }
 
@@ -128,8 +129,8 @@ function drawHeader(page: PDFPage, regular: PDFFont, bold: PDFFont, logo: PDFIma
 
   page.drawText("PURCHASE ORDER", { x: MARGIN, y: 675, size: 23, font: bold, color: colour.navy });
   page.drawRectangle({ x: PAGE_WIDTH - MARGIN - 205, y: 666, width: 205, height: 34, color: colour.navy });
-  page.drawText("PO NUMBER", { x: PAGE_WIDTH - MARGIN - 193, y: 687, size: 7, font: bold, color: colour.paleBlue });
-  page.drawText(ascii(po.number || "Not assigned"), { x: PAGE_WIDTH - MARGIN - 193, y: 673, size: 13, font: bold, color: colour.white });
+  page.drawText("PO NUMBER / REVISION", { x: PAGE_WIDTH - MARGIN - 193, y: 687, size: 7, font: bold, color: colour.paleBlue });
+  page.drawText(ascii(`${po.number || "Not assigned"} / REV ${Number.isFinite(po.revision) ? po.revision : 0}`), { x: PAGE_WIDTH - MARGIN - 193, y: 673, size: 12, font: bold, color: colour.white });
 
   if (pageNumber > 1) page.drawText("CONTINUED", { x: MARGIN, y: 659, size: 8, font: bold, color: colour.blue });
 }
@@ -143,7 +144,7 @@ export function purchaseOrderTotals(purchaseOrder: PurchaseOrder) {
 export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   const { state, job, purchaseOrder: po } = options;
   const document = await PDFDocument.create();
-  document.setTitle(`Purchase Order ${po.number}`);
+  document.setTitle(`Purchase Order ${po.number} - Revision ${Number.isFinite(po.revision) ? po.revision : 0}`);
   document.setAuthor(state.settings.companyName);
   document.setSubject(`${job.jobNumber} - ${job.project}`);
   document.setCreator("JGC Estimate Desk");

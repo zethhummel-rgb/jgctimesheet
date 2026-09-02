@@ -1009,13 +1009,31 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(poDialog.getByLabel("Unit cost").nth(1)).toHaveValue("1800");
   await expect(poDialog).toContainText("$16,800.00");
   await expect(poDialog.getByLabel("Vendor quote #s")).toHaveValue("PAINT-DEMO, PAINT-MATERIALS-18");
-  await poDialog.getByRole("button", { name: "Create combined PO" }).click();
+  await poDialog.getByRole("button", { name: "Create final combined PO" }).click();
 
   const combinedPoRows = page.locator(".po-source-table tbody tr").filter({ hasText: /PAINT-(DEMO|MATERIALS-18)/ });
   await expect(combinedPoRows).toHaveCount(2);
   await expect(combinedPoRows.nth(0)).toContainText("26124");
   await expect(combinedPoRows.nth(1)).toContainText("26124");
+  await expect(combinedPoRows.nth(0)).toContainText("Revision 0");
+  await expect(combinedPoRows.nth(0)).toContainText("Final");
   await expect(page.locator(".subcontract-po-panel .po-count-chip")).toHaveText("1 PO");
+
+  await combinedPoRows.nth(0).getByRole("button", { name: "Revise PO" }).click();
+  const revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 1/ });
+  await expect(revisionDialog).toContainText("Revision 0 is frozen in PO History");
+  await revisionDialog.getByLabel("PO instructions / notes").fill("Revised combined subcontractor authorization.");
+  await revisionDialog.getByRole("button", { name: "Save revision" }).click();
+  await expect(combinedPoRows.nth(0)).toContainText("Revision 1 in progress");
+
+  const [revisionDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    combinedPoRows.nth(0).getByRole("button", { name: "Download & finalize" }).click(),
+  ]);
+  expect(revisionDownload.suggestedFilename()).toContain("Rev 1");
+  await expect(combinedPoRows.nth(0)).toContainText("Final");
+  await combinedPoRows.nth(0).locator(".po-revision-history > summary").click();
+  await expect(combinedPoRows.nth(0).locator(".po-revision-history")).toContainText("Revision 0");
 });
 
 test("subcontractor vendor and quote description stay separate", async ({ page }) => {

@@ -270,9 +270,18 @@ export interface PurchaseOrderLine {
   sourceReference: string;
 }
 
+export interface PurchaseOrderRevision {
+  id: string;
+  revision: number;
+  finalizedAt: string;
+  subtotal: number;
+  snapshot: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   number: string;
+  revision: number;
   status: PurchaseOrderStatus;
   vendorId: string | null;
   vendorName: string;
@@ -289,6 +298,8 @@ export interface PurchaseOrder {
   taxRate: number;
   notes: string;
   lines: PurchaseOrderLine[];
+  revisions: PurchaseOrderRevision[];
+  finalizedAt: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -821,7 +832,7 @@ demoLines.push({
 
 export function createDefaultState(): AppState {
   return {
-    version: 11,
+    version: 12,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -935,9 +946,10 @@ export function createDefaultState(): AppState {
 export function normalizeAppState(state: AppState): AppState {
   const oldIntro = "Thank you for the opportunity to provide pricing for the work described below.";
   const oldTerms = "Pricing is valid for the period shown and is subject to the listed inclusions, exclusions and clarifications.";
+  const sourceVersion = Number(state.version) || 0;
   return {
     ...state,
-    version: 10,
+    version: 12,
     settings: {
       ...state.settings,
       defaultValidityDays: state.version < 2 && state.settings.defaultValidityDays === 14 ? 30 : state.settings.defaultValidityDays,
@@ -1049,7 +1061,12 @@ export function normalizeAppState(state: AppState): AppState {
       purchaseOrders: Array.isArray(job.purchaseOrders)
         ? job.purchaseOrders.map((purchaseOrder) => ({
             ...purchaseOrder,
-            status: purchaseOrder.status === "Issued" || purchaseOrder.status === "Void" ? purchaseOrder.status : "Draft",
+            revision: Number.isFinite(purchaseOrder.revision) ? Math.max(0, Number(purchaseOrder.revision)) : 0,
+            status: purchaseOrder.status === "Void"
+              ? "Void"
+              : sourceVersion < 12 || purchaseOrder.status === "Issued"
+                ? "Issued"
+                : "Draft",
             vendorId: purchaseOrder.vendorId ?? null,
             vendorName: purchaseOrder.vendorName ?? "",
             vendorContact: purchaseOrder.vendorContact ?? "",
@@ -1075,6 +1092,18 @@ export function normalizeAppState(state: AppState): AppState {
                   sourceReference: line.sourceReference ?? "",
                 }))
               : [],
+            revisions: Array.isArray(purchaseOrder.revisions)
+              ? purchaseOrder.revisions.map((revision) => ({
+                  ...revision,
+                  id: revision.id ?? `po-revision-${purchaseOrder.id}-${revision.revision ?? 0}`,
+                  revision: Number.isFinite(revision.revision) ? Math.max(0, Number(revision.revision)) : 0,
+                  finalizedAt: revision.finalizedAt ?? purchaseOrder.updatedAt ?? purchaseOrder.createdAt ?? new Date().toISOString(),
+                  subtotal: Number.isFinite(revision.subtotal) ? Number(revision.subtotal) : 0,
+                  snapshot: typeof revision.snapshot === "string" ? revision.snapshot : "",
+                }))
+              : [],
+            finalizedAt: purchaseOrder.finalizedAt
+              ?? (purchaseOrder.status === "Issued" || sourceVersion < 12 ? purchaseOrder.updatedAt ?? purchaseOrder.createdAt ?? new Date().toISOString() : ""),
             createdAt: purchaseOrder.createdAt ?? new Date().toISOString(),
             updatedAt: purchaseOrder.updatedAt ?? purchaseOrder.createdAt ?? new Date().toISOString(),
           }))

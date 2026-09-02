@@ -13,6 +13,7 @@ import {
   lineSellPrice,
   quoteTotals,
   type AppState,
+  type PurchaseOrder,
   type Quote,
   type QuoteCostBuildUpItem,
   type QuoteLine,
@@ -924,9 +925,9 @@ function addHistoryPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
           { label: "Pre-tax", width: 75, align: "right" },
         ],
         purchaseOrders.map((purchaseOrder) => [
-          purchaseOrder.number || "Not assigned",
+          `${purchaseOrder.number || "Not assigned"} · R${Number.isFinite(purchaseOrder.revision) ? purchaseOrder.revision : 0}`,
           purchaseOrder.vendorName || "Not recorded",
-          purchaseOrder.status,
+          purchaseOrder.status === "Issued" ? "Final" : purchaseOrder.status === "Draft" ? "Revision in progress" : purchaseOrder.status,
           shortDate(purchaseOrder.issueDate),
           money(purchaseOrderTotals(purchaseOrder).subtotal),
         ]),
@@ -1051,12 +1052,28 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
 
   addHistoryPage(builder, options.state, options.quote);
 
-  // A complete backup also contains readable copies of every PO connected to
-  // the accepted job. Draft, issued and void POs are all retained for audit and
-  // redundancy, using the same renderer as the individual PO download.
+  // A complete backup contains the current PO and every frozen PO revision,
+  // using the same renderer as the individual PO download.
   const job = options.state.jobs.find((item) => item.quoteId === options.quote.id);
   if (job) {
     for (const purchaseOrder of job.purchaseOrders ?? []) {
+      for (const revision of purchaseOrder.revisions ?? []) {
+        try {
+          const historicalPurchaseOrder = JSON.parse(revision.snapshot) as PurchaseOrder;
+          if (!historicalPurchaseOrder || !Array.isArray(historicalPurchaseOrder.lines)) continue;
+          const historicalBytes = await createPurchaseOrderPdf({
+            state: options.state,
+            job,
+            purchaseOrder: historicalPurchaseOrder,
+            logoBytes: options.logoBytes,
+          });
+          const historicalDocument = await PDFDocument.load(historicalBytes);
+          const historicalPages = await document.copyPages(historicalDocument, historicalDocument.getPageIndices());
+          historicalPages.forEach((page) => document.addPage(page));
+        } catch {
+          // Keep the rest of the backup usable if one legacy snapshot is malformed.
+        }
+      }
       const purchaseOrderBytes = await createPurchaseOrderPdf({
         state: options.state,
         job,

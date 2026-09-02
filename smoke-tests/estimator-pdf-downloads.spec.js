@@ -135,7 +135,8 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
   expect(pdfText).toContain("Occupancy light materials");
   expect(pdfText).toContain("2026-0826-01");
   expect(pdfText).toContain("2026-0826-02");
-  expect(result.filename).toBe("JGC-PO-26122 - Industrial Electric Contractors Brockville Limited - Public Washroom Occupancy Light.pdf");
+  expect(pdfText).toContain("26122 / REV 0");
+  expect(result.filename).toBe("JGC-PO-26122 - Rev 0 - Industrial Electric Contractors Brockville Limited - Public Washroom Occupancy Light.pdf");
 });
 
 test("Estimate and Breakdown buttons download separate internal PDFs", async ({ page }, testInfo) => {
