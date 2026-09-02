@@ -1029,8 +1029,11 @@ test("subcontractor vendor and quote description stay separate", async ({ page }
   const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   const vendorCell = mainRow.locator("td").nth(1);
   const descriptionCell = mainRow.locator("td").nth(2);
+  const costTypeCell = mainRow.locator("td").nth(3);
   await expect(vendorCell).toHaveAttribute("data-label", "Vendor / Quote #");
   await expect(descriptionCell).toHaveAttribute("data-label", "Quote description");
+  await expect(costTypeCell).toHaveAttribute("data-label", "Cost type");
+  await expect(costTypeCell).toContainText("Sub / Vendor");
   await vendorCell.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals");
   await vendorCell.getByLabel(/Subcontractor quote #/).fill("AG-CLAD-104");
   const description = mainRow.getByLabel(/Subcontractor quote description/);
@@ -1043,6 +1046,8 @@ test("subcontractor vendor and quote description stay separate", async ({ page }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(vendorCell.getByRole("combobox", { name: /Vendor for line/ })).toBeVisible();
   await expect(description).toBeVisible();
+  await expect(costTypeCell).toBeVisible();
+  await expect(costTypeCell).toContainText("Sub / Vendor");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
   await page.getByRole("tab", { name: /Review/ }).click();
