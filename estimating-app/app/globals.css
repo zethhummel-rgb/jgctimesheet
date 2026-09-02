@@ -1320,7 +1320,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .po-total-preview span { color: var(--slate-500); font-size: 9px; font-weight: 750; text-transform: uppercase; }
 .po-total-preview strong { margin-top: 4px; color: var(--navy-900); font-size: 17px; }
 .po-total-preview .grand { background: var(--navy-900); }
-.po-total-preview .grand span, .po-total-preview .grand strong { color: #fff; }
+.po-total-preview .grand span, .po-total-preview .grand strong { color: #fff !important; }
+:root[data-jgc-theme="light"] body.jgc-theme .po-total-preview > .grand > :is(span, strong) { color: #fff !important; }
 
 @media screen and (max-width: 1020px) {
   .po-line-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

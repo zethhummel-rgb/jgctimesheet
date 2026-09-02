@@ -359,6 +359,19 @@ function savedPurchaseOrderSnapshot(snapshot: string): PurchaseOrder | null {
   }
 }
 
+function purchaseOrderEditableFingerprint(purchaseOrder: PurchaseOrder) {
+  const {
+    revision: _revision,
+    status: _status,
+    revisions: _revisions,
+    finalizedAt: _finalizedAt,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    ...editablePurchaseOrder
+  } = purchaseOrder;
+  return JSON.stringify(editablePurchaseOrder);
+}
+
 function purchaseOrderStatusLabel(purchaseOrder: PurchaseOrder) {
   if (purchaseOrder.status === "Issued") return "Final";
   if (purchaseOrder.status === "Draft") return `Revision ${purchaseOrder.revision} in progress`;
@@ -1583,43 +1596,6 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     const sourceJob = state.jobs.find((job) => job.id === jobId);
     const sourcePurchaseOrder = sourceJob?.purchaseOrders?.find((purchaseOrder) => purchaseOrder.id === purchaseOrderId);
     if (!sourceJob || !sourcePurchaseOrder || sourcePurchaseOrder.status === "Void") return;
-    if (sourcePurchaseOrder.status === "Draft") {
-      setPurchaseOrderEditor({ jobId, purchaseOrderId });
-      return;
-    }
-    const nextRevision = sourcePurchaseOrder.revision + 1;
-    setState((current) => {
-      const next = {
-        ...current,
-        jobs: current.jobs.map((job) => {
-          if (job.id !== jobId) return job;
-          return {
-            ...job,
-            purchaseOrders: (job.purchaseOrders ?? []).map((purchaseOrder) => {
-              if (purchaseOrder.id !== purchaseOrderId || purchaseOrder.status !== "Issued") return purchaseOrder;
-              const revisions = purchaseOrder.revisions.some((revision) => revision.revision === purchaseOrder.revision)
-                ? purchaseOrder.revisions
-                : [...purchaseOrder.revisions, {
-                    id: uid("po-revision"),
-                    revision: purchaseOrder.revision,
-                    finalizedAt: purchaseOrder.finalizedAt || purchaseOrder.updatedAt,
-                    subtotal: purchaseOrderSubtotal(purchaseOrder),
-                    snapshot: frozenPurchaseOrderSnapshot(purchaseOrder),
-                  }];
-              return {
-                ...purchaseOrder,
-                revision: nextRevision,
-                status: "Draft" as const,
-                finalizedAt: "",
-                revisions,
-                updatedAt: new Date().toISOString(),
-              };
-            }),
-          };
-        }),
-      };
-      return addActivity(next, sourceJob.quoteId, "Purchase order revision opened", `${sourcePurchaseOrder.number} Rev ${sourcePurchaseOrder.revision} was frozen in PO History. Revision ${nextRevision} is now editable.`);
-    });
     setPurchaseOrderEditor({ jobId, purchaseOrderId });
   };
 
@@ -2518,8 +2494,38 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   };
   const [draft, setDraft] = useState<PurchaseOrder>(initial);
   const [error, setError] = useState("");
+  const hasChanges = !purchaseOrder || purchaseOrderEditableFingerprint(draft) !== purchaseOrderEditableFingerprint(purchaseOrder);
+  const nextRevision = purchaseOrder ? purchaseOrder.revision + 1 : 0;
   const subtotal = draft.lines.reduce((sum, line) => sum + line.amount, 0);
   const hst = subtotal * draft.taxRate;
+  const lifecycleStatus = !purchaseOrder
+    ? "Final when created"
+    : purchaseOrder.status === "Draft"
+      ? `Revision ${purchaseOrder.revision} in progress`
+      : hasChanges
+        ? `Save creates Revision ${nextRevision}`
+        : `Final Revision ${purchaseOrder.revision}`;
+  const revisionNoteTitle = !purchaseOrder
+    ? "Created as a Final PO"
+    : purchaseOrder.status === "Draft"
+      ? `Revision ${purchaseOrder.revision} is already in progress`
+      : hasChanges
+        ? `Revision ${nextRevision} is ready to save`
+        : "Viewing the final PO";
+  const revisionNoteCopy = !purchaseOrder
+    ? "This PO is locked as Final as soon as it is created. Use Edit PO later to review it or make a revision."
+    : purchaseOrder.status === "Draft"
+      ? `Only saved changes update Revision ${purchaseOrder.revision}. It becomes Final and locks when its PDF is downloaded.`
+      : hasChanges
+        ? `Revision ${purchaseOrder.revision} will be frozen in PO History only when you save. Revision ${nextRevision} will then remain editable until its PDF is downloaded.`
+        : `Closing without saving leaves Revision ${purchaseOrder.revision} final and unchanged. A new revision is created only after you edit something and save.`;
+  const saveButtonLabel = !purchaseOrder
+    ? draft.lines.length > 1 ? "Create final combined PO" : "Create final PO"
+    : !hasChanges
+      ? "No changes to save"
+      : purchaseOrder.status === "Issued"
+        ? `Save as Revision ${nextRevision}`
+        : "Save revision";
   const update = <K extends keyof PurchaseOrder>(key: K, value: PurchaseOrder[K]) => setDraft((current) => ({ ...current, [key]: value }));
   const updateLine = (lineId: string, patch: Partial<PurchaseOrder["lines"][number]>) => setDraft((current) => ({
     ...current,
@@ -2553,12 +2559,34 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   };
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (purchaseOrder && !hasChanges) return;
     if (!draft.number.trim()) return setError("Enter the JGC purchase order number.");
     if (!draft.vendorName.trim()) return setError("Enter the subcontractor company name.");
     if (!draft.lines.length) return setError("Select at least one subcontractor quote for this PO.");
     if (draft.lines.some((line) => !line.description.trim())) return setError("Enter the work being authorized for every selected quote.");
     if (draft.lines.some((line) => !(line.amount > 0))) return setError("Enter a purchase order amount above zero for every selected quote.");
-    onSave({ ...draft, number: draft.number.trim(), vendorName: draft.vendorName.trim(), updatedAt: new Date().toISOString() });
+    const updatedAt = new Date().toISOString();
+    const normalizedDraft = { ...draft, number: draft.number.trim(), vendorName: draft.vendorName.trim(), updatedAt };
+    if (purchaseOrder?.status === "Issued") {
+      const revisions = purchaseOrder.revisions.some((revision) => revision.revision === purchaseOrder.revision)
+        ? purchaseOrder.revisions
+        : [...purchaseOrder.revisions, {
+            id: uid("po-revision"),
+            revision: purchaseOrder.revision,
+            finalizedAt: purchaseOrder.finalizedAt || purchaseOrder.updatedAt,
+            subtotal: purchaseOrderSubtotal(purchaseOrder),
+            snapshot: frozenPurchaseOrderSnapshot(purchaseOrder),
+          }];
+      onSave({
+        ...normalizedDraft,
+        revision: nextRevision,
+        status: "Draft",
+        finalizedAt: "",
+        revisions,
+      });
+      return;
+    }
+    onSave(normalizedDraft);
   };
   return (
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
@@ -2588,7 +2616,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
             <div className="form-grid four-column">
               <label className="field"><span>JGC PO number <b>*</b></span><input autoFocus value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
-              <div className="field po-lifecycle-field"><span>Status</span><strong>{purchaseOrder ? `Revision ${draft.revision} in progress` : "Final when created"}</strong></div>
+              <div className="field po-lifecycle-field"><span>Status</span><strong>{lifecycleStatus}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
               <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
@@ -2622,9 +2650,9 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
             </div>
             <label className="field"><span>PO instructions / notes</span><textarea rows={3} value={draft.notes} onChange={(event) => update("notes", event.target.value)} /></label>
             {error && <p className="field-error" role="alert">{error}</p>}
-            <div className="estimating-boundary-note"><strong>{purchaseOrder ? "Revision is safely separated" : "Created as a Final PO"}</strong><p>{purchaseOrder ? `Revision ${draft.revision - 1} is frozen in PO History. Save this work as needed; Revision ${draft.revision} becomes Final and locks when its PDF is downloaded.` : "This PO is locked as Final as soon as it is created. Use Revise PO later to preserve this version in History before making a change."}</p></div>
+            <div className="estimating-boundary-note"><strong>{revisionNoteTitle}</strong><p>{revisionNoteCopy}</p></div>
           </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">{purchaseOrder ? "Save revision" : draft.lines.length > 1 ? "Create final combined PO" : "Create final PO"}</button></footer>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>{purchaseOrder ? "Close" : "Cancel"}</button><button type="submit" className="button success" disabled={Boolean(purchaseOrder && !hasChanges)}>{saveButtonLabel}</button></footer>
         </form>
       </section>
     </div>
@@ -3929,7 +3957,7 @@ function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder, onDownloa
                   <td data-label="Status"><span className={`po-status po-${purchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(purchaseOrder)}</span></td>
                   <td data-label="Pre-tax"><strong>{money(preTax)}</strong></td>
                   <td className="po-row-actions">
-                    <button className="button secondary compact" disabled={purchaseOrder.status === "Void"} onClick={() => onEditPurchaseOrder(job.id, purchaseOrder.id)}>{purchaseOrder.status === "Draft" ? "Continue revision" : "Revise PO"}</button>
+                    <button className="button secondary compact" disabled={purchaseOrder.status === "Void"} onClick={() => onEditPurchaseOrder(job.id, purchaseOrder.id)}>{purchaseOrder.status === "Draft" ? "Continue revision" : "Edit PO"}</button>
                     <button className="button primary compact" disabled={purchaseOrder.status === "Void"} onClick={() => onDownloadPurchaseOrder(job.id, purchaseOrder.id)}>{purchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button>
                     <PurchaseOrderHistory state={state} job={job} purchaseOrder={purchaseOrder} />
                   </td>
@@ -4720,7 +4748,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
                       <td data-label="Direct cost"><strong>{money(subcontractorActualDirectCost(line))}</strong><small>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined ? `Actual quote · JGC carried ${money(lineDirectCost(line))}` : "Actual quote · Pre-tax"}</small></td>
                       <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small>Revision {linkedPurchaseOrder.revision}</small><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(linkedPurchaseOrder)}</small></> : <span className="po-not-created">Not created</span>}</td>
                       <td className="po-row-actions">
-                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Continue revision" : "Revise PO"}</button><button className="button primary compact" onClick={() => onDownloadPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={linkedPurchaseOrder} /></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
+                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Continue revision" : "Edit PO"}</button><button className="button primary compact" onClick={() => onDownloadPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={linkedPurchaseOrder} /></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
                       </td>
                     </tr>
                   );

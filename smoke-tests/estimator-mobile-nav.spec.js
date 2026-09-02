@@ -1008,6 +1008,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(poDialog.getByLabel("Unit cost").nth(0)).toHaveValue("15000");
   await expect(poDialog.getByLabel("Unit cost").nth(1)).toHaveValue("1800");
   await expect(poDialog).toContainText("$16,800.00");
+  await expect(poDialog.locator(".po-total-preview .grand strong")).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(poDialog.getByLabel("Vendor quote #s")).toHaveValue("PAINT-DEMO, PAINT-MATERIALS-18");
   await poDialog.getByRole("button", { name: "Create final combined PO" }).click();
 
@@ -1019,11 +1020,21 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(combinedPoRows.nth(0)).toContainText("Final");
   await expect(page.locator(".subcontract-po-panel .po-count-chip")).toHaveText("1 PO");
 
-  await combinedPoRows.nth(0).getByRole("button", { name: "Revise PO" }).click();
-  const revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 1/ });
-  await expect(revisionDialog).toContainText("Revision 0 is frozen in PO History");
+  await expect(combinedPoRows.nth(0).locator(".po-revision-history")).toHaveCount(0);
+  await combinedPoRows.nth(0).getByRole("button", { name: "Edit PO" }).click();
+  let revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 0/ });
+  await expect(revisionDialog).toContainText("Closing without saving leaves Revision 0 final and unchanged");
+  await expect(revisionDialog.getByRole("button", { name: "No changes to save" })).toBeDisabled();
+  await revisionDialog.locator("form footer").getByRole("button", { name: "Close" }).click();
+  await expect(combinedPoRows.nth(0)).toContainText("Revision 0");
+  await expect(combinedPoRows.nth(0)).toContainText("Final");
+  await expect(combinedPoRows.nth(0).locator(".po-revision-history")).toHaveCount(0);
+
+  await combinedPoRows.nth(0).getByRole("button", { name: "Edit PO" }).click();
+  revisionDialog = page.getByRole("dialog", { name: /Edit PO 26124 · Revision 0/ });
   await revisionDialog.getByLabel("PO instructions / notes").fill("Revised combined subcontractor authorization.");
-  await revisionDialog.getByRole("button", { name: "Save revision" }).click();
+  await expect(revisionDialog).toContainText("Save creates Revision 1");
+  await revisionDialog.getByRole("button", { name: "Save as Revision 1" }).click();
   await expect(combinedPoRows.nth(0)).toContainText("Revision 1 in progress");
 
   const [revisionDownload] = await Promise.all([
