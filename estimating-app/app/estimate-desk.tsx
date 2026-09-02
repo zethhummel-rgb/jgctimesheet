@@ -2079,7 +2079,13 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     .map((quote) => ({ quote, readiness: quoteReadiness(quote, state.vendors) }))
     .filter((item) => item.readiness.blockers.length || item.readiness.unresolvedWarnings.length)
     .slice(0, 5);
-  const recentQuotes = [...dashboardQuotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+  const recentQuotes = [...dashboardQuotes]
+    .filter((quote) => quote.status !== "Won")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 5);
+  const recentJobs = [...dashboardJobs]
+    .sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))
+    .slice(0, 5);
   const stageValues = [
     { label: "Draft", count: dashboardQuotes.filter((quote) => quote.status === "Draft").length, value: dashboardQuotes.filter((quote) => quote.status === "Draft").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "blue" },
     { label: "Finished", count: sent, value: dashboardQuotes.filter((quote) => quote.status === "Finished").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0), color: "amber" },
@@ -2087,33 +2093,48 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
   const recentWork = (
-    <section className="panel recent-work-panel">
-      <div className="panel-heading">
-        <div><span className="eyebrow">RECENT WORK</span><h2>Quotes</h2></div>
-        {!!recentQuotes.length && <button className="text-button" onClick={() => onOpenQuote(recentQuotes[0].id)}>Open latest <span>→</span></button>}
-      </div>
-      <div className="data-table-wrap">
-        <table className="data-table recent-table">
-          <thead><tr><th>Quote</th><th>Client / project</th><th>Value</th><th>Margin</th><th>Status</th><th>Updated</th></tr></thead>
-          <tbody>
-            {recentQuotes.map((quote) => {
-              const totals = quoteTotals(quote);
-              return (
-                <tr key={quote.id} onClick={() => onOpenQuote(quote.id)}>
-                  <td data-label="Quote"><strong>{quote.number}</strong><small>Rev {quote.revision}</small></td>
-                  <td data-label="Client / project"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.project || "Project not named"}</small></td>
-                  <td data-label="Value"><strong>{money(totals.subtotal)}</strong></td>
-                  <td data-label="Margin">{percent(totals.margin)}</td>
-                  <td data-label="Status"><StatusPill status={quoteDisplayStatus(quote)} /></td>
-                  <td data-label="Updated">{timeAgo(quote.updatedAt)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!recentQuotes.length && <EmptyInline title="No recent quotes" detail="Your newest estimates will appear here." />}
-      </div>
-    </section>
+    <div className="recent-work-grid" aria-label="Recent work">
+      <section className="panel recent-work-panel recent-quotes-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">RECENT WORK</span><h2>Quotes</h2></div>
+          {!!recentQuotes.length && <button className="text-button" onClick={() => onOpenQuote(recentQuotes[0].id)}>Open latest <span>→</span></button>}
+        </div>
+        <div className="recent-work-list">
+          {recentQuotes.map((quote) => {
+            const totals = quoteTotals(quote);
+            return (
+              <button type="button" className="recent-work-row" key={quote.id} onClick={() => onOpenQuote(quote.id)}>
+                <span className="recent-work-id"><strong>{quote.number}</strong><small>Rev {quote.revision}</small></span>
+                <span className="recent-work-client"><strong>{clientName(state, quote.clientId)}</strong><small>{quote.project || "Project not named"}</small></span>
+                <span className="recent-work-meta"><strong>{money(totals.subtotal)}</strong><span>{percent(totals.margin)} margin</span><StatusPill status={quoteDisplayStatus(quote)} /><span>{timeAgo(quote.updatedAt)}</span></span>
+              </button>
+            );
+          })}
+          {!recentQuotes.length && <EmptyInline title="No recent quotes" detail="Draft and finished quotes will appear here." />}
+        </div>
+      </section>
+
+      <section className="panel recent-work-panel recent-jobs-panel">
+        <div className="panel-heading">
+          <div><span className="eyebrow">RECENT WORK</span><h2>Jobs</h2></div>
+          {!!recentJobs.length && <button className="text-button" onClick={() => onOpenJob(recentJobs[0].id)}>Open latest <span>→</span></button>}
+        </div>
+        <div className="recent-work-list">
+          {recentJobs.map((job) => {
+            const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
+            const totals = jobTotals(job);
+            return (
+              <button type="button" className="recent-work-row" key={job.id} onClick={() => onOpenJob(job.id)}>
+                <span className="recent-work-id"><strong>{job.jobNumber}</strong><small>{linkedQuote?.number ?? "Quote unavailable"}</small></span>
+                <span className="recent-work-client"><strong>{clientName(state, job.clientId)}</strong><small>{job.project || "Project not named"}</small></span>
+                <span className="recent-work-meta"><strong>{money(totals.revisedRevenue)}</strong><span>Accepted price</span><StatusPill status={job.status} /><span>{timeAgo(job.acceptedAt)}</span></span>
+              </button>
+            );
+          })}
+          {!recentJobs.length && <EmptyInline title="No recent jobs" detail="Won quotes will move here as jobs." />}
+        </div>
+      </section>
+    </div>
   );
 
   return (

@@ -82,7 +82,7 @@ test("personal overview orders compact greeting, search and recent work before c
   const scopeSwitch = page.locator(".dashboard-scope-switch");
   const greeting = page.locator(".welcome-panel.compact");
   const search = page.locator(".overview-search");
-  const recentWork = page.locator(".recent-work-panel");
+  const recentWork = page.locator(".recent-work-grid");
   await expect(greeting).toBeVisible();
   await expect(recentWork).toBeVisible();
   await expect(page.locator(".metric-grid")).toHaveCount(0);
@@ -91,7 +91,7 @@ test("personal overview orders compact greeting, search and recent work before c
     const selector = document.querySelector(".dashboard-scope-switch");
     const greetingPanel = document.querySelector(".welcome-panel.compact");
     const searchPanel = document.querySelector(".overview-search");
-    const recent = document.querySelector(".recent-work-panel");
+    const recent = document.querySelector(".recent-work-grid");
     const follows = (first, second) => !!first && !!second && Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
     return follows(selector, greetingPanel) && follows(greetingPanel, searchPanel) && follows(searchPanel, recent);
   })).toBe(true);

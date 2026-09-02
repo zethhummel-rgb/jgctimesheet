@@ -166,6 +166,49 @@ test("Estimator job costing RPC is admin-only and never returns raw pay rates", 
   expect(migration.split("language plpgsql")[0]).not.toContain("regular_rate");
 });
 
+test("Recent Work separates active quotes from won jobs", async ({ page }) => {
+  const state = jobCostingState();
+  state.quotes.push({
+    ...state.quotes[0],
+    id: "quote-active",
+    number: "JGC-Q-2026-0100",
+    status: "Draft",
+    project: "Upcoming Estimate",
+    updatedAt: "2026-09-02T14:00:00.000Z",
+    wonAt: "",
+  });
+  await page.route("**/api/state", async (route) => {
+    if (route.request().method() === "PUT") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ saved: true, updatedAt: new Date().toISOString() }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state, updatedAt: "2026-09-02T14:00:00.000Z" }) });
+  });
+
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+
+  const recentGrid = page.locator(".recent-work-grid");
+  const quotesPanel = recentGrid.locator(".recent-quotes-panel");
+  const jobsPanel = recentGrid.locator(".recent-jobs-panel");
+  await expect(recentGrid).toBeVisible();
+  await expect(quotesPanel).toContainText("JGC-Q-2026-0100");
+  await expect(quotesPanel).toContainText("Upcoming Estimate");
+  await expect(quotesPanel).not.toContainText("JGC-Q-2026-0099");
+  await expect(jobsPanel).toContainText("26128");
+  await expect(jobsPanel).toContainText("Automatic Labour Costing");
+  await expect(jobsPanel).toContainText("JGC-Q-2026-0099");
+
+  const desktopPositions = await Promise.all([quotesPanel.boundingBox(), jobsPanel.boundingBox()]);
+  expect(desktopPositions[0]?.x).toBeLessThan(desktopPositions[1]?.x ?? 0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobilePositions = await Promise.all([quotesPanel.boundingBox(), jobsPanel.boundingBox()]);
+  expect(mobilePositions[1]?.y).toBeGreaterThan((mobilePositions[0]?.y ?? 0) + (mobilePositions[0]?.height ?? 0));
+
+  await jobsPanel.locator(".recent-work-row").click();
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 26128");
+});
+
 test("Portal labour hours and loaded cost appear on the linked Estimator job", async ({ page }) => {
   const savedStates = [];
   let costingRequests = 0;
