@@ -217,6 +217,11 @@ test("Portal labour hours and loaded cost appear on the linked Estimator job", a
   await expect(comparison).toContainText("$200.00 across 1 Labour & Materials line is not included");
   await expect(comparison).toContainText("Actual labour cost is incomplete");
 
+  await page.evaluate(() => document.documentElement.setAttribute("data-jgc-theme", "light"));
+  await expect(page.locator(".forecast-grand")).toHaveCSS("background-color", "rgb(16, 61, 49)");
+  await expect(page.locator(".forecast-grand span")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(page.locator(".forecast-grand strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+
   await page.getByRole("button", { name: "Refresh labour" }).click();
   await expect.poll(() => costingRequests).toBe(2);
 
