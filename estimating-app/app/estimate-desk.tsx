@@ -3001,13 +3001,10 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   };
   const updateLineVendor = (line: QuoteLine, typedName: string) => {
     const subcontractorName = typedName.trim();
-    const currentVendorName = line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "");
-    const shouldUseVendorAsDescription = !line.description.trim() || line.description.trim().toLowerCase() === currentVendorName.trim().toLowerCase();
     const matchedVendor = activeSubcontractors(state.vendors).find((vendor) => vendor.name.trim().toLowerCase() === subcontractorName.toLowerCase());
     updateLine(line.id, {
       vendorId: matchedVendor?.id ?? null,
       vendorName: matchedVendor ? "" : typedName,
-      description: shouldUseVendorAsDescription ? subcontractorName : line.description,
     });
   };
   const applyCatalog = (lineId: string, code: string) => {
@@ -3244,7 +3241,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         <div className="estimate-table-wrap">
           <table className="estimate-table">
             <thead>
-              <tr><th>#</th><th>Description / Vendor</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th className="direct-cost-heading">Direct cost</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
+              <tr><th>#</th><th>Description</th><th>Vendor / Quote #</th><th>Cost type</th><th>Division</th><th>Qty</th><th>Unit</th><th className="direct-unit-cost-heading">Direct unit cost</th><th className="direct-cost-heading">Direct cost</th><th>Class</th><th>Include</th><th><span className="sr-only">Details</span></th></tr>
             </thead>
             <tbody>
               {displayedLines.map(({ line }, index) => {
@@ -3258,7 +3255,8 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                   <Fragment key={line.id}>
                     <tr id={`estimate-line-${line.id}`} className={`${expandedLineId === line.id ? "expanded" : ""} ${!line.included ? "not-included" : ""}`}>
                       <td className="line-number" data-label="#">{index + 1}</td>
-                      {line.costType === "Sub / Vendor" ? <td data-label="Vendor"><div className="subcontractor-main-cell"><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search or type subcontractor" ariaLabel={`Vendor for line ${index + 1}`} allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /><div className="sub-quote-inline-row"><label className="sub-quote-inline-field"><span>Subcontractor quote # <em>Optional</em></span><input aria-label={`Subcontractor quote # for line ${index + 1}`} value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : "Enter quote #"} /></label><label className="sub-quote-inline-field sub-quote-description-field"><span>Quote description <em>Optional</em></span><input aria-label={`Subcontractor quote description for line ${index + 1}`} value={line.description} disabled={locked} onChange={(event) => updateLine(line.id, { description: event.target.value })} placeholder="Describe what this quote covers" /></label></div></div></td> : <td data-label="Description"><input className="cell-input description-input" autoComplete="off" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder="Describe the work" /></td>}
+                      <td data-label="Description"><input className="cell-input description-input" aria-label={line.costType === "Sub / Vendor" ? `Subcontractor quote description for line ${index + 1}` : undefined} autoComplete="off" value={line.description} disabled={locked} onChange={(event) => { const description = event.target.value; const division = !line.divisionManual ? detectConstructionDivision(description) : null; updateLine(line.id, { description, ...(division ? { division } : {}) }); }} placeholder={line.costType === "Sub / Vendor" ? "Describe what this quote covers" : "Describe the work"} /></td>
+                      <td className={`vendor-quote-cell ${line.costType === "Sub / Vendor" ? "" : "is-empty"}`} data-label="Vendor / Quote #">{line.costType === "Sub / Vendor" ? <div className="subcontractor-main-cell"><span className="subcontractor-field-caption">Vendor</span><SearchablePicker value={line.vendorName || (line.vendorId ? state.vendors.find((vendor) => vendor.id === line.vendorId)?.name ?? "" : "")} options={activeSubcontractors(state.vendors).map((vendor) => ({ id: vendor.id, label: vendor.name, detail: vendor.trade }))} disabled={locked} placeholder="Search or type subcontractor" ariaLabel={`Vendor for line ${index + 1}`} allowCustom onChange={(value) => updateLineVendor(line, value)} onSelect={(option) => updateLineVendor(line, option.label)} /><label className="sub-quote-inline-field"><span>Quote # <em>Optional</em></span><input aria-label={`Subcontractor quote # for line ${index + 1}`} value={line.vendorReference} disabled={locked} onChange={(event) => updateLine(line.id, { vendorReference: event.target.value })} placeholder={(line.vendorPricingMode ?? "Quoted") === "Budget" ? "Budget allowance" : "Enter quote #"} /></label></div> : <span className="not-applicable">—</span>}</td>
                       <td data-label="Cost type">{line.costType === "Sub / Vendor" ? <span className="fixed-cost-type">Sub / Vendor</span> : <select className="cell-input cost-type-input" value={line.costType} disabled={locked || !!line.costBuildUp} onChange={(event) => updateLine(line.id, { costType: event.target.value as CostType })}>{costTypeOptions.filter((type) => type !== "Sub / Vendor").map((type) => <option key={type}>{type}</option>)}</select>}</td>
                       <td data-label="Division"><select className="cell-input division-input" value={line.division ?? "Div 01 – General Requirements"} disabled={locked} onChange={(event) => updateLine(line.id, { division: event.target.value, divisionManual: true })}>{line.division && !constructionDivisions.includes(line.division) && <option value={line.division}>{line.division}</option>}{constructionDivisions.map((division) => <option key={division}>{division}</option>)}</select></td>
                       <td data-label="Qty"><input className="cell-input number-input" type="number" min="0" step="0.01" value={line.quantity} disabled={locked} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} /></td>
@@ -3278,7 +3276,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                     </tr>
                     {expandedLineId === line.id && (
                       <tr className="line-detail-row">
-                        <td colSpan={11}>
+                        <td colSpan={12}>
                           <div className="line-detail-panel">
                             <div className="detail-panel-heading">
                               <div><span className="eyebrow">LINE {index + 1} DETAILS</span><h3>{line.description || "New estimate line"}</h3></div>

@@ -823,7 +823,7 @@ test("subcontractor lines allow an optional quote number and separate added cost
   await expect(quoteNumber).toBeEnabled();
   await expect(quoteNumber).toHaveAttribute("placeholder", "Enter quote #");
   const quoteDescription = mainRow.getByLabel(/Subcontractor quote description/);
-  await expect(quoteDescription).toHaveValue("Demo Painting Vendor");
+  await expect(quoteDescription).toHaveValue("");
   await quoteDescription.fill("Interior painting labour and materials");
   await mainRow.getByRole("button", { name: /Finish/ }).click();
   await expect(page.locator(".line-detail-panel")).toHaveCount(0);
@@ -898,6 +898,7 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   const mainRow = vendor.locator("xpath=ancestor::tr[1]");
   await vendor.fill("Demo Painting");
   await page.getByRole("option", { name: /Demo Painting Vendor/ }).click();
+  await mainRow.getByLabel(/Subcontractor quote description/).fill("Interior painting package");
   await mainRow.getByLabel(/Subcontractor quote #/).fill("PAINT-ACTUAL-17");
 
   const details = page.locator(".line-detail-panel");
@@ -1017,7 +1018,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await expect(page.locator(".subcontract-po-panel .po-count-chip")).toHaveText("1 PO");
 });
 
-test("typed subcontractor names automatically become the line description", async ({ page }) => {
+test("subcontractor vendor and quote description stay separate", async ({ page }) => {
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
   await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
@@ -1027,12 +1028,16 @@ test("typed subcontractor names automatically become the line description", asyn
 
   const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   await mainRow.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals");
+  const description = mainRow.getByLabel(/Subcontractor quote description/);
+  await expect(description).toHaveValue("");
+  await description.fill("Exterior metal cladding package");
   await mainRow.locator(".direct-unit-cost-cell input").fill("100");
-  await expect(page.locator(".line-detail-panel h3")).toHaveText("Agway Metals");
+  await expect(page.locator(".line-detail-panel h3")).toHaveText("Exterior metal cladding package");
 
   await page.getByRole("tab", { name: /Review/ }).click();
   await expect(page.getByText(/needs a description/i)).toHaveCount(0);
   await expect(page.locator(".review-subcontractor-card").last()).toContainText("Agway Metals");
+  await expect(page.locator(".review-subcontractor-card").last()).toContainText("Exterior metal cladding package");
 });
 
 test("estimate direct costs always round up to whole dollars", async ({ page }) => {
