@@ -15,6 +15,19 @@ export interface PortalJobOption {
   active: boolean;
 }
 
+export interface PortalLabourActual {
+  portalJobId: string;
+  jobNumber: string;
+  workerProfileId: string | null;
+  workerName: string;
+  sourceStatus: "submitted" | "provisional";
+  firstWorkDate: string;
+  lastWorkDate: string;
+  hours: number;
+  loadedLabourCost: number;
+  missingRateHours: number;
+}
+
 interface PortalBridgeWindow extends Window {
   createJgcSupabaseClient?: () => any;
   JGC_ESTIMATOR_PORTAL_JOBS?: PortalJobOption[];
@@ -171,6 +184,32 @@ function vendorPayload(body: Record<string, any>) {
 
 async function vendorsResponse(client: any) {
   return json({ vendors: await loadPortalVendors(client) });
+}
+
+async function jobCostingResponse(client: any) {
+  const result = await client.rpc("get_estimator_job_labour_actuals");
+  if (result.error) {
+    const restricted = result.error.code === "42501";
+    return json({
+      error: restricted
+        ? "Approved administrator access is required to view employee labour costs."
+        : result.error.message || "Portal labour costs could not be loaded.",
+      restricted,
+    }, restricted ? 403 : 500);
+  }
+  const actuals: PortalLabourActual[] = (result.data ?? []).map((row: Record<string, any>) => ({
+    portalJobId: String(row.portal_job_id ?? ""),
+    jobNumber: String(row.job_number ?? ""),
+    workerProfileId: row.worker_profile_id ? String(row.worker_profile_id) : null,
+    workerName: String(row.worker_name ?? "Unknown employee"),
+    sourceStatus: row.source_status === "provisional" ? "provisional" : "submitted",
+    firstWorkDate: String(row.first_work_date ?? ""),
+    lastWorkDate: String(row.last_work_date ?? ""),
+    hours: dollars(row.hours),
+    loadedLabourCost: dollars(row.loaded_labour_cost),
+    missingRateHours: dollars(row.missing_rate_hours),
+  }));
+  return json({ actuals, loadedAt: new Date().toISOString() });
 }
 
 async function mutatePortalVendor(client: any, request: Request) {
@@ -549,6 +588,7 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
     }
     return getSupplierCatalog(client, url);
   }
+  if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
   if (url.pathname.endsWith("/api/vendor-contacts")) return mutatePortalContact(client, request);
   return null;

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
-import { portalJobs, type PortalJobOption } from "../src/portal-api";
+import { portalJobs, type PortalJobOption, type PortalLabourActual } from "../src/portal-api";
 import {
   defaultClosingProposalScopeLine,
   isDefaultClosingProposalScopeLine,
@@ -940,6 +940,8 @@ export interface CurrentEstimator {
   isAdmin: boolean;
 }
 
+type JobCostingStatus = "idle" | "loading" | "ready" | "restricted" | "error" | "unavailable";
+
 export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth", isAdmin: true } }: { currentEstimator?: CurrentEstimator }) {
   const [state, setState] = useState<AppState>(() => createDefaultState());
   const [ready, setReady] = useState(false);
@@ -965,12 +967,34 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [pendingCreateJobQuoteId, setPendingCreateJobQuoteId] = useState<string | null>(null);
   const [pendingJobNavigationId, setPendingJobNavigationId] = useState<string | null>(null);
   const [purchaseOrderEditor, setPurchaseOrderEditor] = useState<PurchaseOrderEditorState>(null);
+  const [portalLabourActuals, setPortalLabourActuals] = useState<PortalLabourActual[]>([]);
+  const [jobCostingStatus, setJobCostingStatus] = useState<JobCostingStatus>("idle");
+  const [jobCostingMessage, setJobCostingMessage] = useState("");
   const saveTimer = useRef<number | null>(null);
   const saveInFlight = useRef(false);
   const pendingSave = useRef<AppState | null>(null);
   const lastSavedSnapshot = useRef("");
   const latestState = useRef(state);
   latestState.current = state;
+
+  const refreshJobCosting = useCallback(async () => {
+    setJobCostingStatus("loading");
+    setJobCostingMessage("");
+    try {
+      const response = await fetch("/api/job-costing", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({})) as { actuals?: PortalLabourActual[]; error?: string; restricted?: boolean };
+      if (!response.ok) {
+        setJobCostingStatus(payload.restricted || response.status === 403 ? "restricted" : response.status === 404 ? "unavailable" : "error");
+        setJobCostingMessage(payload.error || "Portal labour costs could not be loaded.");
+        return;
+      }
+      setPortalLabourActuals(Array.isArray(payload.actuals) ? payload.actuals : []);
+      setJobCostingStatus("ready");
+    } catch (error) {
+      setJobCostingStatus("error");
+      setJobCostingMessage(error instanceof Error ? error.message : "Portal labour costs could not be loaded.");
+    }
+  }, []);
 
   const flushPendingSave = useCallback(async () => {
     if (saveInFlight.current || !pendingSave.current) return;
@@ -1084,6 +1108,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
   }, [state, ready, flushPendingSave]);
+
+  useEffect(() => {
+    if (!ready) return;
+    void refreshJobCosting();
+  }, [ready, refreshJobCosting]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -1585,6 +1614,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onOpenQuote={openQuote}
           onCreatePurchaseOrder={(jobId, lineId) => setPurchaseOrderEditor({ jobId, lineId })}
           onEditPurchaseOrder={(jobId, purchaseOrderId) => setPurchaseOrderEditor({ jobId, purchaseOrderId })}
+          portalLabourActuals={portalLabourActuals}
+          jobCostingStatus={jobCostingStatus}
+          jobCostingMessage={jobCostingMessage}
+          onRefreshJobCosting={() => void refreshJobCosting()}
         />
       );
     }
@@ -4352,19 +4385,40 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
   );
 }
 
-function jobTotals(job: Job) {
-  const actual = job.costs.filter((entry) => entry.type !== "Commitment").reduce((sum, entry) => sum + entry.preTaxAmount, 0);
-  const labourHours = job.costs.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
+function portalLabourForJob(job: Job, actuals: PortalLabourActual[]) {
+  const normalizedNumber = job.jobNumber.trim().toLocaleLowerCase();
+  return actuals.filter((entry) => (
+    (job.portalJobId && entry.portalJobId === job.portalJobId)
+    || (!job.portalJobId && entry.jobNumber.trim().toLocaleLowerCase() === normalizedNumber)
+  ));
+}
+
+function portalLabourTotals(actuals: PortalLabourActual[]) {
+  return actuals.reduce((totals, entry) => ({
+    hours: totals.hours + entry.hours,
+    submittedHours: totals.submittedHours + (entry.sourceStatus === "submitted" ? entry.hours : 0),
+    provisionalHours: totals.provisionalHours + (entry.sourceStatus === "provisional" ? entry.hours : 0),
+    loadedCost: totals.loadedCost + entry.loadedLabourCost,
+    missingRateHours: totals.missingRateHours + entry.missingRateHours,
+  }), { hours: 0, submittedHours: 0, provisionalHours: 0, loadedCost: 0, missingRateHours: 0 });
+}
+
+function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
+  const manualActual = job.costs.filter((entry) => entry.type !== "Commitment").reduce((sum, entry) => sum + entry.preTaxAmount, 0);
+  const manualLabourHours = job.costs.reduce((sum, entry) => sum + (entry.hours ?? 0), 0);
+  const portalLabour = portalLabourTotals(portalActuals);
+  const actual = manualActual + portalLabour.loadedCost;
+  const labourHours = manualLabourHours + portalLabour.hours;
   const revisedRevenue = job.acceptedRevenue + job.approvedRevenueChanges;
   const revisedBudget = job.originalCostBudget + job.approvedCostChanges;
   const forecastCost = actual + job.estimateToComplete;
   const profit = revisedRevenue - forecastCost;
   const margin = revisedRevenue > 0 ? profit / revisedRevenue : 0;
   const variance = revisedBudget - forecastCost;
-  return { actual, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
+  return { actual, manualActual, manualLabourHours, portalLabour, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
 }
 
-function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder }: {
+function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   job: Job | null;
@@ -4374,6 +4428,10 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
   onCreatePurchaseOrder: (jobId: string, lineId: string) => void;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
+  portalLabourActuals: PortalLabourActual[];
+  jobCostingStatus: JobCostingStatus;
+  jobCostingMessage: string;
+  onRefreshJobCosting: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
   const [jobSearch, setJobSearch] = useState("");
@@ -4385,12 +4443,14 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
     }));
   };
   if (job) {
-    const totals = jobTotals(job);
+    const jobPortalLabour = portalLabourForJob(job, portalLabourActuals);
+    const totals = jobTotals(job, jobPortalLabour);
     const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
     const quoteReference = linkedQuote?.number ?? "Quote unavailable";
     const subcontractLines = linkedQuote?.lines.filter((line) => line.included && line.costType === "Sub / Vendor") ?? [];
     const purchaseOrders = job.purchaseOrders ?? [];
     const duplicateRefs = Array.from(new Set(job.costs.filter((entry) => entry.reference && job.costs.filter((other) => other.reference === entry.reference).length > 1).map((entry) => entry.reference)));
+    const manualLabourEntries = job.costs.filter((entry) => entry.type === "Labour" && ((entry.hours ?? 0) > 0 || entry.preTaxAmount > 0));
     return (
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
@@ -4398,11 +4458,14 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
           <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{clientName(state, job.clientId)} · {linkedQuote?.site || "No location"} · Created by {linkedQuote?.preparedBy || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
           <div className="quote-primary-actions"><button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button><button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" onClick={() => setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
         </div>
-        <div className="estimating-boundary-note"><strong>Linked to the JGC Portal</strong><p>{job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
+        <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
+          <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
+          <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
+        </div>
         <section className="job-kpi-grid">
           <div><span>Accepted quote</span><strong>{money(totals.revisedRevenue)}</strong><small>Pre-tax estimate</small></div>
-          <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>Entered here</small></div>
-          <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>Actual hours entered</small></div>
+          <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>
+          <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current` : "No Portal hours yet"}</small></div>
           <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
         </section>
         <section className="panel subcontract-po-panel">
@@ -4432,9 +4495,25 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
             </div>
           ) : <div className="empty-state compact-empty"><span>PO</span><h3>No subcontractor lines on the accepted quote</h3><p>Estimate lines marked Sub / Vendor will appear here automatically after the quote becomes a job.</p></div>}
         </section>
+        <section className="panel portal-labour-panel">
+          <div className="panel-heading"><div><span className="eyebrow">AUTOMATIC PORTAL COSTING</span><h2>Employee labour</h2><p>Confirmed submissions are separated from hours still on current timesheets. Rates remain private; only the loaded job cost is shown here.</p></div><div className="portal-labour-heading-total"><span>Loaded labour cost</span><strong>{money(totals.portalLabour.loadedCost)}</strong></div></div>
+          {totals.portalLabour.missingRateHours > 0 && <div className="duplicate-warning labour-rate-warning"><span>!</span><div><strong>Pay rate needed</strong><p>{numberFormatter.format(totals.portalLabour.missingRateHours)} labour hour{totals.portalLabour.missingRateHours === 1 ? " is" : "s are"} not included in cost because no effective employee rate was found. Add the rate in Accounting, then refresh.</p></div></div>}
+          {manualLabourEntries.length > 0 && jobPortalLabour.length > 0 && <div className="duplicate-warning labour-double-count-warning"><span>!</span><div><strong>Check manual labour adjustments</strong><p>Portal labour and {manualLabourEntries.length} manually entered labour record{manualLabourEntries.length === 1 ? " are" : "s are"} both included in Actual cost. Remove any duplicate manual entry.</p></div></div>}
+          {jobPortalLabour.length > 0 ? <div className="data-table-wrap"><table className="data-table portal-labour-table">
+            <thead><tr><th>Employee</th><th>Status</th><th>Work dates</th><th>Hours</th><th>Loaded cost</th><th>Rate coverage</th></tr></thead>
+            <tbody>{jobPortalLabour.map((entry) => <tr key={`${entry.portalJobId}-${entry.workerProfileId ?? entry.workerName}-${entry.sourceStatus}`}>
+              <td data-label="Employee"><strong className="employee-name">{entry.workerName}</strong></td>
+              <td data-label="Status"><span className={`labour-source-chip ${entry.sourceStatus}`}>{entry.sourceStatus === "submitted" ? "Submitted" : "Current · not submitted"}</span></td>
+              <td data-label="Work dates">{entry.firstWorkDate === entry.lastWorkDate ? shortDate(entry.firstWorkDate) : `${shortDate(entry.firstWorkDate)} – ${shortDate(entry.lastWorkDate)}`}</td>
+              <td data-label="Hours"><strong>{numberFormatter.format(entry.hours)}</strong></td>
+              <td data-label="Loaded cost"><strong>{money(entry.loadedLabourCost)}</strong></td>
+              <td data-label="Rate coverage">{entry.missingRateHours > 0 ? <span className="rate-missing">{numberFormatter.format(entry.missingRateHours)} h missing</span> : <span className="rate-complete">Complete</span>}</td>
+            </tr>)}</tbody>
+          </table></div> : <div className="empty-state compact-empty"><span>h</span><h3>{jobCostingStatus === "loading" ? "Loading Portal hours" : jobCostingStatus === "restricted" ? "Accounting access required" : "No Portal labour yet"}</h3><p>{jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : "Submitted or current employee timesheet hours matching this job number will appear here automatically."}</p></div>}
+        </section>
         <div className="job-grid">
           <section className="panel job-ledger">
-            <div className="panel-heading"><div><span className="eyebrow">ESTIMATE FOLLOW-UP</span><h2>Actual costs and hours</h2></div><button className="button secondary compact" onClick={() => onAddCost(job.id)}>＋ Add actual</button></div>
+            <div className="panel-heading"><div><span className="eyebrow">MANUAL COSTS AND ADJUSTMENTS</span><h2>Other actual costs</h2><p>Add invoices, materials, subcontractors, equipment and any deliberate labour adjustment not already captured by Portal timesheets.</p></div><button className="button secondary compact" onClick={() => onAddCost(job.id)}>＋ Add actual</button></div>
             {duplicateRefs.length > 0 && <div className="duplicate-warning"><span>!</span><div><strong>Check possible duplicate references</strong><p>{duplicateRefs.join(", ")}. Two entries use the same reference and should be reviewed.</p></div></div>}
             <div className="data-table-wrap">
               <table className="data-table">
@@ -4442,7 +4521,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
                 <tbody>{job.costs.map((entry) => <tr key={entry.id}><td data-label="Date">{shortDate(entry.date)}</td><td data-label="Type"><span className={`cost-type-chip ${entry.type.toLowerCase()}`}>{entry.type}</span></td><td data-label="Division / section">{entry.section || "General"}</td><td data-label="Vendor / person">{entry.vendor || "—"}</td><td data-label="Reference">{entry.reference || "—"}</td><td data-label="Hours">{entry.hours ? numberFormatter.format(entry.hours) : "—"}</td><td data-label="Pre-tax cost"><strong>{money(entry.preTaxAmount)}</strong></td></tr>)}</tbody>
               </table>
             </div>
-            {!job.costs.length && <div className="empty-state compact-empty"><span>$</span><h3>No actuals entered</h3><p>Add supplier, material, labour, equipment or other actual costs and hours to compare against the estimate.</p></div>}
+            {!job.costs.length && <div className="empty-state compact-empty"><span>$</span><h3>No other actuals entered</h3><p>Employee labour appears automatically above. Add supplier, material, subcontractor, equipment or other job costs here.</p></div>}
           </section>
           <aside className="panel forecast-panel">
             <div className="panel-heading"><div><span className="eyebrow">ESTIMATE CHECK</span><h2>Cost outlook</h2></div></div>
@@ -4479,13 +4558,13 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
       year: { key: year, label: year },
       client: { key: item.clientId || "__no_client__", label: clientName(state, item.clientId) },
       location: { key: location.toLocaleLowerCase(), label: location },
-      value: jobTotals(item).revisedRevenue,
+      value: jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue,
     };
   });
   const renderJobTable = (items: Job[]) => (
     <section className="panel table-panel">
       <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>{jobSearch.trim() ? "Search results across every folder." : "Open a job to review its accepted estimate and actuals."}</span></div>
-      <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => { const totals = jobTotals(item); const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId); return <tr key={item.id} onClick={() => onOpen(item.id)}><td data-label="Job / quote"><strong>{item.jobNumber}</strong><small>{linkedQuote?.number ?? "Quote unavailable"} · {linkedQuote?.preparedBy || "Unassigned"}</small></td><td data-label="Client / location"><strong>{clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || "No location"} · {item.project}</small></td><td data-label="Accepted price">{money(totals.revisedRevenue)}</td><td data-label="Estimate cost">{money(item.originalCostBudget)}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{percent(totals.margin)}</td><td data-label="Status"><StatusPill status={item.status} /></td></tr>; })}</tbody></table></div>
+      <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => { const totals = jobTotals(item, portalLabourForJob(item, portalLabourActuals)); const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId); return <tr key={item.id} onClick={() => onOpen(item.id)}><td data-label="Job / quote"><strong>{item.jobNumber}</strong><small>{linkedQuote?.number ?? "Quote unavailable"} · {linkedQuote?.preparedBy || "Unassigned"}</small></td><td data-label="Client / location"><strong>{clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || "No location"} · {item.project}</small></td><td data-label="Accepted price">{money(totals.revisedRevenue)}</td><td data-label="Estimate cost">{money(item.originalCostBudget)}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{percent(totals.margin)}</td><td data-label="Status"><StatusPill status={item.status} /></td></tr>; })}</tbody></table></div>
       {!items.length && <div className="empty-state"><span>✓</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{statusFilter === "Active" ? "Make a finished, accepted quote into a Portal-linked job." : "Archived jobs will remain available here for reference."}</p></div>}
     </section>
   );
@@ -4497,8 +4576,8 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Accepted estimates</small></div>
         <div><span>Archived jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
-        <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
-        <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item).actual, 0))}</strong><small>Entered here</small></div>
+        <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
+        <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
       </section>
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job number, quote, estimator, client or location" aria-label="Search jobs" /></div>
@@ -4609,7 +4688,7 @@ function QuickModal({ modal, state, onClose, onSubmit }: { modal: Exclude<ModalS
             <label className="field full"><span>Pricing basis</span><input name="basis" placeholder="How this item should be priced" /></label>
             <label className="field full"><span>Recommended use</span><textarea name="use" rows={3} /></label>
           </div>}
-          {modal.kind === "jobCost" && <div className="form-grid two-column"><div className="field full actual-entry-note"><strong>Estimate follow-up only</strong><small>Enter a cost, labour hours, or both. Purchase orders can be created from subcontractor lines above; official invoices and accounting records stay in the office system.</small></div><label className="field"><span>Date</span><input name="date" type="date" defaultValue={today()} /></label><label className="field"><span>Actual type</span><select name="type"><option>Subcontractor</option><option>Material</option><option>Labour</option><option>Equipment</option><option>Expense</option></select></label><label className="field"><span>Division / section</span><input name="section" defaultValue="General" /></label><label className="field"><span>Vendor / person</span><input name="vendor" /></label><label className="field full"><span>Invoice, receipt or timesheet reference</span><input name="reference" /></label><label className="field"><span>Pre-tax cost</span><div className="input-prefix"><span>$</span><input name="preTaxAmount" type="number" min="0" step="0.01" defaultValue="0" /></div></label><label className="field"><span>Labour hours</span><input name="hours" type="number" min="0" step="0.25" defaultValue="0" /></label><label className="field full"><span>Notes</span><textarea name="notes" rows={3} /></label></div>}
+          {modal.kind === "jobCost" && <div className="form-grid two-column"><div className="field full actual-entry-note"><strong>Other cost or adjustment</strong><small>Portal timesheet labour loads automatically. Use Labour here only for a deliberate adjustment that is not already on an employee timesheet. Add materials, subcontractor invoices, equipment and expenses normally.</small></div><label className="field"><span>Date</span><input name="date" type="date" defaultValue={today()} /></label><label className="field"><span>Actual type</span><select name="type"><option>Subcontractor</option><option>Material</option><option>Labour</option><option>Equipment</option><option>Expense</option></select></label><label className="field"><span>Division / section</span><input name="section" defaultValue="General" /></label><label className="field"><span>Vendor / person</span><input name="vendor" /></label><label className="field full"><span>Invoice, receipt or timesheet reference</span><input name="reference" /></label><label className="field"><span>Pre-tax cost</span><div className="input-prefix"><span>$</span><input name="preTaxAmount" type="number" min="0" step="0.01" defaultValue="0" /></div></label><label className="field"><span>Labour hours</span><input name="hours" type="number" min="0" step="0.25" defaultValue="0" /></label><label className="field full"><span>Notes</span><textarea name="notes" rows={3} /></label></div>}
           {submitError && <p className="modal-error">{submitError}</p>}
           <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary" disabled={submitting}>{submitting ? "Saving…" : "Save"}</button></footer>
         </form>
