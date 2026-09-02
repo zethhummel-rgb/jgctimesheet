@@ -49,6 +49,27 @@ async function finishAndReopenAsRevisionOne(page) {
   await expect(page.getByText("JGC-Q-2026-0001 · REV 1")).toBeVisible();
 }
 
+test("proposal preview and PDF use the quote preparer instead of the company fallback signer", async ({ page }, testInfo) => {
+  await openDemoQuote(page);
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await page.getByRole("textbox", { name: "Prepared by" }).fill("Jeff Vandrish");
+  await page.getByRole("tab", { name: /Proposal/ }).click();
+
+  const signoff = page.locator(".proposal-signoff");
+  await expect(signoff).toContainText("Jeff Vandrish");
+  await expect(signoff).not.toContainText("Zeth Hummel");
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Proposal PDF" }).click(),
+  ]);
+  const pdfPath = testInfo.outputPath("jeff-vandrish-proposal.pdf");
+  await download.saveAs(pdfPath);
+  const pdfText = await extractPdfText(pdfPath);
+  expect(pdfText).toContain("Respectfully submitted,");
+  expect(pdfText).toContain("Jeff Vandrish");
+});
+
 test("Purchase Order PDF keeps long names inside their panels and uses a descriptive filename", async ({ page }, testInfo) => {
   const sourceAssets = path.resolve(__dirname, "../estimating/assets");
   const purchaseOrderModule = fs.readdirSync(sourceAssets).find((name) => /^purchase-order-pdf-.*\.js$/.test(name));
@@ -304,10 +325,16 @@ test("reopened quote PDFs all carry the editable revision number", async ({ page
   await page.getByRole("button", { name: "Built-up item" }).click();
   const builtUpLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   await builtUpLine.locator("input.description-input").fill("Revision test built-up work");
+  await expect(builtUpLine.locator("input.description-input")).toHaveValue("Revision test built-up work");
   const builtUpLabour = page.locator(".labour-group .build-up-row").last();
   await builtUpLabour.getByLabel("Labour description").fill("Revision test crew");
+  await expect(builtUpLabour.getByLabel("Labour description")).toHaveValue("Revision test crew");
+  await page.waitForTimeout(50);
   await builtUpLabour.getByLabel(/quantity/).fill("8");
+  await page.waitForTimeout(50);
   await builtUpLabour.getByLabel(/unit cost/).fill("60");
+  await expect(builtUpLabour.getByLabel("Labour description")).toHaveValue("Revision test crew");
+  await expect(builtUpLabour.getByText("$480.00")).toBeVisible();
   await finishAndReopenAsRevisionOne(page);
   await page.getByRole("button", { name: "Download PDFs" }).click();
   const menu = page.getByRole("dialog", { name: "Download PDFs" });

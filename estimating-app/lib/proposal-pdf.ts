@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { AppState, Quote } from "./estimator-data";
-import { lineSellPrice, quoteTotals } from "./estimator-data";
+import { lineSellPrice, proposalSignatoryName, quoteTotals } from "./estimator-data";
 import { proposalCostBreakdownRows } from "./proposal-cost-breakdown";
 import { proposalTextLines, proposalTextPlain, proposalTextRunLines, proposalTextRuns, type ProposalTextRun } from "./proposal-rich-text";
 
@@ -389,7 +389,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   ensure(43 + 67 + 16);
   const signoffTop = y;
   page.drawText("Respectfully submitted,", { x: PAGE.width - PAGE.margin - 135, y: y - 7, size: 5.8, font: regular, color: grey });
-  page.drawText(state.settings.signatoryName || quote.preparedBy || "JGC Estimating", { x: PAGE.width - PAGE.margin - 135, y: y - 19, size: 6.8, font: bold, color: dark });
+  page.drawText(proposalSignatoryName(state, quote), { x: PAGE.width - PAGE.margin - 135, y: y - 19, size: 6.8, font: bold, color: dark });
   page.drawText("John Gordon Construction", { x: PAGE.width - PAGE.margin - 135, y: y - 28, size: 5.5, font: regular, color: green });
   page.drawLine({ start: { x: PAGE.width - PAGE.margin - 135, y: y - 32 }, end: { x: PAGE.width - PAGE.margin, y: y - 32 }, thickness: 0.6, color: grey });
   y = signoffTop - 43;
