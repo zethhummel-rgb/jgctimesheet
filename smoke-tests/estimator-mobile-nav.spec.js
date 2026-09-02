@@ -1027,12 +1027,23 @@ test("subcontractor vendor and quote description stay separate", async ({ page }
   await page.locator(".subcontractor-add-button").click();
 
   const mainRow = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
-  await mainRow.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals");
+  const vendorCell = mainRow.locator("td").nth(1);
+  const descriptionCell = mainRow.locator("td").nth(2);
+  await expect(vendorCell).toHaveAttribute("data-label", "Vendor / Quote #");
+  await expect(descriptionCell).toHaveAttribute("data-label", "Quote description");
+  await vendorCell.getByRole("combobox", { name: /Vendor for line/ }).fill("Agway Metals");
+  await vendorCell.getByLabel(/Subcontractor quote #/).fill("AG-CLAD-104");
   const description = mainRow.getByLabel(/Subcontractor quote description/);
   await expect(description).toHaveValue("");
   await description.fill("Exterior metal cladding package");
+  await expect(vendorCell).toContainText("Quote #");
+  await expect(vendorCell.getByLabel(/Subcontractor quote #/)).toHaveValue("AG-CLAD-104");
   await mainRow.locator(".direct-unit-cost-cell input").fill("100");
   await expect(page.locator(".line-detail-panel h3")).toHaveText("Exterior metal cladding package");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(vendorCell.getByRole("combobox", { name: /Vendor for line/ })).toBeVisible();
+  await expect(description).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
   await page.getByRole("tab", { name: /Review/ }).click();
   await expect(page.getByText(/needs a description/i)).toHaveCount(0);
@@ -1072,7 +1083,11 @@ test("estimate lines stay grouped by cost type with subcontractors first", async
   await page.getByRole("button", { name: /Custom line/ }).click();
   await page.locator(".subcontractor-add-button").click();
 
-  const types = await page.locator('.estimate-table tbody > tr:not(.line-detail-row) td[data-label="Cost type"]').evaluateAll((cells) => cells.map((cell) => cell.querySelector("select")?.value ?? cell.textContent?.trim() ?? ""));
+  const types = await page.locator(".estimate-table tbody > tr:not(.line-detail-row)").evaluateAll((rows) => rows.map((row) => {
+    if (row.querySelector('td[data-label="Vendor / Quote #"]')) return "Sub / Vendor";
+    const cell = row.querySelector('td[data-label="Cost type"]');
+    return cell?.querySelector("select")?.value ?? cell?.textContent?.trim() ?? "";
+  }));
   const order = ["Sub / Vendor", "Labour & Materials", "Labour", "Material", "Equipment / Other"];
   const ranks = types.map((type) => order.indexOf(type));
   await expect(types[0]).toBe("Sub / Vendor");
