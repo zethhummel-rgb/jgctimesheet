@@ -524,9 +524,7 @@ class BackupPdfBuilder {
 
 function estimateVendorDetails(state: AppState, line: QuoteLine) {
   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name : line.vendorName?.trim() ?? "";
-  const comparable = (value?: string) => ascii(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
-  const vendorAlreadyDescribesLine = !!vendor && comparable(vendor) === comparable(line.description);
-  return [vendorAlreadyDescribesLine ? "" : vendor, line.vendorReference?.trim()].filter(Boolean).join(" / ");
+  return [vendor, line.vendorReference?.trim()].filter(Boolean).join(" / ");
 }
 
 function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote, exportedAt: Date) {
@@ -584,6 +582,10 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   const vendorCount = orderedLines.filter(({ line }) => line.costType === "Sub / Vendor").length;
   const rows = orderedLines.map(({ line }) => {
     const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
+    const description = line.description.trim();
+    const estimateLineName = line.costType === "Sub / Vendor"
+      ? [vendorDetails, description].filter(Boolean).join("\n")
+      : description;
     const buildUp = line.costType === "Labour & Materials" && line.costBuildUp ? lineBuildUpTotals(line) : null;
     const quantity = Math.max(0, line.quantity || 0);
     const labour = buildUp
@@ -594,7 +596,7 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
       : line.costType === "Material" ? lineDirectCost(line) : null;
     return [
       divisionNumber(line.division),
-      `${line.description || "Unnamed line"}${vendorDetails ? `\n${vendorDetails}` : ""}`,
+      estimateLineName,
       `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`,
       labour === null ? "-" : money(labour),
       materials === null ? "-" : money(materials),

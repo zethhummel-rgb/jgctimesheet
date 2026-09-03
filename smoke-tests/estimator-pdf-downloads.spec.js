@@ -177,6 +177,7 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await page.waitForTimeout(50);
   await typedVendorLine.locator(".direct-unit-cost-cell input").fill("2580");
   await typedVendorLine.getByLabel(/Subcontractor quote #/).fill("AG-2026-15");
+  await typedVendorLine.getByLabel(/Subcontractor quote description/).fill("Concrete trade package");
   await page.waitForTimeout(50);
 
   await page.locator(".subcontractor-add-button").click();
@@ -218,6 +219,9 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   expect(estimateText).toContain("Stairwell framing");
   expect(estimateText.match(/Agway Metals Inc\./g)).toHaveLength(1);
   expect(estimateText).toContain("AG-2026-15");
+  expect(estimateText).toContain("Concrete trade package");
+  expect(estimateText.indexOf("Agway Metals Inc.")).toBeLessThan(estimateText.indexOf("Concrete trade package"));
+  expect(estimateText).not.toContain("Unnamed line");
   expect(estimateText).toContain("$9,600.00");
   expect(estimateText).toContain("$1,922.50");
   expect(estimateText).toMatch(/Stairwell framing.*\$9,600\.00.*\$1,922\.50.*\$11,523\.00/);

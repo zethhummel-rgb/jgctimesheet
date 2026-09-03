@@ -858,7 +858,7 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
 
   included.forEach((line, index) => {
     const label = line.description || `Line ${index + 1}`;
-    if (!line.description.trim()) blockers.push({ key: `${line.id}-description`, message: `Line ${index + 1} needs a description.` });
+    if (line.costType !== "Sub / Vendor" && !line.description.trim()) blockers.push({ key: `${line.id}-description`, message: `Line ${index + 1} needs a description.` });
     if (!(line.quantity > 0)) blockers.push({ key: `${line.id}-quantity`, message: `${label} needs a quantity above zero.` });
     if (!line.unit.trim()) blockers.push({ key: `${line.id}-unit`, message: `${label} needs a unit.` });
     if (!(effectiveUnitCost(line) > 0)) blockers.push({ key: `${line.id}-cost`, message: `${label} has no usable direct cost.` });
