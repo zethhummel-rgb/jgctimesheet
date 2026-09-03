@@ -331,6 +331,22 @@ test("pricing controls accept whole-number typed percentages and stay synchroniz
   const marginInput = page.getByRole("spinbutton", { name: "Target margin percentage" });
   const marginSlider = page.getByRole("slider", { name: "Target margin slider" });
 
+  await markupInput.selectText();
+  await markupInput.press("Backspace");
+  await expect(markupInput).toHaveValue("");
+  await expect(markupSlider).toHaveValue("0");
+  await markupInput.pressSequentially("20");
+  await expect(markupInput).toHaveValue("20");
+  await expect(markupSlider).toHaveValue("20");
+
+  await marginInput.selectText();
+  await marginInput.press("Backspace");
+  await expect(marginInput).toHaveValue("");
+  await expect(marginSlider).toHaveValue("0");
+  await marginInput.pressSequentially("25");
+  await expect(marginInput).toHaveValue("25");
+  await expect(marginSlider).toHaveValue("25");
+
   await markupInput.fill("32.4");
   await marginInput.fill("18.7");
   await expect(markupInput).toHaveValue("32");
@@ -341,6 +357,36 @@ test("pricing controls accept whole-number typed percentages and stay synchroniz
   await markupInput.focus();
   await page.keyboard.press("ArrowUp");
   await expect(markupInput).toHaveValue("32");
+});
+
+test("estimate quantities and line markups can be cleared before typing replacements", async ({ page }) => {
+  await page.setViewportSize({ width: 1365, height: 900 });
+  await page.goto("/estimating/index.html?dev=1");
+  await page.getByRole("button", { name: "New quote" }).click();
+
+  const deposit = page.getByRole("spinbutton", { name: "Deposit" });
+  await deposit.selectText();
+  await deposit.press("Backspace");
+  await expect(deposit).toHaveValue("");
+  await deposit.pressSequentially("25");
+  await expect(deposit).toHaveValue("25");
+
+  await page.getByRole("tab", { name: /Estimate/ }).click();
+  await page.getByRole("button", { name: "Custom line" }).click();
+  const line = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
+  const quantity = line.locator(".number-input");
+  await quantity.selectText();
+  await quantity.press("Backspace");
+  await expect(quantity).toHaveValue("");
+  await quantity.pressSequentially("3");
+  await expect(quantity).toHaveValue("3");
+
+  const lineMarkup = page.locator(".line-detail-panel").getByRole("spinbutton", { name: /Markup for/ });
+  await lineMarkup.selectText();
+  await lineMarkup.press("Backspace");
+  await expect(lineMarkup).toHaveValue("");
+  await lineMarkup.pressSequentially("22.5");
+  await expect(lineMarkup).toHaveValue("22.5");
 });
 
 test("proposal scope editor visibly numbers every scope item", async ({ page }) => {
