@@ -113,5 +113,15 @@ for (const viewport of [
     expect(lightWelcomeState.heading).toBe("rgb(255, 255, 255)");
     expect(lightWelcomeState.copy).toBe("rgb(230, 243, 237)");
     expect(lightWelcomeState.eyebrow).toBe("rgb(185, 243, 215)");
+
+    await page.getByRole("button", { name: "Company-wide" }).click();
+    await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+    await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+    await page.getByRole("tab", { name: /Review/ }).click();
+
+    const customerTotal = page.locator(".review-totals .grand-total");
+    await expect(customerTotal).toBeVisible();
+    await expect(customerTotal.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(customerTotal.locator("strong")).toHaveCSS("color", "rgb(255, 255, 255)");
   });
 }
