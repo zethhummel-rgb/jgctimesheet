@@ -127,7 +127,7 @@ test("Purchase Orders family uses the shared visual source without inline stylin
     expect(source).not.toMatch(/\sstyle\s*=/i);
     expect(source).not.toContain("styles.css");
     expect(source).toContain('jgc-design-system.css?v=8');
-    expect(source).toContain('purchase-orders.css?v=21');
+    expect(source).toContain('purchase-orders.css?v=22');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
   expect(adminSource).toContain('purchase-orders-admin.js?v=14');
@@ -184,6 +184,60 @@ for (const viewport of [
     await context.close();
   });
 }
+
+test("light-theme PO controls and PO numbers remain readable", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installState(page);
+  await page.goto("/purchase-orders.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#poCurrentUser")).toContainText("PO Style Test");
+  await expect(page.locator("#poList")).toContainText("No purchase orders found");
+  await page.locator("html").evaluate((element) => element.setAttribute("data-jgc-theme", "light"));
+  await page.evaluate(() => {
+    const list = document.getElementById("poList");
+    if (list) {
+      list.innerHTML = `
+        <article class="po-record jgc-card">
+          <div class="po-record-header">
+            <div><div class="po-record-number">PO-30506</div><div class="po-record-title">Supplier not entered</div></div>
+            <span class="po-badge green jgc-badge">Draft</span>
+          </div>
+          <div class="po-record-meta"><span><strong>Job:</strong> Shop</span></div>
+        </article>`;
+    }
+    const formView = document.getElementById("poFormView");
+    if (formView) formView.hidden = false;
+    const poNumber = document.getElementById("poNumberDisplay");
+    if (poNumber) poNumber.textContent = "PO-30506";
+    const syncButton = document.getElementById("poSyncButton");
+    const openPendingButton = document.getElementById("poOpenPendingButton");
+    if (syncButton) syncButton.disabled = true;
+    if (openPendingButton) openPendingButton.disabled = true;
+  });
+
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
+  await expect(page.locator(".po-record-number")).toHaveText("PO-30506");
+  await expect(page.locator("#poNumberDisplay")).toHaveText("PO-30506");
+  await expect(page.locator("#poSyncButton")).toHaveCSS("opacity", "1");
+
+  for (const selector of [
+    ".po-tabs button.active",
+    ".po-tabs button:not(.active)",
+    "#poSyncButton",
+    "#poOpenPendingButton",
+    ".po-record-number",
+    ".po-record-meta strong",
+    "#poNumberDisplay"
+  ]) {
+    expect(await contrastRatio(page, selector), `${selector} must meet normal-text contrast in light mode`).toBeGreaterThanOrEqual(4.5);
+  }
+  if (process.env.JGC_PO_SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.JGC_PO_SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({
+      path: path.join(process.env.JGC_PO_SCREENSHOT_DIR, "purchase-orders-light-phone.png"),
+      fullPage: true
+    });
+  }
+});
 
 for (const viewport of [
   { name: "desktop", width: 1280, height: 900 },

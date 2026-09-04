@@ -105,7 +105,7 @@ body.po-page {
 
 .po-page h1 {
   margin: 0;
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   text-align: center;
   font-size: 36px;
   letter-spacing: 0;
@@ -204,12 +204,16 @@ body.po-page {
 }
 
 .po-page button:disabled {
-  opacity: 0.48;
+  border-color: var(--po-border);
+  background: var(--jgc-color-surface-soft);
+  color: var(--po-muted);
+  opacity: 1;
   cursor: not-allowed;
 }
 
 .po-page button.secondary {
   background: var(--jgc-color-surface-soft);
+  color: var(--po-text);
 }
 
 .po-page button.danger {
@@ -239,7 +243,7 @@ body.po-page {
   border-radius: 999px;
   padding: 4px 10px;
   background: var(--jgc-color-surface-soft);
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
@@ -247,6 +251,7 @@ body.po-page {
 
 .po-badge.green {
   background: var(--jgc-color-badge-success);
+  color: var(--jgc-color-on-brand);
 }
 
 .po-badge.warning {
@@ -256,10 +261,12 @@ body.po-page {
 
 .po-badge.danger {
   background: var(--jgc-color-badge-danger);
+  color: var(--jgc-color-on-brand);
 }
 
 .po-badge.info {
   background: var(--jgc-color-badge-info);
+  color: var(--jgc-color-on-brand);
 }
 
 .po-notice {
@@ -408,7 +415,7 @@ body.po-page {
 }
 
 .po-record-number {
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 21px;
   font-weight: 800;
 }
@@ -430,7 +437,7 @@ body.po-page {
 }
 
 .po-record-meta strong {
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
 }
 
 .po-record-actions {
@@ -458,7 +465,7 @@ body.po-page {
 }
 
 .po-number-display {
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 23px;
   font-weight: 800;
 }
@@ -517,7 +524,7 @@ body.po-page {
   border-radius: 4px;
   padding: 9px 11px;
   background: transparent !important;
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   line-height: 1.25;
   text-align: left;
 }
@@ -525,6 +532,7 @@ body.po-page {
 .po-job-option:hover,
 .po-job-option:focus-visible {
   background: var(--jgc-color-brand-700) !important;
+  color: var(--jgc-color-on-brand);
 }
 
 .po-job-empty {
@@ -623,7 +631,7 @@ body.po-page {
 .po-job-note-heading strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 14px;
 }
 
@@ -779,7 +787,7 @@ body.po-page {
 
 .po-metric strong {
   display: block;
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 24px;
 }
 
@@ -810,7 +818,7 @@ body.po-page {
 
 .po-table th {
   background: var(--jgc-color-table-header);
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
 }
 
 .po-table td {
@@ -853,8 +861,8 @@ body.po-page {
 }
 
 .po-tabs button.active {
-  background: var(--po-green);
-  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-brand-600);
+  color: var(--jgc-color-on-brand);
 }
 
 .po-submitted-groups {
@@ -924,7 +932,7 @@ body.po-page {
 }
 
 .po-employee-group-person strong {
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
   font-size: 16px;
 }
 
@@ -958,7 +966,7 @@ body.po-page {
 
 .po-history-item strong {
   display: block;
-  color: var(--jgc-color-on-brand);
+  color: var(--po-text);
 }
 
 .po-history-item span {
@@ -1085,7 +1093,7 @@ body.po-page {
 
   .jgc-theme .po-admin-tabs .tab-button.active {
     background: var(--jgc-color-brand-500) !important;
-    color: var(--jgc-color-text-dark) !important;
+    color: var(--jgc-color-page) !important;
   }
 
   .po-brand {
