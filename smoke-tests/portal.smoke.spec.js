@@ -2865,6 +2865,7 @@ test("Accounting workbook uses the requested sheets, Summary columns, and last-n
   expect(workbookLayout.jobHeaders).not.toContain("Shop - tree watering");
   expect(workbookLayout.jobHeaders).not.toContain("Shop - clean up");
   expect(workbookLayout.jobHeaders).not.toContain("Jeff Shop");
+  expect(workbookLayout.jobHeaders).not.toContain("Overtime hours to be allocated to a job");
   expect(workbookLayout.weekOneEmployees).toEqual(["Leo Dorie", "Stewart Thompson"]);
   expect(workbookLayout.weekTwoEmployees).toEqual(["Leo Dorie", "Stewart Thompson"]);
   expect(workbookLayout.jobEmployees).toEqual(["Leo Dorie", "Stewart Thompson", "Stewart Thompson"]);
@@ -2976,9 +2977,9 @@ test("Accounting night premiums do not inflate worked-hour totals", async ({ pag
   expect(workbookNightHours.nightPremiumTotalHours.value).toBeNull();
   expect(workbookNightHours.nightPremiumWeekOneHours.formula).toBe("'Aug 8'!J9");
   expect(workbookNightHours.nightPremiumWeekOneHours.result).toBe(8);
-  expect(workbookNightHours.summaryWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"<>Other",C5:C7)');
+  expect(workbookNightHours.summaryWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"Regular",C5:C7)');
   expect(workbookNightHours.summaryWorkedHours.result).toBe(8);
-  expect(workbookNightHours.summaryWeekOneWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"<>Other",D5:D7)');
+  expect(workbookNightHours.summaryWeekOneWorkedHours.formula).toBe('SUMIF($B$5:$B$7,"Regular",D5:D7)');
   expect(workbookNightHours.summaryWeekOneWorkedHours.result).toBe(8);
   expect(workbookNightHours.weekRegularHours.result).toBe(8);
   expect(workbookNightHours.weekNightPremiumTuesday.formula).toBe("SUM(E5)");
@@ -3007,6 +3008,235 @@ test("Accounting night premiums do not inflate worked-hour totals", async ({ pag
   expect(workbookNightHours.jobBurdenTotal.result).toBeCloseTo(369.6, 6);
   expect(workbookNightHours.jobWorkbookTotal.result).toBe(264);
   await expectNoRuntimeErrors(errors, "Accounting night premium hours");
+});
+
+test("Accounting overtime premiums reconcile across payroll, job allocation, and Summary, and both weeks", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingEnabled: false });
+  await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.JgcAccountingWorkbook && window.ExcelJS);
+
+  const workbookAudit = await page.evaluate(async () => {
+    const template = new ExcelJS.Workbook();
+    ["Aug 8", "Jobs Week 1", "Aug 15", "Jobs Week 2", "Summary", "Pay Period"]
+      .forEach((name) => template.addWorksheet(name));
+    const templateBuffer = await template.xlsx.writeBuffer();
+    let binary = "";
+    new Uint8Array(templateBuffer).forEach((byte) => { binary += String.fromCharCode(byte); });
+
+    const entry = (workDate, dayOfWeek, hours, shiftType = "day") => ({
+      profileId: "employee-one",
+      workerName: "Andre Labrosse",
+      workDate,
+      dayOfWeek,
+      entryType: "work",
+      sourceJobNumber: "26074",
+      sourceJobName: "Shop JGC",
+      jobId: "job-26074",
+      shiftType,
+      hours
+    });
+    const exportResult = await JgcAccountingWorkbook.build({
+      templateBase64: btoa(binary),
+      exportedBy: "Portal Smoke Test",
+      data: {
+        payDate: "2026-09-03",
+        weekOneStart: "2026-08-16",
+        weekOneEnd: "2026-08-22",
+        weekTwoStart: "2026-08-23",
+        weekTwoEnd: "2026-08-29",
+        employees: [{ profileId: "employee-one", name: "Andre Labrosse" }],
+        entries: [
+          entry("2026-08-16", "Sunday", 8),
+          entry("2026-08-17", "Monday", 8),
+          entry("2026-08-18", "Tuesday", 10, "night"),
+          entry("2026-08-19", "Wednesday", 8, "night"),
+          entry("2026-08-20", "Thursday", 8),
+          entry("2026-08-21", "Friday", 8),
+          entry("2026-08-22", "Saturday", 8),
+          entry("2026-08-23", "Sunday", 8),
+          entry("2026-08-24", "Monday", 8),
+          entry("2026-08-25", "Tuesday", 8),
+          entry("2026-08-26", "Wednesday", 8),
+          entry("2026-08-27", "Thursday", 8),
+          entry("2026-08-28", "Friday", 8)
+        ],
+        jobs: [{ id: "job-26074", job_number: "26074", job_name: "Shop JGC", active: true }],
+        rates: [{ id: "rate-one", profile_id: "employee-one", regular_rate: 32, overtime_multiplier: 1.5, night_premium: 3, effective_from: "2026-08-01" }],
+        inputs: {},
+        submissions: []
+      }
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(exportResult.buffer);
+    const describe = (cell) => ({
+      value: cell.value,
+      formula: cell.value && typeof cell.value === "object" ? cell.value.formula : "",
+      result: cell.value && typeof cell.value === "object" ? cell.value.result : cell.value,
+      fill: cell.fill && cell.fill.fgColor ? cell.fill.fgColor.argb : "",
+      fontColor: cell.font && cell.font.color ? cell.font.color.argb : ""
+    });
+    const findRow = (sheet, label) => {
+      for (let row = 1; row <= sheet.rowCount; row += 1) {
+        if (sheet.getCell(row, 1).value === label) return row;
+      }
+      return 0;
+    };
+    const lastFormulaCell = (sheet, column) => {
+      for (let row = sheet.rowCount; row >= 1; row -= 1) {
+        const value = sheet.getCell(row, column).value;
+        if (value && typeof value === "object" && value.formula) return sheet.getCell(row, column);
+      }
+      return sheet.getCell(1, column);
+    };
+
+    const weekOne = workbook.getWorksheet("Aug 22");
+    const weekTwo = workbook.getWorksheet("Aug 29");
+    const jobsWeekOne = workbook.getWorksheet("Jobs Week 1");
+    const jobsWeekTwo = workbook.getWorksheet("Jobs Week 2");
+    const summary = workbook.getWorksheet("Summary");
+    const payPeriod = workbook.getWorksheet("Pay Period");
+    const weekOneOvertimeRow = findRow(weekOne, "Overtime - Hours over 44");
+    const weekTwoOvertimeRow = findRow(weekTwo, "Overtime - Hours over 44");
+    const jobsWeekOneOvertimeRow = findRow(jobsWeekOne, "Overtime hours to be allocated to a job");
+    const jobsWeekTwoOvertimeRow = findRow(jobsWeekTwo, "Overtime hours to be allocated to a job");
+    const jobsWeekOneOvertimeTotalRow = findRow(jobsWeekOne, "Overtime premium total");
+    const jobsWeekTwoOvertimeTotalRow = findRow(jobsWeekTwo, "Overtime premium total");
+
+    const formulaProblems = [];
+    const circularReferences = [];
+    const mockupCells = [];
+    let formulaCount = 0;
+    const columnNumber = (letters) => String(letters).split("").reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0);
+    workbook.eachSheet((sheet) => {
+      sheet.eachRow((row) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+          const value = cell.value;
+          const formula = value && typeof value === "object" ? String(value.formula || "") : "";
+          const result = value && typeof value === "object" ? value.result : value;
+          if (formula.includes("#REF!") || ["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#N/A"].includes(String(result))) {
+            formulaProblems.push(`${sheet.name}!${cell.address}`);
+          }
+          if (formula) {
+            formulaCount += 1;
+            const ownMatch = cell.address.match(/^([A-Z]+)(\d+)$/);
+            const ownColumn = columnNumber(ownMatch[1]);
+            const ownRow = Number(ownMatch[2]);
+            let localFormula = formula.replace(/'(?:[^']|'')+'!\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?/g, "");
+            let isCircular = false;
+            localFormula = localFormula.replace(/\$?([A-Z]{1,3})\$?(\d+):\$?([A-Z]{1,3})\$?(\d+)/g, (match, firstColumn, firstRow, lastColumn, lastRow) => {
+              const left = Math.min(columnNumber(firstColumn), columnNumber(lastColumn));
+              const right = Math.max(columnNumber(firstColumn), columnNumber(lastColumn));
+              const top = Math.min(Number(firstRow), Number(lastRow));
+              const bottom = Math.max(Number(firstRow), Number(lastRow));
+              if (ownColumn >= left && ownColumn <= right && ownRow >= top && ownRow <= bottom) isCircular = true;
+              return "";
+            });
+            for (const match of localFormula.matchAll(/\$?([A-Z]{1,3})\$?(\d+)/g)) {
+              if (columnNumber(match[1]) === ownColumn && Number(match[2]) === ownRow) isCircular = true;
+            }
+            if (isCircular) circularReferences.push(`${sheet.name}!${cell.address}`);
+          }
+          const visible = value && typeof value === "object" ? `${value.formula || ""} ${value.result || ""}` : String(value || "");
+          if (/mockup/i.test(visible)) mockupCells.push(`${sheet.name}!${cell.address}`);
+        });
+      });
+    });
+
+    return {
+      bytes: Array.from(new Uint8Array(exportResult.buffer)),
+      fileName: exportResult.fileName,
+      mockupCells,
+      formulaProblems,
+      circularReferences,
+      formulaCount,
+      snapshot: exportResult.snapshot,
+      weekOneOvertimeHours: describe(weekOne.getCell(weekOneOvertimeRow, 10)),
+      weekOneOvertimeRate: describe(weekOne.getCell(weekOneOvertimeRow, 11)),
+      weekOneOvertimeGross: describe(weekOne.getCell(weekOneOvertimeRow, 12)),
+      weekOneTotal: describe(lastFormulaCell(weekOne, 13)),
+      weekTwoOvertimeHours: describe(weekTwo.getCell(weekTwoOvertimeRow, 10)),
+      weekTwoOvertimeRate: describe(weekTwo.getCell(weekTwoOvertimeRow, 11)),
+      weekTwoOvertimeGross: describe(weekTwo.getCell(weekTwoOvertimeRow, 12)),
+      weekTwoTotal: describe(lastFormulaCell(weekTwo, 13)),
+      jobsWeekOneOvertimeTitle: describe(jobsWeekOne.getCell(jobsWeekOneOvertimeRow, 1)),
+      jobsWeekOneOvertimeGross: describe(jobsWeekOne.getCell(jobsWeekOneOvertimeTotalRow, 11)),
+      jobsWeekOneTotal: describe(lastFormulaCell(jobsWeekOne, 13)),
+      jobsWeekTwoOvertimeTitle: describe(jobsWeekTwo.getCell(jobsWeekTwoOvertimeRow, 1)),
+      jobsWeekTwoOvertimeGross: describe(jobsWeekTwo.getCell(jobsWeekTwoOvertimeTotalRow, 11)),
+      jobsWeekTwoTotal: describe(lastFormulaCell(jobsWeekTwo, 13)),
+      summaryRegularHours: describe(summary.getCell("C5")),
+      summaryOvertimeHours: describe(summary.getCell("C6")),
+      summaryNightHours: describe(summary.getCell("C7")),
+      summaryWeekOneOvertimeHours: describe(summary.getCell("D6")),
+      summaryWeekOneOvertimeGross: describe(summary.getCell("F6")),
+      summaryWeekTwoOvertimeHours: describe(summary.getCell("G6")),
+      summaryWeekTwoOvertimeGross: describe(summary.getCell("H6")),
+      summaryTotalHours: describe(summary.getCell("C9")),
+      summaryWeekOneGross: describe(summary.getCell("F9")),
+      summaryWeekTwoGross: describe(summary.getCell("H9")),
+      summaryGross: describe(summary.getCell("J9")),
+      payPeriodWeekOneEnd: describe(payPeriod.getCell("B5")),
+      payPeriodWeekTwoEnd: describe(payPeriod.getCell("B6")),
+      payPeriodNextPayDate: describe(payPeriod.getCell("B8")),
+      burdenFormula: describe(jobsWeekOne.getCell(3, 12))
+    };
+  });
+
+  if (process.env.JGC_ACCOUNTING_OVERTIME_OUTPUT) {
+    fs.mkdirSync(path.dirname(process.env.JGC_ACCOUNTING_OVERTIME_OUTPUT), { recursive: true });
+    fs.writeFileSync(process.env.JGC_ACCOUNTING_OVERTIME_OUTPUT, Buffer.from(workbookAudit.bytes));
+  }
+
+  expect(workbookAudit.fileName).toBe("JGC Payroll - Aug 16, 2026 to Aug 29, 2026.xlsx");
+  expect(workbookAudit.fileName).not.toMatch(/mockup/i);
+  expect(workbookAudit.mockupCells).toEqual([]);
+  expect(workbookAudit.formulaProblems).toEqual([]);
+  expect(workbookAudit.circularReferences).toEqual([]);
+  expect(workbookAudit.formulaCount).toBeGreaterThan(40);
+  expect(workbookAudit.snapshot.version).toBe(2);
+  expect(workbookAudit.snapshot.totals.hours).toBe(106);
+  expect(workbookAudit.snapshot.totals.gross).toBe(3734);
+
+  expect(workbookAudit.weekOneOvertimeHours.formula).toContain("MAX(0,");
+  expect(workbookAudit.weekOneOvertimeHours.result).toBe(14);
+  expect(workbookAudit.weekOneOvertimeRate.result).toBe(16);
+  expect(workbookAudit.weekOneOvertimeRate.fill).toMatch(/FFF2CC$/);
+  expect(workbookAudit.weekOneOvertimeRate.fontColor).not.toMatch(/0000FF$/);
+  expect(workbookAudit.weekOneOvertimeGross.result).toBe(224);
+  expect(workbookAudit.weekOneTotal.result).toBe(2134);
+  expect(workbookAudit.weekTwoOvertimeHours.result).toBe(4);
+  expect(workbookAudit.weekTwoOvertimeRate.result).toBe(16);
+  expect(workbookAudit.weekTwoOvertimeGross.result).toBe(64);
+  expect(workbookAudit.weekTwoTotal.result).toBe(1600);
+
+  expect(workbookAudit.jobsWeekOneOvertimeTitle.fill).toMatch(/9C0006$/);
+  expect(workbookAudit.jobsWeekOneOvertimeGross.result).toBe(224);
+  expect(workbookAudit.jobsWeekOneTotal.result).toBe(workbookAudit.weekOneTotal.result);
+  expect(workbookAudit.jobsWeekTwoOvertimeTitle.fill).toMatch(/9C0006$/);
+  expect(workbookAudit.jobsWeekTwoOvertimeGross.result).toBe(64);
+  expect(workbookAudit.jobsWeekTwoTotal.result).toBe(workbookAudit.weekTwoTotal.result);
+
+  expect(workbookAudit.summaryRegularHours.result).toBe(106);
+  expect(workbookAudit.summaryOvertimeHours.value).toBeNull();
+  expect(workbookAudit.summaryNightHours.value).toBeNull();
+  expect(workbookAudit.summaryWeekOneOvertimeHours.result).toBe(14);
+  expect(workbookAudit.summaryWeekOneOvertimeGross.result).toBe(224);
+  expect(workbookAudit.summaryWeekTwoOvertimeHours.result).toBe(4);
+  expect(workbookAudit.summaryWeekTwoOvertimeGross.result).toBe(64);
+  expect(workbookAudit.summaryTotalHours.formula).toContain('"Regular"');
+  expect(workbookAudit.summaryTotalHours.result).toBe(106);
+  expect(workbookAudit.summaryWeekOneGross.result).toBe(2134);
+  expect(workbookAudit.summaryWeekTwoGross.result).toBe(1600);
+  expect(workbookAudit.summaryGross.result).toBe(3734);
+
+  expect(workbookAudit.payPeriodWeekOneEnd.formula).toBe("B3-12");
+  expect(workbookAudit.payPeriodWeekTwoEnd.formula).toBe("B3-5");
+  expect(workbookAudit.payPeriodNextPayDate.formula).toBe("B3+14");
+  expect(workbookAudit.burdenFormula.formula).toContain("'Pay Period'!$B$17");
+  await expectNoRuntimeErrors(errors, "Accounting overtime workbook reconciliation");
 });
 
 test("Accounting highlights a single timesheet entry over 12 hours", async ({ page }) => {

@@ -13,6 +13,11 @@
     text: "1F2933",
     softGray: "F3F5F6",
     inputBlue: "D9EAF7",
+    rateYellow: "FFF2CC",
+    overtimeDark: "9C0006",
+    overtimeRed: "C00000",
+    overtimeLight: "FCE8E6",
+    overtimeTotal: "F4CCCC",
     warningRed: "8F1D1D",
     warningBorder: "FF6B6B"
   };
@@ -20,6 +25,9 @@
   const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const DAY_LABELS = ["Sun", "Mon", "Tues", "Wed", "Thurs", "Fri", "Sat"];
   const WEEK_DAY_COLUMNS = ["C", "D", "E", "F", "G", "H", "I"];
+  const OVERTIME_THRESHOLD_HOURS = 44;
+  const LABOUR_BURDEN_MULTIPLIER = 1.4;
+  const DEFAULT_STAT_HOURS = 8;
 
   function isoDate(value) {
     return String(value || "").slice(0, 10);
@@ -134,6 +142,21 @@
     cell.font = { bold: Boolean(bold), color: { argb: COLORS.text } };
     cell.alignment = { vertical: "middle", horizontal: "right" };
     cell.numFmt = "0.00;-0.00;-";
+  }
+
+  function applyRateCell(cell, bold) {
+    cell.fill = fill(COLORS.rateYellow);
+    cell.border = thinBorder("E6D69A");
+    cell.font = { bold: Boolean(bold), color: { argb: COLORS.text } };
+    cell.alignment = { vertical: "middle", horizontal: "right" };
+    cell.numFmt = "0.00;-0.00;-";
+  }
+
+  function applyOvertimeHeader(cell) {
+    cell.fill = fill(COLORS.overtimeRed);
+    cell.font = { bold: true, color: { argb: COLORS.white } };
+    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    cell.border = thinBorder(COLORS.overtimeDark);
   }
 
   function setFormula(cell, formula, result, numFmt) {
@@ -270,9 +293,10 @@
     return rate ? safeNumber(rate.regular_rate) : 0;
   }
 
-  function blockOvertimeRate(profileId, rates, date) {
+  function blockOvertimePremiumRate(profileId, rates, date) {
     const rate = findRate(rates, profileId, date);
-    return rate ? round(safeNumber(rate.regular_rate) * safeNumber(rate.overtime_multiplier || 1.5)) : 0;
+    const premiumMultiplier = rate ? Math.max(0, safeNumber(rate.overtime_multiplier || 1.5) - 1) : 0;
+    return rate ? round(safeNumber(rate.regular_rate) * premiumMultiplier) : 0;
   }
 
   function blockNightPremium(profileId, rates, date) {
@@ -370,10 +394,7 @@
         setFormula(sheet.getCell(row, 10), `SUM(C${row}:I${row})`, rowTotal, "0.00;-0.00;-");
         applyTotalCell(sheet.getCell(row, 10), false);
         sheet.getCell(row, 11).value = rate;
-        applyTotalCell(sheet.getCell(row, 11), false);
-        sheet.getCell(row, 11).fill = fill(COLORS.inputBlue);
-        sheet.getCell(row, 11).font = { color: { argb: "0000FF" } };
-        sheet.getCell(row, 11).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
+        applyRateCell(sheet.getCell(row, 11), false);
         setFormula(sheet.getCell(row, 12), `J${row}*K${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
         applyTotalCell(sheet.getCell(row, 12), false);
         row += 1;
@@ -392,24 +413,23 @@
       setFormula(sheet.getCell(row, 10), `SUM(J${firstJobRow}:J${lastJobRow})`, regularHours, "0.00;-0.00;-");
       applyTotalCell(sheet.getCell(row, 10), true);
       sheet.getCell(row, 11).value = regularRate;
-      applyTotalCell(sheet.getCell(row, 11), true);
-      sheet.getCell(row, 11).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
+      applyRateCell(sheet.getCell(row, 11), true);
       setFormula(sheet.getCell(row, 12), `SUM(L${firstJobRow}:L${lastJobRow})`, regularGross, "$#,##0.00;[Red]-$#,##0.00;-");
       applyTotalCell(sheet.getCell(row, 12), true);
       const regularRow = row;
       row += 2;
 
       sheet.mergeCells(row, 1, row, 2);
-      sheet.getCell(row, 1).value = "Overtime (enter job)";
+      sheet.getCell(row, 1).value = "Overtime - Hours over 44";
       for (let column = 3; column <= 9; column += 1) applyEntryCell(sheet.getCell(row, column), true);
-      setFormula(sheet.getCell(row, 10), `SUM(C${row}:I${row})`, 0, "0.00;-0.00;-");
+      const overtimeHours = round(Math.max(0, regularHours - OVERTIME_THRESHOLD_HOURS));
+      const overtimeRate = blockOvertimePremiumRate(employee.profileId, data.rates, end);
+      const overtimeGross = round(overtimeHours * overtimeRate);
+      setFormula(sheet.getCell(row, 10), `MAX(0,J${regularRow}-${quoteSheetName("Pay Period")}!$B$16)`, overtimeHours, "0.00;-0.00;-");
       applyTotalCell(sheet.getCell(row, 10), false);
-      sheet.getCell(row, 11).value = blockOvertimeRate(employee.profileId, data.rates, end);
-      applyTotalCell(sheet.getCell(row, 11), false);
-      sheet.getCell(row, 11).fill = fill(COLORS.inputBlue);
-      sheet.getCell(row, 11).font = { color: { argb: "0000FF" } };
-      sheet.getCell(row, 11).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
-      setFormula(sheet.getCell(row, 12), `J${row}*K${row}`, 0, "$#,##0.00;[Red]-$#,##0.00;-");
+      sheet.getCell(row, 11).value = overtimeRate;
+      applyRateCell(sheet.getCell(row, 11), false);
+      setFormula(sheet.getCell(row, 12), `J${row}*K${row}`, overtimeGross, "$#,##0.00;[Red]-$#,##0.00;-");
       applyTotalCell(sheet.getCell(row, 12), false);
       const overtimeRow = row;
       row += 1;
@@ -432,18 +452,24 @@
       setFormula(sheet.getCell(row, 10), `SUM(C${row}:I${row})`, nightHours, "0.00;-0.00;-");
       applyTotalCell(sheet.getCell(row, 10), false);
       sheet.getCell(row, 11).value = nightPremium;
-      applyTotalCell(sheet.getCell(row, 11), false);
-      sheet.getCell(row, 11).fill = fill(COLORS.inputBlue);
-      sheet.getCell(row, 11).font = { color: { argb: "0000FF" } };
-      sheet.getCell(row, 11).numFmt = "$#,##0.00;[Red]-$#,##0.00;-";
+      applyRateCell(sheet.getCell(row, 11), false);
       setFormula(sheet.getCell(row, 12), `J${row}*K${row}`, round(nightHours * nightPremium), "$#,##0.00;[Red]-$#,##0.00;-");
       applyTotalCell(sheet.getCell(row, 12), false);
       const otherRow = row;
 
-      const employeeTotal = round(regularGross + nightHours * nightPremium);
+      const employeeTotal = round(regularGross + overtimeGross + nightHours * nightPremium);
       setFormula(sheet.getCell(row, 13), `SUM(L${regularRow},L${overtimeRow},L${otherRow})`, employeeTotal, "$#,##0.00;[Red]-$#,##0.00;-");
       applyTotalCell(sheet.getCell(row, 13), true);
-      employeeRefs[employee.profileId] = { regularRow, overtimeRow, otherRow };
+      employeeRefs[employee.profileId] = {
+        regularRow,
+        overtimeRow,
+        otherRow,
+        regularHours,
+        overtimeHours,
+        overtimeRate,
+        overtimeGross,
+        nightHours
+      };
       employeeTotalRows.push(row);
       workbookTotal = round(workbookTotal + employeeTotal);
       row += 1;
@@ -546,13 +572,18 @@
               const cell = sheet.getCell(row, 2 + index);
               setFormula(cell, `${quoteSheetName(weekWorkbook.sheetName)}!${WEEK_DAY_COLUMNS[index]}${sourceRow}`, hours, "0.00;-0.00;-");
               cell.fill = fill(COLORS.paleGreen);
+              cell.border = thinBorder("D2DFC9");
+              cell.alignment = { vertical: "middle", horizontal: "right" };
               if (hasLongEntryForDay(employeeEntries, DAYS[index])) applyLongHoursWarning(cell);
             });
             setFormula(sheet.getCell(row, 9), `SUM(B${row}:H${row})`, totalHours, "0.00;-0.00;-");
+            applyTotalCell(sheet.getCell(row, 9), false);
             setFormula(sheet.getCell(row, 10), `${quoteSheetName(weekWorkbook.sheetName)}!K${sourceRow}`, rate, "$#,##0.00;[Red]-$#,##0.00;-");
-            applyTotalCell(sheet.getCell(row, 10), false);
+            applyRateCell(sheet.getCell(row, 10), false);
             setFormula(sheet.getCell(row, 11), `I${row}*J${row}`, gross, "$#,##0.00;[Red]-$#,##0.00;-");
-            setFormula(sheet.getCell(row, 12), `K${row}*1.4`, round(gross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
+            applyTotalCell(sheet.getCell(row, 11), false);
+            setFormula(sheet.getCell(row, 12), `K${row}*${quoteSheetName("Pay Period")}!$B$17`, round(gross * LABOUR_BURDEN_MULTIPLIER), "$#,##0.00;[Red]-$#,##0.00;-");
+            applyTotalCell(sheet.getCell(row, 12), false);
             row += 1;
 
             if (isNightShift) {
@@ -571,9 +602,11 @@
               sheet.getCell(premiumRow, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
               sheet.getRow(premiumRow).height = wrappedRowHeight(premiumLabel, 31, 18);
               setFormula(sheet.getCell(premiumRow, 10), `${quoteSheetName(weekWorkbook.sheetName)}!K${otherRow}`, premiumRate, "$#,##0.00;[Red]-$#,##0.00;-");
-              applyTotalCell(sheet.getCell(premiumRow, 10), false);
+              applyRateCell(sheet.getCell(premiumRow, 10), false);
               setFormula(sheet.getCell(premiumRow, 11), `${quoteSheetName(weekWorkbook.sheetName)}!J${sourceRow}*J${premiumRow}`, premiumGross, "$#,##0.00;[Red]-$#,##0.00;-");
-              setFormula(sheet.getCell(premiumRow, 12), `K${premiumRow}*1.4`, round(premiumGross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
+              applyTotalCell(sheet.getCell(premiumRow, 11), false);
+              setFormula(sheet.getCell(premiumRow, 12), `K${premiumRow}*${quoteSheetName("Pay Period")}!$B$17`, round(premiumGross * LABOUR_BURDEN_MULTIPLIER), "$#,##0.00;[Red]-$#,##0.00;-");
+              applyTotalCell(sheet.getCell(premiumRow, 12), false);
               row += 1;
             }
           });
@@ -588,12 +621,86 @@
         }, 0));
         setFormula(sheet.getCell(row, 11), `SUM(K${firstEmployeeRow}:K${lastEmployeeRow})`, jobGross, "$#,##0.00;[Red]-$#,##0.00;-");
         applyTotalCell(sheet.getCell(row, 11), true);
-        setFormula(sheet.getCell(row, 12), `K${row}*1.4`, round(jobGross * 1.4), "$#,##0.00;[Red]-$#,##0.00;-");
+        setFormula(sheet.getCell(row, 12), `K${row}*${quoteSheetName("Pay Period")}!$B$17`, round(jobGross * LABOUR_BURDEN_MULTIPLIER), "$#,##0.00;[Red]-$#,##0.00;-");
         applyTotalCell(sheet.getCell(row, 12), true);
         jobTotalRows.push(row);
         workbookTotal = round(workbookTotal + jobGross);
         row += 3;
       });
+
+    const overtimeEmployees = data.employees
+      .map((employee) => ({ employee, ref: weekWorkbook.employeeRefs[employee.profileId] }))
+      .filter((item) => item.ref && safeNumber(item.ref.overtimeHours) > 0);
+
+    if (overtimeEmployees.length) {
+      sheet.mergeCells(row, 1, row, 12);
+      sheet.getCell(row, 1).value = "Overtime hours to be allocated to a job";
+      sheet.getCell(row, 1).fill = fill(COLORS.overtimeDark);
+      sheet.getCell(row, 1).font = { bold: true, color: { argb: COLORS.white }, size: 12 };
+      sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+      sheet.getRow(row).height = 30;
+      row += 1;
+
+      const overtimeHeaders = [formatDate(end), ...DAY_LABELS, "Total", "Rate", "Gross", "Gross + Burden"];
+      overtimeHeaders.forEach((label, index) => {
+        sheet.getCell(row, index + 1).value = label;
+        applyOvertimeHeader(sheet.getCell(row, index + 1));
+      });
+      sheet.getRow(row).height = 28;
+      row += 1;
+
+      const firstOvertimeRow = row;
+      let overtimeTotal = 0;
+      overtimeEmployees.forEach(({ employee, ref }) => {
+        sheet.getCell(row, 1).value = employee.name;
+        sheet.getCell(row, 1).fill = fill(COLORS.overtimeLight);
+        sheet.getCell(row, 1).font = { color: { argb: COLORS.text } };
+        sheet.getCell(row, 1).border = thinBorder("E6B8B7");
+        sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+        for (let column = 2; column <= 8; column += 1) {
+          const cell = sheet.getCell(row, column);
+          cell.fill = fill(COLORS.overtimeLight);
+          cell.border = thinBorder("E6B8B7");
+          cell.numFmt = "0.00;-0.00;-";
+          cell.alignment = { vertical: "middle", horizontal: "right" };
+        }
+        setFormula(sheet.getCell(row, 9), `${quoteSheetName(weekWorkbook.sheetName)}!J${ref.overtimeRow}`, ref.overtimeHours, "0.00;-0.00;-");
+        sheet.getCell(row, 9).fill = fill(COLORS.overtimeTotal);
+        sheet.getCell(row, 9).border = thinBorder("E6B8B7");
+        sheet.getCell(row, 9).alignment = { vertical: "middle", horizontal: "right" };
+        setFormula(sheet.getCell(row, 10), `${quoteSheetName(weekWorkbook.sheetName)}!K${ref.overtimeRow}`, ref.overtimeRate, "0.00;-0.00;-");
+        applyRateCell(sheet.getCell(row, 10), false);
+        setFormula(sheet.getCell(row, 11), `I${row}*J${row}`, ref.overtimeGross, "$#,##0.00;[Red]-$#,##0.00;-");
+        sheet.getCell(row, 11).fill = fill(COLORS.overtimeLight);
+        sheet.getCell(row, 11).border = thinBorder("E6B8B7");
+        sheet.getCell(row, 11).alignment = { vertical: "middle", horizontal: "right" };
+        setFormula(sheet.getCell(row, 12), `K${row}*${quoteSheetName("Pay Period")}!$B$17`, round(ref.overtimeGross * LABOUR_BURDEN_MULTIPLIER), "$#,##0.00;[Red]-$#,##0.00;-");
+        sheet.getCell(row, 12).fill = fill(COLORS.overtimeLight);
+        sheet.getCell(row, 12).border = thinBorder("E6B8B7");
+        sheet.getCell(row, 12).alignment = { vertical: "middle", horizontal: "right" };
+        overtimeTotal = round(overtimeTotal + ref.overtimeGross);
+        row += 1;
+      });
+      const lastOvertimeRow = row - 1;
+      sheet.mergeCells(row, 1, row, 10);
+      sheet.getCell(row, 1).value = "Overtime premium total";
+      sheet.getCell(row, 1).fill = fill(COLORS.overtimeTotal);
+      sheet.getCell(row, 1).font = { bold: true, color: { argb: COLORS.overtimeDark } };
+      sheet.getCell(row, 1).alignment = { vertical: "middle", horizontal: "right" };
+      setFormula(sheet.getCell(row, 11), `SUM(K${firstOvertimeRow}:K${lastOvertimeRow})`, overtimeTotal, "$#,##0.00;[Red]-$#,##0.00;-");
+      sheet.getCell(row, 11).fill = fill(COLORS.overtimeTotal);
+      sheet.getCell(row, 11).font = { bold: true, color: { argb: COLORS.overtimeDark } };
+      sheet.getCell(row, 11).border = thinBorder("E6B8B7");
+      sheet.getCell(row, 11).alignment = { vertical: "middle", horizontal: "right" };
+      setFormula(sheet.getCell(row, 12), `K${row}*${quoteSheetName("Pay Period")}!$B$17`, round(overtimeTotal * LABOUR_BURDEN_MULTIPLIER), "$#,##0.00;[Red]-$#,##0.00;-");
+      sheet.getCell(row, 12).fill = fill(COLORS.overtimeTotal);
+      sheet.getCell(row, 12).font = { bold: true, color: { argb: COLORS.overtimeDark } };
+      sheet.getCell(row, 12).border = thinBorder("E6B8B7");
+      sheet.getCell(row, 12).alignment = { vertical: "middle", horizontal: "right" };
+      jobTotalRows.push(row);
+      workbookTotal = round(workbookTotal + overtimeTotal);
+      row += 3;
+    }
 
     const totalCell = sheet.getCell(row, 13);
     const totalFormula = jobTotalRows.length ? `SUM(${jobTotalRows.map((item) => `K${item}`).join(",")})` : "0";
@@ -613,7 +720,10 @@
     const nightHours = round(work.filter((entry) => entry.shiftType === "night")
       .reduce((sum, entry) => sum + safeNumber(entry.hours), 0));
     const nightGross = round(nightHours * blockNightPremium(employee.profileId, data.rates, end));
-    return { regularHours, regularGross, nightHours, nightGross };
+    const overtimeHours = round(Math.max(0, regularHours - OVERTIME_THRESHOLD_HOURS));
+    const overtimeRate = blockOvertimePremiumRate(employee.profileId, data.rates, end);
+    const overtimeGross = round(overtimeHours * overtimeRate);
+    return { regularHours, regularGross, overtimeHours, overtimeRate, overtimeGross, nightHours, nightGross };
   }
 
   function buildSummarySheet(sheet, data, weekOneWorkbook, weekTwoWorkbook) {
@@ -640,7 +750,7 @@
       const weekTwo = employeeWeekTotals(data, employee, data.weekTwoStart, data.weekTwoEnd);
       const input = data.inputs[employee.profileId] || {};
       const regularRate = blockRate(employee.profileId, data.rates, data.weekTwoEnd);
-      const overtimeRate = blockOvertimeRate(employee.profileId, data.rates, data.weekTwoEnd);
+      const overtimeRate = blockOvertimePremiumRate(employee.profileId, data.rates, data.weekTwoEnd);
       const nightPremium = blockNightPremium(employee.profileId, data.rates, data.weekTwoEnd);
       const statPay = input.statSelected ? round(safeNumber(input.statHours) * regularRate) : 0;
       const adjustment = safeNumber(input.adjustment);
@@ -648,11 +758,11 @@
       const employeeFill = ["EAF3FC", "D9F0F7", "FBE5D6", "DDF4DD", "F3D9EE", "E8E2F7"][employeeIndex % 6];
       const rowTypes = [
         { type: "Regular", ref: "regularRow", w1: weekOne.regularHours, rate: regularRate, w1Gross: weekOne.regularGross, w2: weekTwo.regularHours, w2Gross: weekTwo.regularGross, stat: statPay, adjustment, vp },
-        { type: "Overtime", ref: "overtimeRow", w1: 0, rate: overtimeRate, w1Gross: 0, w2: 0, w2Gross: 0, stat: 0, adjustment: 0, vp: 0 },
-        { type: "Other", ref: "otherRow", w1: weekOne.nightHours, rate: nightPremium, w1Gross: weekOne.nightGross, w2: weekTwo.nightHours, w2Gross: weekTwo.nightGross, stat: 0, adjustment: 0, vp: 0 }
+        { type: "Overtime premium", ref: "overtimeRow", w1: weekOne.overtimeHours, rate: overtimeRate, w1Gross: weekOne.overtimeGross, w2: weekTwo.overtimeHours, w2Gross: weekTwo.overtimeGross, stat: 0, adjustment: 0, vp: 0 },
+        { type: "Night premium", ref: "otherRow", w1: weekOne.nightHours, rate: nightPremium, w1Gross: weekOne.nightGross, w2: weekTwo.nightHours, w2Gross: weekTwo.nightGross, stat: 0, adjustment: 0, vp: 0 }
       ];
       rowTypes.forEach((item) => {
-        const countsAsWorkedHours = item.type !== "Other";
+        const countsAsWorkedHours = item.type === "Regular";
         const totalHours = round(item.w1 + item.w2);
         const gross = round(item.w1Gross + item.w2Gross + item.stat);
         const balance = round(gross + item.adjustment + item.vp);
@@ -671,6 +781,7 @@
         });
         setFormula(sheet.getCell(row, 4), `${weekOneSheet}!J${weekOneRow}`, item.w1, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 5), `${weekTwoSheet}!K${weekTwoRow}`, item.rate, "$#,##0.00;[Red]-$#,##0.00;-");
+        applyRateCell(sheet.getCell(row, 5), false);
         setFormula(sheet.getCell(row, 6), `${weekOneSheet}!L${weekOneRow}`, item.w1Gross, "$#,##0.00;[Red]-$#,##0.00;-");
         setFormula(sheet.getCell(row, 7), `${weekTwoSheet}!J${weekTwoRow}`, item.w2, "0.00;-0.00;-");
         setFormula(sheet.getCell(row, 8), `${weekTwoSheet}!L${weekTwoRow}`, item.w2Gross, "$#,##0.00;[Red]-$#,##0.00;-");
@@ -714,29 +825,35 @@
         const numberFormat = [3, 4, 7].includes(column) ? "0.00;-0.00;-" : "$#,##0.00;[Red]-$#,##0.00;-";
         const columnLetter = cell.address.replace(/\d+$/g, "");
         const formula = [3, 4, 7].includes(column)
-          ? `SUMIF($B$5:$B$${lastDataRow},"<>Other",${columnLetter}5:${columnLetter}${lastDataRow})`
+          ? `SUMIF($B$5:$B$${lastDataRow},"Regular",${columnLetter}5:${columnLetter}${lastDataRow})`
           : `SUM(${columnLetter}5:${columnLetter}${lastDataRow})`;
         setFormula(cell, formula, round(totalValues[column]), numberFormat);
       }
     }
 
     sheet.mergeCells(totalRow + 4, 1, totalRow + 4, 6);
-    sheet.getCell(totalRow + 4, 1).value = "Blue cells = enter or update   |   Green cells = calculated automatically";
+    sheet.getCell(totalRow + 4, 1).value = "Blue cells = enter or update   |   Yellow cells = rates and settings   |   Green cells = calculated automatically";
     sheet.getCell(totalRow + 4, 1).font = { italic: true, color: { argb: "6B7280" } };
     sheet.getCell(totalRow + 4, 1).fill = fill(COLORS.inputBlue);
     sheet.getCell(totalRow + 4, 8).value = "Simple Settings";
     applyEmployeeHeader(sheet.getCell(totalRow + 4, 8));
-    sheet.getCell(totalRow + 5, 8).value = "Labour multiplier";
+    sheet.getCell(totalRow + 5, 8).value = "Overtime threshold";
     sheet.getCell(totalRow + 5, 8).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    sheet.getCell(totalRow + 5, 9).value = 1.4;
-    sheet.getCell(totalRow + 5, 9).numFmt = "0.00x";
-    sheet.getCell(totalRow + 6, 8).value = "Stat hours default";
+    setFormula(sheet.getCell(totalRow + 5, 9), `${quoteSheetName("Pay Period")}!$B$16`, OVERTIME_THRESHOLD_HOURS, "0.00");
+    sheet.getCell(totalRow + 6, 8).value = "Labour multiplier";
     sheet.getCell(totalRow + 6, 8).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
-    sheet.getCell(totalRow + 6, 9).value = 8;
-    sheet.getCell(totalRow + 6, 9).numFmt = "0.00";
+    setFormula(sheet.getCell(totalRow + 6, 9), `${quoteSheetName("Pay Period")}!$B$17`, LABOUR_BURDEN_MULTIPLIER, "0.00x");
+    sheet.getCell(totalRow + 7, 8).value = "Stat hours default";
+    sheet.getCell(totalRow + 7, 8).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    setFormula(sheet.getCell(totalRow + 7, 9), `${quoteSheetName("Pay Period")}!$B$18`, DEFAULT_STAT_HOURS, "0.00");
+    [totalRow + 5, totalRow + 6, totalRow + 7].forEach((settingRow) => {
+      sheet.getCell(settingRow, 9).fill = fill(COLORS.rateYellow);
+      sheet.getCell(settingRow, 9).border = thinBorder("E6D69A");
+    });
     sheet.getRow(totalRow + 4).height = 22;
     sheet.getRow(totalRow + 5).height = 22;
     sheet.getRow(totalRow + 6).height = 22;
+    sheet.getRow(totalRow + 7).height = 22;
     sheet.views = [{ state: "frozen", ySplit: 4 }];
     sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 };
     return totals;
@@ -778,12 +895,38 @@
     });
     sheet.getRow(13).height = wrappedRowHeight(sheet.getCell("B13").value, 41, 18);
     sheet.getRow(14).height = wrappedRowHeight(sheet.getCell("B14").value, 41, 18);
+    sheet.getCell("A16").value = "Overtime threshold";
+    sheet.getCell("B16").value = OVERTIME_THRESHOLD_HOURS;
+    sheet.getCell("B16").numFmt = "0.00";
+    sheet.getCell("A17").value = "Labour burden multiplier";
+    sheet.getCell("B17").value = LABOUR_BURDEN_MULTIPLIER;
+    sheet.getCell("B17").numFmt = "0.00x";
+    sheet.getCell("A18").value = "Stat hours default";
+    sheet.getCell("B18").value = DEFAULT_STAT_HOURS;
+    sheet.getCell("B18").numFmt = "0.00";
+    ["A16", "A17", "A18"].forEach((address) => {
+      sheet.getCell(address).font = { bold: true };
+      sheet.getCell(address).alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    });
+    ["B16", "B17", "B18"].forEach((address) => {
+      sheet.getCell(address).fill = fill(COLORS.rateYellow);
+      sheet.getCell(address).border = thinBorder("E6D69A");
+      sheet.getCell(address).font = { color: { argb: COLORS.text } };
+      sheet.getCell(address).alignment = { vertical: "middle", horizontal: "right" };
+    });
+    sheet.mergeCells("A20:D21");
+    sheet.getCell("A20").value = "Overtime is calculated weekly after 44 worked hours. Regular pay is already included on each job; the overtime row adds only the extra premium portion and is left for Accounting to allocate to a job.";
+    sheet.getCell("A20").fill = fill(COLORS.overtimeLight);
+    sheet.getCell("A20").font = { italic: true, color: { argb: COLORS.overtimeDark } };
+    sheet.getCell("A20").alignment = { wrapText: true, vertical: "middle" };
+    sheet.getRow(20).height = 30;
+    sheet.getRow(21).height = 30;
     sheet.pageSetup = { orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1, paperSize: 9 };
   }
 
   function buildSnapshot(data, totals) {
     return {
-      version: 1,
+      version: 2,
       payDate: data.payDate,
       weekOneStart: data.weekOneStart,
       weekOneEnd: data.weekOneEnd,
