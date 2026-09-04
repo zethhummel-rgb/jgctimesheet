@@ -65,6 +65,12 @@ function wrap(text: string, font: PDFFont, size: number, width: number) {
 
 export async function createProposalPdf(state: AppState, quote: Quote, logoBytes?: Uint8Array | null) {
   const pdf = await PDFDocument.create();
+  const changeNotice = quote.documentKind === "Change Notice";
+  const approvedChange = changeNotice && quote.status === "Won" && Boolean(quote.changeOrder);
+  const documentTitle = approvedChange ? "Change Order" : changeNotice ? "Contemplated Change Notice" : quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal";
+  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION";
+  const documentNumber = approvedChange ? quote.changeOrder?.coNumber || quote.number : quote.number;
+  const documentNumberLabel = approvedChange ? "CHANGE ORDER NUMBER" : changeNotice ? "CCN NUMBER" : "QUOTE NUMBER";
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
@@ -216,14 +222,14 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 2.2, color: dark });
 
   const titleHeight = 49;
-  page.drawText(quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION", { x: PAGE.margin, y: y - 15, size: 5.8, font: bold, color: green });
-  page.drawText(quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal", { x: PAGE.margin, y: y - 34, size: 17, font: bold, color: dark });
+  page.drawText(documentEyebrow, { x: PAGE.margin, y: y - 15, size: 5.8, font: bold, color: green });
+  page.drawText(documentTitle, { x: PAGE.margin, y: y - 34, size: 17, font: bold, color: dark });
   const quoteCardWidth = 126;
   page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: quoteCardWidth, height: 34, color: panel });
   page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: 3, height: 34, color: green });
-  page.drawText("QUOTE NUMBER", { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 15, size: 5.2, font: bold, color: grey });
-  page.drawText(quote.number, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 26, size: 7.8, font: bold, color: dark });
-  page.drawText(`Revision ${quote.revision}`, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 35, size: 5.5, font: regular, color: grey });
+  page.drawText(documentNumberLabel, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 15, size: 5.2, font: bold, color: grey });
+  page.drawText(documentNumber, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 26, size: 7.8, font: bold, color: dark });
+  page.drawText(`${approvedChange ? `${quote.number} · ` : ""}Revision ${quote.revision}`, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 35, size: 5.5, font: regular, color: grey });
   y -= titleHeight;
   page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 0.65, color: line });
   y -= 12;
@@ -237,8 +243,8 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const meta = [
     { label: "PREPARED FOR", strong: client?.name || "Client not selected", detail: quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : "" },
     { label: "ADDRESS", strong: projectAddress || "Not recorded", detail: "" },
-    { label: "PROJECT", strong: quote.site || "Site name not recorded", detail: [quote.project || "Project not named", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
-    { label: "QUOTE DATE", strong: formatDate(quote.quoteDate), detail: `Valid until ${formatDate(quote.validUntil)}` },
+    { label: "PROJECT", strong: quote.site || "Site name not recorded", detail: [quote.project || "Project not named", changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
+    { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
   ];
   page.drawRectangle({ x: metaX, y: y - metaHeight, width: metaWidth, height: metaHeight, color: panel, borderColor: line, borderWidth: 0.8 });
   let metaOffset = 0;
@@ -250,12 +256,12 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     const strongLines = wrap(item.strong, bold, 7.2, columnWidth - 18).slice(0, 2);
     strongLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: y - 27 - lineIndex * 8, size: 7.2, font: bold, color: dark }));
     const detailStart = y - 27 - strongLines.length * 8;
-    wrap(item.detail, regular, 5.8, columnWidth - 18).slice(0, 2).forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: detailStart - lineIndex * 7, size: 5.8, font: regular, color: grey }));
+    wrap(item.detail, regular, 5.8, columnWidth - 18).slice(0, 3).forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: detailStart - lineIndex * 7, size: 5.8, font: regular, color: grey }));
     metaOffset += columnWidth;
   });
   y -= metaHeight + 13;
 
-  paragraph(state.settings.proposalIntro, { x: PAGE.margin + 2, width: metaWidth - 4, size: 7.2, gap: 9 });
+  paragraph(changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro, { x: PAGE.margin + 2, width: metaWidth - 4, size: 7.2, gap: 9 });
   if (quote.scopeSummary) paragraph(quote.scopeSummary, { x: PAGE.margin + 2, width: metaWidth - 4, size: 7.2, font: bold, gap: 9 });
 
   sectionHeader("01", "PROJECT SCOPE", "Scope of Work");
@@ -343,6 +349,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   }
 
   const costBreakdownRows = proposalCostBreakdownRows(state, quote);
+  const customerDocumentSubtotal = approvedChange ? quote.changeOrder?.approvedAmount ?? totals.subtotal : totals.subtotal;
   if (quote.proposalShowCostBreakdown && costBreakdownRows.length) {
     const breakdownHeight = 33 + costBreakdownRows.reduce((sum, row) => sum + Math.max(18, wrap(row.label, regular, 7.5, metaWidth - 125).length * 9 + 6), 0) + 23;
     ensure(breakdownHeight + 12);
@@ -357,8 +364,8 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
       y -= Math.max(18, labelLines.length * 9 + 6);
     });
     page.drawLine({ start: { x: PAGE.margin + 14, y: y + 4 }, end: { x: PAGE.width - PAGE.margin - 14, y: y + 4 }, thickness: 1.5, color: green });
-    page.drawText("Proposal total", { x: PAGE.margin + 14, y: y - 10, size: 8.5, font: bold, color: dark });
-    rightText(money(totals.subtotal), PAGE.width - PAGE.margin - 14, y - 10, 8.5, bold, dark);
+    page.drawText(changeNotice ? "Change total" : "Proposal total", { x: PAGE.margin + 14, y: y - 10, size: 8.5, font: bold, color: dark });
+    rightText(money(customerDocumentSubtotal), PAGE.width - PAGE.margin - 14, y - 10, 8.5, bold, dark);
     y = breakdownTop - breakdownHeight - 12;
   }
 
@@ -366,11 +373,11 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   ensure(lumpSumHeight + 13);
   page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: metaWidth, height: lumpSumHeight, color: greenPanel, borderColor: rgb(0.72, 0.86, 0.78), borderWidth: 0.9 });
   page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: 4, height: lumpSumHeight, color: green });
-  page.drawText("LUMP SUM PROPOSAL", { x: PAGE.margin + 17, y: y - 19, size: 7.2, font: bold, color: green });
-  page.drawText("Complete the Scope of Work above in a good and workmanlike manner.", { x: PAGE.margin + 17, y: y - 36, size: 7, font: regular, color: dark });
-  const words = `${dollarsInWords(totals.subtotal)} Dollars`;
+  page.drawText(changeNotice ? approvedChange ? "APPROVED CHANGE ORDER" : "LUMP SUM CHANGE PROPOSAL" : "LUMP SUM PROPOSAL", { x: PAGE.margin + 17, y: y - 19, size: 7.2, font: bold, color: green });
+  page.drawText(changeNotice ? "Complete the changed Scope of Work above in a good and workmanlike manner." : "Complete the Scope of Work above in a good and workmanlike manner.", { x: PAGE.margin + 17, y: y - 36, size: 7, font: regular, color: dark });
+  const words = `${dollarsInWords(customerDocumentSubtotal)} Dollars`;
   wrap(words, regular, 5.8, metaWidth - 185).slice(0, 2).forEach((value, index) => page.drawText(value, { x: PAGE.margin + 17, y: y - 51 - index * 7, size: 5.8, font: regular, color: grey }));
-  rightText(money(totals.subtotal), PAGE.width - PAGE.margin - 17, y - 29, 17, bold, dark);
+  rightText(money(customerDocumentSubtotal), PAGE.width - PAGE.margin - 17, y - 29, 17, bold, dark);
   rightText("HST EXTRA", PAGE.width - PAGE.margin - 17, y - 46, 7, bold, green);
   y -= lumpSumHeight + 13;
 
@@ -398,43 +405,49 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   ensure(acceptanceHeight + 16);
   const acceptanceTop = y;
   page.drawRectangle({ x: PAGE.margin, y: y - acceptanceHeight, width: metaWidth, height: acceptanceHeight, color: bluePanel, borderColor: rgb(0.75, 0.84, 0.89), borderWidth: 0.8 });
-  const acceptanceTitle = "ACCEPTANCE";
+  const acceptanceTitle = approvedChange ? "APPROVAL RECORD" : "ACCEPTANCE";
   page.drawText(acceptanceTitle, { x: (PAGE.width - bold.widthOfTextAtSize(acceptanceTitle, 9)) / 2, y: y - 17, size: 9, font: bold, color: dark });
-  const acceptanceCopy = "You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein.";
+  const acceptanceCopy = changeNotice
+    ? approvedChange
+      ? `Approved by ${quote.changeOrder?.approvedBy || "the customer"} on ${formatDate(quote.changeOrder?.approvedDate || quote.quoteDate)}${quote.changeOrder?.customerReference ? ` under reference ${quote.changeOrder.customerReference}` : ""}.`
+      : "By signing below, the undersigned authorizes John Gordon Construction Inc. to proceed with this change and agrees that the amount stated will be added to or deducted from the contract according to the terms herein."
+    : "You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein.";
   wrap(acceptanceCopy, regular, 5.8, metaWidth - 28).slice(0, 2).forEach((value, index) => page.drawText(value, { x: PAGE.margin + 14, y: y - 29 - index * 7, size: 5.8, font: regular, color: grey }));
   const fieldY = y - 58;
   const fieldGap = 16;
   const fieldWidths = [220, 180, metaWidth - 220 - 180 - fieldGap * 2 - 28];
   const fieldXs = [PAGE.margin + 14, PAGE.margin + 14 + fieldWidths[0] + fieldGap, PAGE.margin + 14 + fieldWidths[0] + fieldGap + fieldWidths[1] + fieldGap];
-  ["SIGNATURE", "PRINT NAME", "DATE"].forEach((label, index) => {
+  if (!approvedChange) ["SIGNATURE", "PRINT NAME", "DATE"].forEach((label, index) => {
     page.drawLine({ start: { x: fieldXs[index], y: fieldY }, end: { x: fieldXs[index] + fieldWidths[index], y: fieldY }, thickness: 0.6, color: grey });
     page.drawText(label, { x: fieldXs[index], y: fieldY - 7, size: 4.8, font: regular, color: grey });
   });
 
   // The three visible lines are also real AcroForm fields, so customers can
   // type into the same acceptance area on desktop or mobile PDF readers.
-  const acceptanceFieldKey = String(quote.id || quote.number || "quote").replace(/[^a-zA-Z0-9_-]/g, "_");
-  const form = pdf.getForm();
-  const addAcceptanceField = (name: string, index: number, maxLength: number) => {
-    const field = form.createTextField(`${name}_${acceptanceFieldKey}`);
-    field.setMaxLength(maxLength);
-    field.addToPage(page, {
-      x: fieldXs[index],
-      y: fieldY + 2,
-      width: fieldWidths[index],
-      height: 13,
-      font: regular,
-      textColor: dark,
-      backgroundColor: rgb(1, 1, 1),
-      borderWidth: 0,
-    });
-    field.setFontSize(8);
-    field.updateAppearances(regular);
-    return field;
-  };
-  addAcceptanceField("jgc_acceptance_signature", 0, 100);
-  addAcceptanceField("jgc_acceptance_print_name", 1, 100);
-  addAcceptanceField("jgc_acceptance_date", 2, 24);
+  if (!approvedChange) {
+    const acceptanceFieldKey = String(quote.id || quote.number || "quote").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const form = pdf.getForm();
+    const addAcceptanceField = (name: string, index: number, maxLength: number) => {
+      const field = form.createTextField(`${name}_${acceptanceFieldKey}`);
+      field.setMaxLength(maxLength);
+      field.addToPage(page, {
+        x: fieldXs[index],
+        y: fieldY + 2,
+        width: fieldWidths[index],
+        height: 13,
+        font: regular,
+        textColor: dark,
+        backgroundColor: rgb(1, 1, 1),
+        borderWidth: 0,
+      });
+      field.setFontSize(8);
+      field.updateAppearances(regular);
+      return field;
+    };
+    addAcceptanceField("jgc_acceptance_signature", 0, 100);
+    addAcceptanceField("jgc_acceptance_print_name", 1, 100);
+    addAcceptanceField("jgc_acceptance_date", 2, 24);
+  }
   y = acceptanceTop - acceptanceHeight - 12;
 
   ensure(12);
@@ -443,7 +456,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   page.drawText("John Gordon Construction Inc.", { x: PAGE.margin, y, size: 5.2, font: bold, color: dark });
   const preparedBy = `Prepared by ${quote.preparedBy || "JGC Estimating"}`;
   page.drawText(preparedBy, { x: (PAGE.width - regular.widthOfTextAtSize(preparedBy, 5.2)) / 2, y, size: 5.2, font: regular, color: grey });
-  rightText(`Quote ${quote.number} · Rev ${quote.revision}`, PAGE.width - PAGE.margin, y, 5.2, regular, grey);
+  rightText(`${changeNotice ? approvedChange ? "CO" : "CCN" : "Quote"} ${documentNumber} · Rev ${quote.revision}`, PAGE.width - PAGE.margin, y, 5.2, regular, grey);
 
   return pdf.save();
 }
@@ -451,7 +464,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
 export async function downloadProposalPdf(state: AppState, quote: Quote, requestedFilename?: string) {
   const bytes = await createProposalPdf(state, quote);
   const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], { type: "application/pdf" });
-  const defaultFilename = `${quote.number} - Rev ${quote.revision} - ${quote.project || "Proposal"}`;
+  const defaultFilename = `${quote.status === "Won" && quote.changeOrder ? quote.changeOrder.coNumber : quote.number} - Rev ${quote.revision} - ${quote.changeTitle || quote.project || "Proposal"}`;
   const filenameBase = (requestedFilename?.trim() || defaultFilename).replace(/\.pdf$/i, "");
   const filename = `${safeName(filenameBase) || safeName(defaultFilename)}.pdf`;
   const url = URL.createObjectURL(blob);

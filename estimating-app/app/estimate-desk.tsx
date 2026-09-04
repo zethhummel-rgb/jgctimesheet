@@ -33,6 +33,9 @@ import {
   type AppState,
   type Client,
   type ClientContact,
+  type ChangeApprovalMethod,
+  type ChangeOrderApproval,
+  type ChangeNoticeStatus,
   type CostType,
   type Job,
   type JobCostEntry,
@@ -175,8 +178,26 @@ type ModalState =
 
 type PurchaseOrderEditorState =
   | null
-  | { jobId: string; lineId: string; purchaseOrderId?: never }
+  | { jobId: string; quoteId: string; lineId: string; purchaseOrderId?: never }
   | { jobId: string; purchaseOrderId: string; lineId?: never };
+
+interface ChangeNoticeDraft {
+  title: string;
+  requestedBy: string;
+  requestedDate: string;
+  dueDate: string;
+  reference: string;
+}
+
+interface ChangeOrderApprovalDraft {
+  coNumber: string;
+  approvedDate: string;
+  approvedAmount: number;
+  approvedBy: string;
+  approvalMethod: ChangeApprovalMethod;
+  customerReference: string;
+  notes: string;
+}
 
 function uid(prefix: string) {
   const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -257,6 +278,35 @@ function internalPriceBookCode(name: string, items: PriceBookItem[]) {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isChangeNotice(quote: Quote) {
+  return quote.documentKind === "Change Notice";
+}
+
+function changeNoticeStatus(quote: Quote): ChangeNoticeStatus {
+  if (quote.changeStatus) return quote.changeStatus;
+  if (quote.status === "Won") return "Approved";
+  if (quote.status === "Lost") return "Rejected";
+  if (quote.status === "Finished") return "Ready";
+  return "Pricing";
+}
+
+function changeStatusLabel(quote: Quote) {
+  if (quote.changeOrder && quote.status === "Draft") return "CO revision in progress";
+  if (quote.changeOrder && quote.status === "Finished") return changeNoticeStatus(quote) === "Submitted" ? "CO revision submitted" : "CO revision ready";
+  return changeNoticeStatus(quote);
+}
+
+function approvedChangesForJob(state: AppState, jobId: string) {
+  return state.quotes.filter((quote) => isChangeNotice(quote) && quote.jobId === jobId && quote.changeOrder);
+}
+
+function approvedChangeTotals(state: AppState, jobId: string) {
+  return approvedChangesForJob(state, jobId).reduce((totals, quote) => ({
+    revenue: roundMoney(totals.revenue + (quote.changeOrder?.approvedAmount ?? 0)),
+    cost: roundMoney(totals.cost + (quote.changeOrder?.approvedCost ?? 0)),
+  }), { revenue: 0, cost: 0 });
 }
 
 function addDays(date: string, days: number) {
@@ -855,6 +905,7 @@ function quoteReadiness(quote: Quote, vendors: Vendor[]) {
 
   if (!quote.clientId) blockers.push({ key: "client", message: "Select a client." });
   if (!quote.project.trim()) blockers.push({ key: "project", message: "Enter the project name." });
+  if (isChangeNotice(quote) && !quote.changeTitle?.trim()) blockers.push({ key: "change-title", message: "Enter the change title." });
   if (!included.length) blockers.push({ key: "included-work", message: "Add at least one included line." });
 
   included.forEach((line, index) => {
@@ -1010,6 +1061,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [pendingFinishQuoteId, setPendingFinishQuoteId] = useState<string | null>(null);
   const [pendingCreateJobQuoteId, setPendingCreateJobQuoteId] = useState<string | null>(null);
   const [pendingJobNavigationId, setPendingJobNavigationId] = useState<string | null>(null);
+  const [pendingChangeNoticeJobId, setPendingChangeNoticeJobId] = useState<string | null>(null);
+  const [pendingApproveChangeQuoteId, setPendingApproveChangeQuoteId] = useState<string | null>(null);
   const [purchaseOrderEditor, setPurchaseOrderEditor] = useState<PurchaseOrderEditorState>(null);
   const [portalLabourActuals, setPortalLabourActuals] = useState<PortalLabourActual[]>([]);
   const [jobCostingStatus, setJobCostingStatus] = useState<JobCostingStatus>("idle");
@@ -1412,12 +1465,13 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           ...current,
           revision: current.revision + 1,
           status: "Draft",
+          changeStatus: isChangeNotice(current) && !current.changeOrder ? "Pricing" : current.changeStatus,
           sentAt: "",
           acknowledgedWarnings: {},
           revisions: frozenRevisions,
         };
       },
-      { title: "Editable revision created", detail: `Revision ${quote.revision + 1} was opened for changes. Revision ${quote.revision} remains frozen in History.` },
+      { title: isChangeNotice(quote) ? "Change revision created" : "Editable revision created", detail: `Revision ${quote.revision + 1} was opened for changes. Revision ${quote.revision} remains frozen in History.` },
       true,
     );
     setQuoteTab("estimate");
@@ -1446,11 +1500,18 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           : current.clients,
         quotes: current.quotes.map((item) =>
           item.id === quote.id
-            ? { ...item, site: siteName, status: "Finished" as const, sentAt, updatedAt: sentAt }
+            ? { ...item, site: siteName, status: "Finished" as const, changeStatus: isChangeNotice(item) ? "Ready" as const : item.changeStatus, sentAt, updatedAt: sentAt }
             : item,
         ),
       };
-      return addActivity(next, quote.id, "Quote finished and locked", `${quote.number} Rev ${quote.revision} was marked Finished and locked. Re-open Quote will preserve it before creating the next revision.`);
+      return addActivity(
+        next,
+        quote.id,
+        isChangeNotice(quote) ? "Change Notice ready" : "Quote finished and locked",
+        isChangeNotice(quote)
+          ? `${quote.number} Rev ${quote.revision} was finished and locked, ready to submit or approve.`
+          : `${quote.number} Rev ${quote.revision} was marked Finished and locked. Re-open Quote will preserve it before creating the next revision.`,
+      );
     });
     setPendingFinishQuoteId(null);
   };
@@ -1528,6 +1589,159 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     setPendingJobNavigationId(job.id);
   };
 
+  const createChangeNotice = (job: Job, draft: ChangeNoticeDraft) => {
+    const baseQuote = state.quotes.find((quote) => quote.id === job.quoteId);
+    if (!baseQuote || !draft.title.trim()) return;
+    const nextSequence = Math.max(0, ...state.quotes
+      .filter((quote) => isChangeNotice(quote) && quote.jobId === job.id)
+      .map((quote) => Number(quote.changeSequence) || 0)) + 1;
+    const date = today();
+    const ccnNumber = `${job.jobNumber}-CCN-${String(nextSequence).padStart(3, "0")}`;
+    const changeQuote: Quote = {
+      id: uid("change"),
+      number: ccnNumber,
+      revision: 0,
+      status: "Draft",
+      clientId: job.clientId,
+      site: baseQuote.site,
+      address: baseQuote.address ?? "",
+      project: job.project,
+      reference: draft.reference.trim() || baseQuote.reference,
+      preparedBy: currentEstimator.name,
+      ownerUserId: currentEstimator.id,
+      ownerName: currentEstimator.name,
+      quoteDate: date,
+      validUntil: addDays(date, state.settings.defaultValidityDays),
+      quoteType: "Fixed Price",
+      customerQuoteType: "Proposal Quote",
+      taxName: baseQuote.taxName || state.settings.taxName,
+      taxRate: baseQuote.taxRate,
+      defaultMarkup: baseQuote.defaultMarkup,
+      targetMargin: baseQuote.targetMargin,
+      depositPercent: 0,
+      proposalStyle: baseQuote.proposalStyle ?? state.settings.defaultProposalStyle ?? "jgc-classic",
+      proposalTaxDisplay: baseQuote.proposalTaxDisplay ?? "extra",
+      proposalScope: `\n${defaultClosingProposalScopeLine}`,
+      proposalClosingScopeRemoved: false,
+      proposalNotes: baseQuote.proposalNotes ?? "",
+      proposalAttention: baseQuote.proposalAttention ?? "",
+      proposalAttentionContactId: baseQuote.proposalAttentionContactId ?? "",
+      proposalShowCostBreakdown: false,
+      proposalBreakdownCategories: [...defaultProposalCostBreakdownCategories],
+      proposalBreakdownLineIds: [],
+      proposalBreakdownIncludesMarkup: true,
+      scopeSummary: draft.title.trim(),
+      inclusions: "",
+      exclusions: "",
+      terms: baseQuote.terms || state.settings.proposalTerms,
+      internalNotes: `Change requested by ${draft.requestedBy.trim() || "not recorded"}.`,
+      lines: [],
+      acknowledgedWarnings: {},
+      revisions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sentAt: "",
+      wonAt: "",
+      acceptedBy: "",
+      customerPo: "",
+      lostReason: "",
+      documentKind: "Change Notice",
+      jobId: job.id,
+      changeSequence: nextSequence,
+      changeTitle: draft.title.trim(),
+      changeStatus: "Pricing",
+      changeRequestedBy: draft.requestedBy.trim(),
+      changeRequestedDate: draft.requestedDate || date,
+      changeDueDate: draft.dueDate,
+      changeOrder: null,
+      changeOrderHistory: [],
+    };
+    setState((current) => addActivity({ ...current, quotes: [changeQuote, ...current.quotes] }, changeQuote.id, "Change Notice created", `${ccnNumber} was started for job ${job.jobNumber}.`));
+    setPendingChangeNoticeJobId(null);
+    setSelectedQuoteId(changeQuote.id);
+    setQuoteTab("details");
+    setView("quotes");
+  };
+
+  const markChangeSubmitted = (quote: Quote) => {
+    if (!isChangeNotice(quote) || quote.status !== "Finished") return;
+    const submittedAt = new Date().toISOString();
+    mutateQuote(
+      quote.id,
+      (current) => ({ ...current, changeStatus: "Submitted", sentAt: submittedAt }),
+      { title: "Change Notice submitted", detail: `${quote.number} Rev ${quote.revision} was marked submitted to the customer.` },
+      true,
+    );
+  };
+
+  const closeChangeNotice = (quote: Quote, status: "Rejected" | "Cancelled") => {
+    if (!isChangeNotice(quote) || quote.changeOrder) return;
+    const reason = window.prompt(`Optional: record why this Change Notice was ${status.toLocaleLowerCase()}.`, quote.lostReason);
+    if (reason === null) return;
+    mutateQuote(
+      quote.id,
+      (current) => ({ ...current, status: "Lost", changeStatus: status, lostReason: reason }),
+      { title: `Change Notice ${status.toLocaleLowerCase()}`, detail: reason || `${quote.number} was marked ${status.toLocaleLowerCase()}.` },
+      true,
+    );
+  };
+
+  const approveChangeOrder = (quote: Quote, draft: ChangeOrderApprovalDraft) => {
+    if (!isChangeNotice(quote) || !quote.jobId || quote.status !== "Finished") return;
+    const approvedAt = new Date().toISOString();
+    setState((current) => {
+      const currentQuote = current.quotes.find((item) => item.id === quote.id);
+      if (!currentQuote || !currentQuote.jobId) return current;
+      const oldApproval = currentQuote.changeOrder ?? null;
+      const approval: ChangeOrderApproval = {
+        id: uid("change-order"),
+        coNumber: draft.coNumber.trim(),
+        approvedDate: draft.approvedDate,
+        approvedAmount: roundMoney(Math.max(0, draft.approvedAmount)),
+        approvedCost: quoteTotals(currentQuote).directCost,
+        approvedBy: draft.approvedBy.trim(),
+        approvalMethod: draft.approvalMethod,
+        customerReference: draft.customerReference.trim(),
+        notes: draft.notes.trim(),
+        quoteRevision: currentQuote.revision,
+        approvedAt,
+      };
+      const nextQuotes = current.quotes.map((item) => item.id === currentQuote.id ? {
+        ...item,
+        status: "Won" as const,
+        changeStatus: "Approved" as const,
+        changeOrder: approval,
+        changeOrderHistory: oldApproval ? [...(item.changeOrderHistory ?? []), oldApproval] : (item.changeOrderHistory ?? []),
+        wonAt: approvedAt,
+        acceptedBy: approval.approvedBy,
+        customerPo: approval.customerReference,
+        updatedAt: approvedAt,
+        revisions: item.revisions.some((revision) => revision.revision === item.revision)
+          ? item.revisions
+          : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished" as const, issuedAt: item.sentAt || approvedAt, total: quoteTotals(item).total, snapshot: frozenQuoteSnapshot(item) }],
+      } : item);
+      const changeTotals = nextQuotes
+        .filter((item) => isChangeNotice(item) && item.jobId === currentQuote.jobId && item.changeOrder)
+        .reduce((sum, item) => ({
+          revenue: roundMoney(sum.revenue + (item.changeOrder?.approvedAmount ?? 0)),
+          cost: roundMoney(sum.cost + (item.changeOrder?.approvedCost ?? 0)),
+        }), { revenue: 0, cost: 0 });
+      const costDelta = approval.approvedCost - (oldApproval?.approvedCost ?? 0);
+      const next = {
+        ...current,
+        quotes: nextQuotes,
+        jobs: current.jobs.map((item) => item.id === currentQuote.jobId ? {
+          ...item,
+          approvedRevenueChanges: changeTotals.revenue,
+          approvedCostChanges: changeTotals.cost,
+          estimateToComplete: roundMoney(Math.max(0, item.estimateToComplete + costDelta)),
+        } : item),
+      };
+      return addActivity(next, currentQuote.id, oldApproval ? "Change Order revision approved" : "Change Order approved", `${approval.coNumber} approved at ${money(approval.approvedAmount)} for job ${current.jobs.find((item) => item.id === currentQuote.jobId)?.jobNumber ?? ""}.`);
+    });
+    setPendingApproveChangeQuoteId(null);
+  };
+
   const markQuoteLost = (quote: Quote) => {
     const reason = window.prompt("Optional: why was this quote lost?", quote.lostReason);
     if (reason === null) return;
@@ -1558,13 +1772,19 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const pendingDeleteQuote = state.quotes.find((quote) => quote.id === pendingDeleteQuoteId) ?? null;
   const pendingFinishQuote = state.quotes.find((quote) => quote.id === pendingFinishQuoteId) ?? null;
   const pendingCreateJobQuote = state.quotes.find((quote) => quote.id === pendingCreateJobQuoteId) ?? null;
+  const pendingChangeNoticeJob = state.jobs.find((job) => job.id === pendingChangeNoticeJobId) ?? null;
+  const pendingApproveChangeQuote = state.quotes.find((quote) => quote.id === pendingApproveChangeQuoteId) ?? null;
+  const pendingApproveChangeJob = pendingApproveChangeQuote?.jobId ? state.jobs.find((job) => job.id === pendingApproveChangeQuote.jobId) ?? null : null;
   const purchaseOrderJob = purchaseOrderEditor ? state.jobs.find((job) => job.id === purchaseOrderEditor.jobId) ?? null : null;
-  const purchaseOrderQuote = purchaseOrderJob ? state.quotes.find((quote) => quote.id === purchaseOrderJob.quoteId) ?? null : null;
-  const purchaseOrderSourceLine = purchaseOrderEditor && "lineId" in purchaseOrderEditor && purchaseOrderQuote
-    ? purchaseOrderQuote.lines.find((line) => line.id === purchaseOrderEditor.lineId) ?? null
-    : null;
   const existingPurchaseOrder = purchaseOrderEditor && "purchaseOrderId" in purchaseOrderEditor && purchaseOrderJob
     ? purchaseOrderJob.purchaseOrders?.find((purchaseOrder) => purchaseOrder.id === purchaseOrderEditor.purchaseOrderId) ?? null
+    : null;
+  const purchaseOrderQuoteId = purchaseOrderEditor && "quoteId" in purchaseOrderEditor
+    ? purchaseOrderEditor.quoteId
+    : existingPurchaseOrder?.sourceQuoteId ?? purchaseOrderJob?.quoteId;
+  const purchaseOrderQuote = purchaseOrderQuoteId ? state.quotes.find((quote) => quote.id === purchaseOrderQuoteId) ?? null : null;
+  const purchaseOrderSourceLine = purchaseOrderEditor && "lineId" in purchaseOrderEditor && purchaseOrderQuote
+    ? purchaseOrderQuote.lines.find((line) => line.id === purchaseOrderEditor.lineId) ?? null
     : null;
 
   const savePurchaseOrder = (purchaseOrder: PurchaseOrder) => {
@@ -1632,13 +1852,23 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             quote={selectedQuote}
             tab={quoteTab}
             setTab={setQuoteTab}
-            onBack={() => setSelectedQuoteId(null)}
+            onBack={() => {
+              setSelectedQuoteId(null);
+              if (isChangeNotice(selectedQuote) && selectedQuote.jobId) {
+                setSelectedJobId(selectedQuote.jobId);
+                setView("jobs");
+              }
+            }}
             mutateQuote={mutateQuote}
             duplicateQuote={duplicateQuote}
             createRevision={createRevision}
             finalizeQuote={finalizeQuote}
             createJob={requestCreateJob}
             markLost={markQuoteLost}
+            markChangeSubmitted={markChangeSubmitted}
+            approveChange={(quote) => setPendingApproveChangeQuoteId(quote.id)}
+            rejectChange={(quote) => closeChangeNotice(quote, "Rejected")}
+            cancelChange={(quote) => closeChangeNotice(quote, "Cancelled")}
             removeQuote={requestQuoteRemoval}
             expandedLineId={expandedLineId}
             setExpandedLineId={setExpandedLineId}
@@ -1690,8 +1920,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onOpen={setSelectedJobId}
           onBack={() => setSelectedJobId(null)}
           onAddCost={(jobId) => setModal({ kind: "jobCost", jobId })}
+          onCreateChangeNotice={(jobId) => setPendingChangeNoticeJobId(jobId)}
           onOpenQuote={openQuote}
-          onCreatePurchaseOrder={(jobId, lineId) => setPurchaseOrderEditor({ jobId, lineId })}
+          onCreatePurchaseOrder={(jobId, quoteId, lineId) => setPurchaseOrderEditor({ jobId, quoteId, lineId })}
           onEditPurchaseOrder={openPurchaseOrder}
           onDownloadPurchaseOrder={downloadAndFinalizePurchaseOrder}
           portalLabourActuals={portalLabourActuals}
@@ -1704,7 +1935,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     return <SettingsPage state={state} setState={setState} />;
   };
 
-  const draftQuoteCount = state.quotes.filter((quote) => quote.status === "Draft").length;
+  const draftQuoteCount = state.quotes.filter((quote) => !isChangeNotice(quote) && quote.status === "Draft").length;
 
   return (
     <div className="desk-shell">
@@ -1819,6 +2050,22 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           portalJobs={portalJobs()}
           onCancel={() => setPendingCreateJobQuoteId(null)}
           onConfirm={(jobNumber) => createJobFromQuote(pendingCreateJobQuote, jobNumber)}
+        />
+      )}
+      {pendingChangeNoticeJob && (
+        <ChangeNoticeCreateModal
+          job={pendingChangeNoticeJob}
+          onCancel={() => setPendingChangeNoticeJobId(null)}
+          onConfirm={(draft) => createChangeNotice(pendingChangeNoticeJob, draft)}
+        />
+      )}
+      {pendingApproveChangeQuote && pendingApproveChangeQuote.jobId && pendingApproveChangeJob && (
+        <ChangeOrderApprovalModal
+          quote={pendingApproveChangeQuote}
+          job={pendingApproveChangeJob}
+          existingApprovals={approvedChangesForJob(state, pendingApproveChangeQuote.jobId)}
+          onCancel={() => setPendingApproveChangeQuoteId(null)}
+          onConfirm={(draft) => approveChangeOrder(pendingApproveChangeQuote, draft)}
         />
       )}
       {purchaseOrderEditor && purchaseOrderJob && purchaseOrderQuote && (purchaseOrderSourceLine || existingPurchaseOrder) && (
@@ -1993,6 +2240,14 @@ function StatusPill({ status }: { status: QuoteStatus | "Expired" | "Active" | "
   return <span className={`status-pill status-${status.toLowerCase().replace(" ", "-")}`}><span />{quoteStatusLabel(status)}</span>;
 }
 
+function ChangeStatusPill({ quote }: { quote: Quote }) {
+  const label = changeStatusLabel(quote);
+  const tone = quote.changeOrder && quote.status === "Draft"
+    ? "revision"
+    : changeNoticeStatus(quote).toLocaleLowerCase();
+  return <span className={`change-status-pill change-status-${tone.replace(/\s+/g, "-")}`}><span />{label}</span>;
+}
+
 function ReadinessPill({ quote, vendors }: { quote: Quote; vendors: Vendor[] }) {
   const readiness = quoteReadiness(quote, vendors);
   if (readiness.blockers.length) return <span className="readiness-pill blocked">{readiness.blockers.length} blocker{readiness.blockers.length === 1 ? "" : "s"}</span>;
@@ -2004,12 +2259,13 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   const [companyWide, setCompanyWide] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
-  const ownedQuotes = state.quotes.filter((quote) => {
+  const baseQuotes = state.quotes.filter((quote) => !isChangeNotice(quote));
+  const ownedQuotes = baseQuotes.filter((quote) => {
     if (quote.ownerUserId) return quote.ownerUserId === currentEstimator.id;
     const quoteOwnerName = (quote.ownerName || quote.preparedBy).trim().toLocaleLowerCase();
     return quoteOwnerName === currentOwnerName || currentOwnerName.startsWith(`${quoteOwnerName} `) || quoteOwnerName.startsWith(`${currentOwnerName} `);
   });
-  const dashboardQuotes = currentEstimator.isAdmin && companyWide ? state.quotes : ownedQuotes;
+  const dashboardQuotes = currentEstimator.isAdmin && companyWide ? baseQuotes : ownedQuotes;
   const dashboardQuoteIds = new Set(dashboardQuotes.map((quote) => quote.id));
   const dashboardJobs = state.jobs.filter((job) => dashboardQuoteIds.has(job.quoteId));
   const searchTerms = dashboardSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -2323,6 +2579,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
   const normalized = search.toLowerCase();
   const quotes = state.quotes.filter((quote) => {
+    if (isChangeNotice(quote)) return false;
     if (quote.status === "Won") return false;
     const status = quoteDisplayStatus(quote);
     const matchesStatus = statusFilter === "All" || status === statusFilter;
@@ -2445,6 +2702,101 @@ function JobCreateModal({ quote, existingJobNumbers, portalJobs: availablePortal
   );
 }
 
+function ChangeNoticeCreateModal({ job, onCancel, onConfirm }: {
+  job: Job;
+  onCancel: () => void;
+  onConfirm: (draft: ChangeNoticeDraft) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [requestedBy, setRequestedBy] = useState("");
+  const [requestedDate, setRequestedDate] = useState(today());
+  const [dueDate, setDueDate] = useState("");
+  const [customerReference, setCustomerReference] = useState("");
+  const [error, setError] = useState("");
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setError("Enter a short title for this change.");
+      return;
+    }
+    onConfirm({
+      title: title.trim(),
+      requestedBy: requestedBy.trim(),
+      requestedDate,
+      dueDate,
+      reference: customerReference.trim(),
+    });
+  };
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
+      <section className="modal-card change-notice-modal" role="dialog" aria-modal="true" aria-labelledby="create-change-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><span className="eyebrow">JOB {job.jobNumber} · CONTRACT CHANGE</span><h2 id="create-change-title">New Change Notice</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
+        <form onSubmit={submit}>
+          <div className="form-grid two-column">
+            <div className="field full actual-entry-note"><strong>Price the change separately</strong><small>This creates a CCN with its own estimate, customer proposal and revision history. It will not change the job contract or cost budget until it is approved as a Change Order.</small></div>
+            <label className="field full"><span>Change title <b>*</b></span><input autoFocus value={title} onChange={(event) => { setTitle(event.target.value); setError(""); }} placeholder="e.g. Additional washroom partition" /></label>
+            <label className="field"><span>Requested by</span><input value={requestedBy} onChange={(event) => setRequestedBy(event.target.value)} placeholder="Client, consultant or site contact" /></label>
+            <label className="field"><span>Customer / RFP reference</span><input value={customerReference} onChange={(event) => setCustomerReference(event.target.value)} placeholder="Optional" /></label>
+            <label className="field"><span>Date requested</span><input type="date" value={requestedDate} onChange={(event) => setRequestedDate(event.target.value)} /></label>
+            <label className="field"><span>Pricing due</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
+            {error && <p className="field-error full" role="alert">{error}</p>}
+          </div>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button primary">Create CCN</button></footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ChangeOrderApprovalModal({ quote, job, existingApprovals, onCancel, onConfirm }: {
+  quote: Quote;
+  job: Job;
+  existingApprovals: Quote[];
+  onCancel: () => void;
+  onConfirm: (draft: ChangeOrderApprovalDraft) => void;
+}) {
+  const otherApprovals = existingApprovals.filter((item) => item.id !== quote.id);
+  const nextCoNumber = `${job.jobNumber}-CO-${String(otherApprovals.length + 1).padStart(3, "0")}`;
+  const [coNumber, setCoNumber] = useState(quote.changeOrder?.coNumber || nextCoNumber);
+  const [approvedDate, setApprovedDate] = useState(today());
+  const [approvedAmount, setApprovedAmount] = useState(quoteTotals(quote).subtotal);
+  const [approvedBy, setApprovedBy] = useState(quote.changeOrder?.approvedBy || "");
+  const [approvalMethod, setApprovalMethod] = useState<ChangeApprovalMethod>(quote.changeOrder?.approvalMethod || "Signed proposal");
+  const [customerReference, setCustomerReference] = useState(quote.changeOrder?.customerReference || quote.reference || "");
+  const [notes, setNotes] = useState(quote.changeOrder?.notes || "");
+  const [error, setError] = useState("");
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!coNumber.trim() || !approvedDate || !approvedBy.trim()) {
+      setError("CO number, approval date and approved by are required.");
+      return;
+    }
+    onConfirm({ coNumber, approvedDate, approvedAmount, approvedBy, approvalMethod, customerReference, notes });
+  };
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
+      <section className="modal-card change-order-modal" role="dialog" aria-modal="true" aria-labelledby="approve-change-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><span className="eyebrow">{quote.number} · APPROVAL</span><h2 id="approve-change-title">Approve and create Change Order</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
+        <form onSubmit={submit}>
+          <div className="form-grid two-column">
+            <div className="field full change-approval-summary"><span>{quote.changeTitle || "Change Notice"}</span><strong>{money(quoteTotals(quote).subtotal)}</strong><small>Current CCN proposal · pre-tax</small></div>
+            <label className="field"><span>JGC Change Order number <b>*</b></span><input value={coNumber} onChange={(event) => { setCoNumber(event.target.value); setError(""); }} /></label>
+            <label className="field"><span>Approved date <b>*</b></span><input type="date" value={approvedDate} onChange={(event) => setApprovedDate(event.target.value)} /></label>
+            <label className="field"><span>Approved amount before tax</span><div className="input-prefix"><span>$</span><ClearableNumberInput min="0" step="0.01" value={approvedAmount} onValueChange={(value) => setApprovedAmount(value ?? 0)} /></div></label>
+            <label className="field"><span>Approved by <b>*</b></span><input value={approvedBy} onChange={(event) => { setApprovedBy(event.target.value); setError(""); }} placeholder="Client representative" /></label>
+            <label className="field"><span>Approval method</span><select value={approvalMethod} onChange={(event) => setApprovalMethod(event.target.value as ChangeApprovalMethod)}><option>Signed proposal</option><option>Email</option><option>Verbal</option><option>Other</option></select></label>
+            <label className="field"><span>Customer approval reference</span><input value={customerReference} onChange={(event) => setCustomerReference(event.target.value)} placeholder="PO, email or directive #" /></label>
+            <label className="field full"><span>Approval notes</span><textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+            {error && <p className="field-error full" role="alert">{error}</p>}
+            <div className="field full estimating-boundary-note"><strong>This updates the job</strong><p>The approved amount is added to revised contract revenue and the CCN direct cost is added to the job cost budget. Pending CCNs remain excluded.</p></div>
+          </div>
+          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">Approve &amp; create CO</button></footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCancel, onSave }: {
   state: AppState;
   job: Job;
@@ -2473,6 +2825,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     number: job.jobNumber,
     revision: 0,
     status: "Issued",
+    sourceQuoteId: quote.id,
     vendorId: sourceVendor?.id ?? sourceLine?.vendorId ?? null,
     vendorName: sourceVendor?.name ?? sourceLine?.vendorName?.trim() ?? "",
     vendorContact: sourceVendor?.contact ?? "",
@@ -2682,20 +3035,21 @@ function QuoteDeleteModal({ quote, linkedJob, onCancel, onConfirm }: { quote: Qu
 }
 
 function QuoteFinishModal({ quote, warningCount, onCancel, onConfirm }: { quote: Quote; warningCount: number; onCancel: () => void; onConfirm: () => void }) {
+  const changeNotice = isChangeNotice(quote);
   return (
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="finish-quote-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <div><span className="eyebrow">FINISH QUOTE</span><h2 id="finish-quote-title">Mark {quote.number} as Finished?</h2></div>
+          <div><span className="eyebrow">FINISH {changeNotice ? "CHANGE PRICING" : "QUOTE"}</span><h2 id="finish-quote-title">Mark {quote.number} as {changeNotice ? "Ready" : "Finished"}?</h2></div>
           <button aria-label="Cancel" onClick={onCancel}>×</button>
         </header>
         <div className="confirm-content">
-          <div className="confirm-line-name"><span>{quote.project || "Project not named"}</span><strong>{warningCount} reviewed warning{warningCount === 1 ? "" : "s"}</strong></div>
-          <p>This exact revision will be locked and read-only. If the customer requests a change, use <strong>Re-open quote</strong> to preserve these documents in History and create the next editable revision.</p>
+          <div className="confirm-line-name"><span>{changeNotice ? quote.changeTitle || "Change not named" : quote.project || "Project not named"}</span><strong>{warningCount} reviewed warning{warningCount === 1 ? "" : "s"}</strong></div>
+          <p>This exact revision will be locked and read-only. {changeNotice ? "It can then be marked submitted, approved as a Change Order, rejected, or re-opened for another revision." : "If the customer requests a change, use Re-open quote to preserve these documents in History and create the next editable revision."}</p>
         </div>
         <footer className="confirm-actions">
           <button className="button secondary" onClick={onCancel}>Keep editing</button>
-          <button className="button primary" onClick={onConfirm}>Finish quote</button>
+          <button className="button primary" onClick={onConfirm}>Finish {changeNotice ? "CCN pricing" : "quote"}</button>
         </footer>
       </section>
     </div>
@@ -2705,10 +3059,11 @@ function QuoteFinishModal({ quote, warningCount, onCancel, onConfirm }: { quote:
 type PdfDownloadKind = "proposal" | "estimate" | "breakdown";
 
 function defaultPdfFilenames(quote: Quote): Record<PdfDownloadKind, string> {
-  const project = quote.project || "Untitled";
+  const project = quote.changeTitle || quote.project || "Untitled";
   const revision = `Rev ${quote.revision}`;
+  const documentNumber = quote.status === "Won" && quote.changeOrder ? quote.changeOrder.coNumber : quote.number;
   return {
-    proposal: `${quote.number} - ${revision} - ${project}.pdf`,
+    proposal: `${documentNumber} - ${revision} - ${project}.pdf`,
     estimate: `Estimate - ${quote.number} - ${revision} - ${project}.pdf`,
     breakdown: `Breakdown - ${quote.number} - ${revision} - ${project}.pdf`,
   };
@@ -2719,6 +3074,7 @@ function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: A
   const [downloading, setDownloading] = useState<PdfDownloadKind | null>(null);
   const [downloaded, setDownloaded] = useState<PdfDownloadKind | null>(null);
   const hasBreakdown = quote.lines.some((line) => line.costBuildUp);
+  const changeNotice = isChangeNotice(quote);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -2752,7 +3108,7 @@ function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: A
   };
 
   const rows: { kind: PdfDownloadKind; title: string; description: string; available: boolean }[] = [
-    { kind: "proposal", title: "Proposal PDF", description: "Customer-facing scope, price and acceptance page", available: true },
+    { kind: "proposal", title: changeNotice ? "Change Proposal PDF" : "Proposal PDF", description: "Customer-facing scope, price and acceptance page", available: true },
     { kind: "estimate", title: "Estimate PDF", description: "Internal estimate lines, costs, markup and totals", available: true },
     { kind: "breakdown", title: "Breakdown PDF", description: hasBreakdown ? "Internal built-up labour and material worksheets" : "Add a built-up estimate item to create this PDF", available: hasBreakdown },
   ];
@@ -2761,7 +3117,7 @@ function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: A
     <div className="modal-layer pdf-download-layer" role="presentation" onMouseDown={() => { if (!downloading) onClose(); }}>
       <section className="modal-card pdf-download-menu" role="dialog" aria-modal="true" aria-labelledby="pdf-download-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <div><span className="eyebrow">QUOTE DOCUMENTS</span><h2 id="pdf-download-title">Download PDFs</h2></div>
+          <div><span className="eyebrow">{changeNotice ? "CHANGE NOTICE DOCUMENTS" : "QUOTE DOCUMENTS"}</span><h2 id="pdf-download-title">Download PDFs</h2></div>
           <button type="button" aria-label="Close PDF downloads" disabled={!!downloading} onClick={onClose}>×</button>
         </header>
         <div className="pdf-download-intro">
@@ -2783,7 +3139,7 @@ function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: A
           ))}
         </div>
         <footer className="pdf-download-footer">
-          <span role="status">{downloaded ? `${rows.find((row) => row.kind === downloaded)?.title} download started.` : "Your quote stays open while you save each file."}</span>
+          <span role="status">{downloaded ? `${rows.find((row) => row.kind === downloaded)?.title} download started.` : `Your ${changeNotice ? "CCN" : "quote"} stays open while you save each file.`}</span>
           <button type="button" className="button secondary" disabled={!!downloading} onClick={onDone}>Done</button>
         </footer>
       </section>
@@ -2792,20 +3148,21 @@ function PdfDownloadMenu({ state, quote, onClose, onDone = onClose }: { state: A
 }
 
 function PdfFinishPrompt({ quote, onNo, onYes }: { quote: Quote; onNo: () => void; onYes: () => void }) {
+  const changeNotice = isChangeNotice(quote);
   return (
     <div className="modal-layer" role="presentation" onMouseDown={onNo}>
       <section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="pdf-finish-prompt-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <div><span className="eyebrow">QUOTE DOCUMENTS SAVED</span><h2 id="pdf-finish-prompt-title">Is this quote finished?</h2></div>
-          <button type="button" aria-label="Keep quote open" onClick={onNo}>×</button>
+          <div><span className="eyebrow">{changeNotice ? "CCN DOCUMENTS SAVED" : "QUOTE DOCUMENTS SAVED"}</span><h2 id="pdf-finish-prompt-title">Is this {changeNotice ? "CCN pricing" : "quote"} finished?</h2></div>
+          <button type="button" aria-label={`Keep ${changeNotice ? "CCN" : "quote"} open`} onClick={onNo}>×</button>
         </header>
         <div className="confirm-content">
-          <div className="confirm-line-name"><span>{quote.number}</span><strong>{quote.project || "Project not named"}</strong></div>
+          <div className="confirm-line-name"><span>{quote.number}</span><strong>{changeNotice ? quote.changeTitle || "Change not named" : quote.project || "Project not named"}</strong></div>
           <p>Choose Yes to run the final checks and lock this revision. Choose No if you still need to make changes.</p>
         </div>
         <footer className="confirm-actions">
           <button type="button" className="button secondary" onClick={onNo}>No — keep editing</button>
-          <button type="button" className="button primary" onClick={onYes}>Yes — finish quote</button>
+          <button type="button" className="button primary" onClick={onYes}>Yes — finish {changeNotice ? "CCN" : "quote"}</button>
         </footer>
       </section>
     </div>
@@ -2825,6 +3182,10 @@ function QuoteWorkspace({
   finalizeQuote,
   createJob,
   markLost,
+  markChangeSubmitted,
+  approveChange,
+  rejectChange,
+  cancelChange,
   removeQuote,
   expandedLineId,
   setExpandedLineId,
@@ -2845,6 +3206,10 @@ function QuoteWorkspace({
   finalizeQuote: (quote: Quote) => void;
   createJob: (quote: Quote) => void;
   markLost: (quote: Quote) => void;
+  markChangeSubmitted: (quote: Quote) => void;
+  approveChange: (quote: Quote) => void;
+  rejectChange: (quote: Quote) => void;
+  cancelChange: (quote: Quote) => void;
   removeQuote: (quote: Quote) => void;
   expandedLineId: string | null;
   setExpandedLineId: (id: string | null) => void;
@@ -2859,15 +3224,16 @@ function QuoteWorkspace({
   const totals = quoteTotals(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const locked = quote.status !== "Draft";
-  const linkedJob = state.jobs.find((job) => job.quoteId === quote.id) ?? null;
-  const linkedPurchaseOrders = linkedJob?.purchaseOrders ?? [];
+  const changeNotice = isChangeNotice(quote);
+  const linkedJob = state.jobs.find((job) => changeNotice ? job.id === quote.jobId : job.quoteId === quote.id) ?? null;
+  const linkedPurchaseOrders = (linkedJob?.purchaseOrders ?? []).filter((purchaseOrder) => (purchaseOrder.sourceQuoteId ?? linkedJob?.quoteId) === quote.id);
   const tabs: { key: QuoteTab; label: string; badge?: number }[] = [
     { key: "details", label: "Details" },
     { key: "estimate", label: "Estimate", badge: quote.lines.length },
     { key: "breakdown", label: "Breakdown", badge: quote.lines.filter((line) => line.costBuildUp).length },
     { key: "review", label: "Review", badge: readiness.blockers.length + readiness.unresolvedWarnings.length },
     { key: "divisions", label: "Divisions", badge: divisionSummaries(quote).filter((division) => division.lineCount > 0).length },
-    { key: "proposal", label: "Proposal" },
+    { key: "proposal", label: changeNotice ? "Change proposal" : "Proposal" },
     ...(linkedPurchaseOrders.length ? [{ key: "purchase-orders" as const, label: "POs", badge: linkedPurchaseOrders.length }] : []),
     { key: "history", label: "History", badge: quote.revisions.length + (quote.status === "Draft" ? 0 : 1) },
   ];
@@ -2879,33 +3245,39 @@ function QuoteWorkspace({
   return (
     <div className="quote-workspace">
       <div className="quote-topline">
-        <button className="back-button" onClick={onBack}>← All quotes</button>
+        <button className="back-button" onClick={onBack}>{changeNotice ? "← Job changes" : "← All quotes"}</button>
         <div className="quote-identity">
           <div>
             <span className="eyebrow">{quote.number} · REV {quote.revision}</span>
-            <h1>{quote.project || "Untitled quote"}</h1>
-            <p>{clientName(state, quote.clientId)}{quote.site ? ` · ${quote.site}` : ""}</p>
+            <h1>{changeNotice ? quote.changeTitle || "Untitled change" : quote.project || "Untitled quote"}</h1>
+            <p>{changeNotice && linkedJob ? `Job ${linkedJob.jobNumber} · ` : ""}{clientName(state, quote.clientId)}{quote.site ? ` · ${quote.site}` : ""}</p>
           </div>
-          <div className="identity-badges"><StatusPill status={quoteDisplayStatus(quote)} /><ReadinessPill quote={quote} vendors={state.vendors} /></div>
+          <div className="identity-badges">{changeNotice ? <ChangeStatusPill quote={quote} /> : <StatusPill status={quoteDisplayStatus(quote)} />}{quote.status === "Draft" && <ReadinessPill quote={quote} vendors={state.vendors} />}</div>
         </div>
         <div className="quote-primary-actions">
           <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
-          {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>Finish quote</button>}
-          {(quote.status === "Finished" || quote.status === "Won") && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>Re-open quote</button>}
-          {quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
-          {quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
+          {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>{changeNotice ? "Finish CCN pricing" : "Finish quote"}</button>}
+          {(quote.status === "Finished" || quote.status === "Won") && <button className="button secondary" onClick={() => setRevisionConfirmOpen(true)}>{changeNotice ? (quote.changeOrder ? "Revise CO" : "Re-open CCN") : "Re-open quote"}</button>}
+          {!changeNotice && quote.status === "Finished" && <button className="button success" onClick={() => createJob(quote)}>Make into job</button>}
+          {!changeNotice && quote.status === "Finished" && <button className="button danger-ghost" onClick={() => markLost(quote)}>Lost</button>}
+          {changeNotice && quote.status === "Finished" && changeNoticeStatus(quote) !== "Submitted" && <button className="button secondary" onClick={() => markChangeSubmitted(quote)}>Mark submitted</button>}
+          {changeNotice && quote.status === "Finished" && <button className="button success" onClick={() => approveChange(quote)}>{quote.changeOrder ? "Approve revision" : "Approve & create CO"}</button>}
+          {changeNotice && quote.status === "Finished" && !quote.changeOrder && <button className="button danger-ghost" onClick={() => rejectChange(quote)}>Rejected</button>}
+          {changeNotice && quote.status === "Draft" && !quote.changeOrder && <button className="button danger-ghost" onClick={() => cancelChange(quote)}>Cancel CCN</button>}
         </div>
       </div>
+
+      {changeNotice && linkedJob && <div className="change-workspace-banner"><div><span>JOB CHANGE</span><strong>{linkedJob.jobNumber} · {linkedJob.project}</strong></div><div><span>REQUESTED BY</span><strong>{quote.changeRequestedBy || "Not recorded"}</strong></div><div><span>CUSTOMER REFERENCE</span><strong>{quote.reference || "Not recorded"}</strong></div>{quote.changeOrder && <div><span>CURRENT CHANGE ORDER</span><strong>{quote.changeOrder.coNumber} · {money(quote.changeOrder.approvedAmount)}</strong></div>}</div>}
 
       {locked && (
         <div className="locked-banner">
           <span>🔒</span>
-          <div><strong>This {quote.status.toLowerCase()} quote is locked and read-only.</strong><p>{quote.status === "Finished" ? "Re-open it to preserve this Estimate, Breakdown and Proposal in History before Revision " + (quote.revision + 1) + " becomes editable." : "The estimate used for the job or closed quote remains intact for history and audit reference."}</p></div>
+          <div><strong>This {changeNotice ? changeStatusLabel(quote) : `${quote.status.toLowerCase()} quote`} is locked and read-only.</strong><p>{quote.status === "Finished" ? `Re-open it to preserve this Estimate, Breakdown and ${changeNotice ? "Change Proposal" : "Proposal"} in History before Revision ${quote.revision + 1} becomes editable.` : changeNotice ? "The approved Change Order and its pricing remain intact for job totals and audit history." : "The estimate used for the job or closed quote remains intact for history and audit reference."}</p></div>
         </div>
       )}
 
-      <div className="quote-tabs" role="tablist" aria-label="Quote workflow">
+      <div className="quote-tabs" role="tablist" aria-label={changeNotice ? "Change Notice workflow" : "Quote workflow"}>
         {tabs.map((item, index) => (
           <button key={item.key} role="tab" aria-selected={tab === item.key} className={tab === item.key ? "active" : ""} onClick={() => setTab(item.key)}>
             <span className="tab-number">{index + 1}</span>{item.label}
@@ -3029,8 +3401,16 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
   return (
     <div className="content-grid details-grid-layout">
       <section className="panel form-panel">
-        <div className="panel-heading"><div><span className="eyebrow">QUOTE SETUP</span><h2>Client and project</h2></div><span className="step-chip">Step 1 of 7</span></div>
+        <div className="panel-heading"><div><span className="eyebrow">{isChangeNotice(quote) ? "CHANGE NOTICE SETUP" : "QUOTE SETUP"}</span><h2>{isChangeNotice(quote) ? "Change and job details" : "Client and project"}</h2></div><span className="step-chip">Step 1 of 7</span></div>
         <div className="form-grid two-column">
+          {isChangeNotice(quote) && <>
+            <label className="field full"><span>Change title <b>*</b></span><input value={quote.changeTitle ?? ""} disabled={locked} onChange={(event) => updateField("changeTitle", event.target.value)} placeholder="What is changing?" /></label>
+            <label className="field"><span>Requested by</span><input value={quote.changeRequestedBy ?? ""} disabled={locked} onChange={(event) => updateField("changeRequestedBy", event.target.value)} /></label>
+            <label className="field"><span>Customer / RFP reference</span><input value={quote.reference} disabled={locked} onChange={(event) => updateField("reference", event.target.value)} /></label>
+            <label className="field"><span>Date requested</span><input type="date" value={quote.changeRequestedDate ?? ""} disabled={locked} onChange={(event) => updateField("changeRequestedDate", event.target.value)} /></label>
+            <label className="field"><span>Pricing due</span><input type="date" value={quote.changeDueDate ?? ""} disabled={locked} onChange={(event) => updateField("changeDueDate", event.target.value)} /></label>
+            <div className="field full change-details-divider"><strong>Inherited job information</strong><small>Client, site and project details came from the accepted quote and stay with this change.</small></div>
+          </>}
           <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={alphabeticalByName(state.clients).map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
           <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, phoneWithExtension(contact.phone, contact.extension)].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
           <label className="field">
@@ -3040,9 +3420,9 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
           </label>
           <label className="field"><span>Address</span><input value={quote.address ?? ""} disabled={locked} onChange={(event) => updateField("address", event.target.value)} placeholder="Project street address (optional)" /></label>
           <label className="field full"><span>Project name <b>*</b></span><input value={quote.project} disabled={locked} onChange={(event) => updateField("project", event.target.value)} placeholder="e.g. Office renovation — Phase 1" /></label>
-          <label className="field"><span>Customer / RFP reference</span><input value={quote.reference} disabled={locked} onChange={(event) => updateField("reference", event.target.value)} /></label>
+          {!isChangeNotice(quote) && <label className="field"><span>Customer / RFP reference</span><input value={quote.reference} disabled={locked} onChange={(event) => updateField("reference", event.target.value)} /></label>}
           <label className="field"><span>Prepared by</span><input value={quote.preparedBy} disabled={locked} onChange={(event) => updateField("preparedBy", event.target.value)} /></label>
-          <label className="field"><span>Quote date</span><input type="date" value={quote.quoteDate} disabled={locked} onChange={(event) => updateField("quoteDate", event.target.value)} /></label>
+          <label className="field"><span>{isChangeNotice(quote) ? "CCN date" : "Quote date"}</span><input type="date" value={quote.quoteDate} disabled={locked} onChange={(event) => updateField("quoteDate", event.target.value)} /></label>
           <label className="field"><span>Valid until</span><input type="date" value={quote.validUntil} disabled={locked} onChange={(event) => updateField("validUntil", event.target.value)} /></label>
           <label className="field"><span>Customer document</span><select value={quote.customerQuoteType ?? "Proposal Quote"} disabled={locked} onChange={(event) => updateField("customerQuoteType", event.target.value as Quote["customerQuoteType"])}><option>Proposal Quote</option><option>Budget Quote</option></select></label>
           <label className="field"><span>Deposit</span><div className="input-suffix"><ClearableNumberInput min="0" max="100" step="1" value={quote.depositPercent * 100} disabled={locked} normalizeValue={(value) => Math.min(100, Math.max(0, value))} onValueChange={(value) => updateField("depositPercent", (value ?? 0) / 100)} /><span>%</span></div></label>
@@ -3775,6 +4155,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
   duplicateQuote: (quote: Quote) => void;
 }) {
   const totals = quoteTotals(quote);
+  const changeNotice = isChangeNotice(quote);
   const readiness = quoteReadiness(quote, state.vendors);
   const includedLines = quote.lines.filter((line) => line.included);
   const subcontractorLines = includedLines.filter((line) => line.costType === "Sub / Vendor");
@@ -3805,7 +4186,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
         <div className="review-hero-copy">
           <span className="eyebrow">APPROVAL GATE · STEP 4 OF 7</span>
             <h2>{readiness.blockers.length ? "Not ready to finish" : readiness.unresolvedWarnings.length ? "Ready with warnings" : "Ready to finish"}</h2>
-            <p>{readiness.blockers.length ? "Clear the blocking checks before the quote can be finished." : readiness.unresolvedWarnings.length ? "The quote can be finished once these judgment items have been reviewed." : "Required fields, current costs and customer scope are in place."}</p>
+            <p>{readiness.blockers.length ? `Clear the blocking checks before the ${changeNotice ? "CCN" : "quote"} can be finished.` : readiness.unresolvedWarnings.length ? `The ${changeNotice ? "CCN" : "quote"} can be finished once these judgment items have been reviewed.` : "Required fields, current costs and customer scope are in place."}</p>
         </div>
         <div className={`readiness-orb ${readiness.blockers.length ? "blocked" : readiness.unresolvedWarnings.length ? "warning" : "ready"}`}>
           <strong>{readiness.blockers.length || readiness.unresolvedWarnings.length || "✓"}</strong>
@@ -3839,7 +4220,7 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
         </section>
 
         <section className="panel readiness-checks">
-          <div className="panel-heading"><div><span className="eyebrow">QUOTE REVIEW</span><h2>Required checks and recommendations</h2></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">{changeNotice ? "CHANGE NOTICE REVIEW" : "QUOTE REVIEW"}</span><h2>Required checks and recommendations</h2></div></div>
           {readiness.blockers.length > 0 && (
             <div className="check-group blockers">
               <h3><span>!</span> Blocking items</h3>
@@ -3865,8 +4246,8 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
           {!readiness.blockers.length && !readiness.warnings.length && !readiness.recommendations.length && <EmptyInline title="All checks passed" detail="The estimate, client scope and pricing controls are ready." />}
           {!locked && (
             <div className="review-actions">
-              <button className="button secondary" onClick={() => setTab("proposal")}>Preview proposal</button>
-              <button className="button primary" disabled={!!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finish quote</button>
+              <button className="button secondary" onClick={() => setTab("proposal")}>Preview {changeNotice ? "change proposal" : "proposal"}</button>
+              <button className="button primary" disabled={!!readiness.blockers.length} onClick={() => finalizeQuote(quote)}>Finish {changeNotice ? "CCN pricing" : "quote"}</button>
             </div>
           )}
         </section>
@@ -3878,8 +4259,8 @@ function QuoteReview({ state, quote, locked, mutateQuote, setTab, finalizeQuote,
         </section>
       )}
       <section className="panel review-utility-actions">
-        <div><span className="eyebrow">QUOTE FILE ACTIONS</span><h2>Duplicate or save a complete backup</h2><p>These occasional actions stay here so the main quote header remains focused on the active workflow.</p></div>
-        <div><button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate quote</button><button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download full PDF backup</button></div>
+        <div><span className="eyebrow">{changeNotice ? "CCN FILE ACTIONS" : "QUOTE FILE ACTIONS"}</span><h2>Save a complete backup</h2><p>The backup keeps the estimate, breakdown and customer proposal together for the audit file.</p></div>
+        <div>{!changeNotice && <button className="button secondary" onClick={() => duplicateQuote(quote)}>⧉ Duplicate quote</button>}<button className="button secondary" onClick={() => void downloadQuoteBackup(state, quote)}>⇩ Download full PDF backup</button></div>
       </section>
     </div>
   );
@@ -3913,7 +4294,7 @@ function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder, onDownloa
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
 }) {
-  const purchaseOrders = job.purchaseOrders ?? [];
+  const purchaseOrders = (job.purchaseOrders ?? []).filter((purchaseOrder) => (purchaseOrder.sourceQuoteId ?? job.quoteId) === quote.id);
   const activePurchaseOrders = purchaseOrders.filter((purchaseOrder) => purchaseOrder.status !== "Void");
   const preTaxCommitment = activePurchaseOrders.reduce((sum, purchaseOrder) => (
     sum + purchaseOrder.lines.reduce((lineSum, line) => lineSum + (Number(line.amount) || 0), 0)
@@ -3925,9 +4306,9 @@ function QuotePurchaseOrders({ state, quote, job, onEditPurchaseOrder, onDownloa
     <div className="page-stack quote-po-layout">
       <section className="panel quote-po-hero">
         <div>
-          <span className="eyebrow">LINKED JOB PURCHASE ORDERS</span>
-          <h2>POs for Job {job.jobNumber}</h2>
-          <p>All purchase orders connected to this accepted quote stay together here and are also included in the Full Quote Backup PDF.</p>
+          <span className="eyebrow">{isChangeNotice(quote) ? "CHANGE ORDER PURCHASE ORDERS" : "LINKED JOB PURCHASE ORDERS"}</span>
+          <h2>POs from {isChangeNotice(quote) ? quote.changeOrder?.coNumber || quote.number : quote.number}</h2>
+          <p>Purchase orders created from this {isChangeNotice(quote) ? "approved Change Order" : "accepted quote"} stay together here and are also shown on Job {job.jobNumber}.</p>
         </div>
         <div className="quote-po-total"><span>Active PO commitment</span><strong>{money(preTaxCommitment)}</strong><small>Pre-tax · void POs excluded</small></div>
       </section>
@@ -4004,6 +4385,13 @@ function QuoteDivisions({ quote }: { quote: Quote }) {
 
 function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   const totals = quoteTotals(quote);
+  const changeNotice = isChangeNotice(quote);
+  const approvedChange = changeNotice && quote.status === "Won" && Boolean(quote.changeOrder);
+  const documentTitle = approvedChange ? "Change Order" : changeNotice ? "Contemplated Change Notice" : quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal";
+  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION";
+  const documentNumber = approvedChange ? quote.changeOrder?.coNumber || quote.number : quote.number;
+  const documentNumberLabel = approvedChange ? "CHANGE ORDER NUMBER" : changeNotice ? "CCN NUMBER" : "QUOTE NUMBER";
+  const customerDocumentSubtotal = approvedChange ? quote.changeOrder?.approvedAmount ?? totals.subtotal : totals.subtotal;
   const client = state.clients.find((item) => item.id === quote.clientId);
   const projectAddress = quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLocaleLowerCase() === quote.site.trim().toLocaleLowerCase())?.address?.trim() || "";
   const style = "jgc-classic" as ProposalStyle;
@@ -4032,8 +4420,8 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   return (
     <div className="proposal-workspace">
       <div className="proposal-toolbar">
-        <div><span className="eyebrow">CUSTOMER VIEW · STEP 6 OF 7</span><h2>Proposal preview</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
-        <div className="proposal-toolbar-actions"><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ Proposal PDF</button></div>
+        <div><span className="eyebrow">CUSTOMER VIEW · STEP 6 OF 7</span><h2>{changeNotice ? "Change proposal preview" : "Proposal preview"}</h2><p>JGC Classic lump sum. Internal costs, markup and vendors remain hidden unless you enable the optional breakdown.</p></div>
+        <div className="proposal-toolbar-actions"><button className="button primary" onClick={() => void downloadCustomerProposal(state, quote)}>⇩ {changeNotice ? "Change Proposal" : "Proposal"} PDF</button></div>
       </div>
       <article className={`proposal-paper ${style === "jgc-classic" ? "classic-proposal hybrid-classic-proposal" : "modern-proposal"}`}>
         {style === "jgc-classic" ? (
@@ -4047,17 +4435,17 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               </div>
             </header>
             <div className="hybrid-titlebar">
-              <div><span>{quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION"}</span><h1>{quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal"}</h1></div>
-              <div className="hybrid-quote-id"><span>QUOTE NUMBER</span><strong>{quote.number}</strong><small>Revision {quote.revision}</small></div>
+              <div><span>{documentEyebrow}</span><h1>{documentTitle}</h1></div>
+              <div className="hybrid-quote-id"><span>{documentNumberLabel}</span><strong>{documentNumber}</strong><small>{changeNotice && approvedChange ? `${quote.number} · ` : ""}Revision {quote.revision}</small></div>
             </div>
             {quote.demo && <div className="demo-watermark">DEMO ONLY — VERIFY OR DELETE</div>}
             <section className={`hybrid-meta ${projectAddress ? "has-address" : ""}`}>
               <div><span>Prepared for</span><strong>{client?.name || "Client not selected"}</strong>{(quote.proposalAttention || client?.contact) && <p>Attention: {quote.proposalAttention || client?.contact}</p>}</div>
               {projectAddress && <div><span>Address</span><strong>{projectAddress}</strong></div>}
-              <div><span>Project</span><strong>{quote.site || "Site name not recorded"}</strong><p>{quote.project || "Project not named"}</p>{quote.reference && <p>Reference: {quote.reference}</p>}</div>
-              <div><span>Quote date</span><strong>{shortDate(quote.quoteDate)}</strong><p>Valid until {shortDate(quote.validUntil)}</p></div>
+              <div><span>Project</span><strong>{quote.site || "Site name not recorded"}</strong><p>{quote.project || "Project not named"}</p>{changeNotice && <p>Change: {quote.changeTitle || "Change not named"}</p>}{quote.reference && <p>Reference: {quote.reference}</p>}</div>
+              <div><span>{changeNotice ? approvedChange ? "Approved date" : "CCN date" : "Quote date"}</span><strong>{shortDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate)}</strong>{!approvedChange && <p>Valid until {shortDate(quote.validUntil)}</p>}{changeNotice && quote.changeRequestedBy && <p>Requested by {quote.changeRequestedBy}</p>}</div>
             </section>
-            <section className="hybrid-intro"><p>{state.settings.proposalIntro}</p></section>
+            <section className="hybrid-intro"><p>{changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro}</p></section>
           </>
         ) : (
           <>
@@ -4066,13 +4454,13 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               <img src="./jgc-letterhead-logo.jpg" alt="John Gordon Construction" />
               <div className="letterhead-address">{company.address}<br />{company.city}<br />{company.postal}</div>
             </header>
-            <div className="letterhead-title"><h1>Proposal</h1><p>{quote.number} · Revision {quote.revision}</p></div>
+            <div className="letterhead-title"><h1>{documentTitle}</h1><p>{documentNumber} · Revision {quote.revision}</p></div>
             {quote.demo && <div className="demo-watermark">DEMO ONLY — VERIFY OR DELETE</div>}
             <section className="classic-meta">
               <div><span>To:</span><strong>{client?.name || "Client not selected"}</strong><p>{quote.site}</p>{(quote.proposalAttention || client?.contact) && <p><b>Attention:</b> {quote.proposalAttention || client?.contact}</p>}</div>
-              <div><p><span>Date:</span> {shortDate(quote.quoteDate)}</p><p><span>Project:</span> {quote.project || "Project not named"}</p>{quote.reference && <p><span>Reference:</span> {quote.reference}</p>}</div>
+              <div><p><span>Date:</span> {shortDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate)}</p><p><span>Project:</span> {quote.project || "Project not named"}</p>{changeNotice && <p><span>Change:</span> {quote.changeTitle || "Change not named"}</p>}{quote.reference && <p><span>Reference:</span> {quote.reference}</p>}</div>
             </section>
-            <section className="classic-intro"><p>{state.settings.proposalIntro}</p>{quote.scopeSummary && <p>{quote.scopeSummary}</p>}</section>
+            <section className="classic-intro"><p>{changeNotice ? approvedChange ? "This Change Order confirms the approved adjustment to the work and contract value described below." : "We are pleased to submit our price for the contemplated change described below. This work is separate from the original contract until approved in writing." : state.settings.proposalIntro}</p>{quote.scopeSummary && <p>{quote.scopeSummary}</p>}</section>
           </>
         )}
 
@@ -4088,10 +4476,10 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               {(quote.inclusions || quote.exclusions) && <div className="hybrid-clarifications">{quote.inclusions && <div><span>Included</span><ProposalClarificationLines value={quote.inclusions} /></div>}{quote.exclusions && <div><span>Excluded</span><ProposalClarificationLines value={quote.exclusions} /></div>}</div>}
             </section>
             {sharedOptional}
-            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>Proposal total</span><strong>{money(totals.subtotal)}</strong></footer></section>}
+            {quote.proposalShowCostBreakdown && <section className="proposal-cost-breakdown"><h2>Cost Breakdown</h2>{costBreakdownRows.length ? costBreakdownRows.map((row) => <div key={row.key}><span>{row.label}</span><strong>{money(row.amount)}</strong></div>) : <p>No cost breakdown lines selected.</p>}<footer><span>{changeNotice ? "Change total" : "Proposal total"}</span><strong>{money(customerDocumentSubtotal)}</strong></footer></section>}
             <section className="hybrid-lump-sum">
-              <div><span>LUMP SUM PROPOSAL</span><p>Complete the Scope of Work above in a good and workmanlike manner.</p><small>{dollarsInWords(totals.subtotal)} Dollars</small></div>
-              <div><strong>{money(totals.subtotal)}</strong><span>HST Extra</span></div>
+              <div><span>{changeNotice ? approvedChange ? "APPROVED CHANGE ORDER" : "LUMP SUM CHANGE PROPOSAL" : "LUMP SUM PROPOSAL"}</span><p>{changeNotice ? "Complete the changed Scope of Work above in a good and workmanlike manner." : "Complete the Scope of Work above in a good and workmanlike manner."}</p><small>{dollarsInWords(customerDocumentSubtotal)} Dollars</small></div>
+              <div><strong>{money(customerDocumentSubtotal)}</strong><span>HST Extra</span></div>
             </section>
           </>
         )}
@@ -4114,8 +4502,8 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
         {style === "jgc-classic" && !taxExtra && <ProposalTotals quote={quote} totals={totals} taxExtra={false} />}
         <section className={`classic-legal ${style === "jgc-classic" ? "hybrid-legal" : ""}`}><h3>Terms</h3><p><ProposalRichText value={quote.terms} /></p><p><strong>HST Extra</strong></p></section>
         <section className={`proposal-signoff ${style === "jgc-classic" ? "hybrid-signoff" : ""}`}><div /><div><span>Respectfully submitted,</span><strong>{company.signatory}</strong><small>John Gordon Construction</small></div></section>
-        <section className={`classic-acceptance ${style === "jgc-classic" ? "hybrid-acceptance" : ""}`}><h2>ACCEPTANCE</h2><p>You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein.</p><div><span>Signature</span><span>Print name</span><span>Date</span></div></section>
-        <footer className="proposal-footer"><strong>John Gordon Construction Inc.</strong><span>Prepared by {quote.preparedBy || "JGC Estimating"}</span><span>Quote {quote.number} · Rev {quote.revision}</span></footer>
+        <section className={`classic-acceptance ${style === "jgc-classic" ? "hybrid-acceptance" : ""}`}><h2>{approvedChange ? "APPROVAL RECORD" : "ACCEPTANCE"}</h2><p>{changeNotice ? approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "the customer"} on ${shortDate(quote.changeOrder?.approvedDate || quote.quoteDate)}${quote.changeOrder?.customerReference ? ` under reference ${quote.changeOrder.customerReference}` : ""}.` : "By signing below, the undersigned authorizes John Gordon Construction Inc. to proceed with this change and agrees that the amount stated will be added to or deducted from the contract according to the terms herein." : "You are hereby authorized to furnish all materials and labour to complete the work mentioned in the above proposal. The undersigned agrees to pay the amount stated in this proposal according to the terms herein."}</p>{!approvedChange && <div><span>Signature</span><span>Print name</span><span>Date</span></div>}</section>
+        <footer className="proposal-footer"><strong>John Gordon Construction Inc.</strong><span>Prepared by {quote.preparedBy || "JGC Estimating"}</span><span>{changeNotice ? `${approvedChange ? "CO" : "CCN"} ${documentNumber}` : `Quote ${quote.number}`} · Rev {quote.revision}</span></footer>
       </article>
     </div>
   );
@@ -4141,12 +4529,14 @@ function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
   const selectedRevision = quote.revisions.find((revision) => revision.id === selectedRevisionId) ?? null;
   const selectedSnapshot = selectedRevision ? savedRevisionQuote(selectedRevision.snapshot) : null;
   const currentVersionLabel = quote.status === "Draft" ? "Current editable revision" : quote.status === "Finished" ? "Current finished and locked revision" : `Current ${quote.status.toLowerCase()} version`;
+  const changeNotice = isChangeNotice(quote);
+  const approvalHistory = [...(quote.changeOrderHistory ?? []), ...(quote.changeOrder ? [quote.changeOrder] : [])];
 
   return (
     <>
       <div className="history-layout">
         <section className="panel">
-          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 7 OF 7</span><h2>Quote history</h2><p>Each finished revision is frozen here when the quote is re-opened. Its Estimate, Breakdown and Proposal can be regenerated exactly from the saved snapshot.</p></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">SAVED VERSIONS · STEP 7 OF 7</span><h2>{changeNotice ? "CCN and Change Order history" : "Quote history"}</h2><p>Each finished revision is frozen here when the {changeNotice ? "CCN or Change Order" : "quote"} is re-opened. Its Estimate, Breakdown and Proposal can be regenerated exactly from the saved snapshot.</p></div></div>
           <div className="revision-list">
             <div className="revision-card current"><div className="revision-marker">R{quote.revision}</div><div><strong>{currentVersionLabel}</strong><span>Last changed {timeAgo(quote.updatedAt)}</span></div><div><strong>{money(quoteTotals(quote).total)}</strong><small>incl. {quote.taxName}</small></div></div>
             {[...quote.revisions].reverse().map((revision) => (
@@ -4156,17 +4546,24 @@ function QuoteHistory({ state, quote }: { state: AppState; quote: Quote }) {
                 <div><strong>{money(revision.total)}</strong><small>frozen snapshot</small></div>
               </button>
             ))}
-            {!quote.revisions.length && quote.status === "Draft" && <p className="empty-copy">Finish this quote to lock the original. If it is later re-opened, the original documents will be preserved here before Revision 1 becomes editable.</p>}
+            {!quote.revisions.length && quote.status === "Draft" && <p className="empty-copy">Finish this {changeNotice ? "CCN" : "quote"} to lock the original. If it is later re-opened, the original documents will be preserved here before Revision 1 becomes editable.</p>}
             {!quote.revisions.length && quote.status === "Finished" && <p className="empty-copy">This finished revision is locked as the current version. Re-open it to move these exact documents into saved History and begin Revision {quote.revision + 1}.</p>}
           </div>
         </section>
         <section className="panel">
-          <div className="panel-heading"><div><span className="eyebrow">ACTIVITY</span><h2>Quote timeline</h2></div></div>
+          <div className="panel-heading"><div><span className="eyebrow">ACTIVITY</span><h2>{changeNotice ? "Change timeline" : "Quote timeline"}</h2></div></div>
           <div className="timeline">
             {activity.map((entry) => <div key={entry.id}><span className="timeline-dot" /><div><strong>{entry.title}</strong><p>{entry.detail}</p><small>{timeAgo(entry.createdAt)}</small></div></div>)}
           </div>
         </section>
       </div>
+
+      {changeNotice && approvalHistory.length > 0 && <section className="panel change-approval-history">
+        <div className="panel-heading"><div><span className="eyebrow">APPROVAL REGISTER</span><h2>Change Order approvals</h2><p>Earlier approvals remain preserved when an approved Change Order is revised.</p></div></div>
+        <div className="data-table-wrap"><table className="data-table"><thead><tr><th>CO</th><th>CCN revision</th><th>Approved date</th><th>Approved by</th><th>Method / reference</th><th>Approved amount</th></tr></thead><tbody>
+          {approvalHistory.map((approval) => <tr key={approval.id}><td data-label="CO"><strong>{approval.coNumber}</strong></td><td data-label="CCN revision">Rev {approval.quoteRevision}</td><td data-label="Approved date">{shortDate(approval.approvedDate)}</td><td data-label="Approved by">{approval.approvedBy}</td><td data-label="Method / reference"><strong>{approval.approvalMethod}</strong><small>{approval.customerReference || "No reference"}</small></td><td data-label="Approved amount"><strong>{money(approval.approvedAmount)}</strong><small>Pre-tax</small></td></tr>)}
+        </tbody></table></div>
+      </section>}
 
       {selectedRevision && selectedSnapshot && (
         <div className="modal-layer" role="presentation" onMouseDown={() => setSelectedRevisionId(null)}>
@@ -4232,7 +4629,7 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
       <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search clients or sites" /></div><span className="toolbar-note">{clients.length} client{clients.length === 1 ? "" : "s"}</span></section>
       <div className="entity-grid">
         {clients.map((client) => {
-          const quotes = state.quotes.filter((quote) => quote.clientId === client.id);
+          const quotes = state.quotes.filter((quote) => !isChangeNotice(quote) && quote.clientId === client.id);
           const openValue = quotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
           const contacts = client.contacts ?? [];
           const editing = editingClientId === client.id;
@@ -4674,15 +5071,16 @@ function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   return { actual, manualActual, manualLabourCost, manualLabourHours, portalLabour, actualLabourCost, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
 }
 
-function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   job: Job | null;
   onOpen: (id: string) => void;
   onBack: () => void;
   onAddCost: (jobId: string) => void;
+  onCreateChangeNotice: (jobId: string) => void;
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
-  onCreatePurchaseOrder: (jobId: string, lineId: string) => void;
+  onCreatePurchaseOrder: (jobId: string, quoteId: string, lineId: string) => void;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   portalLabourActuals: PortalLabourActual[];
@@ -4710,7 +5108,28 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
     const labourHoursAreComplete = labourBudget.labourSources > 0 && labourBudget.unitemizedHourSources === 0;
     const labourHoursRemaining = labourHoursAreComplete ? roundMoney(labourBudget.carriedHours - totals.labourHours) : null;
     const quoteReference = linkedQuote?.number ?? "Quote unavailable";
-    const subcontractLines = linkedQuote?.lines.filter((line) => line.included && line.costType === "Sub / Vendor") ?? [];
+    const jobChanges = state.quotes
+      .filter((quote) => isChangeNotice(quote) && quote.jobId === job.id)
+      .sort((left, right) => (left.changeSequence ?? 0) - (right.changeSequence ?? 0));
+    const activeChanges = jobChanges.filter((quote) => !quote.changeOrder && changeNoticeStatus(quote) !== "Rejected" && changeNoticeStatus(quote) !== "Cancelled");
+    const approvedChanges = jobChanges.filter((quote) => Boolean(quote.changeOrder));
+    const closedChanges = jobChanges.filter((quote) => !quote.changeOrder && (changeNoticeStatus(quote) === "Rejected" || changeNoticeStatus(quote) === "Cancelled"));
+    const pendingChangeValue = roundMoney(activeChanges.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0));
+    const approvedChangeValue = roundMoney(approvedChanges.reduce((sum, quote) => sum + (quote.changeOrder?.approvedAmount ?? 0), 0));
+    const originalContractValue = job.acceptedRevenue;
+    const approvedChangeSources = approvedChanges.map((change) => {
+      if (change.status === "Won" && change.revision === change.changeOrder?.quoteRevision) return change;
+      const approvalRevision = change.revisions.find((revision) => revision.revision === change.changeOrder?.quoteRevision);
+      return approvalRevision ? savedRevisionQuote(approvalRevision.snapshot) ?? change : change;
+    });
+    const subcontractSources = [
+      ...(linkedQuote ? [{ quote: linkedQuote, line: linkedQuote.lines } ] : []).flatMap((source) => source.line
+        .filter((line) => line.included && line.costType === "Sub / Vendor")
+        .map((line) => ({ quote: source.quote, line }))),
+      ...approvedChangeSources.flatMap((quote) => quote.lines
+        .filter((line) => line.included && line.costType === "Sub / Vendor")
+        .map((line) => ({ quote, line }))),
+    ];
     const purchaseOrders = job.purchaseOrders ?? [];
     const duplicateRefs = Array.from(new Set(job.costs.filter((entry) => entry.reference && job.costs.filter((other) => other.reference === entry.reference).length > 1).map((entry) => entry.reference)));
     const manualLabourEntries = job.costs.filter((entry) => entry.type === "Labour" && ((entry.hours ?? 0) > 0 || entry.preTaxAmount > 0));
@@ -4726,37 +5145,76 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onOpenQuote
           <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
         </div>
         <section className="job-kpi-grid">
-          <div><span>Accepted quote</span><strong>{money(totals.revisedRevenue)}</strong><small>Pre-tax estimate</small></div>
+          <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>
           <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>
           <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current${totals.manualLabourHours > 0 ? ` · ${numberFormatter.format(totals.manualLabourHours)} adjustment` : ""}` : totals.manualLabourHours > 0 ? `${numberFormatter.format(totals.manualLabourHours)} manual adjustment` : "No Portal hours yet"}</small></div>
           <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
         </section>
+        <section className="panel change-register-panel">
+          <div className="panel-heading"><div><span className="eyebrow">CONTRACT CHANGES</span><h2>Change Notices and Change Orders</h2><p>Price requested work as a separate CCN. Only approved Change Orders update the job contract and cost budget.</p></div><button className="button primary" onClick={() => onCreateChangeNotice(job.id)}>＋ New CCN</button></div>
+          <div className="change-summary-grid">
+            <div><span>Original contract</span><strong>{money(originalContractValue)}</strong><small>{quoteReference}</small></div>
+            <div className={activeChanges.length ? "is-pending" : ""}><span>Pending CCNs</span><strong>{money(pendingChangeValue)}</strong><small>{activeChanges.length} active</small></div>
+            <div className={approvedChanges.length ? "is-approved" : ""}><span>Approved COs</span><strong>{money(approvedChangeValue)}</strong><small>{approvedChanges.length} approved</small></div>
+            <div className="revised"><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Original + approved COs</small></div>
+          </div>
+          {activeChanges.length > 0 && <div className="change-register-group">
+            <div className="change-register-heading"><div><span className="eyebrow">ACTIVE CHANGE NOTICES</span><h3>Pricing and approvals in progress</h3></div><span>{activeChanges.length}</span></div>
+            <div className="data-table-wrap"><table className="data-table change-register-table">
+              <thead><tr><th>CCN</th><th>Change</th><th>Status</th><th>Proposal value</th><th>Requested / due</th><th><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>{activeChanges.map((change) => <tr key={change.id}>
+                <td data-label="CCN"><strong>{change.number}</strong><small>Rev {change.revision}</small></td>
+                <td data-label="Change"><strong>{change.changeTitle || "Change not named"}</strong><small>{change.changeRequestedBy ? `Requested by ${change.changeRequestedBy}` : change.reference || "No customer reference"}</small></td>
+                <td data-label="Status"><ChangeStatusPill quote={change} /></td>
+                <td data-label="Proposal value"><strong>{money(quoteTotals(change).subtotal)}</strong><small>Pre-tax</small></td>
+                <td data-label="Requested / due"><strong>{change.changeRequestedDate ? shortDate(change.changeRequestedDate) : "—"}</strong><small>{change.changeDueDate ? `Due ${shortDate(change.changeDueDate)}` : "No due date"}</small></td>
+                <td className="change-row-actions"><button className="button secondary compact" onClick={() => onOpenQuote(change.id, change.status === "Draft" ? "details" : "proposal")}>{change.status === "Draft" ? "Continue pricing" : "Open CCN"}</button></td>
+              </tr>)}</tbody>
+            </table></div>
+          </div>}
+          {approvedChanges.length > 0 && <div className="change-register-group">
+            <div className="change-register-heading"><div><span className="eyebrow">APPROVED CHANGE ORDERS</span><h3>Committed contract changes</h3></div><span>{approvedChanges.length}</span></div>
+            <div className="data-table-wrap"><table className="data-table change-register-table">
+              <thead><tr><th>Change Order</th><th>Change</th><th>Approved amount</th><th>Direct cost</th><th>Approved</th><th><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>{approvedChanges.map((change) => <tr key={change.id}>
+                <td data-label="Change Order"><strong>{change.changeOrder?.coNumber}</strong><small>{change.number} · Rev {change.changeOrder?.quoteRevision ?? change.revision}</small></td>
+                <td data-label="Change"><strong>{change.changeTitle || "Change not named"}</strong><small>{change.changeOrder?.customerReference || "No approval reference"}</small></td>
+                <td data-label="Approved amount"><strong>{money(change.changeOrder?.approvedAmount ?? 0)}</strong><small>Pre-tax</small></td>
+                <td data-label="Direct cost"><strong>{money(change.changeOrder?.approvedCost ?? 0)}</strong><small>Added to cost budget</small></td>
+                <td data-label="Approved"><strong>{change.changeOrder?.approvedDate ? shortDate(change.changeOrder.approvedDate) : "—"}</strong><small>{change.changeOrder?.approvedBy || "Approval contact not recorded"}</small></td>
+                <td className="change-row-actions"><button className="button secondary compact" onClick={() => onOpenQuote(change.id, "proposal")}>Open CO</button></td>
+              </tr>)}</tbody>
+            </table></div>
+          </div>}
+          {!jobChanges.length && <div className="empty-state compact-empty change-empty"><span>±</span><h3>No contract changes yet</h3><p>Create a CCN when extra, deleted or revised work needs separate pricing and approval.</p><button className="button secondary compact" onClick={() => onCreateChangeNotice(job.id)}>＋ Create first CCN</button></div>}
+          {closedChanges.length > 0 && <details className="closed-change-register"><summary>{closedChanges.length} rejected or cancelled CCN{closedChanges.length === 1 ? "" : "s"}</summary><div>{closedChanges.map((change) => <button key={change.id} onClick={() => onOpenQuote(change.id, "history")}><span>{change.number}</span><strong>{change.changeTitle || "Change not named"}</strong><ChangeStatusPill quote={change} /></button>)}</div></details>}
+        </section>
         <section className="panel subcontract-po-panel">
           <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's actual quoted amount and quote number. JGC carried overrides and customer markup are never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
-          {subcontractLines.length ? (
+          {subcontractSources.length ? (
             <div className="data-table-wrap">
               <table className="data-table po-source-table">
                 <thead><tr><th>Subcontractor</th><th>Accepted estimate line</th><th>Vendor quote #</th><th>Direct cost</th><th>PO</th><th><span className="sr-only">Actions</span></th></tr></thead>
-                <tbody>{subcontractLines.map((line) => {
+                <tbody>{subcontractSources.map(({ quote: sourceQuote, line }) => {
                   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId) : null;
                   const vendorName = vendor?.name ?? line.vendorName?.trim() ?? "Subcontractor not selected";
                   const linkedPurchaseOrder = purchaseOrders.find((purchaseOrder) => purchaseOrder.lines.some((item) => item.quoteLineId === line.id) && purchaseOrder.status !== "Void");
                   return (
-                    <tr key={line.id}>
+                    <tr key={`${sourceQuote.id}-${line.id}`}>
                       <td data-label="Subcontractor"><strong>{vendorName}</strong><small>{vendor?.trade || "Subcontractor"}</small></td>
-                      <td data-label="Accepted estimate line"><strong>{line.description}</strong><small>{line.quantity} {line.unit} · {line.division || line.section}</small></td>
+                      <td data-label="Accepted estimate line"><strong>{line.description}</strong><small>{sourceQuote.number} · {line.quantity} {line.unit} · {line.division || line.section}</small></td>
                       <td data-label="Vendor quote #">{line.vendorReference ? <strong>{line.vendorReference}</strong> : <span className="po-missing-reference">Not entered</span>}</td>
                       <td data-label="Direct cost"><strong>{money(subcontractorActualDirectCost(line))}</strong><small>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined ? `Actual quote · JGC carried ${money(lineDirectCost(line))}` : "Actual quote · Pre-tax"}</small></td>
                       <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small>Revision {linkedPurchaseOrder.revision}</small><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(linkedPurchaseOrder)}</small></> : <span className="po-not-created">Not created</span>}</td>
                       <td className="po-row-actions">
-                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Continue revision" : "Edit PO"}</button><button className="button primary compact" onClick={() => onDownloadPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={linkedPurchaseOrder} /></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, line.id)}>＋ Create PO</button>}
+                        {linkedPurchaseOrder ? <><button className="button secondary compact" onClick={() => onEditPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Continue revision" : "Edit PO"}</button><button className="button primary compact" onClick={() => onDownloadPurchaseOrder(job.id, linkedPurchaseOrder.id)}>{linkedPurchaseOrder.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={linkedPurchaseOrder} /></> : <button className="button success compact" onClick={() => onCreatePurchaseOrder(job.id, sourceQuote.id, line.id)}>＋ Create PO</button>}
                       </td>
                     </tr>
                   );
                 })}</tbody>
               </table>
             </div>
-          ) : <div className="empty-state compact-empty"><span>PO</span><h3>No subcontractor lines on the accepted quote</h3><p>Estimate lines marked Sub / Vendor will appear here automatically after the quote becomes a job.</p></div>}
+          ) : <div className="empty-state compact-empty"><span>PO</span><h3>No approved subcontractor lines</h3><p>Sub / Vendor lines from the accepted quote and approved Change Orders will appear here automatically.</p></div>}
         </section>
         <section className="panel portal-labour-panel">
           <div className="panel-heading"><div><span className="eyebrow">AUTOMATIC PORTAL COSTING</span><h2>Employee labour</h2><p>Confirmed submissions are separated from hours still on current timesheets. Rates remain private; only the loaded job cost is shown here.</p></div><div className="portal-labour-heading-total"><span>Loaded labour cost</span><strong>{money(totals.portalLabour.loadedCost)}</strong></div></div>

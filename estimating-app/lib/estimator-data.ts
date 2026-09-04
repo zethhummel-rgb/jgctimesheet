@@ -10,6 +10,9 @@ export type ViewKey =
   | "settings";
 
 export type QuoteStatus = "Draft" | "Finished" | "Sent" | "Won" | "Lost";
+export type EstimateDocumentKind = "Quote" | "Change Notice";
+export type ChangeNoticeStatus = "Pricing" | "Ready" | "Submitted" | "Approved" | "Rejected" | "Cancelled";
+export type ChangeApprovalMethod = "Signed proposal" | "Email" | "Verbal" | "Other";
 export type QuoteClass = "Required" | "Allowance" | "Optional";
 export type CostType = "Labour" | "Material" | "Labour & Materials" | "Sub / Vendor" | "Equipment / Other";
 export type Confidence = "Low" | "Low-Medium" | "Medium" | "High" | "Project-specific";
@@ -190,6 +193,20 @@ export interface QuoteRevision {
   snapshot: string;
 }
 
+export interface ChangeOrderApproval {
+  id: string;
+  coNumber: string;
+  approvedDate: string;
+  approvedAmount: number;
+  approvedCost: number;
+  approvedBy: string;
+  approvalMethod: ChangeApprovalMethod;
+  customerReference: string;
+  notes: string;
+  quoteRevision: number;
+  approvedAt: string;
+}
+
 export interface Quote {
   id: string;
   number: string;
@@ -240,6 +257,16 @@ export interface Quote {
   acceptedBy: string;
   customerPo: string;
   lostReason: string;
+  documentKind?: EstimateDocumentKind;
+  jobId?: string;
+  changeSequence?: number;
+  changeTitle?: string;
+  changeStatus?: ChangeNoticeStatus;
+  changeRequestedBy?: string;
+  changeRequestedDate?: string;
+  changeDueDate?: string;
+  changeOrder?: ChangeOrderApproval | null;
+  changeOrderHistory?: ChangeOrderApproval[];
   demo?: boolean;
 }
 
@@ -283,6 +310,7 @@ export interface PurchaseOrder {
   number: string;
   revision: number;
   status: PurchaseOrderStatus;
+  sourceQuoteId?: string;
   vendorId: string | null;
   vendorName: string;
   vendorContact: string;
@@ -832,7 +860,7 @@ demoLines.push({
 
 export function createDefaultState(): AppState {
   return {
-    version: 12,
+    version: 13,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -949,7 +977,7 @@ export function normalizeAppState(state: AppState): AppState {
   const sourceVersion = Number(state.version) || 0;
   return {
     ...state,
-    version: 12,
+    version: 13,
     settings: {
       ...state.settings,
       defaultValidityDays: state.version < 2 && state.settings.defaultValidityDays === 14 ? 30 : state.settings.defaultValidityDays,
@@ -993,6 +1021,46 @@ export function normalizeAppState(state: AppState): AppState {
     })),
     quotes: state.quotes.map((quote) => ({
       ...quote,
+      documentKind: quote.documentKind === "Change Notice" ? "Change Notice" : "Quote",
+      jobId: quote.jobId ?? "",
+      changeSequence: Number.isFinite(quote.changeSequence) ? Math.max(1, Math.round(Number(quote.changeSequence))) : undefined,
+      changeTitle: quote.changeTitle ?? "",
+      changeStatus: quote.documentKind === "Change Notice"
+        ? (["Pricing", "Ready", "Submitted", "Approved", "Rejected", "Cancelled"] as ChangeNoticeStatus[]).includes(quote.changeStatus as ChangeNoticeStatus)
+          ? quote.changeStatus
+          : quote.status === "Won"
+            ? "Approved"
+            : quote.status === "Lost"
+              ? "Rejected"
+              : quote.status === "Finished" || quote.status === "Sent"
+                ? "Ready"
+                : "Pricing"
+        : undefined,
+      changeRequestedBy: quote.changeRequestedBy ?? "",
+      changeRequestedDate: quote.changeRequestedDate ?? quote.quoteDate ?? "",
+      changeDueDate: quote.changeDueDate ?? "",
+      changeOrder: quote.changeOrder ? {
+        ...quote.changeOrder,
+        id: quote.changeOrder.id ?? `change-order-${quote.id}`,
+        coNumber: quote.changeOrder.coNumber ?? "",
+        approvedDate: quote.changeOrder.approvedDate ?? "",
+        approvedAmount: Number.isFinite(quote.changeOrder.approvedAmount) ? Number(quote.changeOrder.approvedAmount) : 0,
+        approvedCost: Number.isFinite(quote.changeOrder.approvedCost) ? Number(quote.changeOrder.approvedCost) : 0,
+        approvedBy: quote.changeOrder.approvedBy ?? "",
+        approvalMethod: (["Signed proposal", "Email", "Verbal", "Other"] as ChangeApprovalMethod[]).includes(quote.changeOrder.approvalMethod as ChangeApprovalMethod) ? quote.changeOrder.approvalMethod : "Other",
+        customerReference: quote.changeOrder.customerReference ?? "",
+        notes: quote.changeOrder.notes ?? "",
+        quoteRevision: Number.isFinite(quote.changeOrder.quoteRevision) ? Math.max(0, Number(quote.changeOrder.quoteRevision)) : quote.revision,
+        approvedAt: quote.changeOrder.approvedAt ?? quote.wonAt ?? quote.updatedAt ?? new Date().toISOString(),
+      } : null,
+      changeOrderHistory: Array.isArray(quote.changeOrderHistory) ? quote.changeOrderHistory.map((approval) => ({
+        ...approval,
+        id: approval.id ?? `change-order-history-${quote.id}-${approval.quoteRevision ?? 0}`,
+        approvedAmount: Number.isFinite(approval.approvedAmount) ? Number(approval.approvedAmount) : 0,
+        approvedCost: Number.isFinite(approval.approvedCost) ? Number(approval.approvedCost) : 0,
+        approvalMethod: (["Signed proposal", "Email", "Verbal", "Other"] as ChangeApprovalMethod[]).includes(approval.approvalMethod as ChangeApprovalMethod) ? approval.approvalMethod : "Other",
+        quoteRevision: Number.isFinite(approval.quoteRevision) ? Math.max(0, Number(approval.quoteRevision)) : 0,
+      })) : [],
       status: quote.status === "Sent" ? "Finished" : quote.status,
       proposalStyle: quote.proposalStyle ?? "jgc-classic",
       proposalTaxDisplay: quote.proposalTaxDisplay ?? "extra",
@@ -1067,6 +1135,7 @@ export function normalizeAppState(state: AppState): AppState {
               : sourceVersion < 12 || purchaseOrder.status === "Issued"
                 ? "Issued"
                 : "Draft",
+            sourceQuoteId: purchaseOrder.sourceQuoteId ?? job.quoteId,
             vendorId: purchaseOrder.vendorId ?? null,
             vendorName: purchaseOrder.vendorName ?? "",
             vendorContact: purchaseOrder.vendorContact ?? "",

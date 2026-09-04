@@ -530,9 +530,10 @@ function estimateVendorDetails(state: AppState, line: QuoteLine) {
 function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote, exportedAt: Date) {
   const client = state.clients.find((item) => item.id === quote.clientId);
   const totals = quoteTotals(quote);
-  builder.startSection("Details", "Quote information, customer record, commercial settings and written scope.");
-  builder.keyValueGrid([
-    ["Quote", `${quote.number} - Revision ${quote.revision}`],
+  const changeNotice = quote.documentKind === "Change Notice";
+  builder.startSection("Details", `${changeNotice ? "Change Notice" : "Quote"} information, customer record, commercial settings and written scope.`);
+  const details: Array<[string, string]> = [
+    [changeNotice ? "CCN" : "Quote", `${quote.number} - Revision ${quote.revision}`],
     ["Status", quote.status],
     ["Client", client?.name || "Client not selected"],
     ["Project", quote.project || "Project not named"],
@@ -542,7 +543,9 @@ function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
     ["Quote date", shortDate(quote.quoteDate)],
     ["Valid until", shortDate(quote.validUntil)],
     ["Proposal style", proposalStyleName(quote)],
-  ]);
+  ];
+  if (changeNotice) details.splice(6, 0, ["Change", quote.changeTitle || "Not recorded"], ["Requested by", quote.changeRequestedBy || "Not recorded"]);
+  builder.keyValueGrid(details);
   builder.callout("Complete backup", `Exported ${exportedAt.toLocaleString("en-CA")}. ${quote.quoteType}; ${percent(quote.defaultMarkup)} markup; ${percent(quote.targetMargin)} target margin; ${quote.taxName} ${percent(quote.taxRate, 0)} ${quote.proposalTaxDisplay === "breakdown" ? "shown" : "extra"}; current total ${money(totals.total)}. A machine-data snapshot is attached for future recovery.`, "green");
   builder.subheading("Written quote details");
   builder.labelledParagraph("Scope summary", quote.scopeSummary);
@@ -877,7 +880,7 @@ function addProposalPage(builder: BackupPdfBuilder, state: AppState, quote: Quot
 
 function addHistoryPage(builder: BackupPdfBuilder, state: AppState, quote: Quote) {
   const activity = state.activity.filter((entry) => entry.quoteId === quote.id);
-  const job = state.jobs.find((item) => item.quoteId === quote.id);
+  const job = state.jobs.find((item) => quote.documentKind === "Change Notice" ? item.id === quote.jobId : item.quoteId === quote.id);
   builder.startSection("History", "Current status, frozen revisions, activity timeline and accepted-job handoff.");
   builder.subheading("Current version");
   builder.keyValueGrid([
@@ -915,7 +918,7 @@ function addHistoryPage(builder: BackupPdfBuilder, state: AppState, quote: Quote
       ["Accepted revenue", money(job.acceptedRevenue)],
       ["Original cost budget", money(job.originalCostBudget)],
     ]);
-    const purchaseOrders = job.purchaseOrders ?? [];
+    const purchaseOrders = (job.purchaseOrders ?? []).filter((purchaseOrder) => (purchaseOrder.sourceQuoteId ?? job.quoteId) === quote.id);
     if (purchaseOrders.length) {
       builder.subheading("Purchase orders included in this backup");
       builder.table(
@@ -1056,9 +1059,9 @@ export async function createQuoteBackupPdf(options: QuoteBackupPdfOptions) {
 
   // A complete backup contains the current PO and every frozen PO revision,
   // using the same renderer as the individual PO download.
-  const job = options.state.jobs.find((item) => item.quoteId === options.quote.id);
+  const job = options.state.jobs.find((item) => options.quote.documentKind === "Change Notice" ? item.id === options.quote.jobId : item.quoteId === options.quote.id);
   if (job) {
-    for (const purchaseOrder of job.purchaseOrders ?? []) {
+    for (const purchaseOrder of (job.purchaseOrders ?? []).filter((item) => (item.sourceQuoteId ?? job.quoteId) === options.quote.id)) {
       for (const revision of purchaseOrder.revisions ?? []) {
         try {
           const historicalPurchaseOrder = JSON.parse(revision.snapshot) as PurchaseOrder;
@@ -1141,5 +1144,5 @@ export async function downloadBreakdownPdf(options: InternalEstimatePdfOptions, 
 export async function downloadQuoteBackupPdf(options: QuoteBackupPdfOptions) {
   const logoBytes = await loadDownloadLogo(options.logoBytes);
   const bytes = await createQuoteBackupPdf({ ...options, logoBytes });
-  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - Rev ${options.quote.revision} - ${options.quote.project || "Untitled"}`)} - Complete Quote Backup.pdf`);
+  downloadPdfBytes(bytes, `${safeFileName(`${options.quote.number} - Rev ${options.quote.revision} - ${options.quote.changeTitle || options.quote.project || "Untitled"}`)} - Complete ${options.quote.documentKind === "Change Notice" ? "CCN" : "Quote"} Backup.pdf`);
 }

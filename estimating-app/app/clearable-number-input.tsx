@@ -42,14 +42,15 @@ export function ClearableNumberInput({
           return;
         }
 
+        const editedValue = rawValue.replace(/^0+(?=\d)/, "");
         const nextValue = event.currentTarget.valueAsNumber;
         if (!Number.isFinite(nextValue)) {
-          setDraft(rawValue);
+          setDraft(editedValue);
           return;
         }
 
         const nextNormalizedValue = normalized(nextValue);
-        setDraft(formatEditedValue ? formatEditedValue(nextNormalizedValue) : rawValue);
+        setDraft(formatEditedValue ? formatEditedValue(nextNormalizedValue) : editedValue);
         onValueChange(nextNormalizedValue);
       }}
       onBlur={(event) => {
