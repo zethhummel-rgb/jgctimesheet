@@ -278,6 +278,11 @@ test("a job can create a numbered CCN without adding it to the regular quote lis
   await page.goto("/estimating/index.html?dev=1");
   await openJob(page);
 
+  const revisedSummary = page.locator(".change-summary-grid .revised");
+  await expect(revisedSummary.locator("strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(revisedSummary.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(revisedSummary.locator("small")).toHaveCSS("color", "rgb(255, 255, 255)");
+
   await page.getByRole("button", { name: /New CCN/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Change Notice" });
   await dialog.getByLabel(/Change title/).fill("Additional hollow metal door");

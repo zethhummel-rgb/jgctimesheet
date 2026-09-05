@@ -1227,7 +1227,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .change-summary-grid .is-pending { background: var(--amber-100); }
 .change-summary-grid .is-approved { background: var(--green-100); }
 .change-summary-grid .revised { background: var(--navy-900); }
-.change-summary-grid .revised :is(span, strong, small) { color: #fff; }
+.change-summary-grid .revised > :is(span, strong, small) { color: #fff !important; }
 .change-register-group + .change-register-group { border-top: 1px solid var(--slate-200); }
 .change-register-heading { padding: 16px 18px 10px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .change-register-heading h3 { margin: 4px 0 0; color: var(--navy-900); }
