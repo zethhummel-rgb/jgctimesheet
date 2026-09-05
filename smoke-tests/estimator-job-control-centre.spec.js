@@ -320,6 +320,26 @@ test("Job Control Centre exposes accessible tabs and a complete Summary", async 
   expect(jobPanelId).toBeTruthy();
   await expect(summary).toHaveAttribute("id", jobPanelId);
   await expect(summary).toHaveAttribute("aria-labelledby", summaryTabId);
+  const costingConnection = summary.locator(".job-costing-connection");
+  const projectDetails = summary.locator(".job-summary-panel");
+  await expect(costingConnection).toContainText("Portal costing connected");
+  const [costingBox, projectDetailsBox] = await Promise.all([
+    costingConnection.boundingBox(),
+    projectDetails.boundingBox(),
+  ]);
+  expect(costingBox).not.toBeNull();
+  expect(projectDetailsBox).not.toBeNull();
+  expect(costingBox.y + costingBox.height).toBeLessThanOrEqual(projectDetailsBox.y);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const [mobileCostingBox, mobileProjectDetailsBox] = await Promise.all([
+    costingConnection.boundingBox(),
+    projectDetails.boundingBox(),
+  ]);
+  expect(mobileCostingBox).not.toBeNull();
+  expect(mobileProjectDetailsBox).not.toBeNull();
+  expect(mobileCostingBox.y + mobileCostingBox.height).toBeLessThanOrEqual(mobileProjectDetailsBox.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
   for (const fact of [
     "26144",
     "Via Rail Canada",

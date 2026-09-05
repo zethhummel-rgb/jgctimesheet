@@ -5494,6 +5494,10 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
         </nav>
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
         {tab === "summary" && <>
+        <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
+          <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
+          <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
+        </div>
         <section className="panel job-summary-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">JOB SUMMARY</span><h2>Project details</h2><p>The official Portal job information and the accepted quote details are kept together here.</p></div>
@@ -5523,10 +5527,6 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
           {!job.portalJobId && <p className="job-documents-status error">This older estimator job must be linked to its official Portal job before these details can be edited.</p>}
           {jobInfoMessage && <p className={`job-documents-status ${jobInfoError ? "error" : "success"}`} role="status">{jobInfoMessage}</p>}
         </section>
-        <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
-          <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
-          <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
-        </div>
         <section className="panel job-documents-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">PROJECT DOCUMENTS</span><h2>OneDrive folders and files</h2><p>Save links here for the project team. Choose one link to share as the document button on the employee job list.</p></div>
