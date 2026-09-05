@@ -1871,11 +1871,14 @@ function activateGlobalTopNavigation() {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--jgc-nav-background, linear-gradient(90deg, rgba(7, 55, 28, 0.98), rgba(11, 94, 59, 0.98)));
+      background-color: #07371c;
+      background-image: linear-gradient(90deg, #07371c 0%, #0b5e3b 100%);
       border-bottom: 1px solid var(--jgc-nav-border, rgba(255, 255, 255, 0.16));
       box-shadow: var(--jgc-nav-shadow, 0 10px 26px rgba(0, 0, 0, 0.26));
       font-family: var(--jgc-font-family, Arial, sans-serif);
       overflow: hidden;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
 
     .jgc-global-top-nav button,

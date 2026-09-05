@@ -45,7 +45,7 @@
 <div id="inspectionSaveStatus" class="jgc-notice" aria-live="polite"></div>
 </section>
 </main>
-<script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script><script src="common.js?v=41"></script><script src="safety-acknowledgements.js?v=7"></script><script src="inspection-records.js?v=11"></script>
+<script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script><script src="common.js?v=42"></script><script src="safety-acknowledgements.js?v=7"></script><script src="inspection-records.js?v=11"></script>
 <script>
 const worker=requireJgcWorker();document.getElementById("userBar").textContent="Signed in as: "+(worker.display||worker.key);document.getElementById("permitDate").value=new Date().toISOString().slice(0,10);const checks=document.querySelectorAll(".permitCheck");checks.forEach((box)=>box.addEventListener("change",updateStatus));function updateStatus(){const ready=Array.from(checks).every((box)=>box.checked);const banner=document.getElementById("permitStatus");banner.textContent=ready?"PERMIT READY FOR APPROVAL":"INCOMPLETE CONFINED SPACE PERMIT";banner.classList.toggle("jgc-notice--success",ready);banner.classList.toggle("jgc-notice--danger",!ready)}function handleInspectionSave(type){if(typeof saveInspection!=="function"){alert("The inspection save file did not load. Upload inspection-records.js, then refresh.");return}saveInspection(type)}async function signOut(){await signOutJgc(inspectionSupabaseClient)}
 </script>

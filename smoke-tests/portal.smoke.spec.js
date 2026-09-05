@@ -475,6 +475,30 @@ test("every required app-shell asset exists", async ({ request }) => {
   }
 });
 
+test("shared phone header is opaque above Admin", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+
+  const header = page.locator("#jgcGlobalTopNav");
+  await expect(header).toBeVisible();
+  const styles = await header.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      backgroundColor: computed.backgroundColor,
+      backgroundImage: computed.backgroundImage,
+      backdropFilter: computed.backdropFilter
+    };
+  });
+
+  expect(styles.backgroundColor).toBe("rgb(7, 55, 28)");
+  expect(styles.backgroundImage).toContain("rgb(7, 55, 28)");
+  expect(styles.backgroundImage).toContain("rgb(11, 94, 59)");
+  expect(styles.backgroundImage).not.toContain("rgba(");
+  expect(styles.backdropFilter).toBe("none");
+});
+
 test("service worker installs and controls the portal", async ({ browser }) => {
   const context = await browser.newContext({ serviceWorkers: "allow" });
   try {
