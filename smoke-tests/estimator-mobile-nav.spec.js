@@ -983,6 +983,17 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await page.getByRole("button", { name: "Open accepted quote" }).click();
   await expect(page.locator(".identity-badges")).toContainText("Won");
   await expect(page.getByRole("button", { name: "Re-open quote" })).toBeVisible();
+  const returnToJob = page.getByRole("button", { name: "Return to job", exact: true });
+  await expect(returnToJob).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(returnToJob).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await returnToJob.click();
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 26123");
+  await expect(page.getByRole("tab", { name: "Summary", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "Open accepted quote" }).click();
+  await expect(page.locator(".identity-badges")).toContainText("Won");
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByRole("button", { name: "All quotes" }).click();
   await expect(page.locator(".page-stack")).not.toContainText("JGC-Q-2026-0001");
 

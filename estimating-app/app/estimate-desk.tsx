@@ -1887,6 +1887,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
                 setView("jobs");
               }
             }}
+            onOpenJob={openJob}
             mutateQuote={mutateQuote}
             duplicateQuote={duplicateQuote}
             createRevision={createRevision}
@@ -3206,6 +3207,7 @@ function QuoteWorkspace({
   tab,
   setTab,
   onBack,
+  onOpenJob,
   mutateQuote,
   duplicateQuote,
   createRevision,
@@ -3230,6 +3232,7 @@ function QuoteWorkspace({
   tab: QuoteTab;
   setTab: (tab: QuoteTab) => void;
   onBack: () => void;
+  onOpenJob: (jobId: string, tab?: JobTab) => void;
   mutateQuote: (id: string, updater: (quote: Quote) => Quote, activity?: { title: string; detail: string }) => void;
   duplicateQuote: (quote: Quote) => void;
   createRevision: (quote: Quote) => void;
@@ -3285,6 +3288,7 @@ function QuoteWorkspace({
           <div className="identity-badges">{changeNotice ? <ChangeStatusPill quote={quote} /> : <StatusPill status={quoteDisplayStatus(quote)} />}{quote.status === "Draft" && <ReadinessPill quote={quote} vendors={state.vendors} />}</div>
         </div>
         <div className="quote-primary-actions">
+          {!changeNotice && linkedJob && <button className="button primary" type="button" aria-label="Return to job" onClick={() => onOpenJob(linkedJob.id)}>← Return to job</button>}
           <button className="button secondary quote-package-download" onClick={() => setPdfDownloadMenuOpen(true)}>⇩ Download PDFs</button>
           {quote.demo && <button className="button danger-ghost" onClick={() => removeQuote(quote)}>Delete demo</button>}
           {quote.status === "Draft" && <button className="button primary" onClick={() => finalizeQuote(quote)}>{changeNotice ? "Finish CCN pricing" : "Finish quote"}</button>}
