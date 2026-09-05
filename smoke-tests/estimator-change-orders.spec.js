@@ -248,14 +248,20 @@ async function serveState(page, state, savedStates, jobDocumentUpdates = []) {
 test("a job can create a numbered CCN without adding it to the regular quote list", async ({ page }) => {
   const savedStates = [];
   await serveState(page, workspaceState(), savedStates);
+  await page.addInitScript(() => localStorage.setItem("jgcPortalTheme", "light"));
   await page.goto("/estimating/index.html?dev=1");
   await openJob(page);
   await openJobTab(page, "CCNs / Change Orders");
 
   const revisedSummary = page.locator(".change-summary-grid .revised");
+  await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", "light");
   await expect(revisedSummary.locator("strong")).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(revisedSummary.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(revisedSummary.locator("small")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(revisedSummary.locator("strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.getByRole("button", { name: /New CCN/ }).click();
   const dialog = page.getByRole("dialog", { name: "New Change Notice" });
