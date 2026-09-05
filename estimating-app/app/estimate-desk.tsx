@@ -1550,6 +1550,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       portalJobId: portalJob.id,
       portalActive: portalJob.active,
       portalLastSyncedAt: new Date().toISOString(),
+      documentLink: portalJob.documentLink ?? "",
+      documentLinkLabel: portalJob.documentLinkLabel ?? "",
       archivedAt: "",
       acceptedRevenue: totals.subtotal,
       originalCostBudget: totals.directCost,
@@ -5071,6 +5073,16 @@ function jobTotals(job: Job, portalActuals: PortalLabourActual[] = []) {
   return { actual, manualActual, manualLabourCost, manualLabourHours, portalLabour, actualLabourCost, labourHours, revisedRevenue, revisedBudget, forecastCost, profit, margin, variance };
 }
 
+function secureExternalHref(value: string | undefined) {
+  const link = String(value ?? "").trim();
+  if (!link) return "";
+  try {
+    return new URL(link).protocol === "https:" ? link : "";
+  } catch {
+    return "";
+  }
+}
+
 function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
@@ -5091,6 +5103,56 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
   const [jobSearch, setJobSearch] = useState("");
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
+  const [documentLinkDraft, setDocumentLinkDraft] = useState("");
+  const [documentLinkLabelDraft, setDocumentLinkLabelDraft] = useState("");
+  const [documentLinkSaving, setDocumentLinkSaving] = useState(false);
+  const [documentLinkMessage, setDocumentLinkMessage] = useState("");
+  const [documentLinkError, setDocumentLinkError] = useState(false);
+  useEffect(() => {
+    setDocumentLinkDraft(job?.documentLink ?? "");
+    setDocumentLinkLabelDraft(job?.documentLinkLabel ?? "");
+    setDocumentLinkMessage("");
+    setDocumentLinkError(false);
+  }, [job?.id]);
+  const saveDocumentLink = async () => {
+    if (!job?.portalJobId || documentLinkSaving) return;
+    const requestedLink = documentLinkDraft.trim();
+    if (requestedLink && !secureExternalHref(requestedLink)) {
+      setDocumentLinkError(true);
+      setDocumentLinkMessage("Paste a secure https:// OneDrive folder link.");
+      return;
+    }
+    setDocumentLinkSaving(true);
+    setDocumentLinkError(false);
+    setDocumentLinkMessage("");
+    try {
+      const response = await fetch("/api/job-documents", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          portalJobId: job.portalJobId,
+          documentLink: requestedLink,
+          documentLinkLabel: documentLinkLabelDraft.trim(),
+        }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; documentLink?: string; documentLinkLabel?: string };
+      if (!response.ok) throw new Error(result.error || "The project document folder could not be saved.");
+      const savedLink = result.documentLink ?? requestedLink;
+      const savedLabel = result.documentLinkLabel ?? (savedLink ? documentLinkLabelDraft.trim() || "Open OneDrive Folder" : "");
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((item) => item.id === job.id ? { ...item, documentLink: savedLink, documentLinkLabel: savedLabel } : item),
+      }));
+      setDocumentLinkDraft(savedLink);
+      setDocumentLinkLabelDraft(savedLabel);
+      setDocumentLinkMessage(savedLink ? "OneDrive folder saved and shared with the Portal job." : "Project folder link removed.");
+    } catch (error) {
+      setDocumentLinkError(true);
+      setDocumentLinkMessage(error instanceof Error ? error.message : "The project document folder could not be saved.");
+    } finally {
+      setDocumentLinkSaving(false);
+    }
+  };
   const setJobStatus = (jobId: string, status: "Active" | "Archived") => {
     setState((current) => ({
       ...current,
@@ -5098,6 +5160,7 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
     }));
   };
   if (job) {
+    const savedDocumentHref = secureExternalHref(job.documentLink);
     const jobPortalLabour = portalLabourForJob(job, portalLabourActuals);
     const totals = jobTotals(job, jobPortalLabour);
     const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
@@ -5144,6 +5207,19 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
           <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
           <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
         </div>
+        <section className="panel job-documents-panel">
+          <div className="panel-heading">
+            <div><span className="eyebrow">PROJECT DOCUMENTS</span><h2>OneDrive job folder</h2><p>Keep drawings, specifications and subcontractor quotes in one shared OneDrive folder. The Portal saves the link only, not the files.</p></div>
+            {savedDocumentHref && <a className="button secondary" href={savedDocumentHref} target="_blank" rel="noreferrer">{job.documentLinkLabel?.trim() || "Open OneDrive Folder"} ↗</a>}
+          </div>
+          <div className="job-documents-fields">
+            <label className="field job-documents-url"><span>OneDrive folder link</span><input type="url" inputMode="url" autoComplete="off" value={documentLinkDraft} onChange={(event) => setDocumentLinkDraft(event.target.value)} placeholder="https://...sharepoint.com/..." disabled={!job.portalJobId || documentLinkSaving} /></label>
+            <label className="field"><span>Button name <small>Optional</small></span><input value={documentLinkLabelDraft} onChange={(event) => setDocumentLinkLabelDraft(event.target.value)} placeholder="Open Project Documents" maxLength={100} disabled={!job.portalJobId || documentLinkSaving} /></label>
+            <button className="button primary" type="button" onClick={() => void saveDocumentLink()} disabled={!job.portalJobId || documentLinkSaving}>{documentLinkSaving ? "Saving…" : "Save folder link"}</button>
+          </div>
+          {!job.portalJobId && <p className="job-documents-status error">This older estimator job must be linked to its official Portal job before a folder can be saved.</p>}
+          {documentLinkMessage && <p className={`job-documents-status ${documentLinkError ? "error" : "success"}`} role="status">{documentLinkMessage}</p>}
+        </section>
         <section className="job-kpi-grid">
           <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>
           <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>

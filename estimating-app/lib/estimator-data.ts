@@ -342,6 +342,8 @@ export interface Job {
   portalJobId?: string | null;
   portalActive?: boolean | null;
   portalLastSyncedAt?: string;
+  documentLink?: string;
+  documentLinkLabel?: string;
   archivedAt?: string;
   acceptedRevenue: number;
   originalCostBudget: number;
@@ -1123,6 +1125,8 @@ export function normalizeAppState(state: AppState): AppState {
       portalJobId: job.portalJobId ?? null,
       portalActive: job.portalActive ?? null,
       portalLastSyncedAt: job.portalLastSyncedAt ?? "",
+      documentLink: job.documentLink ?? "",
+      documentLinkLabel: job.documentLinkLabel ?? "",
       archivedAt: job.archivedAt ?? "",
       acceptedQuoteRevision: Number.isFinite(job.acceptedQuoteRevision) ? Number(job.acceptedQuoteRevision) : undefined,
       acceptedQuoteSnapshot: typeof job.acceptedQuoteSnapshot === "string" ? job.acceptedQuoteSnapshot : "",

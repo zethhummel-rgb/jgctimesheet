@@ -13,6 +13,8 @@ export interface PortalJobOption {
   customer: string;
   address: string;
   active: boolean;
+  documentLink?: string;
+  documentLinkLabel?: string;
 }
 
 export interface PortalLabourActual {
@@ -152,7 +154,7 @@ async function loadPortalReferences(client: any) {
     loadPortalVendors(client),
     client
       .from("jobs")
-      .select("id,job_number,job_name,customer,address,active")
+      .select("id,job_number,job_name,customer,address,active,document_link,document_link_label")
       .order("job_number", { ascending: false }),
   ]);
   if (jobsResult.error) throw new Error(jobsResult.error.message || "Portal jobs could not be loaded.");
@@ -163,6 +165,8 @@ async function loadPortalReferences(client: any) {
     customer: row.customer ?? "",
     address: row.address ?? "",
     active: Boolean(row.active),
+    documentLink: row.document_link ?? "",
+    documentLinkLabel: row.document_link_label ?? "",
   }));
   bridgeWindow.JGC_ESTIMATOR_PORTAL_JOBS = portalJobs;
   return { vendors, portalJobs };
@@ -210,6 +214,45 @@ async function jobCostingResponse(client: any) {
     missingRateHours: dollars(row.missing_rate_hours),
   }));
   return json({ actuals, loadedAt: new Date().toISOString() });
+}
+
+function secureDocumentLink(value: unknown) {
+  const link = String(value ?? "").trim();
+  if (!link) return "";
+  try {
+    const url = new URL(link);
+    return url.protocol === "https:" ? link : "";
+  } catch {
+    return "";
+  }
+}
+
+async function mutatePortalJobDocuments(client: any, request: Request) {
+  if (request.method !== "PATCH") return json({ error: "This job document action is not supported." }, 405);
+  const body = await request.json() as Record<string, any>;
+  const portalJobId = String(body.portalJobId ?? "").trim();
+  const requestedLink = String(body.documentLink ?? "").trim();
+  const documentLink = secureDocumentLink(requestedLink);
+  const documentLinkLabel = String(body.documentLinkLabel ?? "").trim().slice(0, 100);
+  if (!portalJobId) return json({ error: "This estimator job is not linked to a Portal job." }, 400);
+  if (requestedLink && !documentLink) return json({ error: "Paste a secure https:// OneDrive folder link." }, 400);
+  const result = await client
+    .from("jobs")
+    .update({
+      document_link: documentLink || null,
+      document_link_label: documentLink ? (documentLinkLabel || "Open OneDrive Folder") : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", portalJobId)
+    .select("id,document_link,document_link_label")
+    .single();
+  if (result.error) throw new Error(result.error.message || "The project document folder could not be saved.");
+  return json({
+    saved: true,
+    portalJobId: result.data.id,
+    documentLink: result.data.document_link ?? "",
+    documentLinkLabel: result.data.document_link_label ?? "",
+  });
 }
 
 async function mutatePortalVendor(client: any, request: Request) {
@@ -271,6 +314,8 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
       portalJobId: portal.id,
       portalActive: portal.active,
       portalLastSyncedAt: new Date().toISOString(),
+      documentLink: portal.documentLink ?? "",
+      documentLinkLabel: portal.documentLinkLabel ?? "",
       status: archived ? "Archived" : "Active",
       archivedAt: archived ? (job.archivedAt || new Date().toISOString()) : "",
     };
@@ -589,6 +634,7 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
     return getSupplierCatalog(client, url);
   }
   if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
+  if (url.pathname.endsWith("/api/job-documents")) return mutatePortalJobDocuments(client, request);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
   if (url.pathname.endsWith("/api/vendor-contacts")) return mutatePortalContact(client, request);
   return null;

@@ -187,6 +187,8 @@ function workspaceState({ withChange = false } = {}) {
       portalJobId: "portal-job-1",
       portalActive: true,
       portalLastSyncedAt: "2026-09-01T13:00:00.000Z",
+      documentLink: "",
+      documentLinkLabel: "",
       archivedAt: "",
       acceptedRevenue: 6000,
       originalCostBudget: 5000,
@@ -211,7 +213,7 @@ async function openJob(page) {
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26128");
 }
 
-async function serveState(page, state, savedStates) {
+async function serveState(page, state, savedStates, jobDocumentUpdates = []) {
   await page.route("**/api/state", async (route) => {
     if (route.request().method() === "PUT") {
       savedStates.push(route.request().postDataJSON().state);
@@ -220,7 +222,55 @@ async function serveState(page, state, savedStates) {
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state, updatedAt: "2026-09-04T12:00:00.000Z" }) });
   });
   await page.route("**/api/job-costing", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ actuals: [] }) }));
+  await page.route("**/api/job-documents", async (route) => {
+    const update = route.request().postDataJSON();
+    jobDocumentUpdates.push(update);
+    const documentLink = String(update.documentLink || "").trim();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        saved: true,
+        portalJobId: update.portalJobId,
+        documentLink,
+        documentLinkLabel: documentLink ? String(update.documentLinkLabel || "").trim() || "Open OneDrive Folder" : "",
+      }),
+    });
+  });
 }
+
+test("a job saves one shared OneDrive project folder without uploading files", async ({ page }, testInfo) => {
+  const savedStates = [];
+  const jobDocumentUpdates = [];
+  await serveState(page, workspaceState(), savedStates, jobDocumentUpdates);
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+
+  const panel = page.locator(".job-documents-panel");
+  await expect(panel).toContainText("The Portal saves the link only, not the files.");
+  await panel.getByLabel("OneDrive folder link").fill("http://insecure.example.com/job");
+  await panel.getByRole("button", { name: "Save folder link" }).click();
+  await expect(panel.getByRole("status")).toContainText("secure https:// OneDrive folder link");
+  expect(jobDocumentUpdates).toHaveLength(0);
+
+  const documentLink = "https://jgc.sharepoint.com/sites/projects/Shared%20Documents/26128";
+  await panel.getByLabel("OneDrive folder link").fill(documentLink);
+  await panel.getByLabel(/Button name/).fill("Open Project Documents");
+  await panel.getByRole("button", { name: "Save folder link" }).click();
+  await expect(panel.getByRole("status")).toContainText("saved and shared with the Portal job");
+  await expect(panel.getByRole("link", { name: /Open Project Documents/ })).toHaveAttribute("href", documentLink);
+  expect(jobDocumentUpdates).toEqual([{
+    portalJobId: "portal-job-1",
+    documentLink,
+    documentLinkLabel: "Open Project Documents",
+  }]);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel.getByRole("button", { name: "Save folder link" })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath("job-documents-mobile.png"), fullPage: true });
+});
 
 test("a job can create a numbered CCN without adding it to the regular quote list", async ({ page }) => {
   const savedStates = [];
