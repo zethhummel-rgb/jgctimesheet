@@ -12,6 +12,10 @@
   --schedule-general-text: var(--jgc-color-text-dark);
   --schedule-vacation-bg: var(--jgc-color-badge-warning);
   --schedule-vacation-text: var(--jgc-color-badge-warning-text);
+  --schedule-job-start-bg: color-mix(in srgb, var(--jgc-color-info) 42%, var(--jgc-color-surface-raised));
+  --schedule-job-start-text: var(--jgc-color-text);
+  --schedule-job-target-bg: color-mix(in srgb, var(--jgc-color-warning) 42%, var(--jgc-color-surface-raised));
+  --schedule-job-target-text: var(--jgc-color-text);
   --schedule-mine-bg: var(--jgc-color-brand-500);
   --schedule-mine-text: var(--jgc-color-text-dark);
 }
@@ -208,6 +212,18 @@
 .jgc-schedule-admin :is(.admin-event-vacation, .admin-schedule-legend .vacation) {
   color: var(--schedule-vacation-text);
   background: var(--schedule-vacation-bg);
+}
+
+.jgc-schedule-admin :is(.admin-job-start, .admin-schedule-legend .job-start),
+.jgc-schedule-modal .job-start-chip {
+  color: var(--schedule-job-start-text);
+  background: var(--schedule-job-start-bg);
+}
+
+.jgc-schedule-admin :is(.admin-job-target, .admin-schedule-legend .job-target),
+.jgc-schedule-modal .job-target-chip {
+  color: var(--schedule-job-target-text);
+  background: var(--schedule-job-target-bg);
 }
 
 .schedule-page :is(.mine-chip, .legend .mine) {
@@ -600,6 +616,19 @@
   border-left-color: var(--schedule-vacation-bg);
 }
 
+.jgc-schedule-admin .admin-agenda-item.job-start {
+  border-left-color: var(--jgc-color-info);
+}
+
+.jgc-schedule-admin .admin-agenda-item.job-target {
+  border-left-color: var(--jgc-color-warning);
+}
+
+.jgc-schedule-admin .admin-agenda-item.job-start,
+.jgc-schedule-admin .admin-agenda-item.job-target {
+  cursor: default;
+}
+
 :is(.schedule-page, .jgc-schedule-admin) .admin-agenda-time,
 :is(.schedule-page, .jgc-schedule-admin) .admin-agenda-title,
 :is(.schedule-page, .jgc-schedule-admin) .admin-agenda-meta {
@@ -724,6 +753,40 @@
 .jgc-schedule-admin #adminScheduleCalendar .admin-schedule-item {
   border: 0 !important;
   box-shadow: none !important;
+}
+
+.jgc-schedule-admin #adminScheduleCalendar .admin-job-milestone {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-left: 4px solid var(--jgc-color-info) !important;
+}
+
+.jgc-schedule-admin #adminScheduleCalendar .admin-job-milestone.admin-job-target {
+  border-left-color: var(--jgc-color-warning) !important;
+}
+
+.jgc-schedule-admin .admin-job-milestone-kind {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.jgc-schedule-admin .admin-job-milestone-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jgc-schedule-modal .admin-job-milestone-detail {
+  border-left: 5px solid var(--jgc-color-info);
+}
+
+.jgc-schedule-modal .admin-job-milestone-detail.job-target {
+  border-left-color: var(--jgc-color-warning);
 }
 
 .admin-schedule-modal-backdrop {

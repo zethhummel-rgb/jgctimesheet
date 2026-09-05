@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "844";
+const JGC_RELEASE_ID = "845";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -86,7 +86,7 @@ const JGC_APP_SHELL = [
   "./tasks-design-system.css?v=2",
   "./directory-design-system.css?v=2",
   "./jobs-design-system.css?v=3",
-  "./schedule-design-system.css?v=3",
+  "./schedule-design-system.css?v=4",
   "./work-orders-design-system.css?v=2",
   "./vacation-design-system.css?v=2",
   "./specialty-inspection-design-system.css?v=2",
@@ -121,7 +121,7 @@ const JGC_APP_SHELL = [
   "./admin-work-orders.js?v=3",
   "./admin-equipment.js?v=2",
   "./admin-timesheets.js?v=10",
-  "./admin-summary.js?v=2",
+  "./admin-summary.js?v=3",
   "./admin-core.js?v=6",
   "./diagnostics-admin.css?v=2",
   "./diagnostics-admin.js?v=2",
@@ -188,6 +188,14 @@ const JGC_APP_SHELL = [
   "./estimating/assets/proposal-pdf-_eEgp25r.js",
   "./estimating/assets/purchase-order-pdf-BecqiZBK.js",
   "./estimating/assets/quote-backup-pdf-CxEVPaW2.js",
+  "./estimating/assets/index-DZBJjn2f.js",
+  "./estimating/assets/index-CJIg6uPY.css",
+  "./estimating/assets/es-BFsECWFO.js",
+  "./estimating/assets/pdf-DUiL6fyP.js",
+  "./estimating/assets/src-BSgnj78Y.js",
+  "./estimating/assets/proposal-pdf-D4Lhs4zM.js",
+  "./estimating/assets/purchase-order-pdf-CTIUi3Ap.js",
+  "./estimating/assets/quote-backup-pdf-CjNxE8IP.js",
   "./estimating/jgc-letterhead-logo.jpg",
   "./estimating/jgc-logo-transparent.png",
   "./logo.webp",

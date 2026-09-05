@@ -1007,6 +1007,76 @@ function getAdminScheduleTaggedNames(event) {
         });
 }
 
+function getAdminJobMilestones() {
+    const portalJobs = typeof jobs !== "undefined" && Array.isArray(jobs) ? jobs : [];
+
+    return portalJobs
+        .filter((job) => job && job.active !== false)
+        .flatMap((job) => {
+            const jobNumber = String(job.job_number || "").trim();
+            const jobName = String(job.job_name || "").trim();
+            const jobLabel = [jobNumber ? "Job " + jobNumber : "", jobName].filter(Boolean).join(" - ") || "Job";
+            const common = {
+                job,
+                jobNumber,
+                jobName,
+                jobLabel
+            };
+            const milestones = [];
+            const startDate = String(job.start_date || "").slice(0, 10);
+            const targetEndDate = String(job.target_end_date || "").slice(0, 10);
+
+            if (startDate) {
+                milestones.push({
+                    ...common,
+                    id: "job-start-" + String(job.id || jobNumber || jobName),
+                    source: "job-milestone",
+                    type: "job-start",
+                    kindLabel: "Job start",
+                    date: startDate,
+                    sortTime: "00:00",
+                    allDay: true,
+                    title: "Job start - " + jobLabel
+                });
+            }
+
+            if (targetEndDate) {
+                milestones.push({
+                    ...common,
+                    id: "job-target-" + String(job.id || jobNumber || jobName),
+                    source: "job-milestone",
+                    type: "job-target",
+                    kindLabel: "Target completion",
+                    date: targetEndDate,
+                    sortTime: "00:01",
+                    allDay: true,
+                    title: "Target completion - " + jobLabel
+                });
+            }
+
+            return milestones;
+        })
+        .sort((a, b) =>
+            String(a.date || "").localeCompare(String(b.date || "")) ||
+            String(a.sortTime || "").localeCompare(String(b.sortTime || "")) ||
+            String(a.jobNumber || "").localeCompare(String(b.jobNumber || ""), undefined, { numeric: true })
+        );
+}
+
+function getAdminJobMilestonesForDate(dateValue) {
+    return getAdminJobMilestones().filter((milestone) => milestone.date === dateValue);
+}
+
+function getAdminJobMilestoneMeta(milestone) {
+    const job = milestone.job || {};
+
+    return [
+        job.customer || "",
+        job.address || "",
+        job.project_manager ? "Project Manager: " + job.project_manager : ""
+    ].filter(Boolean).join(" | ");
+}
+
 function formatAdminAgendaDayHeader(value) {
     const date = makeAdminScheduleDate(value);
     const today = new Date();
@@ -1080,9 +1150,16 @@ function buildAdminScheduleAgendaItems() {
                 meta: getAdminVacationAgendaRange(request)
             };
         });
+    const jobMilestoneItems = getAdminJobMilestones()
+        .filter((milestone) => String(milestone.date || "") >= todayValue)
+        .map((milestone) => ({
+            ...milestone,
+            meta: getAdminJobMilestoneMeta(milestone)
+        }));
 
     return scheduleItems
         .concat(vacationItems)
+        .concat(jobMilestoneItems)
         .filter((item) => item.date)
         .sort((a, b) => {
             const dateDifference = String(a.date || "").localeCompare(String(b.date || ""));
@@ -1135,7 +1212,7 @@ function renderAdminScheduleAgenda() {
             <div class="admin-agenda-day-group">
                 <div class="admin-agenda-day-header">${escapeHtml(formatAdminAgendaDayHeader(dateValue))}</div>
                 ${groups[dateValue].map((item) => {
-                    const timeText = item.sortTime === "99:99" ? "All day" : formatAdminScheduleTime(item.sortTime);
+                    const timeText = item.allDay || item.sortTime === "99:99" ? "All day" : formatAdminScheduleTime(item.sortTime);
                     const content = `
                         <span class="admin-agenda-time">${escapeHtml(timeText)}</span>
                         <span>
@@ -1152,8 +1229,9 @@ function renderAdminScheduleAgenda() {
                         `;
                     }
 
+                    const noteLabel = [item.title, item.meta].filter(Boolean).join(". ");
                     return `
-                        <div class="admin-agenda-item ${escapeHtml(item.type)}">
+                        <div class="admin-agenda-item ${escapeHtml(item.type)}" role="note" aria-label="${escapeHtml(noteLabel)}">
                             ${content}
                         </div>
                     `;
@@ -1211,6 +1289,14 @@ function renderAdminScheduleCalendar() {
         const todayClass = dateValue === todayValue ? " today" : "";
         const events = getAdminScheduleEventsForDate(dateValue);
         const vacations = getAdminScheduleVacationsForDate(dateValue);
+        const jobMilestones = getAdminJobMilestonesForDate(dateValue);
+        const milestoneItems = jobMilestones.map((milestone) => {
+            const compactJobLabel = [milestone.jobNumber, milestone.jobName].filter(Boolean).join(" - ") || "Job";
+            const accessibleLabel = milestone.kindLabel + ": " + milestone.jobLabel + ". Automatic from Job Details and cannot be edited here.";
+            return '<div class="admin-schedule-item admin-job-milestone admin-' + escapeHtml(milestone.type) + '" role="note" aria-label="' + escapeHtml(accessibleLabel) + '" title="' + escapeHtml(accessibleLabel) + '">' +
+                '<span class="admin-job-milestone-kind">' + escapeHtml(milestone.type === "job-start" ? "Start" : "Target") + '</span>' +
+                '<span class="admin-job-milestone-title">' + escapeHtml(compactJobLabel) + '</span></div>';
+        });
         const eventItems = events.slice(0, 4).map((event) => {
             const type = getAdminScheduleType(event);
             const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
@@ -1226,13 +1312,18 @@ function renderAdminScheduleCalendar() {
             '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
             escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
         );
-        const totalCount = events.length + vacations.length;
+        const visibleItems = milestoneItems.concat(eventItems, vacationItems).slice(0, 6);
+        const totalCount = jobMilestones.length + events.length + vacations.length;
         const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
+        const dayLabel = date.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) +
+            ". " + events.length + " schedule item" + (events.length === 1 ? "" : "s") +
+            ", " + vacations.length + " vacation" + (vacations.length === 1 ? "" : "s") +
+            ", and " + jobMilestones.length + " job milestone" + (jobMilestones.length === 1 ? "" : "s") + ". Open day details.";
 
         html += `
-            <div role="button" tabindex="0" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
+            <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
                 <div class="admin-schedule-day-number">${day}</div>
-                <div class="admin-schedule-day-list">${eventItems.concat(vacationItems).join("")}${more}</div>
+                <div class="admin-schedule-day-list">${visibleItems.join("")}${more}</div>
             </div>
         `;
     }
@@ -1251,11 +1342,35 @@ function renderAdminScheduleDayEvents(dateValue) {
 
     const events = getAdminScheduleEventsForDate(dateValue);
     const vacations = getAdminScheduleVacationsForDate(dateValue);
+    const jobMilestones = getAdminJobMilestonesForDate(dateValue);
 
-    if (!events.length && !vacations.length) {
+    if (!events.length && !vacations.length && !jobMilestones.length) {
         list.innerHTML = '<div class="small">No existing events for this day.</div>';
         return;
     }
+
+    const milestoneHtml = jobMilestones.map((milestone) => {
+        const job = milestone.job || {};
+        const details = [
+            milestone.jobNumber ? "Job #: " + milestone.jobNumber : "",
+            job.customer ? "Customer: " + job.customer : "",
+            job.address ? "Address: " + job.address : "",
+            job.project_manager ? "Project Manager: " + job.project_manager : ""
+        ].filter(Boolean);
+
+        return `
+            <div class="detail-item admin-job-milestone-detail ${escapeHtml(milestone.type)}" role="note" aria-label="${escapeHtml(milestone.kindLabel + ": " + milestone.jobLabel)}">
+                <div class="detail-title">
+                    <span class="chip ${escapeHtml(milestone.type)}-chip">${escapeHtml(milestone.kindLabel)}</span>
+                    ${escapeHtml(milestone.jobLabel)}
+                </div>
+                <div class="detail-meta">
+                    ${details.map((detail) => escapeHtml(detail)).join("<br>")}
+                    ${details.length ? "<br>" : ""}Automatic from Job Details. Edit the job dates to change this milestone.
+                </div>
+            </div>
+        `;
+    }).join("");
 
     const eventHtml = events.map((event) => `
         <div class="detail-item">
@@ -1287,7 +1402,7 @@ function renderAdminScheduleDayEvents(dateValue) {
         </div>
     `).join("");
 
-    list.innerHTML = eventHtml + vacationHtml;
+    list.innerHTML = milestoneHtml + eventHtml + vacationHtml;
 }
 
 function renderAdminScheduleGoogleSyncStatus(event) {

@@ -332,6 +332,13 @@ export interface PurchaseOrder {
   updatedAt: string;
 }
 
+export interface JobDocumentLink {
+  id: string;
+  label: string;
+  url: string;
+  createdAt: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -342,6 +349,14 @@ export interface Job {
   portalJobId?: string | null;
   portalActive?: boolean | null;
   portalLastSyncedAt?: string;
+  portalJobName?: string;
+  portalCustomer?: string;
+  portalAddress?: string;
+  jobType?: string;
+  projectManager?: string;
+  startDate?: string;
+  targetEndDate?: string;
+  documentLinks?: JobDocumentLink[];
   documentLink?: string;
   documentLinkLabel?: string;
   archivedAt?: string;
@@ -1125,6 +1140,30 @@ export function normalizeAppState(state: AppState): AppState {
       portalJobId: job.portalJobId ?? null,
       portalActive: job.portalActive ?? null,
       portalLastSyncedAt: job.portalLastSyncedAt ?? "",
+      portalJobName: job.portalJobName ?? "",
+      portalCustomer: job.portalCustomer ?? "",
+      portalAddress: job.portalAddress ?? "",
+      jobType: job.jobType ?? "",
+      projectManager: job.projectManager ?? "",
+      startDate: job.startDate ?? "",
+      targetEndDate: job.targetEndDate ?? "",
+      documentLinks: Array.isArray(job.documentLinks)
+        ? job.documentLinks
+            .filter((link) => link && typeof link.url === "string" && link.url.trim())
+            .map((link, index) => ({
+              id: typeof link.id === "string" && link.id ? link.id : `job-link-${job.id}-${index + 1}`,
+              label: typeof link.label === "string" && link.label.trim() ? link.label.trim() : "Open Project Documents",
+              url: link.url.trim(),
+              createdAt: typeof link.createdAt === "string" ? link.createdAt : "",
+            }))
+        : job.documentLink?.trim()
+          ? [{
+              id: `portal-job-link-${job.id}`,
+              label: job.documentLinkLabel?.trim() || "Open Project Documents",
+              url: job.documentLink.trim(),
+              createdAt: job.portalLastSyncedAt ?? "",
+            }]
+          : [],
       documentLink: job.documentLink ?? "",
       documentLinkLabel: job.documentLinkLabel ?? "",
       archivedAt: job.archivedAt ?? "",

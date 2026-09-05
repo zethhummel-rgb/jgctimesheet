@@ -967,6 +967,7 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await jobDialog.getByRole("button", { name: "Make into job" }).click();
 
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26123");
+  await page.getByRole("tab", { name: "Purchase Orders", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Create POs from accepted estimate lines" })).toBeVisible();
 
   const poSourceRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-ACTUAL-17" });
@@ -1040,6 +1041,7 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   await jobDialog.getByRole("button", { name: "Make into job" }).click();
 
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26124");
+  await page.getByRole("tab", { name: "Purchase Orders", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   const materialsPoRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-MATERIALS-18" });
   await materialsPoRow.getByRole("button", { name: "Create PO" }).click();

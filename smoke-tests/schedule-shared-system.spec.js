@@ -127,7 +127,17 @@ async function installState(page, role = "worker") {
       employee_feature_access: [{ worker_id: worker.id, feature_key: "schedule", enabled: true }],
       profiles: [profile],
       accounts: [profile],
-      jobs: [{ id: "job-26090", job_number: "26090", job_name: "Cornwall Courthouse", address: "Cornwall, Ontario", active: true }],
+      jobs: [{
+        id: "job-26090",
+        job_number: "26090",
+        job_name: "Cornwall Courthouse",
+        customer: "Elco Electric",
+        address: "Cornwall, Ontario",
+        project_manager: "Zeth Hummel",
+        start_date: eventDate,
+        target_end_date: eventDate,
+        active: true
+      }],
       equipment_vehicles: [{ id: "vehicle-1", name: "White F-150", identification_number: "BD48405", equipment_type: "Vehicle", operator_name: displayName, is_active: true }]
     };
     if (Object.prototype.hasOwnProperty.call(rowsByTable, table)) {
@@ -178,13 +188,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=8');
-  expect(pageSource).toContain('schedule-design-system.css?v=3');
+  expect(pageSource).toContain('schedule-design-system.css?v=4');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=16');
-  expect(adminSource).toContain('schedule-design-system.css?v=3');
+  expect(adminSource).toContain('schedule-design-system.css?v=4');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -193,7 +203,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=16"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=3"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=4"');
 });
 
 for (const viewport of [
@@ -325,6 +335,8 @@ test("Admin Schedule switches to its contained mobile agenda and modal", async (
   await expect(page.locator(".jgc-schedule-admin")).toBeVisible();
   await expect(page.locator("#adminScheduleAgenda")).toBeVisible();
   await expect(page.locator("#adminScheduleCalendar")).toBeHidden();
+  await expect(page.locator("#adminScheduleAgenda .admin-agenda-item.job-start")).toBeVisible();
+  await expect(page.locator("#adminScheduleAgenda .admin-agenda-item.job-target")).toBeVisible();
 
   await page.evaluate(() => {
     document.getElementById("adminScheduleModal").classList.add("open");
@@ -377,6 +389,7 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   await expect(page.locator("#adminScheduleCalendar")).toBeVisible();
   await expect(page.locator("#adminScheduleAgenda")).toBeHidden();
   await expect(page.locator("#adminScheduleCalendar .admin-schedule-head")).toHaveCount(7);
+  await expect(page.locator("#adminScheduleCalendar .admin-job-milestone")).toHaveCount(2);
 
   const dimensions = await page.evaluate(() => {
     const wrapper = document.querySelector(".admin-schedule-calendar-scroll");

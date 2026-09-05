@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ClearableNumberInput } from "./clearable-number-input";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
-import { portalJobs, type PortalJobOption, type PortalLabourActual } from "../src/portal-api";
+import { portalJobs, type PortalJobOption, type PortalJobStatistics, type PortalLabourActual } from "../src/portal-api";
 import {
   defaultClosingProposalScopeLine,
   isDefaultClosingProposalScopeLine,
@@ -168,6 +168,14 @@ const navItems: { key: ViewKey; label: string; icon: string }[] = [
 ];
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
+type JobTab = "summary" | "purchase-orders" | "changes" | "shop-drawings" | "statistics";
+const jobTabs: readonly { key: JobTab; label: string }[] = [
+  { key: "summary", label: "Summary" },
+  { key: "purchase-orders", label: "Purchase Orders" },
+  { key: "changes", label: "CCNs / Change Orders" },
+  { key: "shop-drawings", label: "Shop Drawings" },
+  { key: "statistics", label: "Statistics / Other" },
+];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 type ModalState =
   | null
@@ -1047,6 +1055,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [quoteTab, setQuoteTab] = useState<QuoteTab>("estimate");
+  const [jobTab, setJobTab] = useState<JobTab>("summary");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [search, setSearch] = useState("");
@@ -1273,6 +1282,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   useLayoutEffect(() => {
     if (!pendingJobNavigationId || !state.jobs.some((job) => job.id === pendingJobNavigationId)) return;
     setSelectedJobId(pendingJobNavigationId);
+    setJobTab("summary");
     setView("jobs");
     setSidebarOpen(false);
     setSearch("");
@@ -1390,8 +1400,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     setView("quotes");
   };
 
-  const openJob = (jobId: string) => {
+  const openJob = (jobId: string, tab: JobTab = "summary") => {
     setSelectedJobId(jobId);
+    setJobTab(tab);
     setView("jobs");
   };
 
@@ -1540,8 +1551,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     if (!portalJob) return;
     if (state.jobs.some((item) => item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase())) return;
     const totals = quoteTotals(quote);
+    const jobId = uid("job");
     const job: Job = {
-      id: uid("job"),
+      id: jobId,
       jobNumber: officialJobNumber,
       quoteId: quote.id,
       clientId: quote.clientId,
@@ -1552,6 +1564,19 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       portalLastSyncedAt: new Date().toISOString(),
       documentLink: portalJob.documentLink ?? "",
       documentLinkLabel: portalJob.documentLinkLabel ?? "",
+      portalJobName: portalJob.jobName ?? "",
+      portalCustomer: portalJob.customer ?? "",
+      portalAddress: portalJob.address ?? "",
+      jobType: portalJob.jobType ?? "",
+      projectManager: portalJob.projectManager ?? "",
+      startDate: portalJob.startDate ?? "",
+      targetEndDate: portalJob.targetEndDate ?? "",
+      documentLinks: portalJob.documentLink?.trim() ? [{
+        id: `portal-job-link-${jobId}`,
+        label: portalJob.documentLinkLabel?.trim() || "Open Project Documents",
+        url: portalJob.documentLink.trim(),
+        createdAt: new Date().toISOString(),
+      }] : [],
       archivedAt: "",
       acceptedRevenue: totals.subtotal,
       originalCostBudget: totals.directCost,
@@ -1858,6 +1883,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
               setSelectedQuoteId(null);
               if (isChangeNotice(selectedQuote) && selectedQuote.jobId) {
                 setSelectedJobId(selectedQuote.jobId);
+                setJobTab("changes");
                 setView("jobs");
               }
             }}
@@ -1919,7 +1945,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           state={state}
           setState={setState}
           job={selectedJob}
-          onOpen={setSelectedJobId}
+          tab={jobTab}
+          setTab={setJobTab}
+          onOpen={(jobId) => openJob(jobId)}
           onBack={() => setSelectedJobId(null)}
           onAddCost={(jobId) => setModal({ kind: "jobCost", jobId })}
           onCreateChangeNotice={(jobId) => setPendingChangeNoticeJobId(jobId)}
@@ -3489,6 +3517,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   const [supplierCatalogMatches, setSupplierCatalogMatches] = useState<SupplierCatalogItemRecord[]>([]);
   const [supplierSearchLoading, setSupplierSearchLoading] = useState(false);
   const [directCostDrafts, setDirectCostDrafts] = useState<Record<string, string>>({});
+  const [lineMarkupDrafts, setLineMarkupDrafts] = useState<Record<string, number | null>>({});
   const totals = quoteTotals(quote);
   const appliedItems = state.priceBook.filter((item) => item.active);
   const normalizedCatalogSearch = catalogSearch.trim().toLocaleLowerCase();
@@ -3856,7 +3885,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                               <div><span className="eyebrow">LINE {index + 1} DETAILS</span><h3>{line.description || "New estimate line"}</h3></div>
                               <div className="detail-panel-controls">
                                 <div className="line-detail-pricing">
-                                  <label><span>Markup</span><div className="percent-input"><ClearableNumberInput aria-label={`Markup for ${line.description || `line ${index + 1}`}`} min="0" step="0.5" value={markup * 100} disabled={locked} onValueChange={(value) => updateLine(line.id, { markupOverride: (value ?? 0) / 100 })} /><span>%</span></div></label>
+                                  <label><span>Markup</span><div className="percent-input"><ClearableNumberInput aria-label={`Markup for ${line.description || `line ${index + 1}`}`} min="0" step="0.5" value={Object.prototype.hasOwnProperty.call(lineMarkupDrafts, line.id) ? lineMarkupDrafts[line.id] : markup * 100} emptyValue={null} disabled={locked} onFocus={() => setLineMarkupDrafts((current) => ({ ...current, [line.id]: markup * 100 }))} onValueChange={(value) => { setLineMarkupDrafts((current) => ({ ...current, [line.id]: value })); updateLine(line.id, { markupOverride: (value ?? 0) / 100 }); }} onBlur={() => setLineMarkupDrafts((current) => { if (current[line.id] === null) return current; const next = { ...current }; delete next[line.id]; return next; })} /><span>%</span></div></label>
                                   <div><span>Sell price</span><strong>{money(sell)}</strong></div>
                                 </div>
                                 {!locked && <button className="text-button danger" onClick={() => requestLineRemoval(line.id)}>Delete line</button>}
@@ -5083,10 +5112,52 @@ function secureExternalHref(value: string | undefined) {
   }
 }
 
-function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function normalizeDocumentLinkUrl(value: string | undefined) {
+  const secureLink = secureExternalHref(value);
+  if (!secureLink) return "";
+  const url = new URL(secureLink);
+  url.hash = "";
+  url.searchParams.sort();
+  url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+  return url.href.toLocaleLowerCase("en-CA");
+}
+
+interface JobInfoDraft {
+  jobName: string;
+  customer: string;
+  address: string;
+  jobType: string;
+  projectManager: string;
+  startDate: string;
+  targetEndDate: string;
+}
+
+function jobInfoDraftFromJob(job: Job | null): JobInfoDraft {
+  return {
+    jobName: job?.portalJobName ?? "",
+    customer: job?.portalCustomer ?? "",
+    address: job?.portalAddress ?? "",
+    jobType: job?.jobType ?? "",
+    projectManager: job?.projectManager ?? "",
+    startDate: job?.startDate ?? "",
+    targetEndDate: job?.targetEndDate ?? "",
+  };
+}
+
+function sharedJobDocumentLinkId(job: Job) {
+  const sharedUrl = normalizeDocumentLinkUrl(job.documentLink);
+  if (!sharedUrl) return "";
+  const matches = (job.documentLinks ?? []).filter((link) => normalizeDocumentLinkUrl(link.url) === sharedUrl);
+  const sharedLabel = String(job.documentLinkLabel ?? "").trim().toLocaleLowerCase("en-CA");
+  return matches.find((link) => link.label.trim().toLocaleLowerCase("en-CA") === sharedLabel)?.id ?? matches[0]?.id ?? "";
+}
+
+function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   job: Job | null;
+  tab: JobTab;
+  setTab: (tab: JobTab) => void;
   onOpen: (id: string) => void;
   onBack: () => void;
   onAddCost: (jobId: string) => void;
@@ -5105,24 +5176,71 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
   const [documentLinkDraft, setDocumentLinkDraft] = useState("");
   const [documentLinkLabelDraft, setDocumentLinkLabelDraft] = useState("");
-  const [documentLinkSaving, setDocumentLinkSaving] = useState(false);
+  const [documentLinkSaving, setDocumentLinkSaving] = useState("");
   const [documentLinkMessage, setDocumentLinkMessage] = useState("");
   const [documentLinkError, setDocumentLinkError] = useState(false);
+  const [jobInfoEditing, setJobInfoEditing] = useState(false);
+  const [jobInfoSaving, setJobInfoSaving] = useState(false);
+  const [jobInfoMessage, setJobInfoMessage] = useState("");
+  const [jobInfoError, setJobInfoError] = useState(false);
+  const [jobInfoDraft, setJobInfoDraft] = useState<JobInfoDraft>({
+    jobName: "",
+    customer: "",
+    address: "",
+    jobType: "",
+    projectManager: "",
+    startDate: "",
+    targetEndDate: "",
+  });
+  const [statistics, setStatistics] = useState<PortalJobStatistics | null>(null);
+  const [statisticsStatus, setStatisticsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [statisticsMessage, setStatisticsMessage] = useState("");
+  const jobTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   useEffect(() => {
-    setDocumentLinkDraft(job?.documentLink ?? "");
-    setDocumentLinkLabelDraft(job?.documentLinkLabel ?? "");
+    setDocumentLinkDraft("");
+    setDocumentLinkLabelDraft("");
     setDocumentLinkMessage("");
     setDocumentLinkError(false);
+    setJobInfoEditing(false);
+    setJobInfoMessage("");
+    setJobInfoError(false);
+    setJobInfoDraft(jobInfoDraftFromJob(job));
+    setStatistics(null);
+    setStatisticsStatus("idle");
+    setStatisticsMessage("");
   }, [job?.id]);
-  const saveDocumentLink = async () => {
-    if (!job?.portalJobId || documentLinkSaving) return;
+
+  const addDocumentLink = () => {
+    if (!job) return;
     const requestedLink = documentLinkDraft.trim();
-    if (requestedLink && !secureExternalHref(requestedLink)) {
+    const normalizedRequestedLink = normalizeDocumentLinkUrl(requestedLink);
+    if (!requestedLink || !normalizedRequestedLink) {
       setDocumentLinkError(true);
       setDocumentLinkMessage("Paste a secure https:// OneDrive folder link.");
       return;
     }
-    setDocumentLinkSaving(true);
+    if ((job.documentLinks ?? []).some((link) => normalizeDocumentLinkUrl(link.url) === normalizedRequestedLink)) {
+      setDocumentLinkError(true);
+      setDocumentLinkMessage("That document link is already saved for this job.");
+      return;
+    }
+    const savedLabel = documentLinkLabelDraft.trim() || "Open Project Documents";
+    const link = { id: uid("job-link"), label: savedLabel, url: requestedLink, createdAt: new Date().toISOString() };
+    setState((current) => ({
+      ...current,
+      jobs: current.jobs.map((item) => item.id === job.id ? { ...item, documentLinks: [...(item.documentLinks ?? []), link] } : item),
+    }));
+    setDocumentLinkDraft("");
+    setDocumentLinkLabelDraft("");
+    setDocumentLinkError(false);
+    setDocumentLinkMessage("Document link saved here. Share it when employees should see it on their job list.");
+  };
+
+  const shareDocumentLink = async (linkId: string) => {
+    if (!job?.portalJobId || documentLinkSaving) return;
+    const link = (job.documentLinks ?? []).find((item) => item.id === linkId);
+    if (!link) return;
+    setDocumentLinkSaving(linkId);
     setDocumentLinkError(false);
     setDocumentLinkMessage("");
     try {
@@ -5131,27 +5249,144 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           portalJobId: job.portalJobId,
-          documentLink: requestedLink,
-          documentLinkLabel: documentLinkLabelDraft.trim(),
+          documentLink: link.url,
+          documentLinkLabel: link.label,
         }),
       });
       const result = await response.json().catch(() => ({})) as { error?: string; documentLink?: string; documentLinkLabel?: string };
-      if (!response.ok) throw new Error(result.error || "The project document folder could not be saved.");
-      const savedLink = result.documentLink ?? requestedLink;
-      const savedLabel = result.documentLinkLabel ?? (savedLink ? documentLinkLabelDraft.trim() || "Open OneDrive Folder" : "");
+      if (!response.ok) throw new Error(result.error || "The document link could not be shared.");
+      const savedLink = result.documentLink ?? link.url;
+      const savedLabel = result.documentLinkLabel ?? link.label;
       setState((current) => ({
         ...current,
         jobs: current.jobs.map((item) => item.id === job.id ? { ...item, documentLink: savedLink, documentLinkLabel: savedLabel } : item),
       }));
-      setDocumentLinkDraft(savedLink);
-      setDocumentLinkLabelDraft(savedLabel);
-      setDocumentLinkMessage(savedLink ? "OneDrive folder saved and shared with the Portal job." : "Project folder link removed.");
+      setDocumentLinkMessage(`“${savedLabel}” is now shared to the employee job list. Sharing another link will replace it there.`);
     } catch (error) {
       setDocumentLinkError(true);
-      setDocumentLinkMessage(error instanceof Error ? error.message : "The project document folder could not be saved.");
+      setDocumentLinkMessage(error instanceof Error ? error.message : "The document link could not be shared.");
     } finally {
-      setDocumentLinkSaving(false);
+      setDocumentLinkSaving("");
     }
+  };
+
+  const deleteDocumentLink = async (linkId: string) => {
+    if (!job || documentLinkSaving) return;
+    const link = (job.documentLinks ?? []).find((item) => item.id === linkId);
+    if (!link) return;
+    const shared = sharedJobDocumentLinkId(job) === linkId;
+    setDocumentLinkSaving(linkId);
+    setDocumentLinkError(false);
+    setDocumentLinkMessage("");
+    try {
+      if (shared) {
+        if (!job.portalJobId) throw new Error("This shared employee link cannot be cleared until the job is linked to the Portal.");
+        const response = await fetch("/api/job-documents", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portalJobId: job.portalJobId, documentLink: "", documentLinkLabel: "" }),
+        });
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(result.error || "The employee job-list link could not be cleared.");
+      }
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((item) => item.id !== job.id ? item : {
+          ...item,
+          documentLinks: (item.documentLinks ?? []).filter((document) => document.id !== linkId),
+          ...(shared ? { documentLink: "", documentLinkLabel: "" } : {}),
+        }),
+      }));
+      setDocumentLinkMessage(shared ? "Document link deleted and removed from the employee job list." : "Document link deleted.");
+    } catch (error) {
+      setDocumentLinkError(true);
+      setDocumentLinkMessage(error instanceof Error ? error.message : "The document link could not be deleted.");
+    } finally {
+      setDocumentLinkSaving("");
+    }
+  };
+
+  const saveJobInfo = async () => {
+    if (!job?.portalJobId || jobInfoSaving) return;
+    setJobInfoSaving(true);
+    setJobInfoError(false);
+    setJobInfoMessage("");
+    try {
+      const response = await fetch("/api/job-info", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portalJobId: job.portalJobId, ...jobInfoDraft }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; job?: PortalJobOption };
+      if (!response.ok || !result.job) throw new Error(result.error || "The job details could not be saved.");
+      const saved = result.job;
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((item) => item.id !== job.id ? item : {
+          ...item,
+          portalJobName: saved.jobName,
+          portalCustomer: saved.customer,
+          portalAddress: saved.address,
+          jobType: saved.jobType ?? "",
+          projectManager: saved.projectManager ?? "",
+          startDate: saved.startDate ?? "",
+          targetEndDate: saved.targetEndDate ?? "",
+        }),
+      }));
+      setJobInfoDraft({
+        jobName: saved.jobName,
+        customer: saved.customer,
+        address: saved.address,
+        jobType: saved.jobType ?? "",
+        projectManager: saved.projectManager ?? "",
+        startDate: saved.startDate ?? "",
+        targetEndDate: saved.targetEndDate ?? "",
+      });
+      setJobInfoEditing(false);
+      setJobInfoMessage("Job details saved. Start and target completion dates now appear on the Portal Summary calendar.");
+    } catch (error) {
+      setJobInfoError(true);
+      setJobInfoMessage(error instanceof Error ? error.message : "The job details could not be saved.");
+    } finally {
+      setJobInfoSaving(false);
+    }
+  };
+
+  const loadJobStatistics = useCallback(async () => {
+    if (!job?.portalJobId) {
+      setStatisticsStatus("error");
+      setStatisticsMessage("This older estimator job must be linked to the Portal before operational statistics can load.");
+      return;
+    }
+    setStatisticsStatus("loading");
+    setStatisticsMessage("");
+    try {
+      const params = new URLSearchParams({ portalJobId: job.portalJobId });
+      const response = await fetch(`/api/job-statistics?${params.toString()}`, { cache: "no-store" });
+      const result = await response.json().catch(() => ({})) as PortalJobStatistics & { error?: string };
+      if (!response.ok) throw new Error(result.error || "Job statistics could not be loaded.");
+      setStatistics(result);
+      setStatisticsStatus("ready");
+    } catch (error) {
+      setStatisticsStatus("error");
+      setStatisticsMessage(error instanceof Error ? error.message : "Job statistics could not be loaded.");
+    }
+  }, [job?.portalJobId]);
+
+  useEffect(() => {
+    if (job && tab === "statistics" && statisticsStatus === "idle") void loadJobStatistics();
+  }, [job, tab, statisticsStatus, loadJobStatistics]);
+
+  const handleJobTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % jobTabs.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + jobTabs.length) % jobTabs.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = jobTabs.length - 1;
+    else return;
+    event.preventDefault();
+    setTab(jobTabs[nextIndex].key);
+    jobTabRefs.current[nextIndex]?.focus();
   };
   const setJobStatus = (jobId: string, status: "Active" | "Archived") => {
     setState((current) => ({
@@ -5160,7 +5395,10 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
     }));
   };
   if (job) {
-    const savedDocumentHref = secureExternalHref(job.documentLink);
+    const documentLinks = job.documentLinks ?? [];
+    const sharedDocumentLinkId = sharedJobDocumentLinkId(job);
+    const jobTabsBaseId = `job-${job.id.replace(/[^a-zA-Z0-9_-]/g, "-") || "selected"}`;
+    const jobTabPanelId = `${jobTabsBaseId}-panel`;
     const jobPortalLabour = portalLabourForJob(job, portalLabourActuals);
     const totals = jobTotals(job, jobPortalLabour);
     const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
@@ -5203,21 +5441,79 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
           <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{clientName(state, job.clientId)} · {linkedQuote?.site || "No location"} · Created by {linkedQuote?.preparedBy || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
           <div className="quote-primary-actions"><button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button><button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" onClick={() => setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
         </div>
+        <nav className="job-tabs" role="tablist" aria-label={`Job ${job.jobNumber} sections`} aria-orientation="horizontal">
+          {jobTabs.map(({ key, label }, index) => <button
+            key={key}
+            ref={(element) => { jobTabRefs.current[index] = element; }}
+            id={`${jobTabsBaseId}-tab-${key}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            aria-controls={jobTabPanelId}
+            tabIndex={tab === key ? 0 : -1}
+            className={tab === key ? "active" : ""}
+            onClick={() => setTab(key)}
+            onKeyDown={(event) => handleJobTabKeyDown(event, index)}
+          >{label}</button>)}
+        </nav>
+        <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
+        {tab === "summary" && <>
+        <section className="panel job-summary-panel">
+          <div className="panel-heading">
+            <div><span className="eyebrow">JOB SUMMARY</span><h2>Project details</h2><p>The official Portal job information and the accepted quote details are kept together here.</p></div>
+            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => setJobInfoEditing(true)} disabled={!job.portalJobId}>Edit job details</button>}
+          </div>
+          {!jobInfoEditing ? <div className="job-summary-facts">
+            <div><span>Job number</span><strong>{job.jobNumber}</strong><small>{job.jobType || "Job type not entered"}</small></div>
+            <div><span>Client</span><strong>{job.portalCustomer || clientName(state, job.clientId)}</strong><small>Official Portal customer</small></div>
+            <div><span>Job name</span><strong>{job.portalJobName || job.project}</strong><small>Employee job-list name</small></div>
+            <div><span>Project / quote title</span><strong>{job.project || "Not entered"}</strong><small>{quoteReference} · Rev {acceptedBasis.revision ?? 0}</small></div>
+            <div><span>Site</span><strong>{acceptedBasis.quote?.site || "Not entered"}</strong><small>Accepted quote</small></div>
+            <div><span>Address</span><strong>{job.portalAddress || acceptedBasis.quote?.address || "Not entered"}</strong><small>Portal job address</small></div>
+            <div><span>Project manager</span><strong>{job.projectManager || "Not assigned"}</strong><small>Job responsibility</small></div>
+            <div><span>Schedule</span><strong>{job.startDate ? shortDate(job.startDate) : "Start not set"}</strong><small>{job.targetEndDate ? `Target completion ${shortDate(job.targetEndDate)}` : "Target completion not set"}</small></div>
+          </div> : <div className="job-summary-editor">
+            <div className="form-grid two-column">
+              <label className="field"><span>Job name</span><input value={jobInfoDraft.jobName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobName: event.target.value }))} /></label>
+              <label className="field"><span>Client</span><input value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => ({ ...current, customer: event.target.value }))} /></label>
+              <label className="field full"><span>Address</span><input value={jobInfoDraft.address} onChange={(event) => setJobInfoDraft((current) => ({ ...current, address: event.target.value }))} /></label>
+              <label className="field"><span>Job type</span><input value={jobInfoDraft.jobType} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobType: event.target.value }))} placeholder="Construction, service, maintenance…" /></label>
+              <label className="field"><span>Project manager</span><input value={jobInfoDraft.projectManager} onChange={(event) => setJobInfoDraft((current) => ({ ...current, projectManager: event.target.value }))} /></label>
+              <label className="field"><span>Start date</span><input type="date" value={jobInfoDraft.startDate} onChange={(event) => setJobInfoDraft((current) => ({ ...current, startDate: event.target.value }))} /></label>
+              <label className="field"><span>Target completion</span><input type="date" min={jobInfoDraft.startDate || undefined} value={jobInfoDraft.targetEndDate} onChange={(event) => setJobInfoDraft((current) => ({ ...current, targetEndDate: event.target.value }))} /></label>
+            </div>
+            <div className="job-summary-editor-actions"><button className="button secondary" type="button" onClick={() => { setJobInfoDraft(jobInfoDraftFromJob(job)); setJobInfoEditing(false); setJobInfoMessage(""); setJobInfoError(false); }}>Cancel</button><button className="button primary" type="button" onClick={() => void saveJobInfo()} disabled={jobInfoSaving}>{jobInfoSaving ? "Saving…" : "Save job details"}</button></div>
+          </div>}
+          {!job.portalJobId && <p className="job-documents-status error">This older estimator job must be linked to its official Portal job before these details can be edited.</p>}
+          {jobInfoMessage && <p className={`job-documents-status ${jobInfoError ? "error" : "success"}`} role="status">{jobInfoMessage}</p>}
+        </section>
         <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
           <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
           <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
         </div>
         <section className="panel job-documents-panel">
           <div className="panel-heading">
-            <div><span className="eyebrow">PROJECT DOCUMENTS</span><h2>OneDrive job folder</h2><p>Keep drawings, specifications and subcontractor quotes in one shared OneDrive folder. The Portal saves the link only, not the files.</p></div>
-            {savedDocumentHref && <a className="button secondary" href={savedDocumentHref} target="_blank" rel="noreferrer">{job.documentLinkLabel?.trim() || "Open OneDrive Folder"} ↗</a>}
+            <div><span className="eyebrow">PROJECT DOCUMENTS</span><h2>OneDrive folders and files</h2><p>Save links here for the project team. Choose one link to share as the document button on the employee job list.</p></div>
           </div>
+          {documentLinks.length > 0 && <div className="job-document-list">{documentLinks.map((link) => {
+            const href = secureExternalHref(link.url);
+            const shared = sharedDocumentLinkId === link.id;
+            return <article className={`job-document-card job-document-item ${shared ? "is-shared" : ""}`} key={link.id}>
+              <div><span>{shared ? "Shared to employee job list" : "Estimator only"}</span><strong>{link.label}</strong><small>{link.url}</small></div>
+              <div className="job-document-actions">
+                {href && <a className="button secondary compact" href={href} target="_blank" rel="noreferrer" aria-label={`Open ${link.label}`}>Open ↗</a>}
+                {!shared && <button className="button primary compact" type="button" onClick={() => void shareDocumentLink(link.id)} disabled={!job.portalJobId || Boolean(documentLinkSaving)}>{documentLinkSaving === link.id ? "Sharing…" : "Share to employee job list"}</button>}
+                <button className="button danger-ghost compact" type="button" onClick={() => { if (window.confirm(shared ? "Delete this link and remove it from the employee job list?" : "Delete this document link?")) void deleteDocumentLink(link.id); }} disabled={Boolean(documentLinkSaving)}>{documentLinkSaving === link.id ? "Deleting…" : "Delete"}</button>
+              </div>
+            </article>;
+          })}</div>}
           <div className="job-documents-fields">
-            <label className="field job-documents-url"><span>OneDrive folder link</span><input type="url" inputMode="url" autoComplete="off" value={documentLinkDraft} onChange={(event) => setDocumentLinkDraft(event.target.value)} placeholder="https://...sharepoint.com/..." disabled={!job.portalJobId || documentLinkSaving} /></label>
-            <label className="field"><span>Button name <small>Optional</small></span><input value={documentLinkLabelDraft} onChange={(event) => setDocumentLinkLabelDraft(event.target.value)} placeholder="Open Project Documents" maxLength={100} disabled={!job.portalJobId || documentLinkSaving} /></label>
-            <button className="button primary" type="button" onClick={() => void saveDocumentLink()} disabled={!job.portalJobId || documentLinkSaving}>{documentLinkSaving ? "Saving…" : "Save folder link"}</button>
+            <label className="field job-documents-url"><span>OneDrive or secure document link</span><input type="url" inputMode="url" autoComplete="off" value={documentLinkDraft} onChange={(event) => setDocumentLinkDraft(event.target.value)} placeholder="https://...sharepoint.com/..." disabled={Boolean(documentLinkSaving)} /></label>
+            <label className="field"><span>Button name <small>Optional</small></span><input value={documentLinkLabelDraft} onChange={(event) => setDocumentLinkLabelDraft(event.target.value)} placeholder="Drawings, Subcontractor Quotes…" maxLength={100} disabled={Boolean(documentLinkSaving)} /></label>
+            <button className="button secondary" type="button" onClick={addDocumentLink} disabled={Boolean(documentLinkSaving)}>＋ Save link</button>
           </div>
-          {!job.portalJobId && <p className="job-documents-status error">This older estimator job must be linked to its official Portal job before a folder can be saved.</p>}
+          {!documentLinks.length && <p className="job-documents-empty">No document links saved yet.</p>}
+          {!job.portalJobId && <p className="job-documents-status error">Links can still be saved here, but this older estimator job must be linked to the Portal before one can be shared with employees.</p>}
           {documentLinkMessage && <p className={`job-documents-status ${documentLinkError ? "error" : "success"}`} role="status">{documentLinkMessage}</p>}
         </section>
         <section className="job-kpi-grid">
@@ -5226,7 +5522,8 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
           <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current${totals.manualLabourHours > 0 ? ` · ${numberFormatter.format(totals.manualLabourHours)} adjustment` : ""}` : totals.manualLabourHours > 0 ? `${numberFormatter.format(totals.manualLabourHours)} manual adjustment` : "No Portal hours yet"}</small></div>
           <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
         </section>
-        <section className="panel change-register-panel">
+        </>}
+        {tab === "changes" && <section className="panel change-register-panel">
           <div className="panel-heading"><div><span className="eyebrow">CONTRACT CHANGES</span><h2>Change Notices and Change Orders</h2><p>Price requested work as a separate CCN. Only approved Change Orders update the job contract and cost budget.</p></div><button className="button primary" onClick={() => onCreateChangeNotice(job.id)}>＋ New CCN</button></div>
           <div className="change-summary-grid">
             <div><span>Original contract</span><strong>{money(originalContractValue)}</strong><small>{quoteReference}</small></div>
@@ -5264,8 +5561,8 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
           </div>}
           {!jobChanges.length && <div className="empty-state compact-empty change-empty"><span>±</span><h3>No contract changes yet</h3><p>Create a CCN when extra, deleted or revised work needs separate pricing and approval.</p><button className="button secondary compact" onClick={() => onCreateChangeNotice(job.id)}>＋ Create first CCN</button></div>}
           {closedChanges.length > 0 && <details className="closed-change-register"><summary>{closedChanges.length} rejected or cancelled CCN{closedChanges.length === 1 ? "" : "s"}</summary><div>{closedChanges.map((change) => <button key={change.id} onClick={() => onOpenQuote(change.id, "history")}><span>{change.number}</span><strong>{change.changeTitle || "Change not named"}</strong><ChangeStatusPill quote={change} /></button>)}</div></details>}
-        </section>
-        <section className="panel subcontract-po-panel">
+        </section>}
+        {tab === "purchase-orders" && <section className="panel subcontract-po-panel">
           <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's actual quoted amount and quote number. JGC carried overrides and customer markup are never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
           {subcontractSources.length ? (
             <div className="data-table-wrap">
@@ -5291,7 +5588,8 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
               </table>
             </div>
           ) : <div className="empty-state compact-empty"><span>PO</span><h3>No approved subcontractor lines</h3><p>Sub / Vendor lines from the accepted quote and approved Change Orders will appear here automatically.</p></div>}
-        </section>
+        </section>}
+        {tab === "summary" && <>
         <section className="panel portal-labour-panel">
           <div className="panel-heading"><div><span className="eyebrow">AUTOMATIC PORTAL COSTING</span><h2>Employee labour</h2><p>Confirmed submissions are separated from hours still on current timesheets. Rates remain private; only the loaded job cost is shown here.</p></div><div className="portal-labour-heading-total"><span>Loaded labour cost</span><strong>{money(totals.portalLabour.loadedCost)}</strong></div></div>
           {totals.portalLabour.missingRateHours > 0 && <div className="duplicate-warning labour-rate-warning"><span>!</span><div><strong>Pay rate needed</strong><p>{numberFormatter.format(totals.portalLabour.missingRateHours)} labour hour{totals.portalLabour.missingRateHours === 1 ? " is" : "s are"} not included in cost because no effective employee rate was found. Add the rate in Accounting, then refresh.</p></div></div>}
@@ -5352,6 +5650,16 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
             </aside>
           </div>
         </div>
+        </>}
+        {tab === "shop-drawings" && <section className="panel job-future-panel">
+          <div className="future-feature-mark">SD</div>
+          <span className="eyebrow">FUTURE JOB CONTROL</span>
+          <h2>Shop Drawing tracking is coming next</h2>
+          <p>This section is reserved for a proper shop-drawing register: required submissions, consultants, revisions, dates sent and returned, status, and approval notes. Drawings will continue to live in OneDrive rather than being duplicated here.</p>
+          <div className="future-feature-list"><span>Submission register</span><span>Revision history</span><span>Approval status</span><span>Due-date tracking</span></div>
+        </section>}
+        {tab === "statistics" && <JobStatisticsPanel statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />}
+        </div>
       </div>
     );
   }
@@ -5404,6 +5712,56 @@ function JobsPage({ state, setState, job, onOpen, onBack, onAddCost, onCreateCha
       {jobSearch.trim() ? renderJobTable(visibleJobs) : <LibraryFolders records={jobRecords} path={libraryPath} setPath={setLibraryPath} noun="job" renderItems={renderJobTable} />}
     </div>
   );
+}
+
+function JobStatisticsBars({ items, emptyText }: { items: { label: string; hours: number }[]; emptyText: string }) {
+  const maximum = Math.max(0, ...items.map((item) => item.hours));
+  if (!items.length) return <p className="statistics-empty-line">{emptyText}</p>;
+  return <div className="statistics-bars">{items.map((item) => <div className="statistics-bar" key={item.label}>
+    <div><span>{item.label}</span><strong>{numberFormatter.format(item.hours)} h</strong></div>
+    <span aria-hidden="true"><i style={{ width: `${maximum > 0 ? Math.max(3, item.hours / maximum * 100) : 0}%` }} /></span>
+  </div>)}</div>;
+}
+
+function JobStatisticsPanel({ statistics, status, message, onRefresh }: {
+  statistics: PortalJobStatistics | null;
+  status: "idle" | "loading" | "ready" | "error";
+  message: string;
+  onRefresh: () => void;
+}) {
+  if (status === "loading" || status === "idle") return <section className="panel statistics-state-panel"><div className="loading-mark">JG</div><h2>Loading job statistics</h2><p>Collecting the operational records for this job only.</p></section>;
+  if (status === "error" || !statistics) return <section className="panel statistics-state-panel is-error"><span className="future-feature-mark">!</span><h2>Statistics are unavailable</h2><p>{message || "The Portal records could not be loaded."}</p><button className="button secondary" type="button" onClick={onRefresh}>Try again</button></section>;
+
+  return <div className="job-statistics-stack">
+    <section className="panel statistics-heading-panel">
+      <div><span className="eyebrow">PORTAL JOB RECORDS</span><h2>Statistics and operational history</h2><p>Hours, people onsite, purchase orders, reports, inspections, equipment and Work Orders matched to this official job.</p></div>
+      <button className="button secondary compact" type="button" onClick={onRefresh}>↻ Refresh statistics</button>
+    </section>
+    <section className="statistics-kpi-grid" aria-label="Job statistic totals">
+      <div><span>Total hours</span><strong>{numberFormatter.format(statistics.totalHours)}</strong><small>Submitted + current</small></div>
+      <div><span>Employees</span><strong>{statistics.employeeCount}</strong><small>People recorded</small></div>
+      <div><span>Digital POs</span><strong>{statistics.digitalPoCount}</strong><small>Portal purchase orders</small></div>
+      <div><span>Daily reports</span><strong>{statistics.dailyReportCount}</strong><small>Submitted reports</small></div>
+      <div><span>Inspections</span><strong>{statistics.inspectionCount}</strong><small>Job-matched records</small></div>
+      <div><span>Equipment used</span><strong>{statistics.equipmentCount}</strong><small>Equipment and vehicles</small></div>
+      <div><span>Work Orders</span><strong>{statistics.workOrderCount}</strong><small>WO records</small></div>
+    </section>
+    <div className="statistics-chart-grid">
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">LABOUR TREND</span><h3>Hours by week</h3></div></div><JobStatisticsBars items={statistics.hoursByWeek} emptyText="No weekly hours recorded yet." /></section>
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">CREW TOTALS</span><h3>Hours by employee</h3></div></div><JobStatisticsBars items={statistics.hoursByEmployee} emptyText="No employee hours recorded yet." /></section>
+    </div>
+    <section className="panel statistics-card">
+      <div className="panel-heading"><div><span className="eyebrow">DAILY SITE ACTIVITY</span><h3>Employees onsite by day</h3><p>Distinct employees and total recorded hours for each work date.</p></div></div>
+      {statistics.onsiteByDay.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Date</th><th>Employees onsite</th><th>Total hours</th></tr></thead><tbody>{statistics.onsiteByDay.map((day) => <tr key={day.date}><td data-label="Date"><strong>{shortDate(day.date)}</strong></td><td data-label="Employees onsite">{day.employees}</td><td data-label="Total hours"><strong>{numberFormatter.format(day.hours)}</strong></td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No daily labour activity recorded yet.</p>}
+    </section>
+    <div className="statistics-record-grid">
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">PURCHASING</span><h3>Digital purchase orders</h3></div></div>{statistics.digitalPurchaseOrders.length ? <div className="compact-record-list">{statistics.digitalPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.status || "Status unavailable"}</small></div>)}</div> : <p className="statistics-empty-line">No Digital POs for this job.</p>}</section>
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">FIELD DOCUMENTATION</span><h3>Daily reports</h3></div></div>{statistics.dailyReports.length ? <div className="compact-record-list">{statistics.dailyReports.map((record) => <div key={record.id}><span>{record.date ? shortDate(record.date) : "No date"}</span><strong>Daily site report</strong><small>{record.worker || "Submitter not recorded"}</small></div>)}</div> : <p className="statistics-empty-line">No Daily Reports for this job.</p>}</section>
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">QUALITY AND SAFETY</span><h3>Inspections</h3></div></div>{statistics.inspections.length ? <div className="compact-record-list">{statistics.inspections.map((record) => <div key={record.id}><span>{record.type || "Inspection"}</span><strong>{record.title || "Inspection record"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.worker || "Inspector not recorded"}</small></div>)}</div> : <p className="statistics-empty-line">No Inspections for this job.</p>}</section>
+      <section className="panel statistics-card statistics-work-orders-card"><div className="panel-heading"><div><span className="eyebrow">WORK AUTHORIZATION</span><h3>Work Orders</h3></div></div>{statistics.workOrders.length ? <div className="data-table-wrap statistics-work-orders-table"><table className="data-table"><thead><tr><th>WO #</th><th>Date</th><th>Status</th></tr></thead><tbody>{statistics.workOrders.map((record) => <tr key={record.id}><td data-label="WO #"><strong>{record.number}</strong></td><td data-label="Date">{record.date ? shortDate(record.date) : "No date"}</td><td data-label="Status">{record.status || "Status unavailable"}</td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No Work Orders for this job.</p>}</section>
+      <section className="panel statistics-card statistics-equipment-card"><div className="panel-heading"><div><span className="eyebrow">RESOURCES</span><h3>Equipment and vehicles used</h3></div></div>{statistics.equipment.length ? <div className="compact-record-list">{statistics.equipment.map((record) => <div key={record.id}><span>{record.kind}</span><strong>{record.name}</strong><small>{record.identifier || "No identifier"}{record.workOrderNumber ? ` · WO ${record.workOrderNumber}` : ""}</small></div>)}</div> : <p className="statistics-empty-line">No equipment or vehicles recorded for this job.</p>}</section>
+    </div>
+  </div>;
 }
 
 function SettingsPage({ state, setState }: { state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>> }) {
