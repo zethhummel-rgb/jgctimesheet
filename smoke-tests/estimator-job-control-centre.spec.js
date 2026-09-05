@@ -414,7 +414,7 @@ test("document links stay internal until explicitly shared and a shared link can
   await expect(firstCard).toContainText("Estimator only");
   await expect(firstCard.getByRole("button", { name: "Share to employee job list" })).toBeVisible();
 
-  await secondCard.getByRole("button", { name: /Delete|Remove/i }).click();
+  await secondCard.getByRole("button", { name: "Delete", exact: true }).click();
   await expect.poll(() => captures.portalDocumentUpdates.length).toBe(3);
   expect(captures.portalDocumentUpdates[2]).toEqual(expect.objectContaining({
     portalJobId: "portal-job-control",
@@ -423,6 +423,58 @@ test("document links stay internal until explicitly shared and a shared link can
   }));
   await expect(secondCard).toHaveCount(0);
   await expect(firstCard).toHaveCount(1);
+});
+
+test("a shared Portal document link can be removed from the employee job list without deleting it from the Estimator", async ({ page }) => {
+  const state = jobControlState();
+  const documentHref = "https://jgc.sharepoint.com/sites/projects/Shared%20Documents/26144";
+  const portalDocumentLinkId = `portal-job-link-${state.jobs[0].id}`;
+  state.jobs[0].documentLink = documentHref;
+  state.jobs[0].documentLinkLabel = "Project Documents";
+  state.jobs[0].documentLinks = [{
+    id: portalDocumentLinkId,
+    label: "Project Documents",
+    url: documentHref,
+    createdAt: "2026-09-05T12:00:00.000Z",
+  }];
+  const captures = { savedStates: [], portalDocumentUpdates: [], statisticsRequests: [] };
+  page.on("dialog", (dialog) => dialog.accept());
+  await serveJobControl(page, state, captures);
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const summary = jobPanel(page, "Summary");
+  const card = summary.locator(".job-document-link-card, .job-document-item").filter({ hasText: "Project Documents" });
+  await expect(card).toHaveClass(/is-shared/);
+  await card.getByRole("button", { name: "Remove from employee job list", exact: true }).click();
+
+  await expect.poll(() => captures.portalDocumentUpdates.length).toBe(1);
+  expect(captures.portalDocumentUpdates[0]).toEqual(expect.objectContaining({
+    portalJobId: "portal-job-control",
+    documentLink: "",
+    documentLinkLabel: "",
+  }));
+  await expect(card).toHaveCount(1);
+  await expect(card).not.toHaveClass(/is-shared/);
+  await expect(card).toContainText("Estimator only");
+  await expect(card.getByRole("button", { name: "Share to employee job list", exact: true })).toBeVisible();
+  await expect(summary.getByRole("status")).toContainText(/still saved here/i);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await expect.poll(() => captures.savedStates.length).toBeGreaterThan(0);
+  const savedJob = captures.savedStates.at(-1).jobs.find((job) => job.id === "job-control");
+  expect(savedJob.documentLink).toBe("");
+  expect(savedJob.documentLinkLabel).toBe("");
+  expect(savedJob.documentLinks).toEqual([expect.objectContaining({
+    label: "Project Documents",
+    url: documentHref,
+  })]);
+  expect(savedJob.documentLinks[0].id).not.toBe(portalDocumentLinkId);
+
+  await card.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(card).toHaveCount(0);
+  expect(captures.portalDocumentUpdates).toHaveLength(1);
 });
 
 test("Statistics / Other fetches and renders the connected Portal job records without mobile overflow", async ({ page }) => {

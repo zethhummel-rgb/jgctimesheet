@@ -5176,7 +5176,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
   const [documentLinkDraft, setDocumentLinkDraft] = useState("");
   const [documentLinkLabelDraft, setDocumentLinkLabelDraft] = useState("");
-  const [documentLinkSaving, setDocumentLinkSaving] = useState("");
+  const [documentLinkAction, setDocumentLinkAction] = useState<{ linkId: string; kind: "share" | "unshare" | "delete" } | null>(null);
   const [documentLinkMessage, setDocumentLinkMessage] = useState("");
   const [documentLinkError, setDocumentLinkError] = useState(false);
   const [jobInfoEditing, setJobInfoEditing] = useState(false);
@@ -5237,10 +5237,10 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   };
 
   const shareDocumentLink = async (linkId: string) => {
-    if (!job?.portalJobId || documentLinkSaving) return;
+    if (!job?.portalJobId || documentLinkAction) return;
     const link = (job.documentLinks ?? []).find((item) => item.id === linkId);
     if (!link) return;
-    setDocumentLinkSaving(linkId);
+    setDocumentLinkAction({ linkId, kind: "share" });
     setDocumentLinkError(false);
     setDocumentLinkMessage("");
     try {
@@ -5266,16 +5266,52 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
       setDocumentLinkError(true);
       setDocumentLinkMessage(error instanceof Error ? error.message : "The document link could not be shared.");
     } finally {
-      setDocumentLinkSaving("");
+      setDocumentLinkAction(null);
+    }
+  };
+
+  const removeDocumentLinkFromEmployeeList = async (linkId: string) => {
+    if (!job?.portalJobId || documentLinkAction) return;
+    const link = (job.documentLinks ?? []).find((item) => item.id === linkId);
+    if (!link || sharedJobDocumentLinkId(job) !== linkId) return;
+    setDocumentLinkAction({ linkId, kind: "unshare" });
+    setDocumentLinkError(false);
+    setDocumentLinkMessage("");
+    try {
+      const response = await fetch("/api/job-documents", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portalJobId: job.portalJobId, documentLink: "", documentLinkLabel: "" }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "The employee job-list link could not be cleared.");
+      const portalDocumentLinkId = `portal-job-link-${job.id}`;
+      setState((current) => ({
+        ...current,
+        jobs: current.jobs.map((item) => item.id !== job.id ? item : {
+          ...item,
+          documentLink: "",
+          documentLinkLabel: "",
+          documentLinks: (item.documentLinks ?? []).map((document) => document.id === portalDocumentLinkId
+            ? { ...document, id: uid("job-link") }
+            : document),
+        }),
+      }));
+      setDocumentLinkMessage(`“${link.label}” was removed from the employee job list and is still saved here.`);
+    } catch (error) {
+      setDocumentLinkError(true);
+      setDocumentLinkMessage(error instanceof Error ? error.message : "The employee job-list link could not be cleared.");
+    } finally {
+      setDocumentLinkAction(null);
     }
   };
 
   const deleteDocumentLink = async (linkId: string) => {
-    if (!job || documentLinkSaving) return;
+    if (!job || documentLinkAction) return;
     const link = (job.documentLinks ?? []).find((item) => item.id === linkId);
     if (!link) return;
     const shared = sharedJobDocumentLinkId(job) === linkId;
-    setDocumentLinkSaving(linkId);
+    setDocumentLinkAction({ linkId, kind: "delete" });
     setDocumentLinkError(false);
     setDocumentLinkMessage("");
     try {
@@ -5302,7 +5338,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
       setDocumentLinkError(true);
       setDocumentLinkMessage(error instanceof Error ? error.message : "The document link could not be deleted.");
     } finally {
-      setDocumentLinkSaving("");
+      setDocumentLinkAction(null);
     }
   };
 
@@ -5498,19 +5534,22 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
           {documentLinks.length > 0 && <div className="job-document-list">{documentLinks.map((link) => {
             const href = secureExternalHref(link.url);
             const shared = sharedDocumentLinkId === link.id;
+            const activeAction = documentLinkAction?.linkId === link.id ? documentLinkAction.kind : "";
             return <article className={`job-document-card job-document-item ${shared ? "is-shared" : ""}`} key={link.id}>
               <div><span>{shared ? "Shared to employee job list" : "Estimator only"}</span><strong>{link.label}</strong><small>{link.url}</small></div>
               <div className="job-document-actions">
                 {href && <a className="button secondary compact" href={href} target="_blank" rel="noreferrer" aria-label={`Open ${link.label}`}>Open ↗</a>}
-                {!shared && <button className="button primary compact" type="button" onClick={() => void shareDocumentLink(link.id)} disabled={!job.portalJobId || Boolean(documentLinkSaving)}>{documentLinkSaving === link.id ? "Sharing…" : "Share to employee job list"}</button>}
-                <button className="button danger-ghost compact" type="button" onClick={() => { if (window.confirm(shared ? "Delete this link and remove it from the employee job list?" : "Delete this document link?")) void deleteDocumentLink(link.id); }} disabled={Boolean(documentLinkSaving)}>{documentLinkSaving === link.id ? "Deleting…" : "Delete"}</button>
+                {shared
+                  ? <button className="button secondary compact" type="button" onClick={() => { if (window.confirm("Remove this link from the employee job list? It will stay saved in the Estimator.")) void removeDocumentLinkFromEmployeeList(link.id); }} disabled={Boolean(documentLinkAction)}>{activeAction === "unshare" ? "Removing…" : "Remove from employee job list"}</button>
+                  : <button className="button primary compact" type="button" onClick={() => void shareDocumentLink(link.id)} disabled={!job.portalJobId || Boolean(documentLinkAction)}>{activeAction === "share" ? "Sharing…" : "Share to employee job list"}</button>}
+                <button className="button danger-ghost compact" type="button" onClick={() => { if (window.confirm(shared ? "Delete this link and remove it from the employee job list?" : "Delete this document link?")) void deleteDocumentLink(link.id); }} disabled={Boolean(documentLinkAction)}>{activeAction === "delete" ? "Deleting…" : "Delete"}</button>
               </div>
             </article>;
           })}</div>}
           <div className="job-documents-fields">
-            <label className="field job-documents-url"><span>OneDrive or secure document link</span><input type="url" inputMode="url" autoComplete="off" value={documentLinkDraft} onChange={(event) => setDocumentLinkDraft(event.target.value)} placeholder="https://...sharepoint.com/..." disabled={Boolean(documentLinkSaving)} /></label>
-            <label className="field"><span>Button name <small>Optional</small></span><input value={documentLinkLabelDraft} onChange={(event) => setDocumentLinkLabelDraft(event.target.value)} placeholder="Drawings, Subcontractor Quotes…" maxLength={100} disabled={Boolean(documentLinkSaving)} /></label>
-            <button className="button secondary" type="button" onClick={addDocumentLink} disabled={Boolean(documentLinkSaving)}>＋ Save link</button>
+            <label className="field job-documents-url"><span>OneDrive or secure document link</span><input type="url" inputMode="url" autoComplete="off" value={documentLinkDraft} onChange={(event) => setDocumentLinkDraft(event.target.value)} placeholder="https://...sharepoint.com/..." disabled={Boolean(documentLinkAction)} /></label>
+            <label className="field"><span>Button name <small>Optional</small></span><input value={documentLinkLabelDraft} onChange={(event) => setDocumentLinkLabelDraft(event.target.value)} placeholder="Drawings, Subcontractor Quotes…" maxLength={100} disabled={Boolean(documentLinkAction)} /></label>
+            <button className="button secondary" type="button" onClick={addDocumentLink} disabled={Boolean(documentLinkAction)}>＋ Save link</button>
           </div>
           {!documentLinks.length && <p className="job-documents-empty">No document links saved yet.</p>}
           {!job.portalJobId && <p className="job-documents-status error">Links can still be saved here, but this older estimator job must be linked to the Portal before one can be shared with employees.</p>}
