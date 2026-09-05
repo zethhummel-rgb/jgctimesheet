@@ -339,6 +339,51 @@ export interface JobDocumentLink {
   createdAt: string;
 }
 
+export type ShopDrawingStatus =
+  | "Required"
+  | "Requested from vendor"
+  | "Received from vendor"
+  | "Submitted for review"
+  | "Approved"
+  | "Approved as noted"
+  | "Revise and resubmit"
+  | "Rejected"
+  | "Closed";
+
+export type ShopDrawingResponsibility = "Vendor" | "JGC" | "Consultant / Client" | "Complete";
+
+export interface ShopDrawingRevision {
+  id: string;
+  revision: number;
+  savedAt: string;
+  snapshot: string;
+}
+
+export interface ShopDrawing {
+  id: string;
+  number: string;
+  revision: number;
+  title: string;
+  division: string;
+  vendorId: string | null;
+  vendorName: string;
+  consultant: string;
+  status: ShopDrawingStatus;
+  responsibility: ShopDrawingResponsibility;
+  requestedDate: string;
+  receivedDate: string;
+  submittedDate: string;
+  dueDate: string;
+  returnedDate: string;
+  requiredOnsiteDate: string;
+  oneDriveUrl: string;
+  notes: string;
+  sharedWithEmployees: boolean;
+  revisions: ShopDrawingRevision[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -370,6 +415,7 @@ export interface Job {
   acceptedAt: string;
   costs: JobCostEntry[];
   purchaseOrders?: PurchaseOrder[];
+  shopDrawings?: ShopDrawing[];
   notes: string;
 }
 
@@ -877,7 +923,7 @@ demoLines.push({
 
 export function createDefaultState(): AppState {
   return {
-    version: 13,
+    version: 14,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -994,7 +1040,7 @@ export function normalizeAppState(state: AppState): AppState {
   const sourceVersion = Number(state.version) || 0;
   return {
     ...state,
-    version: 13,
+    version: 14,
     settings: {
       ...state.settings,
       defaultValidityDays: state.version < 2 && state.settings.defaultValidityDays === 14 ? 30 : state.settings.defaultValidityDays,
@@ -1219,6 +1265,53 @@ export function normalizeAppState(state: AppState): AppState {
             createdAt: purchaseOrder.createdAt ?? new Date().toISOString(),
             updatedAt: purchaseOrder.updatedAt ?? purchaseOrder.createdAt ?? new Date().toISOString(),
           }))
+        : [],
+      shopDrawings: Array.isArray(job.shopDrawings)
+        ? job.shopDrawings.map((drawing, index) => {
+            const allowedStatuses: ShopDrawingStatus[] = ["Required", "Requested from vendor", "Received from vendor", "Submitted for review", "Approved", "Approved as noted", "Revise and resubmit", "Rejected", "Closed"];
+            const allowedResponsibilities: ShopDrawingResponsibility[] = ["Vendor", "JGC", "Consultant / Client", "Complete"];
+            const secureUrl = (() => {
+              const value = typeof drawing.oneDriveUrl === "string" ? drawing.oneDriveUrl.trim() : "";
+              if (!value) return "";
+              try {
+                return new URL(value).protocol === "https:" ? value : "";
+              } catch {
+                return "";
+              }
+            })();
+            return {
+              ...drawing,
+              id: typeof drawing.id === "string" && drawing.id ? drawing.id : `shop-drawing-${job.id}-${index + 1}`,
+              number: typeof drawing.number === "string" && drawing.number.trim() ? drawing.number.trim() : `SD-${String(index + 1).padStart(3, "0")}`,
+              revision: Number.isFinite(drawing.revision) ? Math.max(0, Math.floor(Number(drawing.revision))) : 0,
+              title: typeof drawing.title === "string" ? drawing.title : "",
+              division: typeof drawing.division === "string" ? drawing.division : "",
+              vendorId: typeof drawing.vendorId === "string" && drawing.vendorId ? drawing.vendorId : null,
+              vendorName: typeof drawing.vendorName === "string" ? drawing.vendorName : "",
+              consultant: typeof drawing.consultant === "string" ? drawing.consultant : "",
+              status: allowedStatuses.includes(drawing.status as ShopDrawingStatus) ? drawing.status : "Required",
+              responsibility: allowedResponsibilities.includes(drawing.responsibility as ShopDrawingResponsibility) ? drawing.responsibility : "JGC",
+              requestedDate: typeof drawing.requestedDate === "string" ? drawing.requestedDate : "",
+              receivedDate: typeof drawing.receivedDate === "string" ? drawing.receivedDate : "",
+              submittedDate: typeof drawing.submittedDate === "string" ? drawing.submittedDate : "",
+              dueDate: typeof drawing.dueDate === "string" ? drawing.dueDate : "",
+              returnedDate: typeof drawing.returnedDate === "string" ? drawing.returnedDate : "",
+              requiredOnsiteDate: typeof drawing.requiredOnsiteDate === "string" ? drawing.requiredOnsiteDate : "",
+              oneDriveUrl: secureUrl,
+              notes: typeof drawing.notes === "string" ? drawing.notes : "",
+              sharedWithEmployees: drawing.sharedWithEmployees === true && Boolean(secureUrl),
+              revisions: Array.isArray(drawing.revisions)
+                ? drawing.revisions.map((revision, revisionIndex) => ({
+                    id: typeof revision.id === "string" && revision.id ? revision.id : `shop-drawing-revision-${drawing.id || index + 1}-${revisionIndex + 1}`,
+                    revision: Number.isFinite(revision.revision) ? Math.max(0, Math.floor(Number(revision.revision))) : revisionIndex,
+                    savedAt: typeof revision.savedAt === "string" ? revision.savedAt : drawing.updatedAt ?? drawing.createdAt ?? "",
+                    snapshot: typeof revision.snapshot === "string" ? revision.snapshot : "",
+                  }))
+                : [],
+              createdAt: typeof drawing.createdAt === "string" ? drawing.createdAt : new Date().toISOString(),
+              updatedAt: typeof drawing.updatedAt === "string" ? drawing.updatedAt : drawing.createdAt ?? new Date().toISOString(),
+            };
+          })
         : [],
     })),
     priceBook: state.priceBook.map((item) => ({

@@ -105,7 +105,7 @@ function acceptedQuote() {
 function jobControlState() {
   const quote = acceptedQuote();
   return {
-    version: 13,
+    version: 14,
     settings: {
       companyName: "John Gordon Construction Inc.",
       appName: "JGC Estimate Desk",
@@ -175,6 +175,7 @@ function jobControlState() {
       acceptedAt: "2026-09-01T13:00:00.000Z",
       costs: [],
       purchaseOrders: [],
+      shopDrawings: [],
       notes: "",
     }],
     activity: [],
@@ -381,8 +382,94 @@ test("Job Control Centre exposes accessible tabs and a complete Summary", async 
   await expect(jobTab(page, "Shop Drawings")).toHaveAttribute("aria-selected", "true");
   const shopDrawings = jobPanel(page, "Shop Drawings");
   await expect(shopDrawings).toBeVisible();
-  await expect(shopDrawings).toContainText(/Shop Drawing/i);
-  await expect(shopDrawings).toContainText(/Future|Coming soon/i);
+  await expect(shopDrawings).toContainText(/Shop Drawing register/i);
+  await expect(shopDrawings).toContainText(/No shop drawings entered/i);
+});
+
+test("Shop Drawings tracks status, saves revisions only on command, and shares only an approved current revision", async ({ page }) => {
+  const state = jobControlState();
+  const captures = { savedStates: [], portalDocumentUpdates: [], statisticsRequests: [] };
+  await serveJobControl(page, state, captures);
+  await page.goto("/estimating/index.html?dev=1");
+  await openJob(page);
+  await jobTab(page, "Shop Drawings").click();
+
+  const panel = jobPanel(page, "Shop Drawings");
+  await panel.getByRole("button", { name: "New shop drawing" }).click();
+  await expect(panel.getByLabel("SD number")).toHaveValue("SD-001");
+  await panel.getByLabel("Shop drawing description").fill("Structural steel connection details");
+  await panel.getByLabel("Shop drawing division").selectOption("Division 05 – Metals");
+  await panel.getByLabel("Shop drawing vendor").fill("Eastern Welding");
+  await panel.getByLabel("Shop drawing consultant").fill("WSP Structural");
+  await panel.getByLabel("Shop drawing status").selectOption("Submitted for review");
+  await expect(panel.getByLabel("Shop drawing responsibility")).toHaveValue("Consultant / Client");
+  await panel.getByLabel("Submitted for review date").fill("2026-08-28");
+  await panel.getByLabel("Reviewer due date").fill("2026-08-31");
+  await panel.getByLabel("Current revision OneDrive link").fill("http://insecure.example.com/SD-001");
+  await panel.getByRole("button", { name: "Save drawing" }).click();
+  await expect(panel.getByRole("status")).toContainText(/secure https/i);
+  await expect(panel.getByLabel("Shop drawing description")).toBeVisible();
+
+  const drawingHref = "https://jgc.sharepoint.com/sites/projects/Shared%20Documents/26144/Shop%20Drawings/SD-001-R0.pdf";
+  await panel.getByLabel("Current revision OneDrive link").fill(drawingHref);
+  await panel.getByRole("button", { name: "Save drawing" }).click();
+  const row = panel.locator(".shop-drawing-table tbody tr").filter({ hasText: "SD-001" });
+  await expect(row).toContainText("Structural steel connection details");
+  await expect(row).toContainText("Revision 0");
+  await expect(row).toContainText("Overdue");
+  await expect(row).not.toContainText("Share to employee job list");
+
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await panel.getByRole("button", { name: "Close shop drawing editor" }).click();
+  await expect(row).toContainText("Revision 0");
+
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await panel.getByLabel("Shop drawing status").selectOption("Approved as noted");
+  await panel.getByRole("button", { name: "Save drawing" }).click();
+  await panel.getByRole("button", { name: "All", exact: true }).click();
+  await expect(row).toContainText("Approved as noted");
+  await row.getByRole("button", { name: "Share to employee job list" }).click();
+  await expect.poll(() => captures.portalDocumentUpdates.length).toBe(1);
+  expect(captures.portalDocumentUpdates[0]).toEqual(expect.objectContaining({
+    portalJobId: "portal-job-control",
+    documentLink: drawingHref,
+    documentLinkLabel: "SD-001 · Structural steel connection details",
+  }));
+  await expect(row).toContainText("Employee link");
+
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await panel.getByLabel("Shop drawing status").selectOption("Revise and resubmit");
+  await panel.getByRole("button", { name: "Save drawing" }).click();
+  await expect.poll(() => captures.portalDocumentUpdates.length).toBe(2);
+  expect(captures.portalDocumentUpdates[1]).toEqual(expect.objectContaining({ documentLink: "", documentLinkLabel: "" }));
+  await expect(row).toContainText("Revision 0");
+  await expect(row).not.toContainText("Employee link");
+
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await panel.getByRole("button", { name: "Start next revision" }).click();
+  await expect(panel.getByRole("heading", { name: /Revision 1/ })).toBeVisible();
+  await panel.getByRole("button", { name: "Cancel" }).click();
+  await expect(row).toContainText("Revision 0");
+
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await panel.getByRole("button", { name: "Start next revision" }).click();
+  await panel.getByRole("button", { name: "Save new revision" }).click();
+  await expect(row).toContainText("Revision 1");
+  await row.getByRole("button", { name: "Open / edit" }).click();
+  await expect(panel.getByText("Revision history (1)")).toBeVisible();
+
+  await expect.poll(() => captures.savedStates.length).toBeGreaterThan(0);
+  await expect.poll(() => {
+    const savedJob = captures.savedStates.at(-1)?.jobs.find((candidate) => candidate.id === "job-control");
+    return savedJob?.shopDrawings?.[0]?.revision;
+  }).toBe(1);
+  const savedDrawing = captures.savedStates.at(-1).jobs.find((candidate) => candidate.id === "job-control").shopDrawings[0];
+  expect(savedDrawing.revisions).toHaveLength(1);
+  expect(savedDrawing.revisions[0].revision).toBe(0);
+  expect(savedDrawing.sharedWithEmployees).toBe(false);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test("document links stay internal until explicitly shared and a shared link can be replaced or deleted", async ({ page }) => {
