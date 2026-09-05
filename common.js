@@ -558,7 +558,7 @@ function activateJgcPwa() {
     { name: "theme-color", content: "#0b5e3b" },
     { name: "apple-mobile-web-app-capable", content: "yes" },
     { name: "apple-mobile-web-app-title", content: "JGC Portal" },
-    { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" }
+    { name: "apple-mobile-web-app-status-bar-style", content: "black" }
   ];
 
   metaTags.forEach((tag) => {

@@ -24,6 +24,17 @@ test("Login uses one token-only visual source", async () => {
   expect(worker).toContain('"./login-design-system.css?v=3"');
 });
 
+test("iPhone PWA uses an opaque status bar above the app controls", () => {
+  const html = fs.readFileSync(path.join(portalRoot, "index.html"), "utf8");
+  const common = fs.readFileSync(path.join(portalRoot, "common.js"), "utf8");
+
+  expect(html.match(/name="apple-mobile-web-app-status-bar-style"/g) || []).toHaveLength(1);
+  expect(html).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="black" />');
+  expect(common).toContain('{ name: "apple-mobile-web-app-status-bar-style", content: "black" }');
+  expect(html).not.toContain("black-translucent");
+  expect(common).not.toContain("black-translucent");
+});
+
 async function contrastRatio(page, selector) {
   return page.locator(selector).evaluate((element) => {
     function parseRgb(value) {
