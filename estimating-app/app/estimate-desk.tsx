@@ -2298,7 +2298,29 @@ function ReadinessPill({ quote, vendors }: { quote: Quote; vendors: Vendor[] }) 
   return <span className="readiness-pill ready">Ready to finish</span>;
 }
 
+type WorkListLayout = "list" | "tiles";
+
+function useWorkListLayout() {
+  const [layout, setLayout] = useState<WorkListLayout>(() => {
+    try { return window.localStorage.getItem("jgcEstimatorWorkListLayout") === "tiles" ? "tiles" : "list"; }
+    catch { return "list"; }
+  });
+  const chooseLayout = (next: WorkListLayout) => {
+    setLayout(next);
+    try { window.localStorage.setItem("jgcEstimatorWorkListLayout", next); }
+    catch { /* The switch still works when device storage is unavailable. */ }
+  };
+  return [layout, chooseLayout] as const;
+}
+
+function WorkLayoutSwitch({ layout, onChange, label }: { layout: WorkListLayout; onChange: (layout: WorkListLayout) => void; label: string }) {
+  return <div className="work-layout-switch" role="group" aria-label={label}>
+    {(["list", "tiles"] as const).map((value) => <button key={value} type="button" className={layout === value ? "active" : ""} aria-pressed={layout === value} onClick={() => onChange(value)}>{value === "list" ? "List" : "Tiles"}</button>)}
+  </div>;
+}
+
 function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void }) {
+  const [workLayout, setWorkLayout] = useWorkListLayout();
   const [companyWide, setCompanyWide] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
@@ -2332,12 +2354,19 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     )).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     : [];
   const matchingJobs = searchTerms.length
-    ? dashboardJobs.filter((job) => {
+    // Jobs are already permission-scoped by the shared Portal state. Quote
+    // ownership must not hide imported or other accessible jobs from search.
+    ? state.jobs.filter((job) => {
       const linkedQuote = state.quotes.find((quote) => quote.id === job.quoteId);
       return matchesSearch(
         job.jobNumber,
         job.project,
         job.status,
+        job.portalJobName,
+        job.portalCustomer,
+        job.portalAddress,
+        jobManagerIdentity(job.projectManager).searchText,
+        job.jobType,
         linkedQuote?.number,
         linkedQuote?.site,
         linkedQuote?.address,
@@ -2369,7 +2398,9 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
   const recentWork = (
-    <div className="recent-work-grid" aria-label="Recent work">
+    <section className="recent-work-section" aria-label="Recent work">
+    <div className="recent-work-layout-bar"><strong>Recent work</strong><WorkLayoutSwitch layout={workLayout} onChange={setWorkLayout} label="Recent work layout" /></div>
+    <div className={`recent-work-grid recent-work-layout-${workLayout}`}>
       <section className="panel recent-work-panel recent-quotes-panel">
         <div className="panel-heading">
           <div><span className="eyebrow">RECENT WORK</span><h2>Quotes</h2></div>
@@ -2411,6 +2442,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
         </div>
       </section>
     </div>
+    </section>
   );
 
   return (
@@ -2442,7 +2474,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
           <div className="overview-search-results" aria-live="polite">
             <div className="overview-search-summary">
               <strong>{matchingQuotes.length + matchingJobs.length} result{matchingQuotes.length + matchingJobs.length === 1 ? "" : "s"}</strong>
-              <span>Searching {currentEstimator.isAdmin && companyWide ? "company-wide estimates" : "your estimates"}</span>
+              <span>Searching {currentEstimator.isAdmin && companyWide ? "company-wide quotes" : "your quotes"} and all jobs</span>
             </div>
             {matchingQuotes.length > 0 && (
               <div className="overview-result-group">
@@ -2463,7 +2495,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
                 {matchingJobs.slice(0, 8).map((job) => (
                   <button type="button" key={job.id} onClick={() => onOpenJob(job.id)}>
                     <span className="overview-result-type job">J</span>
-                    <span><strong>{job.jobNumber} · {job.project}</strong><small>{clientName(state, job.clientId)}</small></span>
+                    <span><strong>{job.jobNumber} · {job.portalJobName || job.project}</strong><small>{job.portalCustomer || clientName(state, job.clientId)}</small></span>
                     <StatusPill status={job.status} />
                     <span className="row-arrow" aria-hidden="true">›</span>
                   </button>
@@ -5310,6 +5342,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   onRefreshJobCosting: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
+  const [jobLayout, setJobLayout] = useWorkListLayout();
   const [jobSearch, setJobSearch] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
   const [documentLinkDraft, setDocumentLinkDraft] = useState("");
@@ -6261,7 +6294,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
-          <td data-label="Job name"><strong>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
+          <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
           <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || item.portalAddress || "No location"}</small></td>
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
@@ -6273,7 +6306,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   );
 
   return (
-    <div className="page-stack job-directory-page">
+    <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
       <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
       <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Archived jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
       {directoryMessage && <p role="status">{directoryMessage}</p>}
@@ -6290,8 +6323,22 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
           {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>{status}</button>)}
         </div>
+        <WorkLayoutSwitch layout={jobLayout} onChange={setJobLayout} label="Job layout" />
       </section>
-      {renderJobTable(visibleJobs)}
+      {jobLayout === "list" || !visibleJobs.length ? renderJobTable(visibleJobs) : <section className="panel job-tiles-panel">
+        <div className="table-summary"><strong>{visibleJobs.length} {statusFilter.toLocaleLowerCase()} job{visibleJobs.length === 1 ? "" : "s"}</strong><span>Select a job to open its dashboard.</span></div>
+        <div className="job-tiles">{visibleJobs.map((item) => {
+          const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
+          return <button type="button" className="job-tile" key={item.id} onClick={() => onOpen(item.id)}>
+            <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={item.status} /></span>
+            <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
+            <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
+            <small>{linkedQuote?.site || item.portalAddress || "No location"}</small>
+            <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
+            {linkedQuote && <small>{linkedQuote.number}</small>}
+          </button>;
+        })}</div>
+      </section>}
     </div>
   );
 }

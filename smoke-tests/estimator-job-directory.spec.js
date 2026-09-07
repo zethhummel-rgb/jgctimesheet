@@ -147,7 +147,10 @@ async function serveDirectory(page, state, options = {}) {
     return route.continue();
   });
   await page.goto("/estimating/index.html?dev=1");
-  await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
+  if (!options.overview) {
+    if (page.viewportSize()?.width <= 760) await page.locator(".mobile-menu").click();
+    await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
+  }
   return captures;
 }
 
@@ -157,6 +160,103 @@ async function openDirectoryJob(page, number) {
   await expect(row).toHaveCount(1);
   await row.click();
   await expect(page.locator(".job-detail-page")).toContainText(`JOB ${number}`);
+}
+
+test("overview finds imported job 26096 without a quote in My estimates", async ({ page }) => {
+  const state = directoryState();
+  state.jobs[1].jobNumber = "26096";
+  state.jobs[1].projectManager = "ZH";
+  const captures = await serveDirectory(page, state, { overview: true });
+  const search = page.getByRole("searchbox", { name: "Search estimates and jobs" });
+  await search.fill("JGC-Q-2026-0901");
+  await expect(page.locator(".overview-result-group").getByRole("heading", { name: /^Quotes/ })).toHaveCount(0);
+  await expect(page.locator(".overview-result-group").getByRole("button", { name: /26901/ })).toHaveCount(1);
+  for (const term of ["26096", "Canonical Railway Client", "99 Railway Avenue", "Zeth Hummel"]) {
+    await search.fill(term);
+    await expect(page.locator(".overview-result-group").getByRole("button", { name: /26096/ })).toHaveCount(1);
+  }
+  await expect(page.locator(".overview-search-summary")).toContainText("all jobs");
+  await search.fill("25904");
+  await expect(page.locator(".overview-result-group").getByRole("button", { name: /25904/ })).toContainText("Archived");
+  await search.fill("26096");
+  await page.locator(".overview-result-group").getByRole("button", { name: /26096/ }).click();
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 26096");
+  await assertSelectedTab(page, "Statistics / Other");
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.writes).toEqual([]);
+});
+
+test("job List and Tiles views keep filters and remember the device preference", async ({ page }) => {
+  const captures = await serveDirectory(page, directoryState());
+  const layout = page.getByRole("group", { name: "Job layout" });
+  await expect(layout.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Search jobs", { exact: true }).fill("26902");
+  await layout.getByRole("button", { name: "Tiles", exact: true }).click();
+  await expect(page.locator(".job-tile")).toHaveCount(1);
+  await expect(page.locator(".job-tile")).toContainText("Canonical Railway Client");
+  await page.reload();
+  await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
+  await expect(layout.getByRole("button", { name: "Tiles", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".job-tile")).toHaveCount(3);
+  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Archived" }).click();
+  await expect(page.locator(".job-tile")).toHaveCount(1);
+  await page.locator(".job-tile").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".job-detail-page")).toContainText("JOB 25904");
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.writes).toEqual([]);
+});
+
+test("phone job List rows are compact without shrinking readable text", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await serveDirectory(page, directoryState());
+  const row = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
+  const measurements = await row.evaluate(element => ({
+    height: element.getBoundingClientRect().height,
+    font: parseFloat(getComputedStyle(element.querySelector('td[data-label="Job name"] strong')).fontSize),
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
+  }));
+  await row.scrollIntoViewIfNeeded();
+  await row.screenshot({ path: testInfo.outputPath('compact-row.png') });
+  expect(measurements.height, JSON.stringify(measurements)).toBeLessThanOrEqual(110);
+  expect(measurements.font).toBeGreaterThanOrEqual(13);
+  expect(measurements.overflow).toBe(false);
+  const oldHeight = await row.evaluate(element => {
+    const directory = element.closest('.job-directory-page');
+    directory.classList.remove('job-view-list');
+    const height = element.getBoundingClientRect().height;
+    directory.classList.add('job-view-list');
+    return height;
+  });
+  await testInfo.attach('mobile-row-dimensions', { body: JSON.stringify({ oldHeight, newHeight: measurements.height, reduction: 1 - measurements.height / oldHeight }), contentType: 'application/json' });
+  expect(measurements.height / oldHeight).toBeLessThanOrEqual(0.35);
+  await captureVisual(page, testInfo, "compact-phone-list");
+  await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: "Tiles" }).click();
+  await expect(page.locator(".job-tile")).toHaveCount(3);
+  await captureVisual(page, testInfo, "compact-phone-tiles");
+});
+
+for (const width of [390, 1366]) {
+  test(`Recent Work shares the List and Tiles preference at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const state = directoryState();
+    state.quotes.push({ ...state.quotes[0], id: "overview-draft", number: "JGC-Q-2026-0999", status: "Draft" });
+    const captures = await serveDirectory(page, state, { overview: true });
+    await page.getByRole("button", { name: "Company-wide", exact: true }).click();
+    const layout = page.getByRole("group", { name: "Recent work layout" });
+    await expect(layout.getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".recent-quotes-panel .recent-work-row")).toHaveCount(1);
+    await expect(page.locator(".recent-jobs-panel .recent-work-row")).toHaveCount(1);
+    await captureVisual(page, testInfo, `recent-list-${width}`);
+    await layout.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.locator(".recent-work-grid")).toHaveClass(/recent-work-layout-tiles/);
+    await captureVisual(page, testInfo, `recent-tiles-${width}`);
+    if (width <= 760) await page.locator(".mobile-menu").click();
+    await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
+    await expect(page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    expect(captures.writes).toEqual([]);
+    expect(captures.jobInfo).toEqual([]);
+  });
 }
 
 async function assertSelectedTab(page, name) {
@@ -527,8 +627,11 @@ test("manager aliases merge initials and full names into one project manager fil
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator("#estimate-navigation")).not.toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    const aligned = await page.locator('.jobs-table td[data-label] > small').evaluateAll((details) => details.every((detail) => Math.abs(detail.getBoundingClientRect().x - detail.previousElementSibling.getBoundingClientRect().x) <= 1));
-    expect(aligned, "Secondary job details must align with their values on phones").toBe(true);
+    const aligned = await page.locator('.jobs-table tbody tr').evaluateAll((rows) => rows.every((row) => {
+      const number = row.children[0].getBoundingClientRect(), name = row.children[1].getBoundingClientRect(), status = row.children[5].getBoundingClientRect();
+      return number.right <= name.left && name.right <= status.left;
+    }));
+    expect(aligned, "Compact mobile job identity and status columns must not overlap").toBe(true);
     await captureVisual(page, testInfo, "jobs-list-phone");
     await page.locator(".jobs-table tbody tr").first().screenshot({ path: testInfo.outputPath("jobs-list-phone-row.png") });
     if (originalViewport) await page.setViewportSize(originalViewport);
