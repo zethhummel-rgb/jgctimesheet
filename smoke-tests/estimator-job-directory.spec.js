@@ -175,15 +175,19 @@ async function captureVisual(page, testInfo, name) {
 
 test("canonical job directory includes quoted, imported and inactive jobs without fabricated quote values", async ({ page }, testInfo) => {
   const captures = await serveDirectory(page, directoryState());
-  await page.getByLabel("Search jobs", { exact: true }).fill("269");
+  await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("");
+  await expect(page.locator(".library-folder")).toHaveCount(0);
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
+  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Job name", "Client / location", "Project manager", "Type", "Status"]);
+  await expect(page.locator('.jobs-table td[data-label="Job / quote"] button')).toHaveText(["26903", "26902", "26901"]);
   const imported = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
   await expect(imported).toContainText("Canonical Railway Client");
   await expect(imported).toContainText("Imported Emergency Repairs");
-  await expect(imported).toContainText("$672.00");
+  await expect(imported.locator('[data-label="Project manager"]')).toHaveText("Directory Test Manager");
+  await expect(imported.locator('[data-label="Type"]')).toHaveText("T&M");
   await expect(imported).not.toContainText(/Quote unavailable|Unassigned|NaN|Infinity/);
   for (const label of ["Accepted price", "Estimate cost", "Forecast margin"]) {
-    await expect(imported.locator(`[data-label="${label}"]`)).not.toContainText(/\$0\.00|0\.0%/);
+    await expect(imported.locator(`[data-label="${label}"]`)).toHaveCount(0);
   }
   await expect(page.locator(".jobs-table tbody tr").filter({ hasText: "26901" })).toContainText("JGC-Q-2026-0901");
   await page.getByLabel("Search jobs", { exact: true }).fill("Canonical Railway Client");
@@ -464,4 +468,163 @@ test("accepting a quote upgrades the existing canonical job without losing costs
   await expect(page.getByRole("tabpanel")).toContainText("Existing approved drawing");
   await page.getByRole("tab", { name: "CCNs / Change Orders", exact: true }).click();
   await expect(page.getByRole("tabpanel")).toContainText("26902-CCN-001");
+});
+
+function managerAliasDirectoryState() {
+  const state = directoryState();
+  const managers = ["ZH", "Zeth Hummel", "  zH  ", " zEtH   HUMMEL ", "JV", "Jeff Vandrish", "  jV  ", " jEfF   VANDRISH ", "Alex Site Manager"];
+  state.jobs = [
+    { ...state.jobs[0], projectManager: "Independent Job Manager" },
+    ...managers.map((projectManager, index) => {
+      const portalJobId = `aaaaaaaa-aaaa-4aaa-8aaa-${String(index + 1).padStart(12, "0")}`;
+      return officialJob("contract", {
+        id: `portal-job-${portalJobId}`, portalJobId, jobNumber: String(26902 + index),
+        project: `Manager alias fixture ${index + 1}`, portalJobName: `Manager alias fixture ${index + 1}`,
+        projectManager, jobType: "Contract", portalCustomer: "Alias Fixture Client", portalAddress: "Alias Job Site", acceptedAt: fixtureDate,
+      });
+    }),
+  ];
+  return state;
+}
+
+test("Jobs list combines manager, status and search filters and opens directly with the keyboard", async ({ page }) => {
+  const state = managerAliasDirectoryState();
+  const archivedJob = state.jobs[2];
+  archivedJob.status = "Archived";
+  archivedJob.portalActive = false;
+  const captures = await serveDirectory(page, state);
+  const managerFilter = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+  const search = page.getByLabel("Search jobs", { exact: true });
+  await managerFilter.selectOption({ label: "Zeth Hummel" });
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
+  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Archived", exact: true }).click();
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
+  await search.fill("not a real job");
+  await expect(page.getByRole("heading", { name: "No archived jobs found" })).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(managerFilter).toHaveValue("");
+  await expect(search).toHaveValue("");
+  const open = page.locator(".jobs-table").getByRole("button", { name: archivedJob.jobNumber, exact: true });
+  await open.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".job-detail-page")).toContainText(`JOB ${archivedJob.jobNumber}`);
+  await page.getByRole("button", { name: "← All jobs", exact: true }).click();
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Archived", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(captures.writes).toEqual([]);
+  expect(captures.jobInfo).toEqual([]);
+});
+
+test("manager aliases merge initials and full names into one project manager filter option", async ({ page }, testInfo) => {
+  const captures = await serveDirectory(page, managerAliasDirectoryState());
+  const managerFilter = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+  await expect(managerFilter.locator("option")).toHaveText(["All managers", "Alex Site Manager", "Independent Job Manager", "Jeff Vandrish", "Zeth Hummel"]);
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(10);
+  await expect(page.locator(".library-folder")).toHaveCount(0);
+  if (process.env.JGC_DIRECTORY_VISUAL_QA === "1") {
+    const originalViewport = page.viewportSize();
+    await captureVisual(page, testInfo, "jobs-list-desktop");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator("#estimate-navigation")).not.toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const aligned = await page.locator('.jobs-table td[data-label] > small').evaluateAll((details) => details.every((detail) => Math.abs(detail.getBoundingClientRect().x - detail.previousElementSibling.getBoundingClientRect().x) <= 1));
+    expect(aligned, "Secondary job details must align with their values on phones").toBe(true);
+    await captureVisual(page, testInfo, "jobs-list-phone");
+    await page.locator(".jobs-table tbody tr").first().screenshot({ path: testInfo.outputPath("jobs-list-phone-row.png") });
+    if (originalViewport) await page.setViewportSize(originalViewport);
+  }
+  for (const [name, expectedNumbers] of [
+    ["Zeth Hummel", ["26902", "26903", "26904", "26905"]],
+    ["Jeff Vandrish", ["26906", "26907", "26908", "26909"]],
+  ]) {
+    await managerFilter.selectOption({ label: name });
+    await expect(page.locator(".jobs-table tbody tr")).toHaveCount(4);
+    expect((await page.locator('.jobs-table td[data-label="Job / quote"] .back-button').allTextContents()).sort()).toEqual(expectedNumbers);
+    await managerFilter.selectOption("");
+  }
+  expect(captures.writes).toEqual([]);
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.unexpectedRequests).toEqual([]);
+});
+
+test("manager alias searches find the same jobs using initials or full names", async ({ page }) => {
+  const captures = await serveDirectory(page, managerAliasDirectoryState());
+  const search = page.getByLabel("Search jobs", { exact: true });
+  for (const [queries, name, expectedNumbers] of [
+    [["ZH", "zh", " Zeth   Hummel "], "Zeth Hummel", ["26902", "26903", "26904", "26905"]],
+    [["JV", "jv", " Jeff   Vandrish "], "Jeff Vandrish", ["26906", "26907", "26908", "26909"]],
+  ]) {
+    for (const query of queries) {
+      await search.fill(query);
+      await expect(page.locator(".jobs-table tbody tr")).toHaveCount(4);
+      expect((await page.locator('.jobs-table td[data-label="Job / quote"] .back-button').allTextContents()).sort()).toEqual(expectedNumbers);
+      for (const row of await page.locator(".jobs-table tbody tr").all()) await expect(row.locator('td[data-label="Project manager"]')).toHaveText(name);
+    }
+  }
+  expect(captures.writes).toEqual([]);
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.unexpectedRequests).toEqual([]);
+});
+
+test("manager aliases leave unknown names and similar but unconfirmed names unchanged", async ({ page }) => {
+  const state = managerAliasDirectoryState();
+  const names = ["Alex Site Manager", "Zeth Hummel Jr.", "Jeff Vandrish Consulting", "JH", "Z.H."];
+  state.jobs = state.jobs.slice(1, names.length + 1).map((job, index) => ({ ...job, projectManager: names[index] }));
+  const captures = await serveDirectory(page, state);
+  const managerFilter = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+  await expect(managerFilter.locator("option")).toHaveCount(names.length + 1);
+  for (const name of names) await expect(managerFilter.getByRole("option", { name, exact: true })).toHaveCount(1);
+  await expect(managerFilter.getByRole("option", { name: "Zeth Hummel", exact: true })).toHaveCount(0);
+  await expect(managerFilter.getByRole("option", { name: "Jeff Vandrish", exact: true })).toHaveCount(0);
+  for (const [index, name] of names.entries()) {
+    await page.getByLabel("Search jobs", { exact: true }).fill(name);
+    await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
+    await expect(page.locator('.jobs-table td[data-label="Project manager"]')).toHaveText(name);
+    await expect(page.locator('.jobs-table td[data-label="Job / quote"] .back-button')).toHaveText(state.jobs[index].jobNumber);
+  }
+  await openDirectoryJob(page, state.jobs[0].jobNumber);
+  await expect(page.locator(".job-summary-facts > div").filter({ has: page.getByText("Project manager", { exact: true }) }).locator("strong")).toHaveText(names[0]);
+  await page.getByRole("button", { name: "Edit job details", exact: true }).click();
+  await expect(page.getByLabel("Project manager", { exact: true })).toHaveValue(names[0]);
+  await page.locator(".job-summary-editor-actions").getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(captures.writes).toEqual([]);
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.unexpectedRequests).toEqual([]);
+});
+
+test("manager aliases filter by job responsibility without rewriting raw assignments, quote owners or official IDs", async ({ page }) => {
+  const state = managerAliasDirectoryState();
+  const quotedJob = state.jobs[0];
+  const quote = state.quotes[0];
+  quotedJob.projectManager = "  ZH  ";
+  quote.preparedBy = "JV";
+  quote.ownerUserId = "unchanged-quote-owner-account";
+  quote.ownerName = "Original Account Display";
+  quotedJob.acceptedQuoteSnapshot = JSON.stringify(quote);
+  const captures = await serveDirectory(page, state);
+  const managerFilter = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+  await managerFilter.selectOption({ label: "Jeff Vandrish" });
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(4);
+  await managerFilter.selectOption({ label: "Zeth Hummel" });
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(5);
+  await expect(managerFilter.getByRole("option", { name: "Original Account Display", exact: true })).toHaveCount(0);
+  await openDirectoryJob(page, quotedJob.jobNumber);
+  await expect(page.locator(".job-topline .quote-identity p")).toContainText("PM Zeth Hummel");
+  await expect(page.locator(".job-summary-facts > div").filter({ has: page.getByText("Project manager", { exact: true }) }).locator("strong")).toHaveText("Zeth Hummel");
+  await page.getByRole("button", { name: "Edit job details", exact: true }).click();
+  await expect(page.getByLabel("Project manager", { exact: true })).toHaveValue("  ZH  ");
+  await page.locator(".job-summary-editor-actions").getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("tab", { name: "Statistics / Other", exact: true }).click();
+  await expect.poll(() => captures.statistics).toContain(quotedJob.portalJobId);
+  await page.getByRole("button", { name: "Open accepted quote", exact: true }).click();
+  await expect(page.locator(".quote-workspace .quote-identity")).toContainText(quote.number);
+  await page.getByRole("tab", { name: /Details/ }).click();
+  await expect(page.getByLabel("Prepared by", { exact: true })).toHaveValue("JV");
+  await expect(page.getByLabel("Prepared by", { exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Return to job", exact: true }).click();
+  await expect(page.locator(".job-detail-page")).toContainText(`JOB ${quotedJob.jobNumber}`);
+  expect([...new Set(captures.statistics)]).toEqual([officialIds.quoted]);
+  expect(captures.writes).toEqual([]);
+  expect(captures.jobInfo).toEqual([]);
+  expect(captures.unexpectedRequests).toEqual([]);
 });

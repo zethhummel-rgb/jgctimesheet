@@ -1737,6 +1737,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* Official job management uses the Estimate Desk surface without changing Portal editors. */
+.job-directory-toolbar { flex-wrap: wrap; }
+.job-directory-toolbar .search-field { flex: 1 1 280px; }
+.job-directory-toolbar .compact-select { gap: 8px; }
+.job-directory-toolbar .compact-select span { font-size: 12px; color: var(--slate-700); }
+.job-directory-page .jobs-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; }
+.job-directory-page .jobs-table td:first-child { min-width: 135px; }
+.job-directory-page .jobs-table td:nth-child(2) { min-width: 190px; }
+.job-directory-page .jobs-table td:nth-child(4) { min-width: 125px; }
+@media (max-width: 760px) {
+  .job-directory-page .job-directory-toolbar .search-field { flex-basis: auto; }
+  .job-directory-page .jobs-table td { min-width: 0; }
+  .job-directory-page .jobs-table td[data-label] > * { grid-column: 2; }
+}
 :is(.job-detail-page, .job-directory-page, .purchase-order-modal) {
   --slate-500: var(--slate-700);
   --slate-600: var(--slate-700);
