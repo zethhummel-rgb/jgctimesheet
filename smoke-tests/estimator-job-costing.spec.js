@@ -234,8 +234,7 @@ test("Portal labour hours and loaded cost appear on the linked Estimator job", a
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: /Jobs/ }).click();
   await page.getByRole("textbox", { name: "Search jobs" }).fill("26128");
-  await expect(page.locator(".jobs-table tbody tr")).toContainText("$950.00");
-  await expect(page.locator(".jobs-table tbody tr")).toContainText("15.5");
+  await expect(page.locator(".jobs-table tbody tr")).toContainText("26128");
   await page.locator(".jobs-table tbody tr").click();
 
   await expect(page.getByRole("heading", { name: "Employee labour" })).toBeVisible();

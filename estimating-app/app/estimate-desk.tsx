@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ClearableNumberInput } from "./clearable-number-input";
 import { JobImportPanel } from "./job-import-panel";
+import { jobManagerIdentity } from "../lib/job-manager-names";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, synchronizePortalJobs, type PortalJobOption, type PortalJobStatistics, type PortalLabourActual } from "../src/portal-api";
@@ -5310,7 +5311,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
 }) {
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
   const [jobSearch, setJobSearch] = useState("");
-  const [libraryPath, setLibraryPath] = useState<LibraryPathPart[]>([]);
+  const [managerFilter, setManagerFilter] = useState("");
   const [documentLinkDraft, setDocumentLinkDraft] = useState("");
   const [documentLinkLabelDraft, setDocumentLinkLabelDraft] = useState("");
   const [documentLinkAction, setDocumentLinkAction] = useState<{ linkId: string; kind: "share" | "unshare" | "delete" } | null>(null);
@@ -5914,7 +5915,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
-          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {linkedQuote?.site || job.portalAddress || "No location"} · {job.jobType || "Type not set"} · PM {job.projectManager || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
+          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {linkedQuote?.site || job.portalAddress || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
           <div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" disabled={!job.portalJobId || statusSaving} onClick={() => void setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{statusSaving ? "Saving status…" : job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
         </div>
         {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
@@ -5951,7 +5952,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
             <div><span>{hasAcceptedQuote ? "Project / quote title" : "Project"}</span><strong>{job.project || "Not entered"}</strong><small>{hasAcceptedQuote ? `${quoteReference} · Rev ${acceptedBasis.revision ?? 0}` : "No accepted quote linked"}</small></div>
             <div><span>Site</span><strong>{acceptedBasis.quote?.site || job.portalAddress || "Not entered"}</strong><small>{hasAcceptedQuote ? "Accepted quote" : "Official Portal job"}</small></div>
             <div><span>Address</span><strong>{job.portalAddress || acceptedBasis.quote?.address || "Not entered"}</strong><small>Portal job address</small></div>
-            <div><span>Project manager</span><strong>{job.projectManager || "Not assigned"}</strong><small>Job responsibility</small></div>
+            <div><span>Project manager</span><strong>{jobManagerIdentity(job.projectManager).label || "Not assigned"}</strong><small>Job responsibility</small></div>
             <div><span>Schedule</span><strong>{job.startDate ? shortDate(job.startDate) : "Start not set"}</strong><small>{job.targetEndDate ? `Target completion ${shortDate(job.targetEndDate)}` : "Target completion not set"}</small></div>
           </div> : <div className="job-summary-editor">
             <div className="form-grid two-column">
@@ -6240,41 +6241,34 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     );
   }
 
-  const normalizedSearch = jobSearch.trim().toLocaleLowerCase();
+  const managerForJob = (item: Job) => jobManagerIdentity(item.projectManager?.trim() || state.quotes.find((quote) => quote.id === item.quoteId)?.preparedBy || "Unassigned");
+  const managerOptions = Array.from(new Map(state.jobs.map((item) => {
+    const manager = managerForJob(item);
+    return [manager.key, manager] as const;
+  })).values()).sort((a, b) => a.label.localeCompare(b.label, "en-CA"));
+  const normalizedSearch = jobSearch.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   const visibleJobs = state.jobs.filter((item) => {
     if (item.status !== statusFilter) return false;
+    if (managerFilter && managerForJob(item).key !== managerFilter) return false;
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${linkedQuote?.preparedBy ?? ""} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project} ${item.portalJobName ?? ""} ${item.portalCustomer ?? ""} ${item.portalAddress ?? ""} ${item.projectManager ?? ""} ${item.jobType ?? ""}`.toLocaleLowerCase();
+    const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${jobManagerIdentity(linkedQuote?.preparedBy).searchText} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project} ${item.portalJobName ?? ""} ${item.portalCustomer ?? ""} ${item.portalAddress ?? ""} ${jobManagerIdentity(item.projectManager).searchText} ${item.jobType ?? ""}`.toLocaleLowerCase().replace(/\s+/g, " ");
     return haystack.includes(normalizedSearch);
-  });
-  const jobRecords: LibraryRecord<Job>[] = visibleJobs.map((item) => {
-    const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    const creator = linkedQuote?.preparedBy.trim() || item.projectManager || "Unassigned";
-    const year = (linkedQuote?.quoteDate || item.acceptedAt).slice(0, 4) || "No year";
-    const location = linkedQuote?.site.trim() || item.portalAddress || "No location";
-    return {
-      item,
-      creator: { key: creator.toLocaleLowerCase(), label: creator },
-      year: { key: year, label: year },
-      client: { key: item.clientId || item.portalCustomer || "__no_client__", label: item.portalCustomer || clientName(state, item.clientId) },
-      location: { key: location.toLocaleLowerCase(), label: location },
-      value: jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue,
-    };
-  });
+  }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
   const renderJobTable = (items: Job[]) => (
     <section className="panel table-panel">
-      <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>{jobSearch.trim() ? "Search results across every folder." : "Open a job to review its accepted estimate and actuals."}</span></div>
-      <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => {
-        const totals = jobTotals(item, portalLabourForJob(item, portalLabourActuals));
+      <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>Newest job numbers first · Select a job to open its dashboard.</span></div>
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label="Jobs list"><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-        const hasQuote = Boolean(acceptedQuoteBasis(item, linkedQuote).quote);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
-          <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"} · {item.jobType || "Type not set"} · {item.projectManager || linkedQuote?.preparedBy || "PM not assigned"}</small></td>
-          <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || item.portalAddress || "No location"} · {item.project}</small></td>
-          <td data-label="Accepted price">{hasQuote ? money(totals.revisedRevenue) : "—"}</td><td data-label="Estimate cost">{hasQuote ? money(item.originalCostBudget) : "—"}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{hasQuote ? percent(totals.margin) : "—"}</td><td data-label="Status"><StatusPill status={item.status} /></td>
+          <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
+          <td data-label="Job name"><strong>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
+          <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || item.portalAddress || "No location"}</small></td>
+          <td data-label="Project manager">{managerForJob(item).label}</td>
+          <td data-label="Type">{item.jobType || "Not set"}</td>
+          <td data-label="Status"><StatusPill status={item.status} /></td>
         </tr>;
       })}</tbody></table></div>
-      {!items.length && <div className="empty-state"><span>✓</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{statusFilter === "Active" ? "Make a finished, accepted quote into a Portal-linked job." : "Archived jobs will remain available here for reference."}</p></div>}
+      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{jobSearch.trim() || managerFilter ? "Clear the search or change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(jobSearch.trim() || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
     </section>
   );
 
@@ -6290,13 +6284,14 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
         <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
       </section>
-      <section className="panel toolbar-panel">
-        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job number, quote, estimator, client or location" aria-label="Search jobs" /></div>
+      <section className="panel toolbar-panel job-directory-toolbar">
+        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" /></div>
+        <label className="compact-select"><span>Project manager</span><select value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)} aria-label="Filter jobs by project manager"><option value="">All managers</option>{managerOptions.map((manager) => <option key={manager.key} value={manager.key}>{manager.label}</option>)}</select></label>
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
-          {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} onClick={() => { setStatusFilter(status); setLibraryPath([]); }}>{status}</button>)}
+          {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>{status}</button>)}
         </div>
       </section>
-      {jobSearch.trim() ? renderJobTable(visibleJobs) : <LibraryFolders records={jobRecords} path={libraryPath} setPath={setLibraryPath} noun="job" renderItems={renderJobTable} />}
+      {renderJobTable(visibleJobs)}
     </div>
   );
 }
