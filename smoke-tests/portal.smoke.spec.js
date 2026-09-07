@@ -4157,6 +4157,72 @@ test("mobile More menu opens and closes", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "mobile More menu");
 });
 
+for (const theme of ["light", "dark"]) {
+  for (const portalPage of ["admin.html?tab=jobs", "home.html", "jobs.html"]) {
+    test(`mobile More menu contrast on ${portalPage} in ${theme} theme`, async ({ page }, testInfo) => {
+      const errors = watchRuntimeErrors(page);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await installAuthenticatedPortalState(page);
+      await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme, writes: [] } });
+      await page.addInitScript((value) => localStorage.setItem("jgcPortalTheme", value), theme);
+      await page.goto(`/${portalPage}`, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
+      const button = page.locator("#jgcMobileMoreButton");
+      const sheet = page.locator("#jgcMobileMoreSheet");
+      await button.click();
+      await expect(button).toHaveAttribute("aria-expanded", "true");
+      await expect(sheet).toHaveCSS("opacity", "1");
+      await expect(sheet.locator("a")).toHaveCount(14);
+
+      async function checkMenuContrast() {
+        const samples = await sheet.evaluate((element) => {
+          const parse = (color) => {
+            const channels = color.match(/[\d.]+/g).map(Number);
+            return [...channels.slice(0, 3), channels[3] ?? 1];
+          };
+          const composite = (front, back) => front.slice(0, 3).map((value, i) => value * front[3] + back[i] * (1 - front[3]));
+          const backgroundOf = (node) => {
+            if (!node) return [255, 255, 255];
+            const color = parse(getComputedStyle(node).backgroundColor);
+            return composite(color, color[3] === 1 ? [0, 0, 0] : backgroundOf(node.parentElement));
+          };
+          const luminance = (color) => color.map((channel) => {
+            const value = channel / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          }).reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+          return [...element.querySelectorAll(".jgc-mobile-more-title, a span, a svg")].map((node) => {
+            const background = backgroundOf(node);
+            const style = getComputedStyle(node);
+            const foreground = composite(parse(node.tagName.toLowerCase() === "svg" ? style.stroke : style.color), background);
+            const values = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
+            return { label: node.closest("a")?.textContent || node.textContent, kind: node.tagName, ratio: (values[1] + 0.05) / (values[0] + 0.05) };
+          });
+        });
+        for (const sample of samples) {
+          expect(sample.ratio, `${theme} ${sample.label} ${sample.kind} contrast`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+
+      await checkMenuContrast();
+      if (portalPage === "jobs.html") await expect(sheet.locator('a[href="jobs.html"]')).toHaveClass(/active/);
+      const jobsLink = sheet.locator('a[href="jobs.html"]');
+      await jobsLink.hover();
+      await checkMenuContrast();
+      await jobsLink.focus();
+      await checkMenuContrast();
+      await page.screenshot({ path: testInfo.outputPath(`mobile-more-${theme}.png`) });
+      await page.locator("#jgcMobileMoreBackdrop").click({ position: { x: 5, y: 5 } });
+      await expect(button).toHaveAttribute("aria-expanded", "false");
+      await expect(sheet).not.toHaveClass(/open/);
+      await button.click();
+      await jobsLink.click();
+      await expect(page).toHaveURL(/\/jobs\.html$/);
+      await expect(page.locator("#jgcMobileMoreSheet")).not.toHaveClass(/open/);
+      await expectNoRuntimeErrors(errors, "mobile More menu contrast and navigation");
+    });
+  }
+}
+
 test("job notes employee page opens its standalone editor", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });

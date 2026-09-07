@@ -2296,10 +2296,10 @@ function activateMobileBottomNavigation() {
         display: flex;
         align-items: center;
         gap: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--jgc-color-border-soft, rgba(255, 255, 255, 0.12));
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.06);
-        color: #ffffff;
+        background: var(--jgc-color-surface-raised, rgba(255, 255, 255, 0.06));
+        color: var(--jgc-color-text, #ffffff);
         text-decoration: none;
         font-size: 13px;
         font-weight: 800;
@@ -2308,6 +2308,11 @@ function activateMobileBottomNavigation() {
       .jgc-mobile-more-grid a.active {
         background: var(--jgc-nav-item-active-soft-background, rgba(33, 186, 70, 0.24));
         border-color: var(--jgc-nav-accent-border, rgba(64, 220, 78, 0.52));
+      }
+
+      .jgc-mobile-more-grid a:focus-visible {
+        outline: 2px solid var(--jgc-color-brand-400, #37e857);
+        outline-offset: 2px;
       }
     }
   `;
