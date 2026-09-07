@@ -56,11 +56,11 @@ test("Job statistics paginate collection reads and chunk ID filters", () => {
   expect(statisticsSource).toContain("Portal record pagination did not advance safely.");
   expect(statisticsSource).toContain("Portal record pagination exceeded its safe page limit.");
   expect(statisticsSource).toContain("data.length + result.data.length > PORTAL_STATISTICS_MAX_ROWS");
-  expect(primaryQueries.match(/loadPortalStatisticPages\(/g)).toHaveLength(9);
-  expect(relatedQueries.match(/loadPortalStatisticIdChunks\(/g)).toHaveLength(4);
-  expect(primaryQueries.match(/\.order\("id"/g)).toHaveLength(9);
-  expect(relatedQueries.match(/\.order\("id"/g)).toHaveLength(4);
-  expect(`${primaryQueries}${relatedQueries}`.match(/\{ count: "exact" \}/g)).toHaveLength(13);
+  expect(primaryQueries.match(/loadPortalStatisticPages\(/g)).toHaveLength(10);
+  expect(relatedQueries.match(/loadPortalStatisticIdChunks\(/g)).toHaveLength(5);
+  expect(primaryQueries.match(/\.order\("id"/g)).toHaveLength(10);
+  expect(relatedQueries.match(/\.order\("id"/g)).toHaveLength(5);
+  expect(`${primaryQueries}${relatedQueries}`.match(/\{ count: "exact" \}/g)).toHaveLength(15);
 });
 
 test("Daily reports use canonical job identifiers instead of a bare job name", () => {
@@ -83,6 +83,6 @@ test("Portal document-link synchronization replaces only the stable imported ent
   expect(synchronizationSource).toContain('const portalDocumentLinkId = `portal-job-link-${job.id}`');
   expect(synchronizationSource).toContain("savedDocumentLinks.filter((link) => link.id !== portalDocumentLinkId)");
   expect(synchronizationSource).toContain("previousPortalDocumentLink?.createdAt");
-  expect(estimateDesk).toContain('const jobId = uid("job")');
+  expect(estimateDesk.includes('const jobId = existingJob?.id || uid("job")')).toBe(true);
   expect(estimateDesk).toContain('id: `portal-job-link-${jobId}`');
 });

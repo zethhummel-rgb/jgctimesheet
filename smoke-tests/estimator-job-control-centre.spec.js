@@ -632,7 +632,7 @@ test("Statistics / Other fetches and renders the connected Portal job records wi
   expect(compactText).not.toContain(null);
   for (const style of compactText) {
     expect(style.fontSize).toBeGreaterThanOrEqual(11);
-    expect(style.color).toBe("rgb(95, 113, 131)");
+    expect(style.color).toBe("rgb(67, 84, 102)");
   }
 
   for (const label of ["Summary", "Purchase Orders", "CCNs / Change Orders", "Shop Drawings", "Statistics / Other"]) {

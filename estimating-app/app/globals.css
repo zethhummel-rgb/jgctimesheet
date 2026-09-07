@@ -1735,3 +1735,67 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .breakdown-page:last-child { break-after: auto; page-break-after: auto; }
   .breakdown-cost-group, .breakdown-summary, .breakdown-page > header, .breakdown-page > footer { break-inside: avoid; }
 }
+
+/* Official job management uses the Estimate Desk surface without changing Portal editors. */
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) {
+  --slate-500: var(--slate-700);
+  --slate-600: var(--slate-700);
+  --blue-600: var(--navy-700);
+}
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) small { font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) .eyebrow { font-size: 11px; }
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) :is(.data-table th, .button.compact, .field > span, .status-pill, .cost-type-chip, .shop-drawing-status, .change-status-pill, .labour-source-chip, .rate-complete, .rate-missing) { font-size: 12px; }
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) .po-status { font-size: 12px !important; }
+.job-detail-page .po-count-chip { font-size: 12px; }
+:is(.job-detail-page, .job-directory-page) .data-table:not(.proposal-table) tbody > tr > td[data-label]::before { font-size: 12px; }
+.job-detail-page .shop-drawing-table td > small { font-size: 12px; }
+.job-detail-page :is(.statistics-bar > div > span, .statistics-bar > div > strong, .shop-drawing-kpis span, .change-summary-grid span, .labour-comparison-summary span, .portal-labour-heading-total span, .shop-drawing-footnote, .job-shop-drawing-summary-facts span) { font-size: 12px; }
+.purchase-order-modal :is(.po-source-banner span, .po-cost-rule, .po-total-preview span, .po-authorized-line-label span, .po-authorized-line-label strong) { font-size: 12px; }
+.job-detail-page .forecast-lines input { min-height: 36px; padding: 7px 9px; background: #fff; color: var(--navy-900); font: inherit; color-scheme: light; }
+:is(.job-detail-page, .job-directory-page, .purchase-order-modal) .button:disabled { opacity: 1; background: var(--slate-200); border-color: var(--slate-300); color: var(--slate-700); box-shadow: none; }
+.job-import-disclosure { border: 1px solid var(--slate-200); border-radius: 10px; background: #fff; min-width: 0; }
+.job-import-disclosure > summary { padding: 16px 20px; cursor: pointer; font-weight: 700; }
+.job-import-panel { margin: 0; border: 0; box-shadow: none; }
+.job-import-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.job-import-panel input[type="file"] { width: 100%; min-width: 0; padding: 10px; }
+.job-import-panel li, .job-import-panel p { overflow-wrap: anywhere; }
+.job-operational-costs { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.job-operational-costs .button { margin: 5px 0; }
+.job-detail-page .job-grid { grid-template-columns: minmax(0, 1fr); }
+.job-detail-page .job-insight-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.job-detail-page .po-source-table td:nth-child(5) { min-width: 112px; }
+.job-detail-page .po-source-table td:nth-child(5) > :is(strong, small) { white-space: nowrap; }
+.statistics-record-grid > .job-operational-purchases { grid-column: 1 / -1; }
+.statistics-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.statistics-kpi-grid > div:nth-child(5) { border-left: 0; }
+.statistics-kpi-grid > div:nth-child(n+5) { border-top: 1px solid var(--slate-200); }
+.statistics-section-label { padding: 16px 20px 0; margin: 0; }
+.compact-record-list .button { justify-self: start; width: fit-content; }
+.compact-record-list p { margin: 0; overflow-wrap: anywhere; }
+.job-statistics-stack { display: flex; flex-direction: column; }
+.job-statistics-stack > .statistics-heading-panel { order: 0; }
+.job-statistics-stack > .statistics-kpi-grid { order: 1; }
+.job-statistics-stack > .statistics-record-grid { order: 2; }
+.statistics-record-grid > .job-operational-purchases { order: -2; }
+.statistics-record-grid > .statistics-work-orders-card { order: -1; }
+.job-statistics-stack > .statistics-chart-grid { order: 3; }
+.job-statistics-stack > .statistics-card { order: 4; }
+.job-statistics-stack > .statistics-wo-labour { order: 5; }
+@media (max-width: 600px) {
+  .statistics-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .job-operational-costs { grid-template-columns: 1fr; }
+  .job-import-panel .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .job-import-panel .quote-primary-actions { flex-wrap: wrap; }
+  .job-import-disclosure { max-width: 100%; }
+}
+@media (max-width: 760px) {
+  .job-detail-page .job-insight-column { grid-template-columns: minmax(0, 1fr); }
+  :is(.job-detail-page, .job-directory-page) .data-table:not(.proposal-table) tbody > tr > td[data-label] { grid-template-columns: minmax(110px, .9fr) minmax(0, 1.1fr); column-gap: 12px; }
+  :is(.job-detail-page, .job-directory-page) .data-table:not(.proposal-table) tbody > tr > td[data-label]::before { min-width: 0; overflow-wrap: anywhere; }
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) { display: table; table-layout: fixed; width: 100%; }
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) thead { display: table-header-group; }
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) tbody { display: table-row-group; }
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) tr { display: table-row; padding: 0; }
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) th,
+  .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) tbody > tr > td { display: table-cell; width: auto; }
+}
