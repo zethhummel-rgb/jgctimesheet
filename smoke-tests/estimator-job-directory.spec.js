@@ -177,7 +177,7 @@ test("overview finds imported job 26096 without a quote in My estimates", async 
   }
   await expect(page.locator(".overview-search-summary")).toContainText("all jobs");
   await search.fill("25904");
-  await expect(page.locator(".overview-result-group").getByRole("button", { name: /25904/ })).toContainText("Archived");
+  await expect(page.locator(".overview-result-group").getByRole("button", { name: /25904/ })).toContainText("Inactive");
   await search.fill("26096");
   await page.locator(".overview-result-group").getByRole("button", { name: /26096/ }).click();
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26096");
@@ -198,9 +198,9 @@ test("job List and Tiles views keep filters and remember the device preference",
   await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
   await expect(layout.getByRole("button", { name: "Tiles", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".job-tile")).toHaveCount(3);
-  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Archived" }).click();
+  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Inactive" }).click();
   await expect(page.locator(".job-tile")).toHaveCount(1);
-  await page.locator(".job-tile").focus();
+  await page.locator(".job-tile-open").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".job-detail-page")).toContainText("JOB 25904");
   expect(captures.jobInfo).toEqual([]);
@@ -278,7 +278,7 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("");
   await expect(page.locator(".library-folder")).toHaveCount(0);
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
-  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Job name", "Client / location", "Project manager", "Type", "Status"]);
+  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Job name", "Client / location", "Project manager", "Type", "Status", "Change status"]);
   await expect(page.locator('.jobs-table td[data-label="Job / quote"] button')).toHaveText(["26903", "26902", "26901"]);
   const imported = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
   await expect(imported).toContainText("Canonical Railway Client");
@@ -363,7 +363,7 @@ test("canonical status changes preserve the official ID and change no quote or o
   const captures = await serveDirectory(page, state);
   await openDirectoryJob(page, "26902");
   page.on("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: /Move to (?:archive|inactive)|Mark inactive/ }).click();
+  await page.getByRole("button", { name: /Make inactive/ }).click();
   await expect.poll(() => captures.jobInfo.length).toBe(1);
   expect(captures.jobInfo[0]).toEqual({ method: "PATCH", body: { portalJobId: officialIds.tm, active: false } });
   await expect(page.locator(".job-topline")).toContainText(/Inactive|Archived/);
@@ -388,16 +388,87 @@ test("failed canonical status change leaves job active and does not save a false
   const captures = await serveDirectory(page, directoryState(), { failJobInfo: true });
   await openDirectoryJob(page, "26902");
   page.on("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: /Move to (?:archive|inactive)|Mark inactive/ }).click();
+  await page.getByRole("button", { name: /Make inactive/ }).click();
   await expect.poll(() => captures.jobInfo.length).toBe(1);
   await expect(page.locator(".job-detail-page")).toContainText("Canonical job update rejected for this test");
-  await expect(page.getByRole("button", { name: /Move to (?:archive|inactive)|Mark inactive/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Make inactive/ })).toBeEnabled();
   await expect(page.getByRole("button", { name: /Restore active job|Mark active|Make active/ })).toHaveCount(0);
   expect(captures.writes).toEqual([]);
   await page.getByRole("button", { name: "← All jobs", exact: true }).click();
   await openDirectoryJob(page, "26902");
   await assertSelectedTab(page, "Statistics / Other");
 });
+
+for (const layout of ["List", "Tiles"]) {
+  for (const width of [390, 1366]) {
+    test(`${layout} directory changes Active and Inactive jobs safely at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = directoryState();
+      state.jobs[0].notes = "Keep the accepted job notes";
+      const captures = await serveDirectory(page, state);
+      await page.getByLabel("Search jobs", { exact: true }).fill("26901");
+      await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: layout, exact: true }).click();
+      const action = page.getByRole("button", { name: "Make inactive — job 26901", exact: true });
+      await expect(action).toBeVisible();
+      expect((await action.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      page.once("dialog", async dialog => {
+        expect(dialog.message()).toContain("26901");
+        expect(dialog.message()).toContain("history are kept");
+        await dialog.dismiss();
+      });
+      await action.click();
+      await expect(action).toBeEnabled();
+      expect(captures.jobInfo).toEqual([]);
+      expect(captures.writes).toEqual([]);
+      page.once("dialog", dialog => dialog.accept());
+      await action.click();
+      await expect.poll(() => captures.jobInfo.length).toBe(1);
+      expect(captures.jobInfo[0]).toEqual({ method: "PATCH", body: { portalJobId: officialIds.quoted, active: false } });
+      await expect(page.locator(".job-directory-page")).toContainText("Job 26901 is now inactive");
+      await expect(page.locator(".job-detail-page")).toHaveCount(0);
+      await expect(action).toHaveCount(0);
+      const filters = page.getByRole("group", { name: "Filter jobs by status" });
+      await filters.getByRole("button", { name: "Inactive", exact: true }).click();
+      const restore = page.getByRole("button", { name: "Make active — job 26901", exact: true });
+      await expect(restore).toBeVisible();
+      await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("26901");
+      await expect.poll(() => captures.writes.length).toBeGreaterThan(0);
+      const saved = captures.writes.at(-1);
+      const inactive = saved.jobs.find(job => job.portalJobId === officialIds.quoted);
+      expect(inactive).toEqual(expect.objectContaining({ id: "existing-estimator-job", jobNumber: "26901", status: "Archived", portalActive: false, notes: "Keep the accepted job notes", acceptedRevenue: 12000, acceptedQuoteSnapshot: state.jobs[0].acceptedQuoteSnapshot }));
+      expect(saved.jobs.map(job => job.id)).toEqual(state.jobs.map(job => job.id));
+      expect(saved.quotes.map(quote => quote.id)).toEqual(state.quotes.map(quote => quote.id));
+      expect(inactive.costs).toEqual(state.jobs[0].costs);
+      expect(inactive.purchaseOrders).toEqual(state.jobs[0].purchaseOrders);
+      if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(".job-directory-page").screenshot({ path: testInfo.outputPath(`inactive-${layout}-${width}.png`) });
+      await restore.click();
+      await expect.poll(() => captures.jobInfo.length).toBe(2);
+      expect(captures.jobInfo[1]).toEqual({ method: "PATCH", body: { portalJobId: officialIds.quoted, active: true } });
+      await expect(page.locator(".job-directory-page")).toContainText("Job 26901 is now active");
+      await expect(restore).toHaveCount(0);
+      await filters.getByRole("button", { name: "Active", exact: true }).click();
+      await expect(action).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+      expect(captures.unexpectedRequests).toEqual([]);
+    });
+  }
+  test(`${layout} directory keeps failed status changes and unlinked jobs safe`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const state = directoryState();
+    state.jobs[2].portalJobId = null;
+    const captures = await serveDirectory(page, state, { failJobInfo: true });
+    await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: layout, exact: true }).click();
+    await expect(page.getByRole("button", { name: "Make inactive — job 26903", exact: true })).toBeDisabled();
+    page.once("dialog", dialog => dialog.accept());
+    await page.getByRole("button", { name: "Make inactive — job 26902", exact: true }).click();
+    await expect(page.locator(".job-directory-page")).toContainText("Canonical job update rejected for this test");
+    await expect(page.getByRole("button", { name: "Make inactive — job 26902", exact: true })).toBeEnabled();
+    await expect(page.locator(".job-detail-page")).toHaveCount(0);
+    expect(captures.jobInfo).toHaveLength(1);
+    expect(captures.writes).toEqual([]);
+    expect(captures.unexpectedRequests).toEqual([]);
+  });
+}
 
 test("Statistics keeps manual WO labour, paper POs and record navigation alongside digital records", async ({ page }) => {
   const captures = await serveDirectory(page, directoryState());
@@ -597,10 +668,10 @@ test("Jobs list combines manager, status and search filters and opens directly w
   const search = page.getByLabel("Search jobs", { exact: true });
   await managerFilter.selectOption({ label: "Zeth Hummel" });
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
-  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Archived", exact: true }).click();
+  await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Inactive", exact: true }).click();
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
   await search.fill("not a real job");
-  await expect(page.getByRole("heading", { name: "No archived jobs found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No inactive jobs found" })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(managerFilter).toHaveValue("");
   await expect(search).toHaveValue("");
@@ -610,7 +681,7 @@ test("Jobs list combines manager, status and search filters and opens directly w
   await expect(page.locator(".job-detail-page")).toContainText(`JOB ${archivedJob.jobNumber}`);
   await page.getByRole("button", { name: "← All jobs", exact: true }).click();
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Archived", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Inactive", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(captures.writes).toEqual([]);
   expect(captures.jobInfo).toEqual([]);
 });
