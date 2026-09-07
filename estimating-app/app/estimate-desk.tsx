@@ -893,7 +893,7 @@ function quoteDisplayStatus(quote: Quote): QuoteStatus | "Expired" {
 }
 
 function quoteStatusLabel(status: QuoteStatus | "Expired" | "Active" | "Archived") {
-  return status === "Sent" ? "Finished" : status;
+  return status === "Sent" ? "Finished" : status === "Archived" ? "Inactive" : status;
 }
 
 function clientName(state: AppState, clientId: string) {
@@ -5354,7 +5354,9 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   const [jobInfoSaving, setJobInfoSaving] = useState(false);
   const [jobInfoMessage, setJobInfoMessage] = useState("");
   const [jobInfoError, setJobInfoError] = useState(false);
-  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusSavingJobId, setStatusSavingJobId] = useState("");
+  const statusSaving = Boolean(statusSavingJobId);
+  const statusRequestPending = useRef(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
   const [directoryMessage, setDirectoryMessage] = useState("");
@@ -5872,18 +5874,23 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   };
   const setJobStatus = async (jobId: string, status: "Active" | "Archived") => {
     const target = state.jobs.find((item) => item.id === jobId);
-    if (!target?.portalJobId || statusSaving) return;
-    if (status === "Archived" && !window.confirm("Mark this official job inactive? It will no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept.")) return;
-    setStatusSaving(true);
+    if (!target?.portalJobId || statusRequestPending.current) return;
+    if (status === "Archived" && !window.confirm(`Make job ${target.jobNumber} — ${target.portalJobName || target.project} inactive? It will no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept.`)) return;
+    statusRequestPending.current = true;
+    setStatusSavingJobId(jobId);
     setStatusMessage("");
     try {
       const response = await fetch("/api/job-info", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portalJobId: target.portalJobId, active: status === "Active" }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "The official job status could not be saved.");
       setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: status === "Active", archivedAt: status === "Archived" ? new Date().toISOString() : "" } : item) }));
-      setStatusMessage(status === "Active" ? "Official job restored to the active job list." : "Official job marked inactive. Its history and linked records are retained.");
+      setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now inactive. Find it under Inactive; its history and linked records are retained.`);
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
-    finally { setStatusSaving(false); }
+    finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
+  };
+  const renderJobStatusAction = (item: Job) => {
+    const label = item.status === "Active" ? "Make inactive" : "Make active";
+    return <button type="button" className="button secondary compact job-status-action" aria-label={`${label} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, item.status === "Active" ? "Archived" : "Active"); }}>{statusSavingJobId === item.id ? "Saving…" : label}</button>;
   };
   if (job) {
     const documentLinks = job.documentLinks ?? [];
@@ -5949,7 +5956,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
           <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {linkedQuote?.site || job.portalAddress || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
-          <div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" disabled={!job.portalJobId || statusSaving} onClick={() => void setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{statusSaving ? "Saving status…" : job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
+          <div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button>{renderJobStatusAction(job)}</div>
         </div>
         {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
         <nav className="job-tabs" role="tablist" aria-label={`Job ${job.jobNumber} sections`} aria-orientation="horizontal">
@@ -6287,10 +6294,11 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${jobManagerIdentity(linkedQuote?.preparedBy).searchText} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project} ${item.portalJobName ?? ""} ${item.portalCustomer ?? ""} ${item.portalAddress ?? ""} ${jobManagerIdentity(item.projectManager).searchText} ${item.jobType ?? ""}`.toLocaleLowerCase().replace(/\s+/g, " ");
     return haystack.includes(normalizedSearch);
   }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
+  const filteredStatusLabel = statusFilter === "Archived" ? "inactive" : "active";
   const renderJobTable = (items: Job[]) => (
     <section className="panel table-panel">
-      <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>Newest job numbers first · Select a job to open its dashboard.</span></div>
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label="Jobs list"><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th></tr></thead><tbody>{items.map((item) => {
+      <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span>Newest job numbers first · Select a job to open its dashboard.</span></div>
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label="Jobs list"><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
@@ -6299,21 +6307,23 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
           <td data-label="Status"><StatusPill status={item.status} /></td>
+          <td data-label="Change status">{renderJobStatusAction(item)}</td>
         </tr>;
       })}</tbody></table></div>
-      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{jobSearch.trim() || managerFilter ? "Clear the search or change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(jobSearch.trim() || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
+      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{jobSearch.trim() || managerFilter ? "Clear the search or change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(jobSearch.trim() || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
     </section>
   );
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
       <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
-      <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Archived jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
+      <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Inactive jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing || statusSaving} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
       {directoryMessage && <p role="status">{directoryMessage}</p>}
+      {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
       <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
-        <div><span>Archived jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
+        <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
         <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
         <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
       </section>
@@ -6321,22 +6331,22 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" /></div>
         <label className="compact-select"><span>Project manager</span><select value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)} aria-label="Filter jobs by project manager"><option value="">All managers</option>{managerOptions.map((manager) => <option key={manager.key} value={manager.key}>{manager.label}</option>)}</select></label>
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
-          {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>{status}</button>)}
+          {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>{quoteStatusLabel(status)}</button>)}
         </div>
         <WorkLayoutSwitch layout={jobLayout} onChange={setJobLayout} label="Job layout" />
       </section>
       {jobLayout === "list" || !visibleJobs.length ? renderJobTable(visibleJobs) : <section className="panel job-tiles-panel">
-        <div className="table-summary"><strong>{visibleJobs.length} {statusFilter.toLocaleLowerCase()} job{visibleJobs.length === 1 ? "" : "s"}</strong><span>Select a job to open its dashboard.</span></div>
+        <div className="table-summary"><strong>{visibleJobs.length} {filteredStatusLabel} job{visibleJobs.length === 1 ? "" : "s"}</strong><span>Select a job to open its dashboard.</span></div>
         <div className="job-tiles">{visibleJobs.map((item) => {
           const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-          return <button type="button" className="job-tile" key={item.id} onClick={() => onOpen(item.id)}>
+          return <article className="job-tile" key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
             <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={item.status} /></span>
             <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
             <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
             <small>{linkedQuote?.site || item.portalAddress || "No location"}</small>
             <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
             {linkedQuote && <small>{linkedQuote.number}</small>}
-          </button>;
+          </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
         })}</div>
       </section>}
     </div>
