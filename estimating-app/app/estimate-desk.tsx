@@ -2,9 +2,10 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ClearableNumberInput } from "./clearable-number-input";
+import { JobImportPanel } from "./job-import-panel";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
-import { portalJobs, type PortalJobOption, type PortalJobStatistics, type PortalLabourActual } from "../src/portal-api";
+import { portalJobs, synchronizePortalJobs, type PortalJobOption, type PortalJobStatistics, type PortalLabourActual } from "../src/portal-api";
 import {
   defaultClosingProposalScopeLine,
   isDefaultClosingProposalScopeLine,
@@ -180,6 +181,10 @@ const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "statistics", label: "Statistics / Other" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
+function initialJobTab(job: Job | undefined): JobTab {
+  const kind = (job?.jobType ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  return ["tm", "timeandmaterials", "timeandmaterial", "timematerials", "timematerial"].includes(kind) ? "statistics" : "summary";
+}
 type ModalState =
   | null
   | { kind: "client" }
@@ -1285,7 +1290,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   useLayoutEffect(() => {
     if (!pendingJobNavigationId || !state.jobs.some((job) => job.id === pendingJobNavigationId)) return;
     setSelectedJobId(pendingJobNavigationId);
-    setJobTab("summary");
+    setJobTab(initialJobTab(state.jobs.find((job) => job.id === pendingJobNavigationId)));
     setView("jobs");
     setSidebarOpen(false);
     setSearch("");
@@ -1403,9 +1408,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     setView("quotes");
   };
 
-  const openJob = (jobId: string, tab: JobTab = "summary") => {
+  const openJob = (jobId: string, tab?: JobTab) => {
     setSelectedJobId(jobId);
-    setJobTab(tab);
+    setJobTab(tab ?? initialJobTab(state.jobs.find((job) => job.id === jobId)));
     setView("jobs");
   };
 
@@ -1552,9 +1557,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     if (!officialJobNumber) return;
     const portalJob = portalJobs().find((item) => item.active && item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase());
     if (!portalJob) return;
-    if (state.jobs.some((item) => item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase())) return;
+    const existingJob = state.jobs.find((item) => item.portalJobId === portalJob.id || (!item.portalJobId && item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase()));
+    if (existingJob?.quoteId || existingJob?.acceptedQuoteSnapshot || state.jobs.some((item) => item.quoteId === quote.id)) return;
     const totals = quoteTotals(quote);
-    const jobId = uid("job");
+    const jobId = existingJob?.id || uid("job");
     const job: Job = {
       id: jobId,
       jobNumber: officialJobNumber,
@@ -1574,12 +1580,12 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       projectManager: portalJob.projectManager ?? "",
       startDate: portalJob.startDate ?? "",
       targetEndDate: portalJob.targetEndDate ?? "",
-      documentLinks: portalJob.documentLink?.trim() ? [{
+      documentLinks: existingJob?.documentLinks ?? (portalJob.documentLink?.trim() ? [{
         id: `portal-job-link-${jobId}`,
         label: portalJob.documentLinkLabel?.trim() || "Open Project Documents",
         url: portalJob.documentLink.trim(),
         createdAt: new Date().toISOString(),
-      }] : [],
+      }] : []),
       archivedAt: "",
       acceptedRevenue: totals.subtotal,
       originalCostBudget: totals.directCost,
@@ -1587,12 +1593,12 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       acceptedQuoteSnapshot: frozenQuoteSnapshot(quote),
       approvedRevenueChanges: 0,
       approvedCostChanges: 0,
-      estimateToComplete: totals.directCost,
+      estimateToComplete: Math.max(0, totals.directCost - (existingJob ? jobTotals(existingJob, portalLabourForJob(existingJob, portalLabourActuals)).actual : 0)),
       acceptedAt: new Date().toISOString(),
-      costs: [],
-      purchaseOrders: [],
-      shopDrawings: [],
-      notes: `Estimate follow-up for ${quote.number} Rev ${quote.revision}. Linked to Portal job ${portalJob.jobNumber} — ${portalJob.jobName}.`,
+      costs: existingJob?.costs ?? [],
+      purchaseOrders: existingJob?.purchaseOrders ?? [],
+      shopDrawings: existingJob?.shopDrawings ?? [],
+      notes: [existingJob?.notes, `Estimate follow-up for ${quote.number} Rev ${quote.revision}. Linked to Portal job ${portalJob.jobNumber} — ${portalJob.jobName}.`].filter(Boolean).join("\n"),
     };
     setState((current) =>
       addActivity(
@@ -1607,7 +1613,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
               ? item.revisions
               : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished", issuedAt: item.sentAt || new Date().toISOString(), total: quoteTotals(item).total, snapshot: frozenQuoteSnapshot(item) }],
           } : item),
-          jobs: current.jobs.some((item) => item.quoteId === quote.id) ? current.jobs : [job, ...current.jobs],
+          jobs: current.jobs.some((item) => item.quoteId === quote.id) ? current.jobs : existingJob ? current.jobs.map((item) => item.id === existingJob.id ? { ...item, ...job, costs: item.costs, documentLinks: item.documentLinks, purchaseOrders: item.purchaseOrders, shopDrawings: item.shopDrawings } : item) : [job, ...current.jobs],
         },
         quote.id,
         "Job created from accepted quote",
@@ -1949,6 +1955,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         <JobsPage
           state={state}
           setState={setState}
+          workspaceSaved={saveStatus === "saved"}
           job={selectedJob}
           tab={jobTab}
           setTab={setJobTab}
@@ -2081,7 +2088,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       {pendingCreateJobQuote && (
         <JobCreateModal
           quote={pendingCreateJobQuote}
-          existingJobNumbers={state.jobs.map((job) => job.jobNumber)}
+          existingJobNumbers={state.jobs.filter((job) => job.quoteId || job.acceptedQuoteSnapshot).map((job) => job.jobNumber)}
           portalJobs={portalJobs()}
           onCancel={() => setPendingCreateJobQuoteId(null)}
           onConfirm={(jobNumber) => createJobFromQuote(pendingCreateJobQuote, jobNumber)}
@@ -3557,11 +3564,16 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
     ? quote.lines.find((line) => line.id === pendingDeleteLineId) ?? null
     : null;
   const revealNewLine = (lineId: string) => {
+    const initiatingControl = document.activeElement;
     setExpandedLineId(lineId);
     window.setTimeout(() => {
       const row = document.getElementById(`estimate-line-${lineId}`);
       row?.scrollIntoView({ behavior: "smooth", block: "center" });
-      window.setTimeout(() => row?.querySelector<HTMLInputElement>("input.description-input, .saved-data-picker input")?.focus({ preventScroll: true }), 260);
+      window.setTimeout(() => {
+        // Do not move typing back to the description after the user chooses another field.
+        if (!row?.isConnected || (document.activeElement !== initiatingControl && document.activeElement !== document.body)) return;
+        row.querySelector<HTMLInputElement>("input.description-input, .saved-data-picker input")?.focus({ preventScroll: true });
+      }, 260);
     }, 40);
   };
   const updateLine = (lineId: string, patch: Partial<QuoteLine>) => {
@@ -5276,9 +5288,10 @@ function shopDrawingIsSharedWithEmployees(job: Job, drawing: ShopDrawing) {
     && sharedLabel === `${drawing.number} · ${drawing.title}`.toLocaleLowerCase("en-CA");
 }
 
-function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
+  workspaceSaved: boolean;
   job: Job | null;
   tab: JobTab;
   setTab: (tab: JobTab) => void;
@@ -5307,6 +5320,10 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   const [jobInfoSaving, setJobInfoSaving] = useState(false);
   const [jobInfoMessage, setJobInfoMessage] = useState("");
   const [jobInfoError, setJobInfoError] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [directoryRefreshing, setDirectoryRefreshing] = useState(false);
+  const [directoryMessage, setDirectoryMessage] = useState("");
   const [jobInfoDraft, setJobInfoDraft] = useState<JobInfoDraft>({
     jobName: "",
     customer: "",
@@ -5319,6 +5336,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   const [statistics, setStatistics] = useState<PortalJobStatistics | null>(null);
   const [statisticsStatus, setStatisticsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [statisticsMessage, setStatisticsMessage] = useState("");
+  const statisticsRequest = useRef(0);
   const [shopDrawingEditor, setShopDrawingEditor] = useState<ShopDrawingEditorState>(null);
   const [shopDrawingFilter, setShopDrawingFilter] = useState<"Open" | "All" | "Approved">("Open");
   const [shopDrawingSearch, setShopDrawingSearch] = useState("");
@@ -5334,8 +5352,10 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
     setJobInfoEditing(false);
     setJobInfoMessage("");
     setJobInfoError(false);
+    setStatusMessage("");
     setJobInfoDraft(jobInfoDraftFromJob(job));
     setStatistics(null);
+    statisticsRequest.current += 1;
     setStatisticsStatus("idle");
     setStatisticsMessage("");
     setShopDrawingEditor(null);
@@ -5735,6 +5755,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
         jobs: current.jobs.map((item) => item.id !== job.id ? item : {
           ...item,
           portalJobName: saved.jobName,
+          project: item.quoteId || item.acceptedQuoteSnapshot ? item.project : saved.jobName,
           portalCustomer: saved.customer,
           portalAddress: saved.address,
           jobType: saved.jobType ?? "",
@@ -5763,6 +5784,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   };
 
   const loadJobStatistics = useCallback(async () => {
+    const requestId = ++statisticsRequest.current;
     if (!job?.portalJobId) {
       setStatisticsStatus("error");
       setStatisticsMessage("This older estimator job must be linked to the Portal before operational statistics can load.");
@@ -5774,17 +5796,19 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
       const params = new URLSearchParams({ portalJobId: job.portalJobId });
       const response = await fetch(`/api/job-statistics?${params.toString()}`, { cache: "no-store" });
       const result = await response.json().catch(() => ({})) as PortalJobStatistics & { error?: string };
+      if (requestId !== statisticsRequest.current) return;
       if (!response.ok) throw new Error(result.error || "Job statistics could not be loaded.");
       setStatistics(result);
       setStatisticsStatus("ready");
     } catch (error) {
+      if (requestId !== statisticsRequest.current) return;
       setStatisticsStatus("error");
       setStatisticsMessage(error instanceof Error ? error.message : "Job statistics could not be loaded.");
     }
   }, [job?.portalJobId]);
 
   useEffect(() => {
-    if (job && tab === "statistics" && statisticsStatus === "idle") void loadJobStatistics();
+    if (job && (tab === "statistics" || tab === "purchase-orders") && statisticsStatus === "idle") void loadJobStatistics();
   }, [job, tab, statisticsStatus, loadJobStatistics]);
 
   const handleJobTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
@@ -5798,11 +5822,34 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
     setTab(jobTabs[nextIndex].key);
     jobTabRefs.current[nextIndex]?.focus();
   };
-  const setJobStatus = (jobId: string, status: "Active" | "Archived") => {
-    setState((current) => ({
-      ...current,
-      jobs: current.jobs.map((item) => item.id === jobId ? { ...item, status, archivedAt: status === "Archived" ? new Date().toISOString() : "" } : item),
-    }));
+  const refreshDirectory = async () => {
+    setDirectoryRefreshing(true);
+    setDirectoryMessage("");
+    try {
+      const response = await fetch("/api/jobs");
+      const result = await response.json();
+      if (!response.ok || !Array.isArray(result.jobs)) throw new Error(result.error || "Jobs could not be refreshed.");
+      setState((current) => synchronizePortalJobs(current, result.jobs));
+      setDirectoryMessage("Official jobs refreshed. Quotes, costs and job history have been kept.");
+    } catch (error) {
+      setDirectoryMessage(error instanceof Error ? error.message : "Jobs could not be refreshed.");
+      throw error;
+    } finally { setDirectoryRefreshing(false); }
+  };
+  const setJobStatus = async (jobId: string, status: "Active" | "Archived") => {
+    const target = state.jobs.find((item) => item.id === jobId);
+    if (!target?.portalJobId || statusSaving) return;
+    if (status === "Archived" && !window.confirm("Mark this official job inactive? It will no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept.")) return;
+    setStatusSaving(true);
+    setStatusMessage("");
+    try {
+      const response = await fetch("/api/job-info", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portalJobId: target.portalJobId, active: status === "Active" }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "The official job status could not be saved.");
+      setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: status === "Active", archivedAt: status === "Archived" ? new Date().toISOString() : "" } : item) }));
+      setStatusMessage(status === "Active" ? "Official job restored to the active job list." : "Official job marked inactive. Its history and linked records are retained.");
+    } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
+    finally { setStatusSaving(false); }
   };
   if (job) {
     const documentLinks = job.documentLinks ?? [];
@@ -5836,7 +5883,8 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
     const labourBudgetUsed = labourBudget.carriedCost > 0 ? totals.actualLabourCost / labourBudget.carriedCost : null;
     const labourHoursAreComplete = labourBudget.labourSources > 0 && labourBudget.unitemizedHourSources === 0;
     const labourHoursRemaining = labourHoursAreComplete ? roundMoney(labourBudget.carriedHours - totals.labourHours) : null;
-    const quoteReference = linkedQuote?.number ?? "Quote unavailable";
+    const hasAcceptedQuote = Boolean(acceptedBasis.quote);
+    const quoteReference = linkedQuote?.number ?? (hasAcceptedQuote ? "Accepted quote snapshot" : "Official Portal job · no linked quote");
     const jobChanges = state.quotes
       .filter((quote) => isChangeNotice(quote) && quote.jobId === job.id)
       .sort((left, right) => (left.changeSequence ?? 0) - (right.changeSequence ?? 0));
@@ -5866,9 +5914,10 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
-          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{clientName(state, job.clientId)} · {linkedQuote?.site || "No location"} · Created by {linkedQuote?.preparedBy || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
-          <div className="quote-primary-actions"><button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button><button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" onClick={() => setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
+          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {linkedQuote?.site || job.portalAddress || "No location"} · {job.jobType || "Type not set"} · PM {job.projectManager || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
+          <div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button><button className="button secondary" disabled={!job.portalJobId || statusSaving} onClick={() => void setJobStatus(job.id, job.status === "Active" ? "Archived" : "Active")}>{statusSaving ? "Saving status…" : job.status === "Active" ? "Move to archive" : "Restore active job"}</button></div>
         </div>
+        {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
         <nav className="job-tabs" role="tablist" aria-label={`Job ${job.jobNumber} sections`} aria-orientation="horizontal">
           {jobTabs.map(({ key, label }, index) => <button
             key={key}
@@ -5899,8 +5948,8 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
             <div><span>Job number</span><strong>{job.jobNumber}</strong><small>{job.jobType || "Job type not entered"}</small></div>
             <div><span>Client</span><strong>{job.portalCustomer || clientName(state, job.clientId)}</strong><small>Official Portal customer</small></div>
             <div><span>Job name</span><strong>{job.portalJobName || job.project}</strong><small>Employee job-list name</small></div>
-            <div><span>Project / quote title</span><strong>{job.project || "Not entered"}</strong><small>{quoteReference} · Rev {acceptedBasis.revision ?? 0}</small></div>
-            <div><span>Site</span><strong>{acceptedBasis.quote?.site || "Not entered"}</strong><small>Accepted quote</small></div>
+            <div><span>{hasAcceptedQuote ? "Project / quote title" : "Project"}</span><strong>{job.project || "Not entered"}</strong><small>{hasAcceptedQuote ? `${quoteReference} · Rev ${acceptedBasis.revision ?? 0}` : "No accepted quote linked"}</small></div>
+            <div><span>Site</span><strong>{acceptedBasis.quote?.site || job.portalAddress || "Not entered"}</strong><small>{hasAcceptedQuote ? "Accepted quote" : "Official Portal job"}</small></div>
             <div><span>Address</span><strong>{job.portalAddress || acceptedBasis.quote?.address || "Not entered"}</strong><small>Portal job address</small></div>
             <div><span>Project manager</span><strong>{job.projectManager || "Not assigned"}</strong><small>Job responsibility</small></div>
             <div><span>Schedule</span><strong>{job.startDate ? shortDate(job.startDate) : "Start not set"}</strong><small>{job.targetEndDate ? `Target completion ${shortDate(job.targetEndDate)}` : "Target completion not set"}</small></div>
@@ -5960,13 +6009,14 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
           {documentLinkMessage && <p className={`job-documents-status ${documentLinkError ? "error" : "success"}`} role="status">{documentLinkMessage}</p>}
         </section>
         <section className="job-kpi-grid">
-          <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>
+          {hasAcceptedQuote && <div><span>Revised contract</span><strong>{money(totals.revisedRevenue)}</strong><small>Accepted quote + approved COs</small></div>}
           <div><span>Actual cost</span><strong>{money(totals.actual)}</strong><small>{totals.portalLabour.loadedCost > 0 ? `${money(totals.portalLabour.loadedCost)} Portal labour · ${money(totals.manualActual)} entered` : "Entered actuals"}</small></div>
           <div><span>Labour hours</span><strong>{numberFormatter.format(totals.labourHours)}</strong><small>{totals.portalLabour.hours > 0 ? `${numberFormatter.format(totals.portalLabour.submittedHours)} submitted · ${numberFormatter.format(totals.portalLabour.provisionalHours)} current${totals.manualLabourHours > 0 ? ` · ${numberFormatter.format(totals.manualLabourHours)} adjustment` : ""}` : totals.manualLabourHours > 0 ? `${numberFormatter.format(totals.manualLabourHours)} manual adjustment` : "No Portal hours yet"}</small></div>
-          <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>
+          {hasAcceptedQuote && <div className={totals.margin < 0.15 ? "unfavourable" : "favourable"}><span>Forecast margin</span><strong>{percent(totals.margin)}</strong><small>{money(totals.profit)} profit</small></div>}
         </section>
         </>}
-        {tab === "changes" && <section className="panel change-register-panel">
+        {tab === "changes" && !hasAcceptedQuote && <section className="panel statistics-state-panel"><h2>No accepted quote linked</h2><p>Contract change pricing needs an accepted quote. This job's POs, Work Orders, costs, documents and shop drawings remain available in their own sections.</p></section>}
+        {tab === "changes" && hasAcceptedQuote && <section className="panel change-register-panel">
           <div className="panel-heading"><div><span className="eyebrow">CONTRACT CHANGES</span><h2>Change Notices and Change Orders</h2><p>Price requested work as a separate CCN. Only approved Change Orders update the job contract and cost budget.</p></div><button className="button primary" onClick={() => onCreateChangeNotice(job.id)}>＋ New CCN</button></div>
           <div className="change-summary-grid">
             <div><span>Original contract</span><strong>{money(originalContractValue)}</strong><small>{quoteReference}</small></div>
@@ -6005,7 +6055,9 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
           {!jobChanges.length && <div className="empty-state compact-empty change-empty"><span>±</span><h3>No contract changes yet</h3><p>Create a CCN when extra, deleted or revised work needs separate pricing and approval.</p><button className="button secondary compact" onClick={() => onCreateChangeNotice(job.id)}>＋ Create first CCN</button></div>}
           {closedChanges.length > 0 && <details className="closed-change-register"><summary>{closedChanges.length} rejected or cancelled CCN{closedChanges.length === 1 ? "" : "s"}</summary><div>{closedChanges.map((change) => <button key={change.id} onClick={() => onOpenQuote(change.id, "history")}><span>{change.number}</span><strong>{change.changeTitle || "Change not named"}</strong><ChangeStatusPill quote={change} /></button>)}</div></details>}
         </section>}
-        {tab === "purchase-orders" && <section className="panel subcontract-po-panel">
+        {tab === "purchase-orders" && <>
+        <JobOperationalPurchases statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />
+        <section className="panel subcontract-po-panel">
           <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's actual quoted amount and quote number. JGC carried overrides and customer markup are never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
           {subcontractSources.length ? (
             <div className="data-table-wrap">
@@ -6031,7 +6083,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
               </table>
             </div>
           ) : <div className="empty-state compact-empty"><span>PO</span><h3>No approved subcontractor lines</h3><p>Sub / Vendor lines from the accepted quote and approved Change Orders will appear here automatically.</p></div>}
-        </section>}
+        </section></>}
         {tab === "summary" && <>
         <section className="panel portal-labour-panel">
           <div className="panel-heading"><div><span className="eyebrow">AUTOMATIC PORTAL COSTING</span><h2>Employee labour</h2><p>Confirmed submissions are separated from hours still on current timesheets. Rates remain private; only the loaded job cost is shown here.</p></div><div className="portal-labour-heading-total"><span>Loaded labour cost</span><strong>{money(totals.portalLabour.loadedCost)}</strong></div></div>
@@ -6061,7 +6113,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
             </div>
             {!job.costs.length && <div className="empty-state compact-empty"><span>$</span><h3>No other actuals entered</h3><p>Employee labour appears automatically above. Add supplier, material, subcontractor, equipment or other job costs here.</p></div>}
           </section>
-          <div className="job-insight-column">
+          {hasAcceptedQuote && <div className="job-insight-column">
             <aside className={`panel labour-comparison-panel ${labourRemaining < 0 ? "is-over" : "is-within"}`}>
               <div className="panel-heading"><div><span className="eyebrow">LABOUR CHECK · ACCEPTED REV {acceptedBasis.revision ?? "—"}</span><h2>Labour budget vs actual</h2><p>Compares direct labour carried in the accepted estimate with Portal-loaded labour and manual labour adjustments.</p></div></div>
               <div className="labour-comparison-summary">
@@ -6091,7 +6143,7 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
               </div>
               <label className="field"><span>Estimate follow-up notes</span><textarea rows={4} value={job.notes} onChange={(event) => setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.id === job.id ? { ...item, notes: event.target.value } : item) }))} /></label>
             </aside>
-          </div>
+          </div>}
         </div>
         </>}
         {tab === "shop-drawings" && <section className="panel shop-drawing-panel">
@@ -6173,7 +6225,16 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
-        {tab === "statistics" && <JobStatisticsPanel statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />}
+        {tab === "statistics" && <>
+          <section className="job-kpi-grid job-operational-costs" aria-label="Job costs to date">
+            <div><span>Actual cost to date</span><strong>{jobCostingStatus === "ready" ? money(totals.actual) : "Awaiting labour"}</strong><small>Loaded Portal labour + entered actuals</small></div>
+            <div><span>Loaded labour cost</span><strong>{jobCostingStatus === "ready" ? money(totals.portalLabour.loadedCost) : "Unavailable"}</strong><small>{totals.portalLabour.missingRateHours > 0 ? `${numberFormatter.format(totals.portalLabour.missingRateHours)} hours missing a rate` : "Payroll rates remain private"}</small></div>
+            <div><span>Other actual costs</span><strong>{money(totals.manualActual)}</strong><small>Invoices, materials and entered adjustments</small></div>
+            <div><span>Cost details</span><button className="button secondary compact" onClick={() => setTab("summary")}>Open costing</button><small>POs are commitments, not automatically actual costs</small></div>
+          </section>
+          {jobCostingStatus !== "ready" && <p className="estimating-boundary-note has-warning">{jobCostingMessage || "Labour costing is not available yet; cost totals are not complete."}</p>}
+          <JobStatisticsPanel statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />
+        </>}
         </div>
       </div>
     );
@@ -6183,19 +6244,19 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   const visibleJobs = state.jobs.filter((item) => {
     if (item.status !== statusFilter) return false;
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${linkedQuote?.preparedBy ?? ""} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project}`.toLocaleLowerCase();
+    const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${linkedQuote?.preparedBy ?? ""} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project} ${item.portalJobName ?? ""} ${item.portalCustomer ?? ""} ${item.portalAddress ?? ""} ${item.projectManager ?? ""} ${item.jobType ?? ""}`.toLocaleLowerCase();
     return haystack.includes(normalizedSearch);
   });
   const jobRecords: LibraryRecord<Job>[] = visibleJobs.map((item) => {
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    const creator = linkedQuote?.preparedBy.trim() || "Unassigned";
+    const creator = linkedQuote?.preparedBy.trim() || item.projectManager || "Unassigned";
     const year = (linkedQuote?.quoteDate || item.acceptedAt).slice(0, 4) || "No year";
-    const location = linkedQuote?.site.trim() || "No location";
+    const location = linkedQuote?.site.trim() || item.portalAddress || "No location";
     return {
       item,
       creator: { key: creator.toLocaleLowerCase(), label: creator },
       year: { key: year, label: year },
-      client: { key: item.clientId || "__no_client__", label: clientName(state, item.clientId) },
+      client: { key: item.clientId || item.portalCustomer || "__no_client__", label: item.portalCustomer || clientName(state, item.clientId) },
       location: { key: location.toLocaleLowerCase(), label: location },
       value: jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue,
     };
@@ -6203,17 +6264,28 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
   const renderJobTable = (items: Job[]) => (
     <section className="panel table-panel">
       <div className="table-summary"><strong>{items.length} {statusFilter.toLocaleLowerCase()} job{items.length === 1 ? "" : "s"}</strong><span>{jobSearch.trim() ? "Search results across every folder." : "Open a job to review its accepted estimate and actuals."}</span></div>
-      <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => { const totals = jobTotals(item, portalLabourForJob(item, portalLabourActuals)); const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId); return <tr key={item.id} onClick={() => onOpen(item.id)}><td data-label="Job / quote"><strong>{item.jobNumber}</strong><small>{linkedQuote?.number ?? "Quote unavailable"} · {linkedQuote?.preparedBy || "Unassigned"}</small></td><td data-label="Client / location"><strong>{clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || "No location"} · {item.project}</small></td><td data-label="Accepted price">{money(totals.revisedRevenue)}</td><td data-label="Estimate cost">{money(item.originalCostBudget)}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{percent(totals.margin)}</td><td data-label="Status"><StatusPill status={item.status} /></td></tr>; })}</tbody></table></div>
+      <div className="data-table-wrap"><table className="data-table jobs-table"><thead><tr><th>Job / quote</th><th>Client / location</th><th>Accepted price</th><th>Estimate cost</th><th>Actual cost</th><th>Labour hours</th><th>Forecast margin</th><th>Status</th></tr></thead><tbody>{items.map((item) => {
+        const totals = jobTotals(item, portalLabourForJob(item, portalLabourActuals));
+        const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
+        const hasQuote = Boolean(acceptedQuoteBasis(item, linkedQuote).quote);
+        return <tr key={item.id} onClick={() => onOpen(item.id)}>
+          <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"} · {item.jobType || "Type not set"} · {item.projectManager || linkedQuote?.preparedBy || "PM not assigned"}</small></td>
+          <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || item.portalAddress || "No location"} · {item.project}</small></td>
+          <td data-label="Accepted price">{hasQuote ? money(totals.revisedRevenue) : "—"}</td><td data-label="Estimate cost">{hasQuote ? money(item.originalCostBudget) : "—"}</td><td data-label="Actual cost">{money(totals.actual)}</td><td data-label="Labour hours">{numberFormatter.format(totals.labourHours)}</td><td data-label="Forecast margin">{hasQuote ? percent(totals.margin) : "—"}</td><td data-label="Status"><StatusPill status={item.status} /></td>
+        </tr>;
+      })}</tbody></table></div>
       {!items.length && <div className="empty-state"><span>✓</span><h3>No {statusFilter.toLocaleLowerCase()} jobs found</h3><p>{statusFilter === "Active" ? "Make a finished, accepted quote into a Portal-linked job." : "Archived jobs will remain available here for reference."}</p></div>}
     </section>
   );
 
   return (
-    <div className="page-stack">
-      <PageHeading eyebrow="ACCEPTED ESTIMATES" title="Jobs" description="Browse accepted work by estimator, year, client and work location." />
-      <div className="estimating-boundary-note"><strong>Portal-connected job tracking</strong><p>Create Job links an accepted quote to an existing active Portal job. Inactive Portal jobs appear in the archived estimator view.</p></div>
+    <div className="page-stack job-directory-page">
+      <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
+      <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Archived jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
+      {directoryMessage && <p role="status">{directoryMessage}</p>}
+      <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
       <section className="job-kpi-grid overview">
-        <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Accepted estimates</small></div>
+        <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
         <div><span>Archived jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
         <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
         <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
@@ -6227,6 +6299,26 @@ function JobsPage({ state, setState, job, tab, setTab, onOpen, onBack, onAddCost
       {jobSearch.trim() ? renderJobTable(visibleJobs) : <LibraryFolders records={jobRecords} path={libraryPath} setPath={setLibraryPath} noun="job" renderItems={renderJobTable} />}
     </div>
   );
+}
+
+function OperationalRecordLink({ href, children }: { href?: string; children: React.ReactNode }) {
+  // Only existing same-portal record viewers are allowed, never a URL from a saved description.
+  if (!href || !/^\.\.\/(?:purchase-orders-admin|work-orders|daily-site-report)\.html\?/.test(href)) return null;
+  return <a className="button secondary compact" href={href} target="_blank" rel="noopener noreferrer">{children} ↗</a>;
+}
+
+function JobOperationalPurchases({ statistics, status, message, onRefresh }: {
+  statistics: PortalJobStatistics | null; status: "idle" | "loading" | "ready" | "error"; message: string; onRefresh: () => void;
+}) {
+  return <section className="panel statistics-card job-operational-purchases">
+    <div className="panel-heading"><div><span className="eyebrow">PORTAL PURCHASING</span><h3>Digital and Work Order purchase orders</h3><p>Existing Portal records stay in their original workflow. PO references do not add costs a second time.</p></div><button className="button secondary compact" onClick={onRefresh} disabled={status === "loading"}>Refresh POs</button></div>
+    {status === "loading" || status === "idle" ? <p className="statistics-empty-line">Loading purchase orders…</p> : status === "error" || !statistics ? <p className="statistics-empty-line" role="alert">{message || "Purchase orders could not be loaded."}</p> : <>
+      <h4 className="statistics-section-label">Digital purchase orders</h4>
+      {statistics.digitalPurchaseOrders.length ? <div className="compact-record-list">{statistics.digitalPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.status || "Status unavailable"}</small><OperationalRecordLink href={record.url}>Open PO</OperationalRecordLink></div>)}</div> : <p className="statistics-empty-line">No Digital POs for this job.</p>}
+      <h4 className="statistics-section-label">Work Order / paper POs</h4>
+      {(statistics.manualPurchaseOrders ?? []).length ? <div className="compact-record-list">{statistics.manualPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>WO {record.workOrderNumber} · {record.date ? shortDate(record.date) : "No date"}</small>{record.notes && <p>{record.notes}</p>}<OperationalRecordLink href={record.url}>Open Work Order</OperationalRecordLink></div>)}</div> : <p className="statistics-empty-line">No paper PO references recorded on Work Orders.</p>}
+    </>}
+  </section>;
 }
 
 function JobStatisticsBars({ items, emptyText }: { items: { label: string; hours: number }[]; emptyText: string }) {
@@ -6256,6 +6348,7 @@ function JobStatisticsPanel({ statistics, status, message, onRefresh }: {
       <div><span>Total hours</span><strong>{numberFormatter.format(statistics.totalHours)}</strong><small>Submitted + current</small></div>
       <div><span>Employees</span><strong>{statistics.employeeCount}</strong><small>People recorded</small></div>
       <div><span>Digital POs</span><strong>{statistics.digitalPoCount}</strong><small>Portal purchase orders</small></div>
+      <div><span>Work Order / paper POs</span><strong>{statistics.manualPoCount ?? 0}</strong><small>Recorded PO references</small></div>
       <div><span>Daily reports</span><strong>{statistics.dailyReportCount}</strong><small>Submitted reports</small></div>
       <div><span>Inspections</span><strong>{statistics.inspectionCount}</strong><small>Job-matched records</small></div>
       <div><span>Equipment used</span><strong>{statistics.equipmentCount}</strong><small>Equipment and vehicles</small></div>
@@ -6264,18 +6357,24 @@ function JobStatisticsPanel({ statistics, status, message, onRefresh }: {
     <div className="statistics-chart-grid">
       <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">LABOUR TREND</span><h3>Hours by week</h3></div></div><JobStatisticsBars items={statistics.hoursByWeek} emptyText="No weekly hours recorded yet." /></section>
       <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">CREW TOTALS</span><h3>Hours by employee</h3></div></div><JobStatisticsBars items={statistics.hoursByEmployee} emptyText="No employee hours recorded yet." /></section>
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">ACTIVITY BREAKDOWN</span><h3>Hours by job type</h3></div></div><JobStatisticsBars items={statistics.hoursByJobType ?? []} emptyText="No job-type hours recorded yet." /></section>
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">{statistics.monthLabel || "CURRENT MONTH"}</span><h3>Top employees this month</h3></div></div><JobStatisticsBars items={statistics.topEmployeesThisMonth ?? []} emptyText="No hours recorded this month." /></section>
     </div>
     <section className="panel statistics-card">
       <div className="panel-heading"><div><span className="eyebrow">DAILY SITE ACTIVITY</span><h3>Employees onsite by day</h3><p>Distinct employees and total recorded hours for each work date.</p></div></div>
       {statistics.onsiteByDay.length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>Date</th><th>Employees onsite</th><th>Total hours</th></tr></thead><tbody>{statistics.onsiteByDay.map((day) => <tr key={day.date}><td data-label="Date"><strong>{shortDate(day.date)}</strong></td><td data-label="Employees onsite">{day.employees}</td><td data-label="Total hours"><strong>{numberFormatter.format(day.hours)}</strong></td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No daily labour activity recorded yet.</p>}
     </section>
     <div className="statistics-record-grid">
-      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">PURCHASING</span><h3>Digital purchase orders</h3></div></div>{statistics.digitalPurchaseOrders.length ? <div className="compact-record-list">{statistics.digitalPurchaseOrders.map((record) => <div key={record.id}><span>{record.number}</span><strong>{record.supplier || "Supplier not entered"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.status || "Status unavailable"}</small></div>)}</div> : <p className="statistics-empty-line">No Digital POs for this job.</p>}</section>
-      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">FIELD DOCUMENTATION</span><h3>Daily reports</h3></div></div>{statistics.dailyReports.length ? <div className="compact-record-list">{statistics.dailyReports.map((record) => <div key={record.id}><span>{record.date ? shortDate(record.date) : "No date"}</span><strong>Daily site report</strong><small>{record.worker || "Submitter not recorded"}</small></div>)}</div> : <p className="statistics-empty-line">No Daily Reports for this job.</p>}</section>
+      <JobOperationalPurchases statistics={statistics} status={status} message={message} onRefresh={onRefresh} />
+      <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">FIELD DOCUMENTATION</span><h3>Daily reports</h3></div></div>{statistics.dailyReports.length ? <div className="compact-record-list">{statistics.dailyReports.map((record) => <div key={record.id}><span>{record.date ? shortDate(record.date) : "No date"}</span><strong>Daily site report</strong><small>{record.worker || "Submitter not recorded"}</small><OperationalRecordLink href={record.url}>Open daily report</OperationalRecordLink></div>)}</div> : <p className="statistics-empty-line">No Daily Reports for this job.</p>}</section>
       <section className="panel statistics-card"><div className="panel-heading"><div><span className="eyebrow">QUALITY AND SAFETY</span><h3>Inspections</h3></div></div>{statistics.inspections.length ? <div className="compact-record-list">{statistics.inspections.map((record) => <div key={record.id}><span>{record.type || "Inspection"}</span><strong>{record.title || "Inspection record"}</strong><small>{record.date ? shortDate(record.date) : "No date"} · {record.worker || "Inspector not recorded"}</small></div>)}</div> : <p className="statistics-empty-line">No Inspections for this job.</p>}</section>
-      <section className="panel statistics-card statistics-work-orders-card"><div className="panel-heading"><div><span className="eyebrow">WORK AUTHORIZATION</span><h3>Work Orders</h3></div></div>{statistics.workOrders.length ? <div className="data-table-wrap statistics-work-orders-table"><table className="data-table"><thead><tr><th>WO #</th><th>Date</th><th>Status</th></tr></thead><tbody>{statistics.workOrders.map((record) => <tr key={record.id}><td data-label="WO #"><strong>{record.number}</strong></td><td data-label="Date">{record.date ? shortDate(record.date) : "No date"}</td><td data-label="Status">{record.status || "Status unavailable"}</td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No Work Orders for this job.</p>}</section>
+      <section className="panel statistics-card statistics-work-orders-card"><div className="panel-heading"><div><span className="eyebrow">WORK AUTHORIZATION</span><h3>Work Orders</h3></div></div>{statistics.workOrders.length ? <div className="data-table-wrap statistics-work-orders-table"><table className="data-table"><thead><tr><th>WO #</th><th>Date</th><th>Status</th><th>Record</th></tr></thead><tbody>{statistics.workOrders.map((record) => <tr key={record.id}><td data-label="WO #"><strong>{record.number}</strong></td><td data-label="Date">{record.date ? shortDate(record.date) : "No date"}</td><td data-label="Status">{record.status || "Status unavailable"}</td><td data-label="Record"><OperationalRecordLink href={record.url}>Open WO</OperationalRecordLink></td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No Work Orders for this job.</p>}</section>
       <section className="panel statistics-card statistics-equipment-card"><div className="panel-heading"><div><span className="eyebrow">RESOURCES</span><h3>Equipment and vehicles used</h3></div></div>{statistics.equipment.length ? <div className="compact-record-list">{statistics.equipment.map((record) => <div key={record.id}><span>{record.kind}</span><strong>{record.name}</strong><small>{record.identifier || "No identifier"}{record.workOrderNumber ? ` · WO ${record.workOrderNumber}` : ""}</small></div>)}</div> : <p className="statistics-empty-line">No equipment or vehicles recorded for this job.</p>}</section>
     </div>
+    <section className="panel statistics-card statistics-wo-labour">
+      <div className="panel-heading"><div><span className="eyebrow">SEPARATE WORK ORDER RECORDS</span><h3>Work Order-only labour</h3><p>{numberFormatter.format(statistics.workOrderOnlyHours ?? 0)} hours entered directly on Work Orders. These are not added to the timesheet totals, payroll or loaded job cost above. Reconcile them with timesheets before treating them as additional hours.</p></div></div>
+      {(statistics.workOrderOnlyLabour ?? []).length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>WO #</th><th>Employee</th><th>Date</th><th>Hours</th><th>Record</th></tr></thead><tbody>{statistics.workOrderOnlyLabour.map((entry) => <tr key={entry.id}><td data-label="WO #">{entry.workOrderNumber}</td><td data-label="Employee">{entry.worker}</td><td data-label="Date">{entry.date ? shortDate(entry.date) : "No date"}</td><td data-label="Hours">{numberFormatter.format(entry.hours)}</td><td data-label="Record"><OperationalRecordLink href={entry.url}>Open WO</OperationalRecordLink></td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No separate Work Order labour recorded.</p>}
+    </section>
   </div>;
 }
 

@@ -3,6 +3,7 @@ import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, Supplier
 import { normalizeMaterialName } from "../lib/material-price-workbook";
 import { normalizeSupplierSku } from "../lib/supplier-price-parser";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
+import { jobImportNumberKey, validateJobImportRecords, type JobImportRecord } from "../lib/job-workbook-import";
 
 type SupabaseResult<T> = { data: T | null; error: { message?: string } | null; count?: number | null };
 
@@ -39,19 +40,27 @@ export interface PortalJobStatistics {
   jobNumber: string;
   generatedAt: string;
   totalHours: number;
+  timesheetHours: number;
+  workOrderOnlyHours: number;
   employeeCount: number;
   digitalPoCount: number;
+  manualPoCount: number;
   dailyReportCount: number;
   inspectionCount: number;
   workOrderCount: number;
   equipmentCount: number;
   hoursByWeek: Array<{ label: string; startDate: string; hours: number }>;
   hoursByEmployee: Array<{ label: string; hours: number }>;
+  hoursByJobType: Array<{ label: string; hours: number }>;
+  monthLabel: string;
+  topEmployeesThisMonth: Array<{ label: string; hours: number }>;
+  workOrderOnlyLabour: Array<{ id: string; workOrderId: string; workOrderNumber: string; worker: string; date: string; hours: number; matchedTimesheetEntryId: string; url: string }>;
   onsiteByDay: Array<{ date: string; employees: number; hours: number }>;
-  digitalPurchaseOrders: Array<{ id: string; number: string; supplier: string; date: string; status: string }>;
-  dailyReports: Array<{ id: string; date: string; worker: string }>;
+  digitalPurchaseOrders: Array<{ id: string; number: string; supplier: string; date: string; status: string; url: string }>;
+  manualPurchaseOrders: Array<{ id: string; number: string; supplier: string; date: string; status: string; source: "work-order"; workOrderId: string; workOrderNumber: string; notes: string; url: string }>;
+  dailyReports: Array<{ id: string; date: string; worker: string; url: string }>;
   inspections: Array<{ id: string; type: string; title: string; date: string; worker: string }>;
-  workOrders: Array<{ id: string; number: string; date: string; status: string }>;
+  workOrders: Array<{ id: string; number: string; date: string; status: string; url: string }>;
   equipment: Array<{ id: string; name: string; identifier: string; kind: string; workOrderNumber: string }>;
   schedule: Array<{ id: string; date: string; title: string; type: string }>;
 }
@@ -192,18 +201,123 @@ function portalJobOption(row: Record<string, any>): PortalJobOption {
   };
 }
 
+const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
+
+async function loadPortalJobRows(client: any) {
+  const result = await loadPortalStatisticPages(() => client
+    .from("jobs")
+    .select(PORTAL_JOB_FIELDS, { count: "exact" })
+    .order("job_number", { ascending: false })
+    .order("id", { ascending: true }));
+  if (result.error) throw new Error(result.error.message || "Portal jobs could not be loaded completely.");
+  return result.data;
+}
+
 async function loadPortalReferences(client: any) {
-  const [vendors, jobsResult] = await Promise.all([
+  const [vendors, jobRows] = await Promise.all([
     loadPortalVendors(client),
-    client
-      .from("jobs")
-      .select("id,job_number,job_name,customer,address,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label")
-      .order("job_number", { ascending: false }),
+    loadPortalJobRows(client),
   ]);
-  if (jobsResult.error) throw new Error(jobsResult.error.message || "Portal jobs could not be loaded.");
-  const portalJobs: PortalJobOption[] = (jobsResult.data ?? []).map(portalJobOption);
+  const portalJobs: PortalJobOption[] = jobRows.map(portalJobOption);
   bridgeWindow.JGC_ESTIMATOR_PORTAL_JOBS = portalJobs;
   return { vendors, portalJobs };
+}
+
+async function jobsResponse(client: any, request: Request) {
+  if (request.method !== "GET") return json({ error: "Use the reviewed job import or job detail controls to update jobs." }, 405);
+  const accessError = await portalJobAdminAccessError(client);
+  if (accessError) return accessError;
+  const jobs = (await loadPortalJobRows(client)).map(portalJobOption);
+  bridgeWindow.JGC_ESTIMATOR_PORTAL_JOBS = jobs;
+  return json({ jobs });
+}
+
+async function jobImportSnapshot(rows: Record<string, any>[], protectedIds: string[], records: JobImportRecord[]) {
+  const serialized = JSON.stringify({
+    rows: [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id))).map((row) => Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)))),
+    protectedIds: [...protectedIds].sort(),
+    records: [...records].sort((a, b) => jobImportNumberKey(a.jobNumber).localeCompare(jobImportNumberKey(b.jobNumber))),
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function jobImportResponse(client: any, request: Request) {
+  if (request.method !== "POST") return json({ error: "Job imports require a reviewed workbook." }, 405);
+  const accessError = await portalJobAdminAccessError(client);
+  if (accessError) return accessError;
+  const body = await request.json() as Record<string, any>;
+  if (!body || typeof body !== "object" || !Array.isArray(body.records)) return json({ error: "A workbook job-record array is required." }, 400);
+  if (!["preview", "apply"].includes(body.action)) return json({ error: "Choose preview or apply for this job import." }, 400);
+  const validationErrors = validateJobImportRecords(body.records);
+  if (validationErrors.length) return json({ error: validationErrors.join(" ") }, 400);
+  const records: JobImportRecord[] = body.records.map((row: JobImportRecord) => ({
+    jobNumber: row.jobNumber.trim(), jobName: row.jobName.trim(),
+    projectManager: row.projectManager.trim(), jobType: row.jobType.trim(), active: row.active,
+  }));
+  const [rows, workspace] = await Promise.all([
+    loadPortalJobRows(client),
+    client.from("estimator_workspaces").select("payload").eq("id", STATE_ID).maybeSingle(),
+  ]);
+  if (workspace.error) throw new Error(workspace.error.message || "Linked estimate jobs could not be checked. No jobs were changed.");
+  const byNumber = new Map<string, Record<string, any>>();
+  for (const row of rows) {
+    const key = jobImportNumberKey(String(row.job_number ?? ""));
+    if (byNumber.has(key)) return json({ error: "The Portal contains ambiguous duplicate job numbers. Resolve those before importing." }, 409);
+    byNumber.set(key, row);
+  }
+  const protectedIds = new Set<string>();
+  for (const job of Array.isArray(workspace.data?.payload?.jobs) ? workspace.data.payload.jobs : []) {
+    if (!job.quoteId && !job.acceptedQuoteSnapshot) continue;
+    const matched = job.portalJobId ? rows.find((row) => row.id === job.portalJobId) : byNumber.get(jobImportNumberKey(String(job.jobNumber ?? "")));
+    if (matched) protectedIds.add(String(matched.id));
+  }
+  const importedNumbers = new Set(records.map((row) => jobImportNumberKey(row.jobNumber)));
+  const missing = rows.filter((row) => row.active !== false && !importedNumbers.has(jobImportNumberKey(String(row.job_number ?? ""))));
+  const previewJob = (row: Record<string, any>) => ({ id: String(row.id), jobNumber: String(row.job_number), jobName: String(row.job_name) });
+  const missingJobs = missing.filter((row) => !protectedIds.has(String(row.id))).map(previewJob);
+  const snapshot = await jobImportSnapshot(rows, [...protectedIds], records);
+  const preview = {
+    insertCount: records.filter((row) => !byNumber.has(jobImportNumberKey(row.jobNumber))).length,
+    updateCount: records.filter((row) => byNumber.has(jobImportNumberKey(row.jobNumber))).length,
+    activeCount: records.filter((row) => row.active).length,
+    inactiveCount: records.filter((row) => !row.active).length,
+    missingJobs,
+    protectedMissingJobs: missing.filter((row) => protectedIds.has(String(row.id))).map(previewJob),
+    snapshot,
+  };
+  if (body.action === "preview") return json({ preview });
+  if (typeof body.expectedSnapshot !== "string" || body.expectedSnapshot !== snapshot) return json({ error: "The Portal job list or workbook changed after preview. Preview again before importing.", preview }, 409);
+  if (!Array.isArray(body.deactivateMissingJobIds) || body.deactivateMissingJobIds.some((id: unknown) => typeof id !== "string")) return json({ error: "Select the exact missing jobs to make inactive, or leave the selection empty." }, 400);
+  const deactivateIds = new Set<string>(body.deactivateMissingJobIds);
+  const permittedIds = new Set(missingJobs.map((job) => job.id));
+  if ([...deactivateIds].some((id) => !permittedIds.has(id))) return json({ error: "Only missing, unquoted jobs from this preview can be made inactive by the import." }, 400);
+  const updatedAt = new Date().toISOString();
+  const payload = records.map((record) => {
+    const existing = byNumber.get(jobImportNumberKey(record.jobNumber));
+    return {
+      job_number: existing?.job_number ?? record.jobNumber,
+      job_name: record.jobName, project_manager: record.projectManager, job_type: record.jobType,
+      active: record.active, removed_from_import_at: null as string | null,
+      archive_until: null, updated_at: updatedAt,
+    };
+  });
+  for (const row of missing) {
+    if (!deactivateIds.has(String(row.id))) continue;
+    payload.push({ job_number: row.job_number, job_name: row.job_name, project_manager: row.project_manager, job_type: row.job_type, active: false, removed_from_import_at: updatedAt, archive_until: null, updated_at: updatedAt });
+  }
+  // One statement, with identical import-managed keys on every row. Omitting all
+  // IDs/document/client/address/date columns preserves those fields on conflicts.
+  const applied = await client.from("jobs").upsert(payload, { onConflict: "job_number", defaultToNull: false });
+  if (applied.error) throw new Error(applied.error.message || "The job import failed. No jobs were changed.");
+  let jobs: PortalJobOption[];
+  try {
+    jobs = (await loadPortalJobRows(client)).map(portalJobOption);
+    bridgeWindow.JGC_ESTIMATOR_PORTAL_JOBS = jobs;
+  } catch {
+    return json({ saved: true, preview, refreshRequired: true, message: "Import saved, but the refreshed list could not be loaded. Refresh Jobs before making more changes." });
+  }
+  return json({ saved: true, preview, jobs, message: `${records.length} jobs imported; ${deactivateIds.size} reviewed missing jobs made inactive. Existing job IDs and linked records were retained.` });
 }
 
 function vendorPayload(body: Record<string, any>) {
@@ -263,17 +377,40 @@ function cleanPortalDate(value: unknown, label: string) {
   return date;
 }
 
+async function portalJobAdminAccessError(client: any) {
+  // Refresh the authenticated identity and database profile rather than trusting
+  // user-editable metadata or only the page's earlier bootstrap check. RLS remains authoritative.
+  const auth = await client.auth.getUser();
+  if (auth.error || !auth.data?.user?.id) return json({ error: "Sign in with an approved administrator account to manage jobs." }, 403);
+  const profile = await client.from("profiles").select("role,account_status").eq("id", auth.data.user.id).single();
+  if (profile.error) throw new Error(profile.error.message || "Your job-management access could not be verified.");
+  if (profile.data?.role !== "admin" || profile.data?.account_status !== "approved") return json({ error: "Approved administrator access is required to manage jobs." }, 403);
+  return null;
+}
+
 async function mutatePortalJobInfo(client: any, request: Request) {
   if (request.method !== "PATCH") return json({ error: "This job information action is not supported." }, 405);
+  const accessError = await portalJobAdminAccessError(client);
+  if (accessError) return accessError;
   const body = await request.json() as Record<string, any>;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Job information must be a valid object." }, 400);
   const portalJobId = cleanPortalText(body.portalJobId, 100);
   if (!portalJobId) return json({ error: "This estimator job is not linked to a Portal job." }, 400);
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  if (has("jobNumber") || has("job_number") || has("id")) return json({ error: "Official job numbers and IDs cannot be changed here." }, 400);
+  if (has("active")) {
+    if (typeof body.active !== "boolean") return json({ error: "Job active status must be true or false." }, 400);
+    payload.active = body.active;
+    payload.removed_from_import_at = body.active ? null : payload.updated_at;
+    payload.archive_until = null;
+  }
   if (has("jobName")) {
-    const jobName = cleanPortalText(body.jobName, 150);
+    if (typeof body.jobName !== "string") return json({ error: "The official Portal job name must be text." }, 400);
+    const jobName = body.jobName.trim();
     if (!jobName) return json({ error: "The official Portal job name cannot be blank." }, 400);
+    if (jobName.length > 300) return json({ error: "The official Portal job name must be 300 characters or fewer." }, 400);
     payload.job_name = jobName;
   }
   if (has("customer")) payload.customer = cleanPortalText(body.customer, 200) || null;
@@ -386,6 +523,9 @@ async function loadPortalStatisticPages(queryFactory: () => any): Promise<Portal
       if (id) seenIds.add(id);
     }
     data.push(...rows);
+    if (!rows.length && expectedCount !== null && data.length < expectedCount) {
+      return { data: [], error: { code: "PORTAL_STATISTICS_PAGINATION", message: "Portal records changed or stopped loading before the full list was received. Refresh and try again." } };
+    }
     if (!rows.length || (expectedCount !== null ? data.length >= expectedCount : rows.length < PORTAL_STATISTICS_PAGE_SIZE)) {
       return { data, error: null };
     }
@@ -411,12 +551,14 @@ async function loadPortalStatisticIdChunks(ids: string[], queryFactory: (chunk: 
 
 async function jobStatisticsResponse(client: any, request: Request, url: URL) {
   if (request.method !== "GET") return json({ error: "Job statistics are read-only." }, 405);
+  const accessError = await portalJobAdminAccessError(client);
+  if (accessError) return accessError;
   const portalJobId = cleanPortalText(url.searchParams.get("portalJobId"), 100);
   if (!portalJobId) return json({ error: "A linked Portal job is required." }, 400);
 
   const jobResult = await client
     .from("jobs")
-    .select("id,job_number,job_name")
+    .select("id,job_number,job_name,job_type")
     .eq("id", portalJobId)
     .single();
   if (jobResult.error) {
@@ -430,7 +572,7 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
   const jobDisplay = [jobNumber, jobName].filter(Boolean).join(" - ");
   const reportProjects = [...new Set([jobNumber, jobDisplay].filter(Boolean))];
 
-  const [submittedResult, liveResult, digitalPoResult, dailyResult, inspectionResult, workOrdersByIdResult, legacyWorkOrdersResult, scheduleByIdResult, legacyScheduleResult] = await Promise.all([
+  const [submittedResult, liveResult, digitalPoResult, dailyResult, inspectionResult, workOrdersByIdResult, legacyWorkOrdersResult, scheduleByIdResult, legacyScheduleResult, manualJobDigitalPoResult] = await Promise.all([
     loadPortalStatisticPages(() => client.from("accounting_time_entries").select("id,source_entry_key,profile_id,worker_name,work_date,payable_hours", { count: "exact" }).eq("job_id", portalJobId).eq("is_current", true).eq("entry_type", "work").gt("payable_hours", 0).order("work_date", { ascending: true }).order("id", { ascending: true })),
     loadPortalStatisticPages(() => client.from("timesheet_entries").select("id,profile_id,worker_name,week_start,day_of_week,hours", { count: "exact" }).eq("job_number", jobNumber).eq("entry_type", "work").gt("hours", 0).order("week_start", { ascending: true }).order("id", { ascending: true })),
     loadPortalStatisticPages(() => client.from("digital_purchase_orders").select("id,po_number,supplier_name,order_date,workflow_status,email_status,created_at", { count: "exact" }).eq("job_id", portalJobId).order("order_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false })),
@@ -440,8 +582,9 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
     loadPortalStatisticPages(() => client.from("work_orders").select("id,wo_number,work_order_date,status,submitted_at,created_at,locked", { count: "exact" }).is("job_id", null).eq("job_number", jobNumber).order("work_order_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false })),
     loadPortalStatisticPages(() => client.from("schedule_events").select("id,event_date,title,event_type,job_name,location", { count: "exact" }).eq("job_id", portalJobId).order("event_date", { ascending: true }).order("start_time", { ascending: true }).order("id", { ascending: true })),
     loadPortalStatisticPages(() => client.from("schedule_events").select("id,event_date,title,event_type,job_name,location", { count: "exact" }).is("job_id", null).eq("job_number", jobNumber).order("event_date", { ascending: true }).order("start_time", { ascending: true }).order("id", { ascending: true })),
+    loadPortalStatisticPages(() => client.from("digital_purchase_orders").select("id,po_number,supplier_name,order_date,workflow_status,email_status,created_at", { count: "exact" }).is("job_id", null).eq("job_number", jobNumber).order("order_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
-  const primaryResults = [submittedResult, liveResult, digitalPoResult, dailyResult, inspectionResult, workOrdersByIdResult, legacyWorkOrdersResult, scheduleByIdResult, legacyScheduleResult];
+  const primaryResults = [submittedResult, liveResult, digitalPoResult, dailyResult, inspectionResult, workOrdersByIdResult, legacyWorkOrdersResult, scheduleByIdResult, legacyScheduleResult, manualJobDigitalPoResult];
   const primaryError = primaryResults.find((result) => result.error)?.error;
   if (primaryError) {
     const restricted = primaryError.code === "42501";
@@ -452,7 +595,7 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
   const workOrderIds = workOrderRows.map((row) => String(row.id)).filter(Boolean);
   const liveIds = (liveResult.data ?? []).map((row: Record<string, any>) => String(row.id ?? "")).filter(Boolean);
   const emptyResult: PortalRowsResult = { data: [], error: null };
-  const [capturedResult, equipmentResult, travelResult, manualLabourResult] = await Promise.all([
+  const [capturedResult, equipmentResult, travelResult, manualLabourResult, manualPoResult] = await Promise.all([
     liveIds.length
       ? loadPortalStatisticIdChunks(liveIds, (chunk) => client.from("accounting_time_entries").select("id,source_entry_key", { count: "exact" }).eq("is_current", true).in("source_entry_key", chunk).order("id", { ascending: true }))
       : Promise.resolve(emptyResult),
@@ -465,8 +608,11 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
     workOrderIds.length
       ? loadPortalStatisticIdChunks(workOrderIds, (chunk) => client.from("work_order_labour").select("id,work_order_id,employee_id,employee_name,worker_key,hours,notes,matched_timesheet_entry_id", { count: "exact" }).in("work_order_id", chunk).order("id", { ascending: true }))
       : Promise.resolve(emptyResult),
+    workOrderIds.length
+      ? loadPortalStatisticIdChunks(workOrderIds, (chunk) => client.from("work_order_purchase_orders").select("id,work_order_id,po_number,company_name,notes", { count: "exact" }).in("work_order_id", chunk).order("id", { ascending: true }))
+      : Promise.resolve(emptyResult),
   ]);
-  const relatedResults = [capturedResult, equipmentResult, travelResult, manualLabourResult];
+  const relatedResults = [capturedResult, equipmentResult, travelResult, manualLabourResult, manualPoResult];
   const relatedError = relatedResults.find((result) => result.error)?.error;
   if (relatedError) {
     const restricted = relatedError.code === "42501";
@@ -490,16 +636,29 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
     pushLabour(row.profile_id, row.worker_name, addPortalDays(row.week_start, portalDayOffset(row.day_of_week)), row.hours);
   }
   const workOrdersById = new Map(workOrderRows.map((row) => [String(row.id), row]));
+  const workOrderOnlyLabour: PortalJobStatistics["workOrderOnlyLabour"] = [];
   const finalizedWorkOrderIds = new Set(workOrderRows.filter((row) => row.locked || cleanPortalText(row.status, 50).toLowerCase() === "submitted").map((row) => String(row.id)));
   for (const row of manualLabourResult.data ?? []) {
     const manual = cleanPortalText(row.worker_key, 150).toLowerCase().startsWith("manual-") || cleanPortalText(row.notes, 150).toLowerCase() === "manual labour entry";
     if (!manual || row.matched_timesheet_entry_id || !finalizedWorkOrderIds.has(String(row.work_order_id))) continue;
     const workOrder = workOrdersById.get(String(row.work_order_id));
-    pushLabour(row.employee_id || row.worker_key, row.employee_name, workOrder?.work_order_date || workOrder?.submitted_at || workOrder?.created_at, row.hours);
+    const hours = roundPortalHours(row.hours);
+    if (hours <= 0) continue;
+    // WO-only labour is evidence awaiting reconciliation, not additional payroll.
+    // Keep it separate even when it has not yet been explicitly linked to a timesheet.
+    workOrderOnlyLabour.push({
+      id: String(row.id), workOrderId: String(row.work_order_id), workOrderNumber: cleanPortalText(workOrder?.wo_number, 100),
+      worker: cleanPortalText(row.employee_name, 150) || "Manual labour",
+      date: portalRecordDate(workOrder?.work_order_date || workOrder?.submitted_at || workOrder?.created_at),
+      hours, matchedTimesheetEntryId: "", url: `../work-orders.html?wo=${encodeURIComponent(String(row.work_order_id))}`,
+    });
   }
 
   const weekHours = new Map<string, number>();
   const employeeHours = new Map<string, { label: string; hours: number }>();
+  const monthlyEmployeeHours = new Map<string, { label: string; hours: number }>();
+  const monthParts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: "America/Toronto" }).formatToParts(new Date());
+  const monthKey = `${monthParts.find((part) => part.type === "year")?.value}-${monthParts.find((part) => part.type === "month")?.value}`;
   const dailyHours = new Map<string, { hours: number; employees: Set<string> }>();
   const employeeIds = new Set<string>();
   for (const row of labour) {
@@ -509,6 +668,11 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
     const employee = employeeHours.get(row.identity) ?? { label: row.worker, hours: 0 };
     employee.hours += row.hours;
     employeeHours.set(row.identity, employee);
+    if (row.date.startsWith(`${monthKey}-`)) {
+      const monthly = monthlyEmployeeHours.get(row.identity) ?? { label: row.worker, hours: 0 };
+      monthly.hours += row.hours;
+      monthlyEmployeeHours.set(row.identity, monthly);
+    }
     const day = dailyHours.get(row.date) ?? { hours: 0, employees: new Set<string>() };
     day.hours += row.hours;
     day.employees.add(row.identity);
@@ -516,7 +680,7 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
   }
 
   const workOrders: PortalJobStatistics["workOrders"] = workOrderRows
-    .map((row) => ({ id: String(row.id ?? ""), number: cleanPortalText(row.wo_number, 100), date: portalRecordDate(row.work_order_date || row.created_at), status: portalDisplayStatus(row.status) }))
+    .map((row) => ({ id: String(row.id ?? ""), number: cleanPortalText(row.wo_number, 100), date: portalRecordDate(row.work_order_date || row.created_at), status: portalDisplayStatus(row.status), url: `../work-orders.html?wo=${encodeURIComponent(String(row.id))}` }))
     .sort((left, right) => right.date.localeCompare(left.date));
   const workOrderNumber = new Map(workOrders.map((row) => [row.id, row.number]));
   const equipment: PortalJobStatistics["equipment"] = [];
@@ -529,28 +693,41 @@ async function jobStatisticsResponse(client: any, request: Request, url: URL) {
     if (row.trailer_used && (row.trailer_name || row.trailer_identification_number)) equipment.push({ id: `${id}-trailer`, name: cleanPortalText(row.trailer_name, 200) || "Trailer", identifier: cleanPortalText(row.trailer_identification_number, 150), kind: "Trailer", workOrderNumber: workOrderNumber.get(String(row.work_order_id)) ?? "" });
   }
 
-  const digitalPurchaseOrders: PortalJobStatistics["digitalPurchaseOrders"] = (digitalPoResult.data ?? []).map((row: Record<string, any>) => ({ id: String(row.id ?? ""), number: String(row.po_number ?? ""), supplier: cleanPortalText(row.supplier_name, 200), date: portalRecordDate(row.order_date || row.created_at), status: portalDigitalPoStatus(row) }));
-  const dailyReports: PortalJobStatistics["dailyReports"] = (dailyResult.data ?? []).map((row: Record<string, any>) => ({ id: String(row.id ?? ""), date: portalRecordDate(row.report_date || row.created_at), worker: cleanPortalText(row.worker_display_name || row.worker_name, 150) }));
+  const digitalPurchaseOrders: PortalJobStatistics["digitalPurchaseOrders"] = uniquePortalRows([...(digitalPoResult.data ?? []), ...(manualJobDigitalPoResult.data ?? [])]).map((row: Record<string, any>) => ({ id: String(row.id ?? ""), number: String(row.po_number ?? ""), supplier: cleanPortalText(row.supplier_name, 200), date: portalRecordDate(row.order_date || row.created_at), status: portalDigitalPoStatus(row), url: `../purchase-orders-admin.html?po=${encodeURIComponent(String(row.id))}` })).sort((left, right) => right.date.localeCompare(left.date) || right.number.localeCompare(left.number, "en-CA", { numeric: true }));
+  const manualPurchaseOrders: PortalJobStatistics["manualPurchaseOrders"] = (manualPoResult.data ?? []).map((row: Record<string, any>) => {
+    const parent = workOrdersById.get(String(row.work_order_id));
+    return { id: String(row.id), number: cleanPortalText(row.po_number, 100), supplier: cleanPortalText(row.company_name, 200), date: portalRecordDate(parent?.work_order_date || parent?.created_at), status: portalDisplayStatus(parent?.status), source: "work-order" as const, workOrderId: String(row.work_order_id), workOrderNumber: cleanPortalText(parent?.wo_number, 100), notes: cleanPortalText(row.notes, 2000), url: `../work-orders.html?wo=${encodeURIComponent(String(row.work_order_id))}` };
+  }).sort((left, right) => right.date.localeCompare(left.date) || right.number.localeCompare(left.number, "en-CA", { numeric: true }));
+  const dailyReports: PortalJobStatistics["dailyReports"] = (dailyResult.data ?? []).map((row: Record<string, any>) => ({ id: String(row.id ?? ""), date: portalRecordDate(row.report_date || row.created_at), worker: cleanPortalText(row.worker_display_name || row.worker_name, 150), url: `../daily-site-report.html?reportId=${encodeURIComponent(String(row.id))}&mode=view&return=admin` }));
   const inspections: PortalJobStatistics["inspections"] = (inspectionResult.data ?? []).map((row: Record<string, any>) => ({ id: String(row.id ?? ""), type: cleanPortalText(row.inspection_type, 150), title: cleanPortalText(row.title || row.inspection_type, 250), date: portalRecordDate(row.inspection_date || row.created_at), worker: cleanPortalText(row.worker_display_name || row.worker_name, 150) }));
   const schedule: PortalJobStatistics["schedule"] = uniquePortalRows([...(scheduleByIdResult.data ?? []), ...(legacyScheduleResult.data ?? [])])
     .map((row) => ({ id: String(row.id ?? ""), date: portalRecordDate(row.event_date), title: cleanPortalText(row.title || row.job_name || row.location || "Scheduled work", 250), type: portalDisplayStatus(row.event_type || "work") }))
     .sort((left, right) => left.date.localeCompare(right.date));
 
+  const timesheetHours = roundPortalHours(labour.reduce((sum, row) => sum + row.hours, 0));
   const response: PortalJobStatistics = {
     portalJobId,
     jobNumber,
     generatedAt: new Date().toISOString(),
-    totalHours: roundPortalHours(labour.reduce((sum, row) => sum + row.hours, 0)),
+    totalHours: timesheetHours,
+    timesheetHours,
+    workOrderOnlyHours: roundPortalHours(workOrderOnlyLabour.reduce((sum, row) => sum + row.hours, 0)),
+    workOrderOnlyLabour,
     employeeCount: employeeIds.size,
     digitalPoCount: digitalPurchaseOrders.length,
+    manualPoCount: manualPurchaseOrders.length,
     dailyReportCount: dailyReports.length,
     inspectionCount: inspections.length,
     workOrderCount: workOrders.length,
     equipmentCount: equipment.length,
     hoursByWeek: [...weekHours.entries()].filter(([startDate]) => Boolean(startDate)).sort(([left], [right]) => left.localeCompare(right)).map(([startDate, hours]) => ({ label: portalWeekLabel(startDate), startDate, hours: roundPortalHours(hours) })),
     hoursByEmployee: [...employeeHours.values()].map((row) => ({ label: row.label, hours: roundPortalHours(row.hours) })).sort((left, right) => right.hours - left.hours || left.label.localeCompare(right.label)),
+    hoursByJobType: [{ label: cleanPortalText(jobResult.data.job_type, 60) || "Not specified", hours: timesheetHours }],
+    monthLabel: new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "long", timeZone: "America/Toronto" }).format(new Date()),
+    topEmployeesThisMonth: [...monthlyEmployeeHours.values()].map((row) => ({ label: row.label, hours: roundPortalHours(row.hours) })).sort((left, right) => right.hours - left.hours || left.label.localeCompare(right.label)).slice(0, 5),
     onsiteByDay: [...dailyHours.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([date, row]) => ({ date, employees: row.employees.size, hours: roundPortalHours(row.hours) })),
     digitalPurchaseOrders,
+    manualPurchaseOrders,
     dailyReports,
     inspections,
     workOrders,
@@ -648,9 +825,11 @@ async function mutatePortalContact(client: any, request: Request) {
 function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJobOption[]) {
   const portalById = new Map(portalJobs.map((job) => [job.id, job]));
   const portalByNumber = new Map(portalJobs.map((job) => [job.jobNumber.trim().toLowerCase(), job]));
-  const jobs: Job[] = state.jobs.map((job) => {
-    const portal = (job.portalJobId && portalById.get(job.portalJobId)) || portalByNumber.get(job.jobNumber.trim().toLowerCase());
+  const connectedIds = new Set<string>();
+  const mergePortalJob = (job: Job): Job => {
+    const portal = job.portalJobId ? portalById.get(job.portalJobId) : portalByNumber.get(job.jobNumber.trim().toLowerCase());
     if (!portal) return job;
+    connectedIds.add(portal.id);
     const archived = !portal.active;
     const portalDocumentLinkId = `portal-job-link-${job.id}`;
     const savedDocumentLinks = job.documentLinks ?? [];
@@ -668,6 +847,7 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
     return {
       ...job,
       jobNumber: portal.jobNumber,
+      project: job.quoteId ? job.project : portal.jobName,
       portalJobId: portal.id,
       portalActive: portal.active,
       portalLastSyncedAt: new Date().toISOString(),
@@ -684,8 +864,38 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
       status: archived ? "Archived" : "Active",
       archivedAt: archived ? (job.archivedAt || new Date().toISOString()) : "",
     };
-  });
+  };
+  const jobs: Job[] = state.jobs.map(mergePortalJob);
+  for (const portal of portalJobs) {
+    if (!portal.id || connectedIds.has(portal.id)) continue;
+    // Official jobs do not need an invented quote to use the job workspace.
+    jobs.push(mergePortalJob({
+      id: `portal-job-${portal.id}`,
+      portalJobId: portal.id,
+      jobNumber: portal.jobNumber,
+      quoteId: "",
+      clientId: "",
+      project: portal.jobName,
+      status: portal.active ? "Active" : "Archived",
+      acceptedRevenue: 0,
+      originalCostBudget: 0,
+      approvedRevenueChanges: 0,
+      approvedCostChanges: 0,
+      estimateToComplete: 0,
+      acceptedAt: "",
+      costs: [],
+      purchaseOrders: [],
+      shopDrawings: [],
+      documentLinks: [],
+      notes: "",
+    }));
+  }
   return { ...state, vendors, jobs };
+}
+
+/** Refresh canonical job metadata without replacing unsaved local quote/cost state. */
+export function synchronizePortalJobs(state: AppState, canonicalJobs: PortalJobOption[]) {
+  return syncPortalData(state, state.vendors, canonicalJobs);
 }
 
 async function getState(client: any) {
@@ -1001,6 +1211,8 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
   if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
   if (url.pathname.endsWith("/api/job-statistics")) return jobStatisticsResponse(client, request, url);
   if (url.pathname.endsWith("/api/job-info")) return mutatePortalJobInfo(client, request);
+  if (url.pathname.endsWith("/api/jobs")) return jobsResponse(client, request);
+  if (url.pathname.endsWith("/api/job-import")) return jobImportResponse(client, request);
   if (url.pathname.endsWith("/api/job-documents")) return mutatePortalJobDocuments(client, request);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
   if (url.pathname.endsWith("/api/vendor-contacts")) return mutatePortalContact(client, request);
