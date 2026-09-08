@@ -1806,8 +1806,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .purchase-order-modal :is(.po-source-banner span, .po-cost-rule, .po-total-preview span, .po-authorized-line-label span, .po-authorized-line-label strong) { font-size: 12px; }
 .job-detail-page .forecast-lines input { min-height: 36px; padding: 7px 9px; background: #fff; color: var(--navy-900); font: inherit; color-scheme: light; }
 :is(.job-detail-page, .job-directory-page, .purchase-order-modal) .button:disabled { opacity: 1; background: var(--slate-200); border-color: var(--slate-300); color: var(--slate-700); box-shadow: none; }
-.job-import-disclosure { border: 1px solid var(--slate-200); border-radius: 10px; background: #fff; min-width: 0; }
-.job-import-disclosure > summary { padding: 16px 20px; cursor: pointer; font-weight: 700; }
+.job-import-disclosure, .job-accounting-disclosure { border: 1px solid var(--slate-200); border-radius: 10px; background: #fff; min-width: 0; }
+.job-import-disclosure > summary, .job-accounting-disclosure > summary { padding: 16px 20px; cursor: pointer; font-weight: 700; }
+.job-accounting-disclosure > .job-accounting-panel { margin: 0; border: 0; box-shadow: none; }
 .job-import-panel { margin: 0; border: 0; box-shadow: none; }
 .job-import-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .job-import-panel input[type="file"] { width: 100%; min-width: 0; padding: 10px; }
@@ -1839,7 +1840,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-operational-costs { grid-template-columns: 1fr; }
   .job-import-panel .form-grid { grid-template-columns: minmax(0, 1fr); }
   .job-import-panel .quote-primary-actions { flex-wrap: wrap; }
-  .job-import-disclosure { max-width: 100%; }
+  .job-import-disclosure, .job-accounting-disclosure { max-width: 100%; }
 }
 @media (max-width: 760px) {
   .work-layout-switch button { min-height: 44px; }
