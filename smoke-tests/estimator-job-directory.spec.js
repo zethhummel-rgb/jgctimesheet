@@ -97,6 +97,7 @@ function jobInfoResponse(job, body) {
     customer: job.portalCustomer, address: job.portalAddress, jobType: job.jobType,
     projectManager: job.projectManager, startDate: job.startDate, targetEndDate: job.targetEndDate,
     active: job.portalActive, documentLink: job.documentLink, documentLinkLabel: job.documentLinkLabel,
+    cancelledAt: body.cancelled ? fixtureDate : typeof body.active === "boolean" ? "" : (job.cancelledAt || ""),
     ...body,
   };
 }
@@ -499,6 +500,98 @@ test("editing an unquoted official job immediately updates its heading and direc
   await page.getByLabel("Search jobs", { exact: true }).fill("Updated official contract job");
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".jobs-table tbody tr")).toContainText("26903");
+});
+
+for (const width of [320, 390, 1366]) {
+  test(`job header offers distinct cancel and close actions beside the quote at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const captures = await serveDirectory(page, directoryState());
+    await openDirectoryJob(page, "26901");
+    const buttons = page.locator(".job-topline .quote-primary-actions button");
+    await expect(buttons).toHaveText(["Open accepted quote", "Cancel Job", "Close Project", "＋ Add actual"]);
+    const cancel = page.getByRole("button", { name: "Cancel Job — job 26901", exact: true });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.body.dataset.theme = theme; }, theme);
+      const contrast = await cancel.evaluate(element => {
+        const style = getComputedStyle(element);
+        const luminance = value => {
+          const channels = value.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
+          return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+        };
+        const a = luminance(style.color), b = luminance(style.backgroundColor);
+        return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+      });
+      expect(contrast).toBeGreaterThanOrEqual(4.5);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+      if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(".job-topline").screenshot({ path: testInfo.outputPath(`job-actions-${width}-${theme}.png`) });
+    }
+    page.once("dialog", dialog => dialog.dismiss());
+    await cancel.click();
+    expect(captures.jobInfo).toEqual([]);
+    page.once("dialog", dialog => dialog.accept());
+    await cancel.click();
+    await expect(page.locator(".job-topline .status-pill")).toHaveText("Cancelled");
+    await expect(page.getByRole("button", { name: "Make active — job 26901", exact: true })).toBeVisible();
+    expect(captures.jobInfo[0].body).toEqual({ portalJobId: officialIds.quoted, active: false, cancelled: true });
+    await expect.poll(() => captures.writes.length).toBeGreaterThan(0);
+    const saved = captures.writes.at(-1);
+    expect(saved.jobs[0]).toEqual(expect.objectContaining({ cancelledAt: fixtureDate, status: "Archived", portalActive: false }));
+    // Load the saved state again: cancellation is not just an ephemeral label.
+    await serveDirectory(page, saved);
+    await openDirectoryJob(page, "26901");
+    await expect(page.locator(".job-topline .status-pill")).toHaveText("Cancelled");
+  });
+}
+
+for (const layout of ["List", "Tiles"]) for (const width of [390, 1366]) {
+  test(`${layout} cancellation is stacked, confirmed and reversible at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const state = directoryState();
+    const captures = await serveDirectory(page, state);
+    await page.getByLabel("Search jobs", { exact: true }).fill("26901");
+    await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: layout, exact: true }).click();
+    const close = page.getByRole("button", { name: "Close Project — job 26901", exact: true });
+    const cancel = page.getByRole("button", { name: "Cancel Job — job 26901", exact: true });
+    const closeBox = await close.boundingBox(), cancelBox = await cancel.boundingBox();
+    expect(cancelBox.height).toBe(24);
+    expect(cancelBox.y).toBeGreaterThanOrEqual(closeBox.y + closeBox.height + 8);
+    if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(layout === "List" ? ".jobs-table" : ".job-tiles").screenshot({ path: testInfo.outputPath(`cancel-${layout}-${width}.png`) });
+    page.once("dialog", async dialog => { expect(dialog.message()).toContain("Cancel job 26901"); expect(dialog.message()).toContain("history are kept"); await dialog.dismiss(); });
+    await cancel.click();
+    expect(captures.jobInfo).toEqual([]);
+    page.once("dialog", dialog => dialog.accept());
+    await cancel.click();
+    await expect(page.locator(".job-directory-page")).toContainText("Job 26901 is now cancelled");
+    await expect(page.locator(".job-directory-page .status-pill")).toHaveText("Cancelled");
+    await expect(page.locator(".job-detail-page")).toHaveCount(0);
+    await expect.poll(() => captures.writes.length).toBeGreaterThan(0);
+    const saved = captures.writes.at(-1).jobs[0];
+    for (const key of ["id", "portalJobId", "jobNumber", "quoteId", "acceptedQuoteSnapshot", "costs", "purchaseOrders", "documentLinks"]) expect(saved[key]).toEqual(state.jobs[0][key]);
+    await page.getByLabel("Search jobs", { exact: true }).fill("");
+    await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Inactive", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Make active — job 26901", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Make active — job 25904", exact: true })).toBeVisible();
+    await page.getByLabel("Search jobs", { exact: true }).fill("26901");
+    await page.getByRole("button", { name: "Make active — job 26901", exact: true }).click();
+    await expect(cancel).toBeVisible();
+    await expect(close).toBeVisible();
+    await expect(page.locator(".job-directory-page .status-pill")).toHaveText("Active");
+    expect(captures.jobInfo).toHaveLength(2);
+    expect(captures.unexpectedRequests).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+  });
+}
+
+test("failed cancellation leaves the original status and both actions available", async ({ page }) => {
+  const captures = await serveDirectory(page, directoryState(), { failJobInfo: true });
+  await openDirectoryJob(page, "26901");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Cancel Job — job 26901", exact: true }).click();
+  await expect(page.locator(".job-detail-page")).toContainText("Canonical job update rejected");
+  await expect(page.locator(".job-topline .status-pill")).toHaveText("Active");
+  await expect(page.getByRole("button", { name: "Cancel Job — job 26901", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Close Project — job 26901", exact: true })).toBeEnabled();
+  expect(captures.writes).toEqual([]);
 });
 
 test("canonical status changes preserve the official ID and change no quote or operational record", async ({ page }) => {

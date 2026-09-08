@@ -154,6 +154,57 @@ test("active changes preserve the canonical ID and reject malformed statuses and
   expect(client.tables.jobs[0].archive_until).toBeNull();
 });
 
+test("cancellation is canonical, reversible and preserves IDs, documents and inactive filters", async () => {
+  const { api, browser } = loadApi();
+  const client = mockClient({ jobs: [job("cancel-me", "0021", { document_link: "https://example.com/drawings", last_imported_at: "2026-09-01T12:00:00Z" })] });
+  api.installEstimatorApiBridge(client);
+  const cancel = await request(browser, "job-info", { portalJobId: "cancel-me", active: false, cancelled: true }, "PATCH");
+  expect(cancel.status).toBe(200);
+  expect(cancel.body.job.cancelledAt).toBeTruthy();
+  expect(cancel.body.job).toEqual(expect.objectContaining({ id: "cancel-me", jobNumber: "0021", active: false, documentLink: "https://example.com/drawings" }));
+  const reload = await request(browser, "jobs", undefined, "GET");
+  expect(reload.body.jobs[0].cancelledAt).toBe(cancel.body.job.cancelledAt);
+  const state = { vendors: [], jobs: [], quotes: [] };
+  const synced = api.synchronizePortalJobs(state, reload.body.jobs);
+  expect(synced.jobs[0]).toEqual(expect.objectContaining({ status: "Archived", portalActive: false, cancelledAt: cancel.body.job.cancelledAt }));
+  await request(browser, "job-info", { portalJobId: "cancel-me", customer: "Edited client" }, "PATCH");
+  expect(client.tables.jobs[0].cancelled_at).toBe(cancel.body.job.cancelledAt);
+  const close = await request(browser, "job-info", { portalJobId: "cancel-me", active: false }, "PATCH");
+  expect(close.body.job.cancelledAt).toBe("");
+  await request(browser, "job-info", { portalJobId: "cancel-me", active: false, cancelled: true }, "PATCH");
+  const reopen = await request(browser, "job-info", { portalJobId: "cancel-me", active: true }, "PATCH");
+  expect(reopen.body.job).toEqual(expect.objectContaining({ active: true, cancelledAt: "" }));
+  expect(api.synchronizePortalJobs(synced, [reopen.body.job]).jobs[0]).toEqual(expect.objectContaining({ status: "Active", cancelledAt: "", archivedAt: "" }));
+  expect(client.tables.jobs[0].last_imported_at).toBe("2026-09-01T12:00:00Z");
+  expect(client.calls.filter(call => call.operation === "update").every(call => call.table === "jobs")).toBe(true);
+});
+
+test("invalid cancellation requests and unapproved users cannot write job status", async () => {
+  for (const body of [{ active: true, cancelled: true }, { cancelled: true }, { active: false, cancelled: "true" }, { active: false, cancelled: null }]) {
+    const { api, browser } = loadApi();
+    const client = mockClient({ jobs: [job("safe", "0022")] });
+    api.installEstimatorApiBridge(client);
+    expect((await request(browser, "job-info", { portalJobId: "safe", ...body }, "PATCH")).status).toBe(400);
+    expect(client.writes).toBe(0);
+  }
+  for (const role of ["employee", "admin"]) {
+    const { api, browser } = loadApi();
+    const client = mockClient({ jobs: [job("safe", "0022")], profiles: [{ id: "approved-admin", role, account_status: role === "admin" ? "inactive" : "approved" }] });
+    api.installEstimatorApiBridge(client);
+    expect((await request(browser, "job-info", { portalJobId: "safe", active: false, cancelled: true }, "PATCH")).status).toBe(403);
+    expect(client.writes).toBe(0);
+  }
+});
+
+test("failed cancellation does not report saved or modify job records", async () => {
+  const { api, browser } = loadApi();
+  const client = mockClient({ jobs: [job("safe", "0022")] }, { failWrite: true });
+  api.installEstimatorApiBridge(client);
+  expect((await request(browser, "job-info", { portalJobId: "safe", active: false, cancelled: true }, "PATCH")).status).toBe(500);
+  expect(client.tables.jobs[0].active).toBe(true);
+  expect(client.tables.jobs[0].cancelled_at).toBeUndefined();
+});
+
 test("editing a project manager preserves the full imported 300-character job name", async () => {
   const { api, browser } = loadApi();
   const jobName = "Imported job - ".padEnd(300, "x");
