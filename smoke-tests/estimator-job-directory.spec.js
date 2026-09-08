@@ -510,11 +510,13 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("");
   await expect(page.locator(".library-folder")).toHaveCount(0);
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
-  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Job name", "Client / location", "Project manager", "Type", "Status", "Change status"]);
+  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Status", "Change status"]);
   await expect(page.locator('.jobs-table td[data-label="Job / quote"] button')).toHaveText(["26903", "26902", "26901"]);
   const imported = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
   await expect(imported).toContainText("Canonical Railway Client");
   await expect(imported).toContainText("Imported Emergency Repairs");
+  await expect(imported.locator('td').nth(1)).toContainText("Canonical Railway Client");
+  await expect(imported.locator('td').nth(2)).toContainText("Imported Emergency Repairs");
   await expect(imported.locator('[data-label="Project manager"]')).toHaveText("Directory Test Manager");
   await expect(imported.locator('[data-label="Type"]')).toHaveText("T&M");
   await expect(imported).not.toContainText(/Quote unavailable|Unassigned|NaN|Infinity/);
@@ -533,6 +535,9 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await captureVisual(page, testInfo, "directory-desktop");
   await page.getByLabel("Search jobs", { exact: true }).fill("");
   await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: /Inactive|Archived/ }).click();
+  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Status", "Change status"]);
+  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(1)).toContainText("Canonical Railway Client");
+  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(2)).toContainText("Historical Imported Repair");
   await page.getByLabel("Search jobs", { exact: true }).fill("25904");
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
   await openDirectoryJob(page, "25904");
@@ -1036,7 +1041,7 @@ test("manager aliases merge initials and full names into one project manager fil
     await expect(page.locator("#estimate-navigation")).not.toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     const aligned = await page.locator('.jobs-table tbody tr').evaluateAll((rows) => rows.every((row) => {
-      const number = row.children[0].getBoundingClientRect(), name = row.children[1].getBoundingClientRect(), status = row.children[5].getBoundingClientRect();
+      const number = row.querySelector('[data-label="Job / quote"]').getBoundingClientRect(), name = row.querySelector('[data-label="Job name"]').getBoundingClientRect(), status = row.querySelector('[data-label="Status"]').getBoundingClientRect();
       return number.right <= name.left && name.right <= status.left;
     }));
     expect(aligned, "Compact mobile job identity and status columns must not overlap").toBe(true);

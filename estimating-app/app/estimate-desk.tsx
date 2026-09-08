@@ -6339,12 +6339,12 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
   const renderJobTable = (items: Job[], yearLabel?: string) => (
     <section className="panel table-panel">
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
-          <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
           <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small></td>
+          <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
           <td data-label="Status"><StatusPill status={jobDisplayStatus(item)} /></td>
