@@ -427,7 +427,7 @@ test("canonical status changes preserve the official ID and change no quote or o
   const captures = await serveDirectory(page, state);
   await openDirectoryJob(page, "26902");
   page.on("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: /Make inactive/ }).click();
+  await page.getByRole("button", { name: /Close Project/ }).click();
   await expect.poll(() => captures.jobInfo.length).toBe(1);
   expect(captures.jobInfo[0]).toEqual({ method: "PATCH", body: { portalJobId: officialIds.tm, active: false } });
   await expect(page.locator(".job-topline")).toContainText(/Inactive|Archived/);
@@ -452,10 +452,10 @@ test("failed canonical status change leaves job active and does not save a false
   const captures = await serveDirectory(page, directoryState(), { failJobInfo: true });
   await openDirectoryJob(page, "26902");
   page.on("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: /Make inactive/ }).click();
+  await page.getByRole("button", { name: /Close Project/ }).click();
   await expect.poll(() => captures.jobInfo.length).toBe(1);
   await expect(page.locator(".job-detail-page")).toContainText("Canonical job update rejected for this test");
-  await expect(page.getByRole("button", { name: /Make inactive/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Close Project/ })).toBeEnabled();
   await expect(page.getByRole("button", { name: /Restore active job|Mark active|Make active/ })).toHaveCount(0);
   expect(captures.writes).toEqual([]);
   await page.getByRole("button", { name: "← All jobs", exact: true }).click();
@@ -472,10 +472,17 @@ for (const layout of ["List", "Tiles"]) {
       const captures = await serveDirectory(page, state);
       await page.getByLabel("Search jobs", { exact: true }).fill("26901");
       await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: layout, exact: true }).click();
-      const action = page.getByRole("button", { name: "Make inactive — job 26901", exact: true });
+      const action = page.getByRole("button", { name: "Close Project — job 26901", exact: true });
       await expect(action).toBeVisible();
-      expect((await action.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      await expect(action).toHaveText("Close Project");
+      const size = await action.boundingBox();
+      expect(size.height).toBe(24);
+      expect(size.width).toBeGreaterThan(70);
+      expect(size.width).toBeLessThan(110);
+      expect(await action.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
+      if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(layout === "List" ? ".jobs-table" : ".job-tiles").screenshot({ path: testInfo.outputPath(`close-project-${layout}-${width}.png`) });
       page.once("dialog", async dialog => {
+        expect(dialog.message()).toContain("Close project");
         expect(dialog.message()).toContain("26901");
         expect(dialog.message()).toContain("history are kept");
         await dialog.dismiss();
@@ -522,11 +529,11 @@ for (const layout of ["List", "Tiles"]) {
     state.jobs[2].portalJobId = null;
     const captures = await serveDirectory(page, state, { failJobInfo: true });
     await page.getByRole("group", { name: "Job layout" }).getByRole("button", { name: layout, exact: true }).click();
-    await expect(page.getByRole("button", { name: "Make inactive — job 26903", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Close Project — job 26903", exact: true })).toBeDisabled();
     page.once("dialog", dialog => dialog.accept());
-    await page.getByRole("button", { name: "Make inactive — job 26902", exact: true }).click();
+    await page.getByRole("button", { name: "Close Project — job 26902", exact: true }).click();
     await expect(page.locator(".job-directory-page")).toContainText("Canonical job update rejected for this test");
-    await expect(page.getByRole("button", { name: "Make inactive — job 26902", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Close Project — job 26902", exact: true })).toBeEnabled();
     await expect(page.locator(".job-detail-page")).toHaveCount(0);
     expect(captures.jobInfo).toHaveLength(1);
     expect(captures.writes).toEqual([]);

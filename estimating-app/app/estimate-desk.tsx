@@ -5890,7 +5890,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   const setJobStatus = async (jobId: string, status: "Active" | "Archived") => {
     const target = state.jobs.find((item) => item.id === jobId);
     if (!target?.portalJobId || statusRequestPending.current) return;
-    if (status === "Archived" && !window.confirm(`Make job ${target.jobNumber} — ${target.portalJobName || target.project} inactive? It will no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept.`)) return;
+    if (status === "Archived" && !window.confirm(`Close project ${target.jobNumber} — ${target.portalJobName || target.project}? It will be marked inactive and no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept.`)) return;
     statusRequestPending.current = true;
     setStatusSavingJobId(jobId);
     setStatusMessage("");
@@ -5904,7 +5904,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
   };
   const renderJobStatusAction = (item: Job) => {
-    const label = item.status === "Active" ? "Make inactive" : "Make active";
+    const label = item.status === "Active" ? "Close Project" : "Make active";
     return <button type="button" className="button secondary compact job-status-action" aria-label={`${label} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, item.status === "Active" ? "Archived" : "Active"); }}>{statusSavingJobId === item.id ? "Saving…" : label}</button>;
   };
   if (job) {
