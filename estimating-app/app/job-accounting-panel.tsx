@@ -13,7 +13,7 @@ const pendingReset = {
 };
 const pending = { get: () => { try { return sessionStorage.getItem(pendingKey); } catch { return null; } }, set: (id: string) => { try { sessionStorage.setItem(pendingKey, id); } catch { /* History is still durable on the server. */ } }, clear: () => { try { sessionStorage.removeItem(pendingKey); } catch { /* Private-mode storage can be unavailable. */ } } };
 const when = (value: string) => new Date(value).toLocaleString("en-CA", { timeZone: "America/Toronto" });
-const labels = { white: "Active", green: "Ready to invoice", yellow: "Previously handed off", red: "Cancelled" };
+const labels = { white: "Active", green: "Ready to invoice", blue: "Discuss invoicing", yellow: "Previously handed off", red: "Cancelled" };
 async function request(body?: Record<string, unknown>, query = "") {
   const response = await fetch(`/api/job-accounting-export${query}`, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
   const result = await response.json().catch(() => ({}));
@@ -113,11 +113,12 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
   const rows = selected?.rows ?? plan?.rows ?? [];
   const summary = selected?.summary ?? plan?.summary;
   return <section className="panel job-accounting-panel" aria-label="Accounting job-list downloads">
-    <div className="panel-heading"><div><span className="eyebrow">ACCOUNTING HAND-OFF</span><h3>Accounting job-list download</h3><p>All active, ready-to-invoice, previously handed-off and cancelled jobs in the master-list layout. Your existing Excel upload stays in use.</p></div>
+    <div className="panel-heading"><div><span className="eyebrow">ACCOUNTING HAND-OFF</span><h3>Accounting job-list download</h3><p>All active, ready-to-invoice, invoicing-discussion, previously handed-off and cancelled jobs in the master-list layout. Your existing Excel upload stays in use.</p></div>
       <button className="button primary compact" disabled={busy || !workspaceSaved} onClick={() => void action(prepare)}>Download accounting job list</button></div>
     <div className="job-accounting-body">
       <p className="job-accounting-legend">{(Object.keys(labels) as Array<keyof typeof labels>).map((color) => <span key={color} className={`accounting-chip accounting-${color}`}>{labels[color]}</span>)}</p>
       <p>Yellow means previously handed to accounting, or yellow in the starting master—not proof of invoicing. Old versions keep their original colours.</p>
+      <p>Blue means closed, but discuss invoicing first. It stays blue across downloads and resets until you mark the job ready to invoice.</p>
       <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion}</span>}
@@ -142,11 +143,11 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
             <button className="button primary compact" disabled={busy || !workspaceSaved || !rows.length} onClick={() => void action(save)}>Create version {preview!.version} &amp; download</button>
           </>}
           <button className="button secondary compact" disabled={busy} onClick={() => { setPreview(null); setPlan(null); setSelected(null); }}>Close preview</button></div>
-        <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
+        <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.blue ?? 0} blue · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
         {Boolean(summary?.reviewInactive) && <p className="job-accounting-error">{summary!.reviewInactive} inactive jobs have no confirmed billing status and are excluded. Review them and use Close Project or Cancel Job as appropriate.</p>}
         <details className="job-accounting-row-preview" open={previewOpen} onToggle={(event) => setPreviewOpen(event.currentTarget.open)}>
         <summary>Preview job rows{selected ? " and download log" : ""}</summary>
-        {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All four accounting groups, years and managers are included regardless of the job-list filters.</p>}
+        {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All accounting groups, years and managers are included regardless of the job-list filters.</p>}
         {Boolean(summary?.missingFromPortal) && <p>{summary!.missingFromPortal} retained source rows are not in the current portal. They are retained in this accounting file only.</p>}
         {!rows.length ? <p>No jobs with a confirmed accounting status are available yet.</p> : <>
           <div className="job-accounting-table-wrap"><table className="job-accounting-table"><thead><tr><th>Job #</th><th>Job name</th><th>Accounting status</th><th>Change / source</th></tr></thead><tbody>

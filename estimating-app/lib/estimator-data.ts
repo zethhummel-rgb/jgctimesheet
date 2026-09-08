@@ -392,6 +392,7 @@ export interface Job {
   project: string;
   status: "Active" | "Archived";
   cancelledAt?: string;
+  invoiceReviewAt?: string;
   portalJobId?: string | null;
   portalActive?: boolean | null;
   portalLastSyncedAt?: string;
@@ -1187,6 +1188,7 @@ export function normalizeAppState(state: AppState): AppState {
       ...job,
       status: (job.status as string) === "Complete" ? "Archived" : job.status,
       cancelledAt: job.status === "Active" ? "" : (job.cancelledAt ?? ""),
+      invoiceReviewAt: job.status === "Active" || job.cancelledAt ? "" : (job.invoiceReviewAt ?? ""),
       portalJobId: job.portalJobId ?? null,
       portalActive: job.portalActive ?? null,
       portalLastSyncedAt: job.portalLastSyncedAt ?? "",

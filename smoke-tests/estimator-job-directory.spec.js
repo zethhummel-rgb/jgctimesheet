@@ -605,7 +605,7 @@ for (const width of [320, 390, 1366]) {
     const captures = await serveDirectory(page, directoryState());
     await openDirectoryJob(page, "26901");
     const buttons = page.locator(".job-topline .quote-primary-actions button");
-    await expect(buttons).toHaveText(["Open accepted quote", "Cancel Job", "Close Project", "＋ Add actual"]);
+    await expect(buttons).toHaveText(["Open accepted quote", "Cancel Job", "Close Project", "Close — Discuss Invoice", "＋ Add actual"]);
     const cancel = page.getByRole("button", { name: "Cancel Job — job 26901", exact: true });
     for (const theme of ["light", "dark"]) {
       await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.body.dataset.theme = theme; }, theme);

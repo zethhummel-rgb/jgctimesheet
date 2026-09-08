@@ -88,6 +88,28 @@ function job(id, number, extra = {}) {
 }
 
 function importRow(number, extra = {}) { return { jobNumber: number, jobName: `Updated ${number}`, projectManager: "PM", jobType: "Contract", active: true, ...extra }; }
+
+test("invoice discussion is canonical, survives detail edits, resolves or reopens without changing IDs/links", async () => {
+  const { api, browser } = loadApi();
+  const client = mockClient({ jobs: [job("blue", "26991", { document_link: "https://example.com/drawings" })] });
+  api.installEstimatorApiBridge(client);
+  const patch = body => request(browser, "job-info", { portalJobId: "blue", ...body }, "PATCH");
+  for (const invalid of [{ invoiceReview: true }, { active: true, invoiceReview: true }, { active: false, invoiceReview: "yes" }, { active: false, invoiceReview: true, cancelled: true }]) {
+    expect((await patch(invalid)).status).toBe(400);
+  }
+  expect(client.writes).toBe(0);
+  const closed = await patch({ active: false, invoiceReview: true });
+  expect(closed.status).toBe(200);
+  expect(closed.body.job.invoiceReviewAt).toBeTruthy();
+  expect(closed.body.job).toMatchObject({ id: "blue", active: false, cancelledAt: "", jobNumber: "26991" });
+  const timestamp = client.tables.jobs[0].invoice_review_at;
+  expect((await patch({ jobName: "Updated blue job" })).status).toBe(200);
+  expect(client.tables.jobs[0].invoice_review_at).toBe(timestamp);
+  expect((await patch({ active: false, invoiceReview: false })).body.job.invoiceReviewAt).toBe("");
+  await patch({ active: false, invoiceReview: true });
+  expect((await patch({ active: true })).body.job.invoiceReviewAt).toBe("");
+  expect(client.tables.jobs[0]).toMatchObject({ id: "blue", job_number: "26991", document_link: "https://example.com/drawings" });
+});
 function workspace(jobs = []) { return [{ id: "main", payload: { jobs } }]; }
 
 async function request(browser, endpoint, body, method = "POST") {

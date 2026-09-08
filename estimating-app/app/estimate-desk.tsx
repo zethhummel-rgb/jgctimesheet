@@ -895,7 +895,7 @@ function quoteDisplayStatus(quote: Quote): QuoteStatus | "Expired" {
   return quote.status;
 }
 
-function quoteStatusLabel(status: QuoteStatus | "Expired" | "Active" | "Archived" | "Cancelled") {
+function quoteStatusLabel(status: QuoteStatus | "Expired" | "Active" | "Archived" | "Cancelled" | "Discuss invoice") {
   return status === "Sent" ? "Finished" : status === "Archived" ? "Inactive" : status;
 }
 
@@ -2286,10 +2286,10 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
 }
 
 function jobDisplayStatus(job: Job) {
-  return job.status !== "Active" && job.cancelledAt ? "Cancelled" : job.status;
+  return job.status !== "Active" && job.cancelledAt ? "Cancelled" : job.status !== "Active" && job.invoiceReviewAt ? "Discuss invoice" : job.status;
 }
 
-function StatusPill({ status }: { status: QuoteStatus | "Expired" | "Active" | "Archived" | "Cancelled" }) {
+function StatusPill({ status }: { status: QuoteStatus | "Expired" | "Active" | "Archived" | "Cancelled" | "Discuss invoice" }) {
   return <span className={`status-pill status-${status.toLowerCase().replace(" ", "-")}`}><span />{quoteStatusLabel(status)}</span>;
 }
 
@@ -5911,29 +5911,31 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
       throw error;
     } finally { setDirectoryRefreshing(false); }
   };
-  const setJobStatus = async (jobId: string, status: "Active" | "Archived", cancelled = false) => {
+  const setJobStatus = async (jobId: string, status: "Active" | "Archived", cancelled = false, invoiceReview = false) => {
     const target = state.jobs.find((item) => item.id === jobId);
     if (!target?.portalJobId || statusRequestPending.current) return;
-    if (status === "Archived" && !window.confirm(`${cancelled ? "Cancel job" : "Close project"} ${target.jobNumber} — ${target.portalJobName || target.project}? It will be marked ${cancelled ? "cancelled and inactive" : "inactive"} and no longer appear in active employee job selectors. Existing timesheets, POs, Work Orders and job history are kept. You can make it active again later.`)) return;
+    const invoiceMessage = invoiceReview ? " Blue means discuss invoicing with accounting first, not ready to invoice. It stays blue across downloads until you mark it ready to invoice." : target.invoiceReviewAt && !cancelled ? " This clears the blue discussion flag and marks the job ready to invoice (green in the next accounting download)." : "";
+    if (status === "Archived" && !window.confirm(`${cancelled ? "Cancel job" : invoiceReview ? "Close — Discuss Invoice" : target.invoiceReviewAt ? "Mark ready to invoice" : "Close project"} ${target.jobNumber} — ${target.portalJobName || target.project}? It will be marked ${cancelled ? "cancelled and inactive" : "inactive"} and no longer appear in active employee job selectors.${invoiceMessage} Existing timesheets, POs, Work Orders and job history are kept. You can make it active again later.`)) return;
     statusRequestPending.current = true;
     setStatusSavingJobId(jobId);
     setStatusMessage("");
     try {
-      const response = await fetch("/api/job-info", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portalJobId: target.portalJobId, active: status === "Active", ...(cancelled ? { cancelled: true } : {}) }) });
+      const response = await fetch("/api/job-info", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portalJobId: target.portalJobId, active: status === "Active", ...(cancelled ? { cancelled: true } : {}), ...(invoiceReview ? { invoiceReview: true } : target.invoiceReviewAt && status === "Archived" ? { invoiceReview: false } : {}) }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "The official job status could not be saved.");
-      if (result.job?.id !== target.portalJobId || result.job.active !== (status === "Active") || (cancelled && !result.job.cancelledAt)) throw new Error("The official job status could not be confirmed. Refresh the job list before trying again.");
-      setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: result.job.active, cancelledAt: result.job.cancelledAt || "", archivedAt: status === "Archived" ? (item.archivedAt || new Date().toISOString()) : "" } : item) }));
-      setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now ${cancelled ? "cancelled" : "inactive"}. Find it under Inactive; its history and linked records are retained.`);
+      if (result.job?.id !== target.portalJobId || result.job.active !== (status === "Active") || (cancelled && !result.job.cancelledAt) || Boolean(result.job.invoiceReviewAt) !== invoiceReview) throw new Error("The official job status could not be confirmed. Refresh the job list before trying again.");
+      setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: result.job.active, cancelledAt: result.job.cancelledAt || "", invoiceReviewAt: result.job.invoiceReviewAt || "", archivedAt: status === "Archived" ? (item.archivedAt || new Date().toISOString()) : "" } : item) }));
+      setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now ${cancelled ? "cancelled" : invoiceReview ? "closed — discuss invoicing with accounting (blue)" : target.invoiceReviewAt ? "ready to invoice" : "inactive"}. Find it under Inactive; its history and linked records are retained.`);
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
     finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
   };
   const renderJobStatusAction = (item: Job, header = false) => {
     const label = item.status === "Active" ? "Close Project" : "Make active";
-    const action = (text: string, cancel = false) => <button key={text} type="button" className={`button secondary ${header ? "" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
+    const action = (text: string, cancel = false, review = false, resolve = false) => <button key={text} type="button" className={`button secondary ${header ? "" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review || resolve ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
     const closeAction = action(label);
     const cancelAction = !item.cancelledAt ? action("Cancel Job", true) : null;
-    return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}</> : <>{closeAction}{cancelAction}</>}</div>;
+    const reviewAction = header && !item.cancelledAt ? item.invoiceReviewAt ? action("Mark ready to invoice", false, false, true) : action("Close — Discuss Invoice", false, true) : null;
+    return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}{reviewAction}</> : <>{closeAction}{cancelAction}</>}</div>;
   };
   if (job) {
     const documentLinks = job.documentLinks ?? [];
@@ -6354,7 +6356,7 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
       <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-        return <tr key={item.id} onClick={() => onOpen(item.id)}>
+        return <tr key={item.id} className={jobDisplayStatus(item) === "Discuss invoice" ? "job-invoice-review" : undefined} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
           <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small></td>
           <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
@@ -6373,7 +6375,7 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Select a job to open its dashboard."}</span></div>}
       <div className="job-tiles">{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-        return <article className="job-tile" key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
+        return <article className={`job-tile${jobDisplayStatus(item) === "Discuss invoice" ? " job-invoice-review" : ""}`} key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
           <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={jobDisplayStatus(item)} /></span>
           <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
           <span>{item.portalCustomer || clientName(state, item.clientId)}</span>

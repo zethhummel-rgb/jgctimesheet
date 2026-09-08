@@ -7,6 +7,7 @@ const ExcelJS = require("../vendor/exceljs.min.js");
 async function setup(page, options = {}) {
   const captures = await serveDirectory(page, directoryState());
   let preview = fixture();
+  if (options.discussion) preview.sourceSnapshot[0] = { ...preview.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
   if (options.reference) preview = { ...preview, ...options.reference, sourceSnapshot: [], baselineSnapshot: [], previousSnapshot: [] };
   const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
@@ -62,6 +63,23 @@ async function create(page, version) {
   await expect(page.locator(".job-accounting-row-preview")).not.toHaveAttribute("open");
   return file;
 }
+
+test("blue discussion rows stay blue in real saved XLSX versions with the compact master format", async ({ page }, testInfo) => {
+  const state = await setup(page, { discussion: true });
+  for (const version of [1, 2]) {
+    const file = await create(page, version);
+    await file.saveAs(testInfo.outputPath(`accounting-blue-v${version}.xlsx`));
+    const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
+    const sheet = book.getWorksheet("2026");
+    for (let col = 1; col <= 16; col++) expect(sheet.getCell(3, col).fill.fgColor.argb).toBe("FF9BC2E6");
+    expect(sheet.getRow(3).height).toBe(12.75);
+    expect(sheet.getCell("A3").font).toMatchObject({ name: "Arial", size: 10, color: { argb: "FF000000" } });
+    expect(book.getWorksheet("Download details").getCell("B7").value).toBe("Closed - discuss invoicing");
+    expect(state.versions[version - 1].summary.blue).toBe(1);
+  }
+  expect(state.captures.jobInfo).toEqual([]);
+  expect(state.calls.some(c => c.action === "reset")).toBe(false);
+});
 
 test("real XLSX, exact old-version download, green-to-yellow and history leave jobs/uploader untouched", async ({ page }, testInfo) => {
   const state = await setup(page);
