@@ -91,9 +91,10 @@ test("reset after V20 restores green without clearing original yellow or changin
   let p = fixture(); const original = JSON.stringify(p);
   for (let i = 1; i <= 20; i++) { const result = plan(p); expect(result.summary.total).toBe(4); p = next(p, result.rows); }
   expect(plan(p).summary).toMatchObject({ green: 0, yellow: 2, white: 1, red: 1 });
-  const reset = { ...p, cycle: 2, version: 1, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(p.baselineSnapshot) };
+  const reset = { ...p, cycle: 2, version: 0, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(p.baselineSnapshot) };
   expect(plan(reset).summary).toMatchObject({ green: 1, yellow: 1, white: 1, red: 1 });
   expect(JSON.stringify(reset.sourceSnapshot)).toBe(JSON.stringify(JSON.parse(original).sourceSnapshot));
+  expect(next(reset, plan(reset).rows).version).toBe(1);
   expect(plan(next(reset, plan(reset).rows)).summary).toMatchObject({ green: 0, yellow: 2, white: 1, red: 1 });
 });
 

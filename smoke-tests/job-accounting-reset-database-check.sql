@@ -26,20 +26,20 @@ begin
     raise exception 'Unconfirmed reset was accepted';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer+1,export_id,'RESET TO V1');
+    perform public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer+1,export_id,'RESET TO V0');
     raise exception 'Stale reset was accepted';
   exception when serialization_failure then null; end;
-  result := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V1');
-  retry := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V1');
+  result := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V0');
+  retry := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V0');
   if retry->>'reused' <> 'true' or result->>'id' <> retry->>'id' then raise exception 'Reset retry was not idempotent'; end if;
   if (select count(*) from public.job_accounting_export_resets) <> reset_count+1 then raise exception 'Duplicate reset created'; end if;
   fresh := public.get_job_accounting_export_preview();
-  if (fresh->>'version')::integer <> 1 or fresh->>'previousExportId' is not null
+  if (fresh->>'version')::integer <> 0 or fresh->>'previousExportId' is not null
     or fresh->'previousRows' <> '[]'::jsonb or fresh->'previousSnapshot' <> original_preview->'baselineSnapshot'
     or (fresh->>'cycle')::integer <> (p->>'cycle')::integer+1 then raise exception 'Reset did not restore the starting hand-off state'; end if;
   if fresh->'masterRows' <> original_preview->'masterRows' then raise exception 'Original master colours changed'; end if;
   begin
-    perform public.reset_job_accounting_exports(gen_random_uuid(),(fresh->>'cycle')::integer,export_id,'RESET TO V1');
+    perform public.reset_job_accounting_exports(gen_random_uuid(),(fresh->>'cycle')::integer,export_id,'RESET TO V0');
     raise exception 'Empty run was reset again';
   exception when serialization_failure then null; end;
   begin
@@ -48,9 +48,13 @@ begin
     raise exception 'Old run accepted a stale save';
   exception when serialization_failure then null; end;
   insert into public.job_accounting_exports(id,cycle,version,previous_export_id,file_name,file_sha256,file_base64,source_snapshot,rows,summary,exported_by,exported_by_name)
-    values(after_id,(fresh->>'cycle')::integer,1,null,'synthetic.xlsx',encode(extensions.digest(bytes,'sha256'),'hex'),encode(bytes,'base64'),fresh->'sourceSnapshot',sample_rows,'{}',auth.uid(),'forged');
-  if (select file_name from public.job_accounting_exports where id=after_id) <> 'JGC Accounting Job List - v0001 - run'||(fresh->>'cycle')||'.xlsx' then raise exception 'Reset filename was ambiguous'; end if;
-  retry := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V1');
+    values(after_id,(fresh->>'cycle')::integer,0,null,'synthetic.xlsx',encode(extensions.digest(bytes,'sha256'),'hex'),encode(bytes,'base64'),fresh->'sourceSnapshot',sample_rows,'{}',auth.uid(),'forged');
+  if (select file_name from public.job_accounting_exports where id=after_id) <> 'JGC Accounting Job List - v0000 - run'||(fresh->>'cycle')||'.xlsx' then raise exception 'Reset filename was ambiguous'; end if;
+  if (public.get_job_accounting_export_state()->>'nextVersion')::integer <> 1
+    or (public.get_job_accounting_export_preview()->>'previousExportId')::uuid <> after_id then
+    raise exception 'V0 did not advance to V1 with the correct previous file';
+  end if;
+  retry := public.reset_job_accounting_exports(reset_id,(p->>'cycle')::integer,export_id,'RESET TO V0');
   if (select count(*) from public.job_accounting_export_resets) <> reset_count+1 then raise exception 'Late retry reset a newer run'; end if;
   begin update public.job_accounting_export_resets set reset_by_name='changed' where id=reset_id; raise exception 'Reset audit was mutable'; exception when insufficient_privilege then null; end;
   begin delete from public.job_accounting_exports where id=export_id; raise exception 'History was deletable'; exception when insufficient_privilege then null; end;
@@ -70,7 +74,7 @@ begin
   if private.jgc_has_accounting_access() then raise exception 'The worker fixture still has admin access'; end if;
   if exists(select 1 from public.job_accounting_export_resets) then raise exception 'Employee can read reset audit'; end if;
   begin perform public.get_job_accounting_export_state(); raise exception 'Employee can read admin state'; exception when insufficient_privilege then null; end;
-  begin perform public.reset_job_accounting_exports(gen_random_uuid(),1,gen_random_uuid(),'RESET TO V1'); raise exception 'Employee can reset'; exception when insufficient_privilege then null; end;
+  begin perform public.reset_job_accounting_exports(gen_random_uuid(),1,gen_random_uuid(),'RESET TO V0'); raise exception 'Employee can reset'; exception when insufficient_privilege then null; end;
 end;
 $$;
 reset role;
@@ -78,7 +82,7 @@ set local role anon;
 do $$
 begin
   begin perform public.get_job_accounting_export_state(); raise exception 'Anonymous state access'; exception when insufficient_privilege then null; end;
-  begin perform public.reset_job_accounting_exports(gen_random_uuid(),1,gen_random_uuid(),'RESET TO V1'); raise exception 'Anonymous reset access'; exception when insufficient_privilege then null; end;
+  begin perform public.reset_job_accounting_exports(gen_random_uuid(),1,gen_random_uuid(),'RESET TO V0'); raise exception 'Anonymous reset access'; exception when insufficient_privilege then null; end;
 end;
 $$;
 reset role;

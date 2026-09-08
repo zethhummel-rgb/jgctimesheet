@@ -37,7 +37,7 @@ export async function jobAccountingResponse(client: any, request: Request) {
   if (request.method !== "POST") return json({ error: "Saved accounting versions cannot be edited or deleted." }, 405);
   const body = await request.json();
   if (body.action === "reset") {
-    if (!uuid(body.id) || !uuid(body.expectedExportId) || !Number.isSafeInteger(body.expectedCycle) || body.expectedCycle < 1 || body.confirmation !== "RESET TO V1") return json({ error: "Type RESET TO V1 to confirm restarting the current download history." }, 400);
+    if (!uuid(body.id) || !uuid(body.expectedExportId) || !Number.isSafeInteger(body.expectedCycle) || body.expectedCycle < 1 || body.confirmation !== "RESET TO V0") return json({ error: "Type RESET TO V0 to confirm restarting the current download history." }, 400);
     const result = await client.rpc("reset_job_accounting_exports", { p_reset_id: body.id, p_expected_cycle: body.expectedCycle, p_expected_export_id: body.expectedExportId, p_confirmation: body.confirmation });
     return result.error ? failure(result.error) : json({ reset: result.data });
   }
