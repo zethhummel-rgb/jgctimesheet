@@ -347,6 +347,97 @@ for (const layout of ["List", "Tiles"]) {
   }
 }
 
+test("job-number years use the number prefix and leave unnumbered jobs unassigned", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const vm = require("node:vm");
+  const ts = require("../estimating-app/node_modules/typescript");
+  const source = fs.readFileSync(path.join(__dirname, "../estimating-app/lib/job-number-year.ts"), "utf8");
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
+  const module = { exports: {} };
+  vm.runInNewContext(code, { module, exports: module.exports });
+  const { jobNumberYear } = module.exports;
+  for (const [number, year] of [["26128", 2026], ["25001", 2025], ["24999", 2024], ["05901", 2005], ["  26901  ", 2026], ["27901", 2027], ["26128-A", 2026], ["", null], ["Pending", null], ["JOB-26128", null], ["26", null]]) {
+    expect(jobNumberYear(number), number).toBe(year);
+  }
+});
+
+for (const layout of ["List", "Tiles"]) {
+  for (const width of [390, 1366]) {
+    test(`${layout} inactive jobs are grouped by number year with cross-year search at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = directoryState();
+      const previous = state.jobs[3];
+      for (const [number, manager] of [["26912", "Directory Test Manager"], ["26910", "Directory Test Manager"], ["24911", "Old Manager"], ["05901", "Directory Test Manager"], ["Pending", "Directory Test Manager"]]) {
+        state.jobs.push({ ...previous, id: `year-job-${number}`, portalJobId: `year-portal-${number}`, jobNumber: number,
+          project: `Archive Repairs ${number}`, portalJobName: `Archive Repairs ${number}`, projectManager: manager,
+          // All records closed in 2026: grouping must use job number, not closure/import dates.
+          archivedAt: fixtureDate, lastImportedAt: fixtureDate, cancelledAt: number === "26910" ? fixtureDate : "" });
+      }
+      const captures = await serveDirectory(page, state);
+      const layouts = page.getByRole("group", { name: "Job layout" });
+      await layouts.getByRole("button", { name: layout, exact: true }).click();
+      const filters = page.getByRole("group", { name: "Filter jobs by status" });
+      await expect(page.locator(".job-year-group")).toHaveCount(0);
+      await filters.getByRole("button", { name: "Inactive", exact: true }).click();
+      const groups = page.locator(".job-year-group");
+      const group = label => groups.filter({ has: page.locator("summary > strong", { hasText: new RegExp(`^${label}$`) }) });
+      const entries = scope => scope.locator(layout === "List" ? ".jobs-table tbody tr" : ".job-tile");
+      await expect(groups.locator("summary > strong")).toHaveText(["2026", "2025", "2024", "2005", "Year not set"]);
+      await expect(page.locator(".job-year-groups > .table-summary strong")).toHaveText("6 inactive jobs");
+      await expect(page.locator("#job-search-scope")).toHaveCount(1);
+      await expect(group("2026")).toHaveAttribute("open", "");
+      await expect(entries(group("2026"))).toHaveCount(2);
+      await expect(entries(group("2026")).first()).toContainText("26912");
+      await expect(entries(group("2026")).last()).toContainText("Cancelled");
+      await expect(entries(group("2025"))).not.toBeVisible();
+      await group("2025").locator("summary").focus();
+      await page.keyboard.press("Enter");
+      await expect(entries(group("2025"))).toBeVisible();
+      await expect(entries(group("2025"))).toContainText("25904");
+
+      for (const theme of ["light", "dark"]) {
+        await page.evaluate(theme => { document.documentElement.dataset.theme = theme; document.body.dataset.theme = theme; }, theme);
+        const ratios = await groups.first().locator("summary").evaluate(element => {
+          const luminance = value => value.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => c / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+          const bg = luminance(getComputedStyle(element).backgroundColor);
+          return [...element.children].map(child => { const fg = luminance(getComputedStyle(child).color); return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05); });
+        });
+        ratios.forEach(ratio => expect(ratio).toBeGreaterThanOrEqual(4.5));
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+        if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(".job-year-groups").screenshot({ path: testInfo.outputPath(`inactive-years-${layout}-${width}-${theme}.png`) });
+      }
+
+      const manager = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+      await manager.selectOption({ label: "Old Manager" });
+      await expect(groups).toHaveCount(1);
+      await expect(group("2024")).toHaveAttribute("open", "");
+      await expect(entries(group("2024"))).toContainText("24911");
+      await manager.selectOption("");
+      const search = page.getByLabel("Search jobs", { exact: true });
+      for (const number of ["05901", "24911", "26902"]) {
+        await search.fill(number);
+        await expect(groups).toHaveCount(0);
+        await expect(entries(page)).toHaveCount(1);
+        await expect(entries(page)).toBeVisible();
+        await expect(entries(page)).toContainText(number);
+        await expect(page.locator("#job-search-scope")).toHaveText("Searching active and inactive jobs");
+      }
+      await search.fill("Pending");
+      await expect(entries(page)).toContainText("Pending");
+      await search.fill("");
+      await expect(groups).toHaveCount(5);
+      await layouts.getByRole("button", { name: layout === "List" ? "Tiles" : "List", exact: true }).click();
+      await expect(groups.locator("summary > strong")).toHaveText(["2026", "2025", "2024", "2005", "Year not set"]);
+      await filters.getByRole("button", { name: "Active", exact: true }).click();
+      await expect(groups).toHaveCount(0);
+      expect(captures.jobInfo).toEqual([]);
+      expect(captures.writes).toEqual([]);
+      expect(captures.unexpectedRequests).toEqual([]);
+    });
+  }
+}
+
 test("phone job List rows are compact without shrinking readable text", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await serveDirectory(page, directoryState());
@@ -570,6 +661,7 @@ for (const layout of ["List", "Tiles"]) for (const width of [390, 1366]) {
     await page.getByLabel("Search jobs", { exact: true }).fill("");
     await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Inactive", exact: true }).click();
     await expect(page.getByRole("button", { name: "Make active — job 26901", exact: true })).toBeVisible();
+    await page.locator(".job-year-group").filter({ has: page.locator("summary > strong", { hasText: /^2025$/ }) }).locator("summary").click();
     await expect(page.getByRole("button", { name: "Make active — job 25904", exact: true })).toBeVisible();
     await page.getByLabel("Search jobs", { exact: true }).fill("26901");
     await page.getByRole("button", { name: "Make active — job 26901", exact: true }).click();

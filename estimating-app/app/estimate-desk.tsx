@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, ty
 import { ClearableNumberInput } from "./clearable-number-input";
 import { JobImportPanel } from "./job-import-panel";
 import { jobManagerIdentity } from "../lib/job-manager-names";
+import { jobNumberYear } from "../lib/job-number-year";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse } from "../lib/supplier-catalog-types";
 import { portalJobs, synchronizePortalJobs, type PortalJobOption, type PortalJobStatistics, type PortalLabourActual } from "../src/portal-api";
@@ -6318,10 +6319,21 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     return matchesWorkSearch(jobSearch, item.jobNumber, linkedQuote?.number, jobManagerIdentity(linkedQuote?.preparedBy).searchText, clientName(state, item.clientId), linkedQuote?.site, item.portalSiteName, item.project, item.portalJobName, item.portalCustomer, item.portalAddress, jobManagerIdentity(item.projectManager).searchText, item.jobType, linkedQuote?.reference, linkedQuote?.customerPo, ...(item.purchaseOrders ?? []).flatMap((po) => [po.number, po.vendorName, po.vendorQuoteNumber]));
   }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
   const filteredStatusLabel = searchingAllJobStatuses ? "matching" : statusFilter === "Archived" ? "inactive" : "active";
-  const renderJobTable = (items: Job[]) => (
+  const groupInactiveByYear = !searchingAllJobStatuses && statusFilter === "Archived" && visibleJobs.length > 0;
+  const yearGroups = new Map<number | null, Job[]>();
+  if (groupInactiveByYear) {
+    for (const item of visibleJobs) {
+      const year = jobNumberYear(item.jobNumber);
+      const items = yearGroups.get(year) ?? [];
+      items.push(item);
+      yearGroups.set(year, items);
+    }
+  }
+  const inactiveYears = [...yearGroups].sort(([a], [b]) => (b ?? -1) - (a ?? -1));
+  const renderJobTable = (items: Job[], yearLabel?: string) => (
     <section className="panel table-panel">
-      <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label="Jobs list"><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
+      {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
@@ -6336,6 +6348,22 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
       {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{searchingAllJobStatuses ? "Clear the search or change the project manager filter to see more jobs." : managerFilter ? "Change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(searchingAllJobStatuses || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
     </section>
   );
+  const renderJobResults = (items: Job[], yearLabel?: string) => jobLayout === "list" || !items.length
+    ? renderJobTable(items, yearLabel)
+    : <section className="panel job-tiles-panel" aria-label={yearLabel ? `${yearLabel} inactive jobs` : undefined}>
+      {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Select a job to open its dashboard."}</span></div>}
+      <div className="job-tiles">{items.map((item) => {
+        const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
+        return <article className="job-tile" key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
+          <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={jobDisplayStatus(item)} /></span>
+          <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
+          <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
+          <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
+          <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
+          {linkedQuote && <small>{linkedQuote.number}</small>}
+        </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
+      })}</div>
+    </section>;
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
@@ -6359,20 +6387,16 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         </div>
         <WorkLayoutSwitch layout={jobLayout} onChange={setJobLayout} label="Job layout" />
       </section>
-      {jobLayout === "list" || !visibleJobs.length ? renderJobTable(visibleJobs) : <section className="panel job-tiles-panel">
-        <div className="table-summary"><strong>{visibleJobs.length} {filteredStatusLabel} job{visibleJobs.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Select a job to open its dashboard."}</span></div>
-        <div className="job-tiles">{visibleJobs.map((item) => {
-          const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-          return <article className="job-tile" key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
-            <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={jobDisplayStatus(item)} /></span>
-            <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
-            <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
-            <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
-            <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
-            {linkedQuote && <small>{linkedQuote.number}</small>}
-          </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
-        })}</div>
-      </section>}
+      {groupInactiveByYear ? <section className="job-year-groups" aria-label="Inactive jobs by year">
+        <div className="table-summary"><strong>{visibleJobs.length} inactive job{visibleJobs.length === 1 ? "" : "s"}</strong><span id="job-search-scope">Grouped by job-number year · Newest year first.</span></div>
+        {inactiveYears.map(([year, items], index) => {
+          const label = year === null ? "Year not set" : String(year);
+          return <details className="panel job-year-group" key={label} open={index === 0}>
+            <summary><strong>{label}</strong><span>{items.length} inactive job{items.length === 1 ? "" : "s"}</span></summary>
+            {renderJobResults(items, label)}
+          </details>;
+        })}
+      </section> : renderJobResults(visibleJobs)}
     </div>
   );
 }
