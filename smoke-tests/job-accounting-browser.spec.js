@@ -1,14 +1,14 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs"), { createHash } = require("crypto");
 const { directoryState, serveDirectory } = require("./fixtures/job-readability-fixture");
-const { fixture, plan } = require("./fixtures/job-accounting-fixture");
+const { fixture, plan, helpers } = require("./fixtures/job-accounting-fixture");
 const ExcelJS = require("../vendor/exceljs.min.js");
 
 async function setup(page, options = {}) {
   const captures = await serveDirectory(page, directoryState());
   let preview = fixture();
   if (options.reference) preview = { ...preview, ...options.reference, sourceSnapshot: [], baselineSnapshot: [], previousSnapshot: [] };
-  const versions = [], logs = [], calls = [];
+  const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
     const req = route.request(), url = new URL(req.url());
     const body = req.method() === "POST" ? req.postDataJSON() : {};
@@ -16,15 +16,24 @@ async function setup(page, options = {}) {
     if (req.method() === "GET") {
       const id = url.searchParams.get("id");
       if (id) { const record = versions.find((r) => r.id === id); return route.fulfill({ status: record ? 200 : 404, json: record ? { record, requests: logs.filter((r) => r.exportId === id), requestCount: logs.filter((r) => r.exportId === id).length } : { error: "Not found" } }); }
-      return route.fulfill({ json: { history: [...versions].reverse(), count: versions.length } });
+      return route.fulfill({ json: { history: [...versions].reverse(), count: versions.length, state: { cycle: preview.cycle, nextVersion: preview.version, latestExportId: preview.previousExportId, lastResetAt: resets.length ? "2026-09-08T17:00:00Z" : null, lastResetBy: "QA Administrator" } } });
     }
     if (body.action === "preview") return route.fulfill({ json: { preview, plan: plan(preview) } });
+    if (body.action === "reset") {
+      const previous = resets.find((r) => r.id === body.id);
+      if (previous) return route.fulfill({ json: { reset: previous } });
+      if (body.confirmation !== "RESET TO V1" || body.expectedCycle !== preview.cycle || body.expectedExportId !== preview.previousExportId) return route.fulfill({ status: 409, json: { error: "Download history changed. Refresh history before resetting." } });
+      const reset = { id: body.id, cycle: preview.cycle + 1 }; resets.push(reset);
+      preview = { ...preview, cycle: reset.cycle, version: 1, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(preview.baselineSnapshot) };
+      if (options.lostResetResponse && resets.length === 1) return route.abort("connectionfailed");
+      return route.fulfill({ json: { reset } });
+    }
     if (body.action === "save") {
       if (options.stale) return route.fulfill({ status: 409, json: { error: "Jobs or download history changed. Refresh the preview before saving." } });
       const existing = versions.find((r) => r.id === body.id);
       if (existing) return route.fulfill({ json: { record: existing, reused: true } });
       const planned = plan(preview);
-      const record = { id: body.id, version: preview.version, file_name: `JGC Accounting Job List - v${String(preview.version).padStart(4, "0")}.xlsx`, file_sha256: body.fileSha256, file_base64: body.fileBase64, exported_by_name: "QA Administrator", exported_at: "2026-09-08T16:00:00Z", rows: planned.rows, summary: planned.summary };
+      const record = { id: body.id, cycle: preview.cycle, version: preview.version, file_name: helpers.accountingExportFilename(preview.version, preview.cycle), file_sha256: body.fileSha256, file_base64: body.fileBase64, exported_by_name: "QA Administrator", exported_at: "2026-09-08T16:00:00Z", rows: planned.rows, summary: planned.summary };
       versions.push(record);
       preview = { ...preview, version: preview.version + 1, previousExportId: record.id, previousSnapshot: structuredClone(preview.sourceSnapshot), previousRows: structuredClone(planned.rows) };
       if (options.lostSaveResponse && versions.length === 1) return route.abort("connectionfailed");
@@ -39,7 +48,7 @@ async function setup(page, options = {}) {
     return route.fulfill({ status: 400, json: { error: "Unexpected request" } });
   });
   if (!options.collapsed) await page.locator(".job-accounting-disclosure > summary").click();
-  return { captures, versions, logs, calls };
+  return { captures, versions, logs, calls, resets };
 }
 async function create(page, version) {
   await page.getByRole("button", { name: "Download accounting job list", exact: true }).click();
@@ -55,6 +64,7 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   const state = await setup(page);
   const first = await create(page, 1);
   const bytes = fs.readFileSync(await first.path());
+  await first.saveAs(testInfo.outputPath("accounting-full-list-qa.xlsx"));
   const book = new ExcelJS.Workbook(); await book.xlsx.load(bytes);
   expect(book.worksheets.map((s) => s.name)).toEqual(["2026", "2025", "Download details"]);
   const sheet = book.getWorksheet("2026");
@@ -63,12 +73,24 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   expect(sheet.getCell("J3").value).toBe(1200);
   expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(sheet.getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
+  expect(sheet.getCell("A5").value).toBe("Original 26904");
+  expect(sheet.getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
   expect(sheet.getCell("A3").font.color.argb).toBe("FF000000");
   expect(sheet.views[0].ySplit).toBe(2);
+  expect(sheet.properties.defaultRowHeight).toBe(12.75);
+  expect(sheet.getCell("A1").font).toMatchObject({ name: "Arial", size: 10 });
+  expect(Boolean(sheet.getCell("A1").font.bold)).toBe(false);
+  for (const s of book.worksheets) s.eachRow((row) => {
+    expect(row.height ?? s.properties.defaultRowHeight).toBe(12.75);
+    row.eachCell((cell) => { expect(cell.font.name).toBe("Arial"); expect(cell.font.size).toBe(10); });
+  });
+  expect(sheet.getCell("A3").alignment.wrapText ?? false).toBe(false);
   expect(state.versions).toHaveLength(1);
   const second = await create(page, 2);
   const secondBook = new ExcelJS.Workbook(); await secondBook.xlsx.load(fs.readFileSync(await second.path()));
   expect(secondBook.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FFFFFF00");
+  expect(secondBook.getWorksheet("2026").getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
+  expect(secondBook.getWorksheet("2025").getCell("A3").fill.fgColor.argb).toBe("FFFF0000");
   await page.locator(".job-accounting-history > summary").click();
   const oldDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download v1", exact: true }).click();
@@ -141,14 +163,61 @@ for (const width of [390, 1366]) test(`accounting download collapses like the up
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
-test("optional supplied-master QA preserves every coloured reference cell and all year sheets", async ({ page }, testInfo) => {
+for (const lostResetResponse of [false, true]) test(`confirmed reset preserves old files and restarts green at V1 (lost response: ${lostResetResponse})`, async ({ page }, testInfo) => {
+  const state = await setup(page, { lostResetResponse });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: "Reset downloads to V1", exact: true })).toBeDisabled();
+  await create(page, 1); await create(page, 2);
+  const old = JSON.stringify(state.versions), oldFile = state.versions[0].file_base64;
+  await page.getByRole("button", { name: "Reset downloads to V1", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm reset to V1", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Keep current versions", exact: true }).click();
+  expect(state.resets).toHaveLength(0);
+  await page.getByRole("button", { name: "Reset downloads to V1", exact: true }).click();
+  await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).fill("RESET TO V1");
+  const inputStyle = await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).evaluate((el) => { const s = getComputedStyle(el); return { color: s.color, fill: s.webkitTextFillColor, background: s.backgroundColor, scheme: s.colorScheme }; });
+  expect(inputStyle.background).toBe("rgb(255, 255, 255)"); expect(inputStyle.scheme).toBe("light");
+  expect(inputStyle.color).not.toBe(inputStyle.background); expect(inputStyle.fill).toBe(inputStyle.color);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  if (process.env.JGC_CAPTURE_VISUAL_QA) await page.getByRole("region", { name: "Confirm accounting reset" }).screenshot({ path: testInfo.outputPath("reset-confirmation-mobile.png") });
+  await page.getByRole("button", { name: "Confirm reset to V1", exact: true }).click();
+  if (lostResetResponse) {
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.reload();
+    await page.getByRole("button", { name: "Open navigation", exact: true }).click();
+    await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
+    await page.locator(".job-accounting-disclosure > summary").click();
+    await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).fill("RESET TO V1");
+    await page.getByRole("button", { name: "Retry confirmed reset", exact: true }).click();
+  }
+  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V1 · Run 2");
+  expect(state.resets).toHaveLength(1); expect(JSON.stringify(state.versions)).toBe(old);
+  await expect(page.getByRole("button", { name: "Reset downloads to V1", exact: true })).toBeDisabled();
+  const restarted = await create(page, 1);
+  expect(restarted.suggestedFilename()).toBe("JGC Accounting Job List - v0001 - run2.xlsx");
+  await restarted.saveAs(testInfo.outputPath("accounting-reset-v1-qa.xlsx"));
+  const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await restarted.path()));
+  expect(book.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FF92D050");
+  expect(book.getWorksheet("2026").getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
+  expect(book.getWorksheet("2026").getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
+  expect(book.getWorksheet("2025").getCell("A3").fill.fgColor.argb).toBe("FFFF0000");
+  expect(book.getWorksheet("Download details").getCell("A1").value).toContain("Version 1 · Run 2");
+  await page.locator(".job-accounting-history > summary").click();
+  const oldRow = page.locator(".job-accounting-history tbody tr").filter({ hasText: "Run 1 · Previous run" }).filter({ has: page.getByRole("button", { name: "Download v1", exact: true }) });
+  const downloaded = page.waitForEvent("download");
+  await oldRow.getByRole("button", { name: "Download v1", exact: true }).click();
+  expect(fs.readFileSync(await (await downloaded).path()).toString("base64")).toBe(oldFile);
+  expect(state.versions).toHaveLength(3); expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+});
+
+test("optional supplied-master QA preserves every reference cell and all year sheets", async ({ page }, testInfo) => {
   test.skip(!process.env.JGC_ACCOUNTING_REFERENCE_PATH, "Private customer workbook is supplied locally, never committed as a fixture.");
   const reference = JSON.parse(fs.readFileSync(process.env.JGC_ACCOUNTING_REFERENCE_PATH, "utf8"));
   const state = await setup(page, { reference });
   const file = await create(page, 1);
   await file.saveAs(testInfo.outputPath("accounting-reference-qa.xlsx"));
   const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
-  const expected = reference.masterRows.filter((r) => r.color !== "white");
+  const expected = reference.masterRows;
   const actual = new Map();
   for (const sheet of book.worksheets.filter((s) => /^20\d{2}$/.test(s.name))) {
     sheet.eachRow((r, number) => { if (number >= 3 && /^\d{5,}$/.test(String(r.getCell(6).value ?? ""))) actual.set(String(r.getCell(6).value), { row: r, sheet }); });
@@ -160,8 +229,11 @@ test("optional supplied-master QA preserves every coloured reference cell and al
   for (const sheet of book.worksheets.filter((s) => /^20\d{2}$/.test(s.name))) expect(sheet.headerFooter.oddFooter).toContain("&CVersion 1");
   for (const source of expected) {
     const { row, sheet } = actual.get(source.jobNumber);
+    expect(row.height ?? sheet.properties.defaultRowHeight).toBe(12.75);
+    expect(row.getCell(1).font).toMatchObject({ name: "Arial", size: 10 });
+    expect(row.getCell(1).alignment.wrapText ?? false).toBe(false);
     expect(sheet.name).toBe(`20${source.jobNumber.slice(0, 2)}`);
-    expect(row.getCell(1).fill.fgColor.argb).toBe({ green: "FF92D050", yellow: "FFFFFF00", red: "FFFF0000" }[source.color]);
+    expect(row.getCell(1).fill.fgColor.argb).toBe({ white: "FFFFFFFF", green: "FF92D050", yellow: "FFFFFF00", red: "FFFF0000" }[source.color]);
     for (let c = 0; c < 16; c++) {
       if (c > 0 && c < 5) continue;
       const value = row.getCell(c + 1).value, wanted = source.cells[c];

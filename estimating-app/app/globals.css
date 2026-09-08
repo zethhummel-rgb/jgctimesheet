@@ -1937,6 +1937,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .accounting-red { background: #ffd4cf !important; color: #6b1009 !important; border-color: #a9483e; }
 .job-accounting-panel .job-accounting-error { color: #9a211a; background: #fff0ed; padding: 10px; border: 1px solid #e8b5ad; border-radius: 6px; }
 .job-accounting-preview { border: 1px solid var(--slate-200); border-radius: 8px; padding: 14px; margin: 16px 0; }
+.job-accounting-reset-field { max-width: 360px; margin: 14px 0; color: var(--navy-950); }
+.job-accounting-reset-field input { color: var(--navy-950); background: #fff; -webkit-text-fill-color: var(--navy-950); color-scheme: light; font: inherit; }
 .job-accounting-table-wrap { overflow-x: auto; margin: 12px 0; }
 .job-accounting-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
 .job-accounting-table th, .job-accounting-table td { text-align: left; vertical-align: middle; padding: 10px; border-bottom: 1px solid var(--slate-200); color: var(--navy-950); overflow-wrap: anywhere; }

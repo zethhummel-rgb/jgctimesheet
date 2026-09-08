@@ -1,7 +1,7 @@
 import { accountingBase64ToBytes, accountingFileHash, planJobAccountingExport, type AccountingExportPreview } from "../lib/job-accounting-export";
 
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-const metadata = "id,version,file_name,file_sha256,summary,exported_by_name,exported_at";
+const metadata = "id,cycle,version,file_name,file_sha256,summary,exported_by_name,exported_at";
 const uuid = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const failure = (error: { message?: string; code?: string }) => json({ error: error.message || "The accounting download could not be completed." }, error.code === "42501" ? 403 : error.code === "40001" ? 409 : 500);
 
@@ -28,12 +28,19 @@ export async function jobAccountingResponse(client: any, request: Request) {
       return json({ record: record.data, requests: requests.data ?? [], requestCount: requests.count ?? 0 });
     }
     const offset = Math.max(0, Math.min(1_000_000, Number(url.searchParams.get("offset")) || 0));
-    const history = await client.from("job_accounting_exports").select(metadata, { count: "exact" }).order("version", { ascending: false }).range(offset, offset + 19);
+    const history = await client.from("job_accounting_exports").select(metadata, { count: "exact" }).order("cycle", { ascending: false }).order("version", { ascending: false }).range(offset, offset + 19);
     if (history.error) return failure(history.error);
-    return json({ history: history.data ?? [], count: history.count ?? 0 });
+    const state = await client.rpc("get_job_accounting_export_state");
+    if (state.error) return failure(state.error);
+    return json({ history: history.data ?? [], count: history.count ?? 0, state: state.data });
   }
   if (request.method !== "POST") return json({ error: "Saved accounting versions cannot be edited or deleted." }, 405);
   const body = await request.json();
+  if (body.action === "reset") {
+    if (!uuid(body.id) || !uuid(body.expectedExportId) || !Number.isSafeInteger(body.expectedCycle) || body.expectedCycle < 1 || body.confirmation !== "RESET TO V1") return json({ error: "Type RESET TO V1 to confirm restarting the current download history." }, 400);
+    const result = await client.rpc("reset_job_accounting_exports", { p_reset_id: body.id, p_expected_cycle: body.expectedCycle, p_expected_export_id: body.expectedExportId, p_confirmation: body.confirmation });
+    return result.error ? failure(result.error) : json({ reset: result.data });
+  }
   if (body.action === "preview") {
     const prepared = await client.rpc("get_job_accounting_export_preview");
     if (prepared.error) return failure(prepared.error);
@@ -51,13 +58,13 @@ export async function jobAccountingResponse(client: any, request: Request) {
     const prepared = await client.rpc("get_job_accounting_export_preview");
     if (prepared.error) return failure(prepared.error);
     const current = prepared.data as AccountingExportPreview;
-    if (current.version !== preview.version || current.previousExportId !== preview.previousExportId || JSON.stringify(current.sourceSnapshot) !== JSON.stringify(preview.sourceSnapshot)) return json({ error: "Jobs or download history changed. Refresh the preview before saving." }, 409);
+    if (current.cycle !== preview.cycle || current.version !== preview.version || current.previousExportId !== preview.previousExportId || JSON.stringify(current.sourceSnapshot) !== JSON.stringify(preview.sourceSnapshot)) return json({ error: "Jobs or download history changed. Refresh the preview before saving." }, 409);
     const plan = planJobAccountingExport(current);
-    if (!plan.rows.length) return json({ error: "There are no changed jobs or retained yellow rows to download." }, 400);
+    if (!plan.rows.length) return json({ error: "There are no jobs with a confirmed accounting status to download." }, 400);
     const fileHash = await accountingFileHash(accountingBase64ToBytes(body.fileBase64));
     if (fileHash !== body.fileSha256) return json({ error: "The Excel file failed its integrity check. No version was saved." }, 400);
     const saved = await client.from("job_accounting_exports").insert({
-      id: body.id, version: current.version, previous_export_id: current.previousExportId,
+      id: body.id, cycle: current.cycle, version: current.version, previous_export_id: current.previousExportId,
       file_name: "assigned-by-database.xlsx", file_sha256: fileHash, file_base64: body.fileBase64,
       source_snapshot: current.sourceSnapshot, rows: plan.rows, summary: plan.summary,
       exported_by: auth.data.user.id, exported_by_name: "assigned by database",
@@ -83,5 +90,5 @@ export async function jobAccountingResponse(client: any, request: Request) {
     }
     return json({ record: record.data });
   }
-  return json({ error: "Choose preview, save or download." }, 400);
+  return json({ error: "Choose preview, save, download or reset." }, 400);
 }

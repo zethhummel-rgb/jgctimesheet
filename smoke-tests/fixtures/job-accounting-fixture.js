@@ -12,7 +12,7 @@ const job = (number, changes = {}) => ({ jobNumber: number, jobName: `Job ${numb
 const master = (number, color) => ({ jobNumber: number, color, cells: [`Original ${number}`, null, null, null, null, number, "000123", "ZH", null, 1200, "T&M", null, "yes", { date: "2026-07-16" }, null, null] });
 const fixture = () => {
   const jobs = [job("26901", { active: false }), job("26902", { active: false }), job("26904")];
-  return { version: 1, previousExportId: null, sourceSnapshot: structuredClone(jobs), baselineSnapshot: structuredClone(jobs), previousSnapshot: structuredClone(jobs), masterRows: [master("26901", "green"), master("26902", "yellow"), master("25903", "red"), master("26904", "white")], previousRows: [], sourceName: "Synthetic master.xlsx", sourceSha256: "a".repeat(64), trackingStartedAt: "2026-09-08T12:00:00Z" };
+  return { cycle: 1, version: 1, previousExportId: null, sourceSnapshot: structuredClone(jobs), baselineSnapshot: structuredClone(jobs), previousSnapshot: structuredClone(jobs), masterRows: [master("26901", "green"), master("26902", "yellow"), master("25903", "red"), master("26904", "white")], previousRows: [], sourceName: "Synthetic master.xlsx", sourceSha256: "a".repeat(64), trackingStartedAt: "2026-09-08T12:00:00Z" };
 };
 const next = (p, rows) => ({ ...p, version: p.version + 1, previousExportId: `version-${p.version}`, previousSnapshot: structuredClone(p.sourceSnapshot), previousRows: structuredClone(rows) });
 module.exports = { fixture, next, plan: helpers.planJobAccountingExport, job, master, helpers, load };

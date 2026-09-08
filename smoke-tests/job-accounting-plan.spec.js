@@ -14,16 +14,16 @@ const fixture = () => {
 };
 const next = (p, rows) => ({ ...p, version: p.version + 1, previousExportId: `version-${p.version}`, previousSnapshot: structuredClone(p.sourceSnapshot), previousRows: structuredClone(rows) });
 
-test("first version preserves master colours/values and omits unchanged active jobs", () => {
+test("first version preserves master colours/values and includes unchanged active jobs", () => {
   const p = fixture(), result = plan(p);
-  expect(result.rows.map((r) => [r.jobNumber, r.color])).toEqual([["25903", "red"], ["26901", "green"], ["26902", "yellow"]]);
+  expect(result.rows.map((r) => [r.jobNumber, r.color])).toEqual([["25903", "red"], ["26901", "green"], ["26902", "yellow"], ["26904", "white"]]);
   expect(result.rows[1].cells).toEqual(p.masterRows[0].cells);
-  expect(result.summary).toMatchObject({ total: 3, green: 1, yellow: 1, red: 1, white: 0, missingFromPortal: 1 });
+  expect(result.summary).toMatchObject({ total: 4, green: 1, yellow: 1, red: 1, white: 1, missingFromPortal: 1 });
 });
 test("green becomes yellow only in subsequent versions; original snapshot is unchanged", () => {
   const p = fixture(), first = plan(p), original = JSON.stringify(first);
   const second = plan(next(p, first.rows));
-  expect(second.rows.map((r) => [r.jobNumber, r.color])).toEqual([["26901", "yellow"], ["26902", "yellow"]]);
+  expect(second.rows.map((r) => [r.jobNumber, r.color])).toEqual([["25903", "red"], ["26901", "yellow"], ["26902", "yellow"], ["26904", "white"]]);
   expect(JSON.stringify(first)).toBe(original);
   expect(plan(next(next(p, first.rows), second.rows)).summary.yellow).toBe(2);
 });
@@ -86,3 +86,21 @@ test("only explicit status actions change the new marker; uploader logic remains
 });
 
 module.exports = { fixture, next, plan, job, master };
+
+test("reset after V20 restores green without clearing original yellow or changing any job", () => {
+  let p = fixture(); const original = JSON.stringify(p);
+  for (let i = 1; i <= 20; i++) { const result = plan(p); expect(result.summary.total).toBe(4); p = next(p, result.rows); }
+  expect(plan(p).summary).toMatchObject({ green: 0, yellow: 2, white: 1, red: 1 });
+  const reset = { ...p, cycle: 2, version: 1, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(p.baselineSnapshot) };
+  expect(plan(reset).summary).toMatchObject({ green: 1, yellow: 1, white: 1, red: 1 });
+  expect(JSON.stringify(reset.sourceSnapshot)).toBe(JSON.stringify(JSON.parse(original).sourceSnapshot));
+  expect(plan(next(reset, plan(reset).rows)).summary).toMatchObject({ green: 0, yellow: 2, white: 1, red: 1 });
+});
+
+test("previously handed-off new jobs remain in history downloads if removed from the portal", () => {
+  let p = fixture(); p.sourceSnapshot.push(job("26999", { active: false, statusChangedAt: "2026-09-08T12:00:00Z", price: 99 }));
+  const first = plan(p); p = next(p, first.rows); p.sourceSnapshot = p.sourceSnapshot.filter((j) => j.jobNumber !== "26999");
+  const second = plan(p), row = second.rows.find((r) => r.jobNumber === "26999");
+  expect(row.color).toBe("yellow"); expect(row.cells[9]).toBe(99);
+  expect(plan(next(p, second.rows)).rows.find((r) => r.jobNumber === "26999").color).toBe("yellow");
+});
