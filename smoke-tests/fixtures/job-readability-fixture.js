@@ -112,6 +112,7 @@ async function serveDirectory(page, state, options = {}) {
       captures.unexpectedRequests.push(`${request.method()} ${url.origin}${url.pathname}`);
       return route.abort("blockedbyclient");
     }
+    if (url.pathname.endsWith("/api/job-accounting-export") && request.method() === "GET") return route.fulfill({ json: { history: [], count: 0 } });
     if (url.pathname.endsWith("/api/state")) {
       if (request.method() === "PUT") {
         captures.writes.push(request.postDataJSON().state);

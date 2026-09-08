@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ClearableNumberInput } from "./clearable-number-input";
 import { JobImportPanel } from "./job-import-panel";
+import { JobAccountingPanel } from "./job-accounting-panel";
 import { jobManagerIdentity } from "../lib/job-manager-names";
 import { jobNumberYear } from "../lib/job-number-year";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
@@ -6373,6 +6374,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
       {directoryMessage && <p role="status">{directoryMessage}</p>}
       {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
       <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
+      <JobAccountingPanel workspaceSaved={workspaceSaved} />
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
         <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>

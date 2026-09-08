@@ -1877,3 +1877,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) th,
   .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) tbody > tr > td { display: table-cell; width: auto; }
 }
+.job-accounting-panel { overflow: hidden; }
+.job-accounting-panel .panel-heading { align-items: center; flex-wrap: wrap; gap: 14px; }
+.job-accounting-panel h3, .job-accounting-panel h4 { color: var(--navy-950); }
+.job-accounting-panel p { color: var(--slate-700); line-height: 1.55; margin: 9px 0; }
+.job-accounting-body { padding: 16px 20px; }
+.job-accounting-legend, .job-accounting-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.job-accounting-actions h4 { margin-right: auto; }
+.accounting-chip { display: inline-block; border: 1px solid #64766b; border-radius: 5px; padding: 3px 7px; color: #10241b !important; font-weight: 700; font-size: 12px; line-height: 1.5; }
+.accounting-white { background: #fff !important; }
+.accounting-green { background: #b7df8d !important; }
+.accounting-yellow { background: #fff292 !important; }
+.accounting-red { background: #ffd4cf !important; color: #6b1009 !important; border-color: #a9483e; }
+.job-accounting-panel .job-accounting-error { color: #9a211a; background: #fff0ed; padding: 10px; border: 1px solid #e8b5ad; border-radius: 6px; }
+.job-accounting-preview { border: 1px solid var(--slate-200); border-radius: 8px; padding: 14px; margin: 16px 0; }
+.job-accounting-table-wrap { overflow-x: auto; margin: 12px 0; }
+.job-accounting-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+.job-accounting-table th, .job-accounting-table td { text-align: left; vertical-align: middle; padding: 10px; border-bottom: 1px solid var(--slate-200); color: var(--navy-950); overflow-wrap: anywhere; }
+.job-accounting-table th { font-size: 12px; font-weight: 800; }
+.job-accounting-history { border-top: 1px solid var(--slate-200); padding-top: 13px; margin-top: 14px; }
+.job-accounting-history > summary { cursor: pointer; font-weight: 750; color: var(--navy-950); padding: 6px 0; }
+.job-accounting-request-list { padding-left: 20px; font-size: 13px; color: var(--navy-950); }
+@media (max-width: 640px) {
+  .job-accounting-panel .panel-heading > .button { width: 100%; }
+  .job-accounting-body { padding: 12px; }
+  .job-accounting-preview { padding: 10px; }
+  .job-accounting-actions .button { min-height: 36px; }
+}
