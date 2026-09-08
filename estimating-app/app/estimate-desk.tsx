@@ -6369,12 +6369,17 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
       <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
-      <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Inactive jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing || statusSaving} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
-      <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
+      <div className="job-directory-controls">
+      <div className="job-directory-utility"><div className="job-directory-meta">
+        <details className="job-directory-info"><summary>One shared job list</summary><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Inactive jobs keep their history. T&amp;M jobs open on Statistics.</p></details>
+        <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
+      </div><button className="button secondary compact" disabled={directoryRefreshing || statusSaving} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
       {directoryMessage && <p role="status">{directoryMessage}</p>}
       {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
+      <div className="job-directory-file-tools">
       <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
       <details className="job-accounting-disclosure"><summary>Excel job-list download</summary><JobAccountingPanel workspaceSaved={workspaceSaved} /></details>
+      </div>
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
         <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
@@ -6389,6 +6394,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         </div>
         <WorkLayoutSwitch layout={jobLayout} onChange={setJobLayout} label="Job layout" />
       </section>
+      </div>
       {groupInactiveByYear ? <section className="job-year-groups" aria-label="Inactive jobs by year">
         <div className="table-summary"><strong>{visibleJobs.length} inactive job{visibleJobs.length === 1 ? "" : "s"}</strong><span id="job-search-scope">Grouped by job-number year · Newest year first.</span></div>
         {inactiveYears.map(([year, items], index) => {

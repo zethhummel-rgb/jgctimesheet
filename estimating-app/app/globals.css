@@ -1879,6 +1879,66 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-detail-page .statistics-work-orders-table .data-table:not(.proposal-table) tbody > tr > td { display: table-cell; width: auto; }
 }
 .job-accounting-panel { overflow: hidden; }
+.job-directory-page { gap: 12px; }
+.job-directory-controls { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.job-directory-utility { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+.job-directory-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; min-width: 0; }
+.job-directory-controls .job-last-import { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.job-directory-info { min-width: 0; color: var(--navy-900); }
+.job-directory-info > summary { min-height: 32px; padding: 7px 0; cursor: pointer; font-size: 12px; font-weight: 700; }
+.job-directory-info[open] { flex-basis: 100%; }
+.job-directory-info > p { margin: 0 0 4px; padding: 8px 10px; border: 1px solid var(--slate-200); border-radius: 6px; background: #fff; color: var(--slate-700); font-size: 13px; line-height: 1.5; }
+.job-directory-info > summary:focus-visible { outline: 2px solid var(--green-700); outline-offset: 2px; }
+.job-directory-utility > .button { flex: 0 0 auto; min-height: 32px; padding: 6px 10px; }
+.job-directory-file-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 8px; min-width: 0; }
+.job-directory-file-tools > details { border-radius: 7px; }
+.job-directory-file-tools > details[open] { grid-column: 1 / -1; }
+.job-directory-file-tools > details > summary { min-height: 36px; padding: 9px 12px; font-size: 12px; line-height: 1.5; color: var(--navy-900); }
+.job-directory-controls > .job-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-radius: 7px; }
+.job-directory-controls > .job-kpi-grid > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: center; align-items: baseline; gap: 1px 8px; min-height: 52px; padding: 7px 12px; border-left: 1px solid var(--slate-200); }
+.job-directory-controls > .job-kpi-grid > div:first-child { border-left: 0; }
+.job-directory-controls > .job-kpi-grid strong { margin: 0; font-size: 18px; }
+.job-directory-controls > .job-kpi-grid span { font-size: 12px; color: var(--slate-700); }
+.job-directory-controls > .job-kpi-grid small { grid-column: 1 / -1; font-size: 11px; line-height: 1.35; color: var(--slate-700); }
+.job-directory-controls > .job-directory-toolbar { min-height: 0; padding: 6px 8px; gap: 8px; margin: 0; }
+.job-directory-controls .job-directory-toolbar .search-field { flex-basis: 180px; }
+.job-directory-controls .job-directory-toolbar .search-field input { min-height: 36px; height: 36px; font-size: 14px; }
+.job-directory-controls .job-directory-toolbar .compact-select { flex-direction: row; width: auto; gap: 6px; }
+.job-directory-controls .job-directory-toolbar .compact-select select { min-height: 36px; height: 36px; min-width: 130px; padding: 5px 8px; }
+.job-directory-controls .job-directory-toolbar .filter-tabs { width: auto; padding: 2px; }
+.job-directory-controls .job-directory-toolbar .filter-tabs button { min-height: 32px; height: 32px; min-width: 0; padding: 4px 9px; }
+.job-directory-controls .job-directory-toolbar .work-layout-switch { padding: 2px; }
+.job-directory-controls .job-directory-toolbar .work-layout-switch button { min-height: 32px; min-width: 52px; padding: 4px 9px; font-size: 12px; }
+@media (min-width: 761px) {
+  .job-directory-page .jobs-table { min-width: 960px; }
+}
+@media (max-width: 760px) {
+  .job-directory-meta { gap: 0; }
+  .job-directory-info { flex-basis: 100%; }
+  .job-directory-info > summary, .job-directory-utility > .button { min-height: 44px; }
+  .job-directory-info > summary { padding-block: 13px; }
+  .job-directory-file-tools > details > summary { min-height: 44px; padding: 12px 9px; }
+  .job-directory-controls > .job-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .job-directory-controls > .job-kpi-grid > div { padding: 6px 9px; }
+  .job-directory-controls > .job-kpi-grid > div:nth-child(3) { border-left: 0; }
+  .job-directory-controls > .job-kpi-grid > div:nth-child(n+3) { border-top: 1px solid var(--slate-200); }
+  .job-directory-controls > .job-directory-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+  .job-directory-controls .job-directory-toolbar .search-field, .job-directory-controls .job-directory-toolbar .compact-select { grid-column: 1 / -1; width: 100%; }
+  .job-directory-controls .job-directory-toolbar .compact-select { align-items: center; }
+  .job-directory-controls .job-directory-toolbar .compact-select > span { flex: 0 0 auto; }
+  .job-directory-controls .job-directory-toolbar .compact-select select { flex: 1; min-width: 0; }
+  .job-directory-controls .job-directory-toolbar .search-field input, .job-directory-controls .job-directory-toolbar .compact-select select { height: 44px; min-height: 44px; font-size: 16px; }
+  .job-directory-controls .job-directory-toolbar .filter-tabs, .job-directory-controls .job-directory-toolbar .work-layout-switch { width: 100%; }
+  .job-directory-controls .job-directory-toolbar .filter-tabs button, .job-directory-controls .job-directory-toolbar .work-layout-switch button { min-height: 44px; flex: 1; padding-inline: 5px; }
+}
+@media (max-width: 360px) {
+  .job-directory-utility { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; }
+  .job-directory-meta { display: contents; }
+  .job-directory-info { grid-column: 1; grid-row: 1; }
+  .job-directory-utility > .button { grid-column: 2; grid-row: 1; }
+  .job-directory-controls .job-last-import { grid-column: 1 / -1; }
+  .job-directory-file-tools > details > summary { padding: 8px 6px; }
+}
 .job-accounting-panel .panel-heading { align-items: center; flex-wrap: wrap; gap: 14px; }
 .job-accounting-panel h3, .job-accounting-panel h4 { color: var(--navy-950); }
 .job-accounting-panel p { color: var(--slate-700); line-height: 1.55; margin: 9px 0; }
