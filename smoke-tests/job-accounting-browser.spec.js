@@ -22,9 +22,9 @@ async function setup(page, options = {}) {
     if (body.action === "reset") {
       const previous = resets.find((r) => r.id === body.id);
       if (previous) return route.fulfill({ json: { reset: previous } });
-      if (body.confirmation !== "RESET TO V1" || body.expectedCycle !== preview.cycle || body.expectedExportId !== preview.previousExportId) return route.fulfill({ status: 409, json: { error: "Download history changed. Refresh history before resetting." } });
+      if (body.confirmation !== "RESET TO V0" || body.expectedCycle !== preview.cycle || body.expectedExportId !== preview.previousExportId) return route.fulfill({ status: 409, json: { error: "Download history changed. Refresh history before resetting." } });
       const reset = { id: body.id, cycle: preview.cycle + 1 }; resets.push(reset);
-      preview = { ...preview, cycle: reset.cycle, version: 1, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(preview.baselineSnapshot) };
+      preview = { ...preview, cycle: reset.cycle, version: 0, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(preview.baselineSnapshot) };
       if (options.lostResetResponse && resets.length === 1) return route.abort("connectionfailed");
       return route.fulfill({ json: { reset } });
     }
@@ -163,51 +163,60 @@ for (const width of [390, 1366]) test(`accounting download collapses like the up
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
-for (const lostResetResponse of [false, true]) test(`confirmed reset preserves old files and restarts green at V1 (lost response: ${lostResetResponse})`, async ({ page }, testInfo) => {
+for (const lostResetResponse of [false, true]) test(`confirmed reset preserves old files and restarts green at V0 (lost response: ${lostResetResponse})`, async ({ page }, testInfo) => {
   const state = await setup(page, { lostResetResponse });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("button", { name: "Reset downloads to V1", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reset downloads to V0", exact: true })).toBeDisabled();
   await create(page, 1); await create(page, 2);
   const old = JSON.stringify(state.versions), oldFile = state.versions[0].file_base64;
-  await page.getByRole("button", { name: "Reset downloads to V1", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Confirm reset to V1", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Reset downloads to V0", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Confirm reset to V0", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Keep current versions", exact: true }).click();
   expect(state.resets).toHaveLength(0);
-  await page.getByRole("button", { name: "Reset downloads to V1", exact: true }).click();
-  await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).fill("RESET TO V1");
-  const inputStyle = await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).evaluate((el) => { const s = getComputedStyle(el); return { color: s.color, fill: s.webkitTextFillColor, background: s.backgroundColor, scheme: s.colorScheme }; });
+  await page.getByRole("button", { name: "Reset downloads to V0", exact: true }).click();
+  await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).fill("RESET TO V0");
+  const inputStyle = await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).evaluate((el) => { const s = getComputedStyle(el); return { color: s.color, fill: s.webkitTextFillColor, background: s.backgroundColor, scheme: s.colorScheme }; });
   expect(inputStyle.background).toBe("rgb(255, 255, 255)"); expect(inputStyle.scheme).toBe("light");
   expect(inputStyle.color).not.toBe(inputStyle.background); expect(inputStyle.fill).toBe(inputStyle.color);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.getByRole("region", { name: "Confirm accounting reset" }).screenshot({ path: testInfo.outputPath("reset-confirmation-mobile.png") });
-  await page.getByRole("button", { name: "Confirm reset to V1", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm reset to V0", exact: true }).click();
   if (lostResetResponse) {
     await expect(page.getByRole("alert")).toBeVisible();
     await page.reload();
     await page.getByRole("button", { name: "Open navigation", exact: true }).click();
     await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
     await page.locator(".job-accounting-disclosure > summary").click();
-    await page.getByLabel("Type RESET TO V1 to confirm", { exact: true }).fill("RESET TO V1");
+    await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).fill("RESET TO V0");
     await page.getByRole("button", { name: "Retry confirmed reset", exact: true }).click();
   }
-  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V1 · Run 2");
+  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V0 · Run 2");
   expect(state.resets).toHaveLength(1); expect(JSON.stringify(state.versions)).toBe(old);
-  await expect(page.getByRole("button", { name: "Reset downloads to V1", exact: true })).toBeDisabled();
-  const restarted = await create(page, 1);
-  expect(restarted.suggestedFilename()).toBe("JGC Accounting Job List - v0001 - run2.xlsx");
-  await restarted.saveAs(testInfo.outputPath("accounting-reset-v1-qa.xlsx"));
+  await expect(page.getByRole("button", { name: "Reset downloads to V0", exact: true })).toBeDisabled();
+  const restarted = await create(page, 0);
+  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V1 · Run 2");
+  expect(restarted.suggestedFilename()).toBe("JGC Accounting Job List - v0000 - run2.xlsx");
+  await restarted.saveAs(testInfo.outputPath("accounting-reset-v0-qa.xlsx"));
   const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await restarted.path()));
   expect(book.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(book.getWorksheet("2026").getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
   expect(book.getWorksheet("2026").getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
   expect(book.getWorksheet("2025").getCell("A3").fill.fgColor.argb).toBe("FFFF0000");
-  expect(book.getWorksheet("Download details").getCell("A1").value).toContain("Version 1 · Run 2");
+  expect(book.getWorksheet("Download details").getCell("A1").value).toContain("Version 0 · Run 2");
   await page.locator(".job-accounting-history > summary").click();
   const oldRow = page.locator(".job-accounting-history tbody tr").filter({ hasText: "Run 1 · Previous run" }).filter({ has: page.getByRole("button", { name: "Download v1", exact: true }) });
   const downloaded = page.waitForEvent("download");
   await oldRow.getByRole("button", { name: "Download v1", exact: true }).click();
   expect(fs.readFileSync(await (await downloaded).path()).toString("base64")).toBe(oldFile);
   expect(state.versions).toHaveLength(3); expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+  const subsequent = await create(page, 1);
+  expect(subsequent.suggestedFilename()).toBe("JGC Accounting Job List - v0001 - run2.xlsx");
+  const nextBook = new ExcelJS.Workbook(); await nextBook.xlsx.load(fs.readFileSync(await subsequent.path()));
+  expect(nextBook.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FFFFFF00");
+  expect(nextBook.getWorksheet("Download details").getCell("A1").value).toContain("Version 1 · Run 2");
+  expect(state.versions).toHaveLength(4);
+  expect(state.versions[2].file_base64).toBe(fs.readFileSync(await restarted.path()).toString("base64"));
+  expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
 });
 
 test("optional supplied-master QA preserves every reference cell and all year sheets", async ({ page }, testInfo) => {

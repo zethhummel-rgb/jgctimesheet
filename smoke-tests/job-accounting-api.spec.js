@@ -12,7 +12,7 @@ function client(options = {}) {
       const saved = resets.find((r) => r.id === body.p_reset_id); if (saved) return { data: saved };
       if (body.p_expected_cycle !== api.preview.cycle || body.p_expected_export_id !== api.preview.previousExportId) return { error: { code: "40001", message: "Download history changed" } };
       const reset = { id: body.p_reset_id, cycle: api.preview.cycle + 1 }; resets.push(reset);
-      api.preview = { ...api.preview, cycle: reset.cycle, version: 1, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(api.preview.baselineSnapshot) };
+      api.preview = { ...api.preview, cycle: reset.cycle, version: 0, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(api.preview.baselineSnapshot) };
       return { data: reset };
     }
     return { data: api.preview, error: null };
@@ -48,7 +48,7 @@ test("accounting endpoint denies ordinary employees and inactive admins before r
   for (const options of [{ role: "employee" }, { status: "inactive" }]) {
     const c = client(options); expect((await send(c)).status).toBe(403);
     expect(c.calls.some((r) => r.table !== "profiles")).toBe(false);
-    expect((await send(c, { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: randomUUID(), confirmation: "RESET TO V1" })).status).toBe(403);
+    expect((await send(c, { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: randomUUID(), confirmation: "RESET TO V0" })).status).toBe(403);
   }
 });
 test("save is idempotent and a re-download logs a request without writing jobs or making another version", async () => {
@@ -66,15 +66,19 @@ test("save is idempotent and a re-download logs a request without writing jobs o
 test("reset requires confirmation, preserves files, retries once and invalidates old previews", async () => {
   const c = client(), saved = await payload(c); await send(c, saved);
   c.preview.previousExportId = saved.id; c.preview.version = 2;
-  const before = JSON.stringify(c.tables.job_accounting_exports), reset = { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: saved.id, confirmation: "RESET TO V1" };
+  const before = JSON.stringify(c.tables.job_accounting_exports), reset = { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: saved.id, confirmation: "RESET TO V0" };
   expect((await send(c, { ...reset, confirmation: "" })).status).toBe(400); expect(c.resets).toHaveLength(0);
+  expect((await send(c, { ...reset, confirmation: "RESET TO V1" })).status).toBe(400); expect(c.resets).toHaveLength(0);
   expect((await send(c, { ...reset, expectedCycle: 2 })).status).toBe(409);
   expect((await send(c, reset)).status).toBe(200);
   expect((await send(c, reset)).status).toBe(200); expect(c.resets).toHaveLength(1);
-  expect(c.preview).toMatchObject({ cycle: 2, version: 1, previousExportId: null, previousRows: [] });
+  expect(c.preview).toMatchObject({ cycle: 2, version: 0, previousExportId: null, previousRows: [] });
   expect(JSON.stringify(c.tables.job_accounting_exports)).toBe(before);
   expect((await send(c, { ...saved, id: randomUUID() })).status).toBe(409);
   expect((await send(c, undefined, `?id=${saved.id}`)).body.record.file_sha256).toBe(saved.fileSha256);
+  const restarted = await send(c, await payload(c));
+  expect(restarted.status).toBe(201);
+  expect(restarted.body.record).toMatchObject({ cycle: 2, version: 0 });
 });
 test("stale preview and mismatched checksum fail without saving", async () => {
   const c = client(), body = await payload(c); c.preview.version = 2;

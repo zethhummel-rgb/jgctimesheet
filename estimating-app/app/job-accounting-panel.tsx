@@ -87,7 +87,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     catch (cause) { throw new Error(`Version ${saved.record.version} is safely saved in Download history, but the browser download did not complete. Download that version again. ${cause instanceof Error ? cause.message : ""}`); }
   }
   async function resetDownloads() {
-    if (!workspaceSaved || confirmation !== "RESET TO V1") return;
+    if (!workspaceSaved || confirmation !== "RESET TO V0") return;
     if (!resetBody.current) {
       if (!exportState?.latestExportId) return;
       resetBody.current = { action: "reset", id: crypto.randomUUID(), expectedCycle: exportState.cycle, expectedExportId: exportState.latestExportId, confirmation };
@@ -102,7 +102,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     }
     resetBody.current = null; pendingReset.clear(); pending.clear(); saveBody.current = null;
     setPreview(null); setPlan(null); setSelected(null); setResetOpen(false); setConfirmation("");
-    setMessage("Reset completed. The next download starts at V1. Ready-to-invoice jobs will be green again; original master yellow rows stay yellow. Earlier runs remain in history. No jobs or imports were changed.");
+    setMessage("Reset completed. The next download starts at V0. Ready-to-invoice jobs will be green again; original master yellow rows stay yellow. Earlier runs remain in history. No jobs or imports were changed.");
     try { await loadHistory(); } catch { setError("The reset completed, but history could not refresh. Refresh history before creating another download."); setExportState(null); }
   }
   const rows = selected?.rows ?? plan?.rows ?? [];
@@ -116,16 +116,16 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
       <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion} · Run {exportState.cycle}</span>}
-        <button className="button secondary compact" disabled={busy || !workspaceSaved || (!exportState?.latestExportId && !resetBody.current)} onClick={() => { setResetOpen(true); setConfirmation(""); }}>Reset downloads to V1</button>
+        <button className="button secondary compact" disabled={busy || !workspaceSaved || (!exportState?.latestExportId && !resetBody.current)} onClick={() => { setResetOpen(true); setConfirmation(""); }}>Reset downloads to V0</button>
       </div>
       {exportState?.lastResetAt && <p>Last reset: {when(exportState.lastResetAt)} · {exportState.lastResetBy}. Earlier runs are kept in history.</p>}
       {resetOpen && <div className="job-accounting-preview" role="region" aria-label="Confirm accounting reset">
-        <h4>Start accounting downloads again at V1?</h4>
+        <h4>Start accounting downloads again at V0?</h4>
         <p>This resets hand-off tracking only. Ready-to-invoice jobs become green again. Rows already yellow in the starting master stay yellow. All old Excel versions and download logs are kept in earlier runs.</p>
         <p>It does not change jobs, pricing, the master reference or the Excel uploader.</p>
-        <label className="field job-accounting-reset-field">Type RESET TO V1 to confirm<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" disabled={busy} /></label>
+        <label className="field job-accounting-reset-field">Type RESET TO V0 to confirm<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" disabled={busy} /></label>
         <div className="job-accounting-actions"><button className="button secondary compact" disabled={busy || Boolean(resetBody.current)} onClick={() => { setResetOpen(false); setConfirmation(""); }}>Keep current versions</button>
-          <button className="button primary compact" disabled={busy || !workspaceSaved || confirmation !== "RESET TO V1"} onClick={() => void action(resetDownloads)}>{resetBody.current ? "Retry confirmed reset" : "Confirm reset to V1"}</button></div>
+          <button className="button primary compact" disabled={busy || !workspaceSaved || confirmation !== "RESET TO V0"} onClick={() => void action(resetDownloads)}>{resetBody.current ? "Retry confirmed reset" : "Confirm reset to V0"}</button></div>
       </div>}
       {!workspaceSaved && <p role="status">Wait for the workspace changes to save before creating a download.</p>}
       {busy && <p role="status">Working… Please keep this page open.</p>}
@@ -140,7 +140,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
           <button className="button secondary compact" disabled={busy} onClick={() => { setPreview(null); setPlan(null); setSelected(null); }}>Close preview</button></div>
         <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
         <p>Run {selected?.cycle ?? preview?.cycle ?? 1}{selected && exportState && selected.cycle !== exportState.cycle ? " · Previous run — original file preserved" : ""}</p>
-        {preview && <p>{preview.version === 1 ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All four accounting groups, years and managers are included regardless of the job-list filters.</p>}
+        {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All four accounting groups, years and managers are included regardless of the job-list filters.</p>}
         {Boolean(summary?.reviewInactive) && <p className="job-accounting-error">{summary!.reviewInactive} inactive jobs have no confirmed billing status and are excluded. Review them and use Close Project or Cancel Job as appropriate.</p>}
         {Boolean(summary?.missingFromPortal) && <p>{summary!.missingFromPortal} retained source rows are not in the current portal. They are retained in this accounting file only.</p>}
         {!rows.length ? <p>No jobs with a confirmed accounting status are available yet.</p> : <>
