@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { ClearableNumberInput } from "./clearable-number-input";
 import { JobImportPanel } from "./job-import-panel";
 import { JobAccountingPanel } from "./job-accounting-panel";
@@ -1065,6 +1066,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [view, setView] = useState<ViewKey>("dashboard");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobDirectoryActionTarget, setJobDirectoryActionTarget] = useState<HTMLSpanElement | null>(null);
   const [quoteTab, setQuoteTab] = useState<QuoteTab>("estimate");
   const [jobTab, setJobTab] = useState<JobTab>("summary");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1958,6 +1960,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         <JobsPage
           state={state}
           setState={setState}
+          directoryActionTarget={jobDirectoryActionTarget}
           workspaceSaved={saveStatus === "saved"}
           job={selectedJob}
           tab={jobTab}
@@ -2026,8 +2029,9 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             <span>Connected to JGC Portal</span>
             <strong>{selectedQuote ? selectedQuote.number : state.settings.appName}</strong>
           </div>
-          <div className="topbar-actions">
+          <div className={`topbar-actions${view === "jobs" && !selectedJob ? " jobs-directory-topbar" : ""}`}>
             <a className="button secondary compact portal-return-button" href="../admin.html?tab=summary"><span aria-hidden="true">←</span> Return to Portal</a>
+            {view === "jobs" && !selectedJob && <span className="job-directory-refresh-slot" ref={setJobDirectoryActionTarget} />}
             <div
               className={`save-indicator ${saveStatus}`}
               title={saveErrorMessage || (lastSaved ? `Last saved ${shortDate(lastSaved)}` : "")}
@@ -2138,13 +2142,13 @@ function LoadingState() {
   );
 }
 
-function PageHeading({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description: string; actions?: React.ReactNode }) {
+function PageHeading({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode }) {
   return (
     <div className="page-heading">
       <div>
         {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}
     </div>
@@ -5339,9 +5343,10 @@ function shopDrawingIsSharedWithEmployees(job: Job, drawing: ShopDrawing) {
     && sharedLabel === `${drawing.number} · ${drawing.title}`.toLocaleLowerCase("en-CA");
 }
 
-function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
+  directoryActionTarget: HTMLSpanElement | null;
   workspaceSaved: boolean;
   job: Job | null;
   tab: JobTab;
@@ -6368,23 +6373,20 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
-      <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
+      <PageHeading title="Jobs" />
+      {directoryActionTarget && createPortal(<button className="button secondary compact job-directory-refresh-button" disabled={directoryRefreshing || statusSaving} aria-busy={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}><span aria-hidden="true">↻</span>{directoryRefreshing ? "Refreshing…" : "Refresh jobs"}</button>, directoryActionTarget)}
       <div className="job-directory-controls">
-      <div className="job-directory-utility"><div className="job-directory-meta">
-        <details className="job-directory-info"><summary>One shared job list</summary><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Inactive jobs keep their history. T&amp;M jobs open on Statistics.</p></details>
-        <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
-      </div><button className="button secondary compact" disabled={directoryRefreshing || statusSaving} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
       {directoryMessage && <p role="status">{directoryMessage}</p>}
       {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
       <div className="job-directory-file-tools">
-      <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
+      <details className="job-import-disclosure"><summary>Excel job-list upload</summary>
+        <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
+        {!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
       <details className="job-accounting-disclosure"><summary>Excel job-list download</summary><JobAccountingPanel workspaceSaved={workspaceSaved} /></details>
       </div>
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
         <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
-        <div><span>Accepted price</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).revisedRevenue, 0))}</strong><small>All jobs · pre-tax</small></div>
-        <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
       </section>
       <section className="panel toolbar-panel job-directory-toolbar">
         <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" aria-describedby="job-search-scope" /></div>
