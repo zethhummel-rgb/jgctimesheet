@@ -1906,6 +1906,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-directory-controls .job-directory-toolbar .work-layout-switch button { min-height: 32px; min-width: 52px; padding: 4px 9px; font-size: 12px; }
 @media (min-width: 761px) {
   .job-directory-page .jobs-table { min-width: 960px; }
+  /* Compact list rows without shrinking text or clipping wrapped job details. */
+  .job-directory-page.job-view-list .jobs-table tbody > tr { height: 51px; }
+  .job-directory-page.job-view-list .jobs-table tbody > tr > td { padding-block: 0; }
+  .job-directory-page.job-view-list .jobs-table .job-status-actions { gap: 2px; }
+  .job-directory-page.job-view-list .jobs-table .back-button { min-height: 24px; padding-block: 2px; }
 }
 @media (max-width: 760px) {
   .topbar-actions.jobs-directory-topbar { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
