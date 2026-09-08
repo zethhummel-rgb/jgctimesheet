@@ -28,6 +28,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
   const [preview, setPreview] = useState<AccountingExportPreview | null>(null), [plan, setPlan] = useState<AccountingExportPlan | null>(null);
   const [selected, setSelected] = useState<SavedVersion | null>(null), [requests, setRequests] = useState<DownloadRequest[]>([]), [requestCount, setRequestCount] = useState(0);
   const [rowPage, setRowPage] = useState(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const saveBody = useRef<Record<string, unknown> | null>(null);
   const resetBody = useRef<Record<string, unknown> | null>(pendingReset.get());
   const [exportState, setExportState] = useState<ExportState | null>(null);
@@ -44,12 +45,14 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     try { await work(); } catch (cause) { setError(cause instanceof Error ? cause.message : "The download could not be completed."); }
     finally { running.current = false; setBusy(false); }
   }
-  async function viewVersion(id: string, moreRequests = false) {
+  async function viewVersion(id: string, moreRequests = false, showPreview = false) {
     const result = await request(undefined, `?id=${encodeURIComponent(id)}&offset=${moreRequests ? requests.length : 0}`);
     setSelected(result.record); setPreview(null); setPlan(null); setRowPage(0);
+    setPreviewOpen(showPreview);
     setRequests((current) => moreRequests ? [...current, ...result.requests] : result.requests); setRequestCount(result.requestCount);
   }
   async function downloadVersion(record: SavedVersion) {
+    setPreviewOpen(false);
     const result = await request({ action: "download", exportId: record.id, requestId: crypto.randomUUID() });
     const bytes = accountingBase64ToBytes(result.record.file_base64);
     if (await accountingFileHash(bytes) !== result.record.file_sha256) throw new Error("The downloaded file failed its integrity check. The saved version has not changed.");
@@ -61,6 +64,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     catch { setError("The download was requested, but its history could not refresh. Use Refresh history to check the saved log."); }
   }
   async function prepare() {
+    setPreviewOpen(false);
     if (resetBody.current) { setResetOpen(true); throw new Error("Retry the pending reset first so its result can be confirmed before creating another version."); }
     // Resolve an uncertain previous save before offering a new version.
     const id = pending.get();
@@ -87,7 +91,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     catch (cause) { throw new Error(`Version ${saved.record.version} is safely saved in Download history, but the browser download did not complete. Download that version again. ${cause instanceof Error ? cause.message : ""}`); }
   }
   async function resetDownloads() {
-    if (!workspaceSaved || confirmation !== "RESET TO V0") return;
+    if (!workspaceSaved || confirmation !== "DELETE HISTORY") return;
     if (!resetBody.current) {
       if (!exportState?.latestExportId) return;
       resetBody.current = { action: "reset", id: crypto.randomUUID(), expectedCycle: exportState.cycle, expectedExportId: exportState.latestExportId, confirmation };
@@ -102,7 +106,8 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     }
     resetBody.current = null; pendingReset.clear(); pending.clear(); saveBody.current = null;
     setPreview(null); setPlan(null); setSelected(null); setResetOpen(false); setConfirmation("");
-    setMessage("Reset completed. The next download starts at V0. Ready-to-invoice jobs will be green again; original master yellow rows stay yellow. Earlier runs remain in history. No jobs or imports were changed.");
+    setPreviewOpen(false); setHistory([]); setCount(0); setRequests([]); setRequestCount(0);
+    setMessage("History cleared. The next download starts at V0. Ready-to-invoice jobs will be green again; original master yellow rows stay yellow. No jobs or imports were changed.");
     try { await loadHistory(); } catch { setError("The reset completed, but history could not refresh. Refresh history before creating another download."); setExportState(null); }
   }
   const rows = selected?.rows ?? plan?.rows ?? [];
@@ -115,17 +120,16 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
       <p>Yellow means previously handed to accounting, or yellow in the starting master—not proof of invoicing. Old versions keep their original colours.</p>
       <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
       <div className="job-accounting-actions">
-        {exportState && <span>Next download: V{exportState.nextVersion} · Run {exportState.cycle}</span>}
+        {exportState && <span>Next download: V{exportState.nextVersion}</span>}
         <button className="button secondary compact" disabled={busy || !workspaceSaved || (!exportState?.latestExportId && !resetBody.current)} onClick={() => { setResetOpen(true); setConfirmation(""); }}>Reset downloads to V0</button>
       </div>
-      {exportState?.lastResetAt && <p>Last reset: {when(exportState.lastResetAt)} · {exportState.lastResetBy}. Earlier runs are kept in history.</p>}
       {resetOpen && <div className="job-accounting-preview" role="region" aria-label="Confirm accounting reset">
-        <h4>Start accounting downloads again at V0?</h4>
-        <p>This resets hand-off tracking only. Ready-to-invoice jobs become green again. Rows already yellow in the starting master stay yellow. All old Excel versions and download logs are kept in earlier runs.</p>
-        <p>It does not change jobs, pricing, the master reference or the Excel uploader.</p>
-        <label className="field job-accounting-reset-field">Type RESET TO V0 to confirm<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" disabled={busy} /></label>
+        <h4>Permanently clear history and start at V0?</h4>
+        <p>This permanently deletes every saved accounting Excel version and its download logs from the portal. History will be empty, with the next download starting at V0. This cannot be undone in the portal. Copies already downloaded to a computer are not removed.</p>
+        <p>Ready-to-invoice jobs become green again; original master yellow rows stay yellow. Jobs, pricing, the master reference and the Excel uploader are unchanged.</p>
+        <label className="field job-accounting-reset-field">Type DELETE HISTORY to confirm<input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" disabled={busy} /></label>
         <div className="job-accounting-actions"><button className="button secondary compact" disabled={busy || Boolean(resetBody.current)} onClick={() => { setResetOpen(false); setConfirmation(""); }}>Keep current versions</button>
-          <button className="button primary compact" disabled={busy || !workspaceSaved || confirmation !== "RESET TO V0"} onClick={() => void action(resetDownloads)}>{resetBody.current ? "Retry confirmed reset" : "Confirm reset to V0"}</button></div>
+          <button className="button primary compact" disabled={busy || !workspaceSaved || confirmation !== "DELETE HISTORY"} onClick={() => void action(resetDownloads)}>{resetBody.current ? "Retry confirmed reset" : "Confirm reset to V0"}</button></div>
       </div>}
       {!workspaceSaved && <p role="status">Wait for the workspace changes to save before creating a download.</p>}
       {busy && <p role="status">Working… Please keep this page open.</p>}
@@ -139,9 +143,10 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
           </>}
           <button className="button secondary compact" disabled={busy} onClick={() => { setPreview(null); setPlan(null); setSelected(null); }}>Close preview</button></div>
         <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
-        <p>Run {selected?.cycle ?? preview?.cycle ?? 1}{selected && exportState && selected.cycle !== exportState.cycle ? " · Previous run — original file preserved" : ""}</p>
-        {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All four accounting groups, years and managers are included regardless of the job-list filters.</p>}
         {Boolean(summary?.reviewInactive) && <p className="job-accounting-error">{summary!.reviewInactive} inactive jobs have no confirmed billing status and are excluded. Review them and use Close Project or Cancel Job as appropriate.</p>}
+        <details className="job-accounting-row-preview" open={previewOpen} onToggle={(event) => setPreviewOpen(event.currentTarget.open)}>
+        <summary>Preview job rows{selected ? " and download log" : ""}</summary>
+        {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All four accounting groups, years and managers are included regardless of the job-list filters.</p>}
         {Boolean(summary?.missingFromPortal) && <p>{summary!.missingFromPortal} retained source rows are not in the current portal. They are retained in this accounting file only.</p>}
         {!rows.length ? <p>No jobs with a confirmed accounting status are available yet.</p> : <>
           <div className="job-accounting-table-wrap"><table className="job-accounting-table"><thead><tr><th>Job #</th><th>Job name</th><th>Accounting status</th><th>Change / source</th></tr></thead><tbody>
@@ -151,14 +156,15 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
         </>}
         {selected && <div><h4>Download requests for version {selected.version} ({requestCount})</h4><p>Requests are recorded when the saved file is sent to the browser. They do not confirm a local save or an accounting import.</p>
           <ul className="job-accounting-request-list">{requests.map((entry) => <li key={entry.id}>{when(entry.requested_at)} · {entry.downloaded_by_name}</li>)}</ul>
-          {requests.length < requestCount && <button className="button secondary compact" disabled={busy} onClick={() => void action(() => viewVersion(selected.id, true))}>Earlier download requests</button>}
+          {requests.length < requestCount && <button className="button secondary compact" disabled={busy} onClick={() => void action(() => viewVersion(selected.id, true, true))}>Earlier download requests</button>}
         </div>}
+        </details>
       </div>}
       <details className="job-accounting-history"><summary>Download history &amp; previous versions ({count})</summary>
-        <p>Every saved Excel version is kept with its date, creator and original contents. Viewing or downloading it again does not change any job status.</p>
+        <p>Saved versions retain their original contents until you explicitly clear history using Reset downloads to V0. Viewing or downloading a version does not change any job status.</p>
         <button className="button secondary compact" disabled={busy} onClick={() => void action(() => loadHistory())}>Refresh history</button>
         {!history.length ? <p>No accounting job-list versions have been saved yet.</p> : <div className="job-accounting-table-wrap"><table className="job-accounting-table"><thead><tr><th>Version</th><th>Created (Toronto)</th><th>Created by</th><th>Rows</th><th>Actions</th></tr></thead><tbody>
-          {history.map((record) => <tr key={record.id}><td>v{record.version}<br /><small>Run {record.cycle ?? 1}{exportState && (record.cycle ?? 1) !== exportState.cycle ? " · Previous run" : ""}</small></td><td>{when(record.exported_at)}</td><td>{record.exported_by_name}</td><td>{record.summary.total}</td><td><div className="job-accounting-actions"><button className="button secondary compact" disabled={busy} onClick={() => void action(() => viewVersion(record.id))}>View v{record.version} &amp; log</button><button className="button secondary compact" disabled={busy} onClick={() => void action(() => downloadVersion(record))}>Download v{record.version}</button></div></td></tr>)}
+          {history.map((record) => <tr key={record.id}><td>v{record.version}</td><td>{when(record.exported_at)}</td><td>{record.exported_by_name}</td><td>{record.summary.total}</td><td><div className="job-accounting-actions"><button className="button secondary compact" disabled={busy} onClick={() => void action(() => viewVersion(record.id, false, true))}>View v{record.version} &amp; log</button><button className="button secondary compact" disabled={busy} onClick={() => void action(() => downloadVersion(record))}>Download v{record.version}</button></div></td></tr>)}
         </tbody></table></div>}
         {history.length < count && <button className="button secondary compact" disabled={busy} onClick={() => void action(() => loadHistory(true))}>Older versions</button>}
       </details>

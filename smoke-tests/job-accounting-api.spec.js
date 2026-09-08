@@ -8,10 +8,11 @@ function client(options = {}) {
   const api = { tables, calls, resets, preview: fixture(), auth: { getUser: async () => ({ data: { user: { id: "admin-user" } } }) }, rpc: async (name, body) => {
     calls.push({ rpc: name, body });
     if (name === "get_job_accounting_export_state") return { data: { cycle: api.preview.cycle, nextVersion: api.preview.version, latestExportId: api.preview.previousExportId } };
-    if (name === "reset_job_accounting_exports") {
+    if (name === "clear_job_accounting_download_history") {
       const saved = resets.find((r) => r.id === body.p_reset_id); if (saved) return { data: saved };
       if (body.p_expected_cycle !== api.preview.cycle || body.p_expected_export_id !== api.preview.previousExportId) return { error: { code: "40001", message: "Download history changed" } };
-      const reset = { id: body.p_reset_id, cycle: api.preview.cycle + 1 }; resets.push(reset);
+      const reset = { id: body.p_reset_id, cycle: api.preview.cycle + 1 }; resets.splice(0, resets.length, reset);
+      tables.job_accounting_exports.splice(0); tables.job_accounting_export_downloads.splice(0);
       api.preview = { ...api.preview, cycle: reset.cycle, version: 0, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(api.preview.baselineSnapshot) };
       return { data: reset };
     }
@@ -48,7 +49,7 @@ test("accounting endpoint denies ordinary employees and inactive admins before r
   for (const options of [{ role: "employee" }, { status: "inactive" }]) {
     const c = client(options); expect((await send(c)).status).toBe(403);
     expect(c.calls.some((r) => r.table !== "profiles")).toBe(false);
-    expect((await send(c, { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: randomUUID(), confirmation: "RESET TO V0" })).status).toBe(403);
+    expect((await send(c, { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: randomUUID(), confirmation: "DELETE HISTORY" })).status).toBe(403);
   }
 });
 test("save is idempotent and a re-download logs a request without writing jobs or making another version", async () => {
@@ -63,22 +64,31 @@ test("save is idempotent and a re-download logs a request without writing jobs o
   expect(c.calls.every((r) => r.rpc || ["profiles", "job_accounting_exports", "job_accounting_export_downloads"].includes(r.table))).toBe(true);
 });
 
-test("reset requires confirmation, preserves files, retries once and invalidates old previews", async () => {
+test("reset permanently clears files and logs, retries safely and invalidates old previews", async () => {
   const c = client(), saved = await payload(c); await send(c, saved);
   c.preview.previousExportId = saved.id; c.preview.version = 2;
-  const before = JSON.stringify(c.tables.job_accounting_exports), reset = { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: saved.id, confirmation: "RESET TO V0" };
+  await send(c, { action: "download", exportId: saved.id, requestId: randomUUID() });
+  const reset = { action: "reset", id: randomUUID(), expectedCycle: 1, expectedExportId: saved.id, confirmation: "DELETE HISTORY" };
   expect((await send(c, { ...reset, confirmation: "" })).status).toBe(400); expect(c.resets).toHaveLength(0);
-  expect((await send(c, { ...reset, confirmation: "RESET TO V1" })).status).toBe(400); expect(c.resets).toHaveLength(0);
+  for (const confirmation of ["RESET TO V1", "RESET TO V0"]) expect((await send(c, { ...reset, confirmation })).status).toBe(400);
+  expect(c.resets).toHaveLength(0);
+  expect(c.tables.job_accounting_exports).toHaveLength(1); expect(c.tables.job_accounting_export_downloads).toHaveLength(1);
   expect((await send(c, { ...reset, expectedCycle: 2 })).status).toBe(409);
   expect((await send(c, reset)).status).toBe(200);
   expect((await send(c, reset)).status).toBe(200); expect(c.resets).toHaveLength(1);
   expect(c.preview).toMatchObject({ cycle: 2, version: 0, previousExportId: null, previousRows: [] });
-  expect(JSON.stringify(c.tables.job_accounting_exports)).toBe(before);
+  expect(c.tables.job_accounting_exports).toEqual([]); expect(c.tables.job_accounting_export_downloads).toEqual([]);
+  expect((await send(c)).body).toMatchObject({ history: [], count: 0 });
   expect((await send(c, { ...saved, id: randomUUID() })).status).toBe(409);
-  expect((await send(c, undefined, `?id=${saved.id}`)).body.record.file_sha256).toBe(saved.fileSha256);
+  expect((await send(c, undefined, `?id=${saved.id}`)).status).toBe(404);
+  expect((await send(c, { action: "download", exportId: saved.id, requestId: randomUUID() })).status).toBe(404);
   const restarted = await send(c, await payload(c));
   expect(restarted.status).toBe(201);
   expect(restarted.body.record).toMatchObject({ cycle: 2, version: 0 });
+  expect((await send(c, reset)).status).toBe(200);
+  expect(c.tables.job_accounting_exports).toHaveLength(1);
+  expect(c.tables.job_accounting_exports[0].id).toBe(restarted.body.record.id);
+  expect(c.calls.some((call) => call.rpc === "reset_job_accounting_exports")).toBe(false);
 });
 test("stale preview and mismatched checksum fail without saving", async () => {
   const c = client(), body = await payload(c); c.preview.version = 2;

@@ -3,7 +3,7 @@ import { accountingBase64ToBytes, accountingFileHash, planJobAccountingExport, t
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const metadata = "id,cycle,version,file_name,file_sha256,summary,exported_by_name,exported_at";
 const uuid = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-const failure = (error: { message?: string; code?: string }) => json({ error: error.message || "The accounting download could not be completed." }, error.code === "42501" ? 403 : error.code === "40001" ? 409 : 500);
+const failure = (error: { message?: string; code?: string }) => json({ error: error.message || "The accounting download could not be completed." }, error.code === "42501" ? 403 : error.code === "40001" ? 409 : error.code === "22023" ? 400 : 500);
 
 /** A separate endpoint: no writes to jobs, workspace state, imports or payroll. */
 export async function jobAccountingResponse(client: any, request: Request) {
@@ -37,8 +37,8 @@ export async function jobAccountingResponse(client: any, request: Request) {
   if (request.method !== "POST") return json({ error: "Saved accounting versions cannot be edited or deleted." }, 405);
   const body = await request.json();
   if (body.action === "reset") {
-    if (!uuid(body.id) || !uuid(body.expectedExportId) || !Number.isSafeInteger(body.expectedCycle) || body.expectedCycle < 1 || body.confirmation !== "RESET TO V0") return json({ error: "Type RESET TO V0 to confirm restarting the current download history." }, 400);
-    const result = await client.rpc("reset_job_accounting_exports", { p_reset_id: body.id, p_expected_cycle: body.expectedCycle, p_expected_export_id: body.expectedExportId, p_confirmation: body.confirmation });
+    if (!uuid(body.id) || !uuid(body.expectedExportId) || !Number.isSafeInteger(body.expectedCycle) || body.expectedCycle < 1 || body.confirmation !== "DELETE HISTORY") return json({ error: "Type DELETE HISTORY to confirm permanently deleting saved accounting downloads and logs." }, 400);
+    const result = await client.rpc("clear_job_accounting_download_history", { p_reset_id: body.id, p_expected_cycle: body.expectedCycle, p_expected_export_id: body.expectedExportId, p_confirmation: body.confirmation });
     return result.error ? failure(result.error) : json({ reset: result.data });
   }
   if (body.action === "preview") {

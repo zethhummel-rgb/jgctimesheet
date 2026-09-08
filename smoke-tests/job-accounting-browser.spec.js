@@ -22,8 +22,9 @@ async function setup(page, options = {}) {
     if (body.action === "reset") {
       const previous = resets.find((r) => r.id === body.id);
       if (previous) return route.fulfill({ json: { reset: previous } });
-      if (body.confirmation !== "RESET TO V0" || body.expectedCycle !== preview.cycle || body.expectedExportId !== preview.previousExportId) return route.fulfill({ status: 409, json: { error: "Download history changed. Refresh history before resetting." } });
-      const reset = { id: body.id, cycle: preview.cycle + 1 }; resets.push(reset);
+      if (body.confirmation !== "DELETE HISTORY" || body.expectedCycle !== preview.cycle || body.expectedExportId !== preview.previousExportId) return route.fulfill({ status: 409, json: { error: "Download history changed. Refresh history before resetting." } });
+      const reset = { id: body.id, cycle: preview.cycle + 1 }; resets.splice(0, resets.length, reset);
+      versions.splice(0); logs.splice(0);
       preview = { ...preview, cycle: reset.cycle, version: 0, previousExportId: null, previousRows: [], previousSnapshot: structuredClone(preview.baselineSnapshot) };
       if (options.lostResetResponse && resets.length === 1) return route.abort("connectionfailed");
       return route.fulfill({ json: { reset } });
@@ -33,7 +34,7 @@ async function setup(page, options = {}) {
       const existing = versions.find((r) => r.id === body.id);
       if (existing) return route.fulfill({ json: { record: existing, reused: true } });
       const planned = plan(preview);
-      const record = { id: body.id, cycle: preview.cycle, version: preview.version, file_name: helpers.accountingExportFilename(preview.version, preview.cycle), file_sha256: body.fileSha256, file_base64: body.fileBase64, exported_by_name: "QA Administrator", exported_at: "2026-09-08T16:00:00Z", rows: planned.rows, summary: planned.summary };
+      const record = { id: body.id, cycle: preview.cycle, version: preview.version, file_name: helpers.accountingExportFilename(preview.version), file_sha256: body.fileSha256, file_base64: body.fileBase64, exported_by_name: "QA Administrator", exported_at: "2026-09-08T16:00:00Z", rows: planned.rows, summary: planned.summary };
       versions.push(record);
       preview = { ...preview, version: preview.version + 1, previousExportId: record.id, previousSnapshot: structuredClone(preview.sourceSnapshot), previousRows: structuredClone(planned.rows) };
       if (options.lostSaveResponse && versions.length === 1) return route.abort("connectionfailed");
@@ -53,10 +54,12 @@ async function setup(page, options = {}) {
 async function create(page, version) {
   await page.getByRole("button", { name: "Download accounting job list", exact: true }).click();
   await expect(page.getByRole("heading", { name: `Preview version ${version}` })).toBeVisible();
+  await expect(page.locator(".job-accounting-row-preview")).not.toHaveAttribute("open");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: `Create version ${version} & download`, exact: true }).click();
   const file = await download;
   await expect(page.getByRole("heading", { name: `Saved version ${version}`, exact: true })).toBeVisible();
+  await expect(page.locator(".job-accounting-row-preview")).not.toHaveAttribute("open");
   return file;
 }
 
@@ -98,11 +101,39 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   expect(old.equals(bytes)).toBe(true);
   expect(createHash("sha256").update(old).digest("hex")).toBe(state.versions[0].file_sha256);
   expect(state.versions).toHaveLength(2); expect(state.logs).toHaveLength(3);
+  await expect(page.getByRole("heading", { name: "Download requests for version 1 (2)" })).toBeHidden();
+  await page.locator(".job-accounting-row-preview > summary").click();
   await expect(page.getByRole("heading", { name: "Download requests for version 1 (2)" })).toBeVisible();
   expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
   await expect(page.locator(".job-import-disclosure > summary")).toHaveText("Excel job-list upload");
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath("accounting-desktop.png") });
 });
+for (const width of [390, 1366]) test(`revision downloads keep job rows closed until explicitly opened at ${width}px`, async ({ page }, testInfo) => {
+  const state = await setup(page);
+  await page.setViewportSize({ width, height: 900 });
+  await create(page, 1);
+  const preview = page.locator(".job-accounting-row-preview");
+  const toggle = preview.locator(":scope > summary");
+  await expect(preview.locator("table")).toBeHidden();
+  await toggle.focus(); await page.keyboard.press("Enter");
+  await expect(preview).toHaveAttribute("open", "");
+  await expect(preview.locator("table")).toBeVisible();
+  await create(page, 2);
+  await expect(preview).not.toHaveAttribute("open");
+  await page.locator(".job-accounting-history > summary").click();
+  await page.getByRole("button", { name: "View v1 & log", exact: true }).click();
+  await expect(preview).toHaveAttribute("open", "");
+  await expect(page.getByRole("heading", { name: "Download requests for version 1 (1)" })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download this version", exact: true }).click();
+  await download;
+  await expect(preview).not.toHaveAttribute("open");
+  expect(state.versions).toHaveLength(2);
+  expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath(`collapsed-preview-${width}.png`) });
+});
+
 test("stale preview creates no version or download request", async ({ page }) => {
   const state = await setup(page, { stale: true });
   await page.getByRole("button", { name: "Download accounting job list", exact: true }).click();
@@ -163,19 +194,20 @@ for (const width of [390, 1366]) test(`accounting download collapses like the up
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
-for (const lostResetResponse of [false, true]) test(`confirmed reset preserves old files and restarts green at V0 (lost response: ${lostResetResponse})`, async ({ page }, testInfo) => {
+for (const lostResetResponse of [false, true]) test(`confirmed reset clears all old files and logs and restarts green at V0 (lost response: ${lostResetResponse})`, async ({ page }, testInfo) => {
   const state = await setup(page, { lostResetResponse });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Reset downloads to V0", exact: true })).toBeDisabled();
   await create(page, 1); await create(page, 2);
-  const old = JSON.stringify(state.versions), oldFile = state.versions[0].file_base64;
+  const old = JSON.stringify(state.versions), oldId = state.versions[0].id;
   await page.getByRole("button", { name: "Reset downloads to V0", exact: true }).click();
   await expect(page.getByRole("button", { name: "Confirm reset to V0", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Keep current versions", exact: true }).click();
   expect(state.resets).toHaveLength(0);
+  expect(JSON.stringify(state.versions)).toBe(old); expect(state.logs).toHaveLength(2);
   await page.getByRole("button", { name: "Reset downloads to V0", exact: true }).click();
-  await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).fill("RESET TO V0");
-  const inputStyle = await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).evaluate((el) => { const s = getComputedStyle(el); return { color: s.color, fill: s.webkitTextFillColor, background: s.backgroundColor, scheme: s.colorScheme }; });
+  await page.getByLabel("Type DELETE HISTORY to confirm", { exact: true }).fill("DELETE HISTORY");
+  const inputStyle = await page.getByLabel("Type DELETE HISTORY to confirm", { exact: true }).evaluate((el) => { const s = getComputedStyle(el); return { color: s.color, fill: s.webkitTextFillColor, background: s.backgroundColor, scheme: s.colorScheme }; });
   expect(inputStyle.background).toBe("rgb(255, 255, 255)"); expect(inputStyle.scheme).toBe("light");
   expect(inputStyle.color).not.toBe(inputStyle.background); expect(inputStyle.fill).toBe(inputStyle.color);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -187,35 +219,36 @@ for (const lostResetResponse of [false, true]) test(`confirmed reset preserves o
     await page.getByRole("button", { name: "Open navigation", exact: true }).click();
     await page.getByRole("button", { name: /^Jobs(?:\s|$)/ }).click();
     await page.locator(".job-accounting-disclosure > summary").click();
-    await page.getByLabel("Type RESET TO V0 to confirm", { exact: true }).fill("RESET TO V0");
+    await page.getByLabel("Type DELETE HISTORY to confirm", { exact: true }).fill("DELETE HISTORY");
     await page.getByRole("button", { name: "Retry confirmed reset", exact: true }).click();
   }
-  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V0 · Run 2");
-  expect(state.resets).toHaveLength(1); expect(JSON.stringify(state.versions)).toBe(old);
+  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V0");
+  expect(state.resets).toHaveLength(1); expect(state.versions).toEqual([]); expect(state.logs).toEqual([]);
+  await expect(page.locator(".job-accounting-history > summary")).toContainText("(0)");
+  await page.locator(".job-accounting-history > summary").click();
+  await expect(page.getByText("No accounting job-list versions have been saved yet.")).toBeVisible();
+  expect(await page.evaluate(async (id) => (await fetch(`/api/job-accounting-export?id=${id}`)).status, oldId)).toBe(404);
+  await expect(page.locator(".job-accounting-row-preview")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Reset downloads to V0", exact: true })).toBeDisabled();
   const restarted = await create(page, 0);
-  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V1 · Run 2");
-  expect(restarted.suggestedFilename()).toBe("JGC Accounting Job List - v0000 - run2.xlsx");
+  await expect(page.locator(".job-accounting-panel")).toContainText("Next download: V1");
+  expect(restarted.suggestedFilename()).toBe("JGC Accounting Job List - v0000.xlsx");
   await restarted.saveAs(testInfo.outputPath("accounting-reset-v0-qa.xlsx"));
   const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await restarted.path()));
   expect(book.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(book.getWorksheet("2026").getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
   expect(book.getWorksheet("2026").getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
   expect(book.getWorksheet("2025").getCell("A3").fill.fgColor.argb).toBe("FFFF0000");
-  expect(book.getWorksheet("Download details").getCell("A1").value).toContain("Version 0 · Run 2");
-  await page.locator(".job-accounting-history > summary").click();
-  const oldRow = page.locator(".job-accounting-history tbody tr").filter({ hasText: "Run 1 · Previous run" }).filter({ has: page.getByRole("button", { name: "Download v1", exact: true }) });
-  const downloaded = page.waitForEvent("download");
-  await oldRow.getByRole("button", { name: "Download v1", exact: true }).click();
-  expect(fs.readFileSync(await (await downloaded).path()).toString("base64")).toBe(oldFile);
-  expect(state.versions).toHaveLength(3); expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+  expect(book.getWorksheet("Download details").getCell("A1").value).toContain("Version 0");
+  await expect(page.locator(".job-accounting-history tbody tr")).toHaveCount(1);
+  expect(state.versions).toHaveLength(1); expect(state.logs).toHaveLength(1);
   const subsequent = await create(page, 1);
-  expect(subsequent.suggestedFilename()).toBe("JGC Accounting Job List - v0001 - run2.xlsx");
+  expect(subsequent.suggestedFilename()).toBe("JGC Accounting Job List - v0001.xlsx");
   const nextBook = new ExcelJS.Workbook(); await nextBook.xlsx.load(fs.readFileSync(await subsequent.path()));
   expect(nextBook.getWorksheet("2026").getCell("A3").fill.fgColor.argb).toBe("FFFFFF00");
-  expect(nextBook.getWorksheet("Download details").getCell("A1").value).toContain("Version 1 · Run 2");
-  expect(state.versions).toHaveLength(4);
-  expect(state.versions[2].file_base64).toBe(fs.readFileSync(await restarted.path()).toString("base64"));
+  expect(nextBook.getWorksheet("Download details").getCell("A1").value).toContain("Version 1");
+  expect(state.versions).toHaveLength(2);
+  expect(state.versions[0].file_base64).toBe(fs.readFileSync(await restarted.path()).toString("base64"));
   expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
 });
 
