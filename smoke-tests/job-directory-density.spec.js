@@ -67,9 +67,14 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
     const targets = await page.locator('.job-directory-controls').evaluate(root => [...root.querySelectorAll('button, input, select, summary')].filter(el => el.checkVisibility()).map(el => el.getBoundingClientRect().height));
     targets.forEach(height => expect(height).toBeGreaterThanOrEqual(44));
   } else {
-    const cell = page.locator('.jobs-table tbody tr').first().locator('td').nth(2);
+    const cell = page.locator('.jobs-table tbody tr').first().locator('td[data-label="Client / location"]');
     expect((await cell.boundingBox()).width).toBeGreaterThan(100);
     expect((await page.locator('.jobs-table tbody tr').first().boundingBox()).height).toBeLessThan(150);
+    for (const row of await page.locator('.jobs-table tbody tr').all()) {
+      const client = await row.locator('[data-label="Client / location"]').boundingBox();
+      const job = await row.locator('[data-label="Job name"]').boundingBox();
+      expect(client.x + client.width).toBeLessThanOrEqual(job.x + 1);
+    }
   }
   await page.getByLabel('Search jobs', { exact: true }).fill('25904');
   await expect(page.locator('.jobs-table tbody tr')).toHaveCount(1);
