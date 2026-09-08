@@ -789,25 +789,30 @@ body.timesheet-page {
 
     .timesheet-page .job-option {
       width: 100%;
-      min-height: 0;
+      min-height: 44px;
       margin: 0;
       padding: 10px 12px;
       border-radius: 0;
       border: 0;
-      border-bottom: 1px solid var(--jgc-color-text-muted);
+      border-bottom: 1px solid var(--jgc-color-input-border);
       background: var(--jgc-color-input);
-      color: var(--jgc-color-surface-soft);
+      color: var(--jgc-color-text-dark);
       text-align: left;
-      font-size: 14px;
-      line-height: 1.25;
+      font-size: 16px;
+      line-height: 1.4;
       box-shadow: none;
     }
 
     .timesheet-page .job-option:hover,
     .timesheet-page .job-option:focus {
-      background: var(--jgc-color-text);
-      color: var(--jgc-color-surface-soft);
+      background: color-mix(in srgb, var(--jgc-color-brand-700) 10%, var(--jgc-color-input));
+      color: var(--jgc-color-text-dark);
       outline: none;
+    }
+
+    .timesheet-page .job-option:focus-visible {
+      outline: 2px solid var(--jgc-color-brand-700);
+      outline-offset: -2px;
     }
 
     .timesheet-page .job-option:last-child {
@@ -833,10 +838,10 @@ body.timesheet-page {
       min-height: 22px;
       padding: 3px 8px;
       border-radius: 999px;
-      background: var(--jgc-color-text);
-      color: var(--jgc-color-brand-800);
-      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-700) 28%, transparent);
-      font-size: 11px;
+      background: var(--jgc-color-brand-700);
+      color: var(--jgc-color-on-brand);
+      border: 1px solid var(--jgc-color-brand-700);
+      font-size: 12px;
       font-weight: 900;
       text-transform: uppercase;
       line-height: 1;
@@ -844,18 +849,20 @@ body.timesheet-page {
 
     .timesheet-page .job-option-type.contract {
       background: var(--jgc-color-input);
-      color: var(--jgc-color-surface-soft);
-      border-color: color-mix(in srgb, var(--jgc-color-surface-soft) 22%, transparent);
+      color: var(--jgc-color-text-dark);
+      border-color: var(--jgc-color-input-border);
     }
 
     .timesheet-page .job-option-name {
       display: block;
       margin-top: 2px;
+      color: var(--jgc-color-text-dark);
+      overflow-wrap: anywhere;
     }
 
     .timesheet-page .job-option-empty {
       padding: 11px 12px;
-      color: var(--jgc-color-text-muted);
+      color: var(--jgc-color-text-dark);
       font-size: 13px;
       font-weight: bold;
     }

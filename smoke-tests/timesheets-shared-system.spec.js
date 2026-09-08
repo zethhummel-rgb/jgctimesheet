@@ -46,9 +46,13 @@ function createState() {
   };
 }
 
-async function installState(page) {
+async function installState(page, jobs = [], theme = null) {
   const state = createState();
-  await page.addInitScript(({ state, ref }) => {
+  await page.addInitScript(({ state, ref, theme }) => {
+    if (theme) {
+      localStorage.setItem("jgcPortalTheme", theme);
+      localStorage.setItem("jgcPortalTheme:" + state.user.id, theme);
+    }
     localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(state.auth));
     localStorage.setItem("currentWorker", state.profile.worker_key);
     localStorage.setItem("currentWorkerDisplay", state.profile.display_name);
@@ -57,7 +61,7 @@ async function installState(page) {
     localStorage.setItem("currentAccountStatus", state.profile.account_status);
     localStorage.setItem("jgcStayLoggedIn", "true");
     sessionStorage.setItem("jgcActiveSession", "true");
-  }, { state, ref: projectRef });
+  }, { state, ref: projectRef, theme });
 
   await page.route(`${supabaseOrigin}/**`, async (route) => {
     const request = route.request();
@@ -68,6 +72,7 @@ async function installState(page) {
     else if (url.pathname.startsWith("/auth/v1/token")) body = JSON.stringify(state.auth);
     else if (url.pathname.includes("/rest/v1/profiles")) body = accept.includes("vnd.pgrst.object") ? JSON.stringify(state.profile) : JSON.stringify([state.profile]);
     else if (url.pathname.includes("/rest/v1/accounts")) body = JSON.stringify([state.profile]);
+    else if (url.pathname === "/rest/v1/jobs") body = JSON.stringify(jobs);
     else if (url.pathname.startsWith("/rest/v1/rpc/") && /admin/i.test(url.pathname)) body = "true";
     else if (accept.includes("vnd.pgrst.object")) body = "{}";
     await route.fulfill({
@@ -77,6 +82,82 @@ async function installState(page) {
       body: request.method() === "HEAD" ? "" : body
     });
   });
+}
+
+// Exercise the real job picker with isolated data, including its inherited text colors.
+for (const theme of ["light", "dark"]) {
+  for (const width of [320, 390, 1280]) {
+    test(`timesheet job picker is readable in ${theme} theme at ${width}px`, async ({ browser }, testInfo) => {
+      const context = await browser.newContext({ viewport: { width, height: 900 } });
+      const page = await context.newPage();
+      await installState(page, [
+        { id: "picker-tm", job_number: "99001", job_name: "Sample Drain Repair", job_type: "T&M", active: true },
+        { id: "picker-contract", job_number: "99002", job_name: "Sample Community Centre Wall Panels and Exterior Restoration", job_type: "Contract", active: true }
+      ], theme);
+      await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+      await expect(page.locator(".form-card")).toBeVisible();
+      await page.evaluate((value) => { storeJgcThemePreference(value); applyJgcTheme(value); }, theme);
+      await page.locator("#jobName").click();
+      const options = page.locator("#jobDropdown .job-option");
+      await expect(options).toHaveCount(2);
+
+      const assertContrast = async () => {
+        await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
+        const measurements = await page.locator("#jobDropdown").evaluate((dropdown) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          const rgba = (color) => {
+            ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+            return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+          };
+          const luminance = (channels) => channels.slice(0, 3).reduce((sum, value, i) => {
+            const c = value / 255;
+            return sum + (c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][i];
+          }, 0);
+          return Array.from(dropdown.querySelectorAll(".job-option-name, .job-option-number, .job-option-type, .job-option-empty")).map((element) => {
+            const style = getComputedStyle(element);
+            let background = [255, 255, 255, 255];
+            const ancestors = [];
+            for (let node = element; node; node = node.parentElement) ancestors.unshift(node);
+            for (const node of ancestors) {
+              const layer = rgba(getComputedStyle(node).backgroundColor);
+              const alpha = layer[3] / 255;
+              background = background.map((value, i) => i === 3 ? 255 : layer[i] * alpha + value * (1 - alpha));
+            }
+            const foreground = rgba(style.color);
+            const a = luminance(foreground), b = luminance(background);
+            return { text: element.textContent, ratio: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
+          });
+        });
+        expect(measurements.length).toBeGreaterThan(0);
+        for (const measurement of measurements) expect(measurement.ratio, measurement.text).toBeGreaterThanOrEqual(4.5);
+      };
+
+      await assertContrast();
+      for (const option of await options.all()) {
+        await option.hover();
+        await assertContrast();
+        expect(await option.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      }
+      await page.mouse.move(0, 0);
+      await page.locator("#jobDropdown").screenshot({ path: testInfo.outputPath(`job-picker-${theme}-${width}.png`) });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+      await options.first().focus();
+      await assertContrast();
+      // The existing picker intentionally closes shortly after the input loses focus.
+      await expect(page.locator("#jobDropdown")).not.toBeVisible();
+      await page.locator("#jobName").click();
+      await options.last().click();
+      await expect(page.locator("#jobNumber")).toHaveValue("99002");
+      await expect(page.locator("#jobName")).toHaveValue(/Sample Community Centre/);
+      await expect(page.locator("#jobDropdown")).not.toBeVisible();
+      await page.locator("#jobName").fill("No matching test job");
+      await expect(page.locator(".job-option-empty")).toBeVisible();
+      await assertContrast();
+      await context.close();
+    });
+  }
 }
 
 test("Timesheets family has one token-only visual source", async () => {
@@ -91,17 +172,17 @@ test("Timesheets family has one token-only visual source", async () => {
   expect(employeeHead).not.toMatch(/<style\b/i);
   expect(employeeHead).not.toContain("styles.css");
   expect(employeeHead).toContain('jgc-design-system.css?v=8');
-  expect(employeeHead).toContain('timesheet-design-system.css?v=2');
+  expect(employeeHead).toContain('timesheet-design-system.css?v=3');
   expect(employee).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(employee.match(/<style\b/gi) || [], "Only the generated PDF template keeps its print style block").toHaveLength(1);
   expect(featureCss, "Timesheet-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
-  expect(admin).toContain('timesheet-design-system.css?v=2');
+  expect(admin).toContain('timesheet-design-system.css?v=3');
   expect(adminCss).not.toMatch(/admin-time-entry-card|timesheet-(?:edit|worker)/i);
   expect(adminJs.match(/\sstyle\s*=/gi) || [], "Only the generated Admin PDF night row keeps inline print styling").toHaveLength(1);
   const releaseMatch = serviceWorker.match(/const JGC_RELEASE_ID = "(\d+)"/);
   expect(releaseMatch, "The service worker must expose a numeric release id").not.toBeNull();
   expect(Number(releaseMatch[1])).toBeGreaterThanOrEqual(758);
-  expect(serviceWorker).toContain('timesheet-design-system.css?v=2');
+  expect(serviceWorker).toContain('timesheet-design-system.css?v=3');
 });
 
 for (const viewport of [
