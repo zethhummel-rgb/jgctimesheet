@@ -5325,6 +5325,19 @@ function jobInfoDraftFromJob(job: Job | null): JobInfoDraft {
   };
 }
 
+function jobInfoDraftWithSiteAddress(draft: JobInfoDraft, clients: Client[], onlyIfBlank = false): JobInfoDraft {
+  if (onlyIfBlank && draft.address.trim()) return draft;
+  const normalize = (value: string) => value.trim().toLocaleLowerCase("en-CA");
+  const customer = normalize(draft.customer), siteName = normalize(draft.siteName);
+  if (!customer || !siteName) return draft;
+  const matchingClients = clients.filter((client) => normalize(client.name) === customer);
+  if (matchingClients.length !== 1) return draft;
+  const matchingSites = matchingClients[0].sites.filter((site) => normalize(site.label) === siteName);
+  // Do not guess between duplicate names or erase a manually entered address.
+  const address = matchingSites.length === 1 ? matchingSites[0].address.trim() : "";
+  return address ? { ...draft, address } : draft;
+}
+
 function sharedJobDocumentLinkId(job: Job) {
   const sharedUrl = normalizeDocumentLinkUrl(job.documentLink);
   if (!sharedUrl) return "";
@@ -6013,7 +6026,7 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
         <section className="panel job-summary-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">JOB SUMMARY</span><h2>Project details</h2><p>The official Portal job information and the accepted quote details are kept together here.</p></div>
-            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => { setJobInfoDraft({ ...jobInfoDraftFromJob(job), siteName: job.portalSiteName ?? acceptedBasis.quote?.site ?? "" }); setJobInfoEditing(true); }} disabled={!job.portalJobId}>Edit job details</button>}
+            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => { setJobInfoDraft(jobInfoDraftWithSiteAddress({ ...jobInfoDraftFromJob(job), siteName: job.portalSiteName ?? acceptedBasis.quote?.site ?? "" }, state.clients, true)); setJobInfoEditing(true); }} disabled={!job.portalJobId}>Edit job details</button>}
           </div>
           {!jobInfoEditing ? <div className="job-summary-facts">
             <div><span>Job number</span><strong>{job.jobNumber}</strong><small>{job.jobType || "Job type not entered"}</small></div>
@@ -6027,8 +6040,8 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
           </div> : <div className="job-summary-editor">
             <div className="form-grid two-column">
               <label className="field"><span>Job name</span><input value={jobInfoDraft.jobName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobName: event.target.value }))} /></label>
-              <label className="field"><span>Client</span><input aria-label="Client" list="job-client-names" maxLength={200} value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => ({ ...current, customer: event.target.value }))} /><datalist id="job-client-names">{state.clients.map((client) => <option key={client.id} value={client.name} />)}</datalist><small>Choose an existing client or enter a new name for this job.</small></label>
-              <label className="field full"><span>Site name</span><input aria-label="Site name" list="job-site-names" maxLength={200} value={jobInfoDraft.siteName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, siteName: event.target.value }))} /><datalist id="job-site-names">{state.clients.filter((client) => client.name.trim().toLocaleLowerCase() === jobInfoDraft.customer.trim().toLocaleLowerCase()).flatMap((client) => client.sites.map((site) => <option key={site.id} value={site.label} />))}</datalist><small>Choose a client site or enter a new site name. The accepted quote stays unchanged.</small></label>
+              <label className="field"><span>Client</span><input aria-label="Client" list="job-client-names" maxLength={200} value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => jobInfoDraftWithSiteAddress({ ...current, customer: event.target.value }, state.clients))} /><datalist id="job-client-names">{state.clients.map((client) => <option key={client.id} value={client.name} />)}</datalist><small>Choose an existing client or enter a new name for this job.</small></label>
+              <label className="field full"><span>Site name</span><input aria-label="Site name" list="job-site-names" maxLength={200} value={jobInfoDraft.siteName} onChange={(event) => setJobInfoDraft((current) => jobInfoDraftWithSiteAddress({ ...current, siteName: event.target.value }, state.clients))} /><datalist id="job-site-names">{state.clients.filter((client) => client.name.trim().toLocaleLowerCase() === jobInfoDraft.customer.trim().toLocaleLowerCase()).flatMap((client) => client.sites.map((site) => <option key={site.id} value={site.label} />))}</datalist><small>Choose a client site or enter a new site name. Saved site addresses fill automatically; the accepted quote stays unchanged.</small></label>
               <label className="field full"><span>Address</span><input value={jobInfoDraft.address} onChange={(event) => setJobInfoDraft((current) => ({ ...current, address: event.target.value }))} /></label>
               <label className="field"><span>Job type</span><select value={jobInfoDraft.jobType} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobType: event.target.value }))}><option value="">Not set</option><option value="Contract">Contract</option><option value="T&M">T&amp;M — Time and materials</option>{jobInfoDraft.jobType && !["Contract", "T&M"].includes(jobInfoDraft.jobType) && <option value={jobInfoDraft.jobType}>{jobInfoDraft.jobType} (current)</option>}</select></label>
               <label className="field"><span>Project manager</span><input value={jobInfoDraft.projectManager} onChange={(event) => setJobInfoDraft((current) => ({ ...current, projectManager: event.target.value }))} /></label>
