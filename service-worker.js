@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "859";
+const JGC_RELEASE_ID = "860";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -47,6 +47,13 @@ const JGC_APP_SHELL = [
   "./incident-report.html",
   "./admin.html",
   "./estimating/index.html",
+  "./estimating/assets/index-CKrQIsO4.js",
+  "./estimating/assets/es-2Tc5ZD1h.js",
+  "./estimating/assets/pdf-CoAZyqFp.js",
+  "./estimating/assets/src-BZgzdIZI.js",
+  "./estimating/assets/proposal-pdf-CNXtrZka.js",
+  "./estimating/assets/purchase-order-pdf-DbrUthT1.js",
+  "./estimating/assets/quote-backup-pdf-BAC6InEz.js",
   "./estimating/assets/index-WzrgzAnd.css",
   "./estimating/assets/index-Cwt5oYWb.js",
   "./estimating/assets/es-bIE0GaoP.js",
