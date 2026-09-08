@@ -87,19 +87,40 @@ test("only explicit status actions change the new marker; uploader logic remains
 
 module.exports = { fixture, next, plan, job, master };
 
-test("blue persists through repeated downloads, edits, reset and missing portal rows", () => {
+test("blue is handed off once, then yellow through repeated downloads, edits and missing portal rows; reset starts fresh", () => {
   let p = fixture();
   p.sourceSnapshot[0] = { ...p.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
   for (let i = 0; i < 3; i++) {
     const result = plan(p);
-    expect(result.rows.find(r => r.jobNumber === "26901").color).toBe("blue");
-    expect(result.summary.blue).toBe(1);
+    expect(result.rows.find(r => r.jobNumber === "26901").color).toBe(i === 0 ? "blue" : "yellow");
+    expect(result.summary.blue).toBe(i === 0 ? 1 : 0);
     p = next(p, result.rows);
     p.sourceSnapshot[0].customer = "Changed details";
   }
-  expect(plan({ ...p, version: 0, previousExportId: null, previousRows: [] }).summary.blue).toBe(1);
+  const reset = { ...p, version: 0, previousExportId: null, previousRows: [] };
+  expect(plan(reset).summary.blue).toBe(1);
+  expect(plan(next(reset, plan(reset).rows)).summary.blue).toBe(0);
   p.sourceSnapshot = p.sourceSnapshot.filter(j => j.jobNumber !== "26901");
-  expect(plan(p).rows.find(r => r.jobNumber === "26901").color).toBe("blue");
+  expect(plan(p).rows.find(r => r.jobNumber === "26901").color).toBe("yellow");
+});
+
+test("missing portal row immediately after a blue hand-off stays yellow in later downloads", () => {
+  let p = fixture();
+  p.sourceSnapshot[0] = { ...p.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
+  const first = plan(p), saved = JSON.stringify(first);
+  p = next(p, first.rows); p.sourceSnapshot.shift();
+  expect(plan(p).rows.find(r => r.jobNumber === "26901").color).toBe("yellow");
+  expect(plan(next(p, plan(p).rows)).rows.find(r => r.jobNumber === "26901").color).toBe("yellow");
+  expect(JSON.stringify(first)).toBe(saved);
+});
+
+test("a fresh discussion after reopening is blue again even if the previous download was yellow", () => {
+  let p = fixture();
+  p.sourceSnapshot[0] = { ...p.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
+  p = next(p, plan(p).rows); p = next(p, plan(p).rows);
+  p.sourceSnapshot[0].invoiceReviewAt = p.sourceSnapshot[0].statusChangedAt = "2026-09-08T20:00:00Z";
+  expect(plan(p).summary.blue).toBe(1);
+  expect(plan(next(p, plan(p).rows)).summary.blue).toBe(0);
 });
 
 test("resolving a blue job is green once, then yellow; reopen/cancel clear the blue meaning", () => {

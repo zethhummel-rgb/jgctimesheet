@@ -64,19 +64,26 @@ async function create(page, version) {
   return file;
 }
 
-test("blue discussion rows stay blue in real saved XLSX versions with the compact master format", async ({ page }, testInfo) => {
+test("blue is handed off once then yellow in real XLSX versions; saved blue bytes and compact format stay unchanged", async ({ page }, testInfo) => {
   const state = await setup(page, { discussion: true });
   for (const version of [1, 2]) {
     const file = await create(page, version);
     await file.saveAs(testInfo.outputPath(`accounting-blue-v${version}.xlsx`));
     const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
     const sheet = book.getWorksheet("2026");
-    for (let col = 1; col <= 16; col++) expect(sheet.getCell(3, col).fill.fgColor.argb).toBe("FF9BC2E6");
+    for (let col = 1; col <= 16; col++) expect(sheet.getCell(3, col).fill.fgColor.argb).toBe(version === 1 ? "FF9BC2E6" : "FFFFFF00");
     expect(sheet.getRow(3).height).toBe(12.75);
     expect(sheet.getCell("A3").font).toMatchObject({ name: "Arial", size: 10, color: { argb: "FF000000" } });
-    expect(book.getWorksheet("Download details").getCell("B7").value).toBe("Closed - discuss invoicing");
-    expect(state.versions[version - 1].summary.blue).toBe(1);
+    expect(book.getWorksheet("Download details").getCell("B7").value).toBe(version === 1 ? "Closed - discuss invoicing" : "Previously handed to accounting");
+    expect(state.versions[version - 1].summary.blue).toBe(version === 1 ? 1 : 0);
   }
+  await page.locator(".job-accounting-history > summary").click();
+  const oldDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download v1", exact: true }).click();
+  const original = fs.readFileSync(await (await oldDownload).path());
+  expect(original.equals(Buffer.from(state.versions[0].file_base64, "base64"))).toBe(true);
+  expect(createHash("sha256").update(original).digest("hex")).toBe(state.versions[0].file_sha256);
+  expect(state.versions).toHaveLength(2);
   expect(state.captures.jobInfo).toEqual([]);
   expect(state.calls.some(c => c.action === "reset")).toBe(false);
 });
