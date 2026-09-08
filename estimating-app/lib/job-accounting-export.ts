@@ -91,7 +91,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
     white: rows.filter((r) => r.color === "white").length, changed: rows.filter((r) => r.changed).length, reviewInactive, missingFromPortal } };
 }
 
-export function accountingExportFilename(version: number, cycle = 1) { return `JGC Accounting Job List - v${String(version).padStart(4, "0")}${cycle > 1 ? ` - run${cycle}` : ""}.xlsx`; }
+export function accountingExportFilename(version: number) { return `JGC Accounting Job List - v${String(version).padStart(4, "0")}.xlsx`; }
 export async function accountingFileHash(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes).buffer);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");

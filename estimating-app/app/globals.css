@@ -1930,6 +1930,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-accounting-body { padding: 16px 20px; }
 .job-accounting-legend, .job-accounting-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .job-accounting-actions h4 { margin-right: auto; }
+.job-accounting-row-preview > summary { cursor: pointer; color: var(--navy-950); font-weight: 700; padding: 6px 0; }
 .accounting-chip { display: inline-block; border: 1px solid #64766b; border-radius: 5px; padding: 3px 7px; color: #10241b !important; font-weight: 700; font-size: 12px; line-height: 1.5; }
 .accounting-white { background: #fff !important; }
 .accounting-green { background: #b7df8d !important; }

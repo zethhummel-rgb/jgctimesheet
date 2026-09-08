@@ -28,7 +28,7 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
   const ExcelJS = await excelWriter();
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "JGC Estimate Desk";
-  const versionLabel = `Version ${preview.version} · Run ${preview.cycle ?? 1}`;
+  const versionLabel = `Version ${preview.version}`;
   workbook.title = `Accounting Job List ${versionLabel}`;
   const groups = new Map<string, typeof plan.rows>();
   for (const row of plan.rows) {
