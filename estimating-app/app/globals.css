@@ -1761,6 +1761,22 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .button.job-cancel-action:hover:not(:disabled) { background: #ffe4e6; border-color: #9f1239; color: #881337; }
 .status-pill.status-cancelled { background: #fff1f2; color: #9f1239; }
 .status-pill.status-cancelled > span { background: currentColor; }
+.status-pill.status-discuss-invoice,
+.button.job-invoice-review-action { background: #dbeafe; border-color: #2563eb; color: #173b65; }
+.status-pill.status-discuss-invoice > span { background: currentColor; }
+.button.job-invoice-review-action:hover:not(:disabled) { background: #bfdbfe; color: #173b65; }
+/* Fixed paired colours keep the blue flag legible in either Portal theme. */
+.job-directory-page .jobs-table tbody > tr.job-invoice-review,
+.job-directory-page .job-tile.job-invoice-review { background: #dbeafe; color: #173b65; }
+.job-directory-page .jobs-table tbody > tr.job-invoice-review:hover,
+.job-directory-page .job-tile.job-invoice-review:hover { background: #bfdbfe; }
+/* The shared light theme paints table cells above the row background. */
+.job-directory-page .jobs-table tbody > tr.job-invoice-review > td,
+:root[data-jgc-theme] body.jgc-theme .job-directory-page .jobs-table tbody > tr.job-invoice-review > td { background: #dbeafe !important; color: #173b65 !important; }
+.job-directory-page .jobs-table tbody > tr.job-invoice-review:hover > td,
+:root[data-jgc-theme] body.jgc-theme .job-directory-page .jobs-table tbody > tr.job-invoice-review:hover > td { background: #bfdbfe !important; }
+.job-directory-page .job-invoice-review :is(td, strong, small, .back-button, .job-tile-open, .job-tile-meta),
+.job-directory-page .jobs-table tbody > tr.job-invoice-review > td::before { color: #173b65; }
 @media (max-width: 760px) {
   .job-header-status-actions { display: contents; }
 }
@@ -1939,6 +1955,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .accounting-chip { display: inline-block; border: 1px solid #64766b; border-radius: 5px; padding: 3px 7px; color: #10241b !important; font-weight: 700; font-size: 12px; line-height: 1.5; }
 .accounting-white { background: #fff !important; }
 .accounting-green { background: #b7df8d !important; }
+.accounting-blue { background: #9bc2e6 !important; }
 .accounting-yellow { background: #fff292 !important; }
 .accounting-red { background: #ffd4cf !important; color: #6b1009 !important; border-color: #a9483e; }
 .job-accounting-panel .job-accounting-error { color: #9a211a; background: #fff0ed; padding: 10px; border: 1px solid #e8b5ad; border-radius: 6px; }

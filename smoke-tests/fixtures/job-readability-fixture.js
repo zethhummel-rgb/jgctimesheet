@@ -99,6 +99,10 @@ function jobInfoResponse(job, body) {
     projectManager: job.projectManager, startDate: job.startDate, targetEndDate: job.targetEndDate,
     active: job.portalActive, documentLink: job.documentLink, documentLinkLabel: job.documentLinkLabel,
     ...body,
+    ...(typeof body.active === "boolean" ? {
+      cancelledAt: body.cancelled ? fixtureDate : "",
+      invoiceReviewAt: body.invoiceReview ? fixtureDate : "",
+    } : { cancelledAt: job.cancelledAt, invoiceReviewAt: job.invoiceReviewAt }),
   };
 }
 

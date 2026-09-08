@@ -87,6 +87,41 @@ test("only explicit status actions change the new marker; uploader logic remains
 
 module.exports = { fixture, next, plan, job, master };
 
+test("blue persists through repeated downloads, edits, reset and missing portal rows", () => {
+  let p = fixture();
+  p.sourceSnapshot[0] = { ...p.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
+  for (let i = 0; i < 3; i++) {
+    const result = plan(p);
+    expect(result.rows.find(r => r.jobNumber === "26901").color).toBe("blue");
+    expect(result.summary.blue).toBe(1);
+    p = next(p, result.rows);
+    p.sourceSnapshot[0].customer = "Changed details";
+  }
+  expect(plan({ ...p, version: 0, previousExportId: null, previousRows: [] }).summary.blue).toBe(1);
+  p.sourceSnapshot = p.sourceSnapshot.filter(j => j.jobNumber !== "26901");
+  expect(plan(p).rows.find(r => r.jobNumber === "26901").color).toBe("blue");
+});
+
+test("resolving a blue job is green once, then yellow; reopen/cancel clear the blue meaning", () => {
+  let p = fixture();
+  p.sourceSnapshot[1] = { ...p.sourceSnapshot[1], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
+  p = next(p, plan(p).rows);
+  p.sourceSnapshot[1].invoiceReviewAt = null;
+  p.sourceSnapshot[1].statusChangedAt = "2026-09-08T19:00:00Z";
+  const resolved = plan(p);
+  expect(resolved.rows.find(r => r.jobNumber === "26902")).toMatchObject({ color: "green", change: "Discussion resolved - ready to invoice" });
+  expect(plan(next(p, resolved.rows)).rows.find(r => r.jobNumber === "26902").color).toBe("yellow");
+  p.sourceSnapshot[1].active = true;
+  expect(plan(p).rows.find(r => r.jobNumber === "26902").color).toBe("white");
+  p.sourceSnapshot[1].active = false; p.sourceSnapshot[1].cancelledAt = "2026-09-08T20:00:00Z";
+  expect(plan(p).rows.find(r => r.jobNumber === "26902").color).toBe("red");
+});
+
+test("new nullable field does not mark legacy snapshots as changed", () => {
+  const p = fixture(); p.sourceSnapshot.forEach(j => { j.invoiceReviewAt = null; });
+  expect(plan(p).rows.find(r => r.jobNumber === "26904").changed).toBe(false);
+});
+
 test("reset after V20 restores green without clearing original yellow or changing any job", () => {
   let p = fixture(); const original = JSON.stringify(p);
   for (let i = 1; i <= 20; i++) { const result = plan(p); expect(result.summary.total).toBe(4); p = next(p, result.rows); }
