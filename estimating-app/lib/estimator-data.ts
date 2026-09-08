@@ -391,6 +391,7 @@ export interface Job {
   clientId: string;
   project: string;
   status: "Active" | "Archived";
+  cancelledAt?: string;
   portalJobId?: string | null;
   portalActive?: boolean | null;
   portalLastSyncedAt?: string;
@@ -1185,6 +1186,7 @@ export function normalizeAppState(state: AppState): AppState {
     jobs: state.jobs.map((job) => ({
       ...job,
       status: (job.status as string) === "Complete" ? "Archived" : job.status,
+      cancelledAt: job.status === "Active" ? "" : (job.cancelledAt ?? ""),
       portalJobId: job.portalJobId ?? null,
       portalActive: job.portalActive ?? null,
       portalLastSyncedAt: job.portalLastSyncedAt ?? "",

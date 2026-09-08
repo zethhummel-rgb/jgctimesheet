@@ -20,6 +20,7 @@ export interface PortalJobOption {
   startDate: string;
   targetEndDate: string;
   active: boolean;
+  cancelledAt?: string;
   documentLink?: string;
   documentLinkLabel?: string;
 }
@@ -201,11 +202,12 @@ function portalJobOption(row: Record<string, any>): PortalJobOption {
     targetEndDate: String(row.target_end_date ?? ""),
     active: Boolean(row.active),
     documentLink: String(row.document_link ?? ""),
+    cancelledAt: row.active ? "" : String(row.cancelled_at ?? ""),
     documentLinkLabel: String(row.document_link_label ?? ""),
   };
 }
 
-const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,site_name,last_imported_at,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
+const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,site_name,last_imported_at,job_type,project_manager,start_date,target_end_date,active,cancelled_at,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
 
 async function loadPortalJobRows(client: any) {
   const result = await loadPortalStatisticPages(() => client
@@ -404,9 +406,11 @@ async function mutatePortalJobInfo(client: any, request: Request) {
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
   if (has("jobNumber") || has("job_number") || has("id")) return json({ error: "Official job numbers and IDs cannot be changed here." }, 400);
+  if (has("cancelled") && (typeof body.cancelled !== "boolean" || body.active !== false)) return json({ error: "Cancellation must be true or false and must mark the job inactive." }, 400);
   if (has("active")) {
     if (typeof body.active !== "boolean") return json({ error: "Job active status must be true or false." }, 400);
     payload.active = body.active;
+    payload.cancelled_at = body.cancelled === true ? payload.updated_at : null;
     payload.removed_from_import_at = body.active ? null : payload.updated_at;
     payload.archive_until = null;
   }
@@ -858,6 +862,7 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
       project: job.quoteId ? job.project : portal.jobName,
       portalJobId: portal.id,
       portalActive: portal.active,
+      cancelledAt: archived ? (portal.cancelledAt ?? "") : "",
       portalLastSyncedAt: new Date().toISOString(),
       portalJobName: portal.jobName,
       portalCustomer: portal.customer,
