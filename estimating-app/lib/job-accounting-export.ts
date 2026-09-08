@@ -54,12 +54,12 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
     else if (job && seed && job.active !== seed.active) {
       color = job.active ? "white" : null;
     }
-    if (!job && old?.color === "blue") color = "blue";
+    if (!job && (old?.color === "blue" || old?.color === "yellow")) color = old.color;
     if (!color) { reviewInactive++; continue; }
-    // A new close/reopen/close cycle is a fresh green hand-off, even if its end
+    // A new close/reopen/close cycle is a fresh green or blue hand-off, even if its end
     // state and hours match the last download. Detail-only edits stay yellow.
     const newClosure = Boolean(job && before && (job.statusChangedAt !== before.statusChangedAt || job.active !== before.active || job.cancelledAt !== before.cancelledAt || (job.invoiceReviewAt ?? null) !== (before.invoiceReviewAt ?? null)));
-    if (color === "green" && !first && !newClosure && old && (old.color === "green" || old.color === "yellow")) color = "yellow";
+    if ((color === "green" || color === "blue") && !first && !newClosure && old && (old.color === color || old.color === "yellow")) color = "yellow";
     const initiallyColoured = first && original && original.color !== "white";
     // Every classified project belongs in each download, even when unchanged.
     // Retain previously exported rows if they later disappear from the portal.

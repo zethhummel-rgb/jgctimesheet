@@ -76,7 +76,7 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
     [
       `JGC Accounting Job List - ${versionLabel}. Starting reference: ${preview.sourceName}.`,
       "Green: closed, ready to invoice. Red: cancelled. White: active project (including unchanged jobs).",
-      "Blue: closed - discuss invoicing with accounting first. Stays blue until marked ready to invoice.",
+      "Blue: closed - discuss invoicing with accounting. Blue and green become yellow on the next download.",
       "Yellow: previously handed to accounting, or already yellow in the starting master. Not confirmation of an invoice.",
       "This download does not replace or update the uploaded master list. Copy reviewed changes into the accounting master.",
       "Blank fields were not supplied. Date Completed is preserved from the master; closing a job does not invent a completion date.",

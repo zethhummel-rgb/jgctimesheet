@@ -118,7 +118,7 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
     <div className="job-accounting-body">
       <p className="job-accounting-legend">{(Object.keys(labels) as Array<keyof typeof labels>).map((color) => <span key={color} className={`accounting-chip accounting-${color}`}>{labels[color]}</span>)}</p>
       <p>Yellow means previously handed to accounting, or yellow in the starting master—not proof of invoicing. Old versions keep their original colours.</p>
-      <p>Blue means closed, but discuss invoicing first. It stays blue across downloads and resets until you mark the job ready to invoice.</p>
+      <p>Blue asks accounting to discuss invoicing on the first download. On later downloads it becomes yellow, just like green. Resetting starts those hand-offs fresh.</p>
       <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
       <div className="job-accounting-actions">
         {exportState && <span>Next download: V{exportState.nextVersion}</span>}

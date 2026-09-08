@@ -5914,8 +5914,8 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
   const setJobStatus = async (jobId: string, status: "Active" | "Archived", cancelled = false, invoiceReview = false) => {
     const target = state.jobs.find((item) => item.id === jobId);
     if (!target?.portalJobId || statusRequestPending.current) return;
-    const invoiceMessage = invoiceReview ? " Blue means discuss invoicing with accounting first, not ready to invoice. It stays blue across downloads until you mark it ready to invoice." : target.invoiceReviewAt && !cancelled ? " This clears the blue discussion flag and marks the job ready to invoice (green in the next accounting download)." : "";
-    if (status === "Archived" && !window.confirm(`${cancelled ? "Cancel job" : invoiceReview ? "Close — Discuss Invoice" : target.invoiceReviewAt ? "Mark ready to invoice" : "Close project"} ${target.jobNumber} — ${target.portalJobName || target.project}? It will be marked ${cancelled ? "cancelled and inactive" : "inactive"} and no longer appear in active employee job selectors.${invoiceMessage} Existing timesheets, POs, Work Orders and job history are kept. You can make it active again later.`)) return;
+    const invoiceMessage = invoiceReview ? " Blue asks accounting to discuss invoicing on the first download. Later downloads show yellow to indicate it was already handed off, not that it was invoiced." : "";
+    if (status === "Archived" && !window.confirm(`${cancelled ? "Cancel job" : invoiceReview ? "Close — Discuss Invoice" : "Close project"} ${target.jobNumber} — ${target.portalJobName || target.project}? It will be marked ${cancelled ? "cancelled and inactive" : "inactive"} and no longer appear in active employee job selectors.${invoiceMessage} Existing timesheets, POs, Work Orders and job history are kept. You can make it active again later.`)) return;
     statusRequestPending.current = true;
     setStatusSavingJobId(jobId);
     setStatusMessage("");
@@ -5925,16 +5925,16 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
       if (!response.ok) throw new Error(result.error || "The official job status could not be saved.");
       if (result.job?.id !== target.portalJobId || result.job.active !== (status === "Active") || (cancelled && !result.job.cancelledAt) || Boolean(result.job.invoiceReviewAt) !== invoiceReview) throw new Error("The official job status could not be confirmed. Refresh the job list before trying again.");
       setState((current) => ({ ...current, jobs: current.jobs.map((item) => item.portalJobId === target.portalJobId ? { ...item, status, portalActive: result.job.active, cancelledAt: result.job.cancelledAt || "", invoiceReviewAt: result.job.invoiceReviewAt || "", archivedAt: status === "Archived" ? (item.archivedAt || new Date().toISOString()) : "" } : item) }));
-      setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now ${cancelled ? "cancelled" : invoiceReview ? "closed — discuss invoicing with accounting (blue)" : target.invoiceReviewAt ? "ready to invoice" : "inactive"}. Find it under Inactive; its history and linked records are retained.`);
+      setStatusMessage(status === "Active" ? `Job ${target.jobNumber} is now active and available in the shared job list.` : `Job ${target.jobNumber} is now ${cancelled ? "cancelled" : invoiceReview ? "closed — discuss invoicing with accounting (blue)" : "inactive"}. Find it under Inactive; its history and linked records are retained.`);
     } catch (error) { setStatusMessage(error instanceof Error ? error.message : "The official job status could not be saved."); }
     finally { statusRequestPending.current = false; setStatusSavingJobId(""); }
   };
   const renderJobStatusAction = (item: Job, header = false) => {
     const label = item.status === "Active" ? "Close Project" : "Make active";
-    const action = (text: string, cancel = false, review = false, resolve = false) => <button key={text} type="button" className={`button secondary ${header ? "" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review || resolve ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
+    const action = (text: string, cancel = false, review = false) => <button key={text} type="button" className={`button secondary ${header ? "" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
     const closeAction = action(label);
     const cancelAction = !item.cancelledAt ? action("Cancel Job", true) : null;
-    const reviewAction = header && !item.cancelledAt ? item.invoiceReviewAt ? action("Mark ready to invoice", false, false, true) : action("Close — Discuss Invoice", false, true) : null;
+    const reviewAction = header && !item.cancelledAt && !item.invoiceReviewAt ? action("Close — Discuss Invoice", false, true) : null;
     return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}{reviewAction}</> : <>{closeAction}{cancelAction}</>}</div>;
   };
   if (job) {

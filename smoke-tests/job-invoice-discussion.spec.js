@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const { directoryState, serveDirectory, openDirectoryJob } = require("./fixtures/job-readability-fixture");
 
 for (const width of [390, 1366]) {
-  test(`close for discussion, blue list/tiles and resolve invoicing at ${width}px`, async ({ page }, testInfo) => {
+  test(`close for discussion, blue list/tiles without a ready-to-invoice action at ${width}px`, async ({ page }, testInfo) => {
     const state = directoryState(), originalQuote = JSON.stringify(state.quotes);
     const captures = await serveDirectory(page, state);
     await page.setViewportSize({ width, height: 960 });
@@ -10,7 +10,7 @@ for (const width of [390, 1366]) {
     const close = page.getByRole("button", { name: "Close — Discuss Invoice — job 26901", exact: true });
     await expect(close).toBeVisible();
     page.once("dialog", async dialog => {
-      expect(dialog.message()).toContain("not ready to invoice");
+      expect(dialog.message()).toContain("Later downloads show yellow");
       await dialog.dismiss();
     });
     await close.click();
@@ -49,10 +49,11 @@ for (const width of [390, 1366]) {
     await page.getByRole("button", { name: "Tiles", exact: true }).click();
     await expect(page.locator(".job-tile.job-invoice-review")).toHaveCount(1);
     await page.locator(".job-tile-open").click();
-    page.once("dialog", async dialog => { expect(dialog.message()).toContain("clears the blue discussion flag"); await dialog.accept(); });
-    await page.getByRole("button", { name: "Mark ready to invoice — job 26901", exact: true }).click();
-    await expect(page.locator(".job-topline .status-pill")).toHaveText("Inactive");
-    expect(captures.jobInfo.at(-1).body).toMatchObject({ active: false, invoiceReview: false });
+    await expect(page.getByRole("button", { name: /Mark ready to invoice/ })).toHaveCount(0);
+    await expect(page.locator(".job-topline .status-pill")).toHaveText("Discuss invoice");
+    await page.getByRole("button", { name: "Make active — job 26901", exact: true }).click();
+    await expect(page.locator(".job-topline .status-pill")).toHaveText("Active");
+    expect(captures.jobInfo.at(-1).body).toMatchObject({ active: true });
     await expect(page.getByRole("button", { name: "Close — Discuss Invoice — job 26901", exact: true })).toBeVisible();
     expect(JSON.stringify(state.quotes)).toBe(originalQuote);
     expect(captures.unexpectedRequests).toEqual([]);
