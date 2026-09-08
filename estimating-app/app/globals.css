@@ -1754,7 +1754,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-tile:hover { background: var(--green-100); border-color: var(--green-600); }
 .job-tile-open { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .job-tile-actions { display: flex; justify-content: flex-end; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--slate-300); }
-.button.job-status-action { min-height: 44px; height: auto; white-space: nowrap; }
+.button.job-status-action { min-height: 24px; height: 24px; padding: 0 6px; border-radius: 5px; line-height: 1.2; white-space: nowrap; }
 .job-tile-heading, .job-tile-meta { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .job-tile-heading { margin-bottom: 3px; }
 .job-tile-heading > strong { font-size: 15px; }
@@ -1843,7 +1843,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-directory-page.job-view-list .jobs-table td:nth-child(5) { grid-column: 1; grid-row: 3; text-align: left; }
   .job-directory-page.job-view-list .jobs-table td:nth-child(6) { grid-column: 3; grid-row: 1; justify-self: end; }
   .job-directory-page.job-view-list .jobs-table td:nth-child(7) { grid-column: 3; grid-row: 2 / 4; justify-self: end; align-self: center; }
-  .job-directory-page.job-view-list .jobs-table .job-status-action { padding: 6px 8px; font-size: 12px; }
+  .job-directory-page.job-view-list .jobs-table .job-status-action { padding: 0 6px; font-size: 12px; }
   .job-directory-page.job-view-list .jobs-table .status-pill { padding: 3px 6px; font-size: 12px; }
   .recent-work-layout-list .recent-work-row { grid-template-columns: minmax(106px, .9fr) minmax(0, 1.1fr); gap: 4px 8px; }
   .recent-work-layout-list .recent-work-id { grid-column: 1; grid-row: 1 / 3; }
