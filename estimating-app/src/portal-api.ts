@@ -4,6 +4,7 @@ import { normalizeMaterialName } from "../lib/material-price-workbook";
 import { normalizeSupplierSku } from "../lib/supplier-price-parser";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 import { jobImportNumberKey, validateJobImportRecords, type JobImportRecord } from "../lib/job-workbook-import";
+import { jobAccountingResponse } from "./job-accounting-api";
 
 type SupabaseResult<T> = { data: T | null; error: { message?: string } | null; count?: number | null };
 
@@ -410,6 +411,7 @@ async function mutatePortalJobInfo(client: any, request: Request) {
   if (has("active")) {
     if (typeof body.active !== "boolean") return json({ error: "Job active status must be true or false." }, 400);
     payload.active = body.active;
+    payload.accounting_status_changed_at = payload.updated_at;
     payload.cancelled_at = body.cancelled === true ? payload.updated_at : null;
     payload.removed_from_import_at = body.active ? null : payload.updated_at;
     payload.archive_until = null;
@@ -1228,6 +1230,7 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
   if (url.pathname.endsWith("/api/job-info")) return mutatePortalJobInfo(client, request);
   if (url.pathname.endsWith("/api/jobs")) return jobsResponse(client, request);
   if (url.pathname.endsWith("/api/job-import")) return jobImportResponse(client, request);
+  if (url.pathname.endsWith("/api/job-accounting-export")) return jobAccountingResponse(client, request);
   if (url.pathname.endsWith("/api/job-documents")) return mutatePortalJobDocuments(client, request);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);
   if (url.pathname.endsWith("/api/vendor-contacts")) return mutatePortalContact(client, request);
