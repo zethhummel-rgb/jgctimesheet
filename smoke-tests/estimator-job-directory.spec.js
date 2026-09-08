@@ -268,6 +268,84 @@ test("job List and Tiles views keep filters and remember the device preference",
   expect(captures.writes).toEqual([]);
 });
 
+for (const layout of ["List", "Tiles"]) {
+  for (const width of [390, 1366]) {
+    test(`${layout} job search includes both statuses and restores the selected tab at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const state = directoryState();
+      state.jobs[3].projectManager = "Archive Manager";
+      const captures = await serveDirectory(page, state);
+      const layouts = page.getByRole("group", { name: "Job layout" });
+      await layouts.getByRole("button", { name: layout, exact: true }).click();
+      const entries = page.locator(layout === "List" ? ".jobs-table tbody tr" : ".job-tile");
+      const search = page.getByLabel("Search jobs", { exact: true });
+      const filters = page.getByRole("group", { name: "Filter jobs by status" });
+      const active = filters.getByRole("button", { name: "Active", exact: true });
+      const inactive = filters.getByRole("button", { name: "Inactive", exact: true });
+      const manager = page.getByRole("combobox", { name: "Filter jobs by project manager" });
+      await expect(entries).toHaveCount(3);
+      await expect(active).toHaveAttribute("aria-pressed", "true");
+      for (const query of ["25904", "2590", "historical imported", "  HISTORICAL  "]) {
+        await search.fill(query);
+        await expect(entries).toHaveCount(1);
+        await expect(entries).toContainText("25904");
+        await expect(entries).toContainText("Inactive");
+        await expect(page.locator("#job-search-scope")).toHaveText("Searching active and inactive jobs");
+        await expect(active).toBeDisabled();
+        await expect(inactive).toBeDisabled();
+        await expect(active).toHaveAttribute("aria-pressed", "false");
+        await expect(inactive).toHaveAttribute("aria-pressed", "false");
+      }
+      await search.fill("repair");
+      await expect(entries).toHaveCount(2);
+      await expect(entries.filter({ hasText: "26902" })).toContainText("Active");
+      await expect(entries.filter({ hasText: "25904" })).toContainText("Inactive");
+      await expect(page.locator(".table-summary strong")).toHaveText("2 matching jobs");
+      if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(".job-directory-page").screenshot({ path: testInfo.outputPath(`both-statuses-${layout}-${width}.png`) });
+      await manager.selectOption({ label: "Archive Manager" });
+      await expect(entries).toHaveCount(1);
+      await expect(entries).toContainText("25904");
+      await manager.selectOption({ label: "Directory Test Manager" });
+      await expect(entries).toHaveCount(1);
+      await expect(entries).toContainText("26902");
+      await manager.selectOption("");
+      await layouts.getByRole("button", { name: layout === "List" ? "Tiles" : "List", exact: true }).click();
+      await expect(page.locator(layout === "List" ? ".job-tile" : ".jobs-table tbody tr")).toHaveCount(2);
+      await layouts.getByRole("button", { name: layout, exact: true }).click();
+      await expect(search).toHaveValue("repair");
+      await search.fill("   ");
+      await expect(entries).toHaveCount(3);
+      await expect(active).toBeEnabled();
+      await expect(active).toHaveAttribute("aria-pressed", "true");
+      await inactive.click();
+      await expect(entries).toHaveCount(1);
+      for (const query of ["26902", "emergency repairs"]) {
+        await search.fill(query);
+        await expect(entries).toHaveCount(1);
+        await expect(entries).toContainText("26902");
+        await expect(entries).toContainText("Active");
+      }
+      await search.fill("no matching test project");
+      await expect(page.getByRole("heading", { name: "No matching jobs found" })).toBeVisible();
+      await expect(page.locator("#job-search-scope")).toHaveText("Searching active and inactive jobs");
+      await search.fill("25904");
+      if (layout === "Tiles") await entries.locator(".job-tile-open").click();
+      else await entries.click();
+      await expect(page.locator(".job-detail-page")).toContainText("JOB 25904");
+      await page.getByRole("button", { name: "← All jobs", exact: true }).click();
+      await expect(search).toHaveValue("25904");
+      await search.fill("");
+      await expect(inactive).toHaveAttribute("aria-pressed", "true");
+      await expect(entries).toHaveCount(1);
+      await expect(entries).toContainText("25904");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+      expect(captures.jobInfo).toEqual([]);
+      expect(captures.writes).toEqual([]);
+      expect(captures.unexpectedRequests).toEqual([]);
+    });
+  }
+}
+
 test("phone job List rows are compact without shrinking readable text", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await serveDirectory(page, directoryState());
@@ -353,13 +431,14 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await expect(page.locator(".jobs-table tbody tr").filter({ hasText: "26901" })).toContainText("JGC-Q-2026-0901");
   await page.getByLabel("Search jobs", { exact: true }).fill("Canonical Railway Client");
   // All query words can match across client and location, just like Overview.
-  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(2);
-  await page.getByLabel("Search jobs", { exact: true }).fill("CanonicalRailwayClient");
-  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
-  await expect(page.locator(".jobs-table tbody tr")).toContainText("26902");
-  await page.getByLabel("Search jobs", { exact: true }).fill("Directory Test Manager");
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
+  await page.getByLabel("Search jobs", { exact: true }).fill("CanonicalRailwayClient");
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(2);
+  await expect(page.locator(".jobs-table tbody tr").filter({ hasText: "25904" })).toContainText("Inactive");
+  await page.getByLabel("Search jobs", { exact: true }).fill("Directory Test Manager");
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(4);
   await captureVisual(page, testInfo, "directory-desktop");
+  await page.getByLabel("Search jobs", { exact: true }).fill("");
   await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: /Inactive|Archived/ }).click();
   await page.getByLabel("Search jobs", { exact: true }).fill("25904");
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
@@ -499,7 +578,7 @@ for (const layout of ["List", "Tiles"]) {
       await expect(page.locator(".job-detail-page")).toHaveCount(0);
       await expect(action).toHaveCount(0);
       const filters = page.getByRole("group", { name: "Filter jobs by status" });
-      await filters.getByRole("button", { name: "Inactive", exact: true }).click();
+      await expect(filters.getByRole("button", { name: "Inactive", exact: true })).toBeDisabled();
       const restore = page.getByRole("button", { name: "Make active — job 26901", exact: true });
       await expect(restore).toBeVisible();
       await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("26901");
@@ -517,8 +596,9 @@ for (const layout of ["List", "Tiles"]) {
       expect(captures.jobInfo[1]).toEqual({ method: "PATCH", body: { portalJobId: officialIds.quoted, active: true } });
       await expect(page.locator(".job-directory-page")).toContainText("Job 26901 is now active");
       await expect(restore).toHaveCount(0);
-      await filters.getByRole("button", { name: "Active", exact: true }).click();
       await expect(action).toBeVisible();
+      await page.getByLabel("Search jobs", { exact: true }).fill("");
+      await expect(filters.getByRole("button", { name: "Active", exact: true })).toHaveAttribute("aria-pressed", "true");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
       expect(captures.unexpectedRequests).toEqual([]);
     });
@@ -742,7 +822,7 @@ test("Jobs list combines manager, status and search filters and opens directly w
   await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: "Inactive", exact: true }).click();
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
   await search.fill("not a real job");
-  await expect(page.getByRole("heading", { name: "No inactive jobs found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No matching jobs found" })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters", exact: true }).click();
   await expect(managerFilter).toHaveValue("");
   await expect(search).toHaveValue("");

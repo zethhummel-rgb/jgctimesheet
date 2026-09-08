@@ -6302,16 +6302,17 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     const manager = managerForJob(item);
     return [manager.key, manager] as const;
   })).values()).sort((a, b) => a.label.localeCompare(b.label, "en-CA"));
+  const searchingAllJobStatuses = jobSearch.trim().length > 0;
   const visibleJobs = state.jobs.filter((item) => {
-    if (item.status !== statusFilter) return false;
+    if (!searchingAllJobStatuses && item.status !== statusFilter) return false;
     if (managerFilter && managerForJob(item).key !== managerFilter) return false;
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
     return matchesWorkSearch(jobSearch, item.jobNumber, linkedQuote?.number, jobManagerIdentity(linkedQuote?.preparedBy).searchText, clientName(state, item.clientId), linkedQuote?.site, item.portalSiteName, item.project, item.portalJobName, item.portalCustomer, item.portalAddress, jobManagerIdentity(item.projectManager).searchText, item.jobType, linkedQuote?.reference, linkedQuote?.customerPo, ...(item.purchaseOrders ?? []).flatMap((po) => [po.number, po.vendorName, po.vendorQuoteNumber]));
   }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
-  const filteredStatusLabel = statusFilter === "Archived" ? "inactive" : "active";
+  const filteredStatusLabel = searchingAllJobStatuses ? "matching" : statusFilter === "Archived" ? "inactive" : "active";
   const renderJobTable = (items: Job[]) => (
     <section className="panel table-panel">
-      <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span>Newest job numbers first · Select a job to open its dashboard.</span></div>
+      <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>
       <div className="data-table-wrap"><table className="data-table jobs-table" aria-label="Jobs list"><thead><tr><th>Job # / quote</th><th>Job name</th><th>Client / location</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
@@ -6324,7 +6325,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
           <td data-label="Change status">{renderJobStatusAction(item)}</td>
         </tr>;
       })}</tbody></table></div>
-      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{jobSearch.trim() || managerFilter ? "Clear the search or change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(jobSearch.trim() || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
+      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{searchingAllJobStatuses ? "Clear the search or change the project manager filter to see more jobs." : managerFilter ? "Change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(searchingAllJobStatuses || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
     </section>
   );
 
@@ -6343,15 +6344,15 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <div><span>Actual costs</span><strong>{compactMoney(state.jobs.reduce((sum, item) => sum + jobTotals(item, portalLabourForJob(item, portalLabourActuals)).actual, 0))}</strong><small>Portal labour + entered actuals</small></div>
       </section>
       <section className="panel toolbar-panel job-directory-toolbar">
-        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" /></div>
+        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" aria-describedby="job-search-scope" /></div>
         <label className="compact-select"><span>Project manager</span><select value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)} aria-label="Filter jobs by project manager"><option value="">All managers</option>{managerOptions.map((manager) => <option key={manager.key} value={manager.key}>{manager.label}</option>)}</select></label>
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
-          {(["Active", "Archived"] as const).map((status) => <button key={status} className={statusFilter === status ? "active" : ""} aria-pressed={statusFilter === status} onClick={() => setStatusFilter(status)}>{quoteStatusLabel(status)}</button>)}
+          {(["Active", "Archived"] as const).map((status) => <button key={status} className={!searchingAllJobStatuses && statusFilter === status ? "active" : ""} aria-pressed={!searchingAllJobStatuses && statusFilter === status} disabled={searchingAllJobStatuses} title={searchingAllJobStatuses ? "Search includes both statuses. Clear the search to use status tabs." : undefined} onClick={() => setStatusFilter(status)}>{quoteStatusLabel(status)}</button>)}
         </div>
         <WorkLayoutSwitch layout={jobLayout} onChange={setJobLayout} label="Job layout" />
       </section>
       {jobLayout === "list" || !visibleJobs.length ? renderJobTable(visibleJobs) : <section className="panel job-tiles-panel">
-        <div className="table-summary"><strong>{visibleJobs.length} {filteredStatusLabel} job{visibleJobs.length === 1 ? "" : "s"}</strong><span>Select a job to open its dashboard.</span></div>
+        <div className="table-summary"><strong>{visibleJobs.length} {filteredStatusLabel} job{visibleJobs.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Select a job to open its dashboard."}</span></div>
         <div className="job-tiles">{visibleJobs.map((item) => {
           const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
           return <article className="job-tile" key={item.id}><button type="button" className="job-tile-open" onClick={() => onOpen(item.id)}>
