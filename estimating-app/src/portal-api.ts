@@ -13,6 +13,8 @@ export interface PortalJobOption {
   jobName: string;
   customer: string;
   address: string;
+  siteName?: string | null;
+  lastImportedAt?: string;
   jobType: string;
   projectManager: string;
   startDate: string;
@@ -191,6 +193,8 @@ function portalJobOption(row: Record<string, any>): PortalJobOption {
     jobName: String(row.job_name ?? ""),
     customer: String(row.customer ?? ""),
     address: String(row.address ?? ""),
+    siteName: row.site_name == null ? null : String(row.site_name),
+    lastImportedAt: String(row.last_imported_at ?? ""),
     jobType: String(row.job_type ?? ""),
     projectManager: String(row.project_manager ?? ""),
     startDate: String(row.start_date ?? ""),
@@ -201,7 +205,7 @@ function portalJobOption(row: Record<string, any>): PortalJobOption {
   };
 }
 
-const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
+const PORTAL_JOB_FIELDS = "id,job_number,job_name,customer,address,site_name,last_imported_at,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label,updated_at,removed_from_import_at,archive_until";
 
 async function loadPortalJobRows(client: any) {
   const result = await loadPortalStatisticPages(() => client
@@ -299,12 +303,12 @@ async function jobImportResponse(client: any, request: Request) {
       job_number: existing?.job_number ?? record.jobNumber,
       job_name: record.jobName, project_manager: record.projectManager, job_type: record.jobType,
       active: record.active, removed_from_import_at: null as string | null,
-      archive_until: null, updated_at: updatedAt,
+      archive_until: null, updated_at: updatedAt, last_imported_at: updatedAt,
     };
   });
   for (const row of missing) {
     if (!deactivateIds.has(String(row.id))) continue;
-    payload.push({ job_number: row.job_number, job_name: row.job_name, project_manager: row.project_manager, job_type: row.job_type, active: false, removed_from_import_at: updatedAt, archive_until: null, updated_at: updatedAt });
+    payload.push({ job_number: row.job_number, job_name: row.job_name, project_manager: row.project_manager, job_type: row.job_type, active: false, removed_from_import_at: updatedAt, archive_until: null, updated_at: updatedAt, last_imported_at: updatedAt });
   }
   // One statement, with identical import-managed keys on every row. Omitting all
   // IDs/document/client/address/date columns preserves those fields on conflicts.
@@ -414,6 +418,10 @@ async function mutatePortalJobInfo(client: any, request: Request) {
     payload.job_name = jobName;
   }
   if (has("customer")) payload.customer = cleanPortalText(body.customer, 200) || null;
+  if (has("siteName")) {
+    if (typeof body.siteName !== "string" || body.siteName.trim().length > 200) return json({ error: "The site name must be text, 200 characters or fewer." }, 400);
+    payload.site_name = body.siteName.trim();
+  }
   if (has("address")) payload.address = cleanPortalText(body.address, 500) || null;
   if (has("jobType")) payload.job_type = cleanPortalText(body.jobType, 60) || null;
   if (has("projectManager")) payload.project_manager = cleanPortalText(body.projectManager, 150) || null;
@@ -429,7 +437,7 @@ async function mutatePortalJobInfo(client: any, request: Request) {
     .from("jobs")
     .update(payload)
     .eq("id", portalJobId)
-    .select("id,job_number,job_name,customer,address,job_type,project_manager,start_date,target_end_date,active,document_link,document_link_label")
+    .select(PORTAL_JOB_FIELDS)
     .single();
   if (result.error) throw new Error(result.error.message || "The Portal job information could not be saved.");
   const job = portalJobOption(result.data);
@@ -854,6 +862,8 @@ function syncPortalData(state: AppState, vendors: Vendor[], portalJobs: PortalJo
       portalJobName: portal.jobName,
       portalCustomer: portal.customer,
       portalAddress: portal.address,
+      portalSiteName: portal.siteName ?? null,
+      lastImportedAt: portal.lastImportedAt ?? "",
       jobType: portal.jobType,
       projectManager: portal.projectManager,
       startDate: portal.startDate,

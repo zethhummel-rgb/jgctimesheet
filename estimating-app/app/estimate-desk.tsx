@@ -2319,6 +2319,15 @@ function WorkLayoutSwitch({ layout, onChange, label }: { layout: WorkListLayout;
   </div>;
 }
 
+function matchesWorkSearch(query: string, ...values: Array<string | null | undefined>) {
+  const haystack = values.filter(Boolean).join(" ").toLocaleLowerCase();
+  const compact = haystack.replace(/[^\p{L}\p{N}]/gu, "");
+  return query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean).every((term) => {
+    const identifier = term.replace(/[^\p{L}\p{N}]/gu, "");
+    return haystack.includes(term) || Boolean(identifier && compact.includes(identifier));
+  });
+}
+
 function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void }) {
   const [workLayout, setWorkLayout] = useWorkListLayout();
   const [companyWide, setCompanyWide] = useState(false);
@@ -2335,11 +2344,10 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   const dashboardJobs = state.jobs.filter((job) => dashboardQuoteIds.has(job.quoteId));
   const searchTerms = dashboardSearch.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matchesSearch = (...values: Array<string | null | undefined>) => {
-    const haystack = values.filter(Boolean).join(" ").toLocaleLowerCase();
-    return searchTerms.every((term) => haystack.includes(term));
+    return matchesWorkSearch(dashboardSearch, ...values);
   };
   const matchingQuotes = searchTerms.length
-    ? dashboardQuotes.filter((quote) => matchesSearch(
+    ? (currentEstimator.isAdmin ? state.quotes : dashboardQuotes).filter((quote) => matchesSearch(
       quote.number,
       quote.project,
       quote.site,
@@ -2365,6 +2373,8 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
         job.portalJobName,
         job.portalCustomer,
         job.portalAddress,
+        job.portalSiteName,
+        job.status === "Archived" ? "Inactive" : "Active",
         jobManagerIdentity(job.projectManager).searchText,
         job.jobType,
         linkedQuote?.number,
@@ -2474,12 +2484,12 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
           <div className="overview-search-results" aria-live="polite">
             <div className="overview-search-summary">
               <strong>{matchingQuotes.length + matchingJobs.length} result{matchingQuotes.length + matchingJobs.length === 1 ? "" : "s"}</strong>
-              <span>Searching {currentEstimator.isAdmin && companyWide ? "company-wide quotes" : "your quotes"} and all jobs</span>
+              <span>Searching {currentEstimator.isAdmin ? "all quotes and CCNs" : "your quotes"} and all jobs</span>
             </div>
             {matchingQuotes.length > 0 && (
               <div className="overview-result-group">
                 <h2>Quotes <span>{matchingQuotes.length}</span></h2>
-                {matchingQuotes.slice(0, 8).map((quote) => (
+                {matchingQuotes.map((quote) => (
                   <button type="button" key={quote.id} onClick={() => onOpenQuote(quote.id)}>
                     <span className="overview-result-type quote">Q</span>
                     <span><strong>{quote.number} · {quote.project || "Project not named"}</strong><small>{clientName(state, quote.clientId)}{quote.site ? ` · ${quote.site}` : ""}</small></span>
@@ -2492,7 +2502,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
             {matchingJobs.length > 0 && (
               <div className="overview-result-group">
                 <h2>Jobs <span>{matchingJobs.length}</span></h2>
-                {matchingJobs.slice(0, 8).map((job) => (
+                {matchingJobs.map((job) => (
                   <button type="button" key={job.id} onClick={() => onOpenJob(job.id)}>
                     <span className="overview-result-type job">J</span>
                     <span><strong>{job.jobNumber} · {job.portalJobName || job.project}</strong><small>{job.portalCustomer || clientName(state, job.clientId)}</small></span>
@@ -5178,6 +5188,7 @@ function normalizeDocumentLinkUrl(value: string | undefined) {
 interface JobInfoDraft {
   jobName: string;
   customer: string;
+  siteName: string;
   address: string;
   jobType: string;
   projectManager: string;
@@ -5295,6 +5306,7 @@ function jobInfoDraftFromJob(job: Job | null): JobInfoDraft {
   return {
     jobName: job?.portalJobName ?? "",
     customer: job?.portalCustomer ?? "",
+    siteName: job?.portalSiteName ?? "",
     address: job?.portalAddress ?? "",
     jobType: job?.jobType ?? "",
     projectManager: job?.projectManager ?? "",
@@ -5363,6 +5375,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
   const [jobInfoDraft, setJobInfoDraft] = useState<JobInfoDraft>({
     jobName: "",
     customer: "",
+    siteName: "",
     address: "",
     jobType: "",
     projectManager: "",
@@ -5794,6 +5807,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
           project: item.quoteId || item.acceptedQuoteSnapshot ? item.project : saved.jobName,
           portalCustomer: saved.customer,
           portalAddress: saved.address,
+          portalSiteName: saved.siteName ?? null,
           jobType: saved.jobType ?? "",
           projectManager: saved.projectManager ?? "",
           startDate: saved.startDate ?? "",
@@ -5803,6 +5817,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
       setJobInfoDraft({
         jobName: saved.jobName,
         customer: saved.customer,
+        siteName: saved.siteName ?? "",
         address: saved.address,
         jobType: saved.jobType ?? "",
         projectManager: saved.projectManager ?? "",
@@ -5955,7 +5970,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
-          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {linkedQuote?.site || job.portalAddress || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
+          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {(job.portalSiteName ?? linkedQuote?.site ?? job.portalAddress) || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p></div><StatusPill status={job.status} /></div>
           <div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button>{renderJobStatusAction(job)}</div>
         </div>
         {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
@@ -5983,23 +5998,24 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         <section className="panel job-summary-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">JOB SUMMARY</span><h2>Project details</h2><p>The official Portal job information and the accepted quote details are kept together here.</p></div>
-            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => setJobInfoEditing(true)} disabled={!job.portalJobId}>Edit job details</button>}
+            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => { setJobInfoDraft({ ...jobInfoDraftFromJob(job), siteName: job.portalSiteName ?? acceptedBasis.quote?.site ?? "" }); setJobInfoEditing(true); }} disabled={!job.portalJobId}>Edit job details</button>}
           </div>
           {!jobInfoEditing ? <div className="job-summary-facts">
             <div><span>Job number</span><strong>{job.jobNumber}</strong><small>{job.jobType || "Job type not entered"}</small></div>
             <div><span>Client</span><strong>{job.portalCustomer || clientName(state, job.clientId)}</strong><small>Official Portal customer</small></div>
             <div><span>Job name</span><strong>{job.portalJobName || job.project}</strong><small>Employee job-list name</small></div>
             <div><span>{hasAcceptedQuote ? "Project / quote title" : "Project"}</span><strong>{job.project || "Not entered"}</strong><small>{hasAcceptedQuote ? `${quoteReference} · Rev ${acceptedBasis.revision ?? 0}` : "No accepted quote linked"}</small></div>
-            <div><span>Site</span><strong>{acceptedBasis.quote?.site || job.portalAddress || "Not entered"}</strong><small>{hasAcceptedQuote ? "Accepted quote" : "Official Portal job"}</small></div>
+            <div><span>Site</span><strong>{(job.portalSiteName ?? acceptedBasis.quote?.site ?? job.portalAddress) || "Not entered"}</strong><small>{job.portalSiteName == null && hasAcceptedQuote ? "Accepted quote" : "Official Portal job"}</small></div>
             <div><span>Address</span><strong>{job.portalAddress || acceptedBasis.quote?.address || "Not entered"}</strong><small>Portal job address</small></div>
             <div><span>Project manager</span><strong>{jobManagerIdentity(job.projectManager).label || "Not assigned"}</strong><small>Job responsibility</small></div>
             <div><span>Schedule</span><strong>{job.startDate ? shortDate(job.startDate) : "Start not set"}</strong><small>{job.targetEndDate ? `Target completion ${shortDate(job.targetEndDate)}` : "Target completion not set"}</small></div>
           </div> : <div className="job-summary-editor">
             <div className="form-grid two-column">
               <label className="field"><span>Job name</span><input value={jobInfoDraft.jobName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobName: event.target.value }))} /></label>
-              <label className="field"><span>Client</span><input value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => ({ ...current, customer: event.target.value }))} /></label>
+              <label className="field"><span>Client</span><input aria-label="Client" list="job-client-names" maxLength={200} value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => ({ ...current, customer: event.target.value }))} /><datalist id="job-client-names">{state.clients.map((client) => <option key={client.id} value={client.name} />)}</datalist><small>Choose an existing client or enter a new name for this job.</small></label>
+              <label className="field full"><span>Site name</span><input aria-label="Site name" list="job-site-names" maxLength={200} value={jobInfoDraft.siteName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, siteName: event.target.value }))} /><datalist id="job-site-names">{state.clients.filter((client) => client.name.trim().toLocaleLowerCase() === jobInfoDraft.customer.trim().toLocaleLowerCase()).flatMap((client) => client.sites.map((site) => <option key={site.id} value={site.label} />))}</datalist><small>Choose a client site or enter a new site name. The accepted quote stays unchanged.</small></label>
               <label className="field full"><span>Address</span><input value={jobInfoDraft.address} onChange={(event) => setJobInfoDraft((current) => ({ ...current, address: event.target.value }))} /></label>
-              <label className="field"><span>Job type</span><input value={jobInfoDraft.jobType} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobType: event.target.value }))} placeholder="Construction, service, maintenance…" /></label>
+              <label className="field"><span>Job type</span><select value={jobInfoDraft.jobType} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobType: event.target.value }))}><option value="">Not set</option><option value="Contract">Contract</option><option value="T&M">T&amp;M — Time and materials</option>{jobInfoDraft.jobType && !["Contract", "T&M"].includes(jobInfoDraft.jobType) && <option value={jobInfoDraft.jobType}>{jobInfoDraft.jobType} (current)</option>}</select></label>
               <label className="field"><span>Project manager</span><input value={jobInfoDraft.projectManager} onChange={(event) => setJobInfoDraft((current) => ({ ...current, projectManager: event.target.value }))} /></label>
               <label className="field"><span>Start date</span><input type="date" value={jobInfoDraft.startDate} onChange={(event) => setJobInfoDraft((current) => ({ ...current, startDate: event.target.value }))} /></label>
               <label className="field"><span>Target completion</span><input type="date" min={jobInfoDraft.startDate || undefined} value={jobInfoDraft.targetEndDate} onChange={(event) => setJobInfoDraft((current) => ({ ...current, targetEndDate: event.target.value }))} /></label>
@@ -6286,13 +6302,11 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     const manager = managerForJob(item);
     return [manager.key, manager] as const;
   })).values()).sort((a, b) => a.label.localeCompare(b.label, "en-CA"));
-  const normalizedSearch = jobSearch.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   const visibleJobs = state.jobs.filter((item) => {
     if (item.status !== statusFilter) return false;
     if (managerFilter && managerForJob(item).key !== managerFilter) return false;
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    const haystack = `${item.jobNumber} ${linkedQuote?.number ?? ""} ${jobManagerIdentity(linkedQuote?.preparedBy).searchText} ${clientName(state, item.clientId)} ${linkedQuote?.site ?? ""} ${item.project} ${item.portalJobName ?? ""} ${item.portalCustomer ?? ""} ${item.portalAddress ?? ""} ${jobManagerIdentity(item.projectManager).searchText} ${item.jobType ?? ""}`.toLocaleLowerCase().replace(/\s+/g, " ");
-    return haystack.includes(normalizedSearch);
+    return matchesWorkSearch(jobSearch, item.jobNumber, linkedQuote?.number, jobManagerIdentity(linkedQuote?.preparedBy).searchText, clientName(state, item.clientId), linkedQuote?.site, item.portalSiteName, item.project, item.portalJobName, item.portalCustomer, item.portalAddress, jobManagerIdentity(item.projectManager).searchText, item.jobType, linkedQuote?.reference, linkedQuote?.customerPo, ...(item.purchaseOrders ?? []).flatMap((po) => [po.number, po.vendorName, po.vendorQuoteNumber]));
   }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
   const filteredStatusLabel = statusFilter === "Archived" ? "inactive" : "active";
   const renderJobTable = (items: Job[]) => (
@@ -6303,7 +6317,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
         return <tr key={item.id} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
           <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
-          <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{linkedQuote?.site || item.portalAddress || "No location"}</small></td>
+          <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small></td>
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
           <td data-label="Status"><StatusPill status={item.status} /></td>
@@ -6318,6 +6332,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
       <PageHeading eyebrow="OFFICIAL PORTAL JOBS" title="Jobs" description="Manage all jobs, including Excel imports, T&M work and accepted estimates." />
       <div className="estimating-boundary-note job-costing-connection"><div><strong>One shared job list</strong><p>Job numbers and active status are shared with timesheets, POs, Work Orders and employee job lists. Inactive jobs keep their history. T&amp;M jobs open on Statistics.</p></div><button className="button secondary compact" disabled={directoryRefreshing || statusSaving} onClick={() => void refreshDirectory().catch(() => {})}>{directoryRefreshing ? "Refreshing…" : "↻ Refresh jobs"}</button></div>
+      <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
       {directoryMessage && <p role="status">{directoryMessage}</p>}
       {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
       <details className="job-import-disclosure"><summary>Excel job-list upload</summary>{!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
@@ -6343,7 +6358,7 @@ function JobsPage({ state, setState, workspaceSaved, job, tab, setTab, onOpen, o
             <span className="job-tile-heading"><strong>{item.jobNumber}</strong><StatusPill status={item.status} /></span>
             <strong className="job-tile-name">{item.portalJobName || item.project}</strong>
             <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
-            <small>{linkedQuote?.site || item.portalAddress || "No location"}</small>
+            <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
             <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
             {linkedQuote && <small>{linkedQuote.number}</small>}
           </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
@@ -6424,7 +6439,7 @@ function JobStatisticsPanel({ statistics, status, message, onRefresh }: {
       <section className="panel statistics-card statistics-equipment-card"><div className="panel-heading"><div><span className="eyebrow">RESOURCES</span><h3>Equipment and vehicles used</h3></div></div>{statistics.equipment.length ? <div className="compact-record-list">{statistics.equipment.map((record) => <div key={record.id}><span>{record.kind}</span><strong>{record.name}</strong><small>{record.identifier || "No identifier"}{record.workOrderNumber ? ` · WO ${record.workOrderNumber}` : ""}</small></div>)}</div> : <p className="statistics-empty-line">No equipment or vehicles recorded for this job.</p>}</section>
     </div>
     <section className="panel statistics-card statistics-wo-labour">
-      <div className="panel-heading"><div><span className="eyebrow">SEPARATE WORK ORDER RECORDS</span><h3>Work Order-only labour</h3><p>{numberFormatter.format(statistics.workOrderOnlyHours ?? 0)} hours entered directly on Work Orders. These are not added to the timesheet totals, payroll or loaded job cost above. Reconcile them with timesheets before treating them as additional hours.</p></div></div>
+      <div className="panel-heading"><div><span className="eyebrow">SEPARATE WORK ORDER RECORDS</span><h3>Work Order-only labour</h3><p>{numberFormatter.format(statistics.workOrderOnlyHours ?? 0)} hours entered directly on Work Orders. These are not added to the timesheet totals, payroll or loaded job cost above. Reconcile them with timesheets before treating them as additional hours.</p><p>For T&amp;M work, handwritten Work Orders may explain differences. Paper WOs only appear here after being recorded in the Portal; a difference does not automatically mean timesheet hours are missing.</p></div></div>
       {(statistics.workOrderOnlyLabour ?? []).length ? <div className="data-table-wrap"><table className="data-table"><thead><tr><th>WO #</th><th>Employee</th><th>Date</th><th>Hours</th><th>Record</th></tr></thead><tbody>{statistics.workOrderOnlyLabour.map((entry) => <tr key={entry.id}><td data-label="WO #">{entry.workOrderNumber}</td><td data-label="Employee">{entry.worker}</td><td data-label="Date">{entry.date ? shortDate(entry.date) : "No date"}</td><td data-label="Hours">{numberFormatter.format(entry.hours)}</td><td data-label="Record"><OperationalRecordLink href={entry.url}>Open WO</OperationalRecordLink></td></tr>)}</tbody></table></div> : <p className="statistics-empty-line">No separate Work Order labour recorded.</p>}
     </section>
   </div>;

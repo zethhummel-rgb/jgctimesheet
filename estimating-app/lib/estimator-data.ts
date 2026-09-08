@@ -397,6 +397,8 @@ export interface Job {
   portalJobName?: string;
   portalCustomer?: string;
   portalAddress?: string;
+  portalSiteName?: string | null;
+  lastImportedAt?: string;
   jobType?: string;
   projectManager?: string;
   startDate?: string;
@@ -1189,6 +1191,8 @@ export function normalizeAppState(state: AppState): AppState {
       portalJobName: job.portalJobName ?? "",
       portalCustomer: job.portalCustomer ?? "",
       portalAddress: job.portalAddress ?? "",
+      portalSiteName: job.portalSiteName ?? null,
+      lastImportedAt: job.lastImportedAt ?? "",
       jobType: job.jobType ?? "",
       projectManager: job.projectManager ?? "",
       startDate: job.startDate ?? "",

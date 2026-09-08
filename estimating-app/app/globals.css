@@ -14,7 +14,8 @@ input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 .overview-search input:focus { border-color: var(--green-600); outline: 3px solid rgba(27,150,100,.14); background: #fff; }
 .overview-search-icon { position: absolute; z-index: 1; top: 50%; left: 28px; transform: translateY(-50%); color: var(--green-700); font-size: 24px; line-height: 1; pointer-events: none; }
 .overview-search-clear { position: absolute; top: 50%; right: 22px; width: 34px; height: 34px; padding: 0; transform: translateY(-50%); border: 0; border-radius: 7px; background: var(--slate-100); color: var(--slate-600); font-size: 21px; }
-.overview-search-results { border-top: 1px solid var(--slate-200); background: #fff; }
+.overview-search-results { border-top: 1px solid var(--slate-200); background: #fff; max-height: 65vh; overflow-y: auto; }
+.job-last-import { margin: 0; color: var(--navy-900); font-size: 14px; line-height: 1.5; }
 .overview-search-summary { min-height: 42px; padding: 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; background: var(--slate-50); }
 .overview-search-summary strong { color: var(--navy-900); }
 .overview-search-summary span { color: var(--slate-500); font-size: 11px; }
