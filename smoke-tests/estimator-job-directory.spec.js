@@ -169,7 +169,7 @@ test("overview finds imported job 26096 without a quote in My estimates", async 
   const captures = await serveDirectory(page, state, { overview: true });
   const search = page.getByRole("searchbox", { name: "Search estimates and jobs" });
   await search.fill("JGC-Q-2026-0901");
-  await expect(page.locator(".overview-result-group").getByRole("heading", { name: /^Quotes/ })).toHaveCount(0);
+  await expect(page.locator(".overview-result-group").getByRole("heading", { name: /^Quotes/ })).toHaveCount(1);
   await expect(page.locator(".overview-result-group").getByRole("button", { name: /26901/ })).toHaveCount(1);
   for (const term of ["26096", "Canonical Railway Client", "99 Railway Avenue", "Zeth Hummel"]) {
     await search.fill(term);
@@ -184,6 +184,67 @@ test("overview finds imported job 26096 without a quote in My estimates", async 
   await assertSelectedTab(page, "Statistics / Other");
   expect(captures.jobInfo).toEqual([]);
   expect(captures.writes).toEqual([]);
+});
+
+test("administrator overview searches every quote and job beyond the first eight matches", async ({ page }) => {
+  const state = directoryState();
+  state.quotes = Array.from({ length: 10 }, (_, index) => ({ ...state.quotes[0], id: `search-quote-${index}`, number: `JGC-Q-2026-${8000 + index}`, project: "Search regression quote", ownerUserId: "another-estimator" }));
+  state.jobs = Array.from({ length: 10 }, (_, index) => officialJob("contract", { id: `search-job-${index}`, portalJobId: `search-portal-${index}`, jobNumber: `${28000 + index}`, portalSiteName: "Search regression site" }));
+  await serveDirectory(page, state, { overview: true });
+  const search = page.getByRole("searchbox", { name: "Search estimates and jobs" });
+  await search.fill("Search regression");
+  await expect(page.locator(".overview-result-group > button")).toHaveCount(20);
+  await expect(page.locator(".overview-search-summary")).toContainText("all quotes and CCNs");
+  await search.fill("JGCQ20268009");
+  await expect(page.locator(".overview-result-group > button")).toHaveCount(1);
+  await expect(page.locator(".overview-result-group > button")).toContainText("JGC-Q-2026-8009");
+});
+
+test("job client and site editing preserves the accepted quote and offers Contract or T&M", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = directoryState();
+  const originalQuote = JSON.stringify(state.quotes[0]);
+  const captures = await serveDirectory(page, state);
+  await openDirectoryJob(page, "26901");
+  await page.getByRole("button", { name: "Edit job details", exact: true }).click();
+  await expect(page.getByLabel("Site name", { exact: true })).toHaveValue("Quoted Work Site");
+  await page.getByLabel("Client", { exact: true }).fill("New job client");
+  await page.getByLabel("Site name", { exact: true }).fill("New north site");
+  await page.getByRole("combobox", { name: "Job type", exact: true }).selectOption("T&M");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(".job-summary-editor").screenshot({ path: testInfo.outputPath("job-editor-phone.png") });
+  await page.getByRole("button", { name: "Save job details", exact: true }).click();
+  await expect(page.locator(".job-summary-facts")).toContainText("New north site");
+  await expect(page.locator(".job-summary-facts")).toContainText("New job client");
+  expect(captures.jobInfo[0].body).toEqual(expect.objectContaining({ portalJobId: officialIds.quoted, siteName: "New north site", customer: "New job client", jobType: "T&M" }));
+  await expect.poll(() => captures.writes.length).toBeGreaterThan(0);
+  // State loading supplies optional defaults; existing quote fields and its
+  // immutable accepted snapshot must remain unchanged by job metadata edits.
+  expect(captures.writes.at(-1).quotes[0]).toEqual(expect.objectContaining(JSON.parse(originalQuote)));
+  expect(captures.writes.at(-1).jobs.find((job) => job.id === "existing-estimator-job").acceptedQuoteSnapshot).toBe(originalQuote);
+  await page.getByRole("button", { name: "← All jobs", exact: true }).click();
+  await page.getByLabel("Search jobs", { exact: true }).fill("north 26901");
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
+});
+
+test("last import date uses recorded imports, never ordinary job edits", async ({ page }) => {
+  const state = directoryState();
+  state.jobs[1].lastImportedAt = "2026-09-02T14:30:00Z";
+  state.jobs[2].portalLastSyncedAt = fixtureDate;
+  await serveDirectory(page, state);
+  await expect(page.getByTestId("job-last-import")).toContainText(/2026-09-02|9\/2\/2026/);
+  await openDirectoryJob(page, "26903");
+  await page.getByRole("button", { name: "Edit job details", exact: true }).click();
+  await page.getByLabel("Job name", { exact: true }).fill("Ordinary edit");
+  await page.getByRole("button", { name: "Save job details", exact: true }).click();
+  await expect(page.locator(".job-topline h1")).toHaveText("Ordinary edit");
+  await page.getByRole("button", { name: "← All jobs", exact: true }).click();
+  await expect(page.getByTestId("job-last-import")).toContainText(/2026-09-02|9\/2\/2026/);
+});
+
+test("legacy jobs show unknown import date rather than an invented date", async ({ page }) => {
+  await serveDirectory(page, directoryState());
+  await expect(page.getByTestId("job-last-import")).toContainText("Not recorded");
 });
 
 test("job List and Tiles views keep filters and remember the device preference", async ({ page }) => {
@@ -291,6 +352,9 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   }
   await expect(page.locator(".jobs-table tbody tr").filter({ hasText: "26901" })).toContainText("JGC-Q-2026-0901");
   await page.getByLabel("Search jobs", { exact: true }).fill("Canonical Railway Client");
+  // All query words can match across client and location, just like Overview.
+  await expect(page.locator(".jobs-table tbody tr")).toHaveCount(2);
+  await page.getByLabel("Search jobs", { exact: true }).fill("CanonicalRailwayClient");
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
   await expect(page.locator(".jobs-table tbody tr")).toContainText("26902");
   await page.getByLabel("Search jobs", { exact: true }).fill("Directory Test Manager");

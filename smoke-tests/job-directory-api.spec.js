@@ -188,9 +188,26 @@ test("job information rejects invalid and overlength names without silently trun
   expect(client.tables.jobs[0]).toEqual(expect.objectContaining({ job_name: "Job 001", project_manager: "ZH" }));
 });
 
+test("site edits retain employee document links and do not change the import date", async () => {
+  const { api, browser } = loadApi();
+  const importedAt = "2026-09-01T12:00:00Z";
+  const client = mockClient({ jobs: [job("keep", "001", { site_name: "Old site", last_imported_at: importedAt, document_link: "https://example.com/drawings", document_link_label: "Drawings" })] });
+  api.installEstimatorApiBridge(client);
+  for (const siteName of [42, null, {}, "x".repeat(201)]) {
+    expect((await request(browser, "job-info", { portalJobId: "keep", siteName }, "PATCH")).status).toBe(400);
+  }
+  expect(client.writes).toBe(0);
+  const result = await request(browser, "job-info", { portalJobId: "keep", customer: "New client", siteName: "New site", jobType: "Contract" }, "PATCH");
+  expect(result.status).toBe(200);
+  expect(result.body.job).toEqual(expect.objectContaining({ id: "keep", jobNumber: "001", customer: "New client", siteName: "New site", lastImportedAt: importedAt, documentLink: "https://example.com/drawings", documentLinkLabel: "Drawings" }));
+  expect(client.calls.find((call) => call.operation === "update").payload).not.toHaveProperty("last_imported_at");
+  const cleared = await request(browser, "job-info", { portalJobId: "keep", siteName: "" }, "PATCH");
+  expect(cleared.body.job.siteName).toBe("");
+});
+
 test("import preview writes nothing and apply uses one statement without altering identities or metadata", async () => {
   const { api, browser } = loadApi();
-  const tables = { jobs: [job("keep", "001", { customer: "Keep client", document_link: "https://example.com/drawings", start_date: "2026-10-01" }), job("missing", "002"), job("protected", "003")], estimator_workspaces: workspace([{ quoteId: "q", portalJobId: "protected", jobNumber: "003" }]) };
+  const tables = { jobs: [job("keep", "001", { customer: "Keep client", site_name: "Keep site", document_link: "https://example.com/drawings", start_date: "2026-10-01" }), job("missing", "002"), job("protected", "003")], estimator_workspaces: workspace([{ quoteId: "q", portalJobId: "protected", jobNumber: "003" }]) };
   const client = mockClient(tables);
   api.installEstimatorApiBridge(client);
   const records = [importRow("001", { id: "malicious-id", document_link: "https://example.com/changed" }), importRow("004")];
@@ -210,10 +227,14 @@ test("import preview writes nothing and apply uses one statement without alterin
     expect(row.id).toBeUndefined();
     expect(row.document_link).toBeUndefined();
     expect(row.customer).toBeUndefined();
+    expect(row.site_name).toBeUndefined();
+    expect(Number.isFinite(Date.parse(row.last_imported_at))).toBe(true);
     expect(row.start_date).toBeUndefined();
   }
   expect(tables.jobs.find((row) => row.id === "keep")).toEqual(expect.objectContaining({ job_number: "001", customer: "Keep client", document_link: "https://example.com/drawings", start_date: "2026-10-01" }));
   expect(tables.jobs.find((row) => row.id === "missing").active).toBe(false);
+  expect(tables.jobs.find((row) => row.id === "keep").site_name).toBe("Keep site");
+  expect(result.body.jobs.find((row) => row.id === "keep").lastImportedAt).toBe(tables.jobs[0].last_imported_at);
   expect(tables.jobs.find((row) => row.id === "protected").active).toBe(true);
 });
 

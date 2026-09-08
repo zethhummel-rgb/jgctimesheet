@@ -1100,7 +1100,7 @@ function getJobsSummary() {
     const activeJobs = jobs.filter(isActiveManagementJob).length;
     const inactiveJobs = jobs.filter((job) => !isActiveManagementJob(job)).length;
     const lastImport = jobs.reduce((latest, job) => {
-        const updated = job.updated_at ? new Date(job.updated_at).getTime() : 0;
+        const updated = job.last_imported_at ? new Date(job.last_imported_at).getTime() : 0;
         return updated > latest ? updated : latest;
     }, 0);
 
@@ -1132,7 +1132,7 @@ function renderJobsManagement() {
                         <td>${summary.totalJobs}</td>
                         <td>${summary.activeJobs}</td>
                         <td>${summary.inactiveJobs}</td>
-                        <td>${summary.lastImport ? escapeHtml(formatDate(new Date(summary.lastImport).toISOString())) : "No imports yet"}</td>
+                        <td>${summary.lastImport ? escapeHtml(new Date(summary.lastImport).toLocaleString("en-CA")) : "Not recorded — shown after the next import"}</td>
                     </tr>
                 </tbody>
             </table>
@@ -1373,6 +1373,7 @@ async function importJobsFromExcel() {
                     active: !isHighlighted,
                     removed_from_import_at: null,
                     archive_until: null,
+                    last_imported_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
             });
@@ -1391,7 +1392,7 @@ async function importJobsFromExcel() {
 
         const { error } = await supabaseClient
             .from("jobs")
-            .upsert(records, { onConflict: "job_number" });
+            .upsert(records, { onConflict: "job_number", defaultToNull: false });
 
         if (error) {
             status.textContent = "Job import failed: " + error.message;
