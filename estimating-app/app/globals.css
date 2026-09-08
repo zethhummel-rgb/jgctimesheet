@@ -1769,6 +1769,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-tile-heading > strong { font-size: 15px; }
 .job-tile-meta { margin-top: 5px; color: var(--slate-700); font-size: 12px; }
 .job-directory-toolbar { flex-wrap: wrap; }
+.job-year-groups { display: grid; gap: 12px; min-width: 0; }
+.job-year-groups > .table-summary { padding: 0 4px 4px; flex-wrap: wrap; gap: 8px; border: 0; }
+.job-year-group { min-width: 0; overflow: hidden; }
+.job-year-group > summary { min-height: 52px; padding: 14px 18px; background: var(--slate-100); color: var(--navy-900); cursor: pointer; }
+.job-year-group > summary strong { margin-left: 8px; font-size: 16px; }
+.job-year-group > summary > span { margin-left: 16px; color: var(--slate-700); font-size: 13px; }
+.job-year-group > summary:focus-visible { outline: 3px solid var(--jgc-color-warning, #f1bf4b); outline-offset: -3px; }
+.job-year-group[open] > summary { border-bottom: 1px solid var(--slate-300); }
+.job-year-group > .panel { border: 0; border-radius: 0; box-shadow: none; }
 .job-directory-toolbar .search-field { flex: 1 1 280px; }
 .job-directory-toolbar .compact-select { gap: 8px; }
 .job-directory-toolbar .compact-select span { font-size: 12px; color: var(--slate-700); }
