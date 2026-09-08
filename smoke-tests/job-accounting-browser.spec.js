@@ -38,6 +38,7 @@ async function setup(page, options = {}) {
     }
     return route.fulfill({ status: 400, json: { error: "Unexpected request" } });
   });
+  if (!options.collapsed) await page.locator(".job-accounting-disclosure > summary").click();
   return { captures, versions, logs, calls };
 }
 async function create(page, version) {
@@ -115,6 +116,29 @@ test("mobile accounting controls remain readable without overflowing the page", 
   const chips = await page.locator(".job-accounting-legend .accounting-chip").evaluateAll((els) => els.map((el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor })));
   expect(chips.every((chip) => chip.color !== chip.background && chip.color !== "rgb(255, 255, 255)")).toBe(true);
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath("accounting-mobile.png") });
+});
+
+for (const width of [390, 1366]) test(`accounting download collapses like the upload without losing its preview at ${width}px`, async ({ page }, testInfo) => {
+  const state = await setup(page, { collapsed: true });
+  await page.setViewportSize({ width, height: 900 });
+  const disclosure = page.locator(".job-accounting-disclosure");
+  const toggle = disclosure.locator(":scope > summary");
+  await expect(disclosure).not.toHaveAttribute("open");
+  await expect(page.getByRole("button", { name: "Download accounting job list", exact: true })).toBeHidden();
+  const appearance = await page.locator(".job-import-disclosure > summary, .job-accounting-disclosure > summary").evaluateAll((items) => items.map((el) => { const s = getComputedStyle(el); return { padding: s.padding, fontSize: s.fontSize, fontWeight: s.fontWeight, color: s.color, height: el.getBoundingClientRect().height }; }));
+  expect(appearance[1]).toEqual(appearance[0]);
+  if (process.env.JGC_CAPTURE_VISUAL_QA) await disclosure.screenshot({ path: testInfo.outputPath(`collapsed-download-${width}.png`) });
+  await toggle.focus(); await page.keyboard.press("Enter");
+  await expect(disclosure).toHaveAttribute("open", "");
+  await page.getByRole("button", { name: "Download accounting job list", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Preview version 1" })).toBeVisible();
+  await toggle.click();
+  await expect(page.getByRole("heading", { name: "Preview version 1" })).toBeHidden();
+  await toggle.focus(); await page.keyboard.press("Space");
+  await expect(page.getByRole("heading", { name: "Preview version 1" })).toBeVisible();
+  expect(state.versions).toEqual([]); expect(state.logs).toEqual([]);
+  expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test("optional supplied-master QA preserves every coloured reference cell and all year sheets", async ({ page }, testInfo) => {
