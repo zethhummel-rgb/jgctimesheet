@@ -6177,11 +6177,13 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
                   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId) : null;
                   const vendorName = vendor?.name ?? line.vendorName?.trim() ?? "Subcontractor not selected";
                   const linkedPurchaseOrder = purchaseOrders.find((purchaseOrder) => purchaseOrder.lines.some((item) => item.quoteLineId === line.id) && purchaseOrder.status !== "Void");
+                  // A PO can add or revise its reference without rewriting the accepted estimate.
+                  const vendorQuoteReference = (linkedPurchaseOrder ? linkedPurchaseOrder.vendorQuoteNumber : line.vendorReference).trim();
                   return (
                     <tr key={`${sourceQuote.id}-${line.id}`}>
                       <td data-label="Subcontractor"><strong>{vendorName}</strong><small>{vendor?.trade || "Subcontractor"}</small></td>
                       <td data-label="Accepted estimate line"><strong>{line.description}</strong><small>{sourceQuote.number} · {line.quantity} {line.unit} · {line.division || line.section}</small></td>
-                      <td data-label="Vendor quote #">{line.vendorReference ? <strong>{line.vendorReference}</strong> : <span className="po-missing-reference">Not entered</span>}</td>
+                      <td data-label="Vendor quote #">{vendorQuoteReference ? <strong>{vendorQuoteReference}</strong> : <span className="po-missing-reference">Not entered</span>}</td>
                       <td data-label="Direct cost"><strong>{money(subcontractorActualDirectCost(line))}</strong><small>{line.vendorOverrideCost !== null && line.vendorOverrideCost !== undefined ? `Actual quote · JGC carried ${money(lineDirectCost(line))}` : "Actual quote · Pre-tax"}</small></td>
                       <td data-label="PO">{linkedPurchaseOrder ? <><strong>{linkedPurchaseOrder.number}</strong><small>Revision {linkedPurchaseOrder.revision}</small><small className={`po-status po-${linkedPurchaseOrder.status.toLowerCase()}`}>{purchaseOrderStatusLabel(linkedPurchaseOrder)}</small></> : <span className="po-not-created">Not created</span>}</td>
                       <td className="po-row-actions">
