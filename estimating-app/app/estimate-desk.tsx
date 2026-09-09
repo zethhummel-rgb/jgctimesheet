@@ -2943,26 +2943,27 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   };
   const [draft, setDraft] = useState<PurchaseOrder>(initial);
   const [error, setError] = useState("");
+  const [invalidField, setInvalidField] = useState("");
   const hasChanges = !purchaseOrder || purchaseOrderEditableFingerprint(draft) !== purchaseOrderEditableFingerprint(purchaseOrder);
   const nextRevision = purchaseOrder ? purchaseOrder.revision + 1 : 0;
   const subtotal = draft.lines.reduce((sum, line) => sum + line.amount, 0);
   const hst = subtotal * draft.taxRate;
   const lifecycleStatus = !purchaseOrder
-    ? "Final when created"
+    ? "Not created yet"
     : purchaseOrder.status === "Draft"
       ? `Revision ${purchaseOrder.revision} in progress`
       : hasChanges
         ? `Save creates Revision ${nextRevision}`
         : `Final Revision ${purchaseOrder.revision}`;
   const revisionNoteTitle = !purchaseOrder
-    ? "Created as a Final PO"
+    ? "Ready to create"
     : purchaseOrder.status === "Draft"
       ? `Revision ${purchaseOrder.revision} is already in progress`
       : hasChanges
         ? `Revision ${nextRevision} is ready to save`
         : "Viewing the final PO";
   const revisionNoteCopy = !purchaseOrder
-    ? "This PO is locked as Final as soon as it is created. Use Edit PO later to review it or make a revision."
+    ? "Complete the required details, then create the PO. It will appear on the job as Final. Edit PO can create a revision later."
     : purchaseOrder.status === "Draft"
       ? `Only saved changes update Revision ${purchaseOrder.revision}. It becomes Final and locks when its PDF is downloaded.`
       : hasChanges
@@ -3009,11 +3010,34 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (purchaseOrder && !hasChanges) return;
-    if (!draft.number.trim()) return setError("Enter the JGC purchase order number.");
-    if (!draft.vendorName.trim()) return setError("Enter the subcontractor company name.");
-    if (!draft.lines.length) return setError("Select at least one subcontractor quote for this PO.");
-    if (draft.lines.some((line) => !line.description.trim())) return setError("Enter the work being authorized for every selected quote.");
-    if (draft.lines.some((line) => !(line.amount > 0))) return setError("Enter a purchase order amount above zero for every selected quote.");
+    const form = event.currentTarget;
+    const reject = (field: string, message: string) => {
+      setError(`${purchaseOrder ? "Revision not saved" : "PO not created"}. ${message}`);
+      setInvalidField(field);
+      const control = form.elements.namedItem(field);
+      if (control instanceof HTMLElement) {
+        control.focus();
+        control.scrollIntoView({ block: "center" });
+      }
+    };
+    if (!draft.number.trim()) return reject("po-number", "Enter the JGC purchase order number.");
+    if (!draft.vendorName.trim()) return reject("po-vendor", "Enter the subcontractor company name.");
+    if (!draft.lines.length) return reject("", "Select at least one subcontractor quote for this PO.");
+    const missingDescription = draft.lines.find((line) => !line.description.trim());
+    if (missingDescription) return reject(`po-description-${missingDescription.id}`, "Enter the work being authorized in Description. The vendor quote number is a separate reference.");
+    const invalidAmount = draft.lines.find((line) => !Number.isFinite(line.amount) || !(line.amount > 0));
+    if (invalidAmount) return reject(`po-amount-${invalidAmount.id}`, "Enter a purchase order amount above zero for every selected quote.");
+    // Native constraints still apply, but explain them in the popup rather
+    // than letting the browser silently stop submission before this handler.
+    const invalidControl = form.querySelector<HTMLInputElement | HTMLTextAreaElement>("input:invalid, textarea:invalid");
+    if (invalidControl) {
+      const label = invalidControl.labels?.[0]?.querySelector("span")?.textContent?.trim() || "PO field";
+      setError(`${purchaseOrder ? "Revision not saved" : "PO not created"}. ${label}: ${invalidControl.validationMessage}`);
+      setInvalidField(invalidControl.name);
+      invalidControl.focus();
+      invalidControl.scrollIntoView({ block: "center" });
+      return;
+    }
     const updatedAt = new Date().toISOString();
     const normalizedDraft = { ...draft, number: draft.number.trim(), vendorName: draft.vendorName.trim(), updatedAt };
     if (purchaseOrder?.status === "Issued") {
@@ -3041,7 +3065,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
       <section className="modal-card purchase-order-modal" role="dialog" aria-modal="true" aria-labelledby="purchase-order-title" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><span className="eyebrow">SUBCONTRACTOR COMMITMENT</span><h2 id="purchase-order-title">{purchaseOrder ? `Edit PO ${purchaseOrder.number} · Revision ${purchaseOrder.revision}` : "Create purchase order"}</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
-        <form onSubmit={submit}>
+        <form noValidate onSubmit={submit}>
           <div className="purchase-order-form">
             <div className="po-source-banner"><div><span>JOB</span><strong>{job.jobNumber} · {job.project}</strong></div><div><span>ACCEPTED QUOTE</span><strong>{quote.number} · Rev {quote.revision}</strong></div></div>
             {!purchaseOrder && combinableSourceLines.length > 1 && (
@@ -3063,13 +3087,13 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
               </section>
             )}
             <div className="form-grid four-column">
-              <label className="field"><span>JGC PO number <b>*</b></span><input autoFocus value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
+              <label className="field"><span>JGC PO number <b>*</b></span><input name="po-number" autoFocus aria-invalid={Boolean(error && invalidField === "po-number")} aria-describedby={error && invalidField === "po-number" ? "po-validation-error" : undefined} value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
               <div className="field po-lifecycle-field"><span>Status</span><strong>{lifecycleStatus}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
-              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
+              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input name="po-vendor" aria-invalid={Boolean(error && invalidField === "po-vendor")} aria-describedby={error && invalidField === "po-vendor" ? "po-validation-error" : undefined} value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
-              <label className="field"><span>Email</span><input type="email" value={draft.vendorEmail} onChange={(event) => update("vendorEmail", event.target.value)} /></label>
+              <label className="field"><span>Email</span><input name="po-email" type="email" aria-invalid={Boolean(error && invalidField === "po-email")} aria-describedby={error && invalidField === "po-email" ? "po-validation-error" : undefined} value={draft.vendorEmail} onChange={(event) => { update("vendorEmail", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Phone</span><input value={formatPhoneNumber(draft.vendorPhone)} inputMode="numeric" autoComplete="tel" maxLength={14} onChange={(event) => update("vendorPhone", formatPhoneNumber(event.target.value))} /></label>
               <label className="field"><span>Ship by</span><input value={draft.shipBy} onChange={(event) => update("shipBy", event.target.value)} /></label>
               <label className="field"><span>Ship via</span><input value={draft.shipVia} onChange={(event) => update("shipVia", event.target.value)} /></label>
@@ -3085,11 +3109,11 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
                   <article className="po-authorized-line" key={line.id}>
                     {draft.lines.length > 1 && <div className="po-authorized-line-label"><span>QUOTE LINE {index + 1}</span><strong>{line.sourceReference ? `#${line.sourceReference}` : "Quote number not entered"}</strong></div>}
                     <div className="po-line-grid">
-                      <label className="field po-description"><span>Description</span><textarea rows={3} value={line.description} onChange={(event) => { updateLine(line.id, { description: event.target.value }); setError(""); }} /></label>
+                      <label className="field po-description"><span>Description</span><textarea name={`po-description-${line.id}`} aria-label="Description" aria-required="true" aria-invalid={Boolean(error && invalidField === `po-description-${line.id}`)} aria-describedby={!line.description.trim() ? `po-description-hint-${line.id}` : undefined} rows={3} value={line.description} placeholder="Describe the work authorized by this PO" onChange={(event) => { updateLine(line.id, { description: event.target.value }); setError(""); }} />{!line.description.trim() && <small id={`po-description-hint-${line.id}`} className="po-required-hint">Required: enter the work being authorized. The vendor quote number does not replace this description.</small>}</label>
                       <label className="field"><span>Qty</span><ClearableNumberInput min="0" step="0.01" value={line.quantity} onValueChange={(value) => { const quantity = value ?? 0; updateLine(line.id, { quantity, amount: Math.round(quantity * line.unitCost * 100) / 100 }); }} /></label>
                       <label className="field"><span>Unit</span><input value={line.unit} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></label>
                       <label className="field"><span>Unit cost</span><div className="input-prefix"><span>$</span><ClearableNumberInput min="0" step="0.01" value={line.unitCost} onValueChange={(value) => { const unitCost = value ?? 0; updateLine(line.id, { unitCost, amount: Math.round(line.quantity * unitCost * 100) / 100 }); }} /></div></label>
-                      <label className="field"><span>Pre-tax amount</span><div className="input-prefix"><span>$</span><ClearableNumberInput min="0" step="0.01" value={line.amount} onValueChange={(value) => { updateLine(line.id, { amount: value ?? 0 }); setError(""); }} /></div></label>
+                      <label className="field"><span>Pre-tax amount</span><div className="input-prefix"><span>$</span><ClearableNumberInput name={`po-amount-${line.id}`} aria-invalid={Boolean(error && invalidField === `po-amount-${line.id}`)} aria-describedby={error && invalidField === `po-amount-${line.id}` ? "po-validation-error" : undefined} min="0" step="0.01" value={line.amount} onValueChange={(value) => { updateLine(line.id, { amount: value ?? 0 }); setError(""); }} /></div></label>
                       <label className="field po-reference"><span>Source quote #</span><input value={line.sourceReference} onChange={(event) => updateLineReference(line.id, event.target.value)} /></label>
                     </div>
                   </article>
@@ -3098,10 +3122,9 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
               <div className="po-total-preview"><div><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div><span>HST</span><strong>{money(hst)}</strong></div><div className="grand"><span>Total</span><strong>{money(subtotal + hst)}</strong></div></div>
             </div>
             <label className="field"><span>PO instructions / notes</span><textarea rows={3} value={draft.notes} onChange={(event) => update("notes", event.target.value)} /></label>
-            {error && <p className="field-error" role="alert">{error}</p>}
-            <div className="estimating-boundary-note"><strong>{revisionNoteTitle}</strong><p>{revisionNoteCopy}</p></div>
+            {purchaseOrder && <div className="estimating-boundary-note"><strong>{revisionNoteTitle}</strong><p>{revisionNoteCopy}</p></div>}
           </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>{purchaseOrder ? "Close" : "Cancel"}</button><button type="submit" className="button success" disabled={Boolean(purchaseOrder && !hasChanges)}>{saveButtonLabel}</button></footer>
+          <footer className="po-submit-footer">{error && <p id="po-validation-error" className="po-validation-error" role="alert">{error}</p>}<div className="po-submit-actions"><button type="button" className="button secondary" onClick={onCancel}>{purchaseOrder ? "Close" : "Cancel"}</button><button type="submit" className="button success" disabled={Boolean(purchaseOrder && !hasChanges)}>{saveButtonLabel}</button></div></footer>
         </form>
       </section>
     </div>

@@ -1513,6 +1513,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .purchase-order-modal { width: min(1120px, 100%); }
 .purchase-order-form { padding: 0 22px; display: grid; gap: 17px; }
+.purchase-order-modal form .po-submit-footer { flex-direction: column; align-items: stretch; }
+.po-submit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.purchase-order-modal .po-validation-error,
+:root[data-jgc-theme] body.jgc-theme .purchase-order-modal .po-validation-error { margin: 0; padding: 10px 12px; border: 1px solid #be123c; border-radius: 6px; background: #fff1f2 !important; color: #881337 !important; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.purchase-order-modal .po-required-hint,
+:root[data-jgc-theme] body.jgc-theme .purchase-order-modal .po-required-hint { padding: 4px 8px; border-radius: 4px; background: #fff1f2 !important; color: #881337 !important; font-weight: 600; }
+.purchase-order-modal [aria-invalid="true"],
+:root[data-jgc-theme] body.jgc-theme .purchase-order-modal [aria-invalid="true"] { border: 2px solid #be123c !important; }
 .purchase-order-form .field.two-wide { grid-column: span 2; }
 .po-source-banner { padding: 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; border-left: 4px solid var(--green-600); border-radius: 7px; background: var(--green-100); }
 .po-source-banner span, .po-source-banner strong { display: block; }
