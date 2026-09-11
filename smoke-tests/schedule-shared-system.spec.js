@@ -148,6 +148,8 @@ async function installState(page, role = "worker") {
     }
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
+  await page.route("https://script.google.com/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true,"success":true}' }));
+  await page.route("https://script.googleusercontent.com/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true,"success":true}' }));
 }
 
 async function contrastRatio(page, selector) {
@@ -188,13 +190,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=8');
-  expect(pageSource).toContain('schedule-design-system.css?v=4');
+  expect(pageSource).toContain('schedule-design-system.css?v=5');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   expect(adminSource).toContain('admin.css?v=16');
-  expect(adminSource).toContain('schedule-design-system.css?v=4');
+  expect(adminSource).toContain('schedule-design-system.css?v=5');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -203,7 +205,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=16"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=4"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=5"');
 });
 
 for (const viewport of [
@@ -418,4 +420,195 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   }
   expect(errors).toEqual([]);
   await context.close();
+});
+
+async function openCalendarEditor(page, theme = "light") {
+  await installState(page, "admin");
+  await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => adminDataLoaded === true);
+  await page.evaluate((theme) => applyJgcTheme(theme), theme);
+  await page.evaluate(() => openAdminScheduleModal(new Date().getFullYear() + "-09-14"));
+}
+
+for (const theme of ["light", "dark"]) {
+  test(`event editor fits a laptop without internal scrolling in ${theme} theme`, async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await openCalendarEditor(page, theme);
+    await expect(page.getByRole("dialog", { name: "New event", exact: true })).toBeVisible();
+    const geometry = await page.locator(".jgc-schedule-modal").evaluate((element) => ({
+      top: element.getBoundingClientRect().top,
+      bottom: element.getBoundingClientRect().bottom,
+      width: element.getBoundingClientRect().width,
+      height: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflow: getComputedStyle(element).overflowY,
+      titleTop: document.getElementById("adminScheduleItemTitle").getBoundingClientRect().top,
+      jobTop: document.getElementById("adminScheduleJob").getBoundingClientRect().top
+    }));
+    expect(geometry.width).toBeGreaterThan(1000);
+    expect(geometry.bottom).toBeLessThan(768);
+    expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.height + 1);
+    expect(geometry.overflow).toBe("visible");
+    expect(geometry.titleTop).toBeLessThan(geometry.jobTop);
+    expect(await page.evaluate(() => {
+      const settings = document.getElementById("jgcAppearanceSettingsButton").getBoundingClientRect();
+      return !!document.elementFromPoint(settings.x + settings.width / 2, settings.y + settings.height / 2)?.closest("#adminScheduleModal");
+    })).toBe(true);
+    for (const selector of [".jgc-schedule-modal", "#adminScheduleModalDate", "#adminScheduleTitleLabel", "#adminScheduleItemTitle", "#adminScheduleStartTimeButton", "#adminScheduleSaveButton"]) {
+      expect(await contrastRatio(page, selector), selector).toBeGreaterThanOrEqual(4.5);
+    }
+    await page.locator("#adminScheduleStartTimeButton").click();
+    await expect(page.locator("#adminScheduleStartTimePicker .schedule-time-minute button")).toHaveText(["00", "15", "30", "45"]);
+    const period = page.locator("#adminScheduleStartTimePicker .schedule-time-period button");
+    await expect(period).toHaveText(["AM", "PM"]);
+    expect((await period.nth(0).boundingBox()).y).toBeLessThan((await period.nth(1).boundingBox()).y);
+    expect(await contrastRatio(page, '#adminScheduleStartTimePicker button[aria-pressed="true"]')).toBeGreaterThanOrEqual(4.5);
+    await page.screenshot({ path: path.join(portalRoot, "smoke-tests/screenshots", `calendar-editor-${theme}.png`) });
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#adminScheduleStartTimePicker")).toBeHidden();
+    await expect(page.locator("#adminScheduleModal")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#adminScheduleModal")).toBeHidden();
+  });
+}
+
+test("keyboard opening edits the selected event and background clicks do not discard it", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await installState(page, "admin");
+  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
+  const entry = page.locator("#adminScheduleCalendar .admin-schedule-event-button").first();
+  await expect(entry).toContainText("Cornwall Courthouse access panel installation — Cornwall Courthouse");
+  await entry.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#adminScheduleModalTitle")).toHaveText("Edit event");
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Cornwall Courthouse access panel installation");
+  await page.locator("#adminScheduleItemTitle").fill("Start-up meeting");
+  await page.mouse.click(2, 2);
+  await expect(page.locator("#adminScheduleModal")).toBeVisible();
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Start-up meeting");
+  await page.getByRole("button", { name: "Close event", exact: true }).click();
+  await expect(page.locator("#adminScheduleModal")).toBeHidden();
+  expect((await entry.boundingBox()).height).toBeLessThanOrEqual(39);
+  await page.locator(".jgc-schedule-admin").screenshot({ path: path.join(portalRoot, "smoke-tests/screenshots/calendar-month.png") });
+});
+
+test("new event saves task, job, quarter-hour times and employees once, and failures remain editable", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await openCalendarEditor(page);
+  await expect(page.locator("#adminScheduleJob option")).toHaveCount(2);
+  await page.locator("#adminScheduleItemTitle").fill("Start-up meeting");
+  await page.locator("#adminScheduleJob").selectOption("job-26090");
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Start-up meeting");
+  await expect(page.locator("#adminScheduleLocation")).toHaveValue("Cornwall, Ontario");
+  await page.locator("#adminScheduleStartTimeButton").click();
+  await page.locator('#adminScheduleStartTimePicker .schedule-time-hour button').filter({ hasText: /^8$/ }).click();
+  await page.locator('#adminScheduleStartTimePicker .schedule-time-minute button').filter({ hasText: /^15$/ }).click();
+  await expect(page.locator("#adminScheduleEndTimeButton")).toHaveText("8:45 AM");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.locator("#adminScheduleEndTimeButton").click();
+  await page.locator('#adminScheduleEndTimePicker .schedule-time-hour button').filter({ hasText: /^9$/ }).click();
+  await page.locator('#adminScheduleEndTimePicker .schedule-time-minute button').filter({ hasText: /^00$/ }).click();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.locator("#adminSchedulePeoplePanel summary").click();
+  await page.locator("[data-admin-schedule-employee]").first().check();
+  await expect(page.locator("#adminSchedulePeopleCount")).toHaveText("1 selected");
+  const writes = [];
+  let fail = true;
+  let saved = null;
+  await page.route(`${supabaseOrigin}/rest/v1/schedule_events**`, async (route) => {
+    if (route.request().method() === "POST") {
+      writes.push(route.request().postDataJSON());
+      if (fail) {
+        await route.fulfill({ status: 400, contentType: "application/json", body: '{"message":"Connection test failure"}' });
+      } else {
+        saved = { ...writes.at(-1), id: "saved-calendar-event" };
+        await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify(saved) });
+      }
+    } else {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(saved ? [saved] : []) });
+    }
+  });
+  await page.evaluate(() => { syncJgcScheduleEventToGoogle = async () => ({ ok: true }); });
+  await page.locator("#adminScheduleSaveButton").click();
+  await expect(page.locator("#adminScheduleStatus")).toContainText("Connection test failure");
+  await expect(page.locator("#adminScheduleSaveButton")).toBeEnabled();
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Start-up meeting");
+  fail = false;
+  await page.evaluate(() => { saveAdminScheduleEvent(); saveAdminScheduleEvent(); });
+  await expect(page.locator("#adminScheduleModal")).toBeHidden();
+  expect(writes).toHaveLength(2);
+  expect(saved).toEqual(expect.objectContaining({ title: "Start-up meeting", job_name: "Cornwall Courthouse", job_id: "job-26090", job_number: "26090", start_time: "08:15", end_time: "09:00", employee_names: ["Zeth Hummel"] }));
+  await expect(page.locator("#adminScheduleFeedback")).toContainText("Event saved");
+  await expect(page.locator("#adminScheduleCalendar")).toContainText("Start-up meeting — Cornwall Courthouse");
+});
+
+test("existing off-quarter times survive editing and employee time controls use the same choices", async ({ page }) => {
+  await installState(page, "worker");
+  await page.goto("/schedule.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#startTimeButton")).toBeVisible();
+  await page.evaluate(() => {
+    scheduleEvents[0].start_time = "08:10:00";
+    scheduleEvents[0].end_time = "12:00:00";
+    editScheduleEvent("schedule-event");
+  });
+  await expect(page.locator("#startTimeButton")).toHaveText("8:10 AM");
+  await expect(page.locator("#endTimeButton")).toHaveText("12:00 PM");
+  await page.locator("#startTimeButton").click();
+  await expect(page.locator("#startTimePicker .schedule-time-minute button")).toHaveText(["00", "10", "15", "30", "45"]);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#startTime")).toHaveValue("08:10");
+});
+
+test("phone editor contains the time picker and only the outer page scrolls", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openCalendarEditor(page);
+  await page.locator("#adminScheduleItemTitle").fill("Start-up meeting");
+  await page.locator("#adminScheduleEndTimeButton").click();
+  const picker = await page.locator("#adminScheduleEndTimePicker").boundingBox();
+  expect(picker.x).toBeGreaterThanOrEqual(0);
+  expect(picker.x + picker.width).toBeLessThanOrEqual(390);
+  const modalOverflow = await page.locator(".jgc-schedule-modal").evaluate((element) => getComputedStyle(element).overflowY);
+  expect(modalOverflow).toBe("visible");
+  await page.screenshot({ path: path.join(portalRoot, "smoke-tests/screenshots/calendar-editor-phone.png") });
+  await page.keyboard.press("Escape");
+  await page.locator("#adminSchedulePeoplePanel summary").click();
+  await page.locator("#adminSchedulePeopleSearch").fill("no matching person");
+  await expect(page.locator("#adminScheduleEmployees label")).toBeHidden();
+  await page.locator("#adminSchedulePeopleSearch").fill("Zeth");
+  await page.locator("[data-admin-schedule-employee]").first().check();
+  await expect(page.locator("#adminSchedulePeopleCount")).toHaveText("1 selected");
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Start-up meeting");
+});
+
+test("late job loading cannot reset a newer event draft or detach an inactive job", async ({ page }) => {
+  await openCalendarEditor(page);
+  await page.evaluate(() => {
+    jobs[0].active = false;
+    openAdminScheduleModal(scheduleEvents[0].event_date, "schedule-event");
+  });
+  await expect(page.locator("#adminScheduleJob")).toHaveValue("job-26090");
+  await page.evaluate(() => {
+    closeAdminScheduleModal();
+    adminScheduleReferenceDataLoaded = false;
+    const ensureOriginal = ensureAdminScheduleReferenceData;
+    ensureAdminScheduleReferenceData = () => new Promise((resolve) => { window.finishCalendarReferences = resolve; });
+    openAdminScheduleModal("2026-09-14");
+    closeAdminScheduleModal();
+    ensureAdminScheduleReferenceData = ensureOriginal;
+    adminScheduleReferenceDataLoaded = true;
+    openAdminScheduleModal("2026-09-15");
+  });
+  await page.locator("#adminScheduleItemTitle").fill("Keep my new draft");
+  await page.evaluate(() => finishCalendarReferences());
+  await expect(page.locator("#adminScheduleDate")).toHaveValue("2026-09-15");
+  await expect(page.locator("#adminScheduleItemTitle")).toHaveValue("Keep my new draft");
+  await page.evaluate(() => {
+    syncJgcScheduleEventToGoogle = () => new Promise((resolve) => { window.finishCalendarSync = resolve; });
+    loadAllAdminData = async () => {};
+    window.calendarSyncPending = retryAdminScheduleGoogleSync("schedule-event");
+    closeAdminScheduleModal();
+  });
+  await page.evaluate(async () => { finishCalendarSync({ ok: true }); await calendarSyncPending; });
+  await expect(page.locator("#adminScheduleModal")).toBeHidden();
+  await expect(page.locator("#adminScheduleFeedback")).toContainText("sync queued");
 });

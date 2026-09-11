@@ -966,7 +966,7 @@ function applyAdminScheduleEventColors() {
 }
 
 function getAdminScheduleTitle(event) {
-    return event.title || event.job_name || event.location || getAdminScheduleTypeLabel(getAdminScheduleType(event));
+    return JgcScheduleUI.eventTitle(event, getAdminScheduleTypeLabel(getAdminScheduleType(event)));
 }
 
 function getAdminScheduleDuplicateName(event) {
@@ -1223,7 +1223,7 @@ function renderAdminScheduleAgenda() {
 
                     if (item.source === "schedule") {
                         return `
-                            <button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="openAdminScheduleModal('${escapeHtml(item.date)}'); editAdminScheduleEvent('${escapeHtml(item.id)}');">
+                            <button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="openAdminScheduleModal('${escapeHtml(item.date)}', '${escapeHtml(item.id)}');">
                                 ${content}
                             </button>
                         `;
@@ -1297,17 +1297,17 @@ function renderAdminScheduleCalendar() {
                 '<span class="admin-job-milestone-kind">' + escapeHtml(milestone.type === "job-start" ? "Start" : "Target") + '</span>' +
                 '<span class="admin-job-milestone-title">' + escapeHtml(compactJobLabel) + '</span></div>';
         });
-        const eventItems = events.slice(0, 4).map((event) => {
+        const eventItems = events.map((event) => {
             const type = getAdminScheduleType(event);
             const syncClass = getJgcScheduleSyncClass(event) === "synced" ? "synced" : "unsynced";
             const syncLabel = getJgcScheduleSyncLabel(event);
-            const timeText = event.start_time ? formatAdminScheduleTime(event.start_time) : "";
+            const timeText = JgcScheduleUI.formatTime(event.start_time, true);
             const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
                 (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
                 '<span class="schedule-event-title">' + escapeHtml(getAdminScheduleTitle(event)) + '</span>';
-            return '<button type="button" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\'); editAdminScheduleEvent(\'' + escapeHtml(event.id) + '\');">' + label + '</button>';
+            return '<button type="button" title="' + escapeHtml([timeText, getAdminScheduleTitle(event)].filter(Boolean).join(" · ")) + '" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\', \'' + escapeHtml(event.id) + '\');">' + label + '</button>';
         });
-        const vacationItems = vacations.slice(0, 2).map((request) =>
+        const vacationItems = vacations.map((request) =>
             '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' +
             '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
             escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
@@ -1321,7 +1321,7 @@ function renderAdminScheduleCalendar() {
             ", and " + jobMilestones.length + " job milestone" + (jobMilestones.length === 1 ? "" : "s") + ". Open day details.";
 
         html += `
-            <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
+            <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
                 <div class="admin-schedule-day-number">${day}</div>
                 <div class="admin-schedule-day-list">${visibleItems.join("")}${more}</div>
             </div>
@@ -1343,6 +1343,8 @@ function renderAdminScheduleDayEvents(dateValue) {
     const events = getAdminScheduleEventsForDate(dateValue);
     const vacations = getAdminScheduleVacationsForDate(dateValue);
     const jobMilestones = getAdminJobMilestonesForDate(dateValue);
+
+    document.getElementById("adminScheduleDayCount").textContent = String(events.length + vacations.length + jobMilestones.length);
 
     if (!events.length && !vacations.length && !jobMilestones.length) {
         list.innerHTML = '<div class="small">No existing events for this day.</div>';
@@ -1490,6 +1492,7 @@ function buildAdminVacationGoogleEvent(request) {
 }
 
 async function retryAdminScheduleGoogleSync(id) {
+    const generation = adminScheduleModalGeneration;
     const event = scheduleEvents.find((item) => String(item.id) === String(id));
     const status = document.getElementById("adminScheduleStatus");
 
@@ -1507,15 +1510,11 @@ async function retryAdminScheduleGoogleSync(id) {
         equipment_name: getAdminScheduleEventEquipmentName(event)
     }, "upsert");
     await loadAllAdminData();
-    openAdminScheduleModal(event.event_date || formatAdminScheduleDateValue(new Date()));
-
-    const nextStatus = document.getElementById("adminScheduleStatus");
-    if (nextStatus) {
-        nextStatus.textContent = result.ok ? "Google Calendar sync queued." : "Event saved, but Google Calendar sync failed.";
-    }
+    finishAdminScheduleModalOperation(generation, result.ok ? "Google Calendar sync queued." : "Event saved, but Google Calendar sync failed.", !result.ok);
 }
 
 async function retryAdminVacationGoogleSync(id) {
+    const generation = adminScheduleModalGeneration;
     const request = vacationRequests.find((item) => String(item.id) === String(id));
     const status = document.getElementById("adminScheduleStatus");
 
@@ -1530,12 +1529,7 @@ async function retryAdminVacationGoogleSync(id) {
 
     const result = await syncJgcScheduleEventToGoogle(supabaseClient, buildAdminVacationGoogleEvent(request), "upsert");
     await loadAllAdminData();
-    openAdminScheduleModal(request.start_date || formatAdminScheduleDateValue(new Date()));
-
-    const nextStatus = document.getElementById("adminScheduleStatus");
-    if (nextStatus) {
-        nextStatus.textContent = result.ok ? "Vacation Google Calendar sync queued." : "Vacation saved, but Google Calendar sync failed.";
-    }
+    finishAdminScheduleModalOperation(generation, result.ok ? "Vacation Google Calendar sync queued." : "Vacation saved, but Google Calendar sync failed.", !result.ok);
 }
 
 async function syncAllAdminScheduleEvents() {
@@ -1687,6 +1681,19 @@ function renderAdminScheduleEmployees() {
             </label>
         `;
     }).join("");
+    updateAdminSchedulePeopleCount();
+}
+
+function updateAdminSchedulePeopleCount() {
+    const count = document.querySelectorAll("[data-admin-schedule-employee]:checked").length;
+    document.getElementById("adminSchedulePeopleCount").textContent = count + " selected";
+}
+
+function filterAdminScheduleEmployees() {
+    const search = document.getElementById("adminSchedulePeopleSearch").value.trim().toLowerCase();
+    document.querySelectorAll("#adminScheduleEmployees label").forEach((label) => {
+        label.hidden = !label.textContent.toLowerCase().includes(search);
+    });
 }
 
 function renderAdminScheduleJobs() {
@@ -1830,6 +1837,7 @@ function checkAdminScheduleEmployeeAccount(account) {
     }
 
     box.checked = true;
+    updateAdminSchedulePeopleCount();
     return true;
 }
 
@@ -1851,7 +1859,9 @@ function fillAdminScheduleVehicle() {
 
     const label = getAdminScheduleEquipmentLabel(item);
     const operatorName = item.operator_name || "";
-    document.getElementById("adminScheduleItemTitle").value = label;
+    if (!document.getElementById("adminScheduleItemTitle").value.trim()) {
+        document.getElementById("adminScheduleItemTitle").value = label;
+    }
     document.getElementById("adminScheduleLocation").value = item.identification_number || item.name || "";
 
     if (!operatorName) {
@@ -1880,22 +1890,22 @@ function updateAdminScheduleTypeFields() {
     document.getElementById("adminScheduleJobNameWrap").classList.toggle("field-hidden", !isWork);
     document.getElementById("adminScheduleJobNumberWrap").classList.toggle("field-hidden", !isWork);
     document.getElementById("adminScheduleVehicleWrap").classList.toggle("field-hidden", !isVehicle);
-    document.getElementById("adminScheduleTitleLabel").textContent = isWork ? "Title / Attention" : "Title";
+    document.getElementById("adminScheduleTitleLabel").textContent = "Task / event title";
     document.getElementById("adminScheduleItemTitle").placeholder = type === "vehicle"
         ? "Example: Truck service, oil change, tire appointment"
         : type === "training"
             ? "Example: Working at Heights training"
             : type === "general"
                 ? "Example: Shop day, meeting, appointment"
-                : "Optional title or attention";
+                : "e.g. Start-up meeting";
 }
 
 function clearAdminScheduleForm(dateValue) {
     editingAdminScheduleEventId = "";
     document.getElementById("adminScheduleType").value = "work";
     document.getElementById("adminScheduleDate").value = dateValue || formatAdminScheduleDateValue(new Date());
-    document.getElementById("adminScheduleStartTime").value = "";
-    document.getElementById("adminScheduleEndTime").value = "";
+    JgcScheduleUI.setTime("adminScheduleStartTime", "07:00");
+    JgcScheduleUI.setTime("adminScheduleEndTime", "07:30");
     document.getElementById("adminScheduleJob").value = "";
     document.getElementById("adminScheduleJobName").value = "";
     document.getElementById("adminScheduleJobNumber").value = "";
@@ -1906,34 +1916,77 @@ function clearAdminScheduleForm(dateValue) {
     document.getElementById("adminScheduleLocation").value = "";
     document.getElementById("adminScheduleNotes").value = "";
     document.getElementById("adminScheduleStatus").textContent = "";
+    document.getElementById("adminScheduleStatus").classList.remove("is-error");
+    document.querySelectorAll('#adminScheduleModal [aria-invalid]').forEach((field) => field.removeAttribute("aria-invalid"));
+    document.getElementById("adminSchedulePeopleSearch").value = "";
+    document.getElementById("adminSchedulePeoplePanel").open = false;
+    document.getElementById("adminScheduleDayPanel").open = false;
     document.querySelectorAll("[data-admin-schedule-employee]").forEach((box) => {
         box.checked = false;
     });
     updateAdminScheduleTypeFields();
+    updateAdminSchedulePeopleCount();
     const saveButton = document.getElementById("adminScheduleSaveButton");
     if (saveButton) {
-        saveButton.textContent = "Save Schedule";
+        saveButton.textContent = "Save event";
     }
 }
 
-function openAdminScheduleModal(dateValue) {
+let adminScheduleModalGeneration = 0;
+let adminScheduleReturnFocus = null;
+let adminScheduleSaving = false;
+let adminScheduleReferenceSelectionTouched = false;
+
+function updateAdminScheduleDay() {
+    const dateValue = document.getElementById("adminScheduleDate").value;
+    if (!dateValue) return;
+    document.getElementById("adminScheduleModalDate").textContent = makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    renderAdminScheduleDayEvents(dateValue);
+}
+
+function finishAdminScheduleModalOperation(generation, message, isError = false) {
+    const currentModal = generation === adminScheduleModalGeneration && document.getElementById("adminScheduleModal").classList.contains("open");
+    if (currentModal) updateAdminScheduleDay();
+    const status = document.getElementById(currentModal ? "adminScheduleStatus" : "adminScheduleFeedback");
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+}
+
+function openAdminScheduleModal(dateValue, eventId) {
+    if (adminScheduleSaving) return;
+    const generation = ++adminScheduleModalGeneration;
+    const modal = document.getElementById("adminScheduleModal");
+    if (!modal.classList.contains("open")) adminScheduleReturnFocus = document.activeElement;
+    JgcScheduleUI.closeTimePicker();
+    JgcScheduleUI.createTimePicker("adminScheduleStartTime", "Start time");
+    JgcScheduleUI.createTimePicker("adminScheduleEndTime", "End time");
+    JgcScheduleUI.linkTimeFields("adminScheduleStartTime", "adminScheduleEndTime");
+    adminScheduleReferenceSelectionTouched = false;
     renderAdminScheduleJobs();
     renderAdminScheduleEmployees();
     renderAdminScheduleVehicleOptions();
     clearAdminScheduleForm(dateValue);
-    document.getElementById("adminScheduleModalTitle").textContent = "Add Schedule - " + makeAdminScheduleDate(dateValue).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
-    renderAdminScheduleDayEvents(dateValue);
-    document.getElementById("adminScheduleModal").classList.add("open");
+    document.getElementById("adminScheduleModalTitle").textContent = "New event";
+    updateAdminScheduleDay();
+    modal.classList.add("open");
+    document.documentElement.classList.add("schedule-modal-open");
+    if (eventId) editAdminScheduleEvent(eventId);
+    document.getElementById("adminScheduleItemTitle").focus({ preventScroll: true });
 
     if (!adminScheduleReferenceDataLoaded) {
         const status = document.getElementById("adminScheduleStatus");
         status.textContent = "Loading job and equipment choices...";
         ensureAdminScheduleReferenceData().then(() => {
+            if (generation !== adminScheduleModalGeneration || !modal.classList.contains("open")) return;
+            const selectedJob = document.getElementById("adminScheduleJob").value;
+            const selectedVehicle = document.getElementById("adminScheduleVehicle").value;
             renderAdminScheduleJobs();
             renderAdminScheduleVehicleOptions();
+            document.getElementById("adminScheduleJob").value = selectedJob;
+            document.getElementById("adminScheduleVehicle").value = selectedVehicle;
 
             const editingEvent = scheduleEvents.find((item) => String(item.id) === String(editingAdminScheduleEventId));
-            if (editingEvent) {
+            if (editingEvent && !selectedJob && !selectedVehicle && !adminScheduleReferenceSelectionTouched) {
                 selectAdminScheduleJobForEvent(editingEvent);
                 selectAdminScheduleVehicleForEvent(editingEvent);
             }
@@ -1943,18 +1996,39 @@ function openAdminScheduleModal(dateValue) {
             }
         }).catch((error) => {
             logAdminLoadError("schedule reference data", error);
+            if (generation !== adminScheduleModalGeneration) return;
             status.textContent = "Job and equipment choices could not be loaded. Manual entry is still available.";
         });
     }
 }
 
 function closeAdminScheduleModal(event) {
-    if (event && event.target && event.target.id !== "adminScheduleModal") {
-        return;
-    }
-
+    if (adminScheduleSaving || event) return;
+    ++adminScheduleModalGeneration;
+    JgcScheduleUI.closeTimePicker();
     document.getElementById("adminScheduleModal").classList.remove("open");
+    document.documentElement.classList.remove("schedule-modal-open");
+    if (adminScheduleReturnFocus?.isConnected) adminScheduleReturnFocus.focus({ preventScroll: true });
 }
+
+document.getElementById("adminScheduleModal").addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeAdminScheduleModal();
+    }
+    if (event.key === "Tab") {
+        const focusable = Array.from(event.currentTarget.querySelectorAll('button:not(:disabled), input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]'))
+            .filter((element) => element.getClientRects().length);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+});
+
+["adminScheduleJob", "adminScheduleJobName", "adminScheduleJobNumber", "adminScheduleVehicle"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", () => { adminScheduleReferenceSelectionTouched = true; });
+});
 
 function getSelectedAdminScheduleAccounts() {
     const approved = getAdminScheduleApprovedAccounts();
@@ -1985,6 +2059,7 @@ function setAdminScheduleEmployeeChecksForEvent(event) {
         ].map(normalizeWorkerName).filter(Boolean) : [];
         box.checked = accountAliases.some((alias) => aliases.includes(alias));
     });
+    updateAdminSchedulePeopleCount();
 }
 
 function selectAdminScheduleJobForEvent(event) {
@@ -1994,6 +2069,9 @@ function selectAdminScheduleJobForEvent(event) {
         (event.job_number && String(item.job_number || "").trim() === String(event.job_number || "").trim()) ||
         (event.job_name && normalizeWorkerName(item.job_name) === normalizeWorkerName(event.job_name))
     );
+    if (job && !Array.from(select.options).some((option) => option.value === String(job.id))) {
+        select.add(new Option([job.job_number, job.job_name].filter(Boolean).join(" - ") + " (inactive)", job.id));
+    }
     select.value = job ? job.id : "";
 }
 
@@ -2011,6 +2089,7 @@ function selectAdminScheduleVehicleForEvent(event) {
 }
 
 function editAdminScheduleEvent(id) {
+    if (adminScheduleSaving) return;
     const event = scheduleEvents.find((item) => String(item.id) === String(id));
 
     if (!event) {
@@ -2022,8 +2101,9 @@ function editAdminScheduleEvent(id) {
     document.getElementById("adminScheduleType").value = getAdminScheduleType(event);
     updateAdminScheduleTypeFields();
     document.getElementById("adminScheduleDate").value = event.event_date || "";
-    document.getElementById("adminScheduleStartTime").value = String(event.start_time || "").slice(0, 5);
-    document.getElementById("adminScheduleEndTime").value = String(event.end_time || "").slice(0, 5);
+    JgcScheduleUI.closeTimePicker();
+    JgcScheduleUI.setTime("adminScheduleStartTime", event.start_time);
+    JgcScheduleUI.setTime("adminScheduleEndTime", event.end_time);
     document.getElementById("adminScheduleJobName").value = event.job_name || "";
     document.getElementById("adminScheduleJobNumber").value = event.job_number || "";
     document.getElementById("adminScheduleItemTitle").value = event.title || "";
@@ -2036,14 +2116,18 @@ function editAdminScheduleEvent(id) {
 
     const saveButton = document.getElementById("adminScheduleSaveButton");
     if (saveButton) {
-        saveButton.textContent = "Update Schedule";
+        saveButton.textContent = "Save changes";
     }
 
-    document.getElementById("adminScheduleModalTitle").textContent = "Edit Schedule - " + makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" });
-    document.getElementById("adminScheduleStatus").textContent = "Editing this schedule item.";
+    document.getElementById("adminScheduleModalTitle").textContent = "Edit event";
+    document.getElementById("adminScheduleStatus").textContent = "";
+    document.getElementById("adminScheduleStatus").classList.remove("is-error");
+    updateAdminScheduleDay();
+    document.getElementById("adminScheduleDayPanel").open = false;
 }
 
 async function deleteAdminScheduleEvent(id) {
+    const generation = adminScheduleModalGeneration;
     const event = scheduleEvents.find((item) => String(item.id) === String(id));
 
     if (!event) {
@@ -2098,18 +2182,14 @@ async function deleteAdminScheduleEvent(id) {
     equipmentMaintenanceLogs = equipmentMaintenanceLogs.filter((item) => String(item.schedule_event_id) !== String(id));
     announcements = announcements.filter((item) => !(item.source_type === "schedule_event" && String(item.source_id) === String(id)));
 
-    if (String(editingAdminScheduleEventId) === String(id)) {
-        editingAdminScheduleEventId = "";
+    if (generation === adminScheduleModalGeneration && String(editingAdminScheduleEventId) === String(id)) {
+        clearAdminScheduleForm(document.getElementById("adminScheduleDate").value);
+        document.getElementById("adminScheduleModalTitle").textContent = "New event";
     }
 
     renderAdminScheduleCalendar();
     renderPortalSummary();
-    openAdminScheduleModal(event.event_date || formatAdminScheduleDateValue(new Date()));
-    const nextStatus = document.getElementById("adminScheduleStatus");
-
-    if (nextStatus) {
-        nextStatus.textContent = "Schedule item deleted.";
-    }
+    finishAdminScheduleModalOperation(generation, "Schedule item deleted.");
 }
 
 function buildAdminScheduleAnnouncementBody(event, account) {
@@ -2254,6 +2334,7 @@ async function saveAdminScheduleMaintenanceLog(event, selectedVehicle, maintenan
 }
 
 async function saveAdminScheduleEvent() {
+    if (adminScheduleSaving) return;
     const selectedAccounts = getSelectedAdminScheduleAccounts();
     const eventType = document.getElementById("adminScheduleType").value || "work";
     const isWork = eventType === "work";
@@ -2268,19 +2349,30 @@ async function saveAdminScheduleEvent() {
     const displayName = String(title || jobName || location || "").trim().replace(/\s+/g, " ");
     const timeRange = getAdminScheduleTimeRange(document.getElementById("adminScheduleStartTime").value, document.getElementById("adminScheduleEndTime").value);
     const status = document.getElementById("adminScheduleStatus");
+    status.classList.remove("is-error");
+    document.querySelectorAll('#adminScheduleModal [aria-invalid]').forEach((field) => field.removeAttribute("aria-invalid"));
+    const showError = (message, fieldId) => {
+        status.textContent = message;
+        status.classList.add("is-error");
+        if (fieldId) {
+            const field = document.getElementById(fieldId);
+            field.setAttribute("aria-invalid", "true");
+            field.focus({ preventScroll: true });
+        }
+    };
 
     if (!eventDate) {
-        status.textContent = "Choose a date for this schedule event.";
+        showError("Choose a date for this event.", "adminScheduleDate");
         return;
     }
 
     if (!displayName) {
-        status.textContent = "Enter at least a name, job, title, or location for this schedule event.";
+        showError("Enter a task title or choose a job for this event.", "adminScheduleItemTitle");
         return;
     }
 
     if (eventType === "vehicle" && !maintenanceReason) {
-        status.textContent = "Enter the reason for the equipment or vehicle appointment.";
+        showError("Enter the reason for the equipment or vehicle appointment.", "adminScheduleMaintenanceReason");
         return;
     }
 
@@ -2307,64 +2399,85 @@ async function saveAdminScheduleEvent() {
     const isEditing = Boolean(editingAdminScheduleEventId);
 
     if (isDuplicateAdminScheduleEvent(record, editingAdminScheduleEventId)) {
-        status.textContent = "That schedule event already exists for the same day and time.";
+        showError("That event already exists for the same day and time.");
         return;
     }
 
     status.textContent = isEditing ? "Updating schedule..." : "Saving schedule...";
+    adminScheduleSaving = true;
+    JgcScheduleUI.closeTimePicker();
+    document.querySelectorAll("#adminScheduleModal button, #adminScheduleModal input, #adminScheduleModal select, #adminScheduleModal textarea").forEach((control) => { control.disabled = true; });
+    document.getElementById("adminScheduleSaveButton").textContent = "Saving…";
+    let savedEvent = null;
+    const feedback = document.getElementById("adminScheduleFeedback");
+    feedback.classList.remove("is-error");
 
-    const query = isEditing
-        ? supabaseClient
-            .from("schedule_events")
-            .update(record)
-            .eq("id", editingAdminScheduleEventId)
-            .select()
-            .single()
-        : supabaseClient
-            .from("schedule_events")
-            .insert(record)
-            .select()
-            .single();
-    const { data, error } = await query;
+    try {
+        const query = isEditing
+            ? supabaseClient
+                .from("schedule_events")
+                .update(record)
+                .eq("id", editingAdminScheduleEventId)
+                .select()
+                .single()
+            : supabaseClient
+                .from("schedule_events")
+                .insert(record)
+                .select()
+                .single();
+        const { data, error } = await query;
 
-    if (error) {
-        status.textContent = "Schedule could not be saved: " + (error.message || "Make sure the updated schedule setup SQL has been run.");
-        return;
-    }
+        if (error || !data) throw new Error(error?.message || "No saved event was returned. Please try again.");
+        savedEvent = data;
 
-    if (isEditing) {
-        scheduleEvents = scheduleEvents.map((event) => String(event.id) === String(data.id) ? data : event);
-    } else {
-        scheduleEvents.push(data);
-        await createAdminScheduleAnnouncements(data, selectedAccounts);
+        if (isEditing) {
+            scheduleEvents = scheduleEvents.map((event) => String(event.id) === String(data.id) ? data : event);
+        } else {
+            scheduleEvents.push(data);
+            await createAdminScheduleAnnouncements(data, selectedAccounts);
 
-        try {
-            await emailAdminScheduleEmployees(data, selectedAccounts);
-        } catch (emailError) {
-            console.warn("Schedule email could not be sent.", emailError);
+            try {
+                await emailAdminScheduleEmployees(data, selectedAccounts);
+            } catch (emailError) {
+                console.warn("Schedule email could not be sent.", emailError);
+            }
         }
-    }
 
-    await saveAdminScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
-    const syncResult = await syncJgcScheduleEventToGoogle(supabaseClient, {
-        ...data,
-        equipment_name: selectedVehicle ? getAdminScheduleEquipmentLabel(selectedVehicle) : ""
-    }, "upsert");
+        await saveAdminScheduleMaintenanceLog(data, selectedVehicle, maintenanceReason);
+        const syncResult = await syncJgcScheduleEventToGoogle(supabaseClient, {
+            ...data,
+            equipment_name: selectedVehicle ? getAdminScheduleEquipmentLabel(selectedVehicle) : ""
+        }, "upsert");
 
-    await loadAnnouncements();
-    adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
-    renderAdminScheduleCalendar();
-    renderPortalSummary();
-    closeAdminScheduleModal();
-    alert(syncResult.ok
-        ? (isEditing ? "Schedule updated. Google Calendar sync queued." : "Schedule saved. Tagged employees were notified. Google Calendar sync queued.")
-        : "Event saved, but Google Calendar sync failed.");
-
-    setTimeout(async function() {
-        await loadAllAdminData();
+        await loadAnnouncements();
+        adminScheduleMonth = makeAdminScheduleDate(data.event_date || eventDate);
         renderAdminScheduleCalendar();
         renderPortalSummary();
-    }, 3500);
+        feedback.textContent = syncResult.ok
+            ? (isEditing ? "Event updated." : "Event saved.") + " Calendar sync queued."
+            : "Event saved. Calendar sync needs attention; open the event to retry sync.";
+        feedback.classList.toggle("is-error", !syncResult.ok);
+
+        setTimeout(async function() {
+            await loadAllAdminData();
+            renderAdminScheduleCalendar();
+            renderPortalSummary();
+        }, 3500);
+    } catch (error) {
+        if (savedEvent) {
+            renderAdminScheduleCalendar();
+            feedback.textContent = "Event saved, but a notification or calendar sync could not finish. Open the event to check its sync status.";
+            feedback.classList.add("is-error");
+            console.warn("Schedule follow-up could not finish.", error);
+        } else {
+            showError("Event could not be saved: " + (error.message || "Please try again."));
+        }
+    } finally {
+        adminScheduleSaving = false;
+        document.querySelectorAll("#adminScheduleModal button, #adminScheduleModal input, #adminScheduleModal select, #adminScheduleModal textarea").forEach((control) => { control.disabled = false; });
+        document.getElementById("adminScheduleSaveButton").textContent = isEditing ? "Save changes" : "Save event";
+        if (savedEvent) closeAdminScheduleModal();
+    }
 }
 
 function renderPortalSummary() {

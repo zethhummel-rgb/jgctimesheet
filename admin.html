@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="safety-records-admin.css?v=2">
 <link rel="stylesheet" href="reports-admin.css?v=1">
 <link rel="stylesheet" href="work-orders-design-system.css?v=2">
-<link rel="stylesheet" href="schedule-design-system.css?v=4">
+<link rel="stylesheet" href="schedule-design-system.css?v=5">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
 <link rel="stylesheet" href="directory-design-system.css?v=2">
 </head>
@@ -117,6 +117,7 @@
         <div class="admin-schedule-calendar-scroll">
             <div id="adminScheduleCalendar" class="admin-schedule-grid"></div>
         </div>
+        <div id="adminScheduleFeedback" class="small admin-schedule-feedback" role="status" aria-live="polite"></div>
         <div id="adminScheduleAgenda" class="admin-schedule-agenda small">Loading schedule...</div>
     </div>
 </div>
@@ -184,13 +185,34 @@
     </div>
 </div>
 
-<div id="adminScheduleModal" class="admin-schedule-modal-backdrop" onclick="closeAdminScheduleModal(event)">
-    <section class="admin-schedule-modal jgc-schedule-modal jgc-modal__dialog" onclick="event.stopPropagation()">
-        <h2 id="adminScheduleModalTitle">Add Schedule</h2>
-        <div id="adminScheduleDayEvents" class="detail-list small admin-schedule-day-events"></div>
+<div id="adminScheduleModal" class="admin-schedule-modal-backdrop">
+    <section class="admin-schedule-modal jgc-schedule-modal jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminScheduleModalTitle">
+        <header class="schedule-editor-header">
+            <div><h2 id="adminScheduleModalTitle">New event</h2><div id="adminScheduleModalDate" class="small"></div></div>
+            <button type="button" class="secondary schedule-editor-close" aria-label="Close event" onclick="closeAdminScheduleModal()">×</button>
+        </header>
+        <div class="schedule-editor-layout">
         <div class="admin-schedule-form-grid">
+            <div class="full schedule-title-field">
+                <label id="adminScheduleTitleLabel" for="adminScheduleItemTitle">Task / event title</label>
+                <input id="adminScheduleItemTitle" placeholder="e.g. Start-up meeting" autocomplete="off">
+            </div>
+            <div class="schedule-date-row full">
             <div>
-                <label>Schedule Type</label>
+                <label for="adminScheduleDate">Date</label>
+                <input id="adminScheduleDate" type="date" onchange="updateAdminScheduleDay()">
+            </div>
+            <div>
+                <label for="adminScheduleStartTime">Start time</label>
+                <input id="adminScheduleStartTime" type="time" step="900">
+            </div>
+            <div>
+                <label for="adminScheduleEndTime">End time</label>
+                <input id="adminScheduleEndTime" type="time" step="900">
+            </div>
+            </div>
+            <div>
+                <label for="adminScheduleType">Event type</label>
                 <select id="adminScheduleType" onchange="updateAdminScheduleTypeFields()">
                     <option value="work">Work / Job</option>
                     <option value="vehicle">Equipment / Vehicle Appointment</option>
@@ -198,59 +220,52 @@
                     <option value="general">General</option>
                 </select>
             </div>
-            <div>
-                <label>Date</label>
-                <input id="adminScheduleDate" type="date">
-            </div>
-            <div>
-                <label>Start Time</label>
-                <input id="adminScheduleStartTime" type="time">
-            </div>
-            <div>
-                <label>End Time</label>
-                <input id="adminScheduleEndTime" type="time">
-            </div>
-            <div id="adminScheduleJobWrap" class="full">
-                <label>Job</label>
+            <div id="adminScheduleJobWrap">
+                <label for="adminScheduleJob">Job</label>
                 <select id="adminScheduleJob" onchange="fillAdminScheduleJob()"></select>
             </div>
             <div id="adminScheduleJobNameWrap">
-                <label>Job Name</label>
+                <label for="adminScheduleJobName">Job name</label>
                 <input id="adminScheduleJobName" placeholder="Job name or location">
             </div>
             <div id="adminScheduleJobNumberWrap">
-                <label>Job Number</label>
+                <label for="adminScheduleJobNumber">Job number</label>
                 <input id="adminScheduleJobNumber" placeholder="Optional">
             </div>
             <div id="adminScheduleVehicleWrap" class="full field-hidden">
-                <label>Vehicle / Equipment / Trailer</label>
+                <label for="adminScheduleVehicle">Vehicle / Equipment / Trailer</label>
                 <select id="adminScheduleVehicle" onchange="fillAdminScheduleVehicle()"></select>
-                <label>Reason for Appointment</label>
+                <label for="adminScheduleMaintenanceReason">Reason for appointment</label>
                 <input id="adminScheduleMaintenanceReason" placeholder="Example: oil change, tire repair, annual service">
                 <div id="adminScheduleVehicleHint" class="small admin-schedule-vehicle-hint"></div>
             </div>
             <div class="full">
-                <label id="adminScheduleTitleLabel">Title / Attention</label>
-                <input id="adminScheduleItemTitle" placeholder="Optional title or attention">
-            </div>
-            <div class="full">
-                <label>Location</label>
+                <label for="adminScheduleLocation">Location / address</label>
                 <input id="adminScheduleLocation" placeholder="Optional site/location">
             </div>
-            <div class="full">
-                <label>Tag Employees</label>
-                <div id="adminScheduleEmployees" class="admin-schedule-employees"></div>
-            </div>
-            <div class="full">
-                <label>Notes</label>
-                <textarea id="adminScheduleNotes" placeholder="Optional notes"></textarea>
-            </div>
         </div>
+        <aside class="schedule-editor-aside">
+            <div>
+                <label for="adminScheduleNotes">Notes for the crew</label>
+                <textarea id="adminScheduleNotes" rows="3" placeholder="Meeting point, instructions, or anything to bring"></textarea>
+            </div>
+            <details id="adminSchedulePeoplePanel" class="schedule-editor-details">
+                <summary>Tag employees <span id="adminSchedulePeopleCount">0 selected</span></summary>
+                <label class="schedule-search-label" for="adminSchedulePeopleSearch">Find an employee</label>
+                <input id="adminSchedulePeopleSearch" type="search" placeholder="Search employees" oninput="filterAdminScheduleEmployees()">
+                <div id="adminScheduleEmployees" class="admin-schedule-employees" onchange="updateAdminSchedulePeopleCount()"></div>
+            </details>
+            <details id="adminScheduleDayPanel" class="schedule-editor-details">
+                <summary>On this day <span id="adminScheduleDayCount"></span></summary>
+                <div id="adminScheduleDayEvents" class="detail-list small admin-schedule-day-events"></div>
+            </details>
+        </aside>
+        </div>
+        <div id="adminScheduleStatus" class="small admin-schedule-status" role="status" aria-live="polite"></div>
         <div class="actions admin-schedule-actions jgc-actions">
-            <button id="adminScheduleSaveButton" type="button" class="jgc-button" onclick="saveAdminScheduleEvent()">Save Schedule</button>
+            <button id="adminScheduleSaveButton" type="button" class="jgc-button" onclick="saveAdminScheduleEvent()">Save event</button>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeAdminScheduleModal()">Cancel</button>
         </div>
-        <div id="adminScheduleStatus" class="small admin-schedule-status"></div>
     </section>
 </div>
 
@@ -1164,7 +1179,8 @@
 <script src="admin-work-orders.js?v=3"></script>
 <script src="admin-equipment.js?v=2"></script>
 <script src="admin-timesheets.js?v=10"></script>
-<script src="admin-summary.js?v=3"></script>
+<script src="schedule-ui.js?v=1"></script>
+<script src="admin-summary.js?v=4"></script>
 <script src="admin-core.js?v=6"></script>
 </body>
 </html>
