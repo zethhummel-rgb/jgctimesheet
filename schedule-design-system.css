@@ -806,14 +806,15 @@
 }
 
 .jgc-schedule-modal.admin-schedule-modal {
-  width: min(720px, 100%);
+  width: min(1120px, 100%);
+  max-height: none;
   padding: var(--jgc-space-4);
   color: var(--jgc-color-text);
   background: var(--jgc-color-surface);
   border: 1px solid var(--jgc-color-border);
   border-radius: var(--jgc-radius-lg);
   box-shadow: var(--jgc-shadow-lg);
-  overflow-x: hidden;
+  overflow: visible;
 }
 
 .jgc-schedule-modal .admin-schedule-form-grid {
@@ -998,4 +999,182 @@
   .jgc-schedule-admin .admin-schedule-grid {
     overflow: visible;
   }
+}
+
+/* Compact calendar entries must not inherit the portal's full-size button geometry. */
+.jgc-schedule-admin #adminScheduleCalendar .admin-schedule-item,
+.schedule-page #scheduleCalendar .day-item {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: 0;
+  margin: 0;
+  padding: 3px 5px;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.jgc-schedule-admin #adminScheduleCalendar .schedule-event-time,
+.schedule-page #scheduleCalendar .schedule-event-time {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.jgc-schedule-admin #adminScheduleCalendar .schedule-sync-dot,
+.schedule-page #scheduleCalendar .schedule-sync-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  box-shadow: none;
+}
+
+.schedule-modal-open,
+.schedule-modal-open body { overflow: hidden; }
+
+#adminScheduleModal {
+  z-index: 10080;
+  padding: 24px 16px;
+  overscroll-behavior: contain;
+}
+
+.jgc-schedule-modal .schedule-editor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--jgc-color-border-soft);
+}
+
+.jgc-schedule-modal .schedule-editor-header h2 { margin: 0 0 4px; font-size: 22px; }
+.jgc-schedule-modal .small { color: var(--jgc-color-text-muted); }
+.jgc-schedule-modal .schedule-editor-close { width: 36px; min-height: 36px; padding: 0; margin: 0; font-size: 24px; }
+
+.jgc-schedule-modal .schedule-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.jgc-schedule-modal .admin-schedule-form-grid { gap: 14px 16px; align-items: start; }
+.jgc-schedule-modal .schedule-date-row { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 12px; }
+.jgc-schedule-modal label { display: block; margin: 0 0 5px; color: var(--jgc-color-text); font-size: 13px; font-weight: 650; }
+.jgc-schedule-modal input:not([type="checkbox"]),
+.jgc-schedule-modal select,
+.jgc-schedule-modal textarea {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--jgc-color-input-border);
+  border-radius: var(--jgc-radius-md);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  color-scheme: light;
+}
+.jgc-schedule-modal .schedule-title-field input { min-height: 46px; font-size: 20px; font-weight: 600; }
+.jgc-schedule-modal textarea { min-height: 105px; resize: vertical; }
+.jgc-schedule-modal .schedule-editor-aside { display: grid; gap: 16px; min-width: 0; }
+.jgc-schedule-modal .schedule-editor-details { padding: 12px; border: 1px solid var(--jgc-color-border-soft); border-radius: var(--jgc-radius-md); background: var(--jgc-color-surface-raised); }
+.jgc-schedule-modal .schedule-editor-details summary { color: var(--jgc-color-text); font-weight: 650; cursor: pointer; }
+.jgc-schedule-modal .schedule-editor-details summary span { display: inline-block; margin-left: 6px; font-size: 12px; color: var(--jgc-color-text-muted); font-weight: 500; }
+.jgc-schedule-modal .schedule-search-label { margin-top: 12px; }
+.jgc-schedule-modal .admin-schedule-employees { max-height: none; overflow: visible; padding: 0; margin-top: 8px; border: 0; }
+.jgc-schedule-modal [hidden] { display: none !important; }
+.jgc-schedule-modal .admin-schedule-day-events { margin: 12px 0 0; overflow-wrap: anywhere; }
+.jgc-schedule-modal .admin-schedule-day-events .detail-item { padding: 12px 0; border-bottom: 1px solid var(--jgc-color-border-soft); }
+.jgc-schedule-modal .admin-schedule-day-events .detail-meta { margin-top: 6px; line-height: 1.5; }
+.jgc-schedule-modal .admin-schedule-day-events button { min-height: 32px; padding: 6px 9px; font-size: 12px; width: auto; }
+.jgc-schedule-modal .admin-schedule-actions { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--jgc-color-border-soft); justify-content: flex-end; }
+.jgc-schedule-modal .admin-schedule-actions button { width: auto; min-width: 100px; min-height: 40px; margin: 0; padding: 9px 16px; }
+.jgc-schedule-modal .admin-schedule-status:empty,
+.jgc-schedule-admin .admin-schedule-feedback:empty { display: none; }
+.jgc-schedule-modal .admin-schedule-status.is-error,
+.jgc-schedule-admin .admin-schedule-feedback.is-error { color: var(--jgc-color-danger); font-weight: 650; }
+.jgc-schedule-modal [aria-invalid="true"] { border-color: var(--jgc-color-danger); outline: 1px solid var(--jgc-color-danger); }
+.jgc-schedule-admin .admin-schedule-feedback { margin-top: 12px; color: var(--jgc-color-text); }
+
+/* The period choices are always in document order: AM above PM, on every device. */
+.schedule-time-picker { position: relative; min-width: 0; }
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  padding: 9px 10px;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 1px solid var(--jgc-color-input-border);
+  border-radius: var(--jgc-radius-md);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.schedule-time-trigger::after { content: "⌄"; margin-left: 8px; }
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  width: 272px;
+  max-width: calc(100vw - 40px);
+  padding: 12px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  box-shadow: var(--jgc-shadow-lg);
+}
+.schedule-time-popover[hidden] { display: none !important; }
+.schedule-time-popover.align-right { left: auto; right: 0; }
+.schedule-time-heading { display: block; margin-bottom: 10px; }
+.schedule-time-columns { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; align-items: start; }
+.schedule-time-group { display: grid; gap: 4px; }
+.schedule-time-hour { grid-template-columns: 1fr 1fr; }
+.schedule-time-group > span { grid-column: 1 / -1; color: var(--jgc-color-text-muted); font-size: 11px; margin-bottom: 3px; }
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover button {
+  min-width: 0;
+  min-height: 30px;
+  width: 100%;
+  margin: 0;
+  padding: 5px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-sm);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover button[aria-pressed="true"],
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover .schedule-time-done {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-700);
+  border-color: var(--jgc-color-brand-700);
+}
+:is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover .schedule-time-done { margin-top: 10px; }
+
+@media (max-width: 760px) {
+  #adminScheduleModal { padding: 12px 10px 100px; }
+  .jgc-schedule-modal.admin-schedule-modal { padding: 16px; }
+  .jgc-schedule-modal .schedule-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .jgc-schedule-modal .admin-schedule-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .jgc-schedule-modal .schedule-date-row { grid-template-columns: 1fr 1fr; }
+  .jgc-schedule-modal .schedule-date-row > div:first-child { grid-column: 1 / -1; }
+  .jgc-schedule-modal input:not([type="checkbox"]), .jgc-schedule-modal select, .jgc-schedule-modal textarea,
+  :is(.jgc-schedule-modal, .schedule-page) .schedule-time-trigger { font-size: 16px; min-height: 44px; }
+  .jgc-schedule-modal .admin-schedule-actions button { min-height: 44px; }
+  :is(.jgc-schedule-modal, .schedule-page) .schedule-time-popover button { min-height: 38px; }
 }
