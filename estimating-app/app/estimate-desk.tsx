@@ -196,6 +196,16 @@ type ModalState =
   | { kind: "pricebook" }
   | { kind: "jobCost"; jobId: string };
 
+type QuoteClientQuickAddMode = "client" | "site" | "attention";
+
+interface QuoteClientQuickAddState {
+  mode: QuoteClientQuickAddMode;
+  clientName: string;
+  siteName: string;
+  address: string;
+  attentionName: string;
+}
+
 type PurchaseOrderEditorState =
   | null
   | { jobId: string; quoteId: string; lineId: string; purchaseOrderId?: never }
@@ -261,6 +271,54 @@ function formatPhoneExtension(value: string) {
 function phoneWithExtension(phone: string, extension?: string) {
   const cleanExtension = formatPhoneExtension(extension ?? "");
   return cleanExtension ? `${phone} Ext. ${cleanExtension}` : phone;
+}
+
+function defaultProposalNotes() {
+  return "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others";
+}
+
+function quoteSequenceNumber(quote: Quote, quotePrefix: string) {
+  const match = new RegExp(`^${quotePrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-\\d{4}-(\\d+)$`).exec(quote.number);
+  return match ? Number(match[1]) : null;
+}
+
+function isUntouchedDraftQuote(quote: Quote, state: AppState) {
+  const defaultScope = `\n${defaultClosingProposalScopeLine}`;
+  return quote.status === "Draft"
+    && quote.revision === 0
+    && !quote.demo
+    && !quote.documentKind
+    && !quote.clientId
+    && !quote.site.trim()
+    && !(quote.address ?? "").trim()
+    && !quote.project.trim()
+    && !quote.reference.trim()
+    && !(quote.proposalAttention ?? "").trim()
+    && !(quote.proposalAttentionContactId ?? "").trim()
+    && !quote.customerPo.trim()
+    && !quote.scopeSummary.trim()
+    && !quote.inclusions.trim()
+    && !quote.exclusions.trim()
+    && !quote.internalNotes.trim()
+    && quote.proposalScope === defaultScope
+    && quote.proposalClosingScopeRemoved === false
+    && (quote.proposalNotes ?? "") === defaultProposalNotes()
+    && quote.terms === state.settings.proposalTerms
+    && quote.lines.length === 0
+    && quote.revisions.length === 0;
+}
+
+function removeUntouchedDraftQuote(state: AppState, quoteId: string) {
+  const quote = state.quotes.find((item) => item.id === quoteId);
+  if (!quote || !isUntouchedDraftQuote(quote, state)) return state;
+  const sequence = quoteSequenceNumber(quote, state.settings.quotePrefix);
+  const shouldReuseNumber = sequence !== null && state.settings.nextQuoteNumber === sequence + 1;
+  return {
+    ...state,
+    settings: shouldReuseNumber ? { ...state.settings, nextQuoteNumber: sequence } : state.settings,
+    quotes: state.quotes.filter((item) => item.id !== quoteId),
+    activity: state.activity.filter((item) => item.quoteId !== quoteId),
+  };
 }
 
 async function copyPlainText(value: string) {
@@ -1303,6 +1361,10 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   }, [pendingJobNavigationId, state.jobs]);
 
   const openView = (nextView: ViewKey) => {
+    if (selectedQuote && isUntouchedDraftQuote(selectedQuote, state)) {
+      setState((current) => removeUntouchedDraftQuote(current, selectedQuote.id));
+      setSelectedQuoteId(null);
+    }
     setView(nextView);
     setSidebarOpen(false);
     setSearch("");
@@ -1339,6 +1401,14 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const createQuote = () => {
+    const reusableBlankDraft = state.quotes.find((quote) => isUntouchedDraftQuote(quote, state));
+    if (reusableBlankDraft) {
+      setSelectedQuoteId(reusableBlankDraft.id);
+      setQuoteTab("details");
+      setView("quotes");
+      return;
+    }
+
     const date = today();
     const sequence = String(state.settings.nextQuoteNumber).padStart(4, "0");
     const quote: Quote = {
@@ -1367,7 +1437,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       proposalTaxDisplay: state.settings.defaultProposalTaxDisplay ?? "extra",
       proposalScope: `\n${defaultClosingProposalScopeLine}`,
       proposalClosingScopeRemoved: false,
-      proposalNotes: "Price based on easy access to the job site for labour, materials and equipment\nAll work to be completed during regular business hours\nAll inspections and permits by others",
+      proposalNotes: defaultProposalNotes(),
       proposalAttention: "",
       proposalAttentionContactId: "",
       proposalShowCostBreakdown: false,
@@ -1408,12 +1478,19 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const openQuote = (quoteId: string, tab: QuoteTab = "estimate") => {
+    if (selectedQuote && selectedQuote.id !== quoteId && isUntouchedDraftQuote(selectedQuote, state)) {
+      setState((current) => removeUntouchedDraftQuote(current, selectedQuote.id));
+    }
     setSelectedQuoteId(quoteId);
     setQuoteTab(tab);
     setView("quotes");
   };
 
   const openJob = (jobId: string, tab?: JobTab) => {
+    if (selectedQuote && isUntouchedDraftQuote(selectedQuote, state)) {
+      setState((current) => removeUntouchedDraftQuote(current, selectedQuote.id));
+      setSelectedQuoteId(null);
+    }
     setSelectedJobId(jobId);
     setJobTab(tab ?? initialJobTab(state.jobs.find((job) => job.id === jobId)));
     setView("jobs");
@@ -1895,6 +1972,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             tab={quoteTab}
             setTab={setQuoteTab}
             onBack={() => {
+              if (isUntouchedDraftQuote(selectedQuote, state)) {
+                setState((current) => removeUntouchedDraftQuote(current, selectedQuote.id));
+                setSelectedQuoteId(null);
+                return;
+              }
               setSelectedQuoteId(null);
               if (isChangeNotice(selectedQuote) && selectedQuote.jobId) {
                 setSelectedJobId(selectedQuote.jobId);
@@ -2242,6 +2324,8 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
   }, [open]);
   const normalized = query.trim().toLocaleLowerCase();
   const matches = options.filter((option) => `${option.label} ${option.detail ?? ""}`.toLocaleLowerCase().includes(normalized)).slice(0, 30);
+  const exactMatch = options.some((option) => option.label.trim().toLocaleLowerCase() === normalized);
+  const canAdd = Boolean(onAdd && query.trim() && !exactMatch);
   const chooseOption = (option: SearchPickerOption) => {
     onSelect(option);
     setQuery(option.label);
@@ -2249,7 +2333,7 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
     inputRef.current?.blur();
   };
   const addCustomOption = () => {
-    if (!onAdd) return;
+    if (!onAdd || !query.trim() || exactMatch) return;
     onAdd(query.trim());
     setOpen(false);
     inputRef.current?.blur();
@@ -2271,6 +2355,7 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
         onKeyDown={(event) => {
           if (event.key === "Escape") setOpen(false);
           if (event.key === "Enter" && matches[0]) { event.preventDefault(); chooseOption(matches[0]); }
+          else if (event.key === "Enter" && canAdd) { event.preventDefault(); addCustomOption(); }
         }}
       />
       {open && !disabled && (
@@ -2278,7 +2363,7 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
           <div className="saved-data-results-heading" role="presentation"><strong>Select {ariaLabel}</strong><span>{matches.length} saved option{matches.length === 1 ? "" : "s"}</span></div>
           {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); chooseOption(option); } }} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
           {!matches.length && <div className="saved-data-empty">No saved matches</div>}
-          {onAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); addCustomOption(); } }} onClick={addCustomOption}>＋ {addLabel || "Add new"}{query.trim() ? `: ${query.trim()}` : ""}</button>}
+          {canAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); addCustomOption(); } }} onClick={addCustomOption}>＋ {addLabel || "Add new"}: {query.trim()}</button>}
         </div>
       )}
     </div>
@@ -3490,6 +3575,7 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
 }) {
   const selectedClient = state.clients.find((client) => client.id === quote.clientId);
   const clientContacts = selectedClient?.contacts ?? [];
+  const [clientQuickAdd, setClientQuickAdd] = useState<QuoteClientQuickAddState | null>(null);
   const breakdownCategories = selectedProposalCostBreakdownCategories(quote);
   const breakdownLineOptions = proposalCostBreakdownLineOptions(state, quote);
   const breakdownLineIds = selectedProposalCostBreakdownLineIds(quote);
@@ -3505,21 +3591,19 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
     else selected.delete(lineId);
     updateField("proposalBreakdownLineIds", breakdownLineOptions.map((option) => option.id).filter((candidate) => selected.has(candidate)));
   };
-  const saveAttentionContact = (name: string) => {
-    const cleanName = name.trim();
-    if (!selectedClient || !cleanName) return;
-    const existing = clientContacts.find((contact) => contact.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase());
-    if (existing) {
-      updateField("proposalAttentionContactId", existing.id);
-      updateField("proposalAttention", existing.name);
-      return;
-    }
-    const contact: ClientContact = { id: uid("client-contact"), name: cleanName, role: "", email: "", phone: "", extension: "" };
-    setState((current) => ({ ...current, clients: current.clients.map((client) => client.id === selectedClient.id ? { ...client, contacts: [...(client.contacts ?? []), contact] } : client) }));
-    updateField("proposalAttentionContactId", contact.id);
-    updateField("proposalAttention", contact.name);
+  const openClientQuickAdd = (mode: QuoteClientQuickAddMode, typedValue: string) => {
+    const cleanValue = typedValue.trim();
+    if (mode !== "client" && !selectedClient) return;
+    setClientQuickAdd({
+      mode,
+      clientName: mode === "client" ? cleanValue : selectedClient?.name ?? "",
+      siteName: mode === "site" ? cleanValue : quote.site,
+      address: mode === "site" ? quote.address ?? "" : quote.address ?? "",
+      attentionName: mode === "attention" ? cleanValue : quote.proposalAttention ?? "",
+    });
   };
   return (
+    <Fragment>
     <div className="content-grid details-grid-layout">
       <section className="panel form-panel">
         <div className="panel-heading"><div><span className="eyebrow">{isChangeNotice(quote) ? "CHANGE NOTICE SETUP" : "QUOTE SETUP"}</span><h2>{isChangeNotice(quote) ? "Change and job details" : "Client and project"}</h2></div><span className="step-chip">Step 1 of 7</span></div>
@@ -3532,12 +3616,12 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
             <label className="field"><span>Pricing due</span><input type="date" value={quote.changeDueDate ?? ""} disabled={locked} onChange={(event) => updateField("changeDueDate", event.target.value)} /></label>
             <div className="field full change-details-divider"><strong>Inherited job information</strong><small>Client, site and project details came from the accepted quote and stay with this change.</small></div>
           </>}
-          <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={alphabeticalByName(state.clients).map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} /></label>
-          <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, phoneWithExtension(contact.phone, contact.extension)].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={saveAttentionContact} addLabel="Save new attention contact" /></label>
+          <label className="field"><span>Client <b>*</b></span><SearchablePicker value={selectedClient?.name ?? ""} options={alphabeticalByName(state.clients).map((client) => ({ id: client.id, label: client.name, detail: `${client.sites.length} site${client.sites.length === 1 ? "" : "s"}` }))} disabled={locked} placeholder="Search clients" ariaLabel="Client" onSelect={(option) => { updateField("clientId", option.id); updateField("site", ""); updateField("address", ""); updateField("proposalAttention", ""); updateField("proposalAttentionContactId", ""); }} onAdd={(value) => openClientQuickAdd("client", value)} addLabel="Add new Client" /></label>
+          <label className="field"><span>Attention <em>Saved under this client</em></span><SearchablePicker value={quote.proposalAttention ?? ""} options={clientContacts.map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.role, contact.email, phoneWithExtension(contact.phone, contact.extension)].filter(Boolean).join(" · ") }))} disabled={locked || !selectedClient} placeholder={selectedClient ? "Search or add an attention contact" : "Select a client first"} ariaLabel="Attention contact" allowCustom onChange={(value) => { updateField("proposalAttention", value); updateField("proposalAttentionContactId", ""); }} onSelect={(option) => { updateField("proposalAttentionContactId", option.id); updateField("proposalAttention", option.label); }} onAdd={(value) => openClientQuickAdd("attention", value)} addLabel="Add new attention" /></label>
           <label className="field">
             <span>Site name <em>Search saved sites or add a new one</em></span>
-            <SearchablePicker value={quote.site} options={(selectedClient?.sites ?? []).map((site) => ({ id: site.id, label: site.label, detail: site.address }))} disabled={locked || !quote.clientId} placeholder={quote.clientId ? "Search saved sites" : "Select a client first"} ariaLabel="Site name" allowCustom onChange={(value) => { updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateField("address", saved?.address ?? ""); }} onSelect={(option) => { const site = selectedClient?.sites.find((candidate) => candidate.id === option.id); updateField("site", option.label); updateField("address", site?.address ?? ""); }} onAdd={(value) => { updateField("site", value); updateField("address", ""); }} addLabel="Use new site" />
-            {!locked && quote.clientId && <small>New sites and addresses are saved to this client when you finish the quote.</small>}
+            <SearchablePicker value={quote.site} options={(selectedClient?.sites ?? []).map((site) => ({ id: site.id, label: site.label, detail: site.address }))} disabled={locked || !quote.clientId} placeholder={quote.clientId ? "Search saved sites" : "Select a client first"} ariaLabel="Site name" allowCustom onChange={(value) => { updateField("site", value); const saved = selectedClient?.sites.find((site) => site.label.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase()); updateField("address", saved?.address ?? ""); }} onSelect={(option) => { const site = selectedClient?.sites.find((candidate) => candidate.id === option.id); updateField("site", option.label); updateField("address", site?.address ?? ""); }} onAdd={(value) => openClientQuickAdd("site", value)} addLabel="Add new site" />
+            {!locked && quote.clientId && <small>New sites and addresses are saved to this client right away.</small>}
           </label>
           <label className="field"><span>Address</span><input value={quote.address ?? ""} disabled={locked} onChange={(event) => updateField("address", event.target.value)} placeholder="Project street address (optional)" /></label>
           <label className="field full"><span>Project name <b>*</b></span><input value={quote.project} disabled={locked} onChange={(event) => updateField("project", event.target.value)} placeholder="e.g. Office renovation — Phase 1" /></label>
@@ -3587,6 +3671,160 @@ function QuoteDetails({ state, setState, quote, locked, updateField }: {
             {!breakdownCategories.length && !breakdownLineIds.length && <p className="proposal-breakdown-empty-warning">Select at least one category or estimate line. The unselected balance will remain under General Conditions/Coordination and Markup.</p>}
           </div>}
         </div>
+      </section>
+    </div>
+    {clientQuickAdd && (
+      <QuoteClientQuickAddModal
+        draft={clientQuickAdd}
+        quote={quote}
+        selectedClient={selectedClient ?? null}
+        onClose={() => setClientQuickAdd(null)}
+        setState={setState}
+      />
+    )}
+    </Fragment>
+  );
+}
+
+function QuoteClientQuickAddModal({ draft, quote, selectedClient, setState, onClose }: {
+  draft: QuoteClientQuickAddState;
+  quote: Quote;
+  selectedClient: Client | null;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState("");
+  const existingClientName = selectedClient?.name ?? "";
+  const title = draft.mode === "client" ? "Add new client" : draft.mode === "site" ? "Add site" : "Add attention";
+  const normalize = (value: string) => value.trim().toLocaleLowerCase("en-CA");
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const clientName = String(form.get("clientName") || "").trim();
+    const siteName = String(form.get("siteName") || "").trim();
+    const address = String(form.get("address") || "").trim();
+    const attentionName = String(form.get("attentionName") || "").trim();
+    const contactRole = String(form.get("contactRole") || "").trim();
+    const contactEmail = String(form.get("email") || "").trim();
+    const contactPhone = formatPhoneNumber(String(form.get("phone") || ""));
+    const contactExtension = formatPhoneExtension(String(form.get("extension") || ""));
+    if (!clientName) {
+      setError("Client name is required.");
+      return;
+    }
+    if (draft.mode !== "client" && !selectedClient) {
+      setError("Select a client first.");
+      return;
+    }
+
+    setState((current) => {
+      const currentSelectedClient = selectedClient ? current.clients.find((client) => client.id === selectedClient.id) : null;
+      const matchingClient = current.clients.find((client) => normalize(client.name) === normalize(clientName));
+      const targetClient = draft.mode === "client" ? matchingClient : currentSelectedClient;
+      const clientId = targetClient?.id ?? uid("client");
+      let savedContactId = "";
+
+      const upsertSites = (sites: Client["sites"]) => {
+        if (!siteName) return sites;
+        const existingSite = sites.find((site) => normalize(site.label) === normalize(siteName));
+        if (existingSite) {
+          return sites.map((site) => site.id === existingSite.id ? { ...site, label: site.label || siteName, address: address || site.address } : site);
+        }
+        return [...sites, { id: uid("site"), label: siteName, address }];
+      };
+
+      const upsertContacts = (contacts: ClientContact[]) => {
+        if (!attentionName) return contacts;
+        const existingContact = contacts.find((contact) => normalize(contact.name) === normalize(attentionName));
+        if (existingContact) {
+          savedContactId = existingContact.id;
+          return contacts.map((contact) => contact.id === existingContact.id ? {
+            ...contact,
+            name: contact.name || attentionName,
+            role: contactRole || contact.role,
+            email: contactEmail || contact.email,
+            phone: contactPhone || contact.phone,
+            extension: contactExtension || contact.extension,
+          } : contact);
+        }
+        savedContactId = uid("client-contact");
+        return [...contacts, { id: savedContactId, name: attentionName, role: contactRole, email: contactEmail, phone: contactPhone, extension: contactExtension }];
+      };
+
+      const nextClient: Client = targetClient
+        ? {
+            ...targetClient,
+            name: targetClient.name || clientName,
+            contact: targetClient.contact || attentionName,
+            email: targetClient.email || contactEmail,
+            phone: targetClient.phone || contactPhone,
+            sites: upsertSites(targetClient.sites),
+            contacts: upsertContacts(targetClient.contacts ?? []),
+          }
+        : {
+            id: clientId,
+            name: clientName,
+            contact: attentionName,
+            email: contactEmail,
+            phone: contactPhone,
+            sites: siteName ? [{ id: uid("site"), label: siteName, address }] : [],
+            contacts: attentionName ? [{ id: savedContactId || uid("client-contact"), name: attentionName, role: contactRole, email: contactEmail, phone: contactPhone, extension: contactExtension }] : [],
+            notes: "",
+          };
+
+      if (!targetClient && attentionName && !savedContactId) {
+        savedContactId = nextClient.contacts?.[0]?.id ?? "";
+      }
+
+      const quoteUpdates: Partial<Quote> = { clientId };
+      if (draft.mode === "client" && !siteName) {
+        quoteUpdates.site = "";
+        quoteUpdates.address = "";
+      }
+      if (siteName) {
+        quoteUpdates.site = siteName;
+        quoteUpdates.address = address;
+      }
+      if (draft.mode === "client" && !attentionName) {
+        quoteUpdates.proposalAttention = "";
+        quoteUpdates.proposalAttentionContactId = "";
+      }
+      if (attentionName) {
+        quoteUpdates.proposalAttention = attentionName;
+        quoteUpdates.proposalAttentionContactId = savedContactId;
+      }
+
+      return {
+        ...current,
+        clients: targetClient
+          ? current.clients.map((client) => client.id === targetClient.id ? nextClient : client)
+          : [nextClient, ...current.clients],
+        quotes: current.quotes.map((item) => item.id === quote.id && item.status === "Draft" ? { ...item, ...quoteUpdates, updatedAt: new Date().toISOString() } : item),
+      };
+    });
+    onClose();
+  };
+
+  return (
+    <div className="modal-layer" role="presentation" onMouseDown={onClose}>
+      <section className="modal-card quote-client-modal" role="dialog" aria-modal="true" aria-labelledby="quote-client-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><span className="eyebrow">QUOTE SETUP</span><h2 id="quote-client-modal-title">{title}</h2></div><button aria-label="Close" onClick={onClose}>×</button></header>
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid two-column">
+            <label className="field full"><span>Client name <b>*</b></span><input name="clientName" autoFocus={draft.mode === "client"} required readOnly={draft.mode !== "client"} defaultValue={draft.mode === "client" ? draft.clientName : existingClientName} autoComplete="off" /></label>
+            <label className="field"><span>Attention name</span><input name="attentionName" autoFocus={draft.mode === "attention"} defaultValue={draft.attentionName} autoComplete="off" /></label>
+            <label className="field"><span>Role / department</span><input name="contactRole" autoComplete="off" /></label>
+            <label className="field"><span>Phone</span><input name="phone" inputMode="numeric" autoComplete="tel" maxLength={14} onInput={(event) => { event.currentTarget.value = formatPhoneNumber(event.currentTarget.value); }} /></label>
+            <label className="field"><span>Extension</span><input name="extension" inputMode="numeric" autoComplete="off" placeholder="Ext." onInput={(event) => { event.currentTarget.value = formatPhoneExtension(event.currentTarget.value); }} /></label>
+            <label className="field full"><span>Email</span><input name="email" type="email" autoComplete="off" /></label>
+            <label className="field"><span>Site name</span><input name="siteName" autoFocus={draft.mode === "site"} defaultValue={draft.siteName} autoComplete="off" /></label>
+            <label className="field"><span>Address</span><input name="address" defaultValue={draft.address} autoComplete="off" /></label>
+          </div>
+          {error && <p className="modal-error">{error}</p>}
+          <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary">Save</button></footer>
+        </form>
       </section>
     </div>
   );
