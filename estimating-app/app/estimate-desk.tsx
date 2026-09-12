@@ -2261,6 +2261,9 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
   const [query, setQuery] = useState(value);
   const [mobileResultsStyle, setMobileResultsStyle] = useState<CSSProperties | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const touchGesture = useRef<{ id: number; x: number; y: number; scrollTop: number; button: HTMLButtonElement | null } | null>(null);
+  const completedTouchTap = useRef<HTMLButtonElement | null>(null);
+  const suppressClick = useRef(false);
   useEffect(() => { if (!open) setQuery(value); }, [value, open]);
   useLayoutEffect(() => {
     if (!open) {
@@ -2268,60 +2271,23 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
       return;
     }
 
-    const syncResultsPosition = () => {
-      const input = inputRef.current;
-      if (!input || window.matchMedia("(min-width: 761px)").matches) {
+    const syncResultsHeight = () => {
+      if (window.matchMedia("(min-width: 761px)").matches) {
         setMobileResultsStyle(undefined);
         return;
       }
-
-      const viewport = window.visualViewport;
-      const viewportTop = viewport?.offsetTop ?? 0;
-      const viewportHeight = viewport?.height ?? window.innerHeight;
-      const viewportBottom = viewportTop + viewportHeight;
-      const margin = 10;
-      const gap = 6;
-      const inputBounds = input.getBoundingClientRect();
-      const availableBelow = viewportBottom - inputBounds.bottom - gap - margin;
-      const availableAbove = inputBounds.top - viewportTop - gap - margin;
-      const preferredHeight = Math.min(340, Math.max(180, viewportHeight * .52));
-      let maxHeight = Math.min(preferredHeight, Math.max(availableBelow, availableAbove));
-      let top = inputBounds.bottom + gap;
-
-      if (availableBelow < 180 && availableAbove > availableBelow) {
-        maxHeight = Math.min(preferredHeight, availableAbove);
-        top = inputBounds.top - gap - maxHeight;
-      }
-
-      if (Math.max(availableBelow, availableAbove) < 180) {
-        maxHeight = Math.max(150, viewportHeight - margin * 2);
-        top = viewportTop + margin;
-      }
-
-      top = Math.max(viewportTop + margin, Math.min(top, viewportBottom - margin - maxHeight));
-
-      const left = Math.max(margin, Math.min(inputBounds.left, window.innerWidth - margin - inputBounds.width));
-      setMobileResultsStyle({
-        position: "fixed",
-        top,
-        left,
-        width: Math.min(inputBounds.width, window.innerWidth - margin * 2),
-        maxHeight,
-      });
+      // Keep mobile results in the form flow, below their input. Fixed-position
+      // fallbacks can cover the field or drift inside a scrolling modal on iOS.
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      setMobileResultsStyle({ maxHeight: Math.max(96, Math.min(260, height * .4)) });
     };
 
-    syncResultsPosition();
-    const firstKeyboardSync = window.setTimeout(syncResultsPosition, 120);
-    const finalKeyboardSync = window.setTimeout(syncResultsPosition, 360);
-    window.addEventListener("resize", syncResultsPosition);
-    window.visualViewport?.addEventListener("resize", syncResultsPosition);
-    window.visualViewport?.addEventListener("scroll", syncResultsPosition);
+    syncResultsHeight();
+    window.addEventListener("resize", syncResultsHeight);
+    window.visualViewport?.addEventListener("resize", syncResultsHeight);
     return () => {
-      window.clearTimeout(firstKeyboardSync);
-      window.clearTimeout(finalKeyboardSync);
-      window.removeEventListener("resize", syncResultsPosition);
-      window.visualViewport?.removeEventListener("resize", syncResultsPosition);
-      window.visualViewport?.removeEventListener("scroll", syncResultsPosition);
+      window.removeEventListener("resize", syncResultsHeight);
+      window.visualViewport?.removeEventListener("resize", syncResultsHeight);
     };
   }, [open]);
   const normalized = query.trim().toLocaleLowerCase();
@@ -2361,11 +2327,43 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
         }}
       />
       {open && !disabled && (
-        <div className="saved-data-results" role="listbox" style={mobileResultsStyle}>
+        <div className="saved-data-results" role="listbox" style={mobileResultsStyle}
+          onMouseDown={(event) => event.preventDefault()}
+          onPointerDownCapture={(event) => {
+            suppressClick.current = false;
+            completedTouchTap.current = null;
+            touchGesture.current = event.pointerType === "mouse" ? null : { id: event.pointerId, x: event.clientX, y: event.clientY, scrollTop: event.currentTarget.scrollTop, button: (event.target as Element).closest("button") };
+          }}
+          onPointerMoveCapture={(event) => {
+            const gesture = touchGesture.current;
+            if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) suppressClick.current = true;
+          }}
+          onPointerUpCapture={(event) => {
+            const gesture = touchGesture.current;
+            if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) suppressClick.current = true;
+            if (gesture?.id === event.pointerId && Math.abs(event.currentTarget.scrollTop - gesture.scrollTop) > 1) suppressClick.current = true;
+            completedTouchTap.current = event.pointerType === "touch" && gesture?.id === event.pointerId && !suppressClick.current && gesture.button === (event.target as Element).closest("button") ? gesture.button : null;
+            touchGesture.current = null;
+          }}
+          onPointerCancelCapture={() => { suppressClick.current = true; touchGesture.current = null; completedTouchTap.current = null; }}
+          onTouchStartCapture={(event) => { if (event.touches.length > 1) { suppressClick.current = true; touchGesture.current = null; completedTouchTap.current = null; } }}
+          onTouchEndCapture={(event) => {
+            const button = completedTouchTap.current;
+            completedTouchTap.current = null;
+            // Mobile browsers can omit the compatibility click after a fling.
+            // Activate only a verified stationary tap; cancel its native click
+            // so it cannot select twice or fall through to the form underneath.
+            if (button && !suppressClick.current && event.cancelable && event.currentTarget.contains(button)) {
+              event.preventDefault();
+              button.click();
+            }
+          }}
+          onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") suppressClick.current = false; }}
+          onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}>
           <div className="saved-data-results-heading" role="presentation"><strong>Select {ariaLabel}</strong><span>{matches.length} saved option{matches.length === 1 ? "" : "s"}</span></div>
-          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); chooseOption(option); } }} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
+          {matches.map((option) => <button key={option.id} type="button" role="option" aria-selected={option.label === value} onClick={() => chooseOption(option)}><strong>{option.label}</strong>{option.detail && <small>{option.detail}</small>}</button>)}
           {!matches.length && <div className="saved-data-empty">No saved matches</div>}
-          {canAdd && <button type="button" className="saved-data-add" onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); addCustomOption(); } }} onClick={addCustomOption}>＋ {addLabel || "Add new"}: {query.trim()}</button>}
+          {canAdd && <button type="button" className="saved-data-add" onClick={addCustomOption}>＋ {addLabel || "Add new"}: {query.trim()}</button>}
         </div>
       )}
     </div>

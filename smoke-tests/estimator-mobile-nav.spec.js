@@ -105,7 +105,7 @@ test("personal overview orders compact greeting, search and recent work before c
   await expect(recentWork).toBeVisible();
 });
 
-test("mobile client picker stays inside the visible viewport and selects immediately", async ({ page }) => {
+test("mobile client picker stays below its input and selects on click", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
@@ -121,13 +121,13 @@ test("mobile client picker stays inside the visible viewport and selects immedia
   await expect(results).toBeVisible();
   await expect.poll(async () => {
     const bounds = await results.boundingBox();
-    return bounds ? bounds.y >= 0 && bounds.y + bounds.height <= 520 : false;
+    const input = await clientPicker.boundingBox();
+    return bounds && input ? bounds.y >= input.y + input.height && bounds.width <= 390 : false;
   }).toBe(true);
 
   const firstClient = results.getByRole("option").first();
   const selectedName = (await firstClient.locator("strong").textContent())?.trim();
-  await firstClient.dispatchEvent("pointerdown", { pointerType: "touch", isPrimary: true, button: 0 });
-  await firstClient.dispatchEvent("pointerup", { pointerType: "touch", isPrimary: true, button: 0 });
+  await firstClient.click();
   await expect(clientPicker).toHaveValue(selectedName || "");
   await expect(clientPicker).toHaveAttribute("aria-expanded", "false");
   await expect(results).toHaveCount(0);
