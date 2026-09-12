@@ -1977,6 +1977,51 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-accounting-history { border-top: 1px solid var(--slate-200); padding-top: 13px; margin-top: 14px; }
 .job-accounting-history > summary { cursor: pointer; font-weight: 750; color: var(--navy-950); padding: 6px 0; }
 .job-accounting-request-list { padding-left: 20px; font-size: 13px; color: var(--navy-950); }
+.job-preview-launch { gap: 8px; }
+.job-preview-launch > span { border-left: 1px solid var(--slate-300); padding-left: 8px; font-size: 12px; color: var(--slate-600); }
+.modal-layer.job-preview-layer, .modal-layer.job-preview-client-layer { z-index: 150; overflow-y: auto; align-items: start; padding: 24px; }
+.modal-layer.job-preview-client-layer { z-index: 151; }
+.modal-card.job-preview-modal { width: min(1040px, 100%); max-height: none; min-height: 0; overflow: visible; margin: auto; color: var(--navy-950); }
+.modal-card.job-preview-client-modal { width: min(740px, 100%); }
+.job-preview-modal > header { position: static; }
+.job-preview-modal form { padding-top: 0; }
+.job-preview-notice { margin: 16px 22px; padding: 10px 12px; border-left: 3px solid var(--green-700); border-radius: 5px; background: var(--green-100); color: var(--navy-950); font-size: 13px; line-height: 1.5; }
+.job-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; padding: 0 22px; }
+.job-preview-grid > .full { grid-column: 1 / -1; }
+.job-preview-grid .field { min-width: 0; }
+.job-preview-grid .field > span { font-size: 14px; }
+.job-preview-grid .field em, .job-preview-grid small { font-size: 12px; color: var(--slate-600); }
+.job-preview-grid input, .job-preview-grid select, .job-preview-grid textarea { width: 100%; min-width: 0; min-height: 40px; font-size: 14px; }
+.job-preview-grid input[readonly] { background: var(--slate-100); }
+.job-preview-grid input[type="date"] { color-scheme: light; }
+.job-preview-grid input[aria-invalid="true"], .job-preview-grid select[aria-invalid="true"] { border: 2px solid var(--red-700); }
+.job-preview-grid .field:has(> .job-preview-error) .saved-data-picker input { border: 2px solid var(--red-700); }
+.job-preview-grid .job-preview-error, .job-preview-error { color: var(--red-700); font-size: 13px; line-height: 1.5; }
+.job-preview-check { margin: 16px 22px; }
+.job-preview-quote { padding: 12px; border: 1px solid var(--slate-200); border-radius: 7px; background: var(--slate-50); }
+.job-preview-quote .back-button { margin-left: 8px; font-size: 12px; }
+.job-preview-warning { padding: 12px; border: 1px solid var(--amber-700); border-radius: 6px; background: var(--amber-100); color: var(--navy-950); font-size: 13px; }
+.job-preview-warning p { margin: 5px 0 0; line-height: 1.5; }
+.job-preview-more { border-top: 1px solid var(--slate-200); }
+.job-preview-more summary { padding: 12px 0; cursor: pointer; font-size: 14px; font-weight: 650; }
+.job-preview-more .job-preview-grid { padding: 0; }
+.job-preview-modal .saved-data-results { z-index: 10; }
+.job-preview-modal form footer { position: static; flex-wrap: wrap; }
+.job-preview-modal form footer .button { min-height: 40px; }
+.job-preview-modal form footer .button:disabled { opacity: 1; color: var(--slate-600); background: var(--slate-100); border-color: var(--slate-300); cursor: not-allowed; }
+@media (min-width: 1100px) {
+  .job-preview-modal:not(.job-preview-client-modal) > form > .job-preview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .job-directory-page .page-heading { flex-direction: row; align-items: center; }
+  .job-directory-page .page-heading .job-preview-launch { width: auto; }
+  .modal-layer.job-preview-layer, .modal-layer.job-preview-client-layer { padding: 10px; }
+  .modal-card.job-preview-modal { width: 100%; min-height: 0; max-height: none; border-radius: 10px; }
+  .job-preview-grid { grid-template-columns: minmax(0, 1fr); padding-inline: 14px; gap: 14px; }
+  .job-preview-grid input, .job-preview-grid select, .job-preview-grid textarea { min-height: 44px; font-size: 16px; }
+  .job-preview-notice, .job-preview-check { margin-inline: 14px; }
+  .job-preview-modal form footer .button:disabled { flex-basis: 100%; }
+}
 @media (max-width: 640px) {
   .job-accounting-panel .panel-heading > .button { width: 100%; }
   .job-accounting-body { padding: 12px; }

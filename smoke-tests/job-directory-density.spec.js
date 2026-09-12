@@ -9,7 +9,8 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
   const captures = await serveDirectory(page, state);
   await page.setViewportSize({ width, height: 1000 });
   if (width <= 1020) await expect(page.locator('.sidebar')).not.toBeInViewport();
-  await expect(page.locator('.job-directory-page > .page-heading')).toHaveText('Jobs');
+  await expect(page.locator('.job-directory-page > .page-heading').getByRole('heading', { name: 'Jobs', exact: true })).toBeVisible();
+  await expect(page.locator('.job-directory-page > .page-heading').getByRole('button', { name: /New job.*Preview/ })).toBeVisible();
   await expect(page.locator('.job-directory-page .job-kpi-grid > div')).toHaveCount(2);
   await expect(page.locator('.job-directory-page .job-kpi-grid > div > span')).toHaveText(['Active jobs', 'Inactive jobs']);
   const refresh = page.locator('.topbar-actions').getByRole('button', { name: 'Refresh jobs', exact: true });
