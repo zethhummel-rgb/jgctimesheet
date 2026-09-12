@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ClearableNumberInput } from "./clearable-number-input";
 import { JobImportPanel } from "./job-import-panel";
 import { JobAccountingPanel } from "./job-accounting-panel";
+import { JobCreatePreview } from "./job-create-preview";
 import { jobManagerIdentity } from "../lib/job-manager-names";
 import { jobNumberYear } from "../lib/job-number-year";
 import { SupplierCatalogSection, SupplierPriceImportModal } from "./supplier-price-import";
@@ -2042,6 +2043,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         <JobsPage
           state={state}
           setState={setState}
+          currentEstimator={currentEstimator}
           directoryActionTarget={jobDirectoryActionTarget}
           workspaceSaved={saveStatus === "saved"}
           job={selectedJob}
@@ -5617,9 +5619,10 @@ function shopDrawingIsSharedWithEmployees(job: Job, drawing: ShopDrawing) {
     && sharedLabel === `${drawing.number} · ${drawing.title}`.toLocaleLowerCase("en-CA");
 }
 
-function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, currentEstimator, directoryActionTarget, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
+  currentEstimator: CurrentEstimator;
   directoryActionTarget: HTMLSpanElement | null;
   workspaceSaved: boolean;
   job: Job | null;
@@ -5639,6 +5642,7 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
   onRefreshJobCosting: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
+  const [jobPreviewOpen, setJobPreviewOpen] = useState(false);
   const [jobLayout, setJobLayout] = useWorkListLayout();
   const [jobSearch, setJobSearch] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
@@ -6651,7 +6655,8 @@ function JobsPage({ state, setState, directoryActionTarget, workspaceSaved, job,
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
-      <PageHeading title="Jobs" />
+      <PageHeading title="Jobs" actions={currentEstimator.isAdmin && <button type="button" className="button secondary job-preview-launch" onClick={() => setJobPreviewOpen(true)}>＋ New job <span>Preview</span></button>} />
+      {jobPreviewOpen && currentEstimator.isAdmin && <JobCreatePreview state={state} manager={currentEstimator.name} Picker={SearchablePicker} onClose={() => setJobPreviewOpen(false)} />}
       {directoryActionTarget && createPortal(<button className="button secondary compact job-directory-refresh-button" disabled={directoryRefreshing || statusSaving} aria-busy={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}><span aria-hidden="true">↻</span>{directoryRefreshing ? "Refreshing…" : "Refresh jobs"}</button>, directoryActionTarget)}
       <div className="job-directory-controls">
       {directoryMessage && <p role="status">{directoryMessage}</p>}
