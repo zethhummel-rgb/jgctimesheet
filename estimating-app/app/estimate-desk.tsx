@@ -2261,7 +2261,8 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
   const [query, setQuery] = useState(value);
   const [mobileResultsStyle, setMobileResultsStyle] = useState<CSSProperties | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
-  const touchGesture = useRef<{ id: number; x: number; y: number } | null>(null);
+  const touchGesture = useRef<{ id: number; x: number; y: number; scrollTop: number; button: HTMLButtonElement | null } | null>(null);
+  const completedTouchTap = useRef<HTMLButtonElement | null>(null);
   const suppressClick = useRef(false);
   useEffect(() => { if (!open) setQuery(value); }, [value, open]);
   useLayoutEffect(() => {
@@ -2330,7 +2331,8 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
           onMouseDown={(event) => event.preventDefault()}
           onPointerDownCapture={(event) => {
             suppressClick.current = false;
-            touchGesture.current = event.pointerType === "mouse" ? null : { id: event.pointerId, x: event.clientX, y: event.clientY };
+            completedTouchTap.current = null;
+            touchGesture.current = event.pointerType === "mouse" ? null : { id: event.pointerId, x: event.clientX, y: event.clientY, scrollTop: event.currentTarget.scrollTop, button: (event.target as Element).closest("button") };
           }}
           onPointerMoveCapture={(event) => {
             const gesture = touchGesture.current;
@@ -2339,9 +2341,23 @@ function SearchablePicker({ value, options, disabled, placeholder, ariaLabel, al
           onPointerUpCapture={(event) => {
             const gesture = touchGesture.current;
             if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) suppressClick.current = true;
+            if (gesture?.id === event.pointerId && Math.abs(event.currentTarget.scrollTop - gesture.scrollTop) > 1) suppressClick.current = true;
+            completedTouchTap.current = event.pointerType === "touch" && gesture?.id === event.pointerId && !suppressClick.current && gesture.button === (event.target as Element).closest("button") ? gesture.button : null;
             touchGesture.current = null;
           }}
-          onPointerCancelCapture={() => { suppressClick.current = true; touchGesture.current = null; }}
+          onPointerCancelCapture={() => { suppressClick.current = true; touchGesture.current = null; completedTouchTap.current = null; }}
+          onTouchStartCapture={(event) => { if (event.touches.length > 1) { suppressClick.current = true; touchGesture.current = null; completedTouchTap.current = null; } }}
+          onTouchEndCapture={(event) => {
+            const button = completedTouchTap.current;
+            completedTouchTap.current = null;
+            // Mobile browsers can omit the compatibility click after a fling.
+            // Activate only a verified stationary tap; cancel its native click
+            // so it cannot select twice or fall through to the form underneath.
+            if (button && !suppressClick.current && event.cancelable && event.currentTarget.contains(button)) {
+              event.preventDefault();
+              button.click();
+            }
+          }}
           onKeyDownCapture={(event) => { if (event.key === "Enter" || event.key === " ") suppressClick.current = false; }}
           onClickCapture={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}>
           <div className="saved-data-results-heading" role="presentation"><strong>Select {ariaLabel}</strong><span>{matches.length} saved option{matches.length === 1 ? "" : "s"}</span></div>

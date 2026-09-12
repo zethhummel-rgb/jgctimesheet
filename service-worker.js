@@ -2,6 +2,13 @@ const JGC_RELEASE_ID = "880";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/index-U0-B9SFs.js",
+  "./estimating/assets/purchase-order-pdf-CVeZBCwq.js",
+  "./estimating/assets/proposal-pdf-3eUS4Jui.js",
+  "./estimating/assets/src-sVKWu5Go.js",
+  "./estimating/assets/quote-backup-pdf-CfJ5glxy.js",
+  "./estimating/assets/es-88uQEMGC.js",
+  "./estimating/assets/pdf-Dkb6uy9M.js",
   "./estimating/assets/index-BHB3l1lv.css",
   "./estimating/assets/index-BDQngpvU.js",
   "./estimating/assets/job-accounting-workbook-DbcdNSoj.js",

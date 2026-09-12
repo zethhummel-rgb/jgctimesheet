@@ -171,3 +171,31 @@ test("desktop mouse and keyboard selection still work and Escape leaves the job 
   await picker.press("Escape");
   await expect(page.getByRole("dialog", { name: "New job", exact: true })).toBeVisible();
 });
+
+test("a stationary touch selects even without a browser compatibility click", async ({ page }) => {
+  const captures = await openPreview(page);
+  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  await picker.tap();
+  const option = page.locator(".saved-data-results").getByRole("option").first();
+  await option.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 15, clientX: 100, clientY: 200 });
+  await option.dispatchEvent("pointerup", { pointerType: "touch", pointerId: 15, clientX: 100, clientY: 200 });
+  await expect(picker).toHaveValue("");
+  await option.dispatchEvent("touchend", { cancelable: true });
+  await expect(picker).toHaveValue("JGC-Q-2026-1000");
+  await expect(page.locator(".saved-data-results")).toHaveCount(0);
+  expect(captures.writes).toEqual([]);
+});
+
+test("scrolling underneath a stationary finger does not turn touchend into a selection", async ({ page }) => {
+  await openPreview(page);
+  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  await picker.tap();
+  const option = page.locator(".saved-data-results").getByRole("option").first();
+  await option.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 16, clientX: 100, clientY: 200 });
+  await page.locator(".saved-data-results").evaluate(element => { element.scrollTop += 60; });
+  await option.dispatchEvent("pointerup", { pointerType: "touch", pointerId: 16, clientX: 100, clientY: 200 });
+  await option.dispatchEvent("touchend", { cancelable: true });
+  await option.dispatchEvent("click");
+  await expect(picker).toHaveValue("");
+  await expect(picker).toHaveAttribute("aria-expanded", "true");
+});
