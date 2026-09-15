@@ -4293,6 +4293,7 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
   const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
   const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
   const [pendingMaterialRowId, setPendingMaterialRowId] = useState<string | null>(null);
+  const [pendingEnterRowId, setPendingEnterRowId] = useState<string | null>(null);
   const items = line.costBuildUp?.items ?? [];
   const labourItems = items.filter((item) => item.kind === "Labour");
   const materialItems = items.filter((item) => item.kind === "Material");
@@ -4335,6 +4336,13 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
     return () => window.cancelAnimationFrame(frame);
   }, [materialItems, pendingMaterialRowId]);
 
+  useLayoutEffect(() => {
+    if (!pendingEnterRowId) return;
+    const row = document.getElementById(`build-up-row-${pendingEnterRowId}`);
+    row?.querySelector<HTMLInputElement>("input:not(:disabled)")?.focus({ preventScroll: true });
+    row?.scrollIntoView({ block: "center", inline: "nearest" });
+    setPendingEnterRowId(null);
+  }, [pendingEnterRowId, items]);
   const commitItems = (nextItems: QuoteCostBuildUpItem[]) => updateLine(line.id, {
     costBuildUp: { items: nextItems },
     ...(subcontractorBreakdown ? {
@@ -4392,8 +4400,23 @@ function CostBuildUpEditor({ line, locked, updateLine }: {
     setMaterialSearchOpen(false);
   };
 
+  const handleCostRowEnter = (event: ReactKeyboardEvent<HTMLDivElement>, item: QuoteCostBuildUpItem) => {
+    if (event.key !== "Enter" || event.defaultPrevented || locked
+      || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229
+      || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey
+      || !(event.target instanceof HTMLInputElement)
+      || (item.kind !== "Labour" && item.kind !== "Material")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.repeat) return;
+    const nextRow = newBuildUpItem(item.kind);
+    const index = items.findIndex((entry) => entry.id === item.id);
+    setPendingMaterialRowId(null);
+    setPendingEnterRowId(nextRow.id);
+    commitItems([...items.slice(0, index + 1), nextRow, ...items.slice(index + 1)]);
+  };
   const renderCostRow = (item: QuoteCostBuildUpItem) => (
-    <div className="build-up-row" id={`build-up-row-${item.id}`} key={item.id}>
+    <div className="build-up-row" id={`build-up-row-${item.id}`} key={item.id} onKeyDown={(event) => handleCostRowEnter(event, item)}>
       <div className="build-up-description-cell">
         <input value={item.description} disabled={locked} onChange={(event) => updateItem(item.id, { description: event.target.value })} placeholder={item.kind === "Labour" ? "e.g. 4-person framing crew" : item.kind === "Subcontractor" ? "e.g. Quoted work" : item.kind === "Other" ? "e.g. Shipping or perforation" : "e.g. 2x12x16 SPF"} aria-label={`${item.kind} description`} />
         {item.priceSourceSnapshot ? <small className="supplier-source">{item.priceSourceSnapshot.supplierName} · price saved {item.priceSourceSnapshot.effectiveDate || "without a date"}</small> : <input className="build-up-source-input" value={item.source} disabled={locked} onChange={(event) => updateItem(item.id, { source: event.target.value })} placeholder={item.kind === "Labour" ? "Crew or rate note (optional)" : "Supplier or source (optional)"} aria-label={`${item.kind} source`} />}
