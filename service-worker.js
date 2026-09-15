@@ -1,7 +1,15 @@
-const JGC_RELEASE_ID = "881";
+const JGC_RELEASE_ID = "882";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./job-list-sync.js?v=1",
+  "./estimating/assets/es-DQm3uRGq.js",
+  "./estimating/assets/index-BCQSZ9vp.js",
+  "./estimating/assets/pdf-dyN0xtMN.js",
+  "./estimating/assets/proposal-pdf-GIOoy7NT.js",
+  "./estimating/assets/purchase-order-pdf-DJfAWR2r.js",
+  "./estimating/assets/quote-backup-pdf-DULe0aeT.js",
+  "./estimating/assets/src-CrmGe9oo.js",
   "./estimating/assets/es-Ww8d9T9p.js",
   "./estimating/assets/index-B3PIGspm.css",
   "./estimating/assets/index-BkLWidKZ.js",

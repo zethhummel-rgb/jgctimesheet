@@ -319,6 +319,7 @@ async function jobImportResponse(client: any, request: Request) {
   // IDs/document/client/address/date columns preserves those fields on conflicts.
   const applied = await client.from("jobs").upsert(payload, { onConflict: "job_number", defaultToNull: false });
   if (applied.error) throw new Error(applied.error.message || "The job import failed. No jobs were changed.");
+  window.dispatchEvent(new Event("jgc-jobs-saved"));
   let jobs: PortalJobOption[];
   try {
     jobs = (await loadPortalJobRows(client)).map(portalJobOption);
