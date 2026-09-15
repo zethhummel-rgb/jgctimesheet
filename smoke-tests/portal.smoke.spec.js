@@ -23,6 +23,10 @@ for (const [pageName, selector, value] of [
     });
     await page.goto('/' + pageName);
     if (pageName === 'tasks.html') await page.locator('#taskFormDetails > summary').click();
+    if (pageName === 'jsa.html') {
+      await expect(page.locator('.jgc-project-job-select option').filter({ hasText: 'Example Client' }))
+        .toHaveText('26998 - Example Client - Shared employee project - Contract');
+    }
     await expect(page.locator(selector)).toHaveCount(1);
     // Existing-record editors set values programmatically, as well as by user input.
     await page.locator(selector).evaluate((field, value) => {

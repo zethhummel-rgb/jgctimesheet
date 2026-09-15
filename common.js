@@ -995,7 +995,10 @@ function getJgcProjectJobDisplay(job) {
 }
 
 function getJgcEmployeeJobLabel(job) {
-  return [getJgcProjectJobDisplay(job), job && job.customer, job && job.job_type].filter(Boolean).join(" · ");
+  const type = String(job && job.job_type || "").trim();
+  const labelType = /^contract$/i.test(type) ? "Contract" : /^t\s*&\s*m$/i.test(type) ? "T&M" : type;
+  return [job && job.job_number, job && job.customer, cleanJgcRepeatedJobName(job && job.job_name), labelType]
+    .map((value) => String(value || "").trim()).filter(Boolean).join(" - ");
 }
 
 function getJgcEmployeeJobDetailsHtml(job) {
