@@ -9,7 +9,7 @@
   <title>JGC Portal - Accounting</title>
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
-  <link rel="stylesheet" href="accounting-admin.css?v=6">
+  <link rel="stylesheet" href="accounting-admin.css?v=7">
 </head>
 <body class="accounting-page jgc-page jgc-system-page">
   <nav class="accounting-admin-tabs jgc-admin-nav" data-jgc-admin-nav="true" aria-label="Admin navigation">
@@ -34,6 +34,14 @@
 
     <div id="accountingNotice" class="accounting-notice jgc-notice" hidden role="status" aria-live="polite"></div>
 
+    <section class="accounting-panel jgc-panel" aria-labelledby="accountingJobListDownloadTitle">
+      <h2 id="accountingJobListDownloadTitle" class="jgc-section-title">Excel Job-List Download</h2>
+      <p>Download the current job list in the accounting master-list layout, or retrieve a previous version.</p>
+      <details class="accounting-job-list-download">
+        <summary>Open job-list downloads</summary>
+        <iframe src="estimating/index.html?view=accounting-download" title="Excel job-list downloads and history" loading="lazy"></iframe>
+      </details>
+    </section>
     <section class="accounting-panel jgc-panel" aria-labelledby="accountingPeriodTitle">
       <div class="accounting-section-heading">
         <div>
