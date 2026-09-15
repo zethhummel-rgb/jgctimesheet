@@ -1808,7 +1808,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-directory-page .jobs-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; }
 .job-directory-page .jobs-table td:first-child { min-width: 135px; }
 .job-directory-page .jobs-table td[data-label="Job name"] { min-width: 190px; }
-.job-directory-page .jobs-table td:nth-child(4) { min-width: 125px; }
+.job-directory-page .jobs-table td[data-label="Project manager"] { min-width: 125px; }
 @media (max-width: 760px) {
   .job-directory-page .job-directory-toolbar .search-field { flex-basis: auto; }
   .job-directory-page .jobs-table td { min-width: 0; }
@@ -1881,11 +1881,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-directory-page.job-view-list .jobs-table td[data-label="Client / location"] { grid-column: 2; grid-row: 2; }
   .job-directory-page.job-view-list .jobs-table td[data-label="Client / location"] :is(strong, small) { display: inline; font-size: 12px; font-weight: 400; }
   .job-directory-page.job-view-list .jobs-table td[data-label="Client / location"] small::before { content: " · "; }
-  .job-directory-page.job-view-list .jobs-table td[data-label="Client / location"], .job-directory-page.job-view-list .jobs-table td:nth-child(4) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .job-directory-page.job-view-list .jobs-table td:nth-child(4) { grid-column: 2; grid-row: 3; }
-  .job-directory-page.job-view-list .jobs-table td:nth-child(5) { grid-column: 1; grid-row: 3; text-align: left; }
-  .job-directory-page.job-view-list .jobs-table td:nth-child(6) { grid-column: 3; grid-row: 1; justify-self: end; }
-  .job-directory-page.job-view-list .jobs-table td:nth-child(7) { grid-column: 3; grid-row: 2 / 4; justify-self: end; align-self: center; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Client / location"], .job-directory-page.job-view-list .jobs-table td[data-label="Project manager"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Project manager"] { grid-column: 2; grid-row: 3; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Type"] { grid-column: 1; grid-row: 3; text-align: left; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Status"] { grid-column: 3; grid-row: 1; justify-self: end; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Change status"] { grid-column: 3; grid-row: 2 / 4; justify-self: end; align-self: center; }
   .job-directory-page.job-view-list .jobs-table .job-status-action { padding: 0 6px; font-size: 12px; }
   .job-directory-page.job-view-list .jobs-table .status-pill { padding: 3px 6px; font-size: 12px; }
   .recent-work-layout-list .recent-work-row { grid-template-columns: minmax(106px, .9fr) minmax(0, 1.1fr); gap: 4px 8px; }
@@ -2027,4 +2027,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .job-accounting-body { padding: 12px; }
   .job-accounting-preview { padding: 10px; }
   .job-accounting-actions .button { min-height: 36px; }
+}
+.job-quoted-cost { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.job-quoted-cost p { margin: 4px 0 0; color: var(--slate-600); font-size: 13px; }
+.job-quoted-cost > strong { font-size: clamp(22px, 4vw, 30px); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.job-directory-page .jobs-table .job-quoted-cost-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.job-tile-quoted-cost { display: flex; justify-content: space-between; gap: 8px; }
+@media (max-width: 700px) {
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"] { grid-column: 2 / 4; grid-row: 4; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"]::before { display: inline; content: "Quoted cost: "; font-weight: 400; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"]:has([aria-label="No quoted cost"]) { display: none; }
 }
