@@ -197,6 +197,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=43"></script>
+<script src="job-list-sync.js?v=1"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
 const TIMESHEET_ADMIN_EMAIL = "zeth@johngordonconstruction.com";
@@ -1951,7 +1952,9 @@ function fillJobNumberForSelectedJob() {
   }
 }
 
-async function loadActiveJobs() {
+window.JGCJobListSync.watch(() => loadActiveJobs(true));
+
+async function loadActiveJobs(background = false) {
   const jobStatus = document.getElementById("jobStatus");
 
   if (!supabaseClient) {
@@ -1962,7 +1965,7 @@ async function loadActiveJobs() {
     return;
   }
 
-  if (jobStatus) {
+  if (jobStatus && !background) {
     jobStatus.textContent = "Loading active jobs...";
   }
 
@@ -1973,6 +1976,7 @@ async function loadActiveJobs() {
     .order("job_number", { ascending: true });
 
   if (error) {
+    if (background) return;
     activeJobs = [];
     if (jobStatus) {
       jobStatus.textContent = "Active jobs could not be loaded.";

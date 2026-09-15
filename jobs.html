@@ -40,6 +40,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=43"></script>
+<script src="job-list-sync.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 const worker = requireJgcWorker();
@@ -121,9 +122,11 @@ function renderJobs() {
   `;
 }
 
-async function loadJobs() {
+window.JGCJobListSync.watch(() => loadJobs(true));
+
+async function loadJobs(background = false) {
   const list = document.getElementById("jobsList");
-  setJobsStatus("Loading jobs...");
+  if (!background) setJobsStatus("Loading jobs...");
 
   const { data, error } = await supabaseClient
     .from("jobs")
@@ -132,6 +135,7 @@ async function loadJobs() {
     .order("job_number", { ascending: true });
 
   if (error) {
+    if (background) return;
     jobs = [];
     list.innerHTML = '<div class="small jobs-empty jgc-empty-state">The job list is temporarily unavailable.</div>';
     setJobsStatus("Jobs could not be loaded.", true);

@@ -14,13 +14,13 @@ function transpileModule(relative, dependencies = {}, extra = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const context = { module, exports: module.exports, require: (name) => dependencies[name] || {},
-    Response, Request, URL, TextEncoder, Uint8Array, crypto: webcrypto, console, ...extra };
+    Response, Request, URL, Event, TextEncoder, Uint8Array, crypto: webcrypto, console, ...extra };
   vm.runInNewContext(code, context, { filename: relative });
   return module.exports;
 }
 
 function loadApi() {
-  const browser = { location: { href: "http://127.0.0.1/estimating/index.html" }, fetch: async () => { throw new Error("Unexpected external request"); } };
+  const browser = { events: [], dispatchEvent(event) { this.events.push(event.type); }, location: { href: "http://127.0.0.1/estimating/index.html" }, fetch: async () => { throw new Error("Unexpected external request"); } };
   const workbook = transpileModule("estimating-app/lib/job-workbook-import.ts");
   const api = transpileModule("estimating-app/src/portal-api.ts", {
     "../lib/job-workbook-import": workbook,
@@ -292,6 +292,7 @@ test("import preview writes nothing and apply uses one statement without alterin
   const result = await request(browser, "job-import", { action: "apply", records, expectedSnapshot: preview.snapshot, deactivateMissingJobIds: ["missing"] });
   expect(result.status).toBe(200);
   expect(result.body.saved).toBe(true);
+  expect(browser.events).toEqual(["jgc-jobs-saved"]);
   expect(client.writes).toBe(1);
   const mutation = client.calls.find((call) => call.operation === "upsert");
   expect(mutation.options).toEqual({ onConflict: "job_number", defaultToNull: false });
@@ -340,6 +341,7 @@ test("failed import does not report success or mutate the in-memory source list"
   const result = await request(browser, "job-import", { action: "apply", records, expectedSnapshot: preview.snapshot, deactivateMissingJobIds: [] });
   expect(result.status).toBe(500);
   expect(result.body.saved).toBeUndefined();
+  expect(browser.events).toEqual([]);
   expect(client.tables.jobs[0].job_name).toBe("Job 001");
 });
 

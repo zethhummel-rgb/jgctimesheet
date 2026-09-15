@@ -3,6 +3,42 @@ const path = require("node:path");
 const { test, expect } = require("@playwright/test");
 
 const portalRoot = path.resolve(__dirname, "..");
+
+for (const pageName of ['jobs.html', 'timesheet.html', 'work-orders.html']) {
+  test(`shared import refresh updates ${pageName} without changing draft input`, async ({ page, context }) => {
+    await installAuthenticatedPortalState(page);
+    await mockPortalServices(page);
+    let rows = [{ id: 'sync-job', job_number: '26998', job_name: 'Before import', active: true, job_type: 'Contract' }];
+    let reads = 0;
+    await page.route(`${supabaseOrigin}/rest/v1/jobs*`, (route) => {
+      reads++;
+      expect(route.request().method()).toBe('GET');
+      expect(new URL(route.request().url()).searchParams.get('select')).not.toMatch(/cost|revenue|budget/);
+      return route.fulfill({ json: rows });
+    });
+    await page.clock.install();
+    await page.goto('/' + pageName);
+    await expect.poll(() => reads).toBeGreaterThan(0);
+    const input = pageName === 'timesheet.html' ? '#jobName' : pageName === 'work-orders.html' ? '#woJobSearch' : null;
+    if (input) await page.locator(input).fill('Unsaved custom job');
+    const sender = await context.newPage();
+    await sender.route('**/sync-sender.html', route => route.fulfill({ contentType: 'text/html', body: '<script src="/job-list-sync.js?v=1"></script>' }));
+    await sender.goto('/sync-sender.html');
+    rows = [{ id: 'sync-job', job_number: '26998', job_name: 'After import', active: true, job_type: 'T&M' }, { id: 'new-sync-job', job_number: '26999', job_name: 'New imported job', active: true }];
+    await page.bringToFront();
+    await page.waitForTimeout(1100);
+    const before = reads;
+    await sender.evaluate(() => window.dispatchEvent(new Event('jgc-jobs-saved')));
+    await expect.poll(() => reads).toBeGreaterThan(before);
+    await expect.poll(() => page.evaluate((name) => (name === 'timesheet.html' ? activeJobs : jobs).map(j => j.job_name), pageName)).toEqual(['After import', 'New imported job']);
+    if (input) await expect(page.locator(input)).toHaveValue('Unsaved custom job');
+    rows = [rows[1]]; // Another device closed the first job.
+    await page.clock.fastForward(61000);
+    await expect.poll(() => page.evaluate((name) => (name === 'timesheet.html' ? activeJobs : jobs).map(j => j.job_name), pageName)).toEqual(['New imported job']);
+    if (input) await expect(page.locator(input)).toHaveValue('Unsaved custom job');
+    await sender.close();
+  });
+}
 const projectRef = "xnrljkkszoimegfivlya";
 const supabaseOrigin = `https://${projectRef}.supabase.co`;
 const fakeUser = {

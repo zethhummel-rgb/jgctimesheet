@@ -248,6 +248,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=43"></script>
+<script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -2777,7 +2778,9 @@ async function getCurrentUserId() {
   return data && data.session && data.session.user ? data.session.user.id : "";
 }
 
-async function loadJobs() {
+window.JGCJobListSync.watch(() => loadJobs(true));
+
+async function loadJobs(background = false) {
   const { data, error } = await supabaseClient
     .from("jobs")
     .select("id, job_number, job_name, job_type, active")
@@ -2785,6 +2788,7 @@ async function loadJobs() {
     .order("job_number", { ascending: true });
 
   if (error) {
+    if (background) return;
     jobs = [];
     return;
   }
