@@ -2048,3 +2048,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .add-line-bar > .catalog-search-picker { grid-column: 1 / -1; }
   .add-line-bar > .button { min-width: 0; padding-inline: 4px; font-size: 11px; }
 }
+
+.accounting-download-page { padding: 12px; }
+.accounting-download-page .job-accounting-panel { margin: 0; }
