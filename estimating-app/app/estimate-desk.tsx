@@ -5368,6 +5368,11 @@ function isLabourHourUnit(unit: string) {
   return /^(?:h|hr|hrs|hour|hours)$/i.test(unit.trim());
 }
 
+function quotedJobCost(job: Job, linkedQuote: Quote | undefined) {
+  return acceptedQuoteBasis(job, linkedQuote).quote && Number.isFinite(job.originalCostBudget)
+    ? job.originalCostBudget : null;
+}
+
 function labourBudgetForQuote(quote: Quote | null) {
   let carriedCost = 0;
   let carriedHours = 0;
@@ -6284,6 +6289,10 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         </nav>
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
         {tab === "summary" && <>
+        {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted cost">
+          <div><span className="eyebrow">QUOTED COST</span><p>Accepted estimate cost · before tax</p></div>
+          <strong>{money(job.originalCostBudget)}</strong>
+        </section>}
         <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
           <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
           <button className="button secondary compact" onClick={onRefreshJobCosting} disabled={jobCostingStatus === "loading"}>{jobCostingStatus === "loading" ? "Refreshing…" : "↻ Refresh labour"}</button>
@@ -6619,7 +6628,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const renderJobTable = (items: Job[], yearLabel?: string) => (
     <section className="panel table-panel">
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th><th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th>{currentEstimator.isAdmin && <th>Quoted cost</th>}<th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} className={jobDisplayStatus(item) === "Discuss invoice" ? "job-invoice-review" : undefined} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
@@ -6627,6 +6636,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
+          {currentEstimator.isAdmin && <td data-label="Quoted cost" className="job-quoted-cost-cell">{quotedJobCost(item, linkedQuote) === null ? <span aria-label="No quoted cost">—</span> : <strong>{money(item.originalCostBudget)}</strong>}</td>}
           <td data-label="Status"><StatusPill status={jobDisplayStatus(item)} /></td>
           <td data-label="Change status">{renderJobStatusAction(item)}</td>
         </tr>;
@@ -6647,6 +6657,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
           <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
           {linkedQuote && <small>{linkedQuote.number}</small>}
+          {currentEstimator.isAdmin && quotedJobCost(item, linkedQuote) !== null && <span className="job-tile-quoted-cost">Quoted cost <strong>{money(item.originalCostBudget)}</strong></span>}
         </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
       })}</div>
     </section>;

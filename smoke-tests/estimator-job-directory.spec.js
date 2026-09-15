@@ -1,6 +1,28 @@
 const { test, expect } = require("@playwright/test");
 
 const fixtureDate = "2026-09-07T12:00:00.000Z";
+
+for (const width of [1440, 390]) {
+  test(`admin quoted costs use the accepted budget in list, tiles and summary at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 950 });
+    const captures = await serveDirectory(page, directoryState());
+    const quoted = page.locator('.jobs-table tbody tr').filter({ hasText: '26901' });
+    await expect(quoted.locator('[data-label="Quoted cost"]')).toHaveText('$10,000.00');
+    await expect(page.locator('.jobs-table tbody tr').filter({ hasText: '26902' }).locator('[aria-label="No quoted cost"]')).toHaveCount(1);
+    await captureVisual(page, testInfo, 'quoted-cost-list');
+    await page.getByRole('button', { name: 'Tiles', exact: true }).click();
+    await expect(page.locator('.job-tile-quoted-cost')).toHaveText('Quoted cost $10,000.00');
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await openDirectoryJob(page, '26901');
+
+    await expect(page.getByRole('region', { name: 'Quoted cost', exact: true })).toContainText('$10,000.00');
+    await expect(page.locator('.job-quoted-cost')).not.toContainText('$12,000.00');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await captureVisual(page, testInfo, 'quoted-cost-summary');
+    expect(captures.writes).toEqual([]);
+    expect(captures.unexpectedRequests).toEqual([]);
+  });
+}
 const officialIds = {
   quoted: "11111111-1111-4111-8111-111111111111",
   tm: "22222222-2222-4222-8222-222222222222",
@@ -510,7 +532,7 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("");
   await expect(page.locator(".library-folder")).toHaveCount(0);
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
-  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Status", "Change status"]);
+  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted cost", "Status", "Change status"]);
   await expect(page.locator('.jobs-table td[data-label="Job / quote"] button')).toHaveText(["26903", "26902", "26901"]);
   const imported = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
   await expect(imported).toContainText("Canonical Railway Client");
@@ -535,7 +557,7 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await captureVisual(page, testInfo, "directory-desktop");
   await page.getByLabel("Search jobs", { exact: true }).fill("");
   await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: /Inactive|Archived/ }).click();
-  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Status", "Change status"]);
+  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted cost", "Status", "Change status"]);
   await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(1)).toContainText("Canonical Railway Client");
   await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(2)).toContainText("Historical Imported Repair");
   await page.getByLabel("Search jobs", { exact: true }).fill("25904");
