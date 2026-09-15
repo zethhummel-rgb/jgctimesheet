@@ -2051,3 +2051,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .accounting-download-page { padding: 12px; }
 .accounting-download-page .job-accounting-panel { margin: 0; }
+
+html.accounting-download-embed, html.accounting-download-embed body { min-height: 0 !important; background: transparent !important; }
+.accounting-download-embed .estimator-gate { min-height: 0; padding: 24px; }
