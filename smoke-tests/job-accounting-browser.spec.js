@@ -310,3 +310,17 @@ test("optional supplied-master QA preserves every reference cell and all year sh
   }
   expect(state.versions).toHaveLength(1);
 });
+
+test("accounting page embeds the shared job-list download and retrieves the same workbook", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/estimating/index.html?dev=1&view=accounting-download");
+  await expect(page.getByRole("region", { name: "Accounting job-list downloads" })).toBeVisible();
+  await expect(page.locator("#estimate-navigation")).toHaveCount(0);
+  const file = await create(page, 1);
+  expect(file.suggestedFilename()).toMatch(/\.xlsx$/);
+  expect(state.versions).toHaveLength(1);
+  expect(state.logs).toHaveLength(1);
+  const markup = fs.readFileSync(require("path").join(__dirname, "../accounting-admin.html"), "utf8");
+  expect(markup).toContain('src="estimating/index.html?view=accounting-download"');
+  expect(markup).toContain('title="Excel job-list downloads and history"');
+});
