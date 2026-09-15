@@ -136,7 +136,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=43"></script>
+<script src="common.js?v=44"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="schedule-ui.js?v=1"></script>
 <script>
@@ -318,7 +318,7 @@ function renderJobOptions() {
   select.innerHTML = '<option value="">Manual / no job selected</option>' + activeJobs.map((job) => {
     const number = String(job.job_number || "").trim();
     const name = String(job.job_name || "").trim();
-    return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml((number ? number + " - " : "") + name) + '</option>';
+    return '<option value="' + escapeHtml(job.id) + '">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</option>';
   }).join("");
 }
 
@@ -1198,7 +1198,7 @@ async function loadScheduleData() {
     supabaseClient.from("vacation_requests").select("id,worker_name,worker_display_name,start_date,end_date,status,google_event_id,google_sync_status,google_synced_at,google_sync_error").eq("status", "approved").order("start_date", { ascending: true }),
     JGCEmployeeFeatureAccess.loadWorkersForFeature(supabaseClient, "schedule"),
     supabaseClient.from("profiles").select("id,email,display_name,worker_key,role,account_status").order("display_name", { ascending: true }),
-    supabaseClient.from("jobs").select("id,job_number,job_name,address,active").eq("active", true).order("job_number", { ascending: true }),
+    supabaseClient.from("jobs").select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active,address").eq("active", true).order("job_number", { ascending: true }),
     supabaseClient.from("equipment_vehicles").select("*").eq("is_active", true).order("name", { ascending: true })
   ]);
 

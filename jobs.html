@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JGC Jobs</title>
   <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
-  <link rel="stylesheet" href="jobs-design-system.css?v=3">
+  <link rel="stylesheet" href="jobs-design-system.css?v=4">
 </head>
 
 <body class="jobs-page jgc-page jgc-system-page">
@@ -28,7 +28,7 @@
 
   <section class="card jobs-lookup-panel jgc-panel jgc-stack">
     <h2 class="jgc-section-title">Jobs</h2>
-    <p class="small jobs-help jgc-muted">Search job names, job numbers, or Contract / T&amp;M status. This list is read-only and comes from the admin Excel import.</p>
+    <p class="small jobs-help jgc-muted">Search clients, job names, job numbers, or Contract / T&amp;M status. This list is read-only and comes from the admin Excel import.</p>
     <div class="jgc-field">
       <label class="jgc-label" for="jobSearch">Search Jobs</label>
       <input class="jgc-input" id="jobSearch" type="search" placeholder="Example: Cornwall, 24-001, T&amp;M" oninput="renderJobs()">
@@ -39,7 +39,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=43"></script>
+<script src="common.js?v=44"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
@@ -74,6 +74,7 @@ function renderJobs() {
   const search = document.getElementById("jobSearch").value.trim().toLowerCase();
   const filtered = jobs.filter((job) => {
     const text = [
+      job.customer || "",
       job.job_number || "",
       job.job_name || "",
       job.job_type || "",
@@ -96,6 +97,7 @@ function renderJobs() {
         <thead>
           <tr>
             <th>Job Number</th>
+            <th>Client</th>
             <th>Job Name</th>
             <th>Contract / T&amp;M</th>
             <th>Documents</th>
@@ -109,6 +111,7 @@ function renderJobs() {
               return `
             <tr>
               <td data-label="Job Number"><strong>${escapeHtml(job.job_number || "")}</strong></td>
+              <td data-label="Client">${escapeHtml(job.customer || "Not provided")}</td>
               <td data-label="Job Name">${escapeHtml(job.job_name || "")}</td>
               <td data-label="Contract / T&amp;M"><span class="pill job-type-badge jgc-badge jgc-badge--info">${escapeHtml(getJobTypeLabel(job.job_type))}</span></td>
               <td data-label="Documents">${href ? '<a class="doc-link jobs-document-link jgc-button" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>' : '<span class="small jgc-muted">No link</span>'}</td>
@@ -130,7 +133,7 @@ async function loadJobs(background = false) {
 
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, job_type, active, updated_at, document_link, document_link_label")
+    .select("id, customer, job_number, job_name, job_type, active, updated_at, document_link, document_link_label")
     .eq("active", true)
     .order("job_number", { ascending: true });
 

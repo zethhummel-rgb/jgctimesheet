@@ -196,7 +196,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=43"></script>
+<script src="common.js?v=44"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
@@ -1803,7 +1803,7 @@ function getFilteredJobOptions() {
       const jobNumber = String(job.job_number || "").trim().toLowerCase();
       const display = getJobDisplay(job).toLowerCase();
 
-      return display.includes(searchValue) ||
+      return String(job.customer || "").toLowerCase().includes(searchValue) || display.includes(searchValue) ||
         jobName.includes(searchValue) ||
         jobNumber.includes(searchValue);
     })
@@ -1835,13 +1835,16 @@ function renderJobDropdown() {
           <span class="job-option-number">${escapeHtml(jobNumber || "No Job #")}</span>
           ${jobTypeLabel ? '<span class="job-option-type ' + escapeHtml(jobTypeClass) + '">' + escapeHtml(jobTypeLabel) + '</span>' : ""}
         </span>
-        <span class="job-option-name">${escapeHtml(jobName)}</span>
+        <span class="job-option-name">${escapeHtml(jobName)}</span><span class="job-option-name">${escapeHtml(job.customer || "Client not provided")}</span>
       </button>
     `;
   }).join("");
 }
 
+let jobDropdownCloseTimer = null;
+
 function openJobDropdown() {
+  window.clearTimeout(jobDropdownCloseTimer);
   const dropdown = document.getElementById("jobDropdown");
 
   if (!dropdown) {
@@ -1861,7 +1864,8 @@ function closeJobDropdown() {
 }
 
 function scheduleCloseJobDropdown() {
-  setTimeout(closeJobDropdown, 160);
+  window.clearTimeout(jobDropdownCloseTimer);
+  jobDropdownCloseTimer = window.setTimeout(closeJobDropdown, 160);
 }
 
 function handleJobNameInput() {
@@ -1971,7 +1975,7 @@ async function loadActiveJobs(background = false) {
 
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, job_type, active")
+    .select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
