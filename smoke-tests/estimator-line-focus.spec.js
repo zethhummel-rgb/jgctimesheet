@@ -42,3 +42,32 @@ test("new-line delayed focus still opens the description when the user has not m
   await page.keyboard.insertText("New framing item");
   await expect(description).toHaveValue("New framing item");
 });
+
+for (const kind of ["Labour", "Material"]) {
+  test(`Enter creates the next ${kind} row and focuses its description`, async ({ page }) => {
+    const addButton = await openEstimateWithPausedClock(page);
+    await addButton.press("Enter");
+    await page.clock.runFor(350);
+    const rows = page.locator(`.${kind === "Labour" ? "labour" : "material"}-group .build-up-row`);
+    for (const field of ["description", "source", "quantity", "unit", "unit cost"]) {
+      const before = await rows.count();
+      const row = rows.first();
+      await row.getByLabel(`${kind} description`, { exact: true }).fill("Keyboard item");
+      const input = field === "description" || field === "source"
+        ? row.getByLabel(`${kind} ${field}`, { exact: true })
+        : row.getByLabel(`Keyboard item ${field}`, { exact: true });
+      await input.press("Enter");
+      await expect(rows).toHaveCount(before + 1);
+      await expect(rows.nth(1).getByLabel(`${kind} description`, { exact: true })).toBeFocused();
+      await page.keyboard.insertText("Next item");
+      await expect(rows.nth(1).getByLabel(`${kind} description`, { exact: true })).toHaveValue("Next item");
+      await expect(rows.first().getByLabel(`${kind} description`, { exact: true })).toHaveValue("Keyboard item");
+    }
+    const before = await rows.count();
+    const description = rows.first().getByLabel(`${kind} description`, { exact: true });
+    await description.press("Shift+Enter");
+    await description.dispatchEvent("keydown", {key:"Enter",code:"Enter",isComposing:true});
+    await description.dispatchEvent("keydown", {key:"Enter",code:"Enter",repeat:true});
+    await expect(rows).toHaveCount(before);
+  });
+}
