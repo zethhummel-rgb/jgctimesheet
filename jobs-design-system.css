@@ -58,8 +58,8 @@
   width: 150px;
 }
 
-.jobs-page .jobs-table th:nth-child(3),
-.jobs-page .jobs-table td:nth-child(3) {
+.jobs-page .jobs-table th:nth-child(4),
+.jobs-page .jobs-table td:nth-child(4) {
   width: 160px;
 }
 
@@ -185,7 +185,7 @@
 
   .jobs-page .jobs-table td,
   .jobs-page .jobs-table td:first-child,
-  .jobs-page .jobs-table td:nth-child(3),
+  .jobs-page .jobs-table td:nth-child(4),
   .jobs-page .jobs-table td:last-child {
     display: grid;
     width: 100%;

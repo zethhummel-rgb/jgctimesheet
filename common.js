@@ -994,6 +994,68 @@ function getJgcProjectJobDisplay(job) {
   return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
+function getJgcEmployeeJobLabel(job) {
+  return [getJgcProjectJobDisplay(job), job && job.customer, job && job.job_type].filter(Boolean).join(" · ");
+}
+
+function getJgcEmployeeJobDetailsHtml(job) {
+  const href = String(job.document_link || "").trim();
+  const documents = /^https?:\/\//i.test(href)
+    ? '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(job.document_link_label || "Open documents") + '</a>'
+    : 'No link';
+  const rows = [["Client", job.customer || "Not provided"], ["Job name", job.job_name || "Not provided"], ["Job number", job.job_number || "Not provided"], ["Contract / T&M", job.job_type || "Not provided"]];
+  return '<dl style="display:grid;grid-template-columns:minmax(90px,35%) minmax(0,1fr);gap:8px;margin:0;overflow-wrap:anywhere">'
+    + rows.map(([label, value]) => '<dt style="font-weight:700">' + escapeHtml(label) + '</dt><dd style="margin:0">' + escapeHtml(value) + '</dd>').join("")
+    + '<dt style="font-weight:700">Documents</dt><dd style="margin:0">' + documents + '</dd></dl>';
+}
+
+function installJgcEmployeeJobDetails() {
+  const selector = '[data-jgc-project-job], #woJobSearch, #poJobSearch, #jobSelect, #homeScheduleJob, #taskJobNumber, #jobListJob'
+    + (/\/timesheet\.html$/i.test(location.pathname) ? ', #jobName' : '');
+  const cards = new Map();
+  let rows = [];
+  let loading = false;
+  function render() {
+    document.querySelectorAll(selector).forEach((field) => {
+      if (field.closest("details:not([open])")) return;
+      if (!cards.has(field)) {
+        const card = document.createElement('section');
+        card.className = 'jgc-employee-job-details';
+        card.setAttribute('aria-label', 'Selected job details');
+        card.style.cssText = 'grid-column:1/-1;min-width:0;margin-top:10px;padding:12px;border:1px solid var(--jgc-color-border-soft,#ccd8d2);border-radius:8px;font-size:14px;line-height:1.45';
+        card.hidden = true;
+        const anchor = field.closest('.jgc-project-job-picker, .po-job-picker') || field;
+        anchor.insertAdjacentElement('afterend', card);
+        cards.set(field, card);
+      }
+      const value = String(field.value || '').trim().toLowerCase();
+      const matches = value ? rows.filter(job => [job.id, job.job_number, job.job_name, getJgcProjectJobDisplay(job)].some(candidate => String(candidate || '').trim().toLowerCase() === value)) : [];
+      const card = cards.get(field);
+      const html = matches.length === 1 ? getJgcEmployeeJobDetailsHtml(matches[0]) : '';
+      if (card.innerHTML !== html) card.innerHTML = html;
+      card.hidden = !html;
+    });
+  }
+  async function refresh() {
+    if (loading || document.visibilityState === 'hidden' || !Array.from(document.querySelectorAll(selector)).some(field => !field.closest('details:not([open])'))) return;
+    loading = true;
+    try { jgcProjectJobOptions = null; rows = await getJgcProjectJobOptions(); render(); }
+    finally { loading = false; }
+  }
+  document.addEventListener('toggle', refresh, true);
+  document.addEventListener('input', render);
+  document.addEventListener('change', render);
+  window.addEventListener('focus', refresh);
+  window.addEventListener('jgc-jobs-saved', refresh);
+  window.addEventListener('storage', event => { if (event.key === 'jgc-job-list-revision') refresh(); });
+  // Existing forms also set selected jobs programmatically when opening a draft.
+  window.setInterval(() => { if (document.visibilityState !== 'hidden') render(); }, 1000);
+  window.setInterval(refresh, 60000);
+  refresh();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installJgcEmployeeJobDetails);
+else installJgcEmployeeJobDetails();
+
 function setJgcProjectJobValue(fieldOrId, value) {
   const field = typeof fieldOrId === "string"
     ? document.getElementById(fieldOrId)
@@ -1033,7 +1095,7 @@ async function getJgcProjectJobOptions() {
 
   const { data, error } = await client
     .from("jobs")
-    .select("job_number, job_name, active")
+    .select("id, customer, job_number, job_name, job_type, document_link, document_link_label, active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 
@@ -1087,7 +1149,7 @@ function enhanceJgcProjectJobInputs() {
         '<option value="">Select project / job</option>',
         ...jobs.map((job) => {
           const display = getJgcProjectJobDisplay(job);
-          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(display) + '</option>';
+          return '<option value="' + escapeHtml(display) + '">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</option>';
         }),
         '<option value="__manual__">Enter a job manually...</option>'
       ].join("");

@@ -4,6 +4,57 @@ const { test, expect } = require("@playwright/test");
 
 const portalRoot = path.resolve(__dirname, "..");
 
+for (const [pageName, selector, value] of [
+  ['timesheet.html', '#jobName', '26998 - Shared employee project'],
+  ['work-orders.html', '#woJobSearch', '26998 - Shared employee project'],
+  ['purchase-orders.html', '#poJobSearch', '26998 - Shared employee project'],
+  ['jsa.html', '[data-jgc-project-job]', '26998 - Shared employee project'],
+  ['schedule.html', '#jobSelect', 'employee-details-job'],
+  ['home.html', '#homeScheduleJob', 'employee-details-job'],
+  ['tasks.html', '#taskJobNumber', '26998'],
+  ['job-lists.html', '#jobListJob', 'employee-details-job'],
+]) {
+  test(`employee job details show the five safe fields on ${pageName}`, async ({ page }) => {
+    await installAuthenticatedPortalState(page);
+    await mockPortalServices(page);
+    await page.route(`${supabaseOrigin}/rest/v1/jobs*`, route => {
+      expect(new URL(route.request().url()).searchParams.get('select')).not.toMatch(/cost|revenue|budget/);
+      return route.fulfill({ json: [{ id: 'employee-details-job', job_number: '26998', job_name: 'Shared employee project', customer: 'Example Client', job_type: 'Contract', active: true, document_link: 'https://example.com/project-documents', document_link_label: 'Project documents' }] });
+    });
+    await page.goto('/' + pageName);
+    if (pageName === 'tasks.html') await page.locator('#taskFormDetails > summary').click();
+    await expect(page.locator(selector)).toHaveCount(1);
+    // Existing-record editors set values programmatically, as well as by user input.
+    await page.locator(selector).evaluate((field, value) => {
+      if (field.tagName === 'SELECT' && !Array.from(field.options).some(o => o.value === value)) field.add(new Option('Shared employee project', value));
+      field.value = value;
+    }, value);
+    const card = page.locator('.jgc-employee-job-details').filter({ hasText: 'Example Client' });
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText('Shared employee project');
+    await expect(card).toContainText('26998');
+    await expect(card).toContainText('Contract');
+    await expect(card.getByRole('link', { name: 'Project documents', includeHidden: true })).toHaveAttribute('href', 'https://example.com/project-documents');
+    await expect(card).not.toContainText(/quoted|budget|revenue|\$/i);
+    expect(await page.locator(selector).inputValue()).toBe(value);
+  });
+}
+
+test('employee job lookup includes client search and all five fields on a phone', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  await page.route(`${supabaseOrigin}/rest/v1/jobs*`, route => route.fulfill({ json: [{ id: 'j1', customer: 'Trans Northern Pipeline', job_number: '26130', job_name: 'TNPI - Ingleside Gate Replacement', job_type: 'Contract', active: true, document_link: 'https://example.com/documents', document_link_label: 'Project documents' }] }));
+  await page.goto('/jobs.html');
+  await page.locator('#jobSearch').fill('Trans Northern');
+  await expect(page.locator('.jobs-table tbody tr')).toHaveCount(1);
+  await expect(page.locator('[data-label="Client"]')).toHaveText('Trans Northern Pipeline');
+  await expect(page.locator('.jobs-table tbody td')).toHaveCount(5);
+  await expect(page.getByRole('link', { name: 'Project documents' })).toHaveAttribute('href', 'https://example.com/documents');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('employee-job-five-fields.png'), fullPage: true });
+});
+
 for (const pageName of ['jobs.html', 'timesheet.html', 'work-orders.html']) {
   test(`shared import refresh updates ${pageName} without changing draft input`, async ({ page, context }) => {
     await installAuthenticatedPortalState(page);

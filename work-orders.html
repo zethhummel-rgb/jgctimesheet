@@ -247,7 +247,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=43"></script>
+<script src="common.js?v=44"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script>
@@ -676,7 +676,7 @@ function getFilteredJobSuggestions(value) {
   }
 
   return jobs.filter((job) => {
-    const haystack = normalizeText([job.job_number, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
+    const haystack = normalizeText([job.job_number, job.customer, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
     return haystack.includes(normalizedValue) || normalizeJobNumber(job.job_number).includes(normalizeJobNumber(value));
   }).slice(0, 12);
 }
@@ -698,7 +698,7 @@ function renderJobSearchSuggestions() {
   }
 
   list.innerHTML = matches.map((job) =>
-    '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJobOptionLabel(job)) + '</button>'
+    '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</button>'
   ).join("");
   list.classList.add("open");
 }
@@ -2783,7 +2783,7 @@ window.JGCJobListSync.watch(() => loadJobs(true));
 async function loadJobs(background = false) {
   const { data, error } = await supabaseClient
     .from("jobs")
-    .select("id, job_number, job_name, job_type, active")
+    .select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active")
     .eq("active", true)
     .order("job_number", { ascending: true });
 

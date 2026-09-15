@@ -313,7 +313,7 @@
     const currentFormJob = elements.job.value;
     const jobOptions = state.jobs.map(function (job) {
       return '<option value="' + escapeHtml(job.id) + '">'
-        + escapeHtml(job.job_number + " - " + job.job_name)
+        + escapeHtml(getJgcEmployeeJobLabel(job))
         + "</option>";
     }).join("");
 
@@ -1223,7 +1223,7 @@
         .eq("id", state.user.id)
         .single(),
       state.client.from("jobs")
-        .select("id,job_number,job_name,active")
+        .select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active")
         .eq("active", true)
         .order("job_number"),
       window.JGCEmployeeFeatureAccess.loadWorkersForFeature(state.client, "job_notes")

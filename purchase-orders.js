@@ -345,7 +345,7 @@
     state.jobNotesError = "";
     renderJobNotesPanel();
     const results = await Promise.all([
-      state.client.from("jobs").select("id,job_number,job_name,active").eq("active", true).order("job_number"),
+      state.client.from("jobs").select("id,customer,job_number,job_name,job_type,document_link,document_link_label,active").eq("active", true).order("job_number"),
       state.client.from("work_order_labour_workers").select("id,profile_id,display_name,worker_key,approved").eq("approved", true).order("display_name"),
       state.client.from("job_lists")
         .select("id,job_id,job_number,job_name,title,status,updated_at")
@@ -660,7 +660,7 @@
     }
 
     return state.jobs.filter((job) => {
-      const haystack = getJobDisplay(job).toLowerCase();
+      const haystack = getJgcEmployeeJobLabel(job).toLowerCase();
       return terms.every((term) => haystack.includes(term));
     }).slice(0, 80);
   }
@@ -668,7 +668,7 @@
   function renderJobOptions(searchValue) {
     const matches = getMatchingJobs(searchValue);
     elements.jobOptions.innerHTML = matches.length
-      ? matches.map((job) => `<button class="po-job-option" type="button" role="option" data-po-job-id="${escapeText(job.id)}">${escapeText(getJobDisplay(job))}</button>`).join("")
+      ? matches.map((job) => `<button class="po-job-option" type="button" role="option" data-po-job-id="${escapeText(job.id)}">${escapeText(getJgcEmployeeJobLabel(job))}</button>`).join("")
       : '<div class="po-job-empty">No matching listed jobs. Use the manual job fields below.</div>';
   }
 
