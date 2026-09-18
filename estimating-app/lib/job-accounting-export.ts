@@ -40,32 +40,40 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
   if (current.size !== preview.sourceSnapshot.length || master.size !== preview.masterRows.length) throw new Error("Duplicate job numbers need review before exporting.");
   const first = !preview.previousExportId;
   const rows: AccountingExportRow[] = [];
-  let reviewInactive = 0, missingFromPortal = 0;
-  for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys()])) {
+  let missingFromPortal = 0;
+  for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys(), ...previous.keys(), ...baseline.keys()])) {
     const job = current.get(number), seed = baseline.get(number), before = previous.get(number), original = master.get(number), old = oldRows.get(number);
     // Legacy saved snapshots omit invoiceReviewAt; null is the same state.
     const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, invoiceReviewAt: row.invoiceReviewAt ?? null } : null;
     const changed = stable(comparable(job)) !== stable(comparable(before));
-    // Imports intentionally do not record the invoicing meaning of a colour.
-    // Only an explicit status action can supersede the supplied master meaning.
-    const explicitStatus = Boolean(job && (!seed || job.statusChangedAt !== seed.statusChangedAt || job.cancelledAt !== seed.cancelledAt || (job.invoiceReviewAt ?? null) !== (seed.invoiceReviewAt ?? null)));
-    let color: AccountingColor | null = original?.color ?? (job?.active ? "white" : !job ? old?.color ?? null : null);
-    if (job && (explicitStatus || job.invoiceReviewAt)) color = job.active ? "white" : job.cancelledAt ? "red" : job.invoiceReviewAt ? "blue" : job.statusChangedAt ? "green" : null;
-    else if (job && seed && job.active !== seed.active) {
-      color = job.active ? "white" : null;
-    }
-    if (!job && (old?.color === "blue" || old?.color === "yellow")) color = old.color;
-    if (!color) { reviewInactive++; continue; }
-    // A new close/reopen/close cycle is a fresh green or blue hand-off, even if its end
-    // state and hours match the last download. Detail-only edits stay yellow.
+    // Compare against the last saved download, not the original import, so a
+    // newly inactive job is green once and existing inactive jobs are yellow.
     const newClosure = Boolean(job && before && (job.statusChangedAt !== before.statusChangedAt || job.active !== before.active || job.cancelledAt !== before.cancelledAt || (job.invoiceReviewAt ?? null) !== (before.invoiceReviewAt ?? null)));
+    const newlyInactive = Boolean(job && !job.active && (
+      before?.active
+      || (newClosure && job.statusChangedAt)
+      || (!before && job.statusChangedAt && Date.parse(job.statusChangedAt) >= Date.parse(preview.trackingStartedAt))
+    ));
+    const explicitStatus = Boolean(job && (!seed || job.statusChangedAt !== seed.statusChangedAt || job.cancelledAt !== seed.cancelledAt || (job.invoiceReviewAt ?? null) !== (seed.invoiceReviewAt ?? null)));
+    let color: AccountingColor = old?.color ?? original?.color ?? "yellow";
+    if (job) {
+      color = job.active ? "white"
+        : job.cancelledAt ? "red"
+        : job.invoiceReviewAt ? "blue"
+        : !explicitStatus && original?.color === "red" ? "red"
+        : !explicitStatus && original?.color === "blue" ? "blue"
+        : newlyInactive ? "green" : "yellow";
+    }
+    // Retained historical rows also advance after their first hand-off.
     if ((color === "green" || color === "blue") && !first && !newClosure && old && (old.color === color || old.color === "yellow")) color = "yellow";
     const initiallyColoured = first && original && original.color !== "white";
-    // Every classified project belongs in each download, even when unchanged.
+    // Every project belongs in each download, even when unchanged.
     // Retain previously exported rows if they later disappear from the portal.
+    const retained = !job ? before ?? seed : undefined;
+    const source = job ?? retained;
     const reference = original ?? (!job ? old : undefined);
     const cells: AccountingCell[] = reference ? reference.cells.map((cell) => cell && typeof cell === "object" ? { ...cell } : cell) : Array(16).fill(null);
-    cells[5] = job?.jobNumber ?? reference!.jobNumber;
+    cells[5] = source?.jobNumber ?? reference!.jobNumber;
     if (job) {
       const replace = (field: keyof AccountingSourceJob, column: number, value: AccountingCell) => {
         if (!original || !seed || stable(job[field]) !== stable(seed[field])) cells[column] = value;
@@ -84,15 +92,26 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
       // Closing a project is not proof of the physical completion date. Leave
       // Date Completed as supplied; never substitute the target end date.
     }
+    if (!job && !reference && retained) {
+      cells[0] = retained.jobName;
+      cells[6] = retained.customerPo || retained.quoteReference || null;
+      cells[7] = manager(retained.projectManager);
+      cells[8] = dateCell(retained.startDate);
+      cells[9] = retained.price;
+      cells[10] = retained.jobType;
+      cells[11] = retained.extras;
+      cells[13] = dateCell(retained.acceptedAt);
+      color = retained.cancelledAt ? "red" : retained.active ? "white" : "yellow";
+    }
     if (!job) missingFromPortal++;
     rows.push({ jobNumber: String(cells[5]), color, cells, changed: Boolean(changed || initiallyColoured),
       change: newClosure ? job!.active ? "Project reopened" : job!.cancelledAt ? "Job cancelled" : job!.invoiceReviewAt ? "Closed - discuss invoicing" : before?.invoiceReviewAt ? "Discussion resolved - ready to invoice" : "Project closed" : initiallyColoured ? "Starting master workbook" : !job ? "Retained source row; not in current portal" : !before ? "New job" : changed ? "Job details updated" : ({ white: "Active project", green: "Ready to invoice", red: "Cancelled job", yellow: "Previously handed to accounting", blue: "Closed - discuss invoicing" }[color]),
-      customer: job?.customer ?? old?.customer ?? "", site: job?.site ?? old?.site ?? "", address: job?.address ?? old?.address ?? "", targetEndDate: job?.targetEndDate ?? old?.targetEndDate ?? "" });
+      customer: source?.customer ?? old?.customer ?? "", site: source?.site ?? old?.site ?? "", address: source?.address ?? old?.address ?? "", targetEndDate: source?.targetEndDate ?? old?.targetEndDate ?? "" });
   }
   rows.sort((a, b) => a.jobNumber.localeCompare(b.jobNumber, "en-CA", { numeric: true }));
   return { rows, summary: { total: rows.length, green: rows.filter((r) => r.color === "green").length,
     yellow: rows.filter((r) => r.color === "yellow").length, red: rows.filter((r) => r.color === "red").length,
-    white: rows.filter((r) => r.color === "white").length, blue: rows.filter((r) => r.color === "blue").length, changed: rows.filter((r) => r.changed).length, reviewInactive, missingFromPortal } };
+    white: rows.filter((r) => r.color === "white").length, blue: rows.filter((r) => r.color === "blue").length, changed: rows.filter((r) => r.changed).length, reviewInactive: 0, missingFromPortal } };
 }
 
 export function accountingExportFilename(version: number) { return `JGC Accounting Job List - v${String(version).padStart(4, "0")}.xlsx`; }

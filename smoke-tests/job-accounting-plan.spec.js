@@ -10,7 +10,7 @@ const job = (number, changes = {}) => ({ jobNumber: number, jobName: `Job ${numb
 const master = (number, color) => ({ jobNumber: number, color, cells: [`Original ${number}`, null, null, null, null, number, "000123", "ZH", null, 1200, "T&M", null, "yes", { date: "2026-07-16" }, null, null] });
 const fixture = () => {
   const jobs = [job("26901", { active: false }), job("26902", { active: false }), job("26904")];
-  return { version: 1, previousExportId: null, sourceSnapshot: structuredClone(jobs), baselineSnapshot: structuredClone(jobs), previousSnapshot: structuredClone(jobs), masterRows: [master("26901", "green"), master("26902", "yellow"), master("25903", "red"), master("26904", "white")], previousRows: [], sourceName: "Synthetic master.xlsx", sourceSha256: "a".repeat(64), trackingStartedAt: "2026-09-08T12:00:00Z" };
+  return { version: 1, previousExportId: null, sourceSnapshot: jobs.map((item, index) => index === 0 ? { ...item, statusChangedAt: "2026-09-08T13:00:00Z" } : structuredClone(item)), baselineSnapshot: structuredClone(jobs), previousSnapshot: structuredClone(jobs), masterRows: [master("26901", "green"), master("26902", "yellow"), master("25903", "red"), master("26904", "white")], previousRows: [], sourceName: "Synthetic master.xlsx", sourceSha256: "a".repeat(64), trackingStartedAt: "2026-09-08T12:00:00Z" };
 };
 const next = (p, rows) => ({ ...p, version: p.version + 1, previousExportId: `version-${p.version}`, previousSnapshot: structuredClone(p.sourceSnapshot), previousRows: structuredClone(rows) });
 
@@ -52,10 +52,12 @@ test("reactivation is white, cancellation is red, and detail-only changes remain
   p.sourceSnapshot[0].active = false; p.sourceSnapshot[0].cancelledAt = "2026-09-09T12:01:00Z";
   expect(plan(p).rows.find((r) => r.jobNumber === "26901").color).toBe("red");
 });
-test("an inactive-only Excel import does not invent an invoicing instruction", () => {
+test("an active-to-inactive import is green once and is never excluded", () => {
   const p = fixture(); p.sourceSnapshot[2].active = false;
-  expect(plan(p).rows.some((r) => r.jobNumber === "26904")).toBe(false);
-  expect(plan(p).summary.reviewInactive).toBe(1);
+  const first = plan(p);
+  expect(first.rows.find((r) => r.jobNumber === "26904").color).toBe("green");
+  expect(plan(next(p, first.rows)).rows.find((r) => r.jobNumber === "26904").color).toBe("yellow");
+  expect(plan(p).summary.reviewInactive).toBe(0);
 });
 test("new canonical fields override reference only when changed; zero is not missing", () => {
   const p = fixture(); p.sourceSnapshot[0].price = 0; p.sourceSnapshot[0].extras = 45;
@@ -160,4 +162,44 @@ test("previously handed-off new jobs remain in history downloads if removed from
   const second = plan(p), row = second.rows.find((r) => r.jobNumber === "26999");
   expect(row.color).toBe("yellow"); expect(row.cells[9]).toBe(99);
   expect(plan(next(p, second.rows)).rows.find((r) => r.jobNumber === "26999").color).toBe("yellow");
+});
+
+test("existing unclassified inactive jobs are included in yellow on every download", () => {
+  let p = fixture();
+  const inactive = job("26906", { active: false });
+  for (const snapshot of [p.sourceSnapshot, p.previousSnapshot, p.baselineSnapshot]) snapshot.push(structuredClone(inactive));
+  // A stale white or green master colour must not make a longstanding inactive job active/new.
+  for (const colour of [undefined, "white", "green"]) {
+    const preview = structuredClone(p);
+    if (colour) preview.masterRows.push(master("26906", colour));
+    const first = plan(preview);
+    expect(first.rows.find(row => row.jobNumber === "26906").color).toBe("yellow");
+    expect(first.summary.total).toBe(5);
+    expect(first.summary.reviewInactive).toBe(0);
+    expect(plan(next(preview, first.rows)).rows.find(row => row.jobNumber === "26906").color).toBe("yellow");
+  }
+});
+
+test("previously excluded inactive jobs do not reappear as newly inactive", () => {
+  const p = fixture();
+  p.sourceSnapshot[2].active = false;
+  p.previousSnapshot[2].active = false;
+  p.previousExportId = "legacy-download";
+  p.previousRows = plan(fixture()).rows.filter(row => row.jobNumber !== "26904");
+  const result = plan(p);
+  expect(result.rows.find(row => row.jobNumber === "26904").color).toBe("yellow");
+  expect(result.rows.map(row => row.jobNumber)).toEqual(["25903", "26901", "26902", "26904"]);
+});
+
+test("legacy snapshots retain a previously excluded job even if it is no longer in the portal", () => {
+  const p = fixture();
+  const missing = job("26908", { active: false, price: 88, customerPo: "PO-88" });
+  p.previousSnapshot.push(missing);
+  const result = plan(p);
+  const row = result.rows.find(row => row.jobNumber === "26908");
+  expect(row).toMatchObject({ color: "yellow", customer: "Client" });
+  expect(row.cells[0]).toBe("Job 26908");
+  expect(row.cells[6]).toBe("PO-88");
+  expect(row.cells[9]).toBe(88);
+  expect(result.summary.total).toBe(5);
 });
