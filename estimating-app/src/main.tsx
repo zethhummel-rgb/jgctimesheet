@@ -19,6 +19,25 @@ function PortalEstimator() {
   const [name, setName] = useState("");
   const [userId, setUserId] = useState("");
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") !== "accounting-download") return;
+    document.documentElement.classList.add("accounting-download-embed");
+    const root = document.getElementById("root");
+    const frame = window.frameElement as HTMLIFrameElement | null;
+    if (!root || !frame || frame.tagName !== "IFRAME") return;
+    let pending = 0;
+    const resize = () => {
+      window.cancelAnimationFrame(pending);
+      pending = window.requestAnimationFrame(() => {
+        const height = Math.ceil(root.getBoundingClientRect().height);
+        if (height > 0) frame.style.height = `${height}px`;
+      });
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(root);
+    resize();
+    return () => { observer.disconnect(); window.cancelAnimationFrame(pending); };
+  }, []);
 
   useEffect(() => {
     let active = true;

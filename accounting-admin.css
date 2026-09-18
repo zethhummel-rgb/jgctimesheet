@@ -697,4 +697,4 @@
 }
 
 .accounting-job-list-download > summary { cursor: pointer; padding-block: 12px; font-weight: 600; }
-.accounting-job-list-download > iframe { width: 100%; height: 780px; border: 0; display: block; }
+.accounting-job-list-download > iframe { width: 100%; height: 180px; border: 0; display: block; background: transparent; }
