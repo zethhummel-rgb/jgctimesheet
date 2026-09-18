@@ -9,6 +9,11 @@ async function setup(page, options = {}) {
   let preview = fixture();
   if (options.discussion) preview.sourceSnapshot[0] = { ...preview.sourceSnapshot[0], invoiceReviewAt: "2026-09-08T18:00:00Z", statusChangedAt: "2026-09-08T18:00:00Z" };
   if (options.reference) preview = { ...preview, ...options.reference, sourceSnapshot: [], baselineSnapshot: [], previousSnapshot: [] };
+  if (options.inactiveCoverage) {
+    preview.sourceSnapshot.find(job => job.jobNumber === "26904").active = false;
+    const existing = { ...preview.sourceSnapshot[1], jobNumber: "26906", jobName: "Existing inactive without billing status" };
+    for (const snapshot of [preview.sourceSnapshot, preview.previousSnapshot, preview.baselineSnapshot]) snapshot.push(structuredClone(existing));
+  }
   const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
     const req = route.request(), url = new URL(req.url());
@@ -323,4 +328,24 @@ test("accounting page embeds the shared job-list download and retrieves the same
   const markup = fs.readFileSync(require("path").join(__dirname, "../accounting-admin.html"), "utf8");
   expect(markup).toContain('src="estimating/index.html?view=accounting-download"');
   expect(markup).toContain('title="Excel job-list downloads and history"');
+});
+
+test("Excel includes existing inactive jobs in yellow and newly inactive jobs green once", async ({ page }) => {
+  const state = await setup(page, { inactiveCoverage: true });
+  for (const version of [1, 2]) {
+    const file = await create(page, version);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fs.readFileSync(await file.path()));
+    const sheet = workbook.getWorksheet("2026");
+    const rowFor = (jobNumber) => {
+      let match;
+      sheet.eachRow(row => { if (row.getCell(6).value === jobNumber) match = row; });
+      expect(match).toBeTruthy();
+      return match;
+    };
+    expect(rowFor("26906").getCell(6).fill.fgColor.argb).toBe("FFFFFF00");
+    expect(rowFor("26904").getCell(6).fill.fgColor.argb).toBe(version === 1 ? "FF92D050" : "FFFFFF00");
+    expect(state.versions[version - 1].rows).toHaveLength(5);
+    await expect(page.getByText(/inactive jobs.*excluded/)).toHaveCount(0);
+  }
 });

@@ -60,7 +60,7 @@ export async function jobAccountingResponse(client: any, request: Request) {
     const current = prepared.data as AccountingExportPreview;
     if (current.cycle !== preview.cycle || current.version !== preview.version || current.previousExportId !== preview.previousExportId || JSON.stringify(current.sourceSnapshot) !== JSON.stringify(preview.sourceSnapshot)) return json({ error: "Jobs or download history changed. Refresh the preview before saving." }, 409);
     const plan = planJobAccountingExport(current);
-    if (!plan.rows.length) return json({ error: "There are no jobs with a confirmed accounting status to download." }, 400);
+    if (!plan.rows.length) return json({ error: "There are no jobs to download." }, 400);
     const fileHash = await accountingFileHash(accountingBase64ToBytes(body.fileBase64));
     if (fileHash !== body.fileSha256) return json({ error: "The Excel file failed its integrity check. No version was saved." }, 400);
     const saved = await client.from("job_accounting_exports").insert({

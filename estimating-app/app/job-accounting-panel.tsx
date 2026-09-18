@@ -113,11 +113,11 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
   const rows = selected?.rows ?? plan?.rows ?? [];
   const summary = selected?.summary ?? plan?.summary;
   return <section className="panel job-accounting-panel" aria-label="Accounting job-list downloads">
-    <div className="panel-heading"><div><span className="eyebrow">ACCOUNTING HAND-OFF</span><h3>Accounting job-list download</h3><p>All active, ready-to-invoice, invoicing-discussion, previously handed-off and cancelled jobs in the master-list layout. Your existing Excel upload stays in use.</p></div>
+    <div className="panel-heading"><div><span className="eyebrow">ACCOUNTING HAND-OFF</span><h3>Accounting job-list download</h3><p>Every job is included in the master-list layout: active, inactive and cancelled. Your existing Excel upload stays in use.</p></div>
       <button className="button primary compact" disabled={busy || !workspaceSaved} onClick={() => void action(prepare)}>Download accounting job list</button></div>
     <div className="job-accounting-body">
       <p className="job-accounting-legend">{(Object.keys(labels) as Array<keyof typeof labels>).map((color) => <span key={color} className={`accounting-chip accounting-${color}`}>{labels[color]}</span>)}</p>
-      <p>Yellow means previously handed to accounting, or yellow in the starting master—not proof of invoicing. Old versions keep their original colours.</p>
+      <p>Existing inactive jobs are yellow. Newly inactive jobs are green on their first download, then yellow on the next. Yellow is not proof of invoicing; saved versions keep their original colours.</p>
       <p>Blue asks accounting to discuss invoicing on the first download. On later downloads it becomes yellow, just like green. Resetting starts those hand-offs fresh.</p>
       <p>Pricing comes from the starting master, with accepted Estimate Desk pricing and approved extras used for linked jobs.</p>
       <div className="job-accounting-actions">
@@ -144,7 +144,6 @@ export function JobAccountingPanel({ workspaceSaved }: { workspaceSaved: boolean
           </>}
           <button className="button secondary compact" disabled={busy} onClick={() => { setPreview(null); setPlan(null); setSelected(null); }}>Close preview</button></div>
         <p>{summary?.total ?? 0} rows · {summary?.green ?? 0} green · {summary?.blue ?? 0} blue · {summary?.yellow ?? 0} yellow · {summary?.red ?? 0} red · {summary?.white ?? 0} white</p>
-        {Boolean(summary?.reviewInactive) && <p className="job-accounting-error">{summary!.reviewInactive} inactive jobs have no confirmed billing status and are excluded. Review them and use Close Project or Cancel Job as appropriate.</p>}
         <details className="job-accounting-row-preview" open={previewOpen} onToggle={(event) => setPreviewOpen(event.currentTarget.open)}>
         <summary>Preview job rows{selected ? " and download log" : ""}</summary>
         {preview && <p>{!preview.previousExportId ? `Starting colours from ${preview.sourceName}, with current job changes.` : "Creating a version records the accounting hand-off. Re-download an old version from history without advancing colours."} All accounting groups, years and managers are included regardless of the job-list filters.</p>}
