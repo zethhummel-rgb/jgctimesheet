@@ -587,6 +587,7 @@ test("proposal text formatting is visible in the editor, preview and PDF", async
 });
 
 test("missing exclusions remain recommended without blocking Finish quote", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-01T16:00:00Z")); // Keep the dated demo quote within its validity period.
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
   await page.getByRole("button", { name: "Company-wide" }).click();
@@ -922,6 +923,7 @@ test("subcontractor lines allow an optional quote number and separate added cost
 });
 
 test("subcontractor override drives the estimate while the PO keeps the actual quote", async ({ page }) => {
+  await require('./fixtures/job-creation-service').mockCreation(page,undefined,'26123');
   test.setTimeout(35_000);
   await page.addInitScript(() => {
     window.JGC_ESTIMATOR_PORTAL_JOBS = [{
@@ -960,11 +962,8 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   if (await finishDialog.count()) await finishDialog.getByRole("button", { name: "Finish quote" }).click();
   await page.getByRole("button", { name: "Make into job" }).click();
 
-  const jobDialog = page.getByRole("dialog", { name: "Make into job" });
-  const portalJob = jobDialog.getByRole("combobox", { name: "Portal job" });
-  await portalJob.fill("26123");
-  await jobDialog.getByRole("option", { name: /26123.*Estimator subcontractor override test/ }).click();
-  await jobDialog.getByRole("button", { name: "Make into job" }).click();
+  const jobDialog = page.getByRole("dialog", { name: "New job", exact: true });
+  await jobDialog.getByRole("button", { name: "Create job", exact: true }).click();
 
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26123");
   await page.getByRole("tab", { name: "Purchase Orders", exact: true }).click();
@@ -1008,10 +1007,11 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
   await revisionDialog.getByRole("button", { name: "Create Revision 1" }).click();
   await page.getByRole("button", { name: "All quotes" }).click();
   await page.getByLabel("Search quotes").fill("JGC-Q-2026-0001");
-  await expect(page.locator(".quotes-table tbody tr").filter({ hasText: "JGC-Q-2026-0001" })).toContainText("Draft");
+  await expect(page.locator(".quotes-table tbody tr").filter({ hasText: "JGC-Q-2026-0001" })).toHaveCount(0);
 });
 
 test("same-vendor subcontractor quotes combine into one job purchase order", async ({ page }) => {
+  await require('./fixtures/job-creation-service').mockCreation(page,undefined,'26124');
   test.setTimeout(45_000);
   await page.addInitScript(() => {
     window.JGC_ESTIMATOR_PORTAL_JOBS = [{
@@ -1045,11 +1045,8 @@ test("same-vendor subcontractor quotes combine into one job purchase order", asy
   const finishDialog = page.getByRole("dialog", { name: /Mark .* as Finished/ });
   if (await finishDialog.count()) await finishDialog.getByRole("button", { name: "Finish quote" }).click();
   await page.getByRole("button", { name: "Make into job" }).click();
-  const jobDialog = page.getByRole("dialog", { name: "Make into job" });
-  const portalJob = jobDialog.getByRole("combobox", { name: "Portal job" });
-  await portalJob.fill("26124");
-  await jobDialog.getByRole("option", { name: /26124.*Combined subcontractor PO test/ }).click();
-  await jobDialog.getByRole("button", { name: "Make into job" }).click();
+  const jobDialog = page.getByRole("dialog", { name: "New job", exact: true });
+  await jobDialog.getByRole("button", { name: "Create job", exact: true }).click();
 
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26124");
   await page.getByRole("tab", { name: "Purchase Orders", exact: true }).click();

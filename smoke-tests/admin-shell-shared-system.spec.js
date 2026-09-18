@@ -40,7 +40,9 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   ]) {
     expect(html).toMatch(new RegExp(`id=["']${id}["'][^>]*\\bjgc-admin-feature-surface\\b`));
   }
-  expect(html).toContain('src="common.js?v=43"');
+  const commonAsset = html.match(/src="(common\.js\?v=\d+)"/);
+  expect(commonAsset).toBeTruthy();
+  expect(worker).toContain(commonAsset[1]);
 
   for (const css of [shellCss, searchCss]) {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(|hsla?\(|color:\s*(?:white|black)\b/i);
@@ -52,7 +54,7 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   expect(worker).toContain('"./admin-shell-design-system.css?v=3"');
   expect(worker).toContain('"./admin-global-search.css?v=7"');
   expect(worker).toContain('"./admin-global-search.js?v=7"');
-  expect(worker).toContain('"./common.js?v=43"');
+  expect(worker).toContain('"./' + commonAsset[1] + '"');
 });
 
 async function visibleLayout(page, selector) {

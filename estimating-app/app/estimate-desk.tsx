@@ -1,3 +1,5 @@
+import type { JobCreationDraft } from "../lib/job-creation";
+import { EXCEL_JOB_IMPORT_ENABLED } from "../src/portal-api";
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -1122,7 +1124,8 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
   const [lastSaved, setLastSaved] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
-  const [view, setView] = useState<ViewKey>("dashboard");
+  const [view, setView] = useState<ViewKey>(() => new URLSearchParams(window.location.search).get("view") === "jobs" ? "jobs" : "dashboard");
+  const [newJobOpen, setNewJobOpen] = useState(() => new URLSearchParams(window.location.search).get("newJob") === "1");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [jobDirectoryActionTarget, setJobDirectoryActionTarget] = useState<HTMLSpanElement | null>(null);
@@ -1632,81 +1635,26 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const requestCreateJob = (quote: Quote) => {
-    setPendingCreateJobQuoteId(quote.id);
+    if (currentEstimator.isAdmin && !state.jobs.some((job) => job.quoteId === quote.id)) setPendingCreateJobQuoteId(quote.id);
   };
 
-  const createJobFromQuote = (quote: Quote, jobNumber: string) => {
-    const officialJobNumber = jobNumber.trim();
-    if (!officialJobNumber) return;
-    const portalJob = portalJobs().find((item) => item.active && item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase());
-    if (!portalJob) return;
-    const existingJob = state.jobs.find((item) => item.portalJobId === portalJob.id || (!item.portalJobId && item.jobNumber.trim().toLocaleLowerCase() === officialJobNumber.toLocaleLowerCase()));
-    if (existingJob?.quoteId || existingJob?.acceptedQuoteSnapshot || state.jobs.some((item) => item.quoteId === quote.id)) return;
-    const totals = quoteTotals(quote);
-    const jobId = existingJob?.id || uid("job");
-    const job: Job = {
-      id: jobId,
-      jobNumber: officialJobNumber,
-      quoteId: quote.id,
-      clientId: quote.clientId,
-      project: quote.project,
-      status: "Active",
-      portalJobId: portalJob.id,
-      portalActive: portalJob.active,
-      portalLastSyncedAt: new Date().toISOString(),
-      documentLink: portalJob.documentLink ?? "",
-      documentLinkLabel: portalJob.documentLinkLabel ?? "",
-      portalJobName: portalJob.jobName ?? "",
-      portalCustomer: portalJob.customer ?? "",
-      portalAddress: portalJob.address ?? "",
-      jobType: portalJob.jobType ?? "",
-      projectManager: portalJob.projectManager ?? "",
-      startDate: portalJob.startDate ?? "",
-      targetEndDate: portalJob.targetEndDate ?? "",
-      documentLinks: existingJob?.documentLinks ?? (portalJob.documentLink?.trim() ? [{
-        id: `portal-job-link-${jobId}`,
-        label: portalJob.documentLinkLabel?.trim() || "Open Project Documents",
-        url: portalJob.documentLink.trim(),
-        createdAt: new Date().toISOString(),
-      }] : []),
-      archivedAt: "",
-      acceptedRevenue: totals.subtotal,
-      originalCostBudget: totals.directCost,
-      acceptedQuoteRevision: quote.revision,
-      acceptedQuoteSnapshot: frozenQuoteSnapshot(quote),
-      approvedRevenueChanges: 0,
-      approvedCostChanges: 0,
-      estimateToComplete: Math.max(0, totals.directCost - (existingJob ? jobTotals(existingJob, portalLabourForJob(existingJob, portalLabourActuals)).actual : 0)),
-      acceptedAt: new Date().toISOString(),
-      costs: existingJob?.costs ?? [],
-      purchaseOrders: existingJob?.purchaseOrders ?? [],
-      shopDrawings: existingJob?.shopDrawings ?? [],
-      notes: [existingJob?.notes, `Estimate follow-up for ${quote.number} Rev ${quote.revision}. Linked to Portal job ${portalJob.jobNumber} — ${portalJob.jobName}.`].filter(Boolean).join("\n"),
-    };
-    setState((current) =>
-      addActivity(
-        {
-          ...current,
-          quotes: current.quotes.map((item) => item.id === quote.id ? {
-            ...item,
-            status: "Won",
-            wonAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            revisions: item.revisions.some((revision) => revision.revision === item.revision)
-              ? item.revisions
-              : [...item.revisions, { id: uid("revision"), revision: item.revision, status: "Finished", issuedAt: item.sentAt || new Date().toISOString(), total: quoteTotals(item).total, snapshot: frozenQuoteSnapshot(item) }],
-          } : item),
-          jobs: current.jobs.some((item) => item.quoteId === quote.id) ? current.jobs : existingJob ? current.jobs.map((item) => item.id === existingJob.id ? { ...item, ...job, costs: item.costs, documentLinks: item.documentLinks, purchaseOrders: item.purchaseOrders, shopDrawings: item.shopDrawings } : item) : [job, ...current.jobs],
-        },
-        quote.id,
-        "Job created from accepted quote",
-        `${quote.number} was linked to Portal job ${portalJob.jobNumber} — ${portalJob.jobName}.`,
-      ),
-    );
+  const createPortalJob = async (requestId: string, draft: JobCreationDraft, client: Client) => {
+    if (!currentEstimator.isAdmin || saveStatus !== "saved" || saveInFlight.current || pendingSave.current) throw new Error("Wait until the current changes are saved before creating the job.");
+    const response = await fetch("/api/job-create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, draft, client }) });
+    const result = await response.json();
+    if (!response.ok || !result.state || !result.jobId) throw new Error(result.error || "The job could not be confirmed. Retry Create job to safely check the same request.");
+    const savedState = normalizeAppState(result.state);
+    lastSavedSnapshot.current = JSON.stringify(savedState);
+    pendingSave.current = null;
+    setState(savedState);
+    setLastSaved(result.updatedAt);
+    setSaveStatus("saved");
     setPendingCreateJobQuoteId(null);
+    setNewJobOpen(false);
     setSelectedQuoteId(null);
     setView("jobs");
-    setPendingJobNavigationId(job.id);
+    setPendingJobNavigationId(result.jobId);
+    const url = new URL(window.location.href); url.searchParams.delete("newJob"); window.history.replaceState(null, "", url);
   };
 
   const createChangeNotice = (job: Job, draft: ChangeNoticeDraft) => {
@@ -2045,6 +1993,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           setState={setState}
           currentEstimator={currentEstimator}
           directoryActionTarget={jobDirectoryActionTarget}
+          onNewJob={() => setNewJobOpen(true)}
           workspaceSaved={saveStatus === "saved"}
           job={selectedJob}
           tab={jobTab}
@@ -2176,15 +2125,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onConfirm={() => completeFinishQuote(pendingFinishQuote)}
         />
       )}
-      {pendingCreateJobQuote && (
-        <JobCreateModal
-          quote={pendingCreateJobQuote}
-          existingJobNumbers={state.jobs.filter((job) => job.quoteId || job.acceptedQuoteSnapshot).map((job) => job.jobNumber)}
-          portalJobs={portalJobs()}
-          onCancel={() => setPendingCreateJobQuoteId(null)}
-          onConfirm={(jobNumber) => createJobFromQuote(pendingCreateJobQuote, jobNumber)}
-        />
-      )}
+      {ready && currentEstimator.isAdmin && (newJobOpen || pendingCreateJobQuote) && <JobCreatePreview state={state} manager={currentEstimator.name} Picker={SearchablePicker} initialQuoteId={pendingCreateJobQuote?.id} workspaceSaved={saveStatus === "saved"} onCreate={createPortalJob} onClose={() => { setNewJobOpen(false); setPendingCreateJobQuoteId(null); const url = new URL(window.location.href); url.searchParams.delete("newJob"); window.history.replaceState(null, "", url); }} />}
       {pendingChangeNoticeJob && (
         <ChangeNoticeCreateModal
           job={pendingChangeNoticeJob}
@@ -2442,7 +2383,7 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     return matchesWorkSearch(dashboardSearch, ...values);
   };
   const matchingQuotes = searchTerms.length
-    ? (currentEstimator.isAdmin ? state.quotes : dashboardQuotes).filter((quote) => matchesSearch(
+    ? (currentEstimator.isAdmin ? state.quotes : dashboardQuotes).filter((quote) => quote.status !== "Won" && !state.jobs.some((job) => job.quoteId === quote.id) && matchesSearch(
       quote.number,
       quote.project,
       quote.site,
@@ -2760,7 +2701,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
   const normalized = search.toLowerCase();
   const quotes = state.quotes.filter((quote) => {
     if (isChangeNotice(quote)) return false;
-    if (quote.status === "Won") return false;
+    if (quote.status === "Won" || state.jobs.some((job) => job.quoteId === quote.id)) return false;
     const status = quoteDisplayStatus(quote);
     const matchesStatus = statusFilter === "All" || status === statusFilter;
     const haystack = `${quote.number} ${quote.preparedBy} ${clientName(state, quote.clientId)} ${quote.site} ${quote.project} ${quote.reference}`.toLowerCase();
@@ -2832,52 +2773,6 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
         </div>
       </section>
       {search.trim() ? renderQuoteTable(quotes) : <LibraryFolders records={quoteRecords} path={libraryPath} setPath={setLibraryPath} noun="quote" renderItems={renderQuoteTable} />}
-    </div>
-  );
-}
-
-function JobCreateModal({ quote, existingJobNumbers, portalJobs: availablePortalJobs, onCancel, onConfirm }: {
-  quote: Quote;
-  existingJobNumbers: string[];
-  portalJobs: PortalJobOption[];
-  onCancel: () => void;
-  onConfirm: (jobNumber: string) => void;
-}) {
-  const [jobNumber, setJobNumber] = useState("");
-  const [error, setError] = useState("");
-  const selectedPortalJob = availablePortalJobs.find((job) => job.jobNumber === jobNumber);
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const value = jobNumber.trim();
-    if (!value) {
-      setError("Choose an active job number from the JGC Portal job list.");
-      return;
-    }
-    if (existingJobNumbers.some((number) => number.trim().toLocaleLowerCase() === value.toLocaleLowerCase())) {
-      setError("That job number is already connected to another quote.");
-      return;
-    }
-    if (!availablePortalJobs.some((job) => job.active && job.jobNumber.trim().toLocaleLowerCase() === value.toLocaleLowerCase())) {
-      setError("That number is not an active job in the JGC Portal.");
-      return;
-    }
-    onConfirm(value);
-  };
-  return (
-    <div className="modal-layer" role="presentation" onMouseDown={onCancel}>
-      <section className="modal-card job-create-modal" role="dialog" aria-modal="true" aria-labelledby="create-job-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header><div><span className="eyebrow">ACCEPTED QUOTE HANDOFF</span><h2 id="create-job-title">Make into job</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
-        <form onSubmit={submit}>
-          <div className="job-create-content">
-            <div className="job-create-quote"><span>{quote.number} · Rev {quote.revision}</span><strong>{quote.project || "Project not named"}</strong></div>
-            <label className="field"><span>Portal job <b>*</b></span><SearchablePicker value={jobNumber} options={availablePortalJobs.filter((job) => job.active).map((job) => ({ id: job.id, label: job.jobNumber, detail: `${job.jobName}${job.customer ? ` · ${job.customer}` : ""}` }))} placeholder="Search by job number or job name" ariaLabel="Portal job" onSelect={(option) => { setJobNumber(option.label); setError(""); }} /></label>
-            {selectedPortalJob && <div className="selected-portal-job"><span>SELECTED PORTAL JOB</span><strong>{selectedPortalJob.jobNumber}</strong><p>{selectedPortalJob.jobName}</p></div>}
-            {error && <p className="field-error" role="alert">{error}</p>}
-            <div className="estimating-boundary-note"><strong>Connected to the Portal</strong><p>The quote will be linked to this existing job. If the Portal job later becomes inactive, it will move into the Estimate Desk archive automatically.</p></div>
-          </div>
-          <footer><button type="button" className="button secondary" onClick={onCancel}>Cancel</button><button type="submit" className="button success">Make into job</button></footer>
-        </form>
-      </section>
     </div>
   );
 }
@@ -5392,8 +5287,8 @@ function isLabourHourUnit(unit: string) {
 }
 
 function quotedJobCost(job: Job, linkedQuote: Quote | undefined) {
-  return acceptedQuoteBasis(job, linkedQuote).quote && Number.isFinite(job.originalCostBudget)
-    ? job.originalCostBudget : null;
+  return (job.hasQuotedValue || acceptedQuoteBasis(job, linkedQuote).quote) && Number.isFinite(job.acceptedRevenue)
+    ? job.acceptedRevenue : null;
 }
 
 function labourBudgetForQuote(quote: Quote | null) {
@@ -5645,12 +5540,13 @@ function shopDrawingIsSharedWithEmployees(job: Job, drawing: ShopDrawing) {
     && sharedLabel === `${drawing.number} · ${drawing.title}`.toLocaleLowerCase("en-CA");
 }
 
-function JobsPage({ state, setState, currentEstimator, directoryActionTarget, workspaceSaved, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
+function JobsPage({ state, setState, currentEstimator, directoryActionTarget, workspaceSaved, onNewJob, job, tab, setTab, onOpen, onBack, onAddCost, onCreateChangeNotice, onOpenQuote, onCreatePurchaseOrder, onEditPurchaseOrder, onDownloadPurchaseOrder, portalLabourActuals, jobCostingStatus, jobCostingMessage, onRefreshJobCosting }: {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
   currentEstimator: CurrentEstimator;
   directoryActionTarget: HTMLSpanElement | null;
   workspaceSaved: boolean;
+  onNewJob: () => void;
   job: Job | null;
   tab: JobTab;
   setTab: (tab: JobTab) => void;
@@ -5668,7 +5564,6 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   onRefreshJobCosting: () => void;
 }) {
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
-  const [jobPreviewOpen, setJobPreviewOpen] = useState(false);
   const [jobLayout, setJobLayout] = useWorkListLayout();
   const [jobSearch, setJobSearch] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
@@ -6312,9 +6207,9 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         </nav>
         <div className="job-tab-panel" id={jobTabPanelId} role="tabpanel" aria-labelledby={`${jobTabsBaseId}-tab-${tab}`}>
         {tab === "summary" && <>
-        {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted cost">
-          <div><span className="eyebrow">QUOTED COST</span><p>Accepted estimate cost · before tax</p></div>
-          <strong>{money(job.originalCostBudget)}</strong>
+        {currentEstimator.isAdmin && quotedJobCost(job, linkedQuote) !== null && <section className="panel job-quoted-cost" aria-label="Quoted price">
+          <div><span className="eyebrow">QUOTED PRICE</span><p>Customer quoted price · before tax</p></div>
+          <strong>{money(job.acceptedRevenue)}</strong>
         </section>}
         <div className={`estimating-boundary-note job-costing-connection ${jobCostingStatus === "restricted" || jobCostingStatus === "error" ? "has-warning" : ""}`}>
           <div><strong>{jobCostingStatus === "ready" ? "Portal costing connected" : "Linked to the JGC Portal"}</strong><p>{jobCostingStatus === "ready" ? "Submitted and current timesheet hours are matched by the official Portal job number. Labour cost uses the effective payroll rate, night premium when applicable, and the same 40% burden used by Accounting." : jobCostingStatus === "restricted" ? jobCostingMessage : jobCostingStatus === "error" ? jobCostingMessage : job.portalJobId ? "This estimate follows the matching Portal job number and active/archive status." : "This older estimator job is not linked yet. Reconnect it from its accepted quote if needed."}</p></div>
@@ -6651,7 +6546,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const renderJobTable = (items: Job[], yearLabel?: string) => (
     <section className="panel table-panel">
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th>{currentEstimator.isAdmin && <th>Quoted cost</th>}<th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th>{currentEstimator.isAdmin && <th>Quoted price</th>}<th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} className={jobDisplayStatus(item) === "Discuss invoice" ? "job-invoice-review" : undefined} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
@@ -6659,12 +6554,12 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
           <td data-label="Project manager">{managerForJob(item).label}</td>
           <td data-label="Type">{item.jobType || "Not set"}</td>
-          {currentEstimator.isAdmin && <td data-label="Quoted cost" className="job-quoted-cost-cell">{quotedJobCost(item, linkedQuote) === null ? <span aria-label="No quoted cost">—</span> : <strong>{money(item.originalCostBudget)}</strong>}</td>}
+          {currentEstimator.isAdmin && <td data-label="Quoted price" className="job-quoted-cost-cell">{quotedJobCost(item, linkedQuote) === null ? <span aria-label="No quoted price">—</span> : <strong>{money(item.acceptedRevenue)}</strong>}</td>}
           <td data-label="Status"><StatusPill status={jobDisplayStatus(item)} /></td>
           <td data-label="Change status">{renderJobStatusAction(item)}</td>
         </tr>;
       })}</tbody></table></div>
-      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{searchingAllJobStatuses ? "Clear the search or change the project manager filter to see more jobs." : managerFilter ? "Change the manager/status filters to see more jobs." : "Refresh the shared job list or use Excel job-list upload. Accepted quotes also appear here when made into jobs."}</p>{(searchingAllJobStatuses || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
+      {!items.length && <div className="empty-state"><span>⌕</span><h3>No {filteredStatusLabel} jobs found</h3><p>{searchingAllJobStatuses ? "Clear the search or change the project manager filter to see more jobs." : managerFilter ? "Change the manager/status filters to see more jobs." : "Refresh the shared job list or use New job."}</p>{(searchingAllJobStatuses || managerFilter) && <button className="button secondary" onClick={() => { setJobSearch(""); setManagerFilter(""); }}>Clear filters</button>}</div>}
     </section>
   );
   const renderJobResults = (items: Job[], yearLabel?: string) => jobLayout === "list" || !items.length
@@ -6680,24 +6575,23 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
           <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
           {linkedQuote && <small>{linkedQuote.number}</small>}
-          {currentEstimator.isAdmin && quotedJobCost(item, linkedQuote) !== null && <span className="job-tile-quoted-cost">Quoted cost <strong>{money(item.originalCostBudget)}</strong></span>}
+          {currentEstimator.isAdmin && quotedJobCost(item, linkedQuote) !== null && <span className="job-tile-quoted-cost">Quoted price <strong>{money(item.acceptedRevenue)}</strong></span>}
         </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
       })}</div>
     </section>;
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
-      <PageHeading title="Jobs" actions={currentEstimator.isAdmin && <button type="button" className="button secondary job-preview-launch" onClick={() => setJobPreviewOpen(true)}>＋ New job <span>Preview</span></button>} />
-      {jobPreviewOpen && currentEstimator.isAdmin && <JobCreatePreview state={state} manager={currentEstimator.name} Picker={SearchablePicker} onClose={() => setJobPreviewOpen(false)} />}
+      <PageHeading title="Jobs" actions={currentEstimator.isAdmin && <button type="button" className="button secondary job-preview-launch" onClick={onNewJob}>＋ New job</button>} />
       {directoryActionTarget && createPortal(<button className="button secondary compact job-directory-refresh-button" disabled={directoryRefreshing || statusSaving} aria-busy={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}><span aria-hidden="true">↻</span>{directoryRefreshing ? "Refreshing…" : "Refresh jobs"}</button>, directoryActionTarget)}
       <div className="job-directory-controls">
       {directoryMessage && <p role="status">{directoryMessage}</p>}
       {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
       <div className="job-directory-file-tools">
-      <details className="job-import-disclosure"><summary>Excel job-list upload</summary>
+      {EXCEL_JOB_IMPORT_ENABLED && <details className="job-import-disclosure"><summary>Excel job-list upload</summary>
         <p className="job-last-import" data-testid="job-last-import"><strong>Last import date:</strong> {(() => { const latest = Math.max(0, ...state.jobs.map((item) => Date.parse(item.lastImportedAt || "") || 0)); return latest ? new Date(latest).toLocaleString("en-CA") : "Not recorded — shown after the next Excel import"; })()}</p>
-        {!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>
-      <details className="job-accounting-disclosure"><summary>Excel job-list download</summary><JobAccountingPanel workspaceSaved={workspaceSaved} /></details>
+        {!workspaceSaved && <p className="statistics-empty-line" role="status">Save the current workspace changes before importing so newly linked quotes are protected. If saving failed, use Retry saving estimate at the top.</p>}<fieldset className="job-import-fieldset" disabled={!workspaceSaved}><JobImportPanel onImported={refreshDirectory} /></fieldset></details>}
+
       </div>
       <section className="job-kpi-grid overview">
         <div><span>Active jobs</span><strong>{state.jobs.filter((item) => item.status === "Active").length}</strong><small>Official + linked estimating jobs</small></div>
@@ -6722,6 +6616,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </details>;
         })}
       </section> : renderJobResults(visibleJobs)}
+      <details className="job-accounting-disclosure"><summary>Excel job-list download</summary><JobAccountingPanel workspaceSaved={workspaceSaved} /></details>
     </div>
   );
 }

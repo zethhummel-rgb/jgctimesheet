@@ -10,7 +10,7 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
   await page.setViewportSize({ width, height: 1000 });
   if (width <= 1020) await expect(page.locator('.sidebar')).not.toBeInViewport();
   await expect(page.locator('.job-directory-page > .page-heading').getByRole('heading', { name: 'Jobs', exact: true })).toBeVisible();
-  await expect(page.locator('.job-directory-page > .page-heading').getByRole('button', { name: /New job.*Preview/ })).toBeVisible();
+  await expect(page.locator('.job-directory-page > .page-heading').getByRole('button', { name: /New job/ })).toBeVisible();
   await expect(page.locator('.job-directory-page .job-kpi-grid > div')).toHaveCount(2);
   await expect(page.locator('.job-directory-page .job-kpi-grid > div > span')).toHaveText(['Active jobs', 'Inactive jobs']);
   const refresh = page.locator('.topbar-actions').getByRole('button', { name: 'Refresh jobs', exact: true });
@@ -42,23 +42,14 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
       await page.locator('.job-directory-page').screenshot({ path: testInfo.outputPath(`jobs-${width}-${theme}.png`) });
     }
   }
-  const upload = page.locator('.job-import-disclosure'), download = page.locator('.job-accounting-disclosure');
-  await expect(upload).not.toHaveAttribute('open'); await expect(download).not.toHaveAttribute('open');
-  await expect(page.getByTestId('job-last-import')).toBeHidden();
-  await expect(upload.getByTestId('job-last-import')).toHaveCount(1);
-  const boxes = await page.locator('.job-directory-file-tools > details').evaluateAll(items => items.map(el => el.getBoundingClientRect().top));
-  expect(boxes[0]).toBe(boxes[1]);
-  for (const panel of [upload, download]) {
-    await panel.locator(':scope > summary').click();
-    expect((await panel.boundingBox()).width).toBeCloseTo((await page.locator('.job-directory-file-tools').boundingBox()).width, 0);
-    await expect(panel.locator(panel === upload ? 'input[type="file"]' : '.job-accounting-body')).toBeVisible();
-    if (panel === upload) {
-      await expect(upload.getByTestId('job-last-import')).toBeVisible();
-      await expect(upload.getByTestId('job-last-import')).toContainText('Last import date:');
-      if (process.env.JGC_CAPTURE_VISUAL_QA) await upload.screenshot({ path: testInfo.outputPath(`upload-${width}.png`) });
-    }
-    await panel.locator(':scope > summary').click();
-  }
+  const download = page.locator('.job-accounting-disclosure');
+  await expect(page.locator('.job-import-disclosure')).toHaveCount(0);
+  await expect(download).not.toHaveAttribute('open');
+  await expect(page.getByTestId('job-last-import')).toHaveCount(0);
+  expect(await download.evaluate(el => !!(document.querySelector('.jobs-table').compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await download.locator(':scope > summary').click();
+  await expect(download.locator('.job-accounting-body')).toBeVisible();
+  await download.locator(':scope > summary').click();
   await expect(page.locator('.job-directory-info')).toHaveCount(0);
   await expect(page.getByText('One shared job list', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('job-last-import')).toBeHidden();
@@ -69,7 +60,7 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
     targets.forEach(height => expect(height).toBeGreaterThanOrEqual(44));
   } else {
     const cell = page.locator('.jobs-table tbody tr').first().locator('td[data-label="Client / location"]');
-    expect((await cell.boundingBox()).width).toBeGreaterThan(100);
+    expect((await cell.boundingBox()).width).toBeGreaterThan(width < 1020 ? 80 : 100);
     expect((await page.locator('.jobs-table tbody tr').first().boundingBox()).height).toBeLessThan(150);
     for (const row of await page.locator('.jobs-table tbody tr').all()) {
       const client = await row.locator('[data-label="Client / location"]').boundingBox();

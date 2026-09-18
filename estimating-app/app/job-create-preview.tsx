@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { quoteTotals, type AppState, type Client, type Quote } from "../lib/estimator-data";
+import type { JobCreationDraft as Draft } from "../lib/job-creation";
 import { jobManagerIdentity } from "../lib/job-manager-names";
 
 type Option = { id: string; label: string; detail?: string };
@@ -8,27 +9,14 @@ interface PickerProps {
   allowCustom?: boolean; onChange?: (value: string) => void; onSelect: (option: Option) => void;
   addLabel?: string; onAdd?: (value: string) => void;
 }
-interface Draft {
-  quoteId: string; jobName: string; clientId: string; site: string; address: string; attention: string;
-  clientReference: string; jobType: "Contract" | "T&M"; value: string; subcontractors: "Yes" | "No";
-  jobDate: string; startDate: string; targetEndDate: string; manager: string; documents: string; notes: string;
-}
+
 type ClientDraft = { mode: "client" | "site" | "attention"; name: string; site: string; address: string; attention: string };
 const key = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-CA");
 const localDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
-// Display only. This must never reserve a number or become the issuing algorithm.
-function suggestedNumber(jobs: AppState["jobs"], date: string) {
-  if (!/^20\d{2}-\d{2}-\d{2}$/.test(date)) return "Assigned after approval";
-  const prefix = date.slice(2, 4);
-  const used = jobs.map((job) => job.jobNumber.trim()).filter((number) => /^\d{5}$/.test(number) && number.startsWith(prefix));
-  const highest = Math.max(Number(prefix) * 1000, ...used.map(Number));
-  return highest % 1000 === 999 ? "Confirm next number with accounting" : String(highest + 1).padStart(5, "0");
-}
-
-/** A deliberately isolated rehearsal: no workspace setter, API, storage or save callback. */
-export function JobCreatePreview({ state, manager, Picker, onClose }: {
+export function JobCreatePreview({ state, manager, Picker, onClose, initialQuoteId, onCreate, workspaceSaved }: {
   state: AppState; manager: string; Picker: ComponentType<PickerProps>; onClose: () => void;
+  initialQuoteId?: string; workspaceSaved: boolean; onCreate: (requestId: string, draft: Draft, client: Client) => Promise<void>;
 }) {
   const [clients, setClients] = useState(state.clients);
   const [draft, setDraft] = useState<Draft>({
@@ -37,6 +25,10 @@ export function JobCreatePreview({ state, manager, Picker, onClose }: {
     manager: jobManagerIdentity(manager).label || manager, documents: "", notes: "",
   });
   const [clientDraft, setClientDraft] = useState<ClientDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const busy = useRef(false);
+  const requestId = useRef(crypto.randomUUID());
+  const [saveError, setSaveError] = useState("");
   const [checked, setChecked] = useState(false);
   const dialog = useRef<HTMLElement>(null);
   const linkedQuote = state.quotes.find((quote) => quote.id === draft.quoteId);
@@ -58,11 +50,11 @@ export function JobCreatePreview({ state, manager, Picker, onClose }: {
   }, [clientDraft]);
 
   const errors: Partial<Record<keyof Draft, string>> = {};
-  if (!draft.jobName.trim()) errors.jobName = "Enter a job name / scope.";
-  if (!client) errors.clientId = "Select a client or add one to this preview.";
-  if (!draft.jobDate) errors.jobDate = "Choose a job date.";
-  if (!draft.manager) errors.manager = "Choose a project manager.";
-  if (draft.jobType === "Contract" && !draft.value.trim()) errors.value = "Enter the contract value or select a finished quote.";
+  if (!draft.jobName.trim()) errors.jobName = "This information is required.";
+  if (!client) errors.clientId = "This information is required.";
+
+  if (!draft.manager) errors.manager = "This information is required.";
+  if (draft.jobType === "Contract" && !draft.value.trim()) errors.value = "This information is required.";
   if (draft.value.trim() && (!Number.isFinite(Number(draft.value)) || Number(draft.value) < 0)) errors.value = "Enter a valid amount of zero or more.";
   if (draft.startDate && draft.targetEndDate && draft.targetEndDate < draft.startDate) errors.targetEndDate = "Target completion cannot be before the start date.";
   if (draft.documents.trim()) {
@@ -87,6 +79,17 @@ export function JobCreatePreview({ state, manager, Picker, onClose }: {
       subcontractors: quote.lines.some((line) => line.included && line.costType === "Sub / Vendor") ? "Yes" : "No",
     }));
   };
+  useEffect(() => { if (initialQuoteId) selectQuote(initialQuoteId); }, [initialQuoteId]);
+  const close = () => { if (!busy.current) onClose(); };
+  const submit = async () => {
+    setChecked(true); setSaveError("");
+    if (busy.current || Object.keys(errors).length || !client) return;
+    if (!workspaceSaved) { setSaveError("Wait until the current changes are saved before creating the job."); return; }
+    busy.current = true; setSaving(true);
+    try { await onCreate(requestId.current, draft, client); }
+    catch (error) { setSaveError(error instanceof Error ? error.message : "The job could not be created. Try again."); }
+    finally { busy.current = false; setSaving(false); }
+  };
   const openClient = (mode: ClientDraft["mode"], value: string) => {
     if (mode !== "client" && !client) return;
     setClientDraft({ mode, name: mode === "client" ? value : client?.name || "",
@@ -101,30 +104,27 @@ export function JobCreatePreview({ state, manager, Picker, onClose }: {
     if (event.key === "Escape") {
       // First Escape dismisses a picker; it must not also discard this form.
       if ((event.target as HTMLElement).getAttribute("aria-expanded") === "true") return;
-      event.stopPropagation(); onClose();
+      event.stopPropagation(); close();
     }
     trapPreviewFocus(event, dialog.current);
   }}>
     <section ref={dialog} className="modal-card job-preview-modal" role="dialog" aria-modal={clientDraft ? undefined : true} aria-labelledby="job-preview-title" inert={clientDraft ? true : undefined}>
-      <header><div><span className="eyebrow">PREVIEW · AWAITING APPROVAL</span><h2 id="job-preview-title">New job</h2></div><button type="button" aria-label="Close job preview" onClick={onClose}>×</button></header>
-      <form noValidate onSubmit={(event) => { event.preventDefault(); setChecked(true); }}>
-        <p className="job-preview-notice">Try the form without saving. No jobs, clients or numbers are created; closing clears this preview.</p>
-        <div className="job-preview-grid">
+      <header><div><span className="eyebrow">NEW PORTAL JOB</span><h2 id="job-preview-title">New job</h2></div><button type="button" aria-label="Close new job" disabled={saving} onClick={close}>×</button></header>
+      <form noValidate onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <p className="job-preview-notice">Review the details, then select Create job. The job number and job date are assigned when it is saved.</p>
+        <fieldset className="job-create-fields" disabled={saving}><div className="job-preview-grid">
           <label className="field full"><span>Job name / scope <b>*</b></span><input id="new-job-name" value={draft.jobName} onChange={(event) => update("jobName", event.target.value)} aria-invalid={checked && !!errors.jobName} placeholder="e.g. Sump pump inspections" maxLength={300} />{inlineError("jobName")}</label>
-          <div className="field full job-preview-quote"><span>Fill from a finished quote <em>Optional · preview only</em></span><Picker value={linkedQuote?.number || ""} options={availableQuotes.map((quote) => ({ id: quote.id, label: quote.number, detail: `${quote.project} · ${clients.find((item) => item.id === quote.clientId)?.name || ""} · Rev ${quote.revision}` }))} placeholder="Search quote #, client or project" ariaLabel="Preview linked quote" onSelect={(option) => selectQuote(option.id)} />
-            {linkedQuote ? <small>{linkedQuote.project} · Rev {linkedQuote.revision} <button type="button" className="back-button" onClick={() => update("quoteId", "")}>Unlink preview</button></small> : <small>Leave blank for a job without a quote. The existing “Make into job” action is unchanged.</small>}
-          </div>
-          <div className="field"><span>Client <b>*</b></span><Picker value={client?.name || ""} options={clients.map((item) => ({ id: item.id, label: item.name })).sort((a, b) => a.label.localeCompare(b.label))} placeholder="Search or add a client" ariaLabel="New job client" onSelect={(option) => setDraft((current) => ({ ...current, clientId: option.id, site: "", address: "", attention: "", quoteId: "", value: "", clientReference: "", subcontractors: "No" }))} onAdd={(value) => openClient("client", value)} addLabel="Add new client" />{inlineError("clientId")}</div>
+          <div className={`field${checked && errors.clientId ? " job-field-invalid" : ""}`}><span>Client <b>*</b></span><Picker value={client?.name || ""} options={clients.map((item) => ({ id: item.id, label: item.name })).sort((a, b) => a.label.localeCompare(b.label))} placeholder="Search or add a client" ariaLabel="New job client" onSelect={(option) => setDraft((current) => ({ ...current, clientId: option.id, site: "", address: "", attention: "", quoteId: "", value: "", clientReference: "", subcontractors: "No" }))} onAdd={(value) => openClient("client", value)} addLabel="Add new client" />{inlineError("clientId")}</div>
           <div className="field"><span>Attention / contact</span><Picker value={draft.attention} options={(client?.contacts || []).map((contact) => ({ id: contact.id, label: contact.name, detail: [contact.email, contact.phone].filter(Boolean).join(" · ") }))} disabled={!client} placeholder={client ? "Search or add a contact" : "Select a client first"} ariaLabel="New job attention" onSelect={(option) => update("attention", option.label)} onAdd={(value) => openClient("attention", value)} addLabel="Add new attention" /></div>
           <div className="field"><span>Site name</span><Picker value={draft.site} options={(client?.sites || []).map((site) => ({ id: site.id, label: site.label, detail: site.address }))} disabled={!client} placeholder={client ? "Search or add a site" : "Select a client first"} ariaLabel="New job site" onSelect={(option) => setDraft((current) => ({ ...current, site: option.label, address: client?.sites.find((site) => site.id === option.id)?.address || "" }))} onAdd={(value) => openClient("site", value)} addLabel="Add new site" /></div>
           <label className="field"><span>Site address</span><input value={draft.address} onChange={(event) => update("address", event.target.value)} /></label>
-          <label className="field"><span>Next job # <em>Preview only</em></span><input readOnly value={suggestedNumber(state.jobs, draft.jobDate)} /><small>Based on the job-date year and loaded list. Not reserved.</small></label>
+          <label className="field"><span>Job number</span><input aria-label="Job number" readOnly value="Assigned when saved" /><small>Opening this form does not reserve a number.</small></label>
           <label className="field"><span>Client PO#/WO# <em>Optional</em></span><input value={draft.clientReference} onChange={(event) => update("clientReference", event.target.value)} maxLength={150} /></label>
           <label className="field"><span>Job type <b>*</b></span><select value={draft.jobType} onChange={(event) => update("jobType", event.target.value as Draft["jobType"])}><option>Contract</option><option>T&amp;M</option></select></label>
-          <label className="field"><span>Job value <em>Before tax{draft.jobType === "T&M" ? " · optional" : ""}</em></span><input inputMode="decimal" value={draft.value} readOnly={!!linkedQuote} onChange={(event) => update("value", event.target.value)} aria-invalid={checked && !!errors.value} placeholder={draft.jobType === "T&M" ? "No fixed value" : "Enter amount"} />{linkedQuote && <small>From quote Rev {linkedQuote.revision}. Unlink the preview to enter an amount freely.</small>}{inlineError("value")}</label>
+          <label className="field"><span>Job value {draft.jobType === "Contract" && <b>* </b>}<em>Before tax{draft.jobType === "T&M" ? " · optional" : ""}</em></span><input inputMode="decimal" value={draft.value} readOnly={!!linkedQuote} onChange={(event) => update("value", event.target.value)} aria-invalid={checked && !!errors.value} placeholder={draft.jobType === "T&M" ? "No fixed value" : "Enter amount"} />{linkedQuote && <small>From quote Rev {linkedQuote.revision}. Unlink the quote to enter an amount freely.</small>}{inlineError("value")}</label>
           <label className="field"><span>Subcontractors</span><select value={draft.subcontractors} onChange={(event) => update("subcontractors", event.target.value as Draft["subcontractors"])}><option>No</option><option>Yes</option></select><small>Yes tells accounting to expect a subcontractor invoice.</small></label>
           <label className="field"><span>Project manager <b>*</b></span><select value={draft.manager} onChange={(event) => update("manager", event.target.value)} aria-invalid={checked && !!errors.manager}><option value="">Choose a manager</option>{managers.map((name) => <option key={name}>{name}</option>)}</select>{inlineError("manager")}</label>
-          <label className="field"><span>Job date <b>*</b></span><input type="date" value={draft.jobDate} onChange={(event) => update("jobDate", event.target.value)} aria-invalid={checked && !!errors.jobDate} />{inlineError("jobDate")}</label>
+          <label className="field"><span>Job date</span><input readOnly value="Today — assigned when saved" /></label>
           <label className="field"><span>Start date <em>Optional</em></span><input type="date" value={draft.startDate} onChange={(event) => update("startDate", event.target.value)} /></label>
           <label className="field"><span>Target completion <em>Optional</em></span><input type="date" value={draft.targetEndDate} onChange={(event) => update("targetEndDate", event.target.value)} aria-invalid={checked && !!errors.targetEndDate} />{inlineError("targetEndDate")}</label>
           {possibleDuplicates.length > 0 && <div className="job-preview-warning full" role="status"><strong>Check similar active jobs: {possibleDuplicates.map((job) => job.jobNumber).join(", ")}</strong><p>The name matches and the Client PO#/WO# is the same or not recorded. A different recorded PO#/WO# is a separate job. Closed jobs are ignored; this is only a warning.</p></div>}
@@ -132,9 +132,13 @@ export function JobCreatePreview({ state, manager, Picker, onClose }: {
             <label className="field full"><span>Project documents link</span><input type="url" value={draft.documents} onChange={(event) => update("documents", event.target.value)} aria-invalid={checked && !!errors.documents} placeholder="https://…" />{inlineError("documents")}</label>
             <label className="field full"><span>Internal notes</span><textarea rows={3} value={draft.notes} onChange={(event) => update("notes", event.target.value)} /></label>
           </div></details>
-        </div>
-        {checked && <p className={Object.keys(errors).length ? "job-preview-error job-preview-check" : "job-preview-notice"} role="status">{Object.keys(errors).length ? Object.values(errors).join(" ") : "Details checked. This is still a preview; nothing has been saved."}</p>}
-        <footer><button type="button" className="button secondary" onClick={onClose}>Close preview</button><button type="submit" className="button secondary">Check details</button><button type="button" className="button primary" disabled title="Job creation is disabled until approval">Create job — awaiting approval</button></footer>
+          <div className="field full job-preview-quote"><span>Fill from a finished quote <em>Optional</em></span><Picker value={linkedQuote?.number || ""} options={availableQuotes.map((quote) => ({ id: quote.id, label: quote.number, detail: `${quote.project} · ${clients.find((item) => item.id === quote.clientId)?.name || ""} · Rev ${quote.revision}` }))} placeholder="Search quote #, client or project" ariaLabel="Fill from finished quote" onSelect={(option) => selectQuote(option.id)} />
+            {linkedQuote ? <small>{linkedQuote.project} · Rev {linkedQuote.revision} <button type="button" className="back-button" onClick={() => update("quoteId", "")}>Unlink quote</button></small> : <small>Leave blank for a job without a quote.</small>}
+          </div>
+        </div></fieldset>
+        {saveError && <p className="job-preview-error" role="alert">{saveError}</p>}
+        {checked && <p className={Object.keys(errors).length ? "job-preview-error job-preview-check" : "job-preview-notice"} role="status">{Object.keys(errors).length ? Object.values(errors).join(" ") : "Details checked. Select Create job to save."}</p>}
+        <footer><button type="button" className="button secondary" disabled={saving} onClick={close}>Cancel</button><button type="button" className="button secondary" disabled={saving} onClick={() => setChecked(true)}>Check details</button><button type="submit" className="button primary" disabled={saving || !workspaceSaved}>{saving ? "Creating job…" : "Create job"}</button></footer>
       </form>
     </section>
     {clientDraft && <PreviewClientDialog draft={clientDraft} clients={clients} selectedClient={client} onClose={() => setClientDraft(null)} onApply={(nextClient, site, address, attention) => {
@@ -163,28 +167,28 @@ function PreviewClientDialog({ draft, clients, selectedClient, onClose, onApply 
     dialog.current?.querySelector<HTMLInputElement>(draft.mode === "site" ? '[name="site"]' : draft.mode === "attention" ? '[name="attention"]' : '[name="name"]')?.focus();
     return () => { previous?.focus(); };
   }, [draft.mode]);
-  return <div className="modal-layer job-preview-client-layer" onKeyDown={(event) => { event.stopPropagation(); if (event.key === "Escape") onClose(); trapPreviewFocus(event, dialog.current); }}>
-    <section ref={dialog} className="modal-card job-preview-modal job-preview-client-modal" role="dialog" aria-modal="true" aria-labelledby="job-preview-client-title">
-      <header><div><span className="eyebrow">PREVIEW ONLY</span><h2 id="job-preview-client-title">{draft.mode === "client" ? "Add new client" : draft.mode === "site" ? "Add new site" : "Add new attention"}</h2></div><button type="button" aria-label="Close client preview" onClick={onClose}>×</button></header>
+  return <div className="modal-layer job-client-layer" onKeyDown={(event) => { event.stopPropagation(); if (event.key === "Escape") onClose(); trapPreviewFocus(event, dialog.current); }}>
+    <section ref={dialog} className="modal-card job-preview-modal job-client-modal" role="dialog" aria-modal="true" aria-labelledby="job-client-title">
+      <header><div><span className="eyebrow">CLIENT DETAILS</span><h2 id="job-client-title">{draft.mode === "client" ? "Add new client" : draft.mode === "site" ? "Add new site" : "Add new attention"}</h2></div><button type="button" aria-label="Close client details" onClick={onClose}>×</button></header>
       <form onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         const value = (name: string) => String(data.get(name) || "").trim();
         const name = value("name"), attention = value("attention"), site = value("site"), address = value("address");
         const existing = draft.mode === "client" ? clients.find((item) => key(item.name) === key(name)) : selectedClient;
-        const next: Client = existing ? { ...existing, sites: [...existing.sites], contacts: [...(existing.contacts || [])] } : { id: `preview-client-${crypto.randomUUID()}`, name, contact: attention, email: value("email"), phone: value("phone"), sites: [], contacts: [], notes: "" };
+        const next: Client = existing ? { ...existing, sites: [...existing.sites], contacts: [...(existing.contacts || [])] } : { id: `client-${crypto.randomUUID()}`, name, contact: attention, email: value("email"), phone: value("phone"), sites: [], contacts: [], notes: "" };
         if (site) {
           const saved = next.sites.find((item) => key(item.label) === key(site));
-          next.sites = saved ? next.sites.map((item) => item.id === saved.id ? { ...item, address: address || item.address } : item) : [...next.sites, { id: `preview-site-${crypto.randomUUID()}`, label: site, address }];
+          next.sites = saved ? next.sites.map((item) => item.id === saved.id ? { ...item, address: address || item.address } : item) : [...next.sites, { id: `site-${crypto.randomUUID()}`, label: site, address }];
         }
         if (attention) {
           const saved = next.contacts?.find((item) => key(item.name) === key(attention));
-          const contact = { id: saved?.id || `preview-contact-${crypto.randomUUID()}`, name: attention, role: value("role") || saved?.role || "", email: value("email") || saved?.email || "", phone: value("phone") || saved?.phone || "", extension: value("extension") || saved?.extension || "" };
+          const contact = { id: saved?.id || `contact-${crypto.randomUUID()}`, name: attention, role: value("role") || saved?.role || "", email: value("email") || saved?.email || "", phone: value("phone") || saved?.phone || "", extension: value("extension") || saved?.extension || "" };
           next.contacts = saved ? next.contacts?.map((item) => item.id === saved.id ? contact : item) : [...(next.contacts || []), contact];
         }
         onApply(next, site, address || next.sites.find((item) => key(item.label) === key(site))?.address || "", attention);
       }}>
-        <p className="job-preview-notice">These details stay in this preview only. Your saved client list will not change.</p>
+        <p className="job-preview-notice">These details will be saved with the new job.</p>
         <div className="job-preview-grid">
           <label className="field full"><span>Client name <b>*</b></span><input name="name" defaultValue={draft.name} readOnly={draft.mode !== "client"} required /></label>
           <label className="field"><span>Attention name{draft.mode === "attention" && <b> *</b>}</span><input name="attention" defaultValue={draft.attention} required={draft.mode === "attention"} /></label>
@@ -195,7 +199,7 @@ function PreviewClientDialog({ draft, clients, selectedClient, onClose, onApply 
           <label className="field"><span>Site name{draft.mode === "site" && <b> *</b>}</span><input name="site" defaultValue={draft.site} required={draft.mode === "site"} /></label>
           <label className="field full"><span>Address</span><input name="address" defaultValue={draft.address} /></label>
         </div>
-        <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary">Use in preview</button></footer>
+        <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary">Use these details</button></footer>
       </form>
     </section>
   </div>;

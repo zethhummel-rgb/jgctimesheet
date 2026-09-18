@@ -215,6 +215,7 @@ async function openImportPanel(page, options = {}) {
 }
 
 test("Import preview makes no changes until confirmation and deactivates only explicitly reviewed missing jobs", async ({ page }, testInfo) => {
+  test.skip(fs.readFileSync(path.join(root,"estimating-app/src/portal-api.ts"),"utf8").includes("EXCEL_JOB_IMPORT_ENABLED = false"), "Excel upload retained for rollback; disabled during portal-only entry.");
   const { panel, requests } = await openImportPanel(page);
   expect(requests.map((request) => request.action)).toEqual(["preview"]);
   const submit = panel.getByRole("button", { name: /^Confirm and import 1 jobs?$/ });
@@ -240,6 +241,7 @@ test("Import preview makes no changes until confirmation and deactivates only ex
 });
 
 test("Missing jobs stay unchanged by default and a refresh failure does not offer a saved import for retry", async ({ page }) => {
+  test.skip(fs.readFileSync(path.join(root,"estimating-app/src/portal-api.ts"),"utf8").includes("EXCEL_JOB_IMPORT_ENABLED = false"), "Excel upload retained for rollback; disabled during portal-only entry.");
   const { panel, requests } = await openImportPanel(page, { refreshFails: true });
   await panel.getByRole("checkbox", { name: /I have reviewed/ }).check();
   await panel.getByRole("button", { name: /^Confirm and import 1 jobs?$/ }).click();
@@ -249,6 +251,7 @@ test("Missing jobs stay unchanged by default and a refresh failure does not offe
 });
 
 test("A stale import clears confirmation, requires a fresh preview and remains contained on mobile", async ({ page }, testInfo) => {
+  test.skip(fs.readFileSync(path.join(root,"estimating-app/src/portal-api.ts"),"utf8").includes("EXCEL_JOB_IMPORT_ENABLED = false"), "Excel upload retained for rollback; disabled during portal-only entry.");
   await page.setViewportSize({ width: 390, height: 844 });
   const { panel, requests } = await openImportPanel(page, { stale: true });
   await panel.getByRole("checkbox", { name: /I have reviewed/ }).check();

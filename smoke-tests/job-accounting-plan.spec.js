@@ -203,3 +203,5 @@ test("legacy snapshots retain a previously excluded job even if it is no longer 
   expect(row.cells[9]).toBe(88);
   expect(result.summary.total).toBe(5);
 });
+
+test('portal-only job exports selling price, PO, subcontractors and creation date',()=>{const preview=fixture();preview.sourceSnapshot.push(job('26999',{price:1500,extras:0,customerPo:'PO-NEW',subcontractors:'Yes',jobDate:'2026-09-18'}));const row=plan(preview).rows.find(r=>r.jobNumber==='26999');expect(row.cells[9]).toBe(1500);expect(row.cells[6]).toBe('PO-NEW');expect(row.cells[12]).toBe('Yes');expect(row.cells[13]).toEqual({date:'2026-09-18'});});

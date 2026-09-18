@@ -20,7 +20,7 @@ function previewState() {
 }
 async function openPreview(page, state = previewState()) {
   const captures = await serveDirectory(page, state);
-  await page.getByRole("button", { name: /New job.*Preview/ }).click();
+  await page.getByRole("button", { name: /New job/ }).click();
   await expect(page.getByRole("dialog", { name: "New job", exact: true })).toBeVisible();
   return captures;
 }
@@ -29,46 +29,29 @@ async function choose(page, name, value) {
   await page.getByRole("option").filter({ hasText: value }).first().click();
 }
 
-test("job preview has no persistence route and no creation handler", () => {
-  const source = readFileSync(path.join(__dirname, "../estimating-app/app/job-create-preview.tsx"), "utf8");
-  expect(source).not.toMatch(/\bfetch\s*\(|localStorage|sessionStorage|indexedDB|supabase|setState\s*\(/);
-  expect(source).toContain('disabled title="Job creation is disabled until approval"');
-  expect(source).not.toContain("Not-to-exceed");
-});
-
-test("preview validates details without saving, numbering or affecting Excel tools", async ({ page }) => {
-  const captures = await openPreview(page);
-  await page.getByLabel(/Job date/).fill("2026-09-12");
-  await expect(page.getByLabel(/Next job #/)).toHaveValue("26904");
-  await expect(page.getByRole("button", { name: /Create job/ })).toBeDisabled();
-  await page.getByRole("button", { name: "Check details" }).click();
-  await expect(page.locator("#new-job-name")).toHaveAttribute("aria-invalid", "true");
-  await choose(page, "New job client", "Quoted Contract Client");
-  await page.getByLabel(/Job name \/ scope/).fill("New inspection visit");
-  await page.getByLabel(/Job type/).selectOption("T&M");
-  await page.getByLabel("Subcontractors", { exact: false }).selectOption("Yes");
-  await expect(page.getByRole("option", { name: "Yes", exact: true })).toHaveCount(1);
-  await expect(page.getByLabel(/Job value/)).toHaveValue("");
-  await page.getByRole("button", { name: "Check details" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Details checked" })).toBeVisible();
-  await page.locator("#new-job-name").press("Enter");
-  await page.waitForTimeout(1200); // Beyond the workspace autosave debounce: preview must never write.
+test("new job validates missing fields and cancelling makes no writes", async ({page}) => {
+  const captures=await openPreview(page);
+  await expect(page.getByLabel("Job number",{exact:true})).toHaveValue("Assigned when saved");
+  await page.getByRole("button",{name:"Create job",exact:true}).click();
+  await expect(page.locator("#new-job-name")).toHaveAttribute("aria-invalid","true");
+  await expect(page.getByText("This information is required.",{exact:true}).first()).toBeVisible();
+  await expect(page.getByLabel(/Job value/)).toHaveAttribute("aria-invalid","true");
   expect(captures.writes).toEqual([]);
-  expect(captures.jobInfo).toEqual([]);
-  expect(captures.unexpectedRequests).toEqual([]);
-  await page.getByRole("button", { name: "Close preview", exact: true }).click();
-  await expect(page.getByText("Excel job-list upload", { exact: true })).toBeVisible();
-  await expect(page.getByText("Excel job-list download", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /New job.*Preview/ }).click();
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(page.getByText("Excel job-list upload",{exact:true})).toHaveCount(0);
+  await expect(page.getByText("Excel job-list download",{exact:true})).toBeVisible();
+  const download=await page.locator('.job-accounting-disclosure').boundingBox();
+  const results=await page.locator('.jobs-table').boundingBox();
+  expect(download.y).toBeGreaterThan(results.y+results.height);
+  await page.getByRole("button",{name:/New job/}).click();
   await expect(page.locator("#new-job-name")).toHaveValue("");
-  await page.getByLabel(/Job date/).fill("2026-09-12");
-  await expect(page.getByLabel(/Next job #/)).toHaveValue("26904");
+  expect(captures.unexpectedRequests).toEqual([]);
 });
 
-test("finished quote autofills value and Yes/No flag without changing quote handoff", async ({ page }) => {
+test("finished quote autofills value and Yes/No flag in the shared quote conversion form", async ({ page }) => {
   const state = previewState();
   const captures = await openPreview(page, state);
-  await choose(page, "Preview linked quote", "JGC-Q-2026-0905");
+  await choose(page, "Fill from finished quote", "JGC-Q-2026-0905");
   await expect(page.locator("#new-job-name")).toHaveValue("Sump pump inspections");
   await expect(page.getByRole("combobox", { name: "New job client" })).toHaveValue("Quoted Contract Client");
   await expect(page.getByLabel(/Client PO#\/WO#/)).toHaveValue("WO-200");
@@ -76,21 +59,21 @@ test("finished quote autofills value and Yes/No flag without changing quote hand
   await expect(page.getByLabel(/Job value/)).toHaveAttribute("readonly", "");
   await expect(page.getByLabel("Subcontractors", { exact: false })).toHaveValue("Yes");
   await expect(page.getByLabel("Site address", { exact: true })).toHaveValue("100 Station Road");
-  await page.getByRole("button", { name: "Unlink preview" }).click();
+  await page.getByRole("button", { name: "Unlink quote" }).click();
   await page.getByLabel(/Job value/).fill("2500");
-  await page.getByRole("button", { name: "Close preview", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: /^Quotes(?:\s|$)/ }).first().click();
   await page.getByPlaceholder("Search quote, client, project or reference").fill("JGC-Q-2026-0905");
   await page.locator(".quotes-table tbody tr").filter({ hasText: "JGC-Q-2026-0905" }).click();
   await page.getByRole("button", { name: "Make into job", exact: true }).click();
-  const handoff = page.getByRole("dialog", { name: "Make into job", exact: true });
-  await expect(handoff.getByRole("combobox", { name: "Portal job" })).toBeVisible();
-  await expect(handoff).toContainText("linked to this existing job");
+  const handoff = page.getByRole("dialog", { name: "New job", exact: true });
+  await expect(handoff.locator("#new-job-name")).toHaveValue("Sump pump inspections");
+  await expect(handoff.getByLabel(/Job value/)).toHaveValue("120");
   expect(captures.writes).toEqual([]);
   expect(captures.jobInfo).toEqual([]);
 });
 
-test("new clients, sites and attention contacts remain local to the preview on phone", async ({ page }) => {
+test("new clients, sites and attention contacts remain unsaved until Create job on phone", async ({ page }) => {
   const captures = await openPreview(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("combobox", { name: "New job client" }).fill("Preview Client Only");
@@ -100,7 +83,7 @@ test("new clients, sites and attention contacts remain local to the preview on p
   await dialog.getByLabel("Email", { exact: true }).fill("preview@example.com");
   await dialog.getByLabel("Site name", { exact: true }).fill("Preview Station");
   await dialog.getByLabel("Address", { exact: true }).fill("12 Preview Road");
-  await dialog.getByRole("button", { name: "Use in preview" }).click();
+  await dialog.getByRole("button", { name: "Use these details" }).click();
   await expect(page.getByRole("combobox", { name: "New job client" })).toHaveValue("Preview Client Only");
   await expect(page.getByRole("combobox", { name: "New job attention" })).toHaveValue("Preview Contact");
   await expect(page.getByLabel("Site address", { exact: true })).toHaveValue("12 Preview Road");
@@ -111,14 +94,14 @@ test("new clients, sites and attention contacts remain local to the preview on p
   await page.getByRole("button", { name: /Add new site: New station/ }).click();
   dialog = page.getByRole("dialog", { name: "Add new site", exact: true });
   await dialog.getByLabel("Address", { exact: true }).fill("50 New Road");
-  await dialog.getByRole("button", { name: "Use in preview" }).click();
+  await dialog.getByRole("button", { name: "Use these details" }).click();
   await page.getByRole("combobox", { name: "New job attention" }).fill("New Attention");
   await page.getByRole("button", { name: /Add new attention: New Attention/ }).click();
-  await page.getByRole("dialog", { name: "Add new attention", exact: true }).getByRole("button", { name: "Use in preview" }).click();
+  await page.getByRole("dialog", { name: "Add new attention", exact: true }).getByRole("button", { name: "Use these details" }).click();
   await expect(page.getByLabel("Site address", { exact: true })).toHaveValue("50 New Road");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.getByRole("button", { name: "Close preview", exact: true }).click();
-  await page.getByRole("button", { name: /New job.*Preview/ }).click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: /New job/ }).click();
   await page.getByRole("combobox", { name: "New job client" }).fill("Preview Client Only");
   await expect(page.getByRole("option").filter({ hasText: "Preview Client Only" })).toHaveCount(0);
   expect(captures.writes).toEqual([]);
@@ -138,26 +121,23 @@ test("only active matching names and matching or unknown client references trigg
   await expect(page.locator(".job-preview-warning")).toHaveCount(0);
 });
 
-test("Toronto job date and yearly number preview never consume a number", async ({ page }) => {
-  await page.clock.setFixedTime(new Date("2027-01-01T02:00:00Z"));
+test("job date is assigned at save and quote picker is at bottom", async ({page}) => {
   await openPreview(page);
-  await expect(page.getByLabel(/Job date/)).toHaveValue("2026-12-31");
-  await expect(page.getByLabel(/Next job #/)).toHaveValue("26904");
-  await page.getByLabel(/Job date/).fill("2027-01-01");
-  await expect(page.getByLabel(/Next job #/)).toHaveValue("27001");
-  await page.getByLabel(/Job date/).fill("2025-01-01");
-  await expect(page.getByLabel(/Next job #/)).toHaveValue("25905");
+  await expect(page.getByLabel("Job date",{exact:true})).toHaveAttribute('readonly','');
+  const quote=await page.locator('.job-preview-quote').boundingBox();
+  const more=await page.locator('.job-preview-more').boundingBox();
+  expect(quote.y).toBeGreaterThanOrEqual(more.y+more.height);
 });
 
 for (const theme of ["light", "dark"]) {
-  test(`job preview is readable and keyboard-contained in ${theme} theme`, async ({ page }) => {
+  test(`new job form is readable and keyboard-contained in ${theme} theme`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openPreview(page);
     await page.evaluate((theme) => { if (typeof applyJgcTheme === "function") applyJgcTheme(theme); }, theme);
     await page.locator("#new-job-name").fill("Sump pump inspections");
     await choose(page, "New job client", "Quoted Contract Client");
     await choose(page, "New job site", "Brockville Station");
-    await expect(page.getByRole("button", { name: /Create job/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Create job/ })).toBeEnabled();
     const size = await page.locator(".job-preview-modal").evaluate((element) => ({
       width: element.getBoundingClientRect().width, overflow: getComputedStyle(element).overflowY,
       bottom: element.getBoundingClientRect().bottom,
@@ -165,11 +145,11 @@ for (const theme of ["light", "dark"]) {
     expect(size.width).toBeGreaterThan(900);
     expect(size.overflow).toBe("visible");
     expect(size.bottom).toBeLessThanOrEqual(1000);
-    expect(await page.getByLabel(/Job date/).evaluate((element) => getComputedStyle(element).colorScheme)).toBe("light");
+    expect(await page.getByLabel(/Start date/).evaluate((element) => getComputedStyle(element).colorScheme)).toBe("light");
     await page.screenshot({ path: path.join(__dirname, "screenshots", `job-preview-${theme}.png`) });
-    await page.getByRole("button", { name: "Check details" }).focus();
+    await page.getByRole("button", { name: "Create job", exact: true }).focus();
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Close job preview", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Close new job", exact: true })).toBeFocused();
     await page.getByRole("combobox", { name: "New job client" }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "New job", exact: true })).toBeVisible();
@@ -177,3 +157,43 @@ for (const theme of ["light", "dark"]) {
     await expect(page.getByRole("dialog", { name: "New job", exact: true })).toHaveCount(0);
   });
 }
+
+for (const width of [1440,390]) {
+  test(`Create job saves once and opens the created job at width ${width}`, async ({page}, testInfo) => {
+    const state=previewState(); const captures=await openPreview(page,state); const creates=[];
+    await page.setViewportSize({width,height:1000});
+    await page.route('**/api/job-create',async route=>{
+      const body=route.request().postDataJSON(); creates.push(body);
+      await new Promise(resolve=>setTimeout(resolve,150));
+      const job={...state.jobs[0],id:'created-synthetic',portalJobId:'00000000-0000-4000-8000-000000000090',jobNumber:'26905',quoteId:'',acceptedQuoteSnapshot:'',project:body.draft.jobName,portalJobName:body.draft.jobName,acceptedRevenue:Number(body.draft.value),hasQuotedValue:true,jobDate:'2026-09-18'};
+      return route.fulfill({json:{state:{...state,jobs:[job,...state.jobs]},jobId:job.id,jobNumber:job.jobNumber,updatedAt:'2026-09-18T16:00:00Z'}});
+    });
+    await choose(page,'New job client','Quoted Contract Client');
+    await page.locator('#new-job-name').fill('Synthetic new contract');
+    await page.getByLabel(/Job value/).fill('1500');
+    await page.getByRole('button',{name:'Create job',exact:true}).evaluate(button=>{button.click();button.click();});
+    await expect(page.locator('.job-detail-page')).toContainText('26905');
+    await expect(page.getByRole('region',{name:'Quoted price'})).toContainText('$1,500.00');
+    expect(creates).toHaveLength(1);
+    expect(creates[0].requestId).toMatch(/^[a-f0-9-]{36}$/);
+    await page.waitForTimeout(850);
+    expect(captures.writes).toEqual([]);
+    await page.screenshot({path:testInfo.outputPath('created-job.png'),fullPage:true});
+  });
+}
+test('failed network request retains the form and same request ID on retry',async({page})=>{
+  const state=previewState();await openPreview(page,state);const ids=[];
+  await page.route('**/api/job-create',route=>{ids.push(route.request().postDataJSON().requestId);return route.fulfill({status:503,json:{error:'Connection interrupted. Retry Create job.'}});});
+  await choose(page,'New job client','Quoted Contract Client');await page.locator('#new-job-name').fill('Retry job');await page.getByLabel(/Job type/).selectOption('T&M');
+  await page.getByRole('button',{name:'Create job',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Connection interrupted');
+  await page.getByRole('button',{name:'Create job',exact:true}).click();await expect.poll(()=>ids.length).toBe(2);
+  expect(ids[0]).toBe(ids[1]);await expect(page.locator('#new-job-name')).toHaveValue('Retry job');
+});
+test('Summary shortcut opens the real New Job form on Jobs',async({page})=>{
+  const captures=await serveDirectory(page,previewState());
+  await page.goto('/estimating/index.html?dev=1&view=jobs&newJob=1');
+  await expect(page.getByRole('dialog',{name:'New job',exact:true})).toBeVisible();
+  await expect(page.locator('.job-directory-page')).toBeVisible();
+  expect(captures.writes).toEqual([]);
+  const html=readFileSync(path.join(__dirname,'../admin.html'),'utf8');expect(html).toContain('estimating/?view=jobs&amp;newJob=1');
+});

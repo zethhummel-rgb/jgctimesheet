@@ -385,6 +385,11 @@ export interface ShopDrawing {
 }
 
 export interface Job {
+  jobDate?: string;
+  hasQuotedValue?: boolean;
+  clientReference?: string;
+  attention?: string;
+  subcontractors?: "Yes" | "No";
   id: string;
   jobNumber: string;
   quoteId: string;

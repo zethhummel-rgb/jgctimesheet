@@ -93,7 +93,7 @@ test("blue is handed off once then yellow in real XLSX versions; saved blue byte
   expect(state.calls.some(c => c.action === "reset")).toBe(false);
 });
 
-test("real XLSX, exact old-version download, green-to-yellow and history leave jobs/uploader untouched", async ({ page }, testInfo) => {
+test("real XLSX, exact old-version download, green-to-yellow and history leave jobs unchanged with upload disabled", async ({ page }, testInfo) => {
   const state = await setup(page);
   const first = await create(page, 1);
   const bytes = fs.readFileSync(await first.path());
@@ -135,7 +135,7 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   await page.locator(".job-accounting-row-preview > summary").click();
   await expect(page.getByRole("heading", { name: "Download requests for version 1 (2)" })).toBeVisible();
   expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
-  await expect(page.locator(".job-import-disclosure > summary")).toHaveText("Excel job-list upload");
+  await expect(page.locator(".job-import-disclosure")).toHaveCount(0);
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath("accounting-desktop.png") });
 });
 for (const width of [390, 1366]) test(`revision downloads keep job rows closed until explicitly opened at ${width}px`, async ({ page }, testInfo) => {
@@ -201,15 +201,17 @@ test("mobile accounting controls remain readable without overflowing the page", 
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath("accounting-mobile.png") });
 });
 
-for (const width of [390, 1366]) test(`accounting download collapses like the upload without losing its preview at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [390, 1366]) test(`accounting download collapses without losing its preview at ${width}px`, async ({ page }, testInfo) => {
   const state = await setup(page, { collapsed: true });
   await page.setViewportSize({ width, height: 900 });
   const disclosure = page.locator(".job-accounting-disclosure");
   const toggle = disclosure.locator(":scope > summary");
   await expect(disclosure).not.toHaveAttribute("open");
   await expect(page.getByRole("button", { name: "Download accounting job list", exact: true })).toBeHidden();
-  const appearance = await page.locator(".job-import-disclosure > summary, .job-accounting-disclosure > summary").evaluateAll((items) => items.map((el) => { const s = getComputedStyle(el); return { padding: s.padding, fontSize: s.fontSize, fontWeight: s.fontWeight, color: s.color, height: el.getBoundingClientRect().height }; }));
-  expect(appearance[1]).toEqual(appearance[0]);
+  await expect(page.locator(".job-import-disclosure")).toHaveCount(0);
+  const appearance = await toggle.evaluate(el => ({ height: el.getBoundingClientRect().height, fontSize: parseFloat(getComputedStyle(el).fontSize) }));
+  expect(appearance.height).toBeGreaterThanOrEqual(44);
+  expect(appearance.fontSize).toBeGreaterThanOrEqual(14);
   if (process.env.JGC_CAPTURE_VISUAL_QA) await disclosure.screenshot({ path: testInfo.outputPath(`collapsed-download-${width}.png`) });
   await toggle.focus(); await page.keyboard.press("Enter");
   await expect(disclosure).toHaveAttribute("open", "");

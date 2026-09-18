@@ -70,6 +70,7 @@
     </section>
     <div class="portal-summary-heading">
         <h2 class="portal-summary-title">Portal Summary</h2>
+        <a class="jgc-button" href="estimating/?view=jobs&amp;newJob=1">＋ New Job</a>
         <p>Search and review activity across the JGC Portal.</p>
     </div>
     <div class="admin-global-search">
@@ -924,14 +925,14 @@
     <h2 class="jgc-section-title">Jobs Management</h2>
     <div class="announcement-grid">
         <div class="full">
-            <label>Upload Excel Job List</label>
-            <input id="jobsExcelFile" class="jgc-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
+            <label hidden>Upload Excel Job List</label>
+            <input hidden disabled id="jobsExcelFile" class="jgc-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <div hidden class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
         </div>
     </div>
     <div class="actions jgc-actions admin-space-top-2">
-        <button class="jgc-button" type="button" onclick="importJobsFromExcel()">Upload & Import</button>
-        <button class="delete-button jgc-button jgc-button--danger" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
+        <button hidden disabled class="jgc-button" type="button" onclick="importJobsFromExcel()">Upload & Import</button>
+        <button hidden disabled class="delete-button jgc-button jgc-button--danger" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
         <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
     </div>
     <div id="jobsImportStatus" class="small admin-space-top-2"></div>
@@ -1175,7 +1176,7 @@
 <script src="admin-inspections.js?v=4"></script>
 <script src="admin-reports.js?v=3"></script>
 <script src="admin-employee-profile.js?v=1"></script>
-<script src="admin-jobs.js?v=8"></script>
+<script src="admin-jobs.js?v=9"></script>
 <script src="admin-work-orders.js?v=3"></script>
 <script src="admin-equipment.js?v=2"></script>
 <script src="admin-timesheets.js?v=10"></script>

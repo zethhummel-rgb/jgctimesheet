@@ -83,6 +83,6 @@ test("Portal document-link synchronization replaces only the stable imported ent
   expect(synchronizationSource).toContain('const portalDocumentLinkId = `portal-job-link-${job.id}`');
   expect(synchronizationSource).toContain("savedDocumentLinks.filter((link) => link.id !== portalDocumentLinkId)");
   expect(synchronizationSource).toContain("previousPortalDocumentLink?.createdAt");
-  expect(estimateDesk.includes('const jobId = existingJob?.id || uid("job")')).toBe(true);
-  expect(estimateDesk).toContain('id: `portal-job-link-${jobId}`');
+  expect(estimateDesk).toContain("setPendingJobNavigationId(result.jobId)");
+  expect(synchronizationSource).toContain("portalDocumentLinkId");
 });

@@ -1280,6 +1280,8 @@ async function loadJobsManagement() {
 }
 
 async function importJobsFromExcel() {
+    alert("Excel job upload is turned off. Use New Job in the job list.");
+    return; // Rollback: remove this guard to restore the retained importer.
     const fileInput = document.getElementById("jobsExcelFile");
     const status = document.getElementById("jobsImportStatus");
     const file = fileInput.files[0];
@@ -1456,6 +1458,8 @@ function clearJobsExcelFile() {
 }
 
 async function deleteImportedJobs() {
+    alert("Uploaded job deletion is turned off while Portal job entry is active.");
+    return;
     const fileInput = document.getElementById("jobsExcelFile");
     const status = document.getElementById("jobsImportStatus");
 

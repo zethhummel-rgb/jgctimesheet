@@ -165,17 +165,7 @@ for (const viewport of [{ width: 1366, height: 900, name: "desktop" }, { width: 
     await page.getByLabel("Search jobs", { exact: true }).fill("269");
     await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
     await inspectText(page, `${viewport.name}-directory`, testInfo);
-    await page.route("**/api/job-import", (route) => {
-      const request = route.request().postDataJSON();
-      expect(request.action).toBe("preview");
-      return route.fulfill({ json: { preview: { insertCount: 1, updateCount: 0, activeCount: 1, inactiveCount: 0, snapshot: "readability-only", missingJobs: [{ id: "readability-missing", jobNumber: "26900", jobName: "Earlier imported repair project" }], protectedMissingJobs: [{ id: state.jobs[0].id, jobNumber: "26901", jobName: state.jobs[0].project }] } } });
-    });
-    await page.locator(".job-import-disclosure > summary").click();
-    await page.getByLabel("Excel job-list workbook").setInputFiles(await workbookFile());
-    await expect(page.getByTestId("job-import-preview")).toBeVisible();
-    await page.getByText("Review 1 workbook jobs (2026)", { exact: true }).click();
-    await inspectText(page, `${viewport.name}-excel-preview`, testInfo);
-    await page.locator(".job-import-disclosure > summary").click();
+    await expect(page.locator(".job-import-disclosure")).toHaveCount(0);
     await openDirectoryJob(page, "26901");
     for (const [tab, file] of [["Summary", "summary"], ["Purchase Orders", "purchase-orders"], ["CCNs / Change Orders", "changes"], ["Shop Drawings", "shop-drawings"], ["Statistics / Other", "statistics"]]) {
       await page.getByRole("tab", { name: tab, exact: true }).click();
