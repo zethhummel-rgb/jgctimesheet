@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "887";
+const JGC_RELEASE_ID = "888";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -96,6 +96,14 @@ const JGC_APP_SHELL = [
   "./incident-report.html",
   "./admin.html",
   "./estimating/index.html",
+  "./estimating/assets/es-B5IdPMRu.js",
+  "./estimating/assets/index-Atl4n0bK.css",
+  "./estimating/assets/index-CGvzTZTT.js",
+  "./estimating/assets/pdf-C6MuuDe2.js",
+  "./estimating/assets/proposal-pdf-Cq6HdsXH.js",
+  "./estimating/assets/purchase-order-pdf-Df38Ny9B.js",
+  "./estimating/assets/quote-backup-pdf-IyUqQzMf.js",
+  "./estimating/assets/src-DrkuE13d.js",
   "./estimating/assets/es-FAYeD_Wv.js",
   "./estimating/assets/index-BI0CrpmC.css",
   "./estimating/assets/index-CXr9mQtO.js",
@@ -160,7 +168,7 @@ const JGC_APP_SHELL = [
   "./inspection-history-previous.css?v=1",
   "./safety-records-admin.css?v=2",
   "./admin-global-search.css?v=7",
-  "./accounting-admin.css?v=7",
+  "./accounting-admin.css?v=8",
   "./jgc-design-system.css?v=8",
   "./estimator-theme.css?v=1",
   "./certificates-admin.css?v=1",

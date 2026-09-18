@@ -324,3 +324,34 @@ test("accounting page embeds the shared job-list download and retrieves the same
   expect(markup).toContain('src="estimating/index.html?view=accounting-download"');
   expect(markup).toContain('title="Excel job-list downloads and history"');
 });
+
+for (const width of [1440, 390]) {
+  test(`embedded accounting download fits its content at ${width}px`, async ({ page }, testInfo) => {
+    await setup(page);
+    await page.setViewportSize({width, height: 900});
+    const markup = fs.readFileSync(require("path").join(__dirname, "../accounting-admin.html"), "utf8")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace('src="estimating/index.html?view=accounting-download"', 'src="estimating/index.html?dev=1&view=accounting-download"');
+    await page.route("**/accounting-admin.html", route => route.fulfill({contentType:"text/html",body:markup}));
+    await page.goto("/accounting-admin.html");
+    await page.locator("#accountingPage").evaluate(el => el.hidden = false);
+    await page.locator(".accounting-job-list-download > summary").click();
+    const frame = page.frameLocator(".accounting-job-list-download > iframe");
+    await expect(frame.locator(".accounting-download-page")).toBeVisible();
+    const height = () => page.locator(".accounting-job-list-download > iframe").evaluate(el => el.getBoundingClientRect().height);
+    async function checkFit() {
+      await expect.poll(async () => Math.abs((await height()) - await frame.locator("#root").evaluate(el => el.getBoundingClientRect().height))).toBeLessThan(2);
+    }
+    await checkFit();
+    const before = await height();
+    await frame.getByRole("button", {name:"Download accounting job list",exact:true}).click();
+    await expect(frame.getByRole("heading", {name:"Preview version 1"})).toBeVisible();
+    await checkFit();
+    expect(await height()).toBeGreaterThan(before);
+    await page.screenshot({path:testInfo.outputPath(`accounting-frame-${width}.png`), fullPage:true});
+    await frame.getByRole("button", {name:"Close preview",exact:true}).click();
+    await checkFit();
+    expect(await height()).toBeLessThanOrEqual(before + 2);
+    expect(await page.evaluate(() => document.body.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
