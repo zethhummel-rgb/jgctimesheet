@@ -5,6 +5,11 @@ import { normalizeSupplierSku } from "../lib/supplier-price-parser";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
 import { jobImportNumberKey, validateJobImportRecords, type JobImportRecord } from "../lib/job-workbook-import";
 import { jobAccountingResponse } from "./job-accounting-api";
+import { prepareJobCreation, type JobCreationDraft } from "../lib/job-creation";
+import type { Client } from "../lib/estimator-data";
+
+// Retain the importer for rollback, but disable its route and UI during portal entry.
+export const EXCEL_JOB_IMPORT_ENABLED = false;
 
 type SupabaseResult<T> = { data: T | null; error: { message?: string } | null; count?: number | null };
 
@@ -1006,6 +1011,25 @@ async function putState(client: any, request: Request) {
   return json({ ...refreshed, saved: true, merged: true });
 }
 
+async function createPortalJob(client: any, request: Request) {
+  if (request.method !== "POST") return json({ error: "Use Create job to add a job." }, 405);
+  const accessError = await portalJobAdminAccessError(client);
+  if (accessError) return accessError;
+  const body = await request.json() as { requestId: string; draft: JobCreationDraft; client: Client };
+  if (!stateBase || !body.draft || !body.client || !/^[0-9a-f-]{36}$/i.test(body.requestId || "")) return json({ error: "Reload the job list before creating a job." }, 400);
+  const receipt = await client.from("portal_job_creation_receipts").select("job_id,job_number").eq("request_id", body.requestId).maybeSingle();
+  if (receipt.error) throw new Error(receipt.error.message || "The job request could not be checked.");
+  if (receipt.data) return json({ ...await getState(client), jobId: receipt.data.job_id, jobNumber: receipt.data.job_number });
+  const job = prepareJobCreation(stateBase, body.draft, body.client);
+  const result = await client.rpc("create_portal_job", {
+    p_request_id: body.requestId, p_expected_revision: stateRevision, p_job: job, p_client: body.client,
+  });
+  if (result.error) return json({ error: result.error.message || "The job could not be created." }, result.error.code === "42501" ? 403 : result.error.code === "40001" ? 409 : 400);
+  const refreshed = await getState(client);
+  window.dispatchEvent(new Event("jgc-jobs-saved"));
+  return json({ ...refreshed, jobId: result.data.jobId, jobNumber: result.data.jobNumber });
+}
+
 async function getSupplierCatalog(client: any, url: URL) {
   const supplierId = url.searchParams.get("supplierId")?.trim() ?? "";
   const queryText = url.searchParams.get("q")?.trim() ?? "";
@@ -1235,8 +1259,9 @@ async function route(client: any, input: RequestInfo | URL, init?: RequestInit) 
   if (url.pathname.endsWith("/api/job-costing")) return jobCostingResponse(client);
   if (url.pathname.endsWith("/api/job-statistics")) return jobStatisticsResponse(client, request, url);
   if (url.pathname.endsWith("/api/job-info")) return mutatePortalJobInfo(client, request);
+  if (url.pathname.endsWith("/api/job-create")) return createPortalJob(client, request);
   if (url.pathname.endsWith("/api/jobs")) return jobsResponse(client, request);
-  if (url.pathname.endsWith("/api/job-import")) return jobImportResponse(client, request);
+  if (url.pathname.endsWith("/api/job-import")) return EXCEL_JOB_IMPORT_ENABLED ? jobImportResponse(client, request) : json({ error: "Excel job upload is turned off. Use New job." }, 403);
   if (url.pathname.endsWith("/api/job-accounting-export")) return jobAccountingResponse(client, request);
   if (url.pathname.endsWith("/api/job-documents")) return mutatePortalJobDocuments(client, request);
   if (url.pathname.endsWith("/api/vendors")) return mutatePortalVendor(client, request);

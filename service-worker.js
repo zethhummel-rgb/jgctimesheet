@@ -1,7 +1,15 @@
-const JGC_RELEASE_ID = "889";
+const JGC_RELEASE_ID = "890";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./estimating/assets/es-UWCyVCrj.js",
+  "./estimating/assets/index-C0DqFHgi.js",
+  "./estimating/assets/index-DiIIaSY2.css",
+  "./estimating/assets/pdf-DMJIDDiU.js",
+  "./estimating/assets/proposal-pdf-CGIaPkQM.js",
+  "./estimating/assets/purchase-order-pdf-fmlRmmzM.js",
+  "./estimating/assets/quote-backup-pdf-P_TI0kNk.js",
+  "./estimating/assets/src-CCvL-qwe.js",
   "./job-list-sync.js?v=1",
   "./estimating/assets/es-DQm3uRGq.js",
   "./estimating/assets/index-BCQSZ9vp.js",
@@ -243,7 +251,7 @@ const JGC_APP_SHELL = [
   "./admin-inspections.js?v=4",
   "./admin-reports.js?v=3",
   "./admin-employee-profile.js?v=1",
-  "./admin-jobs.js?v=8",
+  "./admin-jobs.js?v=9",
   "./admin-work-orders.js?v=3",
   "./admin-equipment.js?v=2",
   "./admin-timesheets.js?v=10",

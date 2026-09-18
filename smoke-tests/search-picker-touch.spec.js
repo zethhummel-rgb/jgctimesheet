@@ -20,7 +20,7 @@ async function openPreview(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const captures = await serveDirectory(page, pickerState());
   await page.setViewportSize(viewport);
-  await page.getByRole("button", { name: /New job.*Preview/ }).tap();
+  await page.getByRole("button", { name: /New job/ }).tap();
   await page.locator("#new-job-name").fill("Keep my unsaved task");
   return captures;
 }
@@ -60,7 +60,7 @@ async function swipeResults(page) {
 
 test("quote list never covers its input as the keyboard viewport or modal scroll changes", async ({ page }, testInfo) => {
   const captures = await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.tap();
   await expect(page.locator(".saved-data-results")).toHaveCSS("position", "static");
   await assertBelowInput(page, picker);
@@ -75,13 +75,13 @@ test("quote list never covers its input as the keyboard viewport or modal scroll
   await page.locator(".saved-data-results").scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("mobile-picker-keyboard.png") });
   await expect(page.locator("#new-job-name")).toHaveValue("Keep my unsaved task");
-  await expect(page.getByRole("button", { name: /Create job/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Create job/ })).toBeEnabled();
   expect(captures.writes).toEqual([]);
 });
 
 test("real touch swipes scroll quotes without selecting; a subsequent tap chooses once", async ({ page }, testInfo) => {
   const captures = await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.tap();
   await swipeResults(page);
   await expect(picker).toHaveValue("");
@@ -146,7 +146,7 @@ test("client, site and attention lists also allow touch scrolling without changi
 
 test("a pending scroll event cannot suppress a stationary deliberate tap", async ({ page }) => {
   await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.tap();
   const option = page.locator(".saved-data-results").getByRole("option").first();
   await option.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 12, clientX: 100, clientY: 200 });
@@ -159,7 +159,7 @@ test("a pending scroll event cannot suppress a stationary deliberate tap", async
 test("desktop mouse and keyboard selection still work and Escape leaves the job preview open", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.fill("JGC-Q-2026-1004");
   await expect(page.locator(".saved-data-results")).toHaveCSS("position", "absolute");
   await picker.press("Enter");
@@ -174,7 +174,7 @@ test("desktop mouse and keyboard selection still work and Escape leaves the job 
 
 test("a stationary touch selects even without a browser compatibility click", async ({ page }) => {
   const captures = await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.tap();
   const option = page.locator(".saved-data-results").getByRole("option").first();
   await option.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 15, clientX: 100, clientY: 200 });
@@ -188,7 +188,7 @@ test("a stationary touch selects even without a browser compatibility click", as
 
 test("scrolling underneath a stationary finger does not turn touchend into a selection", async ({ page }) => {
   await openPreview(page);
-  const picker = page.getByRole("combobox", { name: "Preview linked quote" });
+  const picker = page.getByRole("combobox", { name: "Fill from finished quote" });
   await picker.tap();
   const option = page.locator(".saved-data-results").getByRole("option").first();
   await option.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 16, clientX: 100, clientY: 200 });

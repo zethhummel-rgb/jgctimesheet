@@ -7,6 +7,7 @@ export interface AccountingSourceJob {
   statusChangedAt: string | null; projectManager: string; jobType: string;
   customer: string; site: string; address: string; startDate: string | null;
   targetEndDate: string | null; price: number | null; extras: number | null;
+  jobDate?: string | null; subcontractors?: string | null;
   acceptedAt: string | null; customerPo: string; quoteReference: string;
 }
 export interface AccountingMasterRow { jobNumber: string; color: AccountingColor; cells: AccountingCell[] }
@@ -44,7 +45,7 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
   for (const number of new Set([...master.keys(), ...current.keys(), ...oldRows.keys(), ...previous.keys(), ...baseline.keys()])) {
     const job = current.get(number), seed = baseline.get(number), before = previous.get(number), original = master.get(number), old = oldRows.get(number);
     // Legacy saved snapshots omit invoiceReviewAt; null is the same state.
-    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, invoiceReviewAt: row.invoiceReviewAt ?? null } : null;
+    const comparable = (row: AccountingSourceJob | undefined) => row ? { ...row, invoiceReviewAt: row.invoiceReviewAt ?? null, jobDate: row.jobDate ?? null, subcontractors: row.subcontractors ?? null } : null;
     const changed = stable(comparable(job)) !== stable(comparable(before));
     // Compare against the last saved download, not the original import, so a
     // newly inactive job is green once and existing inactive jobs are yellow.
@@ -88,7 +89,9 @@ export function planJobAccountingExport(preview: AccountingExportPreview): Accou
       if (job.price !== null || !original) cells[9] = job.price;
       if (job.extras !== null || !original) cells[11] = job.extras;
       if (!original || !seed || job.customerPo !== seed.customerPo || job.quoteReference !== seed.quoteReference) cells[6] = job.customerPo || job.quoteReference || null;
-      if (!original && job.acceptedAt) cells[13] = dateCell(job.acceptedAt);
+      if (job.subcontractors) cells[12] = job.subcontractors;
+      if (job.jobDate) cells[13] = dateCell(job.jobDate);
+      else if (!original && job.acceptedAt) cells[13] = dateCell(job.acceptedAt);
       // Closing a project is not proof of the physical completion date. Leave
       // Date Completed as supplied; never substitute the target end date.
     }

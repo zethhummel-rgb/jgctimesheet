@@ -10,7 +10,8 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 
 function transpileModule(relative, dependencies = {}, extra = {}) {
   const module = { exports: {} };
-  const code = ts.transpileModule(fs.readFileSync(path.join(root, relative), "utf8"), {
+  const source = fs.readFileSync(path.join(root, relative), "utf8");
+  const code = ts.transpileModule(extra.rollbackImport ? source.replace("EXCEL_JOB_IMPORT_ENABLED = false", "EXCEL_JOB_IMPORT_ENABLED = true") : source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const context = { module, exports: module.exports, require: (name) => dependencies[name] || {},
@@ -19,13 +20,13 @@ function transpileModule(relative, dependencies = {}, extra = {}) {
   return module.exports;
 }
 
-function loadApi() {
+function loadApi(rollbackImport = false) {
   const browser = { events: [], dispatchEvent(event) { this.events.push(event.type); }, location: { href: "http://127.0.0.1/estimating/index.html" }, fetch: async () => { throw new Error("Unexpected external request"); } };
   const workbook = transpileModule("estimating-app/lib/job-workbook-import.ts");
   const api = transpileModule("estimating-app/src/portal-api.ts", {
     "../lib/job-workbook-import": workbook,
     "../lib/estimator-data": { normalizeAppState: (state) => state },
-  }, { window: browser });
+  }, { window: browser, rollbackImport });
   return { api, browser };
 }
 
@@ -228,7 +229,7 @@ test("failed cancellation does not report saved or modify job records", async ()
 });
 
 test("editing a project manager preserves the full imported 300-character job name", async () => {
-  const { api, browser } = loadApi();
+  const { api, browser } = loadApi(true);
   const jobName = "Imported job - ".padEnd(300, "x");
   const client = mockClient({ jobs: [job("keep-long-name", "001")], estimator_workspaces: workspace() });
   api.installEstimatorApiBridge(client);
@@ -278,8 +279,8 @@ test("site edits retain employee document links and do not change the import dat
   expect(cleared.body.job.siteName).toBe("");
 });
 
-test("import preview writes nothing and apply uses one statement without altering identities or metadata", async () => {
-  const { api, browser } = loadApi();
+test("rollback import preview writes nothing and apply uses one statement without altering identities or metadata", async () => {
+  const { api, browser } = loadApi(true);
   const tables = { jobs: [job("keep", "001", { customer: "Keep client", site_name: "Keep site", document_link: "https://example.com/drawings", start_date: "2026-10-01" }), job("missing", "002"), job("protected", "003")], estimator_workspaces: workspace([{ quoteId: "q", portalJobId: "protected", jobNumber: "003" }]) };
   const client = mockClient(tables);
   api.installEstimatorApiBridge(client);
@@ -313,7 +314,7 @@ test("import preview writes nothing and apply uses one statement without alterin
 });
 
 test("import rejects stale previews, protected IDs, malformed rows, duplicate numbers and denied permissions without writes", async () => {
-  const { api, browser } = loadApi();
+  const { api, browser } = loadApi(true);
   const client = mockClient({ jobs: [job("keep", "001"), job("protected", "003")], estimator_workspaces: workspace([{ quoteId: "q", portalJobId: "protected" }]) });
   api.installEstimatorApiBridge(client);
   for (const records of [undefined, {}, [null], [importRow("001"), importRow("001")], [importRow("001", { jobName: 42 })]]) {
@@ -325,15 +326,15 @@ test("import rejects stale previews, protected IDs, malformed rows, duplicate nu
   client.tables.jobs[0].updated_at = "2026-09-07T20:00:00Z";
   expect((await request(browser, "job-import", { action: "apply", records, expectedSnapshot: preview.snapshot, deactivateMissingJobIds: [] })).status).toBe(409);
   expect(client.writes).toBe(0);
-  const denied = loadApi();
+  const denied = loadApi(true);
   const deniedClient = mockClient({ jobs: [], estimator_workspaces: [] }, { denyTable: "estimator_workspaces" });
   denied.api.installEstimatorApiBridge(deniedClient);
   expect((await request(denied.browser, "job-import", { action: "preview", records })).status).toBe(500);
   expect(deniedClient.writes).toBe(0);
 });
 
-test("failed import does not report success or mutate the in-memory source list", async () => {
-  const { api, browser } = loadApi();
+test("rollback failed import does not report success or mutate the in-memory source list", async () => {
+  const { api, browser } = loadApi(true);
   const client = mockClient({ jobs: [job("keep", "001")], estimator_workspaces: workspace() }, { failWrite: true });
   api.installEstimatorApiBridge(client);
   const records = [importRow("001")];
@@ -351,6 +352,7 @@ test("job-management endpoints reject ordinary and deactivated administrators be
     const client = mockClient({ jobs: [job("keep", "001")], profiles: [{ id: "approved-admin", ...profile }] });
     api.installEstimatorApiBridge(client);
     expect((await request(browser, "jobs", undefined, "GET")).status).toBe(403);
+    expect((await request(browser, "job-create", {})).status).toBe(403);
     expect((await request(browser, "job-info", { portalJobId: "keep", active: false }, "PATCH")).status).toBe(403);
     expect((await request(browser, "job-import", { action: "preview", records: [importRow("001")] })).status).toBe(403);
     expect((await request(browser, "job-statistics?portalJobId=keep", undefined, "GET")).status).toBe(403);
@@ -386,3 +388,5 @@ test("statistics separate WO-only labour, include manual POs and never mix match
   expect(result.body.hoursByJobType).toEqual([{ label: "T&M", hours: 10 }]);
   expect(client.writes).toBe(0);
 });
+
+test('portal-only entry rejects Excel import even for administrators without writes',async()=>{const {api,browser}=loadApi();const client=mockClient({jobs:[]});api.installEstimatorApiBridge(client);const result=await request(browser,'job-import',{action:'apply',records:[importRow('26999')]});expect(result.status).toBe(403);expect(client.writes).toBe(0);expect(client.calls).toEqual([]);});

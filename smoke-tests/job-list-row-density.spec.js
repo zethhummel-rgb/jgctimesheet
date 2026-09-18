@@ -1,8 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { directoryState, serveDirectory } = require('./fixtures/job-readability-fixture');
 
-// Release 870 measured 85px at 1600px and 87.390625px at 768/1366px
-// with this same fixture. Narrower columns may still grow to fit wrapped text.
+// Quoted price adds a column; narrower rows may grow to keep all text readable.
 for (const width of [768, 1366, 1600]) test(`desktop job rows preserve readable text and compact actions at ${width}px`, async ({ page }, testInfo) => {
   const captures = await serveDirectory(page, directoryState());
   await page.setViewportSize({ width, height: 1000 });
@@ -12,7 +11,7 @@ for (const width of [768, 1366, 1600]) test(`desktop job rows preserve readable 
     await page.evaluate(theme => window.applyJgcTheme(theme), theme);
     for (const row of await rows.all()) {
       const height = (await row.boundingBox()).height;
-      expect(height).toBeLessThanOrEqual(width >= 1600 ? 51 : 60);
+      expect(height).toBeLessThanOrEqual(width >= 1600 ? 51 : width >= 1366 ? 100 : 150);
       expect(height).toBeGreaterThanOrEqual(51);
       const actions = row.locator('.job-status-action');
       await expect(actions).toHaveText(['Close Project', 'Cancel Job']);
@@ -71,8 +70,9 @@ test('desktop density does not shrink mobile job rows or job-opening targets', a
   await serveDirectory(page, directoryState());
   await page.setViewportSize({ width: 390, height: 1000 });
   for (const row of await page.locator('.jobs-table tbody tr').all()) {
-    // Same 390px fixture measured before the desktop-only spacing change.
-    expect((await row.boundingBox()).height).toBeCloseTo(101.203125, 1);
+    // A quoted job has one additional visible price line.
+    const quoted = await row.locator('[data-label="Quoted price"] strong').count();
+    expect((await row.boundingBox()).height).toBeCloseTo(quoted ? 121 : 101.203125, 1);
     expect((await row.locator('.back-button').boundingBox()).height).toBeGreaterThanOrEqual(44);
     expect(await row.locator('.job-status-actions').evaluate(el => getComputedStyle(el).gap)).toBe('8px');
   }

@@ -2010,7 +2010,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-preview-modal form footer .button { min-height: 40px; }
 .job-preview-modal form footer .button:disabled { opacity: 1; color: var(--slate-600); background: var(--slate-100); border-color: var(--slate-300); cursor: not-allowed; }
 @media (min-width: 1100px) {
-  .job-preview-modal:not(.job-preview-client-modal) > form > .job-preview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .job-preview-modal:not(.job-preview-client-modal) > form > .job-create-fields > .job-preview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .job-directory-page .page-heading { flex-direction: row; align-items: center; }
@@ -2034,9 +2034,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .job-directory-page .jobs-table .job-quoted-cost-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .job-tile-quoted-cost { display: flex; justify-content: space-between; gap: 8px; }
 @media (max-width: 700px) {
-  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"] { grid-column: 2 / 4; grid-row: 4; }
-  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"]::before { display: inline; content: "Quoted cost: "; font-weight: 400; }
-  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted cost"]:has([aria-label="No quoted cost"]) { display: none; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted price"] { grid-column: 2 / 4; grid-row: 4; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted price"]::before { display: inline; content: "Quoted price: "; font-weight: 400; }
+  .job-directory-page.job-view-list .jobs-table td[data-label="Quoted price"]:has([aria-label="No quoted price"]) { display: none; }
 }
 
 /* Keep line creation controls available throughout the estimate worksheet. */
@@ -2054,3 +2054,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 html.accounting-download-embed, html.accounting-download-embed body { min-height: 0 !important; background: transparent !important; }
 .accounting-download-embed .estimator-gate { min-height: 0; padding: 24px; }
+
+.job-create-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.job-field-invalid .saved-data-picker input { border-color: #b42318; }

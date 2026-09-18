@@ -3,20 +3,20 @@ const { test, expect } = require("@playwright/test");
 const fixtureDate = "2026-09-07T12:00:00.000Z";
 
 for (const width of [1440, 390]) {
-  test(`admin quoted costs use the accepted budget in list, tiles and summary at ${width}px`, async ({ page }, testInfo) => {
+  test(`admin quoted prices use customer selling price in list, tiles and summary at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 950 });
     const captures = await serveDirectory(page, directoryState());
     const quoted = page.locator('.jobs-table tbody tr').filter({ hasText: '26901' });
-    await expect(quoted.locator('[data-label="Quoted cost"]')).toHaveText('$10,000.00');
-    await expect(page.locator('.jobs-table tbody tr').filter({ hasText: '26902' }).locator('[aria-label="No quoted cost"]')).toHaveCount(1);
+    await expect(quoted.locator('[data-label="Quoted price"]')).toHaveText('$12,000.00');
+    await expect(page.locator('.jobs-table tbody tr').filter({ hasText: '26902' }).locator('[aria-label="No quoted price"]')).toHaveCount(1);
     await captureVisual(page, testInfo, 'quoted-cost-list');
     await page.getByRole('button', { name: 'Tiles', exact: true }).click();
-    await expect(page.locator('.job-tile-quoted-cost')).toHaveText('Quoted cost $10,000.00');
+    await expect(page.locator('.job-tile-quoted-cost')).toHaveText('Quoted price $12,000.00');
     await page.getByRole('button', { name: 'List', exact: true }).click();
     await openDirectoryJob(page, '26901');
 
-    await expect(page.getByRole('region', { name: 'Quoted cost', exact: true })).toContainText('$10,000.00');
-    await expect(page.locator('.job-quoted-cost')).not.toContainText('$12,000.00');
+    await expect(page.getByRole('region', { name: 'Quoted price', exact: true })).toContainText('$12,000.00');
+    await expect(page.locator('.job-quoted-cost')).not.toContainText('$10,000.00');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await captureVisual(page, testInfo, 'quoted-cost-summary');
     expect(captures.writes).toEqual([]);
@@ -193,7 +193,7 @@ test("overview finds imported job 26096 without a quote in My estimates", async 
   const captures = await serveDirectory(page, state, { overview: true });
   const search = page.getByRole("searchbox", { name: "Search estimates and jobs" });
   await search.fill("JGC-Q-2026-0901");
-  await expect(page.locator(".overview-result-group").getByRole("heading", { name: /^Quotes/ })).toHaveCount(1);
+  await expect(page.locator(".overview-result-group").getByRole("heading", { name: /^Quotes/ })).toHaveCount(0);
   await expect(page.locator(".overview-result-group").getByRole("button", { name: /26901/ })).toHaveCount(1);
   for (const term of ["26096", "Canonical Railway Client", "99 Railway Avenue", "Zeth Hummel"]) {
     await search.fill(term);
@@ -212,7 +212,7 @@ test("overview finds imported job 26096 without a quote in My estimates", async 
 
 test("administrator overview searches every quote and job beyond the first eight matches", async ({ page }) => {
   const state = directoryState();
-  state.quotes = Array.from({ length: 10 }, (_, index) => ({ ...state.quotes[0], id: `search-quote-${index}`, number: `JGC-Q-2026-${8000 + index}`, project: "Search regression quote", ownerUserId: "another-estimator" }));
+  state.quotes = Array.from({ length: 10 }, (_, index) => ({ ...state.quotes[0], status: "Finished", id: `search-quote-${index}`, number: `JGC-Q-2026-${8000 + index}`, project: "Search regression quote", ownerUserId: "another-estimator" }));
   state.jobs = Array.from({ length: 10 }, (_, index) => officialJob("contract", { id: `search-job-${index}`, portalJobId: `search-portal-${index}`, jobNumber: `${28000 + index}`, portalSiteName: "Search regression site" }));
   await serveDirectory(page, state, { overview: true });
   const search = page.getByRole("searchbox", { name: "Search estimates and jobs" });
@@ -251,24 +251,24 @@ test("job client and site editing preserves the accepted quote and offers Contra
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(1);
 });
 
-test("last import date uses recorded imports, never ordinary job edits", async ({ page }) => {
+test("disabled Excel import stays hidden before and after an ordinary job edit", async ({ page }) => {
   const state = directoryState();
   state.jobs[1].lastImportedAt = "2026-09-02T14:30:00Z";
   state.jobs[2].portalLastSyncedAt = fixtureDate;
   await serveDirectory(page, state);
-  await expect(page.getByTestId("job-last-import")).toContainText(/2026-09-02|9\/2\/2026/);
+  await expect(page.getByTestId("job-last-import")).toHaveCount(0);
   await openDirectoryJob(page, "26903");
   await page.getByRole("button", { name: "Edit job details", exact: true }).click();
   await page.getByLabel("Job name", { exact: true }).fill("Ordinary edit");
   await page.getByRole("button", { name: "Save job details", exact: true }).click();
   await expect(page.locator(".job-topline h1")).toHaveText("Ordinary edit");
   await page.getByRole("button", { name: "← All jobs", exact: true }).click();
-  await expect(page.getByTestId("job-last-import")).toContainText(/2026-09-02|9\/2\/2026/);
+  await expect(page.getByTestId("job-last-import")).toHaveCount(0);
 });
 
-test("legacy jobs show unknown import date rather than an invented date", async ({ page }) => {
+test("legacy import controls stay hidden for portal-only entry", async ({ page }) => {
   await serveDirectory(page, directoryState());
-  await expect(page.getByTestId("job-last-import")).toContainText("Not recorded");
+  await expect(page.getByTestId("job-last-import")).toHaveCount(0);
 });
 
 test("job List and Tiles views keep filters and remember the device preference", async ({ page }) => {
@@ -532,7 +532,7 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await expect(page.getByLabel("Search jobs", { exact: true })).toHaveValue("");
   await expect(page.locator(".library-folder")).toHaveCount(0);
   await expect(page.locator(".jobs-table tbody tr")).toHaveCount(3);
-  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted cost", "Status", "Change status"]);
+  await expect(page.locator(".jobs-table thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted price", "Status", "Change status"]);
   await expect(page.locator('.jobs-table td[data-label="Job / quote"] button')).toHaveText(["26903", "26902", "26901"]);
   const imported = page.locator(".jobs-table tbody tr").filter({ hasText: "26902" });
   await expect(imported).toContainText("Canonical Railway Client");
@@ -557,7 +557,7 @@ test("canonical job directory includes quoted, imported and inactive jobs withou
   await captureVisual(page, testInfo, "directory-desktop");
   await page.getByLabel("Search jobs", { exact: true }).fill("");
   await page.getByRole("group", { name: "Filter jobs by status" }).getByRole("button", { name: /Inactive|Archived/ }).click();
-  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted cost", "Status", "Change status"]);
+  await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("thead th")).toHaveText(["Job # / quote", "Client / location", "Job name", "Project manager", "Type", "Quoted price", "Status", "Change status"]);
   await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(1)).toContainText("Canonical Railway Client");
   await expect(page.getByRole("table", { name: "2025 inactive jobs" }).locator("tbody td").nth(2)).toContainText("Historical Imported Repair");
   await page.getByLabel("Search jobs", { exact: true }).fill("25904");
@@ -924,86 +924,32 @@ test("a delayed Statistics response cannot replace the next job's records", asyn
   await expect(page.locator(".job-topline")).toContainText("26903");
 });
 
-test("accepting a quote upgrades the existing canonical job without losing costs, documents, POs, drawings or CCN references", async ({ page }) => {
-  const state = directoryState();
-  const placeholder = state.jobs.find((job) => job.portalJobId === officialIds.tm);
-  const document = { id: "retained-document", label: "Existing Site Documents", url: "https://example.com/jobs/26902", createdAt: fixtureDate };
-  placeholder.documentLinks = [document];
-  placeholder.documentLink = document.url;
-  placeholder.documentLinkLabel = document.label;
-  placeholder.costs = [{ id: "retained-actual", date: "2026-09-01", type: "Material", section: "General", vendor: "Existing Supplier", reference: "EXISTING-INV", hours: 0, preTaxAmount: 50, hstAmount: 6.5, paid: true, notes: "Retain actual cost" }];
-  placeholder.notes = "Existing project notes must remain";
-  placeholder.shopDrawings = [{
-    id: "retained-drawing", number: "SD-001", revision: 1, title: "Existing approved drawing", division: "Division 05 – Metals",
-    vendorId: null, vendorName: "Existing Fabricator", consultant: "Existing Consultant", status: "Approved", responsibility: "Complete",
-    requestedDate: "2026-08-01", receivedDate: "2026-08-03", submittedDate: "2026-08-04", dueDate: "2026-08-10",
-    returnedDate: "2026-08-09", requiredOnsiteDate: "2026-09-01", oneDriveUrl: "https://example.com/jobs/26902/sd-001-r1.pdf",
-    notes: "Original drawing record", sharedWithEmployees: false,
-    revisions: [{ id: "retained-drawing-r0", revision: 0, savedAt: fixtureDate, snapshot: "{\"title\":\"Original drawing\"}" }],
-    createdAt: fixtureDate, updatedAt: fixtureDate,
-  }];
-  placeholder.purchaseOrders = [{
-    id: "retained-estimate-po", number: "26902-1", revision: 0, status: "Issued", sourceQuoteId: "", vendorId: null,
-    vendorName: "Existing Fabricator", vendorContact: "", vendorEmail: "", vendorPhone: "", vendorQuoteNumber: "EXISTING-SUB-1",
-    issueDate: "2026-09-01", shipBy: "", shipVia: "", fob: "", shipTo: "99 Railway Avenue", authorizedBy: "Existing Manager",
-    taxRate: 0.13, notes: "Existing issued commitment", lines: [{ id: "retained-po-line", quoteLineId: "", description: "Existing work", quantity: 1, unit: "LS", unitCost: 100, amount: 100, sourceReference: "EXISTING-SUB-1" }],
-    revisions: [], finalizedAt: fixtureDate, createdAt: fixtureDate, updatedAt: fixtureDate,
-  }];
-  const quote = {
-    ...state.quotes[0], id: "quote-to-link", number: "JGC-Q-2026-0902", status: "Finished", project: "Newly Accepted Repair Scope", wonAt: "", acceptedBy: "",
-    lines: [{
-      id: "new-accepted-line", section: "General", division: "Div 01 – General Requirements", divisionManual: false,
-      priceBookCode: null, description: "Repair work", internalScope: "", classification: "Required", included: true,
-      costType: "Labour", quantity: 1, unit: "LS", catalogCost: null, projectCost: 1000, markupOverride: null,
-      priceOverride: null, vendorId: null, vendorName: "", vendorReference: "", vendorQuoteDate: "", vendorQuoteExpiry: "",
-      vendorPricingMode: "Quoted", vendorActualCost: null, vendorOverrideCost: null, liveQuote: false, confidence: "Project-specific",
-      low: null, high: null, sourceNote: "", customerNote: "", internalNote: "",
-    }],
-  };
-  state.quotes.push(quote, {
-    ...quote, id: "existing-ccn-reference", number: "26902-CCN-001", documentKind: "Change Notice", status: "Draft",
-    jobId: placeholder.id, changeSequence: 1, changeTitle: "Existing change reference", changeStatus: "Draft",
-    changeRequestedBy: "Existing Consultant", changeRequestedDate: "2026-09-01", changeDueDate: "", changeOrder: null, changeOrderHistory: [],
-  });
-  await page.addInitScript((jobs) => { window.JGC_ESTIMATOR_PORTAL_JOBS = jobs; }, state.jobs.map((job) => jobInfoResponse(job, {})));
-  const captures = await serveDirectory(page, state);
-  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: /^Quotes/ }).click();
-  await page.getByLabel("Search quotes", { exact: true }).fill(quote.number);
-  await page.locator(".quotes-table tbody tr").filter({ hasText: quote.number }).click();
-  await page.getByRole("button", { name: "Make into job", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Make into job" });
-  await dialog.getByRole("combobox", { name: "Portal job" }).fill("26902");
-  await dialog.getByRole("option", { name: /26902.*Imported Emergency Repairs/ }).click();
-  await dialog.getByRole("button", { name: "Make into job", exact: true }).click();
-  await expect(page.locator(".job-detail-page")).toContainText("JOB 26902");
-  await assertSelectedTab(page, "Statistics / Other");
-  await expect.poll(() => captures.writes.length).toBeGreaterThan(0);
-  const saved = captures.writes.at(-1);
-  expect(saved.jobs).toHaveLength(state.jobs.length);
-  expect(saved.jobs.filter((job) => job.portalJobId === officialIds.tm)).toHaveLength(1);
-  const linked = saved.jobs.find((job) => job.portalJobId === officialIds.tm);
-  expect(linked.id).toBe(placeholder.id);
-  expect(linked.quoteId).toBe(quote.id);
-  expect(linked.jobNumber).toBe("26902");
-  expect(linked.costs).toEqual(placeholder.costs);
-  expect(linked.documentLinks).toEqual(placeholder.documentLinks);
-  expect(linked.documentLink).toBe(document.url);
-  expect(linked.purchaseOrders).toEqual(placeholder.purchaseOrders);
-  expect(linked.shopDrawings).toEqual(placeholder.shopDrawings);
-  expect(linked.notes).toContain(placeholder.notes);
-  expect(linked.acceptedRevenue).toBe(1200);
-  expect(linked.originalCostBudget).toBe(1000);
-  expect(saved.quotes.find((item) => item.id === quote.id).status).toBe("Won");
-  expect(saved.quotes.find((item) => item.id === "existing-ccn-reference").jobId).toBe(placeholder.id);
-  expect(captures.jobInfo).toEqual([]);
-  expect(captures.unexpectedRequests).toEqual([]);
-  await page.getByRole("tab", { name: "Summary", exact: true }).click();
-  await expect(page.getByRole("link", { name: /Existing Site Documents/ })).toBeVisible();
-  await page.getByRole("tab", { name: "Shop Drawings", exact: true }).click();
-  await page.getByRole("button", { name: "All", exact: true }).click();
-  await expect(page.getByRole("tabpanel")).toContainText("Existing approved drawing");
-  await page.getByRole("tab", { name: "CCNs / Change Orders", exact: true }).click();
-  await expect(page.getByRole("tabpanel")).toContainText("26902-CCN-001");
+test("quote conversion creates a new job, preserves existing jobs and removes the converted quote from Quotes", async({page})=>{
+  const state=directoryState();
+  const quote={...state.quotes[0],id:'new-quote-to-job',number:'JGC-Q-2026-0999',status:'Finished',project:'New conversion project',revisions:[]};state.quotes.push(quote);
+  const before=JSON.stringify(state.jobs);
+  const captures=await serveDirectory(page,state);
+  const {mockCreation}=require('./fixtures/job-creation-service');
+  const service=await mockCreation(page,state,'26905');
+  await page.getByRole('button',{name:/^Quotes/}).first().click();
+  await page.getByLabel('Search quotes',{exact:true}).fill(quote.number);
+  await page.locator('.quotes-table tbody tr').filter({hasText:quote.number}).click();
+  await page.getByRole('button',{name:'Make into job',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'New job',exact:true});
+  await expect(dialog.locator('#new-job-name')).toHaveValue(quote.project);
+  await dialog.getByRole('button',{name:'Create job',exact:true}).click();
+  await expect(page.locator('.job-detail-page')).toContainText('26905');
+  expect(service.requests).toHaveLength(1);
+  const saved=service.getState();
+  expect(saved.jobs.slice(1).map(j=>j.id)).toEqual(JSON.parse(before).map(j=>j.id));
+  expect(saved.jobs[0].quoteId).toBe(quote.id);
+  expect(saved.quotes.find(q=>q.id===quote.id).status).toBe('Won');
+  await page.getByRole('button',{name:'Open accepted quote',exact:true}).click();
+  await expect(page.locator('.identity-badges')).toContainText('Won');
+  await page.getByRole('button',{name:/^Quotes/}).first().click();
+  await page.getByLabel('Search quotes',{exact:true}).fill(quote.number);
+  await expect(page.locator('.quotes-table tbody tr').filter({hasText:quote.number})).toHaveCount(0);
+  expect(captures.writes).toEqual([]);
 });
 
 function managerAliasDirectoryState() {
