@@ -3543,6 +3543,69 @@ test("Accounting job exceptions use a typable job picker", async ({ page }) => {
   await expectNoRuntimeErrors(errors, "Accounting typable job picker");
 });
 
+test("Accounting loads every job beyond the API page cap and matches an inactive job by number", async ({ page }) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingUnmatchedEntry: true });
+  const jobs = Array.from({ length: 1102 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index + 1000).padStart(12, "0")}`,
+    job_number: String(25000 + index),
+    customer: index === 1101 ? "McKay Mechanical" : "Test client",
+    job_name: index === 1101 ? "Ingleside Development" : `Job ${index}`,
+    active: index < 600
+  }));
+  const offsets = [];
+  await page.route("**/rest/v1/jobs?**", async route => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get("offset") || 0);
+    offsets.push(offset);
+    // Simulate a server cap smaller than the requested page size.
+    const rows = jobs.slice(offset, offset + 100);
+    await route.fulfill({ status: 200, contentType: "application/json",
+      headers: { "access-control-expose-headers": "content-range", "content-range": `${offset}-${offset + rows.length - 1}/${jobs.length}` }, body: JSON.stringify(rows) });
+  });
+  await page.goto("/accounting-admin.html");
+  await expect(page.locator("#accountingJobChoices option")).toHaveCount(1103);
+  await expect(page.locator("#accountingJobListStatus")).toContainText("1102 jobs available for matching (600 active, 502 inactive)");
+  await expect(page.locator("#accountingJobChoices option").last()).toHaveAttribute("value", "26101 - McKay Mechanical - Ingleside Development");
+  await expect(page.locator("#accountingJobChoices option").last()).toHaveAttribute("label", "Inactive job");
+  expect(offsets).toContain(1100);
+  await page.locator("[data-entry-job-input]").fill("26101");
+  const saved = page.waitForRequest(request => request.method() === "PATCH" && request.url().includes("/accounting_time_entries"));
+  await page.locator("[data-match-entry]").click();
+  expect((await saved).postDataJSON()).toMatchObject({ job_id: jobs[1101].id, job_match_status: "manual" });
+});
+
+test("Accounting refreshes job choices after a saved job without clearing work in progress", async ({ page }) => {
+  await page.clock.install();
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { accountingUnmatchedEntry: true });
+  const jobs = [{ id: "00000000-0000-4000-8000-000000000061", job_number: "26109", customer: "McKay Mechanical", job_name: "Snye Seniors", active: false }];
+  let fail = false;
+  await page.route("**/rest/v1/jobs?**", route => route.fulfill(fail
+    ? { status: 400, contentType: "application/json", body: JSON.stringify({ message: "Job-list request failed" }) }
+    : { status: 200, contentType: "application/json", headers: { "access-control-expose-headers": "content-range", "content-range": `0-${jobs.length - 1}/${jobs.length}` }, body: JSON.stringify(jobs) }));
+  await page.goto("/accounting-admin.html");
+  const input = page.locator("[data-entry-job-input]");
+  await expect(input).toBeVisible();
+  await input.fill("McKay");
+  jobs.push({ id: "00000000-0000-4000-8000-000000000062", job_number: "26132", customer: "McKay Mechanical", job_name: "Ingleside Development", active: true });
+  await page.evaluate(() => window.dispatchEvent(new Event("jgc-jobs-saved")));
+  await expect(page.locator("#accountingJobChoices option")).toHaveCount(3);
+  await expect(input).toHaveValue("McKay");
+  await expect(page.locator("#accountingJobListStatus")).toContainText("2 jobs available");
+  await input.fill("26132 - McKay Mechanical - Ingleside Development");
+  const saved = page.waitForRequest(request => request.method() === "PATCH" && request.url().includes("/accounting_time_entries"));
+  await page.locator("[data-match-entry]").click();
+  expect((await saved).postDataJSON()).toMatchObject({ job_id: jobs[1].id, job_match_status: "manual" });
+  await expect(input).toHaveValue("");
+  await expect(page.locator("#accountingNotice")).toBeHidden();
+  fail = true;
+  // Advance past the shared watcher's duplicate-event throttle.
+  await page.clock.fastForward(61000);
+  await expect(page.locator("#accountingJobListStatus")).toContainText("could not be refreshed");
+  await expect(page.locator("#accountingJobChoices option")).toHaveCount(3);
+});
+
 test("Accounting employee inclusion does not remove approved admin page access", async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await installAuthenticatedPortalState(page);

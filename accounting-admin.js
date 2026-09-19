@@ -24,6 +24,7 @@
     exportDownloads: [],
     template: null,
     loading: false,
+    dataRevision: 0,
     missingPanelOpen: false
   };
   const elements = {};
@@ -477,7 +478,48 @@
   }
 
   function jobPickerValue(job) {
-    return `${job.job_number} - ${job.job_name}`;
+    return [job.job_number, job.customer, job.job_name].filter(Boolean).join(" - ");
+  }
+
+  async function loadCompleteJobList() {
+    const jobs = [];
+    const pageSize = 500;
+    while (true) {
+      const result = await state.client.from("jobs")
+        .select("id,job_number,customer,job_name,active", { count: "exact" })
+        .order("active", { ascending: false }).order("job_number").order("id")
+        .range(jobs.length, jobs.length + pageSize - 1);
+      const page = requireResult(result, "Jobs") || [];
+      jobs.push(...page);
+      if (result.count != null) {
+        if (jobs.length >= result.count) return jobs;
+        if (!page.length) throw new Error("The complete job list could not be loaded. Please refresh Accounting.");
+      } else if (page.length < pageSize) {
+        return jobs;
+      }
+    }
+  }
+
+  function renderJobListStatus() {
+    const active = state.jobs.filter((job) => job.active).length;
+    elements.jobListStatus.textContent = `${state.jobs.length} jobs available for matching (${active} active, ${state.jobs.length - active} inactive). Search by job number, client or job name.`;
+  }
+
+  async function refreshJobList() {
+    if (state.loading) return;
+    const revision = state.dataRevision;
+    try {
+      const jobs = await loadCompleteJobList();
+      // A period reload owns state while loading. Never replace its list with an older request.
+      if (state.loading || revision !== state.dataRevision) return;
+      state.jobs = jobs;
+      const choices = byId("accountingJobChoices");
+      if (choices) choices.innerHTML = jobOptions();
+      renderJobListStatus();
+    } catch {
+      if (revision !== state.dataRevision) return;
+      elements.jobListStatus.textContent = "The job list could not be refreshed. Showing the last loaded jobs; use Refresh to try again.";
+    }
   }
 
   function jobOptions() {
@@ -514,7 +556,7 @@
       <td>${escapeText(entry.source_job_number || "-")}<br><small>${escapeText(entry.source_job_name || "No job name")}</small></td>
       <td class="accounting-number">${hours(entry.payable_hours)}</td>
       <td><div class="accounting-job-controls">
-        <input class="jgc-input accounting-job-input" type="text" list="accountingJobChoices" placeholder="Type job number or job name" aria-label="Choose a job for ${escapeText(employeeName(entry.profile_id, entry.worker_name))}" data-entry-job-input="${escapeText(entry.id)}"${locked ? " disabled" : ""}>
+        <input class="jgc-input accounting-job-input" type="text" list="accountingJobChoices" placeholder="Type job number, client or job name" aria-label="Choose a job for ${escapeText(employeeName(entry.profile_id, entry.worker_name))}" data-entry-job-input="${escapeText(entry.id)}"${locked ? " disabled" : ""}>
         <button class="jgc-button" type="button" data-match-entry="${escapeText(entry.id)}"${locked ? " disabled" : ""}>Apply</button>
       </div></td>
     </tr>`).join("");
@@ -595,6 +637,7 @@
     renderMissingSubmissions(validation);
     renderEmployeeReview(validation);
     renderJobExceptions(validation);
+    renderJobListStatus();
     renderRates();
     renderTemplate();
     renderExportHistory();
@@ -602,6 +645,7 @@
   }
 
   async function loadData() {
+    state.dataRevision += 1;
     setLoading(true);
     showNotice("Loading Accounting data...");
     state.periodDates = periodDates(state.payDate);
@@ -615,7 +659,7 @@
         state.client.from("accounting_timesheet_submissions").select("*").in("week_start", [dates.weekOneStart, dates.weekTwoStart]).order("submitted_at"),
         state.client.from("accounting_time_entries").select("*").gte("work_date", dates.weekOneStart).lte("work_date", dates.weekTwoEnd).eq("is_current", true).order("work_date"),
         state.client.from("timesheet_entries").select("id,profile_id,worker_name,week_start,day_of_week,entry_type,hours").in("week_start", [dates.weekOneStart, dates.weekTwoStart]).order("week_start").order("day_of_week"),
-        state.client.from("jobs").select("id,job_number,job_name,active").order("active", { ascending: false }).order("job_number"),
+        loadCompleteJobList(),
         state.client.from("accounting_pay_periods").select("*").eq("pay_date", state.payDate).maybeSingle(),
         state.client.from("accounting_workbook_templates").select("id,file_name,file_sha256,is_active,uploaded_by,created_at,updated_at").eq("is_active", true).limit(1).maybeSingle()
       ]);
@@ -626,7 +670,7 @@
       state.submissions = requireResult(submissionsResult, "Submitted timesheets") || [];
       state.entries = requireResult(entriesResult, "Accounting time entries") || [];
       state.liveEntries = requireResult(liveEntriesResult, "Live timesheet entries") || [];
-      state.jobs = requireResult(jobsResult, "Jobs") || [];
+      state.jobs = jobsResult;
       state.period = requireResult(periodResult, "Pay period") || null;
       state.template = requireResult(templateResult, "Workbook template") || null;
       if (state.period) {
@@ -988,6 +1032,7 @@
       missingList: byId("accountingMissingList"),
       employeeReview: byId("accountingEmployeeReview"),
       jobCount: byId("accountingJobCount"),
+      jobListStatus: byId("accountingJobListStatus"),
       jobExceptions: byId("accountingJobExceptions"),
       rates: byId("accountingRates"),
       templateStatus: byId("accountingTemplateStatus"),
@@ -1045,6 +1090,7 @@
       elements.page.hidden = false;
       elements.currentUser.textContent = "Signed in as: " + state.profile.display_name;
       await loadData();
+      window.JGCJobListSync.watch(refreshJobList);
     } catch (error) {
       showNotice(error.message || "Accounting could not be loaded.", "error");
     }
