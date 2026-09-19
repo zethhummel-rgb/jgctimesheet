@@ -57,6 +57,7 @@
             </select>
         </div>
     </div>
+    <p class="small">Employment Start Date controls when timesheets are expected. New accounts default to today; correct the date when needed. Existing blank dates keep their current expectations.</p>
     <div id="accountsList" class="small accounts-list">Loading accounts...</div>
 </div>
 </main>
@@ -102,6 +103,12 @@ function renderAccountRows(accountList) {
                 <td>${escapeHtml(getAccountTypeLabel(account.role))}</td>
                 <td><span class="status ${account.can_create_digital_pos ? "po-create-allowed" : "po-create-blocked"} jgc-badge ${account.can_create_digital_pos ? "jgc-badge--success" : "jgc-badge--danger"}">${account.can_create_digital_pos ? "PO Allowed" : "PO Not Allowed"}</span></td>
                 <td>${escapeHtml(formatDate(account.created_at))}</td>
+                <td><form onsubmit="saveEmploymentStartDate(event, '${account.id}')" class="jgc-field">
+                    <label class="jgc-label" for="employmentStart-${account.id}">Employment Start Date</label>
+                    <input class="jgc-input" type="date" id="employmentStart-${account.id}" aria-label="Employment Start Date for ${escapeHtml(account.display_name)}" value="${escapeHtml(account.hire_date || '')}">
+                    <button type="submit" class="secondary jgc-button jgc-button--secondary">Save start date</button>
+                    <span role="status" data-start-date-status></span>
+                </form></td>
                 <td>
                     <div class="row-actions jgc-table-actions">
                         ${account.account_status !== "approved" ? `<button class="jgc-button" type="button" onclick="approveAccount('${account.id}')">Reactivate</button>` : ""}
@@ -128,6 +135,7 @@ function renderAccountsTable(accountList) {
                         <th>Account Type</th>
                         <th>Digital PO</th>
                         <th>Created</th>
+                        <th>Employment Start Date</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -239,7 +247,7 @@ async function loadAccounts() {
 
     const { data, error } = await supabaseClient
         .from("profiles")
-        .select("id,email,display_name,worker_key,role,account_status,can_create_digital_pos,created_at,approved_at,deactivated_at")
+        .select("id,email,display_name,worker_key,role,account_status,can_create_digital_pos,created_at,approved_at,deactivated_at,hire_date")
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -275,6 +283,26 @@ async function updateAccount(id, values) {
 
     await loadAccounts();
     return true;
+}
+
+async function saveEmploymentStartDate(event, id) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const input = form.querySelector('input[type="date"]');
+    const button = form.querySelector('button');
+    const status = form.querySelector('[data-start-date-status]');
+    if (!input.reportValidity() || button.disabled) return;
+    button.disabled = true;
+    status.textContent = "Saving…";
+    try {
+        const { data, error } = await supabaseClient.from("profiles").update({ hire_date: input.value || null }).eq("id", id).select("id,hire_date").single();
+        if (error || !data) throw new Error(error && error.message || "Start date could not be saved.");
+        const account = accounts.find(item => item.id === id);
+        if (account) account.hire_date = data.hire_date;
+        status.textContent = "Saved";
+    } catch (error) {
+        status.textContent = error.message || "Start date could not be saved. Try again.";
+    } finally { button.disabled = false; }
 }
 
 async function approveAccount(id) {

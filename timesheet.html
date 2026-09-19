@@ -206,6 +206,7 @@ const supabaseClient = createJgcSupabaseClient();
 
 let currentUser = normalizeWorkerName(localStorage.getItem("currentWorker"));
 let currentUserDisplay = localStorage.getItem("currentWorkerDisplay") || localStorage.getItem("currentWorker");
+let currentEmploymentStartDate = localStorage.getItem("jgcEmploymentStart:" + currentUser) || "";
 let memoryTimesheets = [];
 let rawSupabaseTimesheetRows = [];
 let editingEntryId = null;
@@ -274,7 +275,7 @@ async function refreshCurrentWorkerFromSupabase() {
 
   const { data: profile, error: profileError } = await supabaseClient
     .from("profiles")
-    .select("email, display_name, worker_key, role, account_status")
+    .select("email, display_name, worker_key, role, account_status, hire_date")
     .eq("id", signedInUser.id)
     .single();
 
@@ -283,6 +284,8 @@ async function refreshCurrentWorkerFromSupabase() {
   }
 
   currentUser = normalizeWorkerName(profile.worker_key || profile.display_name || signedInUser.email);
+  currentEmploymentStartDate = profile.hire_date || "";
+  localStorage.setItem("jgcEmploymentStart:" + currentUser, currentEmploymentStartDate);
   currentUserDisplay = profile.display_name || profile.worker_key || signedInUser.email;
   localStorage.setItem("currentWorker", currentUser);
   localStorage.setItem("currentWorkerDisplay", currentUserDisplay);
@@ -3466,7 +3469,7 @@ async function emailEntries() {
   const missingWeekdays = getMissingMandatoryWeekdays(entries);
 
   if (missingWeekdays.length) {
-    alert("Please account for every weekday before submitting. Missing: " + missingWeekdays.join(", ") + ".");
+    alert("Please account for every required weekday from your Employment Start Date before submitting. Missing: " + missingWeekdays.join(", ") + ".");
     return;
   }
 
@@ -4259,6 +4262,7 @@ function getOntarioHolidayEntriesForWeek(weekStart, selectedDate) {
     return holidayTime >= weekStart.getTime() &&
       holidayTime <= weekEnd.getTime() &&
       holidayTime < selectedDate.getTime() &&
+      (!currentEmploymentStartDate || formatDateValue(holiday.date) >= currentEmploymentStartDate) &&
       !existingDays.has(getDayNames()[holiday.date.getDay()]);
   });
 }
@@ -4340,8 +4344,11 @@ function getMissingMandatoryWeekdays(entries) {
       })
   );
 
-  return getWeekdayNames().filter(function(day) {
-    return !coveredDays.has(day);
+  const weekStart = getSelectedWeekStartValue();
+  return getWeekdayNames().filter(function(day, index) {
+    const date = makeLocalDate(weekStart);
+    date.setDate(date.getDate() + index + 1);
+    return (!currentEmploymentStartDate || formatDateValue(date) >= currentEmploymentStartDate) && !coveredDays.has(day);
   });
 }
 

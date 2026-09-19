@@ -230,6 +230,11 @@
       .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || "")));
   }
 
+  function requiredWeekdays(profile, weekStart) {
+    const start = isoDate(profile.hire_date);
+    return REQUIRED_WEEKDAYS.filter((day, index) => !start || addDays(weekStart, index + 1) >= start);
+  }
+
   function liveWeekEntries(profileId, weekStart) {
     return state.liveEntries.filter((entry) => entry.profile_id === profileId && isoDate(entry.week_start) === isoDate(weekStart));
   }
@@ -242,15 +247,18 @@
     const missing = [];
     expected.forEach((profile) => {
       [state.periodDates.weekOneStart, state.periodDates.weekTwoStart].forEach((weekStart) => {
-        if (!submissionKeys.has(`${profile.id}|${weekStart}`)) {
-          const liveEntries = liveWeekEntries(profile.id, weekStart);
+        const requiredDays = requiredWeekdays(profile, weekStart);
+        const liveEntries = liveWeekEntries(profile.id, weekStart);
+        const hasEnteredTime = liveEntries.some((entry) => !profile.hire_date || addDays(weekStart, ["Sunday", ...REQUIRED_WEEKDAYS, "Saturday"].indexOf(entry.day_of_week)) >= isoDate(profile.hire_date));
+        if ((requiredDays.length || hasEnteredTime) && !submissionKeys.has(`${profile.id}|${weekStart}`)) {
           const coveredDays = new Set(liveEntries.map((entry) => entry.day_of_week).filter(Boolean));
           missing.push({
             profile,
             weekStart,
             liveEntries,
-            coveredDays: REQUIRED_WEEKDAYS.filter((day) => coveredDays.has(day)),
-            missingDays: REQUIRED_WEEKDAYS.filter((day) => !coveredDays.has(day))
+            requiredDays,
+            coveredDays: requiredDays.filter((day) => coveredDays.has(day)),
+            missingDays: requiredDays.filter((day) => !coveredDays.has(day))
           });
         }
       });
@@ -303,7 +311,7 @@
   function renderValidation(validation) {
     const cards = [];
     if (!validation.blockFinal.length) {
-      cards.push('<div class="accounting-validation-card jgc-notice"><strong>Final export checks passed</strong>Both weeks are submitted for every Accounting employee, and rates and job matches are ready.</div>');
+      cards.push('<div class="accounting-validation-card jgc-notice"><strong>Final export checks passed</strong>All required employee weeks are submitted from their Employment Start Date, and rates and job matches are ready.</div>');
     } else {
       cards.push(`<div class="accounting-validation-card jgc-notice jgc-notice--danger danger"><strong>Final export blocked</strong>Resolve: ${escapeText(validation.blockFinal.join(", "))}.</div>`);
     }
@@ -340,12 +348,13 @@
       const key = `${item.profile.id}-${item.weekStart}`;
       const needsFill = item.missingDays.length > 0;
       const weekdayControls = REQUIRED_WEEKDAYS.map((day) => {
+        const isRequired = item.requiredDays.includes(day);
         const isCovered = item.coveredDays.includes(day);
         const shortDay = day.slice(0, 3);
-        return `<label class="accounting-weekday ${isCovered ? "is-complete" : "is-missing"}">
-          <input type="checkbox" ${isCovered ? "checked disabled" : "checked data-fill-day"} value="${escapeText(day)}">
+        return `<label class="accounting-weekday ${!isRequired || isCovered ? "is-complete" : "is-missing"}">
+          <input type="checkbox" ${!isRequired ? "disabled" : isCovered ? "checked disabled" : "checked data-fill-day"} value="${escapeText(day)}">
           <span>${escapeText(shortDay)}</span>
-          <small>${isCovered ? "Entered" : "Fill"}</small>
+          <small>${!isRequired ? "Before start" : isCovered ? "Entered" : "Fill"}</small>
         </label>`;
       }).join("");
       return `<article class="accounting-missing-card jgc-card" data-missing-card data-profile-id="${escapeText(item.profile.id)}" data-week-start="${escapeText(item.weekStart)}">
@@ -368,7 +377,7 @@
             <input id="missingNote-${escapeText(key)}" class="jgc-input" type="text" maxlength="500" data-leave-note placeholder="Example: Christmas shutdown">
           </div>
         </div>
-        <p class="accounting-missing-help">${needsFill ? "Selected days will be added to the employee's real timesheet, then the completed week will be submitted into employee history and Accounting." : "All weekdays already have entries. Accounting can submit the completed week without adding leave."}</p>
+        <p class="accounting-missing-help">${needsFill ? "Selected days will be added to the employee's real timesheet, then the completed week will be submitted into employee history and Accounting." : "All required weekdays already have entries. Accounting can submit the completed week without adding leave."}</p>
         <button class="jgc-button accounting-submit-missing" type="button" data-submit-missing-timesheet>${needsFill ? "Auto Fill Selected Days & Submit Week" : "Submit Completed Week"}</button>
       </article>`;
     }).join("");
@@ -384,7 +393,7 @@
     const fillInputs = Array.from(card.querySelectorAll("[data-fill-day]"));
     const selectedDays = fillInputs.filter((input) => input.checked).map((input) => input.value);
     if (fillInputs.length && selectedDays.length !== fillInputs.length) {
-      showNotice("A week cannot be submitted until Monday through Friday are covered. Enter the missing work first, or select every remaining day as Vacation / Holiday.", "warning");
+      showNotice("A week cannot be submitted until every required weekday on or after the Employment Start Date is covered. Enter the missing work first, or select every remaining day as Vacation / Holiday.", "warning");
       return;
     }
 
@@ -599,7 +608,7 @@
     try {
       const dates = state.periodDates;
       const [profilesResult, workersResult, accessResult, ratesResult, submissionsResult, entriesResult, liveEntriesResult, jobsResult, periodResult, templateResult] = await Promise.all([
-        state.client.from("profiles").select("id,display_name,worker_key,role,account_status").order("display_name"),
+        state.client.from("profiles").select("id,display_name,worker_key,role,account_status,hire_date").order("display_name"),
         state.client.from("work_order_labour_workers").select("id,profile_id,approved"),
         state.client.from("employee_feature_access").select("worker_id,feature_key,enabled").eq("feature_key", "accounting"),
         state.client.from("accounting_employee_rates").select("*").order("effective_from", { ascending: false }),
