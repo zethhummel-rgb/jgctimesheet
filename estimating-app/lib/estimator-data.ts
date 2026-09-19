@@ -239,6 +239,7 @@ export interface Quote {
   proposalShowCostBreakdown?: boolean;
   proposalBreakdownCategories?: ProposalCostBreakdownCategory[];
   proposalBreakdownLineIds?: string[];
+  proposalBreakdownDescriptionLineIds?: string[];
   proposalSubcontractorBreakdownMode?: ProposalSubcontractorBreakdownMode;
   /** Retained for older saved quotes. Customer breakdown amounts now always include markup. */
   proposalBreakdownIncludesMarkup?: boolean;
@@ -1152,21 +1153,20 @@ export function normalizeAppState(state: AppState): AppState {
       proposalBreakdownLineIds: Array.isArray(quote.proposalBreakdownLineIds)
         ? [...new Set(quote.proposalBreakdownLineIds.filter((lineId): lineId is string => typeof lineId === "string" && quote.lines.some((line) => line.id === lineId)))]
         : undefined,
+      proposalBreakdownDescriptionLineIds: Array.isArray(quote.proposalBreakdownDescriptionLineIds)
+        ? [...new Set(quote.proposalBreakdownDescriptionLineIds.filter((id) => typeof id === "string" && quote.lines.some((line) => line.id === id && line.costType === "Sub / Vendor")))]
+        : [],
       proposalSubcontractorBreakdownMode: quote.proposalSubcontractorBreakdownMode === "individual" ? "individual" : "combined",
       proposalBreakdownIncludesMarkup: true,
       lines: quote.lines.map((line) => {
         const priceBookItem = state.priceBook.find((item) => item.code === line.priceBookCode);
-        const subcontractorName = line.vendorName?.trim()
-          || state.vendors.find((vendor) => vendor.id === line.vendorId)?.name.trim()
-          || "";
         const legacySubcontractorCost = line.costType === "Sub / Vendor"
           ? line.projectCost ?? line.catalogCost ?? (line.costBuildUp ? lineBuildUpTotals(line).total : null)
           : null;
         return {
           ...line,
-          description: line.costType === "Sub / Vendor" && !line.description?.trim()
-            ? subcontractorName
-            : line.description,
+          // Blank quote descriptions are intentional; never substitute the vendor name.
+          description: line.description ?? "",
           division: line.division ?? (priceBookItem ? constructionDivision(priceBookItem.category) : "Div 01 – General Requirements"),
           vendorPricingMode: line.vendorPricingMode ?? (line.vendorReference?.trim() ? "Quoted" : "Budget"),
           vendorActualCost: Number.isFinite(line.vendorActualCost) ? Math.max(0, Number(line.vendorActualCost)) : legacySubcontractorCost,

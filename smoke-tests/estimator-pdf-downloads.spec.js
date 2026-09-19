@@ -202,18 +202,18 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   const estimatePath = testInfo.outputPath("estimate-only.pdf");
   await estimateDownload.saveAs(estimatePath);
   const estimateText = await extractPdfText(estimatePath);
-  expect(estimateText).toContain("PROJECT TITLE");
+  expect(estimateText).toContain("PROJECT");
   expect(estimateText).toContain("IONP005920 - Lancaster TIS (demo)");
-  expect(estimateText).toContain("SITE");
+  expect(estimateText).toContain("CLIENT");
   expect(estimateText).toContain("Lancaster MTO - demo");
   const estimateHeaderItems = await extractPdfPageItems(estimatePath);
-  const projectTitleLabel = estimateHeaderItems.find((item) => item.text === "PROJECT TITLE");
-  const siteLabel = estimateHeaderItems.find((item) => item.text === "SITE");
+  const projectTitleLabel = estimateHeaderItems.find((item) => item.text === "PROJECT");
+  const siteLabel = estimateHeaderItems.find((item) => item.text === "QUOTE DATE");
   expect(projectTitleLabel).toBeTruthy();
   expect(siteLabel).toBeTruthy();
   expect(projectTitleLabel.x).toBeLessThan(siteLabel.x);
   expect(projectTitleLabel.y).toBe(siteLabel.y);
-  for (const heading of ["DIVISION", "DESCRIPTION / VENDOR", "QTY / UNIT", "LABOUR", "MATERIALS", "DIRECT COST"]) {
+  for (const heading of ["DIVISION", "VENDOR", "QUOTE DESCRIPTION", "QUOTE #", "QTY / UNIT", "LABOUR", "MATERIALS", "DIRECT COST"]) {
     expect(estimateText).toContain(heading);
   }
   expect(estimateText).toContain("Stairwell framing");

@@ -2057,3 +2057,30 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 
 .job-create-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .job-field-invalid .saved-data-picker input { border-color: #b42318; }
+
+/* Customer document hierarchy and compact secondary job actions. */
+.hybrid-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, .55fr); gap: 14px; }
+.hybrid-meta > div { min-width: 0; overflow-wrap: anywhere; }
+.hybrid-meta .document-project strong { font-size: 19px; line-height: 1.2; }
+.hybrid-meta .document-date strong { font-size: 9px; }
+.hybrid-meta .document-date p, .hybrid-meta .document-address { font-size: 8px; }
+.quote-workspace .quote-identity h1 { font-size: 34px; white-space: normal; overflow-wrap: anywhere; }
+.quote-workspace .quote-identity .quote-project-address { font-size: 11px; margin-top: 3px; }
+.proposal-breakdown-line-option { min-width: 0; }
+.proposal-description-choice { padding: 8px 12px 12px 34px; align-items: flex-start; }
+.proposal-description-choice span { display: grid; gap: 3px; min-width: 0; }
+.proposal-description-choice small { overflow-wrap: anywhere; color: var(--slate-600); }
+.proposal-quote-description { display: block; white-space: pre-wrap; font-size: .88em; font-weight: 400; margin-top: 4px; }
+.job-action-stack { display: grid; justify-items: end; gap: 8px; }
+.job-action-stack .job-header-status-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.job-action-stack .job-header-status-button { min-height: 30px; padding: 4px 8px; font-size: 11px; }
+@media screen and (max-width: 760px) {
+  .hybrid-meta { grid-template-columns: 1fr; }
+  .hybrid-meta .document-project strong { font-size: 20px; }
+  .quote-workspace .quote-identity h1 { font-size: 28px; }
+  .job-action-stack { justify-items: start; width: 100%; }
+  .job-action-stack .job-header-status-actions { justify-content: flex-start; flex-wrap: wrap; }
+}
+@media print {
+  .hybrid-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, .55fr); }
+}

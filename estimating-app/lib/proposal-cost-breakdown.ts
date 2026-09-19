@@ -16,12 +16,14 @@ export interface ProposalCostBreakdownRow {
   category: ProposalCostBreakdownCategory | "line-item" | "general-conditions";
   label: string;
   amount: number;
+  quoteDescription?: string;
 }
 
 export interface ProposalCostBreakdownLineOption {
   id: string;
   label: string;
   amount: number;
+  quoteDescription?: string;
   costType: QuoteLine["costType"];
   subcontractor: boolean;
 }
@@ -42,12 +44,8 @@ function subcontractorLabel(state: AppState, line: QuoteLine) {
   const typedName = line.vendorName?.trim() || "";
   const vendor = state.vendors.find((candidate) => candidate.id === line.vendorId)
     ?? state.vendors.find((candidate) => typedName && candidate.name.trim().toLocaleLowerCase() === typedName.toLocaleLowerCase());
-  const description = line.description.trim();
-  const buildUpWork = line.costBuildUp?.items.find((item) => item.kind === "Subcontractor")?.description.trim() || "";
-  const name = typedName || vendor?.name.trim() || description || "Subcontractor";
-  const work = vendor?.trade?.trim()
-    || (description && description.toLocaleLowerCase() !== name.toLocaleLowerCase() ? description : "")
-    || buildUpWork;
+  const name = typedName || vendor?.name.trim() || "Subcontractor";
+  const work = vendor?.trade?.trim() || "";
   return work && work.toLocaleLowerCase() !== name.toLocaleLowerCase() ? `${name} — ${work}` : name;
 }
 
@@ -62,6 +60,7 @@ export function proposalCostBreakdownLineOptions(state: AppState, quote: Quote):
         amount: lineSellPrice(line, quote.defaultMarkup),
         costType: line.costType,
         subcontractor,
+        quoteDescription: line.costType === "Sub / Vendor" ? line.description.trim() : undefined,
       };
     });
 }
@@ -129,7 +128,7 @@ export function proposalCostBreakdownRows(state: AppState, quote: Quote): Propos
 
   const rows: ProposalCostBreakdownRow[] = lineOptions
     .filter((option) => selectedLineIds.has(option.id))
-    .map((option) => ({ key: `line-${option.id}`, category: "line-item", label: option.label, amount: roundMoney(option.amount) }));
+    .map((option) => ({ key: `line-${option.id}`, category: "line-item", label: option.label, amount: roundMoney(option.amount), quoteDescription: quote.proposalBreakdownDescriptionLineIds?.includes(option.id) ? option.quoteDescription : undefined }));
   const addCombined = (category: ProposalCostBreakdownCategory, label: string) => {
     const amount = roundMoney(totals[category]);
     if (selected.has(category) && amount > 0) rows.push({ key: category, category, label, amount });
