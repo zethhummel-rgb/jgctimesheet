@@ -1,7 +1,11 @@
-const JGC_RELEASE_ID = "893";
+const JGC_RELEASE_ID = "894";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
+  "./safety-report-tools.js?v=1",
+  "./safety-report-tools.css?v=1",
+  "./employee-injury-report.js?v=1",
+  "./accident-report.js?v=1",
   "./estimating/assets/index-D4hAxtua.css",
   "./estimating/assets/purchase-order-pdf-CI2_EU5K.js",
   "./estimating/assets/proposal-pdf-Brr-FvCs.js",
@@ -227,8 +231,8 @@ const JGC_APP_SHELL = [
   "./jsa-report.css?v=1",
   "./toolbox-talks-report.css?v=1",
   "./incident-report.css?v=1",
-  "./accident-report.css?v=1",
-  "./employee-injury-report.css?v=1",
+  "./accident-report.css?v=2",
+  "./employee-injury-report.css?v=2",
   "./reports-admin.css?v=1",
   "./timesheet-design-system.css?v=3",
   "./tasks-design-system.css?v=2",
@@ -264,7 +268,7 @@ const JGC_APP_SHELL = [
   "./admin-notices.js?v=3",
   "./admin-certificates.js?v=4",
   "./admin-inspections.js?v=4",
-  "./admin-reports.js?v=3",
+  "./admin-reports.js?v=4",
   "./admin-employee-profile.js?v=1",
   "./admin-jobs.js?v=9",
   "./admin-work-orders.js?v=3",

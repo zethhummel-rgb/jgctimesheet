@@ -390,6 +390,11 @@ function renderJsaSignOnCell(record) {
 }
 
 function renderInspectionViewCell(record) {
+    if (["accident_reports", "employee_injury_reports"].includes(record.report_source)) {
+        const page = record.report_source === "accident_reports" ? "accident-report.html" : "employee-injury-report.html";
+        return `<a class="jgc-button" href="${page}?reportId=${encodeURIComponent(record.id)}">View / PDF</a>`;
+    }
+
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="sign-on-button jgc-button" type="button" onclick="openToolboxReport('${escapeHtml(record.id)}', 'view')">View</button>`;
     }
@@ -454,6 +459,11 @@ function renderInspectionEditCell(record) {
 }
 
 function renderInspectionPdfCell(record) {
+    if (["accident_reports", "employee_injury_reports"].includes(record.report_source)) {
+        const page = record.report_source === "accident_reports" ? "accident-report.html" : "employee-injury-report.html";
+        return `<a class="jgc-button" href="${page}?reportId=${encodeURIComponent(record.id)}">View / PDF</a>`;
+    }
+
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="download-button jgc-button" onclick="printToolboxReport('${escapeHtml(record.id)}')">Save PDF</button>`;
     }

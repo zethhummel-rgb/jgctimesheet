@@ -8,9 +8,11 @@
 <title>Supervisor Accident Investigation</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
 <link rel="stylesheet" href="report-design-system.css?v=2">
-<link rel="stylesheet" href="accident-report.css?v=1">
+<link rel="stylesheet" href="accident-report.css?v=2">
+<link rel="stylesheet" href="safety-signature-pad.css?v=1">
+<link rel="stylesheet" href="safety-report-tools.css?v=1">
 </head>
-<body class="report-family-page report-form-page jgc-page jgc-system-page">
+<body class="report-family-page report-form-page jgc-page jgc-system-page safety-report-page">
 <main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
 <div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction logo"></div>
 <div id="currentUser" class="user-bar jgc-page-user"></div>
@@ -18,25 +20,25 @@
   <h1 class="jgc-page-title">John Gordon Construction</h1>
   <h2>Supervisor's Accident Investigation</h2>
   <div class="grid jgc-form-grid">
-    <div class="field full"><label>Site and Location Where Accident Occurred</label><input id="siteLocation" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
-    <div class="field"><label>Date of Accident or Illness</label><input id="accidentDate" type="date"></div>
-    <div class="field"><label>Time of Accident</label><input id="accidentTime" type="time"></div>
-    <div class="field"><label>Who Was Injured?</label><select id="injuredEmployee"></select></div>
-    <div class="field"><label>Who Is Making This Report?</label><select id="reportMaker"></select></div>
-    <div class="field"><label>Job Title of Employee</label><input id="jobTitle"></div>
-    <div class="field"><label>How Long Has Employee Worked at Job?</label><input id="timeOnJob"></div>
-    <div class="field full"><label>Where Injury or Illness Occurred</label><input id="injuryLocation"></div>
-    <div class="field"><label>What Property Was Damaged?</label><input id="propertyDamaged"></div>
-    <div class="field"><label>Property Owned By</label><input id="propertyOwner"></div>
-    <div class="field full"><label>What Was Employee Doing When Injury/Illness Occurred?</label><textarea id="activityBeforeIncident"></textarea></div>
-    <div class="field"><label>What Machine or Tool?</label><input id="machineOrTool"></div>
-    <div class="field"><label>What Operation?</label><input id="operation"></div>
-    <div class="field full"><label>How Did Injury/Illness Occur?</label><textarea id="incidentDescription"></textarea></div>
-    <div class="field full"><label>List All Objects and Substances Involved</label><textarea id="objectsSubstances"></textarea></div>
-    <div class="field"><label>Part of Body Affected</label><input id="bodyPartAffected"></div>
-    <div class="field"><label>Any Prior Physical Defects?</label><select id="priorPhysicalDefects"><option>No</option><option>Yes</option></select></div>
-    <div class="field full"><label>If So, What?</label><input id="priorPhysicalDefectsDetails"></div>
-    <div class="field full"><label>Nature and Extent of Injury/Illness and Property Damage</label><textarea id="natureExtent"></textarea></div>
+    <div class="field full"><label for="siteLocation">Site and Location Where Accident Occurred</label><input id="siteLocation" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
+    <div class="field"><label for="accidentDate">Date of Accident or Illness</label><input id="accidentDate" type="date"></div>
+    <div class="field"><label for="accidentTime">Time of Accident</label><input id="accidentTime" type="time"></div>
+    <div class="field"><label for="injuredEmployee">Who Was Injured?</label><select id="injuredEmployee"></select></div>
+    <div class="field"><label for="reportMaker">Who Is Making This Report?</label><select id="reportMaker"></select></div>
+    <div class="field"><label for="jobTitle">Job Title of Employee</label><input id="jobTitle"></div>
+    <div class="field"><label for="timeOnJob">How Long Has Employee Worked at Job?</label><input id="timeOnJob"></div>
+    <div class="field full"><label for="injuryLocation">Where Injury or Illness Occurred</label><input id="injuryLocation"></div>
+    <div class="field"><label for="propertyDamaged">What Property Was Damaged?</label><input id="propertyDamaged"></div>
+    <div class="field"><label for="propertyOwner">Property Owned By</label><input id="propertyOwner"></div>
+    <div class="field full"><label for="activityBeforeIncident">What Was Employee Doing When Injury/Illness Occurred?</label><textarea id="activityBeforeIncident"></textarea></div>
+    <div class="field"><label for="machineOrTool">What Machine or Tool?</label><input id="machineOrTool"></div>
+    <div class="field"><label for="operation">What Operation?</label><input id="operation"></div>
+    <div class="field full"><label for="incidentDescription">How Did Injury/Illness Occur?</label><textarea id="incidentDescription"></textarea></div>
+    <div class="field full"><label for="objectsSubstances">List All Objects and Substances Involved</label><textarea id="objectsSubstances"></textarea></div>
+    <div class="field"><label for="bodyPartAffected">Part of Body Affected</label><input id="bodyPartAffected"></div>
+    <div class="field"><label for="priorPhysicalDefects">Any Prior Physical Defects?</label><select id="priorPhysicalDefects"><option>No</option><option>Yes</option></select></div>
+    <div class="field full"><label for="priorPhysicalDefectsDetails">If So, What?</label><input id="priorPhysicalDefectsDetails"></div>
+    <div class="field full"><label for="natureExtent">Nature and Extent of Injury/Illness and Property Damage</label><textarea id="natureExtent"></textarea></div>
     <div class="field full">
       <label>Please Indicate All Which Contributed</label>
       <div class="checks" id="factorList">
@@ -59,20 +61,21 @@
         <label><input class="factor" type="checkbox" value="Poor housekeeping">Poor housekeeping</label>
       </div>
     </div>
-    <div class="field full"><label>Other Contributing Factor</label><input id="otherFactor"></div>
-    <div class="field full"><label>Supervisor's Corrective Action to Ensure This Type of Accident Does Not Reoccur</label><textarea id="correctiveActionPrevent"></textarea></div>
-    <div class="field"><label>Was Employee Trained in PPE / Safety Procedures?</label><select id="trainedPpe"><option></option><option>Yes</option><option>No</option></select></div>
-    <div class="field"><label>Was Employee Cautioned for Failure to Use PPE / Safety Procedures?</label><select id="cautionedPpe"><option></option><option>Yes</option><option>No</option></select></div>
-    <div class="field"><label>Did Employee Promptly Report Injury/Illness?</label><select id="promptlyReported"><option></option><option>Yes</option><option>No</option></select></div>
-    <div class="field"><label>Is Modified Duty Available?</label><select id="modifiedDutyAvailable"><option></option><option>Yes</option><option>No</option></select></div>
-    <div class="field full"><label>Corrective Action Taken</label><textarea id="correctiveActionTaken"></textarea></div>
-    <div class="field"><label>Corrective Action Taken By</label><input id="correctiveActionTakenBy"></div>
-    <div class="field"><label>Date of Corrective Action</label><input id="correctiveActionDate" type="date"></div>
-    <div class="field"><label>Supervisor's Name</label><input id="supervisorName"></div>
-    <div class="field"><label>Supervisor's Signature</label><input id="supervisorSignature"></div>
+    <div class="field full"><label for="otherFactor">Other Contributing Factor</label><input id="otherFactor"></div>
+    <div class="field full"><label for="correctiveActionPrevent">Supervisor's Corrective Action to Ensure This Type of Accident Does Not Reoccur</label><textarea id="correctiveActionPrevent"></textarea></div>
+    <div class="field"><label for="trainedPpe">Was Employee Trained in PPE / Safety Procedures?</label><select id="trainedPpe"><option></option><option>Yes</option><option>No</option></select></div>
+    <div class="field"><label for="cautionedPpe">Was Employee Cautioned for Failure to Use PPE / Safety Procedures?</label><select id="cautionedPpe"><option></option><option>Yes</option><option>No</option></select></div>
+    <div class="field"><label for="promptlyReported">Did Employee Promptly Report Injury/Illness?</label><select id="promptlyReported"><option></option><option>Yes</option><option>No</option></select></div>
+    <div class="field"><label for="modifiedDutyAvailable">Is Modified Duty Available?</label><select id="modifiedDutyAvailable"><option></option><option>Yes</option><option>No</option></select></div>
+    <div class="field full"><label for="correctiveActionTaken">Corrective Action Taken</label><textarea id="correctiveActionTaken"></textarea></div>
+    <div class="field"><label for="correctiveActionTakenBy">Corrective Action Taken By</label><input id="correctiveActionTakenBy"></div>
+    <div class="field"><label for="correctiveActionDate">Date of Corrective Action</label><input id="correctiveActionDate" type="date"></div>
+    <div class="field"><label for="supervisorName">Supervisor's Name</label><input id="supervisorName"></div>
+    <div class="field"><label>Supervisor's Signature</label><div id="supervisorSignatureBox"></div></div>
   </div>
   <div class="actions jgc-actions">
-    <button type="button" class="jgc-button" onclick="submitAccidentReport()">Save & Email Report</button>
+    <button type="button" class="jgc-button" id="saveAccidentReport" onclick="submitAccidentReport()">Save & Email Report</button>
+    <button type="button" class="secondary" onclick="downloadAccidentPdf()">Download PDF</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='reports.html'">Reports</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="window.location.href='home.html'">Home</button>
     <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="signOut()">Sign Out</button>
@@ -82,52 +85,8 @@
 </main>
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
   <script src="common.js?v=45"></script>
-<script>
-const REPORT_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPILTnOSzQcCkA6y5vSLxCH6i05Y2-ZHZAk09Und0YKiXZOYMppV4fvW3G6EgqOIZi/exec";
-const supabaseClient = createJgcSupabaseClient();
-const worker = requireJgcWorker();
-const currentWorker = normalizeWorkerName(worker.key);
-const currentWorkerDisplay = worker.display || worker.key;
-let employees = [];
-document.getElementById("currentUser").textContent = "Signed in as: " + currentWorkerDisplay;
-document.getElementById("accidentDate").value = new Date().toISOString().slice(0,10);
-function getValue(id){return document.getElementById(id).value.trim();}
-function setStatus(message){document.getElementById("saveStatus").textContent=message||"";}
-function makeSafeFileName(name){return String(name||"accident-report").trim().replace(/[^a-z0-9.\-_]+/gi,"-").replace(/-+/g,"-").toLowerCase();}
-function createPublicReportId(){if(window.crypto&&typeof window.crypto.randomUUID==="function"){return window.crypto.randomUUID();}return"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,(c)=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16);});}
-async function loadEmployees(){
-  const {data}=await supabaseClient.from("profiles").select("display_name,worker_key,email,account_status").eq("account_status","approved").order("display_name",{ascending:true});
-  employees=(data||[]).map((p)=>({workerName:normalizeWorkerName(p.worker_key||p.display_name||p.email),displayName:p.display_name||p.worker_key||p.email||""})).filter((e)=>e.workerName);
-  const options='<option value="">Select Employee</option>'+employees.map((e)=>`<option value="${escapeHtml(e.workerName)}" data-display="${escapeHtml(e.displayName)}">${escapeHtml(e.displayName)}</option>`).join("");
-  document.getElementById("injuredEmployee").innerHTML=options;
-  document.getElementById("reportMaker").innerHTML=options;
-  const match=employees.find((e)=>e.workerName===currentWorker||normalizeWorkerName(e.displayName)===normalizeWorkerName(currentWorkerDisplay));
-  if(match){document.getElementById("reportMaker").value=match.workerName;}
-}
-function selectedEmployee(id){const select=document.getElementById(id);const option=select.options[select.selectedIndex];return {workerName:select.value,displayName:option?option.dataset.display||option.textContent||select.value:select.value};}
-function selectedFactors(){const factors=Array.from(document.querySelectorAll(".factor:checked")).map((box)=>box.value);const other=getValue("otherFactor");if(other){factors.push("Other: "+other);}return factors;}
-function buildBody(r){return ["Supervisor's Accident Investigation","","Date: "+r.accident_date,"Time: "+r.accident_time,"Location: "+r.site_location,"Injured Employee: "+r.injured_worker_display,"Report Maker: "+r.report_maker_display,"","How it occurred:",r.incident_description,"","Nature / Extent:",r.nature_extent,"","Corrective Action:",r.corrective_action_prevent].join("\n");}
-function row(label,value){return `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value||"")}</td></tr>`;}
-function buildPdfHtml(r){
-  const factors=(r.contributing_factors||[]).join(", ");
-  return `<!doctype html><html><head><meta charset="UTF-8"><style>body{font-family:Georgia,serif;color:#111}h1{text-align:center;color:#087622;margin:0}h2{text-align:left;margin:8px 0 14px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;font-size:12px;text-align:left;vertical-align:top}th{width:32%;background:#f5f5f5}td{white-space:pre-wrap}.lines{min-height:70px}</style></head><body><h1>JOHN GORDON<br>CONSTRUCTION</h1><h2>Supervisor's Accident Investigation</h2><table>
-  ${row("Site and Location",r.site_location)}${row("Date of Accident or Illness",r.accident_date)}${row("Who Was Injured",r.injured_worker_display)}${row("Time of Accident",r.accident_time)}${row("Job Title",r.job_title)}${row("How Long at Job",r.time_on_job)}${row("Where Injury/Illness Occurred",r.injury_location)}${row("Property Damaged",r.property_damaged)}${row("Property Owned By",r.property_owner)}${row("What Employee Was Doing",r.activity_before_incident)}${row("Machine or Tool",r.machine_or_tool)}${row("Operation",r.operation)}${row("How Injury/Illness Occurred",r.incident_description)}${row("Objects/Substances Involved",r.objects_substances)}${row("Part of Body Affected",r.body_part_affected)}${row("Prior Physical Defects",r.prior_physical_defects+" "+(r.prior_physical_defects_details||""))}${row("Nature and Extent",r.nature_extent)}${row("Contributing Factors",factors)}${row("Corrective Action to Prevent Reoccurrence",r.corrective_action_prevent)}${row("Trained in PPE/Safety Procedures",r.trained_ppe)}${row("Cautioned for PPE/Safety Procedures",r.cautioned_ppe)}${row("Promptly Reported",r.promptly_reported)}${row("Modified Duty Available",r.modified_duty_available)}${row("Corrective Action Taken",r.corrective_action_taken)}${row("Corrective Action Taken By",r.corrective_action_taken_by)}${row("Date of Corrective Action",r.corrective_action_date)}${row("Supervisor's Name",r.supervisor_name)}${row("Supervisor's Signature",r.supervisor_signature)}
-  </table></body></html>`;
-}
-async function submitAccidentReport(){
-  const injured=selectedEmployee("injuredEmployee");const maker=selectedEmployee("reportMaker");
-  if(!getValue("siteLocation")||!getValue("accidentDate")||!injured.workerName||!maker.workerName||!getValue("incidentDescription")){alert("Add the location, date, injured employee, report maker, and how the accident happened.");return;}
-  const record={id:createPublicReportId(),accident_date:getValue("accidentDate"),accident_time:getValue("accidentTime"),site_location:getValue("siteLocation"),injured_worker:injured.workerName,injured_worker_display:injured.displayName,report_maker_worker:maker.workerName,report_maker_display:maker.displayName,job_title:getValue("jobTitle"),time_on_job:getValue("timeOnJob"),injury_location:getValue("injuryLocation"),property_damaged:getValue("propertyDamaged"),property_owner:getValue("propertyOwner"),activity_before_incident:getValue("activityBeforeIncident"),machine_or_tool:getValue("machineOrTool"),operation:getValue("operation"),incident_description:getValue("incidentDescription"),objects_substances:getValue("objectsSubstances"),body_part_affected:getValue("bodyPartAffected"),prior_physical_defects:getValue("priorPhysicalDefects"),prior_physical_defects_details:getValue("priorPhysicalDefectsDetails"),nature_extent:getValue("natureExtent"),contributing_factors:selectedFactors(),corrective_action_prevent:getValue("correctiveActionPrevent"),trained_ppe:getValue("trainedPpe"),cautioned_ppe:getValue("cautionedPpe"),promptly_reported:getValue("promptlyReported"),modified_duty_available:getValue("modifiedDutyAvailable"),corrective_action_taken:getValue("correctiveActionTaken"),corrective_action_taken_by:getValue("correctiveActionTakenBy"),corrective_action_date:getValue("correctiveActionDate")||null,supervisor_name:getValue("supervisorName"),supervisor_signature:getValue("supervisorSignature"),created_by_worker:currentWorker,created_by_name:currentWorkerDisplay};
-  setStatus("Saving accident report...");
-  const {error}=await supabaseClient.from("accident_reports").insert(record);
-  if(error){setStatus("Accident report could not be saved.");return;}
-  await supabaseClient.from("accident_report_acknowledgements").insert({accident_report_id:record.id,worker_name:injured.workerName,worker_display_name:injured.displayName});
-  setStatus("Emailing accident report...");
-  const subject="Supervisor Accident Investigation - "+injured.displayName+" - "+record.accident_date;
-  try{await fetch(REPORT_EMAIL_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(withJgcSubcontractorEmailCopy({subject,body:buildBody(record),text:buildBody(record),pdfHtml:buildPdfHtml(record),pdfFileName:makeSafeFileName(subject)+".pdf",source:"accident_report"}))});setStatus("Accident report saved and emailed.");alert("Accident report saved and emailed.");}catch(error){setStatus("Report saved, but email could not be sent.");}
-}
-async function signOut(){await signOutJgc(supabaseClient);}
-loadEmployees();
-</script>
-</body>
-</html>
+<script src="vendor/jspdf.umd.min.js?v=1"></script>
+<script src="safety-signature-pad.js?v=1"></script>
+<script src="safety-report-tools.js?v=1"></script>
+<script src="accident-report.js?v=1"></script>
+</body></html>
