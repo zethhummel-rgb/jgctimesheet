@@ -1115,7 +1115,7 @@ test("subcontractor vendor and quote description stay separate", async ({ page }
   const vendorCell = mainRow.locator("td").nth(1);
   const descriptionCell = mainRow.locator("td").nth(2);
   const costTypeCell = mainRow.locator("td").nth(3);
-  await expect(vendorCell).toHaveAttribute("data-label", "Vendor / Quote #");
+  await expect(vendorCell).toHaveAttribute("data-label", "Vendor");
   await expect(descriptionCell).toHaveAttribute("data-label", "Quote description");
   await expect(costTypeCell).toHaveAttribute("data-label", "Cost type");
   await expect(costTypeCell).toContainText("Sub / Vendor");
@@ -1192,7 +1192,7 @@ test("estimate lines stay grouped by cost type with subcontractors first", async
   await page.locator(".subcontractor-add-button").click();
 
   const types = await page.locator(".estimate-table tbody > tr:not(.line-detail-row)").evaluateAll((rows) => rows.map((row) => {
-    if (row.querySelector('td[data-label="Vendor / Quote #"]')) return "Sub / Vendor";
+    if (row.querySelector('td[data-label="Vendor"]')) return "Sub / Vendor";
     const cell = row.querySelector('td[data-label="Cost type"]');
     return cell?.querySelector("select")?.value ?? cell?.textContent?.trim() ?? "";
   }));

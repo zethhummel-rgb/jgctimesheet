@@ -253,17 +253,17 @@ class BackupPdfBuilder {
   private addPage(continuation: boolean) {
     this.page = this.document.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     this.ownedPages.push({ page: this.page, section: this.section });
-    this.drawHeader();
+    const headerBottom = this.drawHeader();
     this.page.drawText(ascii(this.section.toUpperCase()), {
       x: MARGIN,
-      y: 642,
+      y: headerBottom - 18,
       size: 8,
       font: this.bold,
       color: colour.blue,
     });
     this.page.drawText(ascii(continuation ? `${this.section} - continued` : this.section), {
       x: MARGIN,
-      y: 617,
+      y: headerBottom - 43,
       size: continuation ? 17 : 23,
       font: this.bold,
       color: colour.navy,
@@ -271,14 +271,14 @@ class BackupPdfBuilder {
     if (!continuation && this.sectionSubtitle) {
       this.page.drawText(ascii(this.sectionSubtitle), {
         x: MARGIN,
-        y: 598,
+        y: headerBottom - 62,
         size: 8.5,
         font: this.regular,
         color: colour.muted,
       });
-      this.y = 577;
+      this.y = headerBottom - 83;
     } else {
-      this.y = 592;
+      this.y = headerBottom - 68;
     }
   }
 
@@ -324,35 +324,27 @@ class BackupPdfBuilder {
       color: colour.muted,
     });
 
-    const metadataY = 660;
-    const metadataHeight = 35;
-    const projectWidth = 306;
-    const metadataGap = 14;
-    const siteX = MARGIN + projectWidth + metadataGap;
-    const siteWidth = CONTENT_WIDTH - projectWidth - metadataGap;
-    this.page.drawRectangle({
-      x: MARGIN,
-      y: metadataY,
-      width: CONTENT_WIDTH,
-      height: metadataHeight,
-      color: colour.light,
-      borderColor: colour.line,
-      borderWidth: 0.5,
+    const client = this.state.clients.find((item) => item.id === this.quote.clientId);
+    const address = this.quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLowerCase() === this.quote.site.trim().toLowerCase())?.address?.trim() || "";
+    const widths = [CONTENT_WIDTH * .32, CONTENT_WIDTH * .51, CONTENT_WIDTH * .17];
+    const columns = [
+      { label: "CLIENT", strong: client?.name || "Client not selected", detail: address, size: 8 },
+      { label: "PROJECT", strong: this.quote.project || "Project not named", detail: this.quote.site, size: 12 },
+      { label: "QUOTE DATE", strong: shortDate(this.quote.quoteDate), detail: `Valid until ${shortDate(this.quote.validUntil)}`, size: 6.5 },
+    ].map((item, index) => ({ ...item, width: widths[index], strongLines: wrapText(item.strong, this.bold, item.size, widths[index] - 16), detailLines: wrapText(item.detail, this.regular, 6, widths[index] - 16) }));
+    const top = 695;
+    const height = Math.max(62, ...columns.map((item) => 25 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 8 + 8));
+    this.page.drawRectangle({ x: MARGIN, y: top - height, width: CONTENT_WIDTH, height, color: colour.light, borderColor: colour.line, borderWidth: .5 });
+    let x = MARGIN;
+    columns.forEach((item, index) => {
+      if (index) this.page.drawLine({ start: { x, y: top - 8 }, end: { x, y: top - height + 8 }, thickness: .5, color: colour.line });
+      this.page.drawText(item.label, { x: x + 8, y: top - 13, size: 6, font: this.bold, color: colour.blue });
+      item.strongLines.forEach((line, index) => this.page.drawText(line, { x: x + 8, y: top - 28 - index * (item.size + 2), size: item.size, font: this.bold, color: colour.navy }));
+      const detailTop = top - 29 - item.strongLines.length * (item.size + 2);
+      item.detailLines.forEach((line, index) => this.page.drawText(line, { x: x + 8, y: detailTop - index * 8, size: 6, font: this.regular, color: colour.slate }));
+      x += item.width;
     });
-    this.page.drawLine({
-      start: { x: siteX - metadataGap / 2, y: metadataY },
-      end: { x: siteX - metadataGap / 2, y: metadataY + metadataHeight },
-      thickness: 0.5,
-      color: colour.line,
-    });
-    this.page.drawText("PROJECT TITLE", { x: MARGIN + 8, y: 685, size: 6.2, font: this.bold, color: colour.blue });
-    this.page.drawText("SITE", { x: siteX + 8, y: 685, size: 6.2, font: this.bold, color: colour.blue });
-    wrapText(this.quote.project || "Project not named", this.bold, 7.1, projectWidth - 16).slice(0, 2).forEach((line, index) => {
-      this.page.drawText(line, { x: MARGIN + 8, y: 672 - index * 9, size: 7.1, font: this.bold, color: colour.navy });
-    });
-    wrapText(this.quote.site || "Site not recorded", this.bold, 7.1, siteWidth - 16).slice(0, 2).forEach((line, index) => {
-      this.page.drawText(line, { x: siteX + 8, y: 672 - index * 9, size: 7.1, font: this.bold, color: colour.navy });
-    });
+    return top - height;
   }
 
   ensureSpace(height: number) {
@@ -524,7 +516,7 @@ class BackupPdfBuilder {
 
 function estimateVendorDetails(state: AppState, line: QuoteLine) {
   const vendor = line.vendorId ? state.vendors.find((item) => item.id === line.vendorId)?.name : line.vendorName?.trim() ?? "";
-  return [vendor, line.vendorReference?.trim()].filter(Boolean).join(" / ");
+  return vendor || "";
 }
 
 function addDetailsPage(builder: BackupPdfBuilder, state: AppState, quote: Quote, exportedAt: Date) {
@@ -569,11 +561,13 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
   builder.startSection("Estimate", "Internal quantities, labour, materials, direct costs and markup.");
   const columns: TableColumn[] = [
     { label: "Division", width: 38, align: "center" },
-    { label: "Description / vendor", width: 220 },
-    { label: "Qty / unit", width: 50, align: "right" },
-    { label: "Labour", width: 70, align: "right" },
-    { label: "Materials", width: 70, align: "right" },
-    { label: "Direct cost", width: 84, align: "right", emphasis: "green" },
+    { label: "Vendor", width: 110 },
+    { label: "Quote description", width: 106 },
+    { label: "Quote #", width: 52 },
+    { label: "Qty / unit", width: 48, align: "right" },
+    { label: "Labour", width: 55, align: "right" },
+    { label: "Materials", width: 55, align: "right" },
+    { label: "Direct cost", width: 68, align: "right", emphasis: "green" },
   ];
   const orderedLines = quote.lines
     .map((line, originalIndex) => ({ line, originalIndex }))
@@ -587,7 +581,7 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
     const vendorDetails = line.costType === "Sub / Vendor" ? estimateVendorDetails(state, line) : "";
     const description = line.description.trim();
     const estimateLineName = line.costType === "Sub / Vendor"
-      ? [vendorDetails, description].filter(Boolean).join("\n")
+      ? vendorDetails
       : description;
     const buildUp = line.costType === "Labour & Materials" && line.costBuildUp ? lineBuildUpTotals(line) : null;
     const quantity = Math.max(0, line.quantity || 0);
@@ -600,6 +594,8 @@ function addEstimatePage(builder: BackupPdfBuilder, state: AppState, quote: Quot
     return [
       divisionNumber(line.division),
       estimateLineName,
+      line.costType === "Sub / Vendor" ? description : "",
+      line.costType === "Sub / Vendor" ? line.vendorReference?.trim() || "" : "",
       `${line.quantity.toLocaleString("en-CA", { maximumFractionDigits: 2 })} ${line.unit}`,
       labour === null ? "-" : money(labour),
       materials === null ? "-" : money(materials),

@@ -236,28 +236,25 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
 
   const client = state.clients.find((item) => item.id === quote.clientId);
   const projectAddress = quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLocaleLowerCase() === quote.site.trim().toLocaleLowerCase())?.address?.trim() || "";
-  const metaHeight = 60;
   const metaX = PAGE.margin;
   const metaWidth = PAGE.width - PAGE.margin * 2;
-  const metaColumns = [0.23, 0.29, 0.29, 0.19];
+  const metaColumns = [0.32, 0.51, 0.17];
   const meta = [
-    { label: "PREPARED FOR", strong: client?.name || "Client not selected", detail: quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : "" },
-    { label: "ADDRESS", strong: projectAddress || "Not recorded", detail: "" },
-    { label: "PROJECT", strong: quote.site || "Site name not recorded", detail: [quote.project || "Project not named", changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
-    { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
-  ];
+    { label: "PREPARED FOR", strong: client?.name || "Client not selected", size: 8, detail: [projectAddress, quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : ""].filter(Boolean).join("\n") },
+    { label: "PROJECT", strong: quote.project || "Project not named", size: 12, detail: [quote.site, changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
+    { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), size: 6.5, detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
+  ].map((item, index) => ({ ...item, width: metaWidth * metaColumns[index], strongLines: wrap(item.strong, bold, item.size, metaWidth * metaColumns[index] - 20), detailLines: wrap(item.detail, regular, 5.8, metaWidth * metaColumns[index] - 20) }));
+  const metaHeight = Math.max(62, ...meta.map((item) => 26 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 7 + 8));
   page.drawRectangle({ x: metaX, y: y - metaHeight, width: metaWidth, height: metaHeight, color: panel, borderColor: line, borderWidth: 0.8 });
   let metaOffset = 0;
   meta.forEach((item, index) => {
-    const columnWidth = metaWidth * metaColumns[index];
     const columnX = metaX + metaOffset + 10;
     if (index > 0) page.drawLine({ start: { x: metaX + metaOffset, y: y - 10 }, end: { x: metaX + metaOffset, y: y - metaHeight + 10 }, thickness: 0.6, color: line });
     page.drawText(item.label, { x: columnX, y: y - 14, size: 5.2, font: bold, color: green });
-    const strongLines = wrap(item.strong, bold, 7.2, columnWidth - 18).slice(0, 2);
-    strongLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: y - 27 - lineIndex * 8, size: 7.2, font: bold, color: dark }));
-    const detailStart = y - 27 - strongLines.length * 8;
-    wrap(item.detail, regular, 5.8, columnWidth - 18).slice(0, 3).forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: detailStart - lineIndex * 7, size: 5.8, font: regular, color: grey }));
-    metaOffset += columnWidth;
+    item.strongLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: y - 29 - lineIndex * (item.size + 2), size: item.size, font: bold, color: dark }));
+    const detailStart = y - 30 - item.strongLines.length * (item.size + 2);
+    item.detailLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: detailStart - lineIndex * 7, size: 5.8, font: regular, color: grey }));
+    metaOffset += item.width;
   });
   y -= metaHeight + 13;
 
@@ -351,22 +348,31 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const costBreakdownRows = proposalCostBreakdownRows(state, quote);
   const customerDocumentSubtotal = approvedChange ? quote.changeOrder?.approvedAmount ?? totals.subtotal : totals.subtotal;
   if (quote.proposalShowCostBreakdown && costBreakdownRows.length) {
-    const breakdownHeight = 33 + costBreakdownRows.reduce((sum, row) => sum + Math.max(18, wrap(row.label, regular, 7.5, metaWidth - 125).length * 9 + 6), 0) + 23;
-    ensure(breakdownHeight + 12);
-    const breakdownTop = y;
-    page.drawRectangle({ x: PAGE.margin, y: y - breakdownHeight, width: metaWidth, height: breakdownHeight, color: panel, borderColor: line, borderWidth: 0.8 });
-    page.drawText("COST BREAKDOWN", { x: PAGE.margin + 14, y: y - 19, size: 9.5, font: bold, color: dark });
-    y -= 34;
+    const drawBreakdownHeading = (continued = false) => {
+      ensure(55);
+      page.drawRectangle({ x: PAGE.margin, y: y - 30, width: metaWidth, height: 30, color: panel });
+      page.drawText(continued ? "COST BREAKDOWN - CONTINUED" : "COST BREAKDOWN", { x: PAGE.margin + 14, y: y - 19, size: 9.5, font: bold, color: dark });
+      y -= 39;
+    };
+    drawBreakdownHeading();
     costBreakdownRows.forEach((row) => {
       const labelLines = wrap(row.label, regular, 7.5, metaWidth - 125);
-      labelLines.forEach((value, lineIndex) => page.drawText(value, { x: PAGE.margin + 14, y: y - lineIndex * 9, size: 7.5, font: regular, color: dark }));
+      const descriptionLines = row.quoteDescription ? wrap(row.quoteDescription, regular, 6.8, metaWidth - 125) : [];
+      const rowHeight = Math.max(18, labelLines.length * 9 + descriptionLines.length * 9 + 6);
+      if (y - Math.min(rowHeight, 100) < PAGE.margin + 30) { newPage(); drawBreakdownHeading(true); }
       rightText(money(row.amount), PAGE.width - PAGE.margin - 14, y, 7.5, bold, dark);
-      y -= Math.max(18, labelLines.length * 9 + 6);
+      [...labelLines.map((value) => ({ value, size: 7.5, color: dark })), ...descriptionLines.map((value) => ({ value, size: 6.8, color: grey }))].forEach(({ value, size, color }) => {
+        if (y - 12 < PAGE.margin) { newPage(); drawBreakdownHeading(true); }
+        page.drawText(value, { x: PAGE.margin + 14, y, size, font: regular, color });
+        y -= 9;
+      });
+      y -= 9;
     });
+    ensure(35);
     page.drawLine({ start: { x: PAGE.margin + 14, y: y + 4 }, end: { x: PAGE.width - PAGE.margin - 14, y: y + 4 }, thickness: 1.5, color: green });
     page.drawText(changeNotice ? "Change total" : "Proposal total", { x: PAGE.margin + 14, y: y - 10, size: 8.5, font: bold, color: dark });
     rightText(money(customerDocumentSubtotal), PAGE.width - PAGE.margin - 14, y - 10, 8.5, bold, dark);
-    y = breakdownTop - breakdownHeight - 12;
+    y -= 35;
   }
 
   const lumpSumHeight = 67;
