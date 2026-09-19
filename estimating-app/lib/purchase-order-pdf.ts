@@ -187,7 +187,7 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean).slice(0, 3).forEach((line, index) => drawFittedText(page, regular, line, 8.5, MARGIN + 12, vendorContactY - index * 11, vendorTextWidth, colour.slate));
 
   drawLabelValue(page, regular, bold, "Job name", job.project, MARGIN + 278, 590, 242);
-  drawLabelValue(page, regular, bold, "Client / location", `${client?.name ?? "Client not recorded"}${quote?.site ? ` - ${quote.site}` : ""}`, MARGIN + 278, 553, 242);
+  drawLabelValue(page, regular, bold, "Client / location", `${job.portalCustomer || client?.name || "Client not recorded"}${(job.portalSiteName || job.portalAddress || quote?.site) ? ` - ${job.portalSiteName || job.portalAddress || quote?.site}` : ""}`, MARGIN + 278, 553, 242);
   drawLabelValue(page, regular, bold, "PO date", shortDate(po.issueDate), MARGIN + 278, 520, 242);
 
   const detailY = 458;

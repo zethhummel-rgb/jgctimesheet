@@ -967,7 +967,7 @@ test("subcontractor override drives the estimate while the PO keeps the actual q
 
   await expect(page.locator(".job-detail-page")).toContainText("JOB 26123");
   await page.getByRole("tab", { name: "Purchase Orders", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Create POs from accepted estimate lines" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Job purchase orders" })).toBeVisible();
 
   const poSourceRow = page.locator(".po-source-table tbody tr").filter({ hasText: "PAINT-ACTUAL-17" });
   await expect(poSourceRow).toContainText("$4,600.00");
