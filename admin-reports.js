@@ -684,7 +684,7 @@ function renderAdminAccidentReportsTable(reports) {
     return `
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Date</th><th>Injured Employee</th><th>Location</th><th>Report Maker</th><th>Acknowledgement</th><th>Saved</th></tr></thead>
+                <thead><tr><th>Date</th><th>Injured Employee</th><th>Location</th><th>Report Maker</th><th>Acknowledgement</th><th>Saved</th><th>Report</th></tr></thead>
                 <tbody>
                     ${reports.map((report) => {
                         const acks = accidentAcknowledgements.filter((ack) => String(ack.accident_report_id) === String(report.id));
@@ -699,7 +699,7 @@ function renderAdminAccidentReportsTable(reports) {
                                 <td>${escapeHtml(report.site_location || "")}</td>
                                 <td>${escapeHtml(report.report_maker_display || report.report_maker_worker || "")}</td>
                                 <td>${ackStatus}</td>
-                                <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                <td>${escapeHtml(formatDate(report.created_at))}</td><td><a class="jgc-button jgc-button--secondary" href="accident-report.html?reportId=${encodeURIComponent(report.id)}">View / PDF</a></td>
                             </tr>
                         `;
                     }).join("")}
@@ -720,7 +720,7 @@ function renderAdminEmployeeInjuryReportsTable(reports) {
     return `
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Date</th><th>Employee</th><th>Location</th><th>Supervisor</th><th>Acknowledgement</th><th>Saved</th></tr></thead>
+                <thead><tr><th>Date</th><th>Employee</th><th>Location</th><th>Supervisor</th><th>Acknowledgement</th><th>Saved</th><th>Report</th></tr></thead>
                 <tbody>
                     ${reports.map((report) => {
                         const acks = employeeInjuryAcknowledgements.filter((ack) => String(ack.employee_injury_report_id) === String(report.id));
@@ -735,7 +735,7 @@ function renderAdminEmployeeInjuryReportsTable(reports) {
                                 <td>${escapeHtml(report.accident_location || "")}</td>
                                 <td>${escapeHtml(report.supervisor_name || "")}</td>
                                 <td>${ackStatus}</td>
-                                <td>${escapeHtml(formatDate(report.created_at))}</td>
+                                <td>${escapeHtml(formatDate(report.created_at))}</td><td><a class="jgc-button jgc-button--secondary" href="employee-injury-report.html?reportId=${encodeURIComponent(report.id)}">View / PDF</a></td>
                             </tr>
                         `;
                     }).join("")}

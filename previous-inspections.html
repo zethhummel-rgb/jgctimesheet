@@ -212,6 +212,11 @@ async function emailPreviousToolboxReport(id) {
 }
 
 function renderPreviousViewCell(record) {
+    if (["accident_reports", "employee_injury_reports"].includes(record.report_source)) {
+        const page = record.report_source === "accident_reports" ? "accident-report.html" : "employee-injury-report.html";
+        return `<a class="jgc-button" href="${page}?reportId=${encodeURIComponent(record.id)}">View / PDF</a>`;
+    }
+
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="jgc-button" onclick="openPreviousToolboxReport('${escapeHtml(record.id)}')">View</button>`;
     }
@@ -222,6 +227,11 @@ function renderPreviousViewCell(record) {
 }
 
 function renderPreviousPdfCell(record) {
+    if (["accident_reports", "employee_injury_reports"].includes(record.report_source)) {
+        const page = record.report_source === "accident_reports" ? "accident-report.html" : "employee-injury-report.html";
+        return `<a class="jgc-button" href="${page}?reportId=${encodeURIComponent(record.id)}">View / PDF</a>`;
+    }
+
     if (isToolboxTalkReportRecord(record)) {
         return `<button class="download-button jgc-button" onclick="printPreviousToolboxReport('${escapeHtml(record.id)}')">Download PDF</button>`;
     }

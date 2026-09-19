@@ -4869,3 +4869,186 @@ test("Employment start applies to the administrator partial-week submission chec
   await page.waitForFunction(() => accounts.some(p => p.hire_date === "2026-08-12"));
   expect(await page.evaluate(() => getAdminLiveTimesheetMissingWeekdays(["Wednesday", "Thursday", "Friday"].map(day => ({ profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", day_of_week: day }))))).toEqual([]);
 });
+
+async function signSafetyReport(page, selector) {
+  await page.locator(selector).getByRole('button', { name: 'Add signature', exact: true }).click();
+  await page.locator('#safetySignaturePrintedName').fill('Synthetic Signer');
+  const canvas = page.locator('.safety-signature-pad');
+  const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 50);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 75, { steps: 10 });
+  await page.mouse.move(box.x + 200, box.y + 40, { steps: 10 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Confirm signature', exact: true }).click();
+  await expect(page.locator(selector).locator('img')).toBeVisible();
+}
+
+async function fillManualInjury(page) {
+  await page.locator('#employeeWorker').selectOption('__manual__');
+  await page.locator('#employeeWorkerName').fill('Synthetic Subcontractor');
+  await page.locator('#employeeWorkerCompany').fill('Example Trade Company');
+  await page.locator('#accidentLocation').evaluate(el => { el.value = '26999 - Synthetic job'; });
+  await page.locator('#accidentDescription').fill('Synthetic incident used only for local testing.');
+}
+
+test('injury redesign saves structured manual people and touch sign-offs once and reopens PDF', async ({ page }, testInfo) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme: 'light' } });
+  const records = [], emails = [], acknowledgements = [];
+  await page.route(`${supabaseOrigin}/rest/v1/employee_injury_reports*`, async route => {
+    if (route.request().method() === 'POST') { records.push(route.request().postDataJSON()); await new Promise(r => setTimeout(r, 200)); return route.fulfill({ status: 201, json: [] }); }
+    return route.fulfill({ json: records[0] });
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/employee_injury_acknowledgements*`, route => { acknowledgements.push(route.request().postDataJSON()); return route.fulfill({ json: [] }); });
+  await page.route('https://script.google.com/**', route => { emails.push(route.request().postDataJSON()); return route.fulfill({ body: 'ok' }); });
+  await page.goto('/employee-injury-report.html');
+  await fillManualInjury(page);
+  await page.locator('#witnessRows [data-key="name"]').fill('Example Witness');
+  await page.locator('#witnessRows [data-key="company"]').fill('Example Trade Company');
+  await page.locator('#sequenceOfEvents').fill('The crew inspected the synthetic work area.');
+  await page.locator('#actionRows [data-key="action"]').fill('Install a protective barrier.');
+  await page.locator('#actionRows [data-key="assignedTo"]').fill('Example Foreman');
+  await page.locator('[name="occurrence"][value="Minor injury"]').check();
+  await page.locator('[name="injury"][value="Minor cut / abrasion"]').check();
+  await signSafetyReport(page, '#signoff0');
+  await page.locator('#signoffTitle0').fill('Installer');
+  await page.evaluate(() => { document.querySelector('#injuryForm').requestSubmit(); document.querySelector('#injuryForm').requestSubmit(); });
+  await expect(page.locator('#saveStatus')).toContainText('Report saved. Email request sent');
+  expect(records).toHaveLength(1);
+  expect(acknowledgements).toHaveLength(0);
+  expect(records[0].employee_worker).toMatch(/^manual:/);
+  expect(records[0].report_details.employee.company).toBe('Example Trade Company');
+  expect(records[0].report_details.witnesses[0].name).toBe('Example Witness');
+  expect(records[0].report_details.actions[0].action).toBe('Install a protective barrier.');
+  expect(records[0].report_details.signatures[0].strokes.length).toBeGreaterThan(0);
+  expect(emails[0].pdfHtml).toContain('data:image/png;base64,');
+  expect(emails[0].pdfHtml).toContain('Example Witness');
+  await page.goto('/employee-injury-report.html?reportId=' + records[0].id);
+  await expect(page.locator('#downloadSavedReport')).toBeVisible();
+  await expect(page.frameLocator('iframe').getByText('Example Witness')).toBeVisible();
+  await expect(page.frameLocator('iframe').getByAltText('Signature')).toHaveCount(1);
+  const download = page.waitForEvent('download');
+  await page.locator('#downloadSavedReport').click();
+  await (await download).saveAs(testInfo.outputPath('jgc-injury-report.pdf'));
+  await page.screenshot({ path: testInfo.outputPath('saved-injury.png'), fullPage: true });
+  const emailPreview = await page.context().newPage();
+  await emailPreview.setContent(emails[0].pdfHtml);
+  await emailPreview.evaluate(() => Promise.all(Array.from(document.images, img => img.decode())));
+  await emailPreview.pdf({ path: testInfo.outputPath('jgc-injury-email.pdf'), format: 'Letter', printBackground: true, preferCSSPageSize: true });
+  await emailPreview.close();
+
+});
+
+test('injury redesign required fields, save retry and portal acknowledgement failure do not duplicate records', async ({ page }) => {
+  await installAuthenticatedPortalState(page); await mockPortalServices(page);
+  let attempts = 0, ackAttempts = 0;
+  await page.route(`${supabaseOrigin}/rest/v1/employee_injury_reports*`, route => { attempts++; return attempts === 1 ? route.fulfill({ status: 503, json: { message: 'Unavailable' } }) : route.fulfill({ status: 201, json: [] }); });
+  await page.route(`${supabaseOrigin}/rest/v1/employee_injury_acknowledgements*`, route => { ackAttempts++; return route.fulfill({ status: 503, json: { message: 'Unavailable' } }); });
+  await page.route('https://script.google.com/**', route => route.abort());
+  await page.goto('/employee-injury-report.html');
+  await page.locator('#saveReport').click();
+  await expect(page.locator('#saveStatus')).toContainText('required');
+  expect(attempts).toBe(0);
+  await page.locator('#accidentLocation').evaluate(el => { el.value = 'Synthetic job'; });
+  await page.locator('#accidentDescription').fill('Test incident');
+  await page.locator('#saveReport').click();
+  await expect(page.locator('#saveStatus')).toContainText('could not be saved');
+  await expect(page.locator('#accidentDescription')).toHaveValue('Test incident');
+  await page.locator('#saveReport').click();
+  await expect(page.locator('#saveStatus')).toContainText('Report saved, but the email request failed');
+  await expect(page.locator('#saveStatus')).toContainText('acknowledgement');
+  expect(attempts).toBe(2); expect(ackAttempts).toBe(1);
+  await expect(page.locator('#saveReport')).toBeDisabled();
+});
+
+test('supervisor report manual names, signature and email PDF preserve the entered person', async ({ page }, testInfo) => {
+  await installAuthenticatedPortalState(page); await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme: 'light' } });
+  let saved, ackCount = 0;
+  await page.route(`${supabaseOrigin}/rest/v1/accident_reports*`, route => { saved = route.request().postDataJSON(); return route.fulfill({ status: 201, json: [] }); });
+  await page.route(`${supabaseOrigin}/rest/v1/accident_report_acknowledgements*`, route => { ackCount++; return route.fulfill({ json: [] }); });
+  await page.route('https://script.google.com/**', route => route.fulfill({ body: 'ok' }));
+  await page.goto('/accident-report.html');
+  await page.locator('#injuredEmployee').selectOption('__manual__');
+  await page.locator('#injuredEmployeeName').fill('Synthetic Trade Worker');
+  await page.locator('#injuredEmployeeCompany').fill('Example Subcontractor');
+  await page.locator('#reportMaker').selectOption('__manual__');
+  await page.locator('#reportMakerName').fill('Synthetic Foreman');
+  await page.locator('#siteLocation').evaluate(el => { el.value = 'Synthetic site'; });
+  await page.locator('#incidentDescription').fill('Synthetic incident description.');
+  await signSafetyReport(page, '#supervisorSignatureBox');
+  await page.locator('#saveAccidentReport').click();
+  await expect(page.locator('#saveStatus')).toContainText('Report saved.');
+  expect(saved.injured_worker_display).toBe('Synthetic Trade Worker');
+  expect(saved.report_details.signatures).toHaveLength(1); expect(ackCount).toBe(0);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download PDF', exact: true }).click();
+  await (await download).saveAs(testInfo.outputPath('jgc-supervisor-report.pdf'));
+});
+
+for (const pageName of ['accident-report.html', 'employee-injury-report.html']) {
+  for (const theme of ['light', 'dark']) {
+    test(`injury redesign readable ${pageName} ${theme} on phone`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await installAuthenticatedPortalState(page); await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme } });
+      await page.goto('/' + pageName);
+      await expect(page.locator('html')).toHaveAttribute('data-jgc-theme', theme);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const contrast = await page.locator('.checks label').first().evaluate(el => {
+        const rgb = c => c.match(/[\d.]+/g).slice(0,3).map(Number).map(n => n/255).map(n => n <= .04045 ? n/12.92 : ((n+.055)/1.055)**2.4);
+        const lum = c => { const x=rgb(c); return .2126*x[0]+.7152*x[1]+.0722*x[2]; };
+        const text=lum(getComputedStyle(el).color); let parent=el;
+        while (getComputedStyle(parent).backgroundColor === 'rgba(0, 0, 0, 0)') parent=parent.parentElement;
+        const bg=lum(getComputedStyle(parent).backgroundColor); return (Math.max(text,bg)+.05)/(Math.min(text,bg)+.05);
+      });
+      expect(contrast).toBeGreaterThan(4.5);
+      await page.screenshot({ path: testInfo.outputPath(pageName + '-' + theme + '.png'), fullPage: true });
+    });
+  }
+}
+
+test('injury redesign legacy report PDF and denied read are handled', async ({ page }) => {
+  await installAuthenticatedPortalState(page); await mockPortalServices(page);
+  let denied = false;
+  await page.route(`${supabaseOrigin}/rest/v1/employee_injury_reports*`, route => denied ? route.fulfill({ status: 406, json: { message: 'No row' } }) : route.fulfill({ json: { id: 'legacy-test', employee_name: 'Legacy Synthetic', accident_date: '2026-09-18', accident_description: 'Legacy narrative', witnesses: 'Legacy Witness', employee_signature: 'Legacy typed signature', signature_date: '2026-09-18' } }));
+  await page.goto('/employee-injury-report.html?reportId=legacy-test');
+  await expect(page.frameLocator('iframe').getByText('Legacy Witness')).toBeVisible();
+  await expect(page.frameLocator('iframe').getByText('Legacy typed signature', { exact: false })).toBeVisible();
+  denied = true;
+  await page.reload();
+  await expect(page.locator('#saveStatus')).toContainText('Report unavailable');
+  await expect(page.locator('#injuryForm')).toBeHidden();
+});
+
+test('injury redesign long narratives generate complete paginated PDF', async ({ page }, testInfo) => {
+  await installAuthenticatedPortalState(page); await mockPortalServices(page);
+  await page.goto('/employee-injury-report.html');
+  await fillManualInjury(page);
+  await page.locator('#accidentDescription').fill(('Synthetic investigation detail. ').repeat(130) + ' FINAL NARRATIVE MARKER');
+  await page.locator('#preventionRecommendation').fill('FINAL PREVENTION MARKER');
+  const download = page.waitForEvent('download');
+  await page.locator('#downloadReport').click();
+  await (await download).saveAs(testInfo.outputPath('jgc-injury-long.pdf'));
+  // Dismiss only this synthetic unsaved draft.
+  page.on('dialog', dialog => dialog.accept());
+});
+
+test('injury redesign touch signature survives resize and can be cleared', async ({ page, context }) => {
+  await installAuthenticatedPortalState(page); await mockPortalServices(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/employee-injury-report.html');
+  await page.locator('#signoff1').getByRole('button', { name: 'Add signature', exact: true }).click();
+  await page.locator('#safetySignaturePrintedName').fill('Synthetic Touch Signer');
+  const box = await page.locator('.safety-signature-pad').boundingBox();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + 20, y: box.y + 40 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + 80, y: box.y + 70 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + 140, y: box.y + 30 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.setViewportSize({ width: 640, height: 700 });
+  await page.getByRole('button', { name: 'Confirm signature', exact: true }).click();
+  await expect(page.locator('#signoff1 img')).toBeVisible();
+  expect(await page.evaluate(() => JGCSafetyReport.signature('signoff1').strokes[0].length)).toBe(3);
+  await page.locator('#signoff1').getByRole('button', { name: 'Clear signature' }).click();
+  await expect(page.locator('#signoff1 img')).toHaveCount(0);
+});
