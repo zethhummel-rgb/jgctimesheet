@@ -242,8 +242,8 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const metaWidth = PAGE.width - PAGE.margin * 2;
   const metaColumns = [0.32, 0.51, 0.17];
   const meta = [
-    { label: "PREPARED FOR", strong: client?.name || "Client not selected", size: 8, detail: [projectAddress, quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : ""].filter(Boolean).join("\n") },
-    { label: "PROJECT", strong: quote.project || "Project not named", size: 12, detail: [quote.site, changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
+    { label: "PREPARED FOR", strong: client?.name || "Client not selected", size: 8, detail: [quote.site?.trim(), projectAddress, quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : ""].filter(Boolean).join("\n") },
+    { label: "PROJECT", strong: quote.project || "Project not named", size: 12, detail: [changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
     { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), size: 6.5, detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
   ].map((item, index) => ({ ...item, width: metaWidth * metaColumns[index], strongLines: wrap(item.strong, bold, item.size, metaWidth * metaColumns[index] - 20), detailLines: wrap(item.detail, regular, 5.8, metaWidth * metaColumns[index] - 20) }));
   const metaHeight = Math.max(62, ...meta.map((item) => 26 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 7 + 8));
