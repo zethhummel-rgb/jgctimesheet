@@ -211,7 +211,7 @@ interface QuoteClientQuickAddState {
 
 type PurchaseOrderEditorState =
   | null
-  | { jobId: string; quoteId: string; lineId: string; purchaseOrderId?: never }
+  | { jobId: string; quoteId?: string; lineId?: string; purchaseOrderId?: never }
   | { jobId: string; purchaseOrderId: string; lineId?: never };
 
 interface ChangeNoticeDraft {
@@ -1849,7 +1849,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     : null;
   const purchaseOrderQuoteId = purchaseOrderEditor && "quoteId" in purchaseOrderEditor
     ? purchaseOrderEditor.quoteId
-    : existingPurchaseOrder?.sourceQuoteId ?? purchaseOrderJob?.quoteId;
+    : existingPurchaseOrder ? existingPurchaseOrder.sourceQuoteId ?? purchaseOrderJob?.quoteId : undefined;
   const purchaseOrderQuote = purchaseOrderQuoteId ? state.quotes.find((quote) => quote.id === purchaseOrderQuoteId) ?? null : null;
   const purchaseOrderSourceLine = purchaseOrderEditor && "lineId" in purchaseOrderEditor && purchaseOrderQuote
     ? purchaseOrderQuote.lines.find((line) => line.id === purchaseOrderEditor.lineId) ?? null
@@ -2142,7 +2142,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           onConfirm={(draft) => approveChangeOrder(pendingApproveChangeQuote, draft)}
         />
       )}
-      {purchaseOrderEditor && purchaseOrderJob && purchaseOrderQuote && (purchaseOrderSourceLine || existingPurchaseOrder) && (
+      {purchaseOrderEditor && purchaseOrderJob && (
         <PurchaseOrderModal
           state={state}
           job={purchaseOrderJob}
@@ -2875,7 +2875,7 @@ function ChangeOrderApprovalModal({ quote, job, existingApprovals, onCancel, onC
 function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCancel, onSave }: {
   state: AppState;
   job: Job;
-  quote: Quote;
+  quote: Quote | null;
   sourceLine: QuoteLine | null;
   purchaseOrder: PurchaseOrder | null;
   onCancel: () => void;
@@ -2887,7 +2887,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     .filter((item) => item.status !== "Void" && item.id !== purchaseOrder?.id)
     .flatMap((item) => item.lines.map((line) => line.quoteLineId)));
   const combinableSourceLines = sourceLine
-    ? quote.lines.filter((line) => (
+    ? (quote?.lines ?? []).filter((line) => (
         line.included
         && line.costType === "Sub / Vendor"
         && quoteLineVendorKey(state, line) === sourceVendorKey
@@ -2900,7 +2900,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     number: job.jobNumber,
     revision: 0,
     status: "Issued",
-    sourceQuoteId: quote.id,
+    sourceQuoteId: sourceLine ? quote?.id ?? "" : "",
     vendorId: sourceVendor?.id ?? sourceLine?.vendorId ?? null,
     vendorName: sourceVendor?.name ?? sourceLine?.vendorName?.trim() ?? "",
     vendorContact: sourceVendor?.contact ?? "",
@@ -2911,17 +2911,18 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     shipBy: "Your Means",
     shipVia: "Your Means",
     fob: "Job Site",
-    shipTo: quote.site.trim() || "Job Site",
-    authorizedBy: state.settings.signatoryName ?? quote.preparedBy ?? "Zeth Hummel",
-    taxRate: quote.taxRate,
+    shipTo: job.portalSiteName?.trim() || job.portalAddress?.trim() || quote?.site.trim() || "Job Site",
+    authorizedBy: state.settings.signatoryName ?? quote?.preparedBy ?? "Zeth Hummel",
+    taxRate: quote?.taxRate ?? state.settings.taxRate,
     notes: "The purchase order number must appear on all invoices and documents relating to this order. Complete only the work described and obtain written approval before any extra work.",
-    lines: sourceLine ? [purchaseOrderLineFromQuoteLine(sourceLine)] : [],
+    lines: sourceLine ? [purchaseOrderLineFromQuoteLine(sourceLine)] : [{ id: uid("po-line"), quoteLineId: "", description: "", quantity: 1, unit: "LS", unitCost: 0, amount: 0, sourceReference: "" }],
     revisions: [],
     finalizedAt: now,
     createdAt: now,
     updatedAt: now,
   };
   const [draft, setDraft] = useState<PurchaseOrder>(initial);
+  const directJobOrder = !draft.sourceQuoteId;
   const [error, setError] = useState("");
   const [invalidField, setInvalidField] = useState("");
   const hasChanges = !purchaseOrder || purchaseOrderEditableFingerprint(draft) !== purchaseOrderEditableFingerprint(purchaseOrder);
@@ -3002,11 +3003,11 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
     };
     if (!draft.number.trim()) return reject("po-number", "Enter the JGC purchase order number.");
     if (!draft.vendorName.trim()) return reject("po-vendor", "Enter the subcontractor company name.");
-    if (!draft.lines.length) return reject("", "Select at least one subcontractor quote for this PO.");
+    if (!draft.lines.length) return reject("", "Add at least one authorized work line to this PO.");
     const missingDescription = draft.lines.find((line) => !line.description.trim());
     if (missingDescription) return reject(`po-description-${missingDescription.id}`, "Enter the work being authorized in Description. The vendor quote number is a separate reference.");
     const invalidAmount = draft.lines.find((line) => !Number.isFinite(line.amount) || !(line.amount > 0));
-    if (invalidAmount) return reject(`po-amount-${invalidAmount.id}`, "Enter a purchase order amount above zero for every selected quote.");
+    if (invalidAmount) return reject(`po-amount-${invalidAmount.id}`, "Enter a purchase order amount above zero for every authorized work line.");
     // Native constraints still apply, but explain them in the popup rather
     // than letting the browser silently stop submission before this handler.
     const invalidControl = form.querySelector<HTMLInputElement | HTMLTextAreaElement>("input:invalid, textarea:invalid");
@@ -3047,7 +3048,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
         <header><div><span className="eyebrow">SUBCONTRACTOR COMMITMENT</span><h2 id="purchase-order-title">{purchaseOrder ? `Edit PO ${purchaseOrder.number} · Revision ${purchaseOrder.revision}` : "Create purchase order"}</h2></div><button aria-label="Close" onClick={onCancel}>×</button></header>
         <form noValidate onSubmit={submit}>
           <div className="purchase-order-form">
-            <div className="po-source-banner"><div><span>JOB</span><strong>{job.jobNumber} · {job.project}</strong></div><div><span>ACCEPTED QUOTE</span><strong>{quote.number} · Rev {quote.revision}</strong></div></div>
+            <div className="po-source-banner"><div><span>JOB</span><strong>{job.jobNumber} · {job.project}</strong></div>{!directJobOrder && quote ? <div><span>ACCEPTED QUOTE</span><strong>{quote.number} · Rev {quote.revision}</strong></div> : <div><span>DIRECT JOB PO</span><strong>Direct job PO</strong></div>}</div>
             {!purchaseOrder && combinableSourceLines.length > 1 && (
               <section className="po-combine-panel" aria-labelledby="po-combine-title">
                 <div className="po-combine-heading">
@@ -3066,12 +3067,17 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
                 </div>
               </section>
             )}
+            {directJobOrder && <label className="field"><span>Saved supplier / subcontractor <small>Optional</small></span><select value={draft.vendorId ?? ""} onChange={(event) => {
+              const vendor = state.vendors.find((item) => item.id === event.target.value);
+              setDraft((current) => ({ ...current, vendorId: vendor?.id ?? null, ...(vendor ? { vendorName: vendor.name, vendorContact: vendor.contact ?? "", vendorEmail: vendor.email ?? "", vendorPhone: vendor.phone ?? "" } : {}) }));
+              setError("");
+            }}><option value="">Enter supplier details below</option>{state.vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}</select></label>}
             <div className="form-grid four-column">
               <label className="field"><span>JGC PO number <b>*</b></span><input name="po-number" autoFocus aria-invalid={Boolean(error && invalidField === "po-number")} aria-describedby={error && invalidField === "po-number" ? "po-validation-error" : undefined} value={draft.number} onChange={(event) => { update("number", event.target.value); setError(""); }} /></label>
               <label className="field"><span>PO date</span><input type="date" value={draft.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></label>
               <div className="field po-lifecycle-field"><span>Status</span><strong>{lifecycleStatus}</strong></div>
               <label className="field"><span>Vendor quote #{draft.lines.length > 1 ? "s" : ""}</span><input value={draft.vendorQuoteNumber} onChange={(event) => update("vendorQuoteNumber", event.target.value)} placeholder="e.g. Q25-130" /></label>
-              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input name="po-vendor" aria-invalid={Boolean(error && invalidField === "po-vendor")} aria-describedby={error && invalidField === "po-vendor" ? "po-validation-error" : undefined} value={draft.vendorName} onChange={(event) => { update("vendorName", event.target.value); setError(""); }} /></label>
+              <label className="field two-wide"><span>Subcontractor company <b>*</b></span><input name="po-vendor" aria-invalid={Boolean(error && invalidField === "po-vendor")} aria-describedby={error && invalidField === "po-vendor" ? "po-validation-error" : undefined} value={draft.vendorName} onChange={(event) => { setDraft((current) => ({ ...current, vendorName: event.target.value, vendorId: null })); setError(""); }} /></label>
               <label className="field"><span>Contact</span><input value={draft.vendorContact} onChange={(event) => update("vendorContact", event.target.value)} /></label>
               <label className="field"><span>Email</span><input name="po-email" type="email" aria-invalid={Boolean(error && invalidField === "po-email")} aria-describedby={error && invalidField === "po-email" ? "po-validation-error" : undefined} value={draft.vendorEmail} onChange={(event) => { update("vendorEmail", event.target.value); setError(""); }} /></label>
               <label className="field"><span>Phone</span><input value={formatPhoneNumber(draft.vendorPhone)} inputMode="numeric" autoComplete="tel" maxLength={14} onChange={(event) => update("vendorPhone", formatPhoneNumber(event.target.value))} /></label>
@@ -3083,7 +3089,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
               <label className="field"><span>HST rate</span><div className="input-suffix"><ClearableNumberInput min="0" step="0.1" value={draft.taxRate * 100} onValueChange={(value) => update("taxRate", (value ?? 0) / 100)} /><span>%</span></div></label>
             </div>
             <div className="po-line-editor">
-              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>{draft.lines.length === 1 ? "Subcontractor quote line" : `${draft.lines.length} subcontractor quote lines`}</h3></div><span className="po-cost-rule">Uses actual subcontractor quotes - no JGC override or customer markup</span></div>
+              <div className="po-line-heading"><div><span className="eyebrow">AUTHORIZED WORK</span><h3>{directJobOrder ? "Direct job PO" : draft.lines.length === 1 ? "Subcontractor quote line" : `${draft.lines.length} subcontractor quote lines`}</h3></div><span className="po-cost-rule">{directJobOrder ? "Enter the amount authorized for this work before tax. A vendor quote is optional." : "Uses actual subcontractor quotes - no JGC override or customer markup"}</span></div>
               <div className="po-authorized-lines">
                 {draft.lines.map((line, index) => (
                   <article className="po-authorized-line" key={line.id}>
@@ -3093,7 +3099,7 @@ function PurchaseOrderModal({ state, job, quote, sourceLine, purchaseOrder, onCa
                       <label className="field"><span>Qty</span><ClearableNumberInput min="0" step="0.01" value={line.quantity} onValueChange={(value) => { const quantity = value ?? 0; updateLine(line.id, { quantity, amount: Math.round(quantity * line.unitCost * 100) / 100 }); }} /></label>
                       <label className="field"><span>Unit</span><input value={line.unit} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></label>
                       <label className="field"><span>Unit cost</span><div className="input-prefix"><span>$</span><ClearableNumberInput min="0" step="0.01" value={line.unitCost} onValueChange={(value) => { const unitCost = value ?? 0; updateLine(line.id, { unitCost, amount: Math.round(line.quantity * unitCost * 100) / 100 }); }} /></div></label>
-                      <label className="field"><span>Pre-tax amount</span><div className="input-prefix"><span>$</span><ClearableNumberInput name={`po-amount-${line.id}`} aria-invalid={Boolean(error && invalidField === `po-amount-${line.id}`)} aria-describedby={error && invalidField === `po-amount-${line.id}` ? "po-validation-error" : undefined} min="0" step="0.01" value={line.amount} onValueChange={(value) => { updateLine(line.id, { amount: value ?? 0 }); setError(""); }} /></div></label>
+                      <label className="field"><span>{directJobOrder ? "PO amount (before tax)" : "Pre-tax amount"}</span><div className="input-prefix"><span>$</span><ClearableNumberInput name={`po-amount-${line.id}`} aria-invalid={Boolean(error && invalidField === `po-amount-${line.id}`)} aria-describedby={error && invalidField === `po-amount-${line.id}` ? "po-validation-error" : undefined} min="0" step="0.01" value={line.amount} onValueChange={(value) => { updateLine(line.id, { amount: value ?? 0, ...(directJobOrder && line.quantity > 0 ? { unitCost: (value ?? 0) / line.quantity } : {}) }); setError(""); }} /></div></label>
                       <label className="field po-reference"><span>Source quote #</span><input value={line.sourceReference} onChange={(event) => updateLineReference(line.id, event.target.value)} /></label>
                     </div>
                   </article>
@@ -5555,7 +5561,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   onAddCost: (jobId: string) => void;
   onCreateChangeNotice: (jobId: string) => void;
   onOpenQuote: (id: string, tab?: QuoteTab) => void;
-  onCreatePurchaseOrder: (jobId: string, quoteId: string, lineId: string) => void;
+  onCreatePurchaseOrder: (jobId: string, quoteId?: string, lineId?: string) => void;
   onEditPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   onDownloadPurchaseOrder: (jobId: string, purchaseOrderId: string) => void;
   portalLabourActuals: PortalLabourActual[];
@@ -6335,7 +6341,18 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         {tab === "purchase-orders" && <>
         <JobOperationalPurchases statistics={statistics} status={statisticsStatus} message={statisticsMessage} onRefresh={() => void loadJobStatistics()} />
         <section className="panel subcontract-po-panel">
-          <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Create POs from accepted estimate lines</h2><p>Each PO uses the subcontractor's actual quoted amount and quote number. JGC carried overrides and customer markup are never included.</p></div><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
+          <div className="panel-heading"><div><span className="eyebrow">SUBCONTRACTOR PURCHASE ORDERS</span><h2>Job purchase orders</h2><p>Make a PO for any authorized amount, including new subcontract work, without an existing vendor quote. You can also use an accepted estimate line below.</p></div><button className="button success" onClick={() => onCreatePurchaseOrder(job.id)}>Make a PO</button><span className="po-count-chip">{purchaseOrders.length} PO{purchaseOrders.length === 1 ? "" : "s"}</span></div>
+          {purchaseOrders.some((po) => !subcontractSources.some(({ line }) => po.lines.some((item) => item.quoteLineId === line.id))) && <div className="data-table-wrap"><table className="data-table job-direct-po-table">
+            <thead><tr><th>PO</th><th>Supplier / subcontractor</th><th>Authorized work</th><th>Pre-tax amount</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>{purchaseOrders.filter((po) => !subcontractSources.some(({ line }) => po.lines.some((item) => item.quoteLineId === line.id))).map((po) => <tr key={po.id}>
+              <td data-label="PO"><strong>{po.number}</strong><small>Revision {po.revision}</small></td>
+              <td data-label="Supplier / subcontractor"><strong>{po.vendorName}</strong><small>{po.vendorQuoteNumber || "No vendor quote"}</small></td>
+              <td data-label="Authorized work">{po.lines.map((line) => line.description).join("; ")}</td>
+              <td data-label="Pre-tax amount"><strong>{money(purchaseOrderSubtotal(po))}</strong><small>{po.sourceQuoteId === "" ? "Direct job PO" : "Quoted amount"}</small></td>
+              <td data-label="Status"><span className={`po-status po-${po.status.toLowerCase()}`}>{purchaseOrderStatusLabel(po)}</span></td>
+              <td className="po-row-actions"><button className="button secondary compact" disabled={po.status === "Void"} onClick={() => onEditPurchaseOrder(job.id, po.id)}>{po.status === "Draft" ? "Continue revision" : "Edit PO"}</button><button className="button primary compact" disabled={po.status === "Void"} onClick={() => onDownloadPurchaseOrder(job.id, po.id)}>{po.status === "Draft" ? "Download & finalize" : "Download PDF"}</button><PurchaseOrderHistory state={state} job={job} purchaseOrder={po} /></td>
+            </tr>)}</tbody>
+          </table></div>}
           {subcontractSources.length ? (
             <div className="data-table-wrap">
               <table className="data-table po-source-table">
@@ -6361,7 +6378,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
                 })}</tbody>
               </table>
             </div>
-          ) : <div className="empty-state compact-empty"><span>PO</span><h3>No approved subcontractor lines</h3><p>Sub / Vendor lines from the accepted quote and approved Change Orders will appear here automatically.</p></div>}
+          ) : <div className="empty-state compact-empty"><span>PO</span><h3>No approved subcontractor lines</h3><p>Use Make a PO above for new work or an existing allowance, at any authorized amount. Accepted Sub / Vendor estimate lines will also appear here when available.</p></div>}
         </section></>}
         {tab === "summary" && <>
         <section className="panel portal-labour-panel">
