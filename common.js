@@ -168,6 +168,17 @@ function loadJgcDesignSystem() {
 
 loadJgcDesignSystem();
 
+function loadJgcReadabilityStyles() {
+  if (document.querySelector("link[data-jgc-readability]")) return;
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "portal-readability.css?v=1";
+  stylesheet.setAttribute("data-jgc-readability", "1");
+  document.head.appendChild(stylesheet);
+}
+
+loadJgcReadabilityStyles();
+
 function loadJgcUploadStyles() {
   if (document.querySelector("link[data-jgc-upload-system]")) {
     return;
