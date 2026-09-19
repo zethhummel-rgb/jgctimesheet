@@ -1,0 +1,147 @@
+/* Screen-only corrections for the requested report and administration surfaces.
+   Printed reports retain their document-owned styling. */
+@media screen {
+  body.report-readability-page .container,
+  body.report-readability-page :is(.card, .signoff, .post-save-qr, .jsa-signoff-choice-section, .talk-card) {
+    background: var(--jgc-color-surface) !important;
+    color: var(--jgc-color-text) !important;
+  }
+  body.report-readability-page .container :is(h1, h2, h3, label, p, strong, .subtitle, .crew-help, .crew-status, .small, .photo-list) {
+    color: var(--jgc-color-text) !important;
+  }
+  body.report-readability-page .container :is(input, select, textarea) {
+    background: var(--jgc-color-input) !important;
+    color: var(--jgc-color-text-dark) !important;
+    -webkit-text-fill-color: var(--jgc-color-text-dark);
+    border-color: var(--jgc-color-input-border) !important;
+    color-scheme: light;
+  }
+  body.report-readability-page .container :is(input, textarea)::placeholder {
+    color: #52645a !important;
+    -webkit-text-fill-color: #52645a;
+    opacity: 1;
+  }
+  body.report-readability-page :is(table, th, td),
+  body #reportsSection :is(table, th, td) {
+    background: var(--jgc-color-table-row) !important;
+    color: var(--jgc-color-text) !important;
+    border-color: var(--jgc-color-input-border) !important;
+  }
+  body.report-readability-page th,
+  body #reportsSection th { background: var(--jgc-color-table-header) !important; }
+  body #reportsSection td .jgc-button {
+    background: #0b5e3b !important;
+    color: #fff !important;
+    -webkit-text-fill-color: currentColor;
+    border: 1px solid #718078;
+  }
+  body #reportsSection td .jgc-button:not(:disabled):hover { background: #073f27 !important; }
+  :root[data-jgc-theme] body.accounts-page .status:is(.po-create-allowed, .po-create-blocked) {
+    color: #fff !important;
+    -webkit-text-fill-color: currentColor;
+  }
+  body.report-readability-page .crew-pill,
+  body.report-readability-page .jsa-ack-choice,
+  body.report-readability-page .jsa-ack-choice :is(strong, span),
+  body.report-readability-page #crewList,
+  body.report-readability-page #crewList label {
+    background: var(--jgc-color-surface-raised) !important;
+    color: var(--jgc-color-text) !important;
+  }
+  body.report-readability-page #crewList :is(span, strong) { color: var(--jgc-color-text) !important; }
+  body.report-readability-page .container :is(button, .file-link) {
+    background: var(--jgc-color-brand-700);
+    color: var(--jgc-color-on-brand) !important;
+    border: 1px solid var(--jgc-color-input-border);
+  }
+  body.report-readability-page .container :is(button.secondary, .jsa-ack-choice) {
+    background: var(--jgc-color-surface-soft) !important;
+    color: var(--jgc-color-text) !important;
+  }
+  body.report-readability-page .container :is(.danger, .status.error, .jsa-choice-status.is-error) {
+    background: var(--jgc-color-badge-danger) !important;
+    color: #fff !important;
+  }
+  body.report-readability-page .container button:not(:disabled):hover {
+    box-shadow: inset 0 0 0 2px var(--jgc-color-input-border);
+  }
+  .report-directory-page .report-card.jgc-card {
+    background: var(--jgc-color-surface-raised);
+    color: var(--jgc-color-text);
+  }
+
+  /* Enabled period arrows must not resemble the disabled/loading state. */
+  body :is(#accountingPreviousPeriod, #accountingNextPeriod, #accountingCurrentPeriod) {
+    color: #fff !important;
+    background: #0b5e3b !important;
+    border: 1px solid #718078;
+    opacity: 1;
+    cursor: pointer;
+  }
+  body :is(#accountingPreviousPeriod, #accountingNextPeriod, #accountingCurrentPeriod):not(:disabled):hover {
+    background: #073f27 !important;
+    box-shadow: inset 0 0 0 1px #fff;
+  }
+
+  /* Result buttons inherit generic PO button colors unless explicitly paired. */
+  body.po-page #poJobOptions { background: var(--jgc-color-surface-raised) !important; }
+  body.po-page #poJobOptions .po-job-option {
+    background: var(--jgc-color-surface-raised) !important;
+    color: var(--jgc-color-text) !important;
+    -webkit-text-fill-color: currentColor;
+    opacity: 1;
+  }
+  body.po-page #poJobOptions .po-job-option:is(:hover, :focus-visible) {
+    background: #0b5e3b !important;
+    color: #fff !important;
+  }
+  body.po-page #poJobOptions .po-job-empty { color: var(--jgc-color-text-muted) !important; }
+
+  /* The bell appears on pages with different button/descendant color rules. */
+  body .jgc-notification-panel .jgc-notification-item {
+    background: var(--jgc-color-surface-raised) !important;
+    color: var(--jgc-color-text) !important;
+    opacity: 1;
+  }
+  body .jgc-notification-panel .jgc-notification-item:hover { background: var(--jgc-color-surface-soft) !important; }
+  body .jgc-notification-panel :is(.jgc-notification-item-title, .jgc-notification-item-message) {
+    color: var(--jgc-color-text) !important;
+    -webkit-text-fill-color: currentColor;
+    opacity: 1;
+    line-height: 1.45;
+    font-size: 14px;
+  }
+  body .jgc-notification-panel :is(.jgc-notification-time, .jgc-notification-empty) {
+    color: var(--jgc-color-text-muted) !important;
+    -webkit-text-fill-color: currentColor;
+    opacity: 1;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  body.accounts-page .secondary.jgc-button,
+  body #adminToolsSection .admin-tool-card {
+    background: var(--jgc-color-surface-soft) !important;
+    color: var(--jgc-color-text) !important;
+    border: 1px solid var(--jgc-color-input-border);
+  }
+  body #adminToolsSection .admin-tool-card strong { color: var(--jgc-color-text) !important; }
+  body #adminToolsSection .admin-tool-card span { color: var(--jgc-color-text-muted) !important; }
+  body.accounts-page .secondary.jgc-button:not(:disabled):hover,
+  body #adminToolsSection .admin-tool-card:not(:disabled):hover {
+    background: var(--jgc-color-surface-raised) !important;
+    box-shadow: inset 0 0 0 1px var(--jgc-color-input-border);
+  }
+  body.accounts-page .panel button:not(:disabled):not([aria-disabled="true"]),
+  body #adminToolsSection button:not(:disabled):not([aria-disabled="true"]) { opacity: 1; cursor: pointer; }
+  body.accounts-page .panel button:is(:disabled, [aria-disabled="true"]),
+  body #adminToolsSection button:is(:disabled, [aria-disabled="true"]),
+  body :is(#accountingPreviousPeriod, #accountingNextPeriod, #accountingCurrentPeriod):is(:disabled, [aria-disabled="true"]) {
+    background: var(--jgc-color-surface-soft) !important;
+    color: var(--jgc-color-text-muted) !important;
+    opacity: .55;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: none;
+  }
+}

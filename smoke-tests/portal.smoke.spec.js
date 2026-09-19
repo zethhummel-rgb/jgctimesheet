@@ -5052,3 +5052,106 @@ test('injury redesign touch signature survives resize and can be cleared', async
   await page.locator('#signoff1').getByRole('button', { name: 'Clear signature' }).click();
   await expect(page.locator('#signoff1 img')).toHaveCount(0);
 });
+
+async function expectReadableText(locator, label) {
+  const samples = await locator.evaluateAll(elements => {
+    const rgba = value => { const n=(value.match(/[\d.]+/g)||[]).map(Number); return [n[0]||0,n[1]||0,n[2]||0,n.length>3?n[3]:1]; };
+    const over = (a,b) => [0,1,2].map(i=>a[i]*a[3]+b[i]*(1-a[3])).concat(1);
+    const lum = c => { const x=c.slice(0,3).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*x[0]+.7152*x[1]+.0722*x[2]; };
+    return elements.filter(el=>el.getClientRects().length && getComputedStyle(el).visibility!=='hidden' && (el.textContent.trim()||el.value)).map(el=>{
+      const chain=[];for(let p=el;p;p=p.parentElement)chain.unshift(p);
+      let bg=[255,255,255,1];for(const p of chain)bg=over(rgba(getComputedStyle(p).backgroundColor),bg);
+      const css=getComputedStyle(el);const fg=over(rgba(css.webkitTextFillColor||css.color),bg);
+      return {text:(el.textContent||el.value).trim().slice(0,65),ratio:(Math.max(lum(fg),lum(bg))+.05)/(Math.min(lum(fg),lum(bg))+.05)};
+    });
+  });
+  expect(samples.length, label+' has visible content').toBeGreaterThan(0);
+  for (const sample of samples) expect(sample.ratio, label+': '+sample.text).toBeGreaterThanOrEqual(4.5);
+}
+
+for (const theme of ['light','dark']) {
+  for (const width of [390,1280]) {
+    for (const name of ['jsa.html','daily-site-report.html','toolbox-talks.html','incident-report.html']) {
+      test(`UI readability ${name} ${theme} ${width}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({width,height:900});
+        await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+        await page.goto('/'+name);
+        await expect(page.locator('html')).toHaveAttribute('data-jgc-theme',theme);
+        await expectReadableText(page.locator('.container label, .container h1, .container h2, .container .small, .container .subtitle, .container th, .container button:not(:disabled)'),name);
+        await page.screenshot({path:testInfo.outputPath('report.png'),fullPage:true});
+      });
+    }
+    test(`UI readability Accounts and Admin Tools ${theme} ${width}`,async({page},testInfo)=>{
+      await page.setViewportSize({width,height:900});
+      await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+      await page.goto('/accounts.html');
+      const button=page.getByRole('button',{name:'Save start date',exact:true}).first();
+      await expect(button).toBeVisible();
+      await expectReadableText(page.locator('.panel button.secondary:not(:disabled), .status.po-create-allowed, .status.po-create-blocked'),'Account actions and permission badges');
+      expect(await button.evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
+      await button.focus();await expect(button).toBeFocused();
+      expect(await button.evaluate(el=>parseFloat(getComputedStyle(el).outlineWidth))).toBeGreaterThanOrEqual(2);
+      await button.evaluate(el=>el.disabled=true);
+      expect(Number(await button.evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(.7);
+      await page.screenshot({path:testInfo.outputPath('accounts.png'),fullPage:true});
+      await page.goto('/admin.html?tab=adminTools');
+      await expect(page.locator('#adminToolsSection')).toBeVisible();
+      await expectReadableText(page.locator('#adminToolsSection .admin-tool-card strong, #adminToolsSection .admin-tool-card span'),'Admin Tools');
+      await page.screenshot({path:testInfo.outputPath('admin-tools.png'),fullPage:true});
+    });
+    test(`UI readability Accounting period navigation ${theme} ${width}`,async({page},testInfo)=>{
+      await page.setViewportSize({width,height:900});
+      await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+      await page.goto('/accounting-admin.html');
+      const previous=page.locator('#accountingPreviousPeriod'),next=page.locator('#accountingNextPeriod');
+      await expect(previous).toBeEnabled();await expect(next).toBeEnabled();
+      await expectReadableText(previous,'Previous period');await expectReadableText(next,'Next period');await expectReadableText(page.locator('#accountingCurrentPeriod'),'Current period');
+      expect(await previous.evaluate(el=>getComputedStyle(el).opacity)).toBe('1');
+      await previous.hover();await expectReadableText(previous,'Hovered previous period');
+      await previous.evaluate(el=>el.disabled=true);
+      expect(Number(await previous.evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(.7);
+      await page.screenshot({path:testInfo.outputPath('accounting.png'),fullPage:true});
+    });
+    test(`UI readability notification details ${theme} ${width}`,async({page},testInfo)=>{
+      await page.setViewportSize({width,height:900});
+      await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+      await page.goto('/home.html');
+      await page.locator('#jgcNotificationButton').click();
+      await page.evaluate(async()=>{await loadJgcNotifications();jgcNotificationRecords=[{id:'contrast-test',title:'Example notification',message:'The job details are ready to review.',created_at:new Date().toISOString()}];renderJgcNotificationPanel();});
+      const content=page.locator('.jgc-notification-item-title,.jgc-notification-item-message,.jgc-notification-time');
+      await expectReadableText(content,'Notification');
+      await page.locator('.jgc-notification-item').first().hover();await expectReadableText(content,'Hovered notification');
+      await page.screenshot({path:testInfo.outputPath('notification.png')});
+    });
+    test(`UI readability PO job autocomplete ${theme} ${width}`,async({page},testInfo)=>{
+      await page.setViewportSize({width,height:900});
+      const profile={...fakeProfile,can_create_digital_pos:true};
+      await installAuthenticatedPortalState(page,profile);await mockPortalServices(page,profile,{themePreferenceState:{theme}});
+      await page.route(`${supabaseOrigin}/rest/v1/jobs**`,route=>route.fulfill({json:[{id:'00000000-0000-4000-8000-000000000201',job_number:'26999',job_name:'Readable job results',customer:'Example Client',active:true}]}));
+      await page.route(`${supabaseOrigin}/rest/v1/rpc/digital_po_get_device_context`,route=>route.fulfill({json:{registered:true,device_id:'00000000-0000-4000-8000-000000000203',device_status:'active',lease_expires_at:'2027-07-21T12:00:00.000Z',blocks:[{id:'00000000-0000-4000-8000-000000000204',range_start:39100,range_end:39109,next_number:39100,status:'active'}]}}));
+      await page.goto('/purchase-orders.html');
+      await expect(page.locator('#poNewButton')).toBeEnabled();await page.locator('#poNewButton').click();
+      await page.locator('#poJobSearch').fill('26999');
+      const result=page.locator('#poJobOptions [data-po-job-id]');
+      await expect(result).toContainText('Readable job results');
+      await page.mouse.move(0,0);await expectReadableText(result,'PO result');
+      await result.hover();await expectReadableText(result,'PO hovered result');
+      await result.focus();await expectReadableText(result,'PO keyboard result');
+      await page.screenshot({path:testInfo.outputPath('po.png')});
+      await result.click();await expect(page.locator('#poJob')).toHaveValue('00000000-0000-4000-8000-000000000201');
+    });
+  }
+}
+
+for (const theme of ['light','dark']) test(`UI readability saved report tables ${theme}`, async({page},testInfo)=>{
+  await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+  const sample={id:'synthetic-report',report_date:'2026-09-19',inspection_date:'2026-09-19',created_at:'2026-09-19T12:00:00Z',project:'26999 - Example job',location:'Example location',prepared_by:'Example preparer',reported_by_name:'Example reporter',incident_type:'Near miss',severity:'Low',worker_name:'Example worker',inspection_type:'JSA',talk_title:'Example toolbox talk',presenter_name:'Example presenter',attendees:[]};
+  for(const table of ['daily_site_reports','incident_reports','toolbox_talk_reports','inspection_records']) await page.route(`${supabaseOrigin}/rest/v1/${table}*`,route=>route.fulfill({json:[sample]}));
+  await page.goto('/admin.html?tab=reports');
+  await expect(page.locator('#reportsSection')).toBeVisible();
+  for(const name of ['Daily','Jsa','NearMiss','Toolbox']){
+    await page.locator('#adminReportTab'+name).click();
+    await expectReadableText(page.locator('#adminReportPanel'+name+' th, #adminReportPanel'+name+' td, #adminReportPanel'+name+' td .jgc-button'),'Saved '+name+' reports');
+    await page.screenshot({path:testInfo.outputPath(name+'.png'),fullPage:true});
+  }
+});
