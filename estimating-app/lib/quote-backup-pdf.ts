@@ -328,8 +328,8 @@ class BackupPdfBuilder {
     const address = this.quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLowerCase() === this.quote.site.trim().toLowerCase())?.address?.trim() || "";
     const widths = [CONTENT_WIDTH * .32, CONTENT_WIDTH * .51, CONTENT_WIDTH * .17];
     const columns = [
-      { label: "CLIENT", strong: client?.name || "Client not selected", detail: address, size: 8 },
-      { label: "PROJECT", strong: this.quote.project || "Project not named", detail: this.quote.site, size: 12 },
+      { label: "CLIENT", strong: client?.name || "Client not selected", detail: [this.quote.site?.trim(), address].filter(Boolean).join("\n"), size: 8 },
+      { label: "PROJECT", strong: this.quote.project || "Project not named", detail: "", size: 12 },
       { label: "QUOTE DATE", strong: shortDate(this.quote.quoteDate), detail: `Valid until ${shortDate(this.quote.validUntil)}`, size: 6.5 },
     ].map((item, index) => ({ ...item, width: widths[index], strongLines: wrapText(item.strong, this.bold, item.size, widths[index] - 16), detailLines: wrapText(item.detail, this.regular, 6, widths[index] - 16) }));
     const top = 695;
