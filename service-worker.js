@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "895";
+const JGC_RELEASE_ID = "896";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -251,7 +251,7 @@ const JGC_APP_SHELL = [
   "./notification-settings-design-system.css?v=3",
   "./acknowledgement-design-system.css?v=2",
   "./login-design-system.css?v=3",
-  "./common.js?v=46",
+  "./common.js?v=47",
   "./admin-global-search.js?v=7",
   "./accounting-workbook.js?v=9",
   "./accounting-admin.js?v=11",

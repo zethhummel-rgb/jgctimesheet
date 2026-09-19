@@ -5155,3 +5155,13 @@ for (const theme of ['light','dark']) test(`UI readability saved report tables $
     await page.screenshot({path:testInfo.outputPath(name+'.png'),fullPage:true});
   }
 });
+
+test('readability stylesheet resolves from nested Estimate Desk pages', async ({ page }) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile);
+  const response = page.waitForResponse(r => new URL(r.url()).pathname === '/portal-readability.css');
+  await page.goto('/estimating/index.html');
+  expect((await response).status()).toBe(200);
+  await expect(page.locator('link[data-jgc-readability]')).toHaveAttribute('href', /\/portal-readability\.css\?v=1$/);
+  expect(await page.locator('link[data-jgc-readability]').getAttribute('href')).not.toContain('/estimating/');
+});

@@ -172,7 +172,7 @@ function loadJgcReadabilityStyles() {
   if (document.querySelector("link[data-jgc-readability]")) return;
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "portal-readability.css?v=1";
+  stylesheet.href = new URL("portal-readability.css?v=1", document.currentScript?.src || document.baseURI).href;
   stylesheet.setAttribute("data-jgc-readability", "1");
   document.head.appendChild(stylesheet);
 }
