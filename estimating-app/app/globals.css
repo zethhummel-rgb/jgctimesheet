@@ -2084,3 +2084,9 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 @media print {
   .hybrid-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, .55fr); }
 }
+
+/* Define pale proposal panels on photocopies without changing their fills or spacing. */
+.hybrid-classic-proposal :is(.hybrid-quote-id, .hybrid-meta, .hybrid-notes-section, .optional-proposal, .proposal-cost-breakdown, .hybrid-lump-sum, .hybrid-legal, .hybrid-acceptance) {
+  outline: 1px solid #808080;
+  outline-offset: -1px;
+}
