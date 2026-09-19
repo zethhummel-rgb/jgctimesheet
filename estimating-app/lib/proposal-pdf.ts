@@ -12,6 +12,8 @@ const line = rgb(0.82, 0.87, 0.89);
 const panel = rgb(0.965, 0.978, 0.982);
 const bluePanel = rgb(0.955, 0.975, 0.985);
 const greenPanel = rgb(0.94, 0.98, 0.96);
+// Keep pale fills, but give photocopies a visible edge (matching the 1px preview outline).
+const panelBorder = { borderColor: rgb(0.5, 0.5, 0.5), borderWidth: 0.75 };
 
 function safeName(value: string) {
   return value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ").trim();
@@ -225,7 +227,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   page.drawText(documentEyebrow, { x: PAGE.margin, y: y - 15, size: 5.8, font: bold, color: green });
   page.drawText(documentTitle, { x: PAGE.margin, y: y - 34, size: 17, font: bold, color: dark });
   const quoteCardWidth = 126;
-  page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: quoteCardWidth, height: 34, color: panel });
+  page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: quoteCardWidth, height: 34, color: panel, ...panelBorder });
   page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: 3, height: 34, color: green });
   page.drawText(documentNumberLabel, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 15, size: 5.2, font: bold, color: grey });
   page.drawText(documentNumber, { x: PAGE.width - PAGE.margin - quoteCardWidth + 11, y: y - 26, size: 7.8, font: bold, color: dark });
@@ -245,7 +247,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), size: 6.5, detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
   ].map((item, index) => ({ ...item, width: metaWidth * metaColumns[index], strongLines: wrap(item.strong, bold, item.size, metaWidth * metaColumns[index] - 20), detailLines: wrap(item.detail, regular, 5.8, metaWidth * metaColumns[index] - 20) }));
   const metaHeight = Math.max(62, ...meta.map((item) => 26 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 7 + 8));
-  page.drawRectangle({ x: metaX, y: y - metaHeight, width: metaWidth, height: metaHeight, color: panel, borderColor: line, borderWidth: 0.8 });
+  page.drawRectangle({ x: metaX, y: y - metaHeight, width: metaWidth, height: metaHeight, color: panel, ...panelBorder });
   let metaOffset = 0;
   meta.forEach((item, index) => {
     const columnX = metaX + metaOffset + 10;
@@ -291,7 +293,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const notesHeight = Math.max(67, 38 + notesLineCount * 10 + (clarificationHeight ? 23 + clarificationHeight : 0));
   ensure(notesHeight + 12);
   const notesTop = y;
-  page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: metaWidth, height: notesHeight, color: panel });
+  page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: metaWidth, height: notesHeight, color: panel, ...panelBorder });
   page.drawRectangle({ x: PAGE.margin, y: y - notesHeight, width: 3, height: notesHeight, color: green });
   sectionHeader("02", "ASSUMPTIONS & CLARIFICATIONS", "Notes");
   if (notes.length) {
@@ -333,7 +335,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     const optionalHeight = 30 + optional.reduce((sum, item) => sum + Math.max(20, wrap(item.description, regular, 7.5, metaWidth - 125).length * 9 + 7), 0);
     ensure(optionalHeight + 12);
     const optionalTop = y;
-    page.drawRectangle({ x: PAGE.margin, y: y - optionalHeight, width: metaWidth, height: optionalHeight, color: panel, borderColor: line, borderWidth: 0.8 });
+    page.drawRectangle({ x: PAGE.margin, y: y - optionalHeight, width: metaWidth, height: optionalHeight, color: panel, ...panelBorder });
     page.drawText("OPTIONAL WORK — NOT INCLUDED", { x: PAGE.margin + 14, y: y - 18, size: 7.5, font: bold, color: green });
     y -= 31;
     optional.forEach((item) => {
@@ -350,7 +352,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   if (quote.proposalShowCostBreakdown && costBreakdownRows.length) {
     const drawBreakdownHeading = (continued = false) => {
       ensure(55);
-      page.drawRectangle({ x: PAGE.margin, y: y - 30, width: metaWidth, height: 30, color: panel });
+      page.drawRectangle({ x: PAGE.margin, y: y - 30, width: metaWidth, height: 30, color: panel, ...panelBorder });
       page.drawText(continued ? "COST BREAKDOWN - CONTINUED" : "COST BREAKDOWN", { x: PAGE.margin + 14, y: y - 19, size: 9.5, font: bold, color: dark });
       y -= 39;
     };
@@ -377,7 +379,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
 
   const lumpSumHeight = 67;
   ensure(lumpSumHeight + 13);
-  page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: metaWidth, height: lumpSumHeight, color: greenPanel, borderColor: rgb(0.72, 0.86, 0.78), borderWidth: 0.9 });
+  page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: metaWidth, height: lumpSumHeight, color: greenPanel, ...panelBorder });
   page.drawRectangle({ x: PAGE.margin, y: y - lumpSumHeight, width: 4, height: lumpSumHeight, color: green });
   page.drawText(changeNotice ? approvedChange ? "APPROVED CHANGE ORDER" : "LUMP SUM CHANGE PROPOSAL" : "LUMP SUM PROPOSAL", { x: PAGE.margin + 17, y: y - 19, size: 7.2, font: bold, color: green });
   page.drawText(changeNotice ? "Complete the changed Scope of Work above in a good and workmanlike manner." : "Complete the Scope of Work above in a good and workmanlike manner.", { x: PAGE.margin + 17, y: y - 36, size: 7, font: regular, color: dark });
@@ -391,7 +393,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const termsHeight = Math.max(48, 28 + Math.max(1, wrap(termsPlain, regular, 6.6, metaWidth - 28).length) * 8);
   ensure(termsHeight + 12);
   const termsTop = y;
-  page.drawRectangle({ x: PAGE.margin, y: y - termsHeight, width: metaWidth, height: termsHeight, color: panel, borderColor: line, borderWidth: 0.8 });
+  page.drawRectangle({ x: PAGE.margin, y: y - termsHeight, width: metaWidth, height: termsHeight, color: panel, ...panelBorder });
   page.drawText("Terms", { x: PAGE.margin + 14, y: y - 17, size: 7.5, font: bold, color: dark });
   y -= 30;
   richParagraph(quote.terms, { x: PAGE.margin + 14, width: metaWidth - 28, size: 6.6, gap: 0 });
@@ -410,7 +412,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const acceptanceHeight = 67;
   ensure(acceptanceHeight + 16);
   const acceptanceTop = y;
-  page.drawRectangle({ x: PAGE.margin, y: y - acceptanceHeight, width: metaWidth, height: acceptanceHeight, color: bluePanel, borderColor: rgb(0.75, 0.84, 0.89), borderWidth: 0.8 });
+  page.drawRectangle({ x: PAGE.margin, y: y - acceptanceHeight, width: metaWidth, height: acceptanceHeight, color: bluePanel, ...panelBorder });
   const acceptanceTitle = approvedChange ? "APPROVAL RECORD" : "ACCEPTANCE";
   page.drawText(acceptanceTitle, { x: (PAGE.width - bold.widthOfTextAtSize(acceptanceTitle, 9)) / 2, y: y - 17, size: 9, font: bold, color: dark });
   const acceptanceCopy = changeNotice
