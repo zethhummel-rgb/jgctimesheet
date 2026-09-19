@@ -322,6 +322,7 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
             email: "steven@example.com",
             display_name: "Steven Leduc",
             worker_key: "steven leduc",
+            hire_date: options.employeeHireDate || null,
             role: "employee",
             account_status: "approved"
           }
@@ -4791,4 +4792,80 @@ test("job notes admin page keeps management separate", async ({ page }) => {
   await page.evaluate(() => window.scrollTo(0, 0));
   await captureJobListScreenshot(page, "job-lists-admin-mobile.png");
   await expectNoRuntimeErrors(errors, "job notes admin page");
+});
+
+
+for (const [start, missingDays] of [[null, 5], ["2026-08-17", 0], ["2026-08-12", 3], ["2026-08-14", 1], ["2026-08-15", 0], ["2026-08-09", 5], ["2026-08-10", 5]]) {
+  test(`Employment start ${start || "unknown"} gives correct Accounting requirements`, async ({ page }) => {
+    await installAuthenticatedPortalState(page);
+    await mockPortalServices(page, fakeProfile, { accountingEnabled: false, missingAccountingSecondWeek: true, employeeHireDate: start });
+    await page.goto("/accounting-admin.html");
+    await page.locator("#accountingPayDate").fill("2026-08-20");
+    await page.locator("#accountingPayDate").dispatchEvent("change");
+    await expect(page.locator("#accountingNotice")).not.toContainText("Loading");
+    if (!missingDays) {
+      await expect(page.locator("#accountingDownloadFinal")).toBeEnabled();
+      await expect(page.locator("[data-open-missing-submissions]")).toHaveCount(0);
+    } else {
+      await expect(page.locator("#accountingDownloadFinal")).toBeDisabled();
+      await expect(page.locator("#accountingValidation")).toContainText("1 expected submission missing");
+      await page.locator("[data-open-missing-submissions]").click();
+      await expect(page.locator("[data-fill-day]")).toHaveCount(missingDays);
+      await expect(page.locator(".accounting-weekday small").filter({ hasText: "Before start" })).toHaveCount(5 - missingDays);
+      if (start === "2026-08-12") {
+        page.once("dialog", dialog => dialog.accept());
+        const request = page.waitForRequest(r => r.url().includes("/rpc/accounting_autofill_leave_timesheet"));
+        await page.locator("[data-submit-missing-timesheet]").click();
+        expect((await request).postDataJSON().p_days).toEqual(["Wednesday", "Thursday", "Friday"]);
+      }
+    }
+  });
+}
+
+for (const width of [390, 1280]) test(`Employment Start Date saves and reloads in Accounts at ${width}px`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 900 });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  const employee = { ...fakeProfile, id: "00000000-0000-4000-8000-000000000002", display_name: "Start Date Employee", email: "start@example.com", role: "worker", hire_date: null };
+  const writes = [];
+  await page.route(`${supabaseOrigin}/rest/v1/profiles*`, async route => {
+    const request = route.request(), url = new URL(request.url());
+    if (request.method() === "PATCH") { writes.push(request.postDataJSON()); Object.assign(employee, request.postDataJSON()); return route.fulfill({ json: employee }); }
+    return route.fulfill({ json: request.headers().accept.includes("pgrst.object") ? (url.searchParams.get("id") === "eq." + employee.id ? employee : fakeProfile) : [fakeProfile, employee] });
+  });
+  await page.goto("/accounts.html");
+  const input = page.getByLabel("Employment Start Date for Start Date Employee", { exact: true });
+  await input.fill("2026-08-12");
+  await input.locator("..").getByRole("button", { name: "Save start date" }).click();
+  await expect(input.locator("..").getByRole("status")).toHaveText("Saved");
+  expect(writes).toEqual([{ hire_date: "2026-08-12" }]);
+  await page.reload();
+  await expect(input).toHaveValue("2026-08-12");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await input.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath(`employment-start-${width}.png`), fullPage: true });
+});
+
+test("Employment start lets employees submit a partial first week without pre-start holiday autofill", async ({ page }) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, { ...fakeProfile, hire_date: "2026-08-05" });
+  await page.goto("/timesheet.html");
+  await page.waitForFunction(() => currentEmploymentStartDate === "2026-08-05");
+  const result = await page.evaluate(() => {
+    document.getElementById("weekStart").value = "2026-08-02";
+    return {
+      missing: getMissingMandatoryWeekdays(["Wednesday", "Thursday", "Friday"].map(day => ({ day }))),
+      incomplete: getMissingMandatoryWeekdays([{ day: "Wednesday" }]),
+      holidays: getOntarioHolidayEntriesForWeek(makeLocalDate("2026-08-02"), makeLocalDate("2026-08-07")).length
+    };
+  });
+  expect(result).toEqual({ missing: [], incomplete: ["Thursday", "Friday"], holidays: 0 });
+});
+
+test("Employment start applies to the administrator partial-week submission check", async ({ page }) => {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page, fakeProfile, { employeeHireDate: "2026-08-12" });
+  await page.goto("/admin.html?tab=timesheets");
+  await page.waitForFunction(() => accounts.some(p => p.hire_date === "2026-08-12"));
+  expect(await page.evaluate(() => getAdminLiveTimesheetMissingWeekdays(["Wednesday", "Thursday", "Friday"].map(day => ({ profile_id: "00000000-0000-4000-8000-000000000002", worker_name: "Steven Leduc", week_start: "2026-08-09", day_of_week: day }))))).toEqual([]);
 });

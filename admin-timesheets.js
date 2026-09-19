@@ -1122,7 +1122,16 @@ function getAdminLiveTimesheetWeekRows(worker, weekStart) {
 function getAdminLiveTimesheetMissingWeekdays(entries) {
     const requiredDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const coveredDays = new Set((entries || []).map((entry) => entry.day_of_week).filter(Boolean));
-    return requiredDays.filter((day) => !coveredDays.has(day));
+    const first = (entries || [])[0];
+    const account = first && accounts.find((item) => item.id === first.profile_id || [item.worker_key, item.display_name, item.email].map(normalizeWorkerName).includes(normalizeWorkerName(first.worker_name)));
+    return requiredDays.filter((day, index) => {
+        if (account && account.hire_date && first.week_start) {
+            const date = new Date(String(first.week_start).slice(0, 10) + "T12:00:00Z");
+            date.setUTCDate(date.getUTCDate() + index + 1);
+            if (date.toISOString().slice(0, 10) < account.hire_date) return false;
+        }
+        return !coveredDays.has(day);
+    });
 }
 
 function getAdminTimesheetLongDays(entries) {
