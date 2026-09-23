@@ -5325,6 +5325,32 @@ async function mockDashboard(page, options={}) {
   return state;
 }
 
+async function toggleDashboardEditing(page) {
+ if(await page.locator('#dashboardDoneEditing').isVisible()){await page.locator('#dashboardDoneEditing').click();return;}
+ if(!await page.locator('#jgcAppearanceSettingsPanel').isVisible())await page.locator('#jgcAppearanceSettingsButton').click();
+ await page.locator('#dashboardEdit').click();
+}
+async function openDashboardWidgetMenu(page) {
+ if(!await page.locator('#jgcAppearanceSettingsPanel').isVisible())await page.locator('#jgcAppearanceSettingsButton').click();
+ if(!await page.locator('#dashboardMenu').isVisible())await page.locator('#dashboardMenuToggle').click();
+}
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboard gear settings contain layout and widget controls ${theme} ${width}`,async({page},testInfo)=>{
+ const state=await mockDashboard(page,{theme});await page.setViewportSize({width,height:1000});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await expect(page.locator('#dashboardEdit')).toBeHidden();await expect(page.locator('#dashboardMenuToggle')).toBeHidden();await expect(page.locator('.dashboard-heading')).not.toContainText('Edit layout');await expect(page.locator('#dashboardRefresh')).toBeVisible();
+ await page.getByRole('button',{name:'Open appearance settings',exact:true}).click();
+ await expect(page.locator('#jgcAppearanceSettingsPanel #dashboardEdit')).toBeVisible();await expect(page.locator('[data-jgc-theme-choice="light"]')).toBeVisible();
+ await page.locator('#dashboardEdit').click();await expect(page.locator('#jgcAppearanceSettingsPanel')).toBeHidden();await expect(page.locator('#dashboardDoneEditing')).toBeFocused();
+ await page.locator('#dashboardDoneEditing').click();await expect(page.locator('#dashboardDoneEditing')).toBeHidden();await expect(page.locator('#jgcAppearanceSettingsButton')).toBeFocused();
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="tasks"]').uncheck();await expect(page.locator('[data-widget="tasks"]')).toBeHidden();await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='tasks').visible).toBe(false);
+ await page.locator('#dashboardWidgetChoices input[value="tasks"]').check();await expect(page.locator('[data-widget="tasks"]')).toBeVisible();
+ await expectReadableText(page.locator('#dashboardSettings h3, #dashboardSettings button, #dashboardSettings label'),'Gear settings '+theme);
+ const box=await page.locator('#jgcAppearanceSettingsPanel').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);expect(box.y+box.height).toBeLessThanOrEqual(1001);
+ await page.screenshot({path:testInfo.outputPath('gear-settings.png')});
+ await page.keyboard.press('Escape');await expect(page.locator('#jgcAppearanceSettingsPanel')).toBeHidden();
+ await page.locator('#timesheetsTab').click();await page.locator('#jgcAppearanceSettingsButton').click();await expect(page.locator('#dashboardSettings')).toBeHidden();
+});
+
 test('Dashboard saves layout, hides/restores widgets, resets, and preserves the shared calendar',async({page})=>{
  const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');
  await expect(page.locator('#dashboardEdit')).toBeEnabled();
@@ -5333,7 +5359,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
  await expect(page.locator('[data-widget="work-orders"] .dashboard-metric strong')).toHaveText('6');
  await expect(page.locator('[data-widget="purchase-orders"] .dashboard-metric strong')).toHaveText('14');
  await expect(page.locator('[data-widget="calendar"] #adminScheduleCalendar')).toBeVisible();
- await page.locator('#dashboardEdit').click();
+ await toggleDashboardEditing(page);
  const card=page.locator('[data-widget="tasks"]');await card.getByRole('button',{name:'Customize Tasks / Follow-Ups'}).click();await page.getByLabel('Tasks / Follow-Ups width',{exact:true}).selectOption('6');
  await page.getByLabel('Move Tasks / Follow-Ups earlier',{exact:true}).click();
  await page.getByLabel('Hide Tasks / Follow-Ups',{exact:true}).click();
@@ -5341,7 +5367,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
  expect(state.layout.widgets.find(w=>w.id==='tasks')).toMatchObject({width:6,visible:false});
  await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(card).toBeHidden();
- await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardWidgetChoices input[value="tasks"]').check();await expect(card).toBeVisible();
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="tasks"]').check();await expect(card).toBeVisible();
  await page.locator('#dashboardReset').click();await expect.poll(()=>state.layout.widgets.find(w=>w.id==='tasks').width).toBe(4);
  await page.keyboard.press('Control+k');await expect(page.locator('#adminGlobalSearchInput')).toBeFocused();
  await expect(page.getByRole('link',{name:'Start New Quote',exact:true})).toHaveAttribute('href','estimating/?newQuote=1');
@@ -5355,13 +5381,13 @@ test('Dashboard approved default layout applies to new accounts and Reset while 
  await page.locator('[data-widget="recent"] .dashboard-widget-options').click();await page.getByLabel('Recent Work width',{exact:true}).selectOption('4');
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');const personal=await read();
  await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(personal);
- await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardReset').click();
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardReset').click();
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');expect(await read()).toEqual(expected);
  await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(expected);
 });
 
 test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
- const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
+ const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await toggleDashboardEditing(page);
  const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();
  const header=await card.locator('.dashboard-widget-header').boundingBox();
  await page.mouse.move(header.x+70,header.y+20);await page.mouse.down();await page.mouse.move(header.x+70,header.y+100,{steps:10});
@@ -5381,7 +5407,7 @@ test('Dashboard failed preference save stays pending and retries; widget failure
  await page.route(`${supabaseOrigin}/rest/v1/digital_purchase_orders*`,r=>r.fulfill({status:400,json:{message:'synthetic failure'}}));
  await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
  await expect(page.locator('[data-widget="purchase-orders"]')).toContainText('Could not load this widget');
- await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardWidgetChoices input[value="tasks"]').uncheck();
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="tasks"]').uncheck();
  await expect(page.locator('#dashboardRetrySave')).toBeVisible();
  expect(await page.evaluate(id=>JSON.parse(localStorage.getItem('jgcDashboardLayout:v1:'+id)).pending,fakeUser.id)).toBe(true);
  state.failSave=false;await page.locator('#dashboardRetrySave').click();await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
@@ -5438,7 +5464,7 @@ for(const theme of ['light','dark'])test(`Dashboard stacked calendar layout and 
  await mockDashboardVisualRecords(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
  await expect(page.locator('[data-widget="estimate-desk"]')).toHaveCount(0);
  const links=await page.locator('.dashboard-quick-actions a').allTextContents();expect(links.slice(0,2)).toEqual(['Open Estimate Desk','Add Job']);
- await page.locator('#dashboardEdit').click();await page.locator('#dashboardStackCalendar').click();await page.locator('#dashboardSlimTotals').click();await page.locator('#dashboardEdit').click();
+ await toggleDashboardEditing(page);await page.locator('#dashboardStackCalendar').click();await page.locator('#dashboardSlimTotals').click();await toggleDashboardEditing(page);
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
  async function check(){
   const rects=await page.locator('.dashboard-widget').evaluateAll(elements=>Object.fromEntries(elements.filter(el=>!el.hidden).map(el=>{const r=el.getBoundingClientRect();return [el.dataset.widget,{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}];})));
@@ -5471,7 +5497,7 @@ test('Dashboard can place Active Jobs in the empty half beside calendar, and Esc
 test('Dashboard tablet touch dragging and keyboard resizing save real coordinates',async({browser})=>{
  const context=await browser.newContext({viewport:{width:1024,height:1100},hasTouch:true});const page=await context.newPage();
  try {
-  const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
+  const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await toggleDashboardEditing(page);
   const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();const box=await card.locator('.dashboard-widget-header').boundingBox();
   const cdp=await context.newCDPSession(page),point={x:box.x+70,y:box.y+20};
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
@@ -5490,7 +5516,7 @@ test('Dashboard calendar cells resize to the available month area at small and l
  await expect(card.getByRole('button',{name:/Tuesday, August 18, 2026/})).toHaveAttribute('aria-label',/1 schedule item/);
  async function measure(width,height){
   await page.getByLabel('Schedule Calendar width',{exact:true}).selectOption(width);await page.getByLabel('Schedule Calendar height',{exact:true}).selectOption(height);
-  await page.locator('#dashboardEdit').click();await card.scrollIntoViewIfNeeded();
+  await toggleDashboardEditing(page);await card.scrollIntoViewIfNeeded();
   const geometry=await card.evaluate(el=>{const g=el.querySelector('.admin-schedule-grid'),d=g.querySelector('.admin-schedule-day'),r=g.getBoundingClientRect(),c=el.getBoundingClientRect(),last=g.lastElementChild.getBoundingClientRect();return {day:d.getBoundingClientRect().height,width:d.getBoundingClientRect().width,grid:r.height,overflow:g.scrollHeight>g.clientHeight+1,inside:r.left>=c.left&&r.right<=c.right&&last.bottom<=c.bottom,rows:[...g.children].filter(x=>x.classList.contains('admin-schedule-day')).length};});
   expect(geometry.inside).toBe(true);expect(geometry.overflow).toBe(false);expect(geometry.rows).toBeGreaterThanOrEqual(28);
   await card.screenshot({path:testInfo.outputPath('calendar-'+width+'-'+height+'.png')});
@@ -5505,7 +5531,7 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboar
  const card=page.locator('[data-widget="work-orders"]'),count=card.locator('.dashboard-metric strong'),empty=card.getByText('No open work orders.',{exact:true});
  await expect(count).toHaveText('0');await expect(empty).toBeHidden();
  async function clean(){const c=await card.boundingBox(),n=await count.boundingBox();expect(Math.abs(n.y+n.height/2-c.y-c.height/2)).toBeLessThan(2);expect(n.x+n.width).toBeLessThan(c.x+c.width-28);}
- await clean();await page.locator('#dashboardEdit').click();await clean();
+ await clean();await toggleDashboardEditing(page);await clean();
  if(width>650){const n=await count.boundingBox(),resize=await card.locator('.dashboard-resize').boundingBox(),options=await card.locator('.dashboard-widget-options').boundingBox();expect(n.x+n.width).toBeLessThanOrEqual(resize.x);expect(resize.x+resize.width).toBeLessThanOrEqual(options.x);}
  await card.screenshot({path:testInfo.outputPath('empty-wo-'+theme+'-'+width+'.png')});
  await card.locator('.dashboard-widget-options').click();await page.getByLabel('Work Orders height',{exact:true}).selectOption('280');await expect(empty).toBeVisible();
