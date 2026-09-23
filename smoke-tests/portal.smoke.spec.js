@@ -5485,3 +5485,16 @@ test('Dashboard calendar cells resize to the available month area at small and l
  }
  const small=await measure('3','280'),large=await measure('8','640');expect(large.day).toBeGreaterThan(small.day*2);expect(large.width).toBeGreaterThan(small.width*2);
 });
+
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboard empty Work Orders stays clean in slim cards ${theme} ${width}`,async({page},testInfo)=>{
+ await mockDashboard(page,{theme});await page.route(`${supabaseOrigin}/rest/v1/work_orders*`,r=>r.fulfill({headers:{'content-range':'*/0','access-control-expose-headers':'content-range'},json:[]}));
+ await page.setViewportSize({width,height:1000});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ const card=page.locator('[data-widget="work-orders"]'),count=card.locator('.dashboard-metric strong'),empty=card.getByText('No open work orders.',{exact:true});
+ await expect(count).toHaveText('0');await expect(empty).toBeHidden();
+ async function clean(){const c=await card.boundingBox(),n=await count.boundingBox();expect(Math.abs(n.y+n.height/2-c.y-c.height/2)).toBeLessThan(2);expect(n.x+n.width).toBeLessThan(c.x+c.width-28);}
+ await clean();await page.locator('#dashboardEdit').click();await clean();
+ if(width>650){const n=await count.boundingBox(),resize=await card.locator('.dashboard-resize').boundingBox(),options=await card.locator('.dashboard-widget-options').boundingBox();expect(n.x+n.width).toBeLessThanOrEqual(resize.x);expect(resize.x+resize.width).toBeLessThanOrEqual(options.x);}
+ await card.screenshot({path:testInfo.outputPath('empty-wo-'+theme+'-'+width+'.png')});
+ await card.locator('.dashboard-widget-options').click();await page.getByLabel('Work Orders height',{exact:true}).selectOption('280');await expect(empty).toBeVisible();
+ await page.getByLabel('Work Orders height',{exact:true}).selectOption('44');await expect(empty).toBeHidden();await clean();
+});
