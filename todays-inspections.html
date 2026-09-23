@@ -44,7 +44,7 @@
 <script src="toolbox-report-actions.js?v=1"></script>
 <script src="inspection-records.js?v=11"></script>
 <script src="vendor/jspdf.umd.min.js?v=1"></script>
-<script src="jsa-pdf.js?v=1"></script>
+<script src="jsa-pdf.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 const worker = getCurrentWorker();
@@ -1943,7 +1943,7 @@ function drawJsaAcknowledgements(doc, record, margin, y, usable) {
 }
 
 function downloadJsaPdf(record) {
-    window.JgcJsaPdf.download(record, { acknowledgements: getJsaAcknowledgements(record) });
+    return window.JgcJsaPdf.download(record, { acknowledgements: getJsaAcknowledgements(record) }).catch(error => alert(error.message || "The JSA PDF could not be created."));
 }
 
 function getAerialInspectionRows(record) {

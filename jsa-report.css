@@ -102,7 +102,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 15px;
-    background: var(--jgc-color-text);
+    background: var(--jgc-color-table);
 }
 
 table th,
@@ -114,7 +114,7 @@ table td {
 
 table th {
     background: color-mix(in srgb, var(--jgc-color-brand-400) 10%, var(--jgc-color-input));
-    color: var(--jgc-color-surface-soft);
+    color: var(--jgc-color-text);
 }
 
 table textarea {
@@ -122,14 +122,14 @@ table textarea {
     min-height: 60px;
     resize: vertical;
     border: none;
-    background: var(--jgc-color-text);
+    background: var(--jgc-color-input);
 }
 
 button {
     padding: 10px 15px;
     border: none;
     background: var(--jgc-color-brand-600);
-    color: var(--jgc-color-text);
+    color: var(--jgc-color-on-brand);
     cursor: pointer;
     border-radius: 5px;
     font-weight: bold;
@@ -141,6 +141,7 @@ button:hover {
 
 .secondary {
     background: var(--jgc-color-input-border);
+    color: var(--jgc-color-text);
 }
 
 .secondary:hover {
@@ -149,6 +150,7 @@ button:hover {
 
 .danger {
     background: var(--jgc-color-badge-danger);
+    color: var(--jgc-color-on-brand);
 }
 
 .danger:hover {
@@ -356,7 +358,7 @@ button:hover {
     border: 1px solid var(--jgc-color-input-border);
     border-radius: 6px;
     background: color-mix(in srgb, var(--jgc-color-input-border) 8%, var(--jgc-color-input));
-    color: var(--jgc-color-table-header);
+    color: var(--jgc-color-text-dark);
     text-align: left;
 }
 
@@ -367,11 +369,12 @@ button:hover {
 
 .jsa-ack-choice strong {
     margin-bottom: 6px;
+    color: inherit;
     font-size: 1.05rem;
 }
 
 .jsa-ack-choice span {
-    color: color-mix(in srgb, var(--jgc-color-success) 8%, var(--jgc-color-input));
+    color: var(--jgc-color-text-muted);
     font-size: 0.88rem;
     font-weight: 500;
 }
@@ -456,4 +459,52 @@ button:hover {
         max-width: none;
     }
 }
+/* JSA editor: scoped, token-based surfaces for both portal themes. */
+.report-form-page .jsa-section-title { margin: 28px 0 12px; font-size: 1.12rem; color: var(--jgc-color-text); }
+.jsa-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.jsa-section-heading h2 { margin: 0; }
+.jsa-preparation, .jsa-library, .jsa-conditions { padding: 16px; margin: 16px 0; border: 1px solid var(--jgc-color-input-border); border-radius: 10px; background: var(--jgc-color-surface); color: var(--jgc-color-text); }
+.jsa-preparation[hidden], #jsaAdminEntry[hidden] { display: none; }
+.jsa-library summary, .jsa-conditions summary { cursor: pointer; font-weight: 700; min-height: 30px; }
+.jsa-library input[type="search"] { width: 100%; padding: 12px; border: 1px solid var(--jgc-color-input-border); border-radius: 6px; background: var(--jgc-color-input); color: var(--jgc-color-text); font: inherit; box-sizing: border-box; }
+.jsa-preset-results { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; max-height: 200px; overflow-y: auto; }
+.jsa-preset-results button { text-align: left; background: var(--jgc-color-surface); color: var(--jgc-color-text); border: 1px solid var(--jgc-color-input-border); min-height: 44px; }
+.jsa-preset-results button[aria-pressed="true"] { border-color: var(--jgc-color-brand-500); outline: 2px solid var(--jgc-color-brand-500); outline-offset: -2px; }
+.jsa-preset-options { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.jsa-preset-options fieldset { min-width: 0; margin: 0; border: 1px solid var(--jgc-color-input-border); border-radius: 6px; }
+.jsa-preset-options label { display: flex; align-items: start; gap: 10px; font-weight: 400; padding: 8px 0; line-height: 1.45; }
+.jsa-preset-options input { flex: 0 0 auto; width: 20px; height: 20px; }
+.report-form-page #jsaTable { table-layout: fixed; background: var(--jgc-color-surface); }
+.report-form-page #jsaTable th { color: var(--jgc-color-text); background: var(--jgc-color-surface-soft); }
+.report-form-page #jsaTable th:nth-child(1) { width: 24%; }
+.report-form-page #jsaTable th:nth-child(2) { width: 27%; }
+.report-form-page #jsaTable th:nth-child(3) { width: 39%; }
+.report-form-page #jsaTable th:nth-child(4) { width: 10%; }
+.report-form-page #jsaTable textarea { display: block; min-height: 120px; padding: 10px; background: var(--jgc-color-input); color: var(--jgc-color-text); border: 1px solid var(--jgc-color-input-border); line-height: 1.5; }
+.report-form-page #jsaTable .danger { padding: 9px 8px; max-width: 100%; }
+.report-form-page .jsa-row-actions { padding-bottom: 14px; }
+.report-form-page .jsa-signoff-choice-section { background: var(--jgc-color-surface); color: var(--jgc-color-text); }
+.report-form-page .jsa-ack-choice, .report-form-page .crew-pill { color: var(--jgc-color-text); background: var(--jgc-color-surface-soft); }
+.report-form-page .jsa-ack-choice span { color: var(--jgc-color-text-muted); }
+.jsa-preparation button:disabled { opacity: .55; cursor: not-allowed; }
+.jsa-required { outline: 2px solid var(--jgc-color-danger) !important; outline-offset: 2px; }
+.prepared-jsa-list { display: grid; gap: 12px; }
+.prepared-jsa-card { padding: 16px; border: 1px solid var(--jgc-color-input-border); border-radius: 8px; background: var(--jgc-color-surface); }
+.prepared-jsa-card h2 { margin: 0 0 8px; font-size: 1.1rem; overflow-wrap: anywhere; }
+.prepared-jsa-card p { margin: 8px 0; }
+.prepared-jsa-state { font-weight: 700; color: var(--jgc-color-text); }
+@media(max-width: 768px) {
+ .report-form-page #jsaTable, .report-form-page #jsaTable tbody, .report-form-page #jsaTable tr, .report-form-page #jsaTable td { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+ .report-form-page #jsaTable { margin: 0; border: 0; }
+ .report-form-page #jsaTable thead { display: none; }
+ .report-form-page #jsaTable tr { margin: 14px 0; padding: 12px; border: 1px solid var(--jgc-color-input-border); border-radius: 10px; }
+ .report-form-page #jsaTable td { border: 0; padding: 5px 0; }
+ .report-form-page #jsaTable td[data-label]::before { display: block; content: attr(data-label); font-weight: 700; margin-bottom: 6px; color: var(--jgc-color-text); }
+ .report-form-page #jsaTable textarea { min-height: 88px; }
+ .report-form-page #jsaTable .delete-cell { text-align: right; }
+ .report-form-page #jsaTable .danger { width: auto; min-height: 44px; }
+ .jsa-preset-options { grid-template-columns: minmax(0,1fr); }
+ .jsa-library, .jsa-preparation { padding: 12px; }
+}
 
+.jsa-preparation a, #jsaAdminEntry a, .jsa-section-heading a, .prepared-jsa-card a { color: var(--jgc-color-text); text-decoration: underline; font-weight: 600; }
