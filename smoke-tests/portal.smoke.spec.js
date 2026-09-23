@@ -5347,6 +5347,19 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
  await expect(page.getByRole('link',{name:'Start New Quote',exact:true})).toHaveAttribute('href','estimating/?newQuote=1');
 });
 
+test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
+ const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ const expected=[['jobs-stat',3,63,0,0],['quotes',3,61,3,0],['work-orders',3,62,6,0],['purchase-orders',3,62,9,0],['calendar',7,636,0,78],['recent',5,299,7,80],['active-jobs',5,311,7,400],['subcontractors',4,280,0,728],['tasks',4,280,4,728],['announcements',4,280,8,728]];
+ const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
+ expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
+ await page.locator('[data-widget="recent"] .dashboard-widget-options').click();await page.getByLabel('Recent Work width',{exact:true}).selectOption('4');
+ await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');const personal=await read();
+ await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(personal);
+ await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardReset').click();
+ await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');expect(await read()).toEqual(expected);
+ await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(expected);
+});
+
 test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
  const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();
@@ -5465,7 +5478,7 @@ test('Dashboard tablet touch dragging and keyboard resizing save real coordinate
   for(let n=1;n<=8;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x,y:point.y+n*10}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').y).toBeGreaterThan(58);
-  await card.locator('.dashboard-resize').focus();await page.keyboard.press('ArrowUp');await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(273);
+  await card.locator('.dashboard-resize').focus();await page.keyboard.press('ArrowUp');await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(259);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  } finally {await context.close();}
 });
