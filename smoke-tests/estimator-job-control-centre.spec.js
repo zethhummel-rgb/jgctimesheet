@@ -709,3 +709,17 @@ test('Shop drawing legacy approval survives opening, metadata correction and rel
  expect(captures.savedStates.at(-1).jobs.find(j=>j.id==='job-control').shopDrawings[0].revision).toBe(2);
  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(panel.getByRole('link',{name:/Approved file/})).toHaveAttribute('href','https://example.com/sd14-rev2.pdf');
 });
+
+test('Shop drawing saves and reloads without a file link, with a link added later',async({page})=>{
+ const state=jobControlState(),captures={savedStates:[],portalDocumentUpdates:[],statisticsRequests:[]};
+ await serveJobControl(page,state,captures);await page.goto('/estimating/index.html?dev=1');await openJob(page);await jobTab(page,'Shop Drawings').click();
+ const panel=jobPanel(page,'Shop Drawings');await panel.getByRole('button',{name:'New shop drawing'}).click();
+ await panel.getByLabel('Shop drawing description').fill('Door and hardware');await panel.getByLabel('Shop drawing status').selectOption('Received from vendor');await panel.getByLabel('Received from vendor date').fill('2026-09-23');
+ await expect(panel.getByLabel('Current revision OneDrive link')).toHaveValue('');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+ const row=panel.locator('.shop-drawing-table tbody tr').filter({hasText:'SD-001'});await expect(row).toContainText('Received from vendor');
+ await row.getByRole('button',{name:'Open / edit'}).click();await panel.getByLabel('Shop drawing status').selectOption('Approved');await panel.getByLabel('Shop drawing consultant').fill('Client');await panel.getByLabel('Reviewed date').fill('2026-09-23');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+ await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.shopDrawings[0]?.status).toBe('Approved');
+ await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('Approved');await expect(row.getByRole('link',{name:/Approved file/})).toHaveCount(0);
+ await row.getByRole('button',{name:'Open / edit'}).click();await panel.getByLabel('Current revision OneDrive link').fill('https://jgc.sharepoint.com/drawings/doors.pdf');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+ await expect(row.getByRole('link',{name:/Approved file/})).toHaveAttribute('href','https://jgc.sharepoint.com/drawings/doors.pdf');
+});
