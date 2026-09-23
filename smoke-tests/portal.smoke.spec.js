@@ -2072,7 +2072,7 @@ test("admin tabs switch to their matching sections", async ({ page }) => {
   await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.showTab === "function");
 
-  const tabs = ["summary", "jobDashboard", "timesheets", "safetyRecords", "vacation", "tasks", "workOrders", "adminTools"];
+  const tabs = ["summary", "timesheets", "safetyRecords", "vacation", "tasks", "workOrders", "adminTools"];
   for (const tab of tabs) {
     await page.locator(`#${tab}Tab`).click();
     await expect(page.locator(`#${tab}Section`)).toBeVisible();
@@ -2129,82 +2129,11 @@ test("summary search categories start collapsed and open one at a time", async (
   await expectNoRuntimeErrors(errors, "summary search category accordions");
 });
 
-test("admin job dashboard selector filters and selects jobs", async ({ page }) => {
-  const errors = watchRuntimeErrors(page);
-  const requestedTables = new Set();
-  const dashboardJobs = [
-    { id: "job-one", job_number: "101", job_name: "Main Street Office", active: true },
-    { id: "job-two", job_number: "205", job_name: "North Warehouse", active: true },
-    { id: "job-three", job_number: "330", job_name: "Riverside Apartments", active: true },
-    { id: "job-four", job_number: "050", job_name: "Closed Community Centre", active: false }
-  ];
-
-  page.on("request", (request) => {
-    const match = request.url().match(/\/rest\/v1\/([^?]+)/);
-    if (match) requestedTables.add(match[1]);
-  });
-
+for (const tab of ["jobs", "jobDashboard"]) test(`legacy admin ${tab} route redirects to Estimator Jobs`, async ({page}) => {
   await installAuthenticatedPortalState(page);
   await mockPortalServices(page);
-  await page.route(`${supabaseOrigin}/rest/v1/jobs**`, (route) => route.fulfill({
-    status: 200,
-    contentType: "application/json",
-    body: JSON.stringify(dashboardJobs)
-  }));
-  await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof window.renderJobDashboardOptions === "function");
-  await expect.poll(() => requestedTables.has("jobs")).toBe(true);
-  await expect.poll(() => page.evaluate(() => jobs.length)).toBe(4);
-  expect(requestedTables.has("work_orders")).toBe(false);
-
-  await page.locator("#jobDashboardTab").click();
-
-  const search = page.locator("#jobDashboardSearch");
-  await expect(search).toHaveValue("");
-  await expect(page.locator("#jobDashboardSelect")).toHaveValue("");
-  await expect(page.locator("#jobDashboardContent")).toContainText("Start typing a job number or name");
-  await search.click();
-  await expect(page.locator("#jobDashboardOptions")).toBeHidden();
-  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(0);
-  await search.fill("e");
-  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(4);
-  await expect.poll(() => page.locator("#jobDashboardOptions .job-dashboard-option").allTextContents()).toEqual([
-    "101 - Main Street Office",
-    "205 - North Warehouse",
-    "330 - Riverside Apartments",
-    "050 - Closed Community Centre"
-  ]);
-  const groupedOptionColors = await page.evaluate(() => ({
-    active: getComputedStyle(document.querySelector(".job-dashboard-option--active")).backgroundColor,
-    inactive: getComputedStyle(document.querySelector(".job-dashboard-option--inactive")).backgroundColor
-  }));
-  expect(groupedOptionColors.active).not.toBe(groupedOptionColors.inactive);
-  await search.fill("warehouse");
-  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
-  await expect(page.getByRole("option", { name: "205 - North Warehouse" })).toHaveClass(/job-dashboard-option--active/);
-  await expect.poll(() => page.locator("#jobDashboardSection").evaluate((element) => getComputedStyle(element).overflowY)).toBe("visible");
-  await expect.poll(() => page.locator("#jobDashboardOptions").evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
-  await page.getByRole("option", { name: "205 - North Warehouse" }).click();
-
-  await expect(search).toHaveValue("205 - North Warehouse");
-  await expect(page.locator("#jobDashboardSelect")).toHaveValue("205");
-  await expect(page.locator("#jobDashboardOptions")).toBeHidden();
-  await expect.poll(() => requestedTables.has("work_orders")).toBe(true);
-  await expect(page.locator("#jobDashboardContent .job-status-pill")).toHaveText("Active");
-
-  await search.click();
-  await search.fill("closed community");
-  await expect(page.locator("#jobDashboardOptions .job-dashboard-option")).toHaveCount(1);
-  await expect(page.getByRole("option", { name: "050 - Closed Community Centre" })).toHaveClass(/job-dashboard-option--inactive/);
-  await page.getByRole("option", { name: "050 - Closed Community Centre" }).click();
-  await expect(page.locator("#jobDashboardSelect")).toHaveValue("050");
-  await expect(page.locator("#jobDashboardContent .job-status-pill")).toHaveText("Inactive");
-
-  await page.locator("#jobDashboardSection").getByRole("button", { name: "Refresh Jobs" }).click();
-  await expect(search).toHaveValue("");
-  await expect(page.locator("#jobDashboardSelect")).toHaveValue("");
-  await expect(page.locator("#jobDashboardContent")).toContainText("Start typing a job number or name");
-  await expectNoRuntimeErrors(errors, "searchable job dashboard selector");
+  await page.goto(`/admin.html?tab=${tab}&job=26901`);
+  await expect(page).toHaveURL(/estimating\/\?view=jobs&job=26901/);
 });
 
 test("admin spyglass searches lazy portal data from any page", async ({ page }) => {
@@ -2252,7 +2181,7 @@ test("admin spyglass searches lazy portal data from any page", async ({ page }) 
   await expect(page.locator("#jgcAdminGlobalSearchStatus")).toContainText("Choose a category");
   await expect(page.locator("#jgcAdminGlobalSearchResults")).not.toContainText("205 - North Warehouse");
   const spyglassGroups = page.locator("#jgcAdminGlobalSearchResults .jgc-admin-search-group");
-  await expect(spyglassGroups).toHaveCount(9);
+  await expect(spyglassGroups).toHaveCount(10);
   await expect(spyglassGroups.locator(".jgc-admin-search-group-results:visible")).toHaveCount(0);
   expect(requestedTables.size).toBe(0);
   const spyglassTimeGroup = spyglassGroups.filter({ hasText: "Time & Attendance" });
@@ -2277,7 +2206,7 @@ test("admin spyglass searches lazy portal data from any page", async ({ page }) 
   expect(requestedTables).not.toContain("tasks");
 
   await spyglassJobsGroup.locator("[data-jgc-admin-search-result]").click();
-  await expect(page).toHaveURL(/admin\.html\?tab=jobDashboard/);
+  await expect(page).toHaveURL(/estimating\/\?view=jobs&job=205/);
   await expectNoRuntimeErrors(errors, "admin global spyglass search");
 });
 
@@ -2388,6 +2317,7 @@ test("employee spyglass searches navigation, jobs, and only the employee's recor
   await expect(page).toHaveURL(/jobs\.html\?search=205/);
   await expect(page.locator("#jobSearch")).toHaveValue("205");
 
+  expect(requestedTables).not.toContain("estimator_workspaces");
   await expectNoRuntimeErrors(errors, "employee global spyglass search");
 });
 
@@ -4313,7 +4243,7 @@ test("mobile More menu opens and closes", async ({ page }) => {
 });
 
 for (const theme of ["light", "dark"]) {
-  for (const portalPage of ["admin.html?tab=jobs", "home.html", "jobs.html"]) {
+  for (const portalPage of ["admin.html?tab=summary", "home.html", "jobs.html"]) {
     test(`mobile More menu contrast on ${portalPage} in ${theme} theme`, async ({ page }, testInfo) => {
       const errors = watchRuntimeErrors(page);
       await page.setViewportSize({ width: 390, height: 844 });
@@ -5227,4 +5157,18 @@ test('readability stylesheet resolves from nested Estimate Desk pages', async ({
   expect((await response).status()).toBe(200);
   await expect(page.locator('link[data-jgc-readability]')).toHaveAttribute('href', /\/portal-readability\.css\?v=1$/);
   expect(await page.locator('link[data-jgc-readability]').getAttribute('href')).not.toContain('/estimating/');
+});
+
+for (const mode of ['summary', 'spyglass']) test(`${mode} searches Estimator and routes converted quotes to official jobs`, async ({page}) => {
+ await installAuthenticatedPortalState(page); await mockPortalServices(page);
+ await page.route(`${supabaseOrigin}/rest/v1/estimator_workspaces**`, route => route.fulfill({json:{payload:{
+ clients:[{id:'client-search',name:'Search Test Customer'}],
+ jobs:[{id:'job-search',jobNumber:'26999',project:'Search Test Project',clientId:'client-search',quoteId:'quote-search'}],
+ quotes:[{id:'quote-search',number:'JGC-Q-2026-0999',project:'Unique conversion reference',clientId:'client-search'}]
+ }}}));
+ await page.goto('/admin.html?tab=summary');
+ if(mode === 'spyglass') { await page.locator('#jgcAdminGlobalSearchButton').click(); await page.locator('#jgcAdminGlobalSearchInput').fill('0999'); await page.locator('#jgcAdminGlobalSearchSubmit').click();
+ const group=page.locator('.jgc-admin-search-group').filter({hasText:'Estimator'});await group.locator('.jgc-admin-search-group-header').click();await expect(group).toContainText('Unique conversion reference');await group.locator('[data-jgc-admin-search-result]').click();
+ } else {await page.locator('#adminGlobalSearchInput').fill('0999');await page.locator('#adminGlobalSearchButton').click();const group=page.locator('.admin-global-search-group').filter({hasText:'Estimator'});await group.locator('.admin-global-search-group-header').click();await expect(group).toContainText('Unique conversion reference');await group.locator('.admin-global-search-result button').click();}
+ await expect(page).toHaveURL(/estimating\/\?view=jobs&job=26999/);
 });

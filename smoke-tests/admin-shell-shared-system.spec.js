@@ -33,7 +33,6 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
     "tasksSection",
     "noticePolicySection",
     "reportsSection",
-    "jobsSection",
     "workOrdersSection",
     "contactsSection",
     "subcontractorsSuppliersSection"
@@ -49,11 +48,11 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
     expect(css).toContain("var(--jgc-color-");
   }
 
-  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "7";');
+  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "8";');
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(worker).toContain('"./admin-shell-design-system.css?v=3"');
-  expect(worker).toContain('"./admin-global-search.css?v=7"');
-  expect(worker).toContain('"./admin-global-search.js?v=7"');
+  expect(worker).toContain('"./admin-global-search.css?v=8"');
+  expect(worker).toContain('"./admin-global-search.js?v=8"');
   expect(worker).toContain('"./' + commonAsset[1] + '"');
 });
 
@@ -87,7 +86,6 @@ const adminFeatureSurfaceSelectors = [
   "#tasksSection",
   "#noticePolicySection",
   "#reportsSection",
-  "#jobsSection",
   "#workOrdersSection",
   "#contactsSection",
   "#subcontractorsSuppliersSection"
@@ -198,3 +196,13 @@ for (const viewport of [
     await context.close();
   });
 }
+
+test('Open Job List has readable contrast in light and dark modes',async({browser})=>{
+ const context=await browser.newContext({javaScriptEnabled:false});const page=await context.newPage();await page.goto('/admin.html');
+ for(const theme of ['light','dark']) {await page.locator('html').evaluate((el,theme)=>{el.dataset.jgcTheme=theme;el.dataset.theme=theme;document.body.dataset.jgcTheme=theme;document.body.dataset.theme=theme;},theme);
+ const ratio=await page.getByRole('link',{name:'Open Job List',exact:true}).evaluate(el=>{
+ const rgb=s=>(s.match(/[\d.]+/g)||[]).slice(0,3).map(Number);const lum=c=>c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
+ let bg=el;while(bg.parentElement&&getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)')bg=bg.parentElement;
+ const a=lum(rgb(getComputedStyle(el).color)),b=lum(rgb(getComputedStyle(bg).backgroundColor));return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);});expect(ratio).toBeGreaterThanOrEqual(4.5);}
+ await context.close();
+});

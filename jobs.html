@@ -28,7 +28,7 @@
 
   <section class="card jobs-lookup-panel jgc-panel jgc-stack">
     <h2 class="jgc-section-title">Jobs</h2>
-    <p class="small jobs-help jgc-muted">Search clients, job names, job numbers, or Contract / T&amp;M status. This list is read-only and comes from the admin Excel import.</p>
+    <p class="small jobs-help jgc-muted">Search clients, job names, job numbers, or Contract / T&amp;M status. This read-only list stays synchronized with the official job list.</p>
     <div class="jgc-field">
       <label class="jgc-label" for="jobSearch">Search Jobs</label>
       <input class="jgc-input" id="jobSearch" type="search" placeholder="Example: Cornwall, 24-001, T&amp;M" oninput="renderJobs()">
@@ -39,7 +39,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=47"></script>
+<script src="common.js?v=48"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();

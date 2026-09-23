@@ -2090,3 +2090,30 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
   outline: 1px solid #808080;
   outline-offset: -1px;
 }
+
+/* Compact job directory; descriptive labels remain available to assistive technology. */
+.job-header-dates { display:flex; flex-wrap:wrap; gap:6px 20px; }
+.job-directory-page .jobs-table :is(th,td).job-manager-column { min-width:45px; width:50px; white-space:nowrap; }
+.job-directory-page .jobs-table :is(th,td).job-type-column { min-width:55px; width:65px; }
+.job-manager-column abbr { text-decoration:none; }
+.job-status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; border:1px solid currentColor; }
+.job-status-dot.is-active { background:#168345; color:#168345; }
+.job-status-dot.is-inactive { background:#c63838; color:#c63838; }
+.job-status-menu { position:relative; }
+.job-status-menu > summary { cursor:pointer; white-space:nowrap; padding:4px 7px; font-size:12px; min-height:28px; list-style:none; }
+.job-status-menu-options { display:flex; flex-direction:column; gap:3px; padding-top:4px; }
+@media(max-width:760px) {
+ .job-directory-page.job-view-list .jobs-table td[data-label="Customer PO/WO #"] { grid-column:2 / 4; grid-row:5; }
+ .job-directory-page.job-view-list .jobs-table td[data-label="Customer PO/WO #"]::before { display:inline; content:"Customer PO/WO #: "; }
+ .job-status-menu > summary { min-height:44px; }
+}
+
+@media(min-width:761px) {
+ .job-directory-page .jobs-table th { overflow-wrap:normal; }
+ .job-directory-page .jobs-table :is(th,td).job-type-column { min-width:80px; width:80px; white-space:nowrap; }
+ .job-directory-page .jobs-table td[data-label="Customer PO/WO #"] { min-width:110px; }
+ .job-directory-page .jobs-table td[data-label="Status"] { min-width:68px; }
+}
+@media(max-width:760px) {
+ .job-directory-page.job-view-list .jobs-table tbody > tr > td[data-label="Customer PO/WO #"]::before { display:inline; content:"PO/WO #: "; }
+}

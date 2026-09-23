@@ -33,9 +33,6 @@ let workOrderTravelRows = [];
 let workOrderLabourWorkers = [];
 let employeeFeatureAccessRows = [];
 let adminWorkOrderManagementView = "active";
-let jobDashboardRecordReturnFocus = null;
-let jobDashboardContentLoaded = false;
-let jobDashboardContentLoading = null;
 let equipmentItems = [];
 let equipmentNotifications = [];
 let equipmentMaintenanceLogs = [];
@@ -89,8 +86,8 @@ const SCHEDULE_EMAIL_SCRIPT_URL = ANNOUNCEMENT_EMAIL_SCRIPT_URL;
 const ADMIN_TAB_STORAGE_KEY = "jgcAdminActiveTab";
 const SAFETY_RECORDS_STORAGE_KEY = "jgcAdminSafetyRecordsSubtab";
 const SAFETY_RECORDS_SUBTABS = ["inspections", "reports", "permits"];
-const ADMIN_TOOL_TABS = ["employeeProfile", "certificates", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
-const ADMIN_ALLOWED_TABS = ["summary", "jobDashboard", "employeeProfile", "timesheets", "safetyRecords", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_TOOL_TABS = ["employeeProfile", "certificates", "noticePolicy", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
+const ADMIN_ALLOWED_TABS = ["summary", "employeeProfile", "timesheets", "safetyRecords", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "equipment", "contacts", "subcontractorsSuppliers", "backups"];
 let currentAdminTab = "";
 let activeSafetyRecordsSubtab = "inspections";
 let safetyRecordsSubtabDataLoaded = new Set();
@@ -347,49 +344,6 @@ function ensureAdminTabData(tab) {
     return false;
 }
 
-async function loadJobDashboardContentData() {
-    const [submittedResult, liveResult, inspectionResult, dailyResult, workOrderResult, digitalPoResult, labourResult, poResult, equipmentResult, travelResult] = await runAdminQueries([
-        { label: "job dashboard submitted timesheets", query: () => supabaseClient.from("previous_timesheet_weeks").select("*").order("submitted_at", { ascending: false }) },
-        { label: "job dashboard timesheets", query: () => supabaseClient.from("timesheet_entries").select("*").order("week_start", { ascending: false }).order("created_at", { ascending: false }) },
-        { label: "job dashboard inspections", query: () => supabaseClient.from("inspection_records").select("*").order("created_at", { ascending: false }) },
-        { label: "job dashboard daily reports", query: () => supabaseClient.from("daily_site_reports").select("*").order("report_date", { ascending: false }).order("created_at", { ascending: false }) },
-        { label: "job dashboard work orders", query: () => supabaseClient.from("work_orders").select("*").order("work_order_date", { ascending: false }).order("created_at", { ascending: false }) },
-        { label: "job dashboard digital purchase orders", query: () => supabaseClient.from("digital_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false }).limit(2000) },
-        { label: "job dashboard labour", query: () => supabaseClient.from("work_order_labour").select("*").order("employee_name", { ascending: true }) },
-        { label: "job dashboard purchase orders", query: () => supabaseClient.from("work_order_purchase_orders").select("*").order("sort_order", { ascending: true }) },
-        { label: "job dashboard equipment", query: () => supabaseClient.from("work_order_equipment").select("*") },
-        { label: "job dashboard travel", query: () => supabaseClient.from("work_order_travel").select("*") }
-    ]);
-    timesheets = submittedResult.data || [];
-    liveTimesheetEntries = liveResult.data || [];
-    inspections = inspectionResult.data || [];
-    dailySiteReports = dailyResult.data || [];
-    workOrders = workOrderResult.data || [];
-    digitalPurchaseOrders = digitalPoResult.data || [];
-    workOrderLabourRows = labourResult.data || [];
-    workOrderPurchaseOrders = poResult.data || [];
-    workOrderEquipmentRows = equipmentResult.data || [];
-    workOrderTravelRows = travelResult.data || [];
-}
-
-function ensureJobDashboardContentData() {
-    if (jobDashboardContentLoaded) {
-        return Promise.resolve();
-    }
-
-    if (!jobDashboardContentLoading) {
-        jobDashboardContentLoading = loadJobDashboardContentData()
-            .then(() => {
-                jobDashboardContentLoaded = true;
-            })
-            .finally(() => {
-                jobDashboardContentLoading = null;
-            });
-    }
-
-    return jobDashboardContentLoading;
-}
-
 async function loadAdminTabData(tab) {
     if (tab === "summary" || tab === "vacation" || tab === "adminTools") {
         return;
@@ -441,10 +395,7 @@ async function loadAdminTabData(tab) {
         return;
     }
 
-    if (tab === "jobs") {
-        await loadJobsManagement();
-        return;
-    }
+
 
     if (tab === "workOrders") {
         await loadAdminWorkOrders();
@@ -466,9 +417,7 @@ async function loadAdminTabData(tab) {
         return;
     }
 
-    if (tab === "jobDashboard") {
-        return;
-    }
+
 
     if (tab === "employeeProfile") {
         const [submittedResult, liveResult, inspectionResult, vehicleInspectionResult, dailyResult, incidentResult, certificateResult, vacationResult, workOrderResult, labourResult, toolboxReportResult, toolboxAttendanceResult, policyResult, announcementAckResult] = await runAdminQueries([
@@ -522,10 +471,7 @@ function renderActiveAdminTab(tab) {
         renderPortalSummary();
     }
 
-    if (requestedTab === "jobDashboard") {
-        renderJobDashboardOptions();
-        renderJobDashboard();
-    }
+
 
     if (requestedTab === "employeeProfile") {
         renderEmployeeProfile();
@@ -569,9 +515,7 @@ function renderActiveAdminTab(tab) {
         renderEquipment();
     }
 
-    if (requestedTab === "jobs") {
-        renderJobsManagement();
-    }
+
 
     if (requestedTab === "workOrders") {
         renderAdminWorkOrders();
@@ -583,6 +527,11 @@ function renderActiveAdminTab(tab) {
 }
 
 function showTab(tab, options = {}) {
+    if (tab === "jobs" || tab === "jobDashboard") {
+        const params = new URLSearchParams(window.location.search);
+        window.location.replace("estimating/?view=jobs" + (params.get("job") ? "&job=" + encodeURIComponent(params.get("job")) : ""));
+        return;
+    }
     const legacySafetySubtabs = {
         inspections: "inspections",
         reports: "reports",
@@ -708,6 +657,7 @@ function openAdminTool(tab) {
 function getRequestedAdminTab() {
     const params = new URLSearchParams(window.location.search);
     const requested = String(params.get("tab") || window.location.hash || "").replace("#", "");
+    if (requested === "jobs" || requested === "jobDashboard") return requested;
     const stored = localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
     const legacySafetySubtabs = {
         inspections: "inspections",
@@ -786,9 +736,6 @@ function renderAdminSectionsSafely() {
         ["vacation", renderVacationRequests],
         ["announcements", renderAnnouncements],
         ["policies", renderPolicies],
-        ["job dashboard options", renderJobDashboardOptions],
-        ["job dashboard", renderJobDashboard],
-        ["jobs management", renderJobsManagement],
         ["work orders", renderAdminWorkOrders],
         ["equipment", renderEquipment],
         ["contacts", renderContacts],
@@ -1098,9 +1045,7 @@ async function loadAdminData(options = {}) {
             }
 
             initializeAdminSummaryBaselines();
-            jobDashboardContentLoaded = false;
-            jobDashboardContentLoading = null;
-            adminTabDataLoaded = new Set(["summary", "vacation", "adminTools", "jobDashboard"]);
+            adminTabDataLoaded = new Set(["summary", "vacation", "adminTools"]);
             adminTabDataFailed = new Set();
             safetyRecordsSubtabDataLoaded = new Set();
             safetyRecordsSubtabDataFailed = new Set();
@@ -1204,8 +1149,6 @@ async function loadAdminData(options = {}) {
     workOrderPurchaseOrders = workOrderPoResult.data || [];
     workOrderEquipmentRows = workOrderEquipmentResult.data || [];
     workOrderTravelRows = workOrderTravelResult.data || [];
-    jobDashboardContentLoaded = true;
-    jobDashboardContentLoading = null;
     workOrderLabourWorkers = workOrderWorkerResult.data || [];
     employeeFeatureAccessRows = employeeFeatureAccessResult.data || [];
     equipmentItems = equipmentResult.data || [];

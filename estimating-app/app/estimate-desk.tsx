@@ -1351,6 +1351,18 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     };
   }, [sidebarOpen]);
 
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (!ready || deepLinkHandled.current) return;
+    deepLinkHandled.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const number = params.get("job");
+    const quoteId = params.get("quote");
+    const target = number ? state.jobs.find((item) => item.jobNumber === number || item.portalJobId === number || item.id === number) : quoteId ? state.jobs.find((item) => item.quoteId === quoteId) : undefined;
+    if (target) { setSelectedJobId(target.id); setJobTab("summary"); setView("jobs"); }
+    else if (quoteId && state.quotes.some((item) => item.id === quoteId)) { setSelectedQuoteId(quoteId); setView("quotes"); }
+  }, [ready, state.jobs, state.quotes]);
+
   const selectedQuote = selectedQuoteId ? state.quotes.find((quote) => quote.id === selectedQuoteId) ?? null : null;
   const selectedJob = selectedJobId ? state.jobs.find((job) => job.id === selectedJobId) ?? null : null;
 
@@ -5385,7 +5397,13 @@ function normalizeDocumentLinkUrl(value: string | undefined) {
   return url.href.toLocaleLowerCase("en-CA");
 }
 
+function jobCustomerReference(job: Job, quote?: Quote): string {
+  if (job.clientReference !== undefined) return job.clientReference;
+  return acceptedQuoteBasis(job, quote).quote?.customerPo ?? "";
+}
+
 interface JobInfoDraft {
+  clientReference: string;
   jobName: string;
   customer: string;
   siteName: string;
@@ -5502,8 +5520,9 @@ function shopDrawingRevisionSnapshot(snapshot: string): Partial<ShopDrawing> {
   }
 }
 
-function jobInfoDraftFromJob(job: Job | null): JobInfoDraft {
+function jobInfoDraftFromJob(job: Job | null, quote?: Quote): JobInfoDraft {
   return {
+    clientReference: job ? jobCustomerReference(job, quote) : "",
     jobName: job?.portalJobName ?? "",
     customer: job?.portalCustomer ?? "",
     siteName: job?.portalSiteName ?? "",
@@ -5597,6 +5616,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     projectManager: "",
     startDate: "",
     targetEndDate: "",
+    clientReference: "",
   });
   const [statistics, setStatistics] = useState<PortalJobStatistics | null>(null);
   const [statisticsStatus, setStatisticsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -6019,6 +6039,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         ...current,
         jobs: current.jobs.map((item) => item.id !== job.id ? item : {
           ...item,
+          clientReference: jobInfoDraft.clientReference.trim(),
           portalJobName: saved.jobName,
           project: item.quoteId || item.acceptedQuoteSnapshot ? item.project : saved.jobName,
           portalCustomer: saved.customer,
@@ -6031,6 +6052,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         }),
       }));
       setJobInfoDraft({
+        clientReference: jobInfoDraft.clientReference.trim(),
         jobName: saved.jobName,
         customer: saved.customer,
         siteName: saved.siteName ?? "",
@@ -6041,7 +6063,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         targetEndDate: saved.targetEndDate ?? "",
       });
       setJobInfoEditing(false);
-      setJobInfoMessage("Job details saved. Start and target completion dates now appear on the Portal Summary calendar.");
+      setJobInfoMessage("Job details updated. Check the save indicator above before leaving; the customer PO/WO also updates the job list and future accounting downloads.");
     } catch (error) {
       setJobInfoError(true);
       setJobInfoMessage(error instanceof Error ? error.message : "The job details could not be saved.");
@@ -6125,8 +6147,9 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     const label = item.status === "Active" ? "Close Project" : "Make active";
     const action = (text: string, cancel = false, review = false) => <button key={text} type="button" className={`button secondary ${header ? "compact job-header-status-button" : "compact job-status-action"}${cancel ? " job-cancel-action" : ""}${review ? " job-invoice-review-action" : ""}`} aria-label={`${text} — job ${item.jobNumber}`} aria-busy={statusSavingJobId === item.id} disabled={!item.portalJobId || statusSaving} title={!item.portalJobId ? "Link this job to the Portal before changing its status." : undefined} onClick={(event) => { event.stopPropagation(); void setJobStatus(item.id, cancel || review ? "Archived" : item.status === "Active" ? "Archived" : "Active", cancel, review); }}>{statusSavingJobId === item.id ? "Saving…" : text}</button>;
     const closeAction = action(label);
-    const cancelAction = !item.cancelledAt ? action("Cancel Job", true) : null;
-    const reviewAction = header && !item.cancelledAt && !item.invoiceReviewAt ? action("Close — Discuss Invoice", false, true) : null;
+    const cancelAction = !item.cancelledAt ? action("Cancel Project", true) : null;
+    const reviewAction = !item.cancelledAt && !item.invoiceReviewAt ? action("Close — Discuss Invoice", false, true) : null;
+    if (!header) return <details className="job-status-menu" onClick={(event) => event.stopPropagation()}><summary className="button secondary compact">Change Status</summary><div className="job-status-menu-options">{closeAction}{cancelAction}{reviewAction}</div></details>;
     return <div className={`job-status-actions${header ? " job-header-status-actions" : ""}`} role="group" aria-label={`Job ${item.jobNumber} status actions`}>{header ? <>{cancelAction}{closeAction}{reviewAction}</> : <>{closeAction}{cancelAction}</>}</div>;
   };
   if (job) {
@@ -6192,7 +6215,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
       <div className="page-stack job-detail-page">
         <div className="quote-topline job-topline">
           <button className="back-button" onClick={onBack}>← All jobs</button>
-          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {(job.portalSiteName ?? linkedQuote?.site ?? job.portalAddress) || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p></div><StatusPill status={jobDisplayStatus(job)} /></div>
+          <div className="quote-identity"><div><span className="eyebrow">JOB {job.jobNumber} · {quoteReference}</span><h1>{job.project}</h1><p>{job.portalCustomer || clientName(state, job.clientId)} · {(job.portalSiteName ?? linkedQuote?.site ?? job.portalAddress) || "No location"} · {job.jobType || "Type not set"} · PM {jobManagerIdentity(job.projectManager).label || "Unassigned"}</p>{(job.startDate || job.targetEndDate) && <p className="job-header-dates">{job.startDate && <span>Start date: {shortDate(job.startDate)}</span>}{job.targetEndDate && <span>Completion date: {shortDate(job.targetEndDate)}</span>}</p>}</div><StatusPill status={jobDisplayStatus(job)} /></div>
           <div className="job-action-stack"><div className="quote-primary-actions">{linkedQuote && <button className="button secondary" onClick={() => onOpenQuote(job.quoteId, "history")}>Open accepted quote</button>}<button className="button primary" onClick={() => onAddCost(job.id)}>＋ Add actual</button></div>{renderJobStatusAction(job, true)}</div>
         </div>
         {statusMessage && <div className="estimating-boundary-note" role="status">{statusMessage}</div>}
@@ -6224,9 +6247,10 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         <section className="panel job-summary-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">JOB SUMMARY</span><h2>Project details</h2><p>The official Portal job information and the accepted quote details are kept together here.</p></div>
-            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => { setJobInfoDraft(jobInfoDraftWithSiteAddress({ ...jobInfoDraftFromJob(job), siteName: job.portalSiteName ?? acceptedBasis.quote?.site ?? "" }, state.clients, true)); setJobInfoEditing(true); }} disabled={!job.portalJobId}>Edit job details</button>}
+            {!jobInfoEditing && <button className="button secondary compact" type="button" onClick={() => { setJobInfoDraft(jobInfoDraftWithSiteAddress({ ...jobInfoDraftFromJob(job, linkedQuote), siteName: job.portalSiteName ?? acceptedBasis.quote?.site ?? "" }, state.clients, true)); setJobInfoEditing(true); }} disabled={!job.portalJobId}>Edit job details</button>}
           </div>
           {!jobInfoEditing ? <div className="job-summary-facts">
+            <div><span>Customer PO/WO #</span><strong>{jobCustomerReference(job, linkedQuote) || "Not entered"}</strong></div>
             <div><span>Job number</span><strong>{job.jobNumber}</strong><small>{job.jobType || "Job type not entered"}</small></div>
             <div><span>Client</span><strong>{job.portalCustomer || clientName(state, job.clientId)}</strong><small>Official Portal customer</small></div>
             <div><span>Job name</span><strong>{job.portalJobName || job.project}</strong><small>Employee job-list name</small></div>
@@ -6237,6 +6261,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
             <div><span>Schedule</span><strong>{job.startDate ? shortDate(job.startDate) : "Start not set"}</strong><small>{job.targetEndDate ? `Target completion ${shortDate(job.targetEndDate)}` : "Target completion not set"}</small></div>
           </div> : <div className="job-summary-editor">
             <div className="form-grid two-column">
+              <label className="field"><span>Customer PO/WO #</span><input maxLength={200} value={jobInfoDraft.clientReference} onChange={(event) => setJobInfoDraft((current) => ({ ...current, clientReference: event.target.value }))} /></label>
               <label className="field"><span>Job name</span><input value={jobInfoDraft.jobName} onChange={(event) => setJobInfoDraft((current) => ({ ...current, jobName: event.target.value }))} /></label>
               <label className="field"><span>Client</span><input aria-label="Client" list="job-client-names" maxLength={200} value={jobInfoDraft.customer} onChange={(event) => setJobInfoDraft((current) => jobInfoDraftWithSiteAddress({ ...current, customer: event.target.value }, state.clients))} /><datalist id="job-client-names">{state.clients.map((client) => <option key={client.id} value={client.name} />)}</datalist><small>Choose an existing client or enter a new name for this job.</small></label>
               <label className="field full"><span>Site name</span><input aria-label="Site name" list="job-site-names" maxLength={200} value={jobInfoDraft.siteName} onChange={(event) => setJobInfoDraft((current) => jobInfoDraftWithSiteAddress({ ...current, siteName: event.target.value }, state.clients))} /><datalist id="job-site-names">{state.clients.filter((client) => client.name.trim().toLocaleLowerCase() === jobInfoDraft.customer.trim().toLocaleLowerCase()).flatMap((client) => client.sites.map((site) => <option key={site.id} value={site.label} />))}</datalist><small>Choose a client site or enter a new site name. Saved site addresses fill automatically; the accepted quote stays unchanged.</small></label>
@@ -6546,7 +6571,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
     if (!searchingAllJobStatuses && item.status !== statusFilter) return false;
     if (managerFilter && managerForJob(item).key !== managerFilter) return false;
     const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
-    return matchesWorkSearch(jobSearch, item.jobNumber, linkedQuote?.number, jobManagerIdentity(linkedQuote?.preparedBy).searchText, clientName(state, item.clientId), linkedQuote?.site, item.portalSiteName, item.project, item.portalJobName, item.portalCustomer, item.portalAddress, jobManagerIdentity(item.projectManager).searchText, item.jobType, linkedQuote?.reference, linkedQuote?.customerPo, ...(item.purchaseOrders ?? []).flatMap((po) => [po.number, po.vendorName, po.vendorQuoteNumber]));
+    return matchesWorkSearch(jobSearch, item.jobNumber, linkedQuote?.number, jobManagerIdentity(linkedQuote?.preparedBy).searchText, clientName(state, item.clientId), linkedQuote?.site, item.portalSiteName, item.project, item.portalJobName, item.portalCustomer, item.portalAddress, jobManagerIdentity(item.projectManager).searchText, item.jobType, jobCustomerReference(item, linkedQuote), linkedQuote?.reference, ...(item.purchaseOrders ?? []).flatMap((po) => [po.number, po.vendorName, po.vendorQuoteNumber]));
   }).sort((a, b) => b.jobNumber.localeCompare(a.jobNumber, "en-CA", { numeric: true }) || a.project.localeCompare(b.project, "en-CA") || a.id.localeCompare(b.id));
   const filteredStatusLabel = searchingAllJobStatuses ? "matching" : statusFilter === "Archived" ? "inactive" : "active";
   const groupInactiveByYear = !searchingAllJobStatuses && statusFilter === "Archived" && visibleJobs.length > 0;
@@ -6563,16 +6588,17 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   const renderJobTable = (items: Job[], yearLabel?: string) => (
     <section className="panel table-panel">
       {!yearLabel && <div className="table-summary"><strong>{items.length} {filteredStatusLabel} job{items.length === 1 ? "" : "s"}</strong><span id="job-search-scope">{searchingAllJobStatuses ? "Searching active and inactive jobs" : "Newest job numbers first · Select a job to open its dashboard."}</span></div>}
-      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th>Project manager</th><th>Type</th>{currentEstimator.isAdmin && <th>Quoted price</th>}<th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
+      <div className="data-table-wrap"><table className="data-table jobs-table" aria-label={yearLabel ? `${yearLabel} inactive jobs` : "Jobs list"}><thead><tr><th>Job # / quote</th><th>Client / location</th><th>Job name</th><th className="job-manager-column" title="Project manager">PM</th><th className="job-type-column">Type</th><th>Customer PO/WO #</th>{currentEstimator.isAdmin && <th>Quoted price</th>}<th>Status</th><th>Change status</th></tr></thead><tbody>{items.map((item) => {
         const linkedQuote = state.quotes.find((quote) => quote.id === item.quoteId);
         return <tr key={item.id} className={jobDisplayStatus(item) === "Discuss invoice" ? "job-invoice-review" : undefined} onClick={() => onOpen(item.id)}>
           <td data-label="Job / quote"><button className="back-button" onClick={(event) => { event.stopPropagation(); onOpen(item.id); }}>{item.jobNumber}</button><small>{linkedQuote?.number ?? "No linked quote"}</small></td>
           <td data-label="Client / location"><strong>{item.portalCustomer || clientName(state, item.clientId)}</strong><small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small></td>
           <td data-label="Job name"><strong title={item.portalJobName || item.project}>{item.portalJobName || item.project}</strong>{item.portalJobName && item.project !== item.portalJobName && <small>{item.project}</small>}</td>
-          <td data-label="Project manager">{managerForJob(item).label}</td>
-          <td data-label="Type">{item.jobType || "Not set"}</td>
+          <td data-label="Project manager" className="job-manager-column"><abbr title={managerForJob(item).label}>{managerForJob(item).label.split(/\s+/).filter(Boolean).map((part) => part.length <= 2 ? part.toUpperCase() : part[0].toUpperCase()).join("")}</abbr></td>
+          <td data-label="Type" className="job-type-column">{item.jobType || "Not set"}</td>
+          <td data-label="Customer PO/WO #">{jobCustomerReference(item, linkedQuote) || "—"}</td>
           {currentEstimator.isAdmin && <td data-label="Quoted price" className="job-quoted-cost-cell">{quotedJobCost(item, linkedQuote) === null ? <span aria-label="No quoted price">—</span> : <strong>{money(item.acceptedRevenue)}</strong>}</td>}
-          <td data-label="Status"><StatusPill status={jobDisplayStatus(item)} /></td>
+          <td data-label="Status"><span className={`job-status-dot ${item.status === "Active" ? "is-active" : "is-inactive"}`} role="img" aria-label={quoteStatusLabel(jobDisplayStatus(item))} title={quoteStatusLabel(jobDisplayStatus(item))} /></td>
           <td data-label="Change status">{renderJobStatusAction(item)}</td>
         </tr>;
       })}</tbody></table></div>
@@ -6591,7 +6617,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <span>{item.portalCustomer || clientName(state, item.clientId)}</span>
           <small>{(item.portalSiteName ?? linkedQuote?.site ?? item.portalAddress) || "No location"}</small>
           <span className="job-tile-meta"><span>{managerForJob(item).label}</span><span>{item.jobType || "Type not set"}</span></span>
-          {linkedQuote && <small>{linkedQuote.number}</small>}
+          {jobCustomerReference(item, linkedQuote) && <small>Customer PO/WO # {jobCustomerReference(item, linkedQuote)}</small>}{linkedQuote && <small>{linkedQuote.number}</small>}
           {currentEstimator.isAdmin && quotedJobCost(item, linkedQuote) !== null && <span className="job-tile-quoted-cost">Quoted price <strong>{money(item.acceptedRevenue)}</strong></span>}
         </button><div className="job-tile-actions">{renderJobStatusAction(item)}</div></article>;
       })}</div>

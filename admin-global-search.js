@@ -2,6 +2,7 @@
   "use strict";
 
   const SEARCH_DATASETS = [
+    { key: "estimator", table: "estimator_workspaces" },
     { key: "submittedTimesheets", table: "previous_timesheet_weeks" },
     { key: "liveTimesheets", table: "timesheet_entries" },
     { key: "inspections", table: "inspection_records" },
@@ -97,6 +98,7 @@
   ];
 
   const SEARCH_COLLECTIONS = [
+    { dataset: "estimator", group: "Estimator", category: "Estimator", titleKeys: ["title"], detailKeys: ["detail"], dateKeys: ["updated_at"] },
     { dataset: "submittedTimesheets", category: "Submitted Timesheet", tab: "timesheets", action: "submitted_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["week_label", "total_hours", "note"], dateKeys: ["submitted_at", "week_start", "created_at"], extraSearch: getSubmittedTimesheetDates },
     { dataset: "liveTimesheets", category: "Live Timesheet", tab: "timesheets", action: "live_timesheet", keywords: "timesheet hours employee worker job site", titleKeys: ["worker_name"], detailKeys: ["day_of_week", "job_name", "job_number", "hours"], dateKeys: ["week_start", "created_at"], extraSearch: (record) => getTimesheetEntryDate(record.week_start, record.day_of_week) },
     { dataset: "inspections", category: "Inspection", tab: "inspections", keywords: "inspection permit safety worker employee job site", titleKeys: ["worker_name", "completed_by", "inspection_type"], detailKeys: ["inspection_type", "job_number", "job_name", "location"], dateKeys: ["inspection_date", "created_at"] },
@@ -119,7 +121,7 @@
     { dataset: "injuryReports", category: "Employee Injury", tab: "reports", keywords: "employee injury accident report worker job", titleKeys: ["employee_name", "employee_display", "worker_name"], detailKeys: ["job_number", "accident_location", "accident_description"], dateKeys: ["accident_date", "created_at"] },
     { dataset: "injuryAcknowledgements", category: "Injury Acknowledgement", tab: "reports", keywords: "employee injury acknowledgement worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["status", "note"], dateKeys: ["acknowledged_at", "created_at"] },
     { dataset: "safetyAcknowledgements", category: "Safety Acknowledgement", tab: "reports", keywords: "safety acknowledgement employee worker", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateKeys: ["record_date", "acknowledged_at", "created_at"] },
-    { dataset: "jobs", category: "Job", tab: "jobDashboard", keywords: "job job number project site", title: (record) => [getValue(record, ["job_number"]), getValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
+    { dataset: "jobs", category: "Job", tab: "summary", keywords: "job job number project site", title: (record) => [getValue(record, ["job_number"]), getValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
     { dataset: "workOrders", category: "Work Order", tab: "workOrders", action: "work_order", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getValue(record, ["wo_number", "work_order_number", "number"]) || getValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
     { dataset: "purchaseOrders", group: "Purchase Orders", category: "Purchase Order", tab: "summary", action: "digital_purchase_order", keywords: "purchase order po po number supplier creator submitter job materials", title: (record) => formatPoNumber(getValue(record, ["po_number"])), detailKeys: ["supplier_name", "job_number", "job_name", "workflow_status"], dateKeys: ["order_date", "created_at"] },
     { dataset: "workOrderLabour", category: "Work Order Labour", tab: "workOrders", keywords: "work order wo labour employee worker hours", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
@@ -139,6 +141,7 @@
 
   const GROUP_ORDER = [
     "Portal Navigation",
+    "Estimator",
     "Time & Attendance",
     "Jobs & Work Orders",
     "Purchase Orders",
@@ -570,7 +573,7 @@
           tab: config.tab,
           action: config.action || "",
           recordId: record && record.id ? String(record.id) : "",
-          href: state.isAdmin ? "" : getEmployeeResultHref(config, record),
+          href: state.isAdmin ? (config.dataset === "estimator" ? record.href : config.dataset === "jobs" ? global.getJgcEstimatorUrl() + "?view=jobs&job=" + encodeURIComponent(record.job_number) : "") : getEmployeeResultHref(config, record),
           searchText: normalizeText(values.join(" ")),
           sortDate: getValue(record, config.dateKeys || ["updated_at", "created_at"])
         });
@@ -598,6 +601,7 @@
           if (!state.isAdmin) {
             return { key: definition.key, rows: await loadEmployeeDataset(state.client, definition, profile) };
           }
+          if (definition.key === "estimator") return { key: definition.key, rows: await global.loadJgcEstimatorSearchRecords(state.client) };
           const result = await state.client.from(definition.table).select("*").limit(definition.limit || 1000);
           if (result.error) throw result.error;
           return { key: definition.key, rows: (result.data || []).filter((record) => includeDatasetRecord(definition, record)) };
@@ -845,6 +849,8 @@
       global.location.href = result.href || "home.html";
       return;
     }
+
+    if (result.href) { global.location.href = result.href; return; }
 
     if (result.action === "digital_purchase_order" && result.recordId) {
       global.location.href = "purchase-orders-admin.html?po=" + encodeURIComponent(result.recordId);
