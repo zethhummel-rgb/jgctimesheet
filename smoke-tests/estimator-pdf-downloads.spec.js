@@ -72,7 +72,9 @@ test("proposal preview and PDF use the quote preparer instead of the company fal
 
 test("Purchase Order PDF keeps long names inside their panels and uses a descriptive filename", async ({ page }, testInfo) => {
   const sourceAssets = path.resolve(__dirname, "../estimating/assets");
-  const purchaseOrderModule = fs.readdirSync(sourceAssets).find((name) => /^purchase-order-pdf-.*\.js$/.test(name));
+  const entryHtml = fs.readFileSync(path.join(sourceAssets, "../index.html"), "utf8");
+  const entryFile = entryHtml.match(/assets\/(index-[^" ]+\.js)/)[1];
+  const purchaseOrderModule = fs.readFileSync(path.join(sourceAssets, entryFile), "utf8").match(/purchase-order-pdf-[\w-]+\.js/)[0];
   expect(purchaseOrderModule).toBeTruthy();
   const options = {
     state: {
@@ -88,7 +90,7 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
       quotes: [{ id: "quote-1", site: "Brockville Station" }],
       clients: [{ id: "client-1", name: "Via Rail Canada" }],
     },
-    job: { id: "job-1", jobNumber: "26122", project: "Public Washroom Occupancy Light", quoteId: "quote-1", clientId: "client-1" },
+    job: { id: "job-1", jobNumber: "26122", project: "Public Washroom Occupancy Light", quoteId: "quote-1", clientId: "client-1", portalCustomer: "Cornwall Electric", portalSiteName: "Main Office", portalAddress: "100 Synthetic Test Avenue, Building A, Cornwall, Ontario K6H 0A1" },
     purchaseOrder: {
       number: "26122",
       vendorName: "Industrial Electric Contractors Brockville Limited",
@@ -122,7 +124,7 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
   fs.writeFileSync(pdfPath, Buffer.from(result.bytes));
   const items = await extractPdfPageItems(pdfPath);
   const vendorItems = items.filter((item) => item.y >= 550 && item.y <= 575 && /Industrial|Brockville Limited/.test(item.text));
-  const jobItems = items.filter((item) => item.y >= 560 && item.y <= 580 && /Public Washroom|Occupancy Light/.test(item.text));
+  const jobItems = items.filter((item) => item.x >= 318 && /Public Washroom|Occupancy Light/.test(item.text));
   const dateItem = items.find((item) => item.text === "August 28, 2026");
   const pdfText = items.map((item) => item.text).join(" ");
   expect(vendorItems.map((item) => item.text).join(" ")).toContain("Industrial Electric Contractors Brockville Limited");
@@ -130,7 +132,14 @@ test("Purchase Order PDF keeps long names inside their panels and uses a descrip
   expect(vendorItems.every((item) => item.x >= 52 && item.x + item.width <= 282)).toBe(true);
   expect(jobItems.every((item) => item.x >= 318 && item.x + item.width <= 560)).toBe(true);
   expect(dateItem).toBeTruthy();
-  expect(dateItem.y).toBeGreaterThanOrEqual(504);
+  const clientLabel = items.find(item => item.text === "CLIENT / LOCATION");
+  const projectLabel = items.find(item => item.text === "PROJECT / JOB NAME");
+  expect(clientLabel.y).toBeGreaterThan(projectLabel.y);
+  expect(projectLabel.y).toBeGreaterThan(dateItem.y);
+  expect(pdfText.replace(/\s+/g, " ")).toContain("Cornwall Electric - Main Office - 100 Synthetic Test Avenue, Building A, Cornwall, Ontario K6H 0A1");
+  expect(pdfText).not.toContain("Via Rail Canada");
+  const addressItems = items.filter(item => item.x >= 318 && item.y < clientLabel.y && item.y > projectLabel.y);
+  expect(addressItems.every(item => item.x + item.width <= 560)).toBe(true);
   expect(pdfText).toContain("Electrical installation labour");
   expect(pdfText).toContain("Occupancy light materials");
   expect(pdfText).toContain("2026-0826-01");
@@ -147,6 +156,12 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   const expandedLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   const description = expandedLine.locator("input.description-input");
   await description.fill("Stairwell framing");
+  for (const media of ["screen", "print"]) {
+    await page.emulateMedia({ media });
+    await expect(description).toHaveCSS("outline-style", "solid");
+    await expect(description).toHaveCSS("outline-color", "rgb(184, 184, 184)");
+  }
+  await page.emulateMedia({ media: "screen" });
   await expandedLine.locator("select.division-input").selectOption({ label: "Division 03 – Concrete" });
   await page.waitForTimeout(50);
   const labour = page.locator(".labour-group .build-up-row").last();
@@ -254,6 +269,12 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   await expect(wholeCostLabour.getByText("$100.00")).toBeVisible();
 
   await page.getByRole("tab", { name: /Breakdown/ }).click();
+  for (const media of ["screen", "print"]) {
+    await page.emulateMedia({ media });
+    await expect(page.locator(".breakdown-page td").first()).toHaveCSS("outline-style", "solid");
+    await expect(page.locator(".breakdown-page td").first()).toHaveCSS("outline-color", "rgb(184, 184, 184)");
+  }
+  await page.emulateMedia({ media: "screen" });
   const [breakdownDownload] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Download Breakdown PDF" }).click(),

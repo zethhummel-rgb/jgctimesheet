@@ -1,3 +1,4 @@
+import { PDF_FIELD_LINE, PDF_FIELD_BORDER_WIDTH } from "./pdf-field-style";
 import {
   PDFDocument,
   StandardFonts,
@@ -64,7 +65,7 @@ const colour = {
   paleRed: rgb(0.995, 0.93, 0.92),
   slate: rgb(0.29, 0.36, 0.42),
   muted: rgb(0.48, 0.54, 0.59),
-  line: rgb(0.82, 0.86, 0.89),
+  line: PDF_FIELD_LINE,
   light: rgb(0.975, 0.982, 0.988),
   white: rgb(1, 1, 1),
   red: rgb(0.67, 0.16, 0.12),
@@ -334,7 +335,7 @@ class BackupPdfBuilder {
     ].map((item, index) => ({ ...item, width: widths[index], strongLines: wrapText(item.strong, this.bold, item.size, widths[index] - 16), detailLines: wrapText(item.detail, this.regular, 6, widths[index] - 16) }));
     const top = 695;
     const height = Math.max(62, ...columns.map((item) => 25 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 8 + 8));
-    this.page.drawRectangle({ x: MARGIN, y: top - height, width: CONTENT_WIDTH, height, color: colour.light, borderColor: colour.line, borderWidth: .5 });
+    this.page.drawRectangle({ x: MARGIN, y: top - height, width: CONTENT_WIDTH, height, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
     let x = MARGIN;
     columns.forEach((item, index) => {
       if (index) this.page.drawLine({ start: { x, y: top - 8 }, end: { x, y: top - height + 8 }, thickness: .5, color: colour.line });
@@ -416,7 +417,7 @@ class BackupPdfBuilder {
       this.ensureSpace(rowHeight + 6);
       row.forEach(([label, value], columnIndex) => {
         const x = MARGIN + columnIndex * (columnWidth + 14);
-        this.page.drawRectangle({ x, y: this.y - rowHeight, width: columnWidth, height: rowHeight, color: colour.light, borderColor: colour.line, borderWidth: 0.6 });
+        this.page.drawRectangle({ x, y: this.y - rowHeight, width: columnWidth, height: rowHeight, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
         this.page.drawText(ascii(label.toUpperCase()), { x: x + 10, y: this.y - 13, size: 6.8, font: this.bold, color: colour.muted });
         wrapText(value || "Not recorded", this.bold, 9.2, columnWidth - 20).forEach((line, lineIndex) => {
           this.page.drawText(line, { x: x + 10, y: this.y - 28 - lineIndex * 10, size: 9.2, font: this.bold, color: colour.navy });
@@ -464,13 +465,14 @@ class BackupPdfBuilder {
       const tone = options.rowTone?.(rowIndex) ?? "normal";
       const fill = tone === "amber" ? colour.paleAmber : tone === "blue" ? colour.paleBlue : tone === "green" ? colour.paleGreen : rowIndex % 2 ? colour.light : colour.white;
       const totalWidth = columns.reduce((sum, column) => sum + column.width, 0);
-      this.page.drawRectangle({ x: MARGIN, y: this.y - height, width: totalWidth, height, color: fill, borderColor: colour.line, borderWidth: 0.35 });
+      this.page.drawRectangle({ x: MARGIN, y: this.y - height, width: totalWidth, height, color: fill, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
       let x = MARGIN;
       columns.forEach((column, columnIndex) => {
         const emphasized = column.emphasis === "green";
         if (emphasized) {
-          this.page.drawRectangle({ x, y: this.y - height, width: column.width, height, color: colour.paleGreen, borderColor: colour.green, borderWidth: 0.55 });
+          this.page.drawRectangle({ x, y: this.y - height, width: column.width, height, color: colour.paleGreen, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
         }
+        if (columnIndex > 0) this.page.drawLine({ start: { x, y: this.y }, end: { x, y: this.y - height }, thickness: PDF_FIELD_BORDER_WIDTH, color: colour.line });
         wrapped[columnIndex].forEach((line, lineIndex) => {
           const font = emphasized || columnIndex === 0 ? this.bold : this.regular;
           const textWidth = font.widthOfTextAtSize(line, fontSize);
@@ -493,7 +495,7 @@ class BackupPdfBuilder {
     items.forEach(([label, value], index) => {
       const y = this.y - (index + 1) * rowHeight;
       const highlighted = index === highlightIndex;
-      this.page.drawRectangle({ x, y, width, height: rowHeight, color: highlighted ? colour.navy : (index % 2 ? colour.light : colour.white), borderColor: colour.line, borderWidth: 0.4 });
+      this.page.drawRectangle({ x, y, width, height: rowHeight, color: highlighted ? colour.navy : (index % 2 ? colour.light : colour.white), borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
       this.page.drawText(ascii(label), { x: x + 8, y: y + 7, size: highlighted ? 8 : 7.5, font: highlighted ? this.bold : this.regular, color: highlighted ? colour.white : colour.slate });
       const safeValue = ascii(value);
       this.page.drawText(safeValue, { x: x + width - 8 - (highlighted ? this.bold : this.regular).widthOfTextAtSize(safeValue, highlighted ? 8 : 7.5), y: y + 7, size: highlighted ? 8 : 7.5, font: highlighted ? this.bold : this.regular, color: highlighted ? colour.white : colour.navy });

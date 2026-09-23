@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import type { AppState, Job, PurchaseOrder } from "./estimator-data";
+import { PDF_FIELD_LINE, PDF_FIELD_BORDER_WIDTH } from "./pdf-field-style";
 
 export interface PurchaseOrderPdfOptions {
   state: AppState;
@@ -21,7 +22,7 @@ const colour = {
   paleGreen: rgb(0.92, 0.975, 0.945),
   slate: rgb(0.29, 0.36, 0.42),
   muted: rgb(0.48, 0.54, 0.59),
-  line: rgb(0.82, 0.86, 0.89),
+  line: PDF_FIELD_LINE,
   light: rgb(0.975, 0.982, 0.988),
   white: rgb(1, 1, 1),
 };
@@ -101,7 +102,8 @@ function drawFittedText(page: PDFPage, font: PDFFont, text: string, size: number
 function drawLabelValue(page: PDFPage, regular: PDFFont, bold: PDFFont, label: string, value: string, x: number, y: number, width: number) {
   page.drawText(ascii(label).toUpperCase(), { x, y, size: 7, font: bold, color: colour.muted });
   const lines = wrapText(bold, value || "-", 9.5, width);
-  lines.slice(0, 2).forEach((line, index) => page.drawText(line, { x, y: y - 14 - index * 11, size: 9.5, font: index === 0 ? bold : regular, color: colour.navy }));
+  lines.forEach((line, index) => page.drawText(line, { x, y: y - 14 - index * 11, size: 9.5, font: index === 0 ? bold : regular, color: colour.navy }));
+  return y - 14 - lines.length * 11 - 10;
 }
 
 function pageFooter(page: PDFPage, regular: PDFFont, bold: PDFFont, pageNumber: number) {
@@ -175,10 +177,22 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   page.drawText("IMPORTANT", { x: MARGIN + 12, y: 635, size: 7.5, font: bold, color: colour.green });
   page.drawText("The purchase order number must appear on all invoices and documents relating to this order.", { x: MARGIN + 79, y: 634, size: 8.5, font: regular, color: colour.slate });
 
-  // Keep the final metadata value comfortably above the panel border. The PO
-  // date baseline is at y=506, so the former y=507 panel floor clipped it.
-  page.drawRectangle({ x: MARGIN, y: 500, width: 254, height: 108, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
-  page.drawRectangle({ x: MARGIN + 266, y: 500, width: 266, height: 108, color: colour.light, borderColor: colour.line, borderWidth: 0.7 });
+  // Job details are authoritative, including deliberately cleared fields. Quote
+  // values only support older jobs that do not yet have the canonical fields.
+  const clientLocation = [...new Set([
+    job.portalCustomer ?? client?.name ?? "",
+    job.portalSiteName ?? quote?.site ?? "",
+    job.portalAddress ?? quote?.address ?? "",
+  ].map((value) => value.trim()).filter(Boolean))].join(" - ") || "Client / location not recorded";
+  const metadata: Array<[string, string]> = [
+    ["Client / location", clientLocation],
+    ["Project / job name", job.portalJobName || job.project],
+    ["PO date", shortDate(po.issueDate)],
+  ];
+  const metadataHeight = Math.max(108, 18 + metadata.reduce((height, [, value]) => height + 24 + wrapText(bold, value || "-", 9.5, 242).length * 11, 0));
+  const panelBottom = 608 - metadataHeight;
+  page.drawRectangle({ x: MARGIN, y: panelBottom, width: 254, height: metadataHeight, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
+  page.drawRectangle({ x: MARGIN + 266, y: panelBottom, width: 266, height: metadataHeight, color: colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
   page.drawText("TO", { x: MARGIN + 12, y: 590, size: 8, font: bold, color: colour.blue });
   const vendorTextWidth = 230;
   const vendorLines = wrapText(bold, po.vendorName || "Subcontractor not recorded", 12, vendorTextWidth).slice(0, 2);
@@ -186,21 +200,22 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   const vendorContactY = 554 - Math.max(0, vendorLines.length - 1) * 13;
   [po.vendorContact, po.vendorEmail, po.vendorPhone].filter(Boolean).slice(0, 3).forEach((line, index) => drawFittedText(page, regular, line, 8.5, MARGIN + 12, vendorContactY - index * 11, vendorTextWidth, colour.slate));
 
-  drawLabelValue(page, regular, bold, "Job name", job.project, MARGIN + 278, 590, 242);
-  drawLabelValue(page, regular, bold, "Client / location", `${job.portalCustomer || client?.name || "Client not recorded"}${(job.portalSiteName || job.portalAddress || quote?.site) ? ` - ${job.portalSiteName || job.portalAddress || quote?.site}` : ""}`, MARGIN + 278, 553, 242);
-  drawLabelValue(page, regular, bold, "PO date", shortDate(po.issueDate), MARGIN + 278, 520, 242);
+  let metadataY = 590;
+  metadata.forEach(([label, value]) => {
+    metadataY = drawLabelValue(page, regular, bold, label, value, MARGIN + 278, metadataY, 242);
+  });
 
-  const detailY = 458;
+  const detailY = panelBottom - 42;
   const detailWidth = CONTENT_WIDTH / 5;
   [
     ["Vendor quote", po.vendorQuoteNumber || "Not recorded"],
     ["Ship by", po.shipBy || "Your Means"],
     ["Ship via", po.shipVia || "Your Means"],
     ["F.O.B.", po.fob || "Job Site"],
-    ["Ship to", po.shipTo || quote?.site || "Job Site"],
+    ["Ship to", po.shipTo || job.portalSiteName || job.portalAddress || quote?.site || "Job Site"],
   ].forEach(([label, value], index) => {
     const x = MARGIN + index * detailWidth;
-    page.drawRectangle({ x, y: detailY, width: detailWidth, height: 39, color: colour.paleBlue, borderColor: colour.line, borderWidth: 0.5 });
+    page.drawRectangle({ x, y: detailY, width: detailWidth, height: 39, color: colour.paleBlue, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
     page.drawText(label.toUpperCase(), { x: x + 8, y: detailY + 25, size: 6.5, font: bold, color: colour.muted });
     const fitted = wrapText(regular, value, 8, detailWidth - 16)[0] || "-";
     page.drawText(fitted, { x: x + 8, y: detailY + 10, size: 8, font: bold, color: colour.navy });
@@ -225,7 +240,7 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
     return y - 21;
   };
 
-  let y = drawTableHeader(page, 443);
+  let y = drawTableHeader(page, detailY - 15);
   for (const [index, line] of po.lines.entries()) {
     const descriptionLines = wrapText(regular, line.description || "Subcontractor work", 9, columns[2].width - 16);
     const sourceText = line.sourceReference ? `Vendor quote: ${line.sourceReference}` : "Vendor quote not recorded";
@@ -238,7 +253,7 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
       pageFooter(page, regular, bold, pageNumber);
       y = drawTableHeader(page, 640);
     }
-    page.drawRectangle({ x: MARGIN, y: y - rowHeight, width: CONTENT_WIDTH, height: rowHeight, color: index % 2 ? colour.light : colour.white, borderColor: colour.line, borderWidth: 0.5 });
+    page.drawRectangle({ x: MARGIN, y: y - rowHeight, width: CONTENT_WIDTH, height: rowHeight, color: index % 2 ? colour.light : colour.white, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
     columns.slice(1).forEach((column) => page.drawLine({ start: { x: column.x, y }, end: { x: column.x, y: y - rowHeight }, thickness: 0.4, color: colour.line }));
     const qty = Number(line.quantity || 0).toLocaleString("en-CA", { maximumFractionDigits: 2 });
     const qtyWidth = regular.widthOfTextAtSize(qty, 9);
@@ -269,12 +284,13 @@ export async function createPurchaseOrderPdf(options: PurchaseOrderPdfOptions) {
   ];
   totalsRows.forEach(([label, value], index) => {
     const rowY = y - 30 - index * 27;
-    page.drawRectangle({ x: totalsX, y: rowY, width: 230, height: 27, color: index === 2 ? colour.navy : colour.light, borderColor: colour.line, borderWidth: 0.5 });
+    page.drawRectangle({ x: totalsX, y: rowY, width: 230, height: 27, color: index === 2 ? colour.navy : colour.light, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
     page.drawText(label, { x: totalsX + 10, y: rowY + 9, size: index === 2 ? 9 : 8, font: bold, color: index === 2 ? colour.white : colour.slate });
     drawRight(page, bold, value, index === 2 ? 11 : 9, totalsX + 92, rowY + (index === 2 ? 8 : 9), 128, index === 2 ? colour.white : colour.navy);
   });
 
   const notesY = y - 122;
+  page.drawRectangle({ x: MARGIN - 6, y: notesY - 34, width: CONTENT_WIDTH, height: 65, borderColor: colour.line, borderWidth: PDF_FIELD_BORDER_WIDTH });
   page.drawText("PURCHASE ORDER NOTES", { x: MARGIN, y: notesY + 18, size: 7, font: bold, color: colour.muted });
   const noteLines = wrapText(regular, po.notes || "The purchase order number must appear on all invoices and documents relating to this order.", 8.5, 275);
   noteLines.slice(0, 4).forEach((line, index) => page.drawText(line, { x: MARGIN, y: notesY + 4 - index * 10, size: 8.5, font: regular, color: colour.slate }));
