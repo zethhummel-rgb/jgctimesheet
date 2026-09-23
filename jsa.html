@@ -10,7 +10,7 @@
 
 <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
 <link rel="stylesheet" href="report-design-system.css?v=2">
-<link rel="stylesheet" href="jsa-report.css?v=1">
+<link rel="stylesheet" href="jsa-report.css?v=2">
 </head>
 
 <body class="report-family-page report-readability-page report-form-page jgc-page jgc-system-page">
@@ -24,42 +24,50 @@
 
 <div class="container jgc-panel">
 
-<h1 class="jgc-page-title">John Gordon Construction</h1>
-<div class="subtitle">Job Safety Analysis Form - Must be Filled Out Daily</div>
+<h1 class="jgc-page-title">Job Safety Analysis</h1>
+<div class="subtitle">Plan the work. Review the hazards. Confirm the controls each day.</div>
 
+<section id="jsaPreparation" class="jsa-preparation" hidden>
+  <div class="jsa-section-heading"><h2 id="jsaPreparationTitle">Prepared / Draft</h2><a href="prepared-jsas.html">Prepared JSAs</a></div>
+  <p id="jsaPreparationHelp">Prepare ahead for client submission. Intended crew are not assigned or notified until activation.</p>
+  <div class="actions jgc-actions"><button id="jsaSaveDraft" type="button">Save draft</button><button id="jsaDraftPdf" type="button" class="secondary">Download PDF</button><button id="jsaDraftPrint" type="button" class="secondary">Print</button><button id="jsaActivate" type="button">Activate &amp; Assign</button></div>
+  <p id="jsaDraftStatus" role="status"></p>
+</section>
+<div id="jsaAdminEntry" hidden><a href="jsa.html?prepared=new">Prepare a JSA for later</a> · <a href="prepared-jsas.html">Open prepared JSAs</a></div>
+<h2 class="jsa-section-title">1. Job details</h2>
 <div class="grid jgc-form-grid">
     <div class="field">
-        <label>Contractor</label>
-        <input type="text" value="John Gordon Construction">
+        <label for="jsaField0">Contractor</label>
+        <input id="jsaField0" type="text" value="John Gordon Construction">
     </div>
 
     <div class="field">
-        <label>Project / Job</label>
-        <input type="text" data-jgc-project-job placeholder="Select project/job or type manually">
+        <label for="jsaField1">Project / Job</label>
+        <input id="jsaField1" type="text" data-jgc-project-job placeholder="Select project/job or type manually">
     </div>
 
     <div class="field">
-        <label>Location</label>
-        <input type="text">
+        <label for="jsaField2">Location</label>
+        <input id="jsaField2" type="text">
     </div>
 
     <div class="field">
-        <label>Date</label>
-        <input type="date">
+        <label for="jsaField3">Date</label>
+        <input id="jsaField3" type="date">
     </div>
 
     <div class="field">
-        <label>Contractor Supervisor</label>
-        <input type="text">
+        <label for="jsaField4">Contractor Supervisor</label>
+        <input id="jsaField4" type="text">
     </div>
 
     <div class="field">
-        <label>Reviewed By</label>
-        <input type="text">
+        <label for="jsaField5">Reviewed By</label>
+        <input id="jsaField5" type="text">
     </div>
 </div>
 
-<div class="checklist">
+<details class="jsa-conditions"><summary>Work conditions &amp; permits</summary><div class="checklist">
     <label><input type="checkbox"> Lockout / Tag Out</label>
     <label><input type="checkbox"> Hot Work</label>
     <label><input type="checkbox"> Confined Space</label>
@@ -68,10 +76,42 @@
     <label><input type="checkbox"> Crane / Hoisting / Rigging</label>
     <label><input type="checkbox"> Other</label>
     <label><input type="checkbox"> Other</label>
+</div></details>
+
+<h2 class="jsa-section-title">2. Tasks, hazards &amp; controls</h2>
+<details class="jsa-library" id="jsaLibrary"><summary>Add from construction library</summary>
+  <p>Choose a task, then select hazards and controls/PPE. Inserted text stays editable. Review it for this site and work method.</p>
+  <label for="jsaPresetSearch">Search tasks, hazards or controls/PPE</label>
+  <input id="jsaPresetSearch" type="search" data-inspection-skip="true" placeholder="Try ladders, dust, lifting…">
+  <div id="jsaPresetResults" class="jsa-preset-results"></div><div id="jsaPresetDetail"></div>
+</details>
+<div class="table-wrap jgc-table-wrap">
+    <table id="jsaTable" class="jgc-table">
+        <thead>
+            <tr>
+                <th>Task / job step</th>
+                <th>Hazards</th>
+                <th>Controls / PPE</th>
+                <th class="delete-column">Delete</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr>
+                <td data-label="Task / job step"><textarea aria-label="Task / job step" placeholder="What work will be done?"></textarea></td>
+                <td data-label="Hazards"><textarea aria-label="Hazards" placeholder="One or more hazards, one per line"></textarea></td>
+                <td data-label="Controls / PPE"><textarea aria-label="Controls / PPE" placeholder="Controls and required PPE, one per line"></textarea></td>
+                <td class="delete-cell"><button class="danger" type="button" aria-label="Remove task" onclick="removeRow(this)">Remove</button></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="actions jgc-actions jsa-row-actions">
+    <button class="secondary jgc-button jgc-button--secondary" onclick="addRow()">Add Row</button>
 </div>
 
 <div class="signoff jgc-section">
-    <label>Crew Sign Off</label>
+    <h2 class="jsa-section-title" id="jsaCrewTitle">3. Crew</h2>
     <div id="approvedCrewPicker" class="crew-picker-grid approved-crew-grid">
         <div>
             <label for="approvedCrewSelect">Approved Employee</label>
@@ -93,33 +133,8 @@
     <textarea id="crewSignOffCombined" readonly placeholder="Approved employees and manual entries will appear here."></textarea>
 </div>
 
-<div class="table-wrap jgc-table-wrap">
-    <table id="jsaTable" class="jgc-table">
-        <thead>
-            <tr>
-                <th>Sequence of Basic Job Steps</th>
-                <th>Potential Hazards</th>
-                <th>Required Action or Procedure</th>
-                <th class="delete-column">Delete</th>
-            </tr>
-        </thead>
-        <tbody id="tableBody">
-            <tr>
-                <td><textarea></textarea></td>
-                <td><textarea></textarea></td>
-                <td><textarea></textarea></td>
-                <td class="delete-cell"><button class="danger" onclick="removeRow(this)">X</button></td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div class="actions jgc-actions jsa-row-actions">
-    <button class="secondary jgc-button jgc-button--secondary" onclick="addRow()">Add Row</button>
-</div>
-
 <section id="jsaSignoffChoiceSection" class="jsa-signoff-choice-section jgc-section" aria-labelledby="jsaSignoffChoiceTitle">
-    <h2 id="jsaSignoffChoiceTitle">JSA Sign Off</h2>
+    <h2 id="jsaSignoffChoiceTitle">4. JSA sign off</h2>
     <p>After discussing the JSA, choose how acknowledgements will be collected. The selected sign-off panel will open, and Submit will appear after sign-off is complete.</p>
     <div class="jsa-ack-choice-grid" role="group" aria-label="JSA acknowledgement method">
         <button id="jsaChoiceQr" type="button" class="jsa-ack-choice jsa-pre-submit-choice" aria-pressed="false" onclick="beginJsaAcknowledgementMode('qr')">
@@ -157,6 +172,9 @@
 <script src="safety-signature-pad.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
 <script src="inspection-records.js?v=11"></script>
+<script src="vendor/jspdf.umd.min.js?v=1"></script>
+<script src="jsa-pdf.js?v=2"></script>
+<script src="jsa-presets.js?v=1"></script>
 <script>
 const currentWorker = localStorage.getItem("currentWorker");
 const currentWorkerDisplay = localStorage.getItem("currentWorkerDisplay") || currentWorker;
@@ -395,10 +413,10 @@ async function loadApprovedCrewWorkers() {
 function addRow() {
     const row = `
     <tr>
-        <td><textarea></textarea></td>
-        <td><textarea></textarea></td>
-        <td><textarea></textarea></td>
-        <td class="delete-cell"><button class="danger" onclick="removeRow(this)">X</button></td>
+        <td data-label="Task / job step"><textarea aria-label="Task / job step" placeholder="What work will be done?"></textarea></td>
+        <td data-label="Hazards"><textarea aria-label="Hazards" placeholder="One or more hazards, one per line"></textarea></td>
+        <td data-label="Controls / PPE"><textarea aria-label="Controls / PPE" placeholder="Controls and required PPE, one per line"></textarea></td>
+        <td class="delete-cell"><button class="danger" type="button" aria-label="Remove task" onclick="removeRow(this)">Remove</button></td>
     </tr>`;
 
     document.getElementById("tableBody").insertAdjacentHTML("beforeend", row);
@@ -473,6 +491,10 @@ function stopJsaQrRefresh() {
 }
 
 async function beginJsaAcknowledgementMode(mode) {
+    if (window.JgcPreparedJsa && window.JgcPreparedJsa.isPrepared && !jsaPostSaveRecord) {
+        await window.JgcPreparedJsa.activate(mode);
+        return;
+    }
     const status = document.getElementById("jsaAcknowledgementChoiceStatus");
 
     selectJsaAcknowledgementMode(mode);
@@ -789,8 +811,8 @@ async function signOut() {
 }
 
 renderManualCrewMembers();
-loadApprovedCrewWorkers();
+window.jsaCrewReady = loadApprovedCrewWorkers();
 </script>
-
+<script src="jsa-editor.js?v=1"></script>
 </body>
 </html>

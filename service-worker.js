@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "902";
+const JGC_RELEASE_ID = "903";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -240,6 +240,10 @@ const JGC_APP_SHELL = [
   "./harness.html",
   "./hot-work-permit.html",
   "./jsa.html",
+  "./prepared-jsas.html",
+  "./prepared-jsas.js?v=1",
+  "./jsa-editor.js?v=1",
+  "./jsa-presets.js?v=1",
   "./tele-handler.html",
   "./policies-admin.html",
   "./styles.css?v=3",
@@ -260,7 +264,7 @@ const JGC_APP_SHELL = [
   "./permit-design-system.css?v=2",
   "./report-design-system.css?v=2",
   "./daily-site-report.css?v=1",
-  "./jsa-report.css?v=1",
+  "./jsa-report.css?v=2",
   "./toolbox-talks-report.css?v=1",
   "./incident-report.css?v=1",
   "./accident-report.css?v=2",
@@ -300,7 +304,7 @@ const JGC_APP_SHELL = [
   "./admin-notices.js?v=3",
   "./admin-certificates.js?v=4",
   "./admin-inspections.js?v=4",
-  "./admin-reports.js?v=4",
+  "./admin-reports.js?v=5",
   "./admin-employee-profile.js?v=1",
   "./admin-work-orders.js?v=4",
   "./admin-equipment.js?v=2",
@@ -317,7 +321,7 @@ const JGC_APP_SHELL = [
   "./safety-signature-pad.css?v=1",
   "./safety-signature-pad.js?v=1",
   "./safety-acknowledgements.js?v=7",
-  "./jsa-pdf.js?v=1",
+  "./jsa-pdf.js?v=2",
   "./field-calculator.css?v=15",
   "./calculator-engine.js?v=25",
   "./calculator-functions.js?v=28",

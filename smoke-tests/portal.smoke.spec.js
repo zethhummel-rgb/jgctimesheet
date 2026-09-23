@@ -5172,3 +5172,129 @@ for (const mode of ['summary', 'spyglass']) test(`${mode} searches Estimator and
  } else {await page.locator('#adminGlobalSearchInput').fill('0999');await page.locator('#adminGlobalSearchButton').click();const group=page.locator('.admin-global-search-group').filter({hasText:'Estimator'});await group.locator('.admin-global-search-group-header').click();await expect(group).toContainText('Unique conversion reference');await group.locator('.admin-global-search-result button').click();}
  await expect(page).toHaveURL(/estimating\/\?view=jobs&job=26999/);
 });
+async function installPreparedJsaMock(page, isAdmin = true) {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  const state = { draft: null, record: null, acknowledgements: [], saves: 0, activations: 0, earlyWrites: [] };
+  page.on('request', request => {
+    if (request.method() !== 'POST') return;
+    if (/notifications/.test(request.url())) {
+      const payload=request.postDataJSON();
+      if ([payload].flat().some(n=>n.notification_type==='jsa_acknowledgement')) state.earlyWrites.push(request.url());
+    } else if (/safety_acknowledgements|functions\/v1|script.google.com/.test(request.url())) state.earlyWrites.push(request.url());
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`, route => route.fulfill({json:isAdmin}));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/save_prepared_jsa`, async route => {
+    const p=route.request().postDataJSON(); state.saves++;
+    state.draft={id:p.p_id,revision:state.saves,payload:p.p_payload,created_at:'2026-09-23T00:00:00Z',updated_at:'2026-09-23T00:00:00Z',activated_at:null};
+    await route.fulfill({json:state.draft});
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/jsa_preparations*`, route => route.fulfill({json:route.request().headers().accept?.includes('object') ? state.draft : [state.draft].filter(Boolean)}));
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/activate_prepared_jsa`, async route => {
+    const p=route.request().postDataJSON(); state.activations++;
+    state.draft={...state.draft,activated_at:'2026-09-23T01:00:00Z',record_id:state.draft.id,acknowledgement_mode:p.p_mode};
+    state.record={...state.draft.payload.record,id:state.draft.id};
+    state.acknowledgements=p.p_attendees.map((a,i)=>({...a,id:`00000000-0000-4000-8000-00000000010${i}`,record_id:state.draft.id,record_type:'jsa',qr_token:'synthetic-qr-token-1234567890',acknowledgement_status:'pending'}));
+    await route.fulfill({json:{draft:state.draft,record:state.record,acknowledgements:state.acknowledgements}});
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/inspection_records*`, route => route.fulfill({json:state.record || []}));
+  await page.route(`${supabaseOrigin}/rest/v1/safety_acknowledgements*`, route => route.fulfill({json:state.acknowledgements}));
+  return state;
+}
+
+async function fillPreparedJsa(page) {
+  await page.goto('/jsa.html?prepared=new');
+  await expect(page.locator('#jsaSaveDraft')).toBeEnabled();
+  const select=page.locator('.jgc-project-job-select');
+  await select.selectOption('__manual__');
+  await page.locator('#jsaField1').fill('26999 - Synthetic construction project');
+  await page.locator('#jsaField2').fill('Synthetic site - Cornwall');
+  await page.locator('#jsaField3').fill('2026-11-01');
+  await page.locator('#manualCrewInput').fill('Synthetic trade worker - Example subcontractor');
+  await page.getByRole('button',{name:'Add Employee',exact:true}).click();
+  await page.locator('#jsaLibrary summary').click();
+  await page.locator('#jsaPresetSearch').fill('ladder');
+  await page.locator('[data-preset]').filter({hasText:'Ladders'}).click();
+  await page.locator('#jsaInsertPreset').click();
+}
+
+for (const theme of ['light','dark']) test(`JSA editable presets and stacked task cards work on phones in ${theme}`,async({page},testInfo)=>{
+  await installPreparedJsaMock(page);
+  await page.setViewportSize({width:390,height:844});
+  await fillPreparedJsa(page);
+  await page.evaluate(theme=>document.documentElement.setAttribute('data-jgc-theme',theme),theme);
+  const row=page.locator('#tableBody tr').first();
+  await expect(row.getByLabel('Task / job step')).toHaveValue('Ladders');
+  await expect(row.getByLabel('Hazards')).toHaveValue(/Falls\nunstable footing\ndropped tools/);
+  await row.getByLabel('Controls / PPE').fill('Custom site controls\nAdditional PPE');
+  await expect(row.getByLabel('Controls / PPE')).toHaveValue('Custom site controls\nAdditional PPE');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const boxes=await row.locator('textarea').evaluateAll(fields=>fields.map(f=>{const r=f.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,width:r.width};}));
+  expect(boxes.every(b=>b.width>250&&b.right<=390)).toBe(true);
+  expect(boxes[1].y).toBeGreaterThan(boxes[0].y);
+  await page.screenshot({path:testInfo.outputPath(`jsa-phone-${theme}.png`),fullPage:true});
+});
+
+test('JSA draft saves and reopens planned crew without assignment, then activates through existing signatures',async({page})=>{
+  const state=await installPreparedJsaMock(page); await fillPreparedJsa(page);
+  await expect(page.locator('#jsaSignoffChoiceSection')).toBeHidden();
+  await page.locator('#jsaSaveDraft').click();
+  await expect(page.locator('#jsaDraftStatus')).toContainText('Draft saved');
+  expect(state.earlyWrites).toEqual([]);expect(state.activations).toBe(0);
+  expect(state.draft.payload.record.form_data.fields.find(f=>f.label==='Project / Job').value).toContain('26999');
+  await page.goto('/prepared-jsas.html');
+  await expect(page.locator('.prepared-jsa-card')).toHaveCount(1);
+  await page.locator('#preparedSearch').fill('26999');
+  await page.locator('.prepared-jsa-card a').click();
+  await expect(page.locator('#jsaSaveDraft')).toBeEnabled();
+  await expect(page.locator('#crewSignOffCombined')).toHaveValue(/Synthetic trade worker/);
+  await expect(page.locator('#tableBody textarea').first()).toHaveValue('Ladders');
+  await expect(page.locator('#jsaField1')).toHaveValue(/26999/);
+  await page.locator('#jsaActivate').click();
+  await page.locator('#jsaChoiceEmployees').click();
+  await expect(page.locator('#jsaPreparationTitle')).toHaveText('Active / Assigned');
+  await expect(page.locator('#jsaPostSaveQrPanel')).toContainText('Employee');
+  await expect(page.locator('#jsaSubmitButton')).toBeHidden();
+  expect(state.activations).toBe(1);expect(state.earlyWrites).toEqual([]);
+  await page.reload();await expect(page.locator('#jsaPreparationTitle')).toHaveText('Active / Assigned');
+  await expect(page.locator('#jsaSaveDraft')).toBeDisabled();
+  expect(state.activations).toBe(1);expect(state.earlyWrites).toEqual([]);
+});
+
+test('JSA preparation requires admin and incomplete activation highlights required fields',async({page})=>{
+  await installPreparedJsaMock(page);await page.goto('/jsa.html?prepared=new');
+  await expect(page.locator('#jsaActivate')).toBeEnabled();await page.locator('#jsaActivate').click();
+  await expect(page.locator('#jsaDraftStatus')).toContainText('required');
+  await expect(page.locator('#jsaField1')).toHaveAttribute('aria-invalid','true');
+  await expect(page.locator('#jsaSignoffChoiceSection')).toBeHidden();
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`,route=>route.fulfill({json:false}));
+  await page.reload();await expect(page.locator('.container')).toContainText('approved administrators only');
+  await expect(page.locator('#jsaSaveDraft')).toHaveCount(0);
+});
+
+test('JSA PDF preserves long controls and existing signatures and clearly marks prepared copies',async({page},testInfo)=>{
+  await installPreparedJsaMock(page);await fillPreparedJsa(page);
+  const downloadPromise=page.waitForEvent('download');
+  await page.locator('#jsaDraftPdf').click();
+  const download=await downloadPromise;
+  await download.saveAs(testInfo.outputPath('jsa-prepared-short.pdf'));
+  await expect(page.locator('#jsaDraftStatus')).toContainText('No crew assigned');
+  const outputs=await page.evaluate(async()=>{
+    const {record}=await buildInspectionRecord('JSA',getCurrentWorker());
+    record.form_data.rows[0].cells[2]=Array.from({length:65},(_,i)=>`Control ${i+1}: Confirm the synthetic work area is controlled and review this instruction with the crew.`).join('\n');
+    const ack={attendee_name:'Synthetic Signed Worker',attendee_company:'JGC',acknowledged_at:'2026-09-23T01:00:00Z',signature_strokes:[[[.1,.2],[.5,.8],[.9,.2]]],signature_width:400,signature_height:180,matched_employee_email:'synthetic@example.com'};
+    const prepared=await JgcJsaPdf.create(record,{prepared:true,acknowledgements:[ack]});
+    const active=await JgcJsaPdf.create(record,{acknowledgements:[ack]});
+    return {prepared:prepared.output('datauristring').split(',')[1],active:active.output('datauristring').split(',')[1]};
+  });
+  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(process.env.JGC_PDFJS_MODULE || 'C:/Users/Zeth/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  for(const [kind,base64] of Object.entries(outputs)){
+    const bytes=Buffer.from(base64,'base64');
+    fs.writeFileSync(testInfo.outputPath(`jsa-${kind}.pdf`),Buffer.from(bytes));
+    const doc=await pdfjs.getDocument({data:new Uint8Array(bytes),disableWorker:true}).promise;
+    let text='';for(let n=1;n<=doc.numPages;n++){const p=await doc.getPage(n);text+=(await p.getTextContent()).items.map(i=>i.str).join(' ');}
+    expect(text).toContain('Control 65:');expect(doc.numPages).toBeGreaterThan(1);
+    if(kind==='prepared'){expect(text).toContain('PREPARED / DRAFT');expect(text).not.toContain('Synthetic Signed Worker');}
+    else {expect(text).toContain('DIGITAL JSA ACKNOWLEDGMENTS');expect(text).toContain('Synthetic Signed Worker');}
+  }
+});

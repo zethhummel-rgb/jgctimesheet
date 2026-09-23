@@ -540,7 +540,7 @@ function openAdminJsaReport(reportId) {
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function printAdminJsaReport(reportId) {
+async function printAdminJsaReport(reportId) {
     const report = getAdminJsaReportById(reportId);
 
     if (!report) {
@@ -554,7 +554,7 @@ function printAdminJsaReport(reportId) {
     }
 
     try {
-        window.JgcJsaPdf.download(report, { acknowledgements: getJsaReportAcknowledgements(report) });
+        await window.JgcJsaPdf.download(report, { acknowledgements: getJsaReportAcknowledgements(report) });
     } catch (error) {
         console.error("JSA PDF generation failed", error);
         alert(error && error.message ? error.message : "The JSA PDF could not be created.");
