@@ -20,7 +20,7 @@ body:has(#summarySection:not([hidden]))>.logo-wrap, body:has(#summarySection:not
 #summarySection #adminGlobalSearchButton { display:flex; align-items:center; gap:6px; padding:8px; font-size:.8rem; }
 #summarySection #adminGlobalSearchButton svg { width:18px; height:18px; }
 #summarySection .admin-global-search-status:empty, #summarySection .admin-global-search-results:empty { display:none; }
-#summarySection .dashboard-quick-actions { flex:1 1 430px; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin:0; }
+#summarySection .dashboard-quick-actions { flex:0 0 auto; max-width:100%; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin:0; }
 #summarySection .dashboard-quick-actions a { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px; min-height:44px; text-decoration:none; font-size:.8rem; border-radius:7px; color:var(--jgc-color-text); background:var(--jgc-color-surface-raised); border:1px solid var(--jgc-color-border); }
 #summarySection .dashboard-quick-actions a:nth-child(2), #summarySection .dashboard-quick-actions a:nth-child(3) { background:var(--jgc-color-brand-700); color:var(--jgc-color-on-brand); border-color:var(--jgc-color-brand-700); }
 #summarySection .dashboard-quick-actions svg { width:20px; height:20px; flex-shrink:0; }
