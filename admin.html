@@ -21,7 +21,7 @@
 <link rel="stylesheet" href="schedule-design-system.css?v=5">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
 <link rel="stylesheet" href="directory-design-system.css?v=2">
-<link rel="stylesheet" href="admin-dashboard.css?v=1">
+<link rel="stylesheet" href="admin-dashboard.css?v=2">
 </head>
 
 <body class="jgc-page jgc-system-page jgc-admin-shell-page">
@@ -50,9 +50,9 @@
         <div class="dashboard-date"><strong id="dashboardToday"></strong></div><div class="jgc-actions"><button id="dashboardEdit" type="button" disabled aria-pressed="false">Edit layout</button><button id="dashboardMenuToggle" class="secondary" type="button" disabled aria-expanded="false" aria-controls="dashboardMenu">Widget Menu</button><button id="dashboardRefresh" class="secondary" type="button">Refresh</button></div>
     </header>
     <nav class="dashboard-quick-actions" aria-label="Quick actions">
+        <a class="jgc-button" href="estimating/">Open Estimate Desk</a>
         <a class="jgc-button" href="estimating/?view=jobs&amp;newJob=1">Add Job</a>
         <a class="jgc-button jgc-button--secondary" href="estimating/?newQuote=1">Start New Quote</a>
-        <a class="jgc-button jgc-button--secondary" href="estimating/">Open Estimate Desk</a>
         <a class="jgc-button jgc-button--secondary" href="estimating/?view=jobs">Open Job List</a>
     </nav>
     <section id="dashboardMenu" class="dashboard-menu" hidden aria-label="Widget Menu">
@@ -62,7 +62,7 @@
     </section>
     <p id="dashboardLayoutStatus" class="small" role="status">Loading your layout…</p>
     <button id="dashboardRetrySave" type="button" class="secondary" hidden>Retry saving layout</button>
-    <p id="dashboardEditHelp" hidden>Drag a widget by its Move handle, or use the arrow buttons. Resize from the corner or use the size menus. Changes save automatically to your account.</p>
+    <p id="dashboardEditHelp" hidden>Drag a widget heading to position it; resize from its corner. Select ⋮ for precise sizes, half height, and quick layouts. Changes save to your account.</p>
     <div class="admin-global-search">
         <div class="admin-global-search-row">
             <label class="dashboard-search-label" for="adminGlobalSearchInput">Search the Portal and Estimate Desk</label>
@@ -1124,6 +1124,7 @@
 <script src="schedule-ui.js?v=1"></script>
 <script src="admin-summary.js?v=6"></script>
 <script src="admin-core.js?v=7"></script>
-<script src="admin-dashboard.js?v=1"></script>
+<script src="admin-dashboard-grid.js?v=1"></script>
+<script src="admin-dashboard.js?v=2"></script>
 </body>
 </html>

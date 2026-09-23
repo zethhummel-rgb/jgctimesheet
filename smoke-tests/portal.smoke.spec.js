@@ -5334,9 +5334,9 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
  await expect(page.locator('[data-widget="purchase-orders"] .dashboard-metric strong')).toHaveText('14');
  await expect(page.locator('[data-widget="calendar"] #adminScheduleCalendar')).toBeVisible();
  await page.locator('#dashboardEdit').click();
- const card=page.locator('[data-widget="tasks"]');await card.getByLabel('Tasks / Follow-Ups width',{exact:true}).selectOption('6');
- await card.getByLabel('Move Tasks / Follow-Ups earlier',{exact:true}).click();
- await card.getByLabel('Hide Tasks / Follow-Ups',{exact:true}).click();
+ const card=page.locator('[data-widget="tasks"]');await card.getByRole('button',{name:'Customize Tasks / Follow-Ups'}).click();await page.getByLabel('Tasks / Follow-Ups width',{exact:true}).selectOption('6');
+ await page.getByLabel('Move Tasks / Follow-Ups earlier',{exact:true}).click();
+ await page.getByLabel('Hide Tasks / Follow-Ups',{exact:true}).click();
  await expect(card).toBeHidden();await expect.poll(()=>state.writes.length).toBeGreaterThan(0);
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
  expect(state.layout.widgets.find(w=>w.id==='tasks')).toMatchObject({width:6,visible:false});
@@ -5348,16 +5348,19 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 });
 
 test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
- const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1000});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
- const first=page.locator('[data-widget="jobs-stat"]'),second=page.locator('[data-widget="quotes"]');
- await first.locator('.dashboard-move').scrollIntoViewIfNeeded();
- const from=await first.locator('.dashboard-move').boundingBox(),to=await second.boundingBox();
- await page.mouse.move(from.x+10,from.y+10);await page.mouse.down();await page.mouse.move(to.x+to.width/2,to.y+30,{steps:10});await page.mouse.up();
- await expect.poll(()=>state.layout?.widgets[0].id).toBe('quotes');
- const handle=first.locator('.dashboard-resize');await handle.scrollIntoViewIfNeeded();const box=await handle.boundingBox();
- await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+250,box.y+210,{steps:10});await page.mouse.up();
- await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='jobs-stat').width).toBeGreaterThan(2);
+ const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
+ const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();
+ const header=await card.locator('.dashboard-widget-header').boundingBox();
+ await page.mouse.move(header.x+70,header.y+20);await page.mouse.down();await page.mouse.move(header.x+70,header.y+100,{steps:10});
+ await expect(page.locator('.dashboard-drop-preview')).toBeVisible();await page.mouse.up();
+ await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').y).toBeGreaterThan(58);
+ const handle=card.locator('.dashboard-resize');await handle.scrollIntoViewIfNeeded();const box=await handle.boundingBox();
+ const before=state.layout.widgets.find(w=>w.id==='recent').height;
+ await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+10,box.y-70,{steps:10});await page.mouse.up();
+ await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBeLessThan(before);
  expect(state.writes.every(w=>w.user_id===fakeUser.id)).toBe(true);
+ const saved=structuredClone(state.layout);await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ expect(await card.evaluate(el=>Number(el.style.getPropertyValue('--widget-y')))).toBe(saved.widgets.find(w=>w.id==='recent').y+1);
 });
 
 test('Dashboard failed preference save stays pending and retries; widget failure is not zero',async({page})=>{
@@ -5412,7 +5415,73 @@ test('Dashboard restores subcontractor activity after a failed request',async({p
 test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{
  await mockDashboard(page,{layout:{widgets:[{id:'tasks',width:999,height:0},{id:'tasks'},{id:'unknown'}]}});
  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>{const offset=Number(new URL(r.request().url()).searchParams.get('offset')||0);return r.fulfill({json:Array.from({length:offset?1:500},(_,i)=>({id:'j'+(i+offset),job_number:String(26999-i-offset),customer:'Synthetic Client',job_name:'Project',active:true}))});});
- await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(11);
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(10);
  await expect(page.locator('.dashboard-widget').first()).toHaveAttribute('data-widget','tasks');
- await page.locator('#dashboardEdit').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
+ await page.locator('[data-widget="tasks"] .dashboard-widget-options').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
+});
+
+for(const theme of ['light','dark'])test(`Dashboard stacked calendar layout and slim totals survive reload ${theme}`,async({page},testInfo)=>{
+ const state=await mockDashboard(page,{theme,layout:{version:1,widgets:[{id:'calendar',width:6,height:640},{id:'recent',width:4,height:456},{id:'active-jobs',width:4,height:408},{id:'estimate-desk',width:4,height:144}]}});
+ await mockDashboardVisualRecords(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await expect(page.locator('[data-widget="estimate-desk"]')).toHaveCount(0);
+ const links=await page.locator('.dashboard-quick-actions a').allTextContents();expect(links.slice(0,2)).toEqual(['Open Estimate Desk','Add Job']);
+ await page.locator('#dashboardEdit').click();await page.locator('#dashboardStackCalendar').click();await page.locator('#dashboardSlimTotals').click();await page.locator('#dashboardEdit').click();
+ await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
+ async function check(){
+  const rects=await page.locator('.dashboard-widget').evaluateAll(elements=>Object.fromEntries(elements.filter(el=>!el.hidden).map(el=>{const r=el.getBoundingClientRect();return [el.dataset.widget,{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}];})));
+  const c=rects.calendar,r=rects.recent,j=rects['active-jobs'];
+  expect(Math.abs(c.y-r.y)).toBeLessThan(1);expect(Math.abs(j.x-r.x)).toBeLessThan(1);expect(Math.abs(j.y-r.bottom-14)).toBeLessThan(1);expect(Math.abs(j.bottom-c.bottom)).toBeLessThan(1);
+  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])expect(rects[id].height).toBe(44);
+  const entries=Object.entries(rects);for(let i=0;i<entries.length;i++)for(let k=i+1;k<entries.length;k++){const a=entries[i][1],b=entries[k][1];expect(a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1,entries[i][0]+' overlaps '+entries[k][0]).toBe(false);}
+ }
+ await check();await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await check();
+ await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('dashboard-stacked-'+theme+'.png'),fullPage:true});
+ expect(state.layout.version).toBe(2);
+});
+
+test('Dashboard can place Active Jobs in the empty half beside calendar, and Escape cancels',async({page})=>{
+ const state=await mockDashboard(page,{layout:{version:2,widgets:[{id:'calendar',x:0,y:0,width:6,height:640},{id:'recent',x:6,y:0,width:6,height:640},{id:'active-jobs',x:0,y:654,width:6,height:313}]}});
+ await page.setViewportSize({width:1440,height:1200});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await page.locator('[data-widget="recent"] .dashboard-widget-options').click();await page.getByRole('button',{name:'Halve Recent Work height',exact:true}).click();
+ await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(313);
+ const active=page.locator('[data-widget="active-jobs"]');await active.scrollIntoViewIfNeeded();
+ const source=await active.locator('.dashboard-widget-header').boundingBox(),grid=await page.locator('#dashboardGrid').boundingBox();
+ const step=(grid.width+14)/12;
+ await page.mouse.move(source.x+90,source.y+20);await page.mouse.down();await page.mouse.move(source.x+90+6*step,source.y+20-327,{steps:20});await page.mouse.up();
+ await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='active-jobs').x).toBe(6);
+ const final=await active.boundingBox(),recent=await page.locator('[data-widget="recent"]').boundingBox();expect(Math.abs(final.y-recent.y-recent.height-14)).toBeLessThanOrEqual(4);
+ const saved=structuredClone(state.layout),head=await active.locator('.dashboard-widget-header').boundingBox();
+ await page.mouse.move(head.x+80,head.y+20);await page.mouse.down();await page.mouse.move(head.x+20,head.y+100,{steps:10});await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('.dashboard-drop-preview')).toBeHidden();expect(state.layout).toEqual(saved);
+});
+
+test('Dashboard tablet touch dragging and keyboard resizing save real coordinates',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1024,height:1100},hasTouch:true});const page=await context.newPage();
+ try {
+  const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
+  const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();const box=await card.locator('.dashboard-widget-header').boundingBox();
+  const cdp=await context.newCDPSession(page),point={x:box.x+70,y:box.y+20};
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+  for(let n=1;n<=8;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x,y:point.y+n*10}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').y).toBeGreaterThan(58);
+  await card.locator('.dashboard-resize').focus();await page.keyboard.press('ArrowUp');await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(273);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ } finally {await context.close();}
+});
+
+test('Dashboard calendar cells resize to the available month area at small and large sizes',async({page},testInfo)=>{
+ await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ const card=page.locator('[data-widget="calendar"]');await card.locator('.dashboard-widget-options').click();
+ await page.evaluate(()=>{adminScheduleMonth=new Date(2026,7,1);scheduleEvents=[{id:'synthetic-event',event_date:'2026-08-18',event_type:'work',title:'Synthetic calendar work',start_time:'08:00'}];renderAdminScheduleCalendar();});
+ await expect(card.getByRole('button',{name:/Tuesday, August 18, 2026/})).toHaveAttribute('aria-label',/1 schedule item/);
+ async function measure(width,height){
+  await page.getByLabel('Schedule Calendar width',{exact:true}).selectOption(width);await page.getByLabel('Schedule Calendar height',{exact:true}).selectOption(height);
+  await page.locator('#dashboardEdit').click();await card.scrollIntoViewIfNeeded();
+  const geometry=await card.evaluate(el=>{const g=el.querySelector('.admin-schedule-grid'),d=g.querySelector('.admin-schedule-day'),r=g.getBoundingClientRect(),c=el.getBoundingClientRect(),last=g.lastElementChild.getBoundingClientRect();return {day:d.getBoundingClientRect().height,width:d.getBoundingClientRect().width,grid:r.height,overflow:g.scrollHeight>g.clientHeight+1,inside:r.left>=c.left&&r.right<=c.right&&last.bottom<=c.bottom,rows:[...g.children].filter(x=>x.classList.contains('admin-schedule-day')).length};});
+  expect(geometry.inside).toBe(true);expect(geometry.overflow).toBe(false);expect(geometry.rows).toBeGreaterThanOrEqual(28);
+  await card.screenshot({path:testInfo.outputPath('calendar-'+width+'-'+height+'.png')});
+  await card.locator('.dashboard-widget-options').click();return geometry;
+ }
+ const small=await measure('3','280'),large=await measure('8','640');expect(large.day).toBeGreaterThan(small.day*2);expect(large.width).toBeGreaterThan(small.width*2);
 });

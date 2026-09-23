@@ -2,14 +2,17 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const definitions = [
-    ['jobs-stat','Active Jobs',2,144], ['quotes','Quotes',2,144],
-    ['work-orders','Work Orders',2,144], ['purchase-orders','Purchase Orders',2,144],
-    ['estimate-desk','JGC Estimate Desk',4,144], ['calendar','Schedule Calendar',4,408],
-    ['recent','Recent Work',4,408], ['active-jobs','Active Jobs',4,408],
+    ['jobs-stat','Active Jobs',3,44], ['quotes','Quotes',3,44],
+    ['work-orders','Work Orders',3,44], ['purchase-orders','Purchase Orders',3,44],
+    ['calendar','Schedule Calendar',6,640],
+    ['recent','Recent Work',6,313], ['active-jobs','Active Jobs',6,313],
     ['subcontractors','Subcontractor Activity',4,280], ['tasks','Tasks / Follow-Ups',4,280], ['announcements','Announcements',4,280]
   ];
-  const widths = [2,4,6,8,12], heights = [144,280,456,640];
-  const defaults = () => ({version:1, widgets:definitions.map(([id,,width,height]) => ({id,width,height,visible:true}))});
+  const widths = [2,3,4,5,6,7,8,9,10,11,12], heights = [44,144,280,313,408,456,640];
+  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders"];
+  let selected="recent"; const toolbars=new Map();
+  const minimumHeight=id=>statIds.includes(id)?44:id==='calendar'?280:144;
+  const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height]) => ({id,width,height,visible:true})))});
   let layout = defaults(), userId = '', edit = false, ready = false, saving = false, revision = 0, savedRevision = 0, timer, loadId = 0;
   const cards = new Map();
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -38,21 +41,32 @@
     for (const raw of supplied) {
       const item=result.widgets.find(w=>w.id===raw?.id);
       if (!item || seen.has(item.id)) continue;
-      seen.add(item.id); ordered.push({...item,width:widths.includes(raw.width)?raw.width:item.width,height:heights.includes(raw.height)?raw.height:item.height,visible:raw.visible!==false});
+      seen.add(item.id); ordered.push({...item,width:widths.includes(raw.width)?raw.width:item.width,height:Number.isInteger(raw.height)&&raw.height>=minimumHeight(item.id)&&raw.height<=960?raw.height:item.height,visible:raw.visible!==false,x:value.version===2&&Number.isInteger(raw.x)&&raw.x>=0&&raw.x<=12?raw.x:undefined,y:value.version===2&&Number.isInteger(raw.y)&&raw.y>=0&&raw.y<=20000?raw.y:undefined});
     }
-    return {version:1,widgets:ordered.concat(result.widgets.filter(w=>!seen.has(w.id)))};
+    return {version:2,widgets:geometry.pack(ordered.concat(result.widgets.filter(w=>!seen.has(w.id)).map(w=>({...w,x:undefined,y:undefined}))))};
   }
   const key = () => 'jgcDashboardLayout:v1:'+userId;
   const status = text => $('dashboardLayoutStatus').textContent=text;
   function cache(pending) { try {localStorage.setItem(key(),JSON.stringify({layout,pending}));} catch (_) { /* Account storage remains authoritative. */ } }
+  function renderPositions(widgets) {
+    for(const item of widgets){const card=cards.get(item.id);card.style.setProperty('--widget-x',item.x+1);card.style.setProperty('--widget-y',item.y+1);card.style.setProperty('--widget-width',item.width);card.style.setProperty('--widget-height',item.height+'px');card.style.setProperty('--widget-rows',item.height);}
+  }
+  function selectWidget(id){selected=id;edit=true;apply();}
+  function adjust(id,patch){layout.widgets=geometry.place(layout.widgets,id,patch);changed();}
   function apply() {
+    renderPositions(layout.widgets);
+    $('dashboardGrid').classList.toggle('is-editing',edit);
+    $('dashboardLayoutControls').hidden=!edit;
+    $('dashboardSelectedTitle').textContent=definitions.find(d=>d[0]===selected)?.[1]||'Select a widget';
     for (const item of layout.widgets) {
       const card=cards.get(item.id); card.hidden=!item.visible;
       card.style.setProperty('--widget-width',item.width); card.style.setProperty('--widget-height',item.height+'px');
-      card.dataset.wide=String(item.width>=8); card.dataset.compact=String(item.height===144);
-      card.querySelector('[data-size="width"]').value=item.width;
-      card.querySelector('[data-size="height"]').value=item.height;
-      card.querySelector('.dashboard-edit-tools').hidden=!edit;
+      card.dataset.wide=String(item.width>=8); card.dataset.compact=String(item.height<=144);card.dataset.slim=String(item.height<100);card.classList.toggle('is-selected',edit&&selected===item.id);
+      const tools=toolbars.get(item.id); tools.querySelector('[data-size="width"]').value=item.width;
+      const heightSelect=tools.querySelector('[data-size="height"]');
+      heightSelect.querySelectorAll('[data-custom]').forEach(o=>o.remove());
+      if(![...heightSelect.options].some(o=>Number(o.value)===item.height)){const o=new Option(item.height+' px',item.height);o.dataset.custom='true';heightSelect.add(o);}
+      heightSelect.value=item.height;tools.hidden=!edit||selected!==item.id;
       card.querySelector('.dashboard-resize').hidden=!edit;
       $('dashboardGrid').append(card);
       const check=$('dashboardWidgetChoices').querySelector('[value="'+item.id+'"]');if(check)check.checked=item.visible;
@@ -64,7 +78,7 @@
   }
   function changed() {
     if(!ready)return;
-    revision++; cache(true); apply(); status('Saving your layout…');
+    layout.widgets=geometry.pack(layout.widgets);revision++; cache(true); apply(); status('Saving your layout…');
     clearTimeout(timer);timer=setTimeout(save,400);
   }
   async function save() {
@@ -84,29 +98,40 @@
     }
   }
   function move(id,delta) {
-    const visible=layout.widgets.filter(w=>w.visible),index=visible.findIndex(w=>w.id===id),other=visible[index+delta];
-    if(!other)return;
-    const from=layout.widgets.findIndex(w=>w.id===id),to=layout.widgets.indexOf(other);
-    [layout.widgets[from],layout.widgets[to]]=[layout.widgets[to],layout.widgets[from]];changed();
-    cards.get(id).querySelector('.dashboard-move').focus();
+    const item=layout.widgets.find(w=>w.id===id);
+    if(innerWidth<=650){const visible=layout.widgets.filter(w=>w.visible),other=visible[visible.indexOf(item)+delta];if(other){const a=layout.widgets.indexOf(item),b=layout.widgets.indexOf(other);[layout.widgets[a],layout.widgets[b]]=[layout.widgets[b],layout.widgets[a]];changed();}}
+    else adjust(id,{y:Math.max(0,item.y+delta*80)});
+    toolbars.get(id).querySelector('.dashboard-move').focus();
+  }
+  function stackCalendar(){
+    const calendar=layout.widgets.find(w=>w.id==='calendar'),recent=layout.widgets.find(w=>w.id==='recent'),jobs=layout.widgets.find(w=>w.id==='active-jobs');
+    const y=calendar.y,height=Math.max(456,calendar.height),top=Math.floor((height-geometry.gap)/2);
+    const group=[{...calendar,x:0,y,width:6,height,visible:true},{...recent,x:6,y,width:6,height:top,visible:true},{...jobs,x:6,y:y+top+geometry.gap,width:6,height:height-top-geometry.gap,visible:true}];
+    const packed=geometry.pack([...group,...layout.widgets.filter(w=>!group.some(g=>g.id===w.id))]);
+    layout.widgets=layout.widgets.map(w=>packed.find(p=>p.id===w.id));
+    selected='recent';changed();
   }
   function setup() {
     const commandbar=document.createElement('div');commandbar.className='dashboard-commandbar';
     const search=document.querySelector('#summarySection .admin-global-search');search.before(commandbar);commandbar.append(search,document.querySelector('.dashboard-quick-actions'));
+    const panel=document.createElement('div');panel.id='dashboardLayoutControls';panel.className='dashboard-layout-controls';panel.hidden=true;
+    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all four totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
+    $('summarySection').append(panel);
     const grid=document.createElement('div');grid.id='dashboardGrid';grid.className='dashboard-grid';$('summarySection').append(grid);
     for(const [id,title,width,height] of definitions){
       const card=document.createElement('section');card.className='dashboard-widget';card.dataset.widget=id;card.setAttribute('aria-label',title);
-      card.innerHTML=`<header class="dashboard-widget-header"><h2><span class="dashboard-icon">${icon(widgetIcons[id])}</span><span>${title}</span></h2><button class="dashboard-widget-options" type="button" aria-label="Customize ${title}" title="Customize widget">⋮</button></header><div class="dashboard-edit-tools" hidden><button type="button" class="dashboard-move" aria-label="Move ${title}" title="Drag or use arrow keys">⠿ Move</button><button type="button" data-move="-1" aria-label="Move ${title} earlier">↑</button><button type="button" data-move="1" aria-label="Move ${title} later">↓</button><label>Width<select data-size="width" aria-label="${title} width">${widths.map((n,i)=>`<option value="${n}">${['Small','Third','Half','Wide','Full'][i]}</option>`).join('')}</select></label><label>Height<select data-size="height" aria-label="${title} height">${heights.map((n,i)=>`<option value="${n}">${['Compact','Short','Medium','Tall'][i]}</option>`).join('')}</select></label><button type="button" data-hide aria-label="Hide ${title}">Hide</button></div><div class="dashboard-widget-body"><p>Loading…</p></div><footer class="dashboard-widget-footer" hidden></footer><button type="button" class="dashboard-resize" hidden aria-label="Resize ${title}" title="Drag to resize; arrow keys adjust width and height">↘</button>`;
-      cards.set(id,card);grid.append(card);
-      card.querySelector('.dashboard-widget-options').onclick=()=>{if(!ready)return;edit=true;apply();card.querySelector('.dashboard-move').focus();};
-      card.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>move(id,Number(b.dataset.move)));
-      card.querySelector('[data-hide]').onclick=()=>{layout.widgets.find(w=>w.id===id).visible=false;changed();$('dashboardMenuToggle').focus();};
-      card.querySelectorAll('[data-size]').forEach(s=>s.onchange=()=>{layout.widgets.find(w=>w.id===id)[s.dataset.size]=Number(s.value);changed();});
-      card.querySelector('.dashboard-move').onkeydown=e=>{if(['ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.key)){e.preventDefault();move(id,['ArrowUp','ArrowLeft'].includes(e.key)?-1:1);}};
+      card.innerHTML=`<header class="dashboard-widget-header"><h2><span class="dashboard-icon">${icon(widgetIcons[id])}</span><span>${title}</span></h2><button class="dashboard-widget-options" type="button" aria-label="Customize ${title}" title="Customize widget">⋮</button></header><div class="dashboard-edit-tools" hidden><button type="button" class="dashboard-move" aria-label="Move ${title}" title="Focus here and use arrow keys to move">⠿ Move with keys</button><button type="button" data-move="-1" aria-label="Move ${title} earlier">↑</button><button type="button" data-move="1" aria-label="Move ${title} later">↓</button><label>Width<select data-size="width" aria-label="${title} width">${widths.map((n,i)=>`<option value="${n}">${({2:'Small',4:'Third',6:'Half',8:'Wide',12:'Full'})[n]||n+' columns'}</option>`).join('')}</select></label><label>Height<select data-size="height" aria-label="${title} height">${heights.filter(n=>n>=minimumHeight(id)).map(n=>`<option value="${n}">${({44:'Slim',144:'Compact',280:'Short',313:'Half of tall',408:'Standard',456:'Medium',640:'Tall'})[n]}</option>`).join('')}</select></label><button type="button" data-half aria-label="Halve ${title} height">Half height</button><button type="button" data-hide aria-label="Hide ${title}">Hide</button></div><div class="dashboard-widget-body"><p>Loading…</p></div><footer class="dashboard-widget-footer" hidden></footer><button type="button" class="dashboard-resize" hidden aria-label="Resize ${title}" title="Drag to resize; arrow keys adjust width and height">↘</button>`;
+      cards.set(id,card);grid.append(card);const tools=card.querySelector('.dashboard-edit-tools');tools.dataset.widgetControls=id;toolbars.set(id,tools);panel.append(tools);
+      card.querySelector('.dashboard-widget-options').onclick=()=>{if(!ready)return;selectWidget(id);toolbars.get(id).querySelector('.dashboard-move').focus();};
+      tools.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>move(id,Number(b.dataset.move)));
+      tools.querySelector('[data-hide]').onclick=()=>{layout.widgets.find(w=>w.id===id).visible=false;changed();$('dashboardMenuToggle').focus();};
+      tools.querySelectorAll('[data-size]').forEach(s=>s.onchange=()=>adjust(id,{[s.dataset.size]:Number(s.value)}));
+      tools.querySelector('[data-half]').onclick=()=>adjust(id,{height:Math.max(minimumHeight(id),Math.floor((layout.widgets.find(w=>w.id===id).height-geometry.gap)/2))});
+      tools.querySelector('.dashboard-move').onkeydown=e=>{if(['ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.key)){e.preventDefault();const item=layout.widgets.find(w=>w.id===id);adjust(id,['ArrowLeft','ArrowRight'].includes(e.key)?{x:item.x+(e.key==='ArrowLeft'?-1:1)}:{y:Math.max(0,item.y+(e.key==='ArrowUp'?-80:80))});}};
       card.querySelector('.dashboard-resize').onkeydown=e=>{
         if(!['ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.key))return;e.preventDefault();
         const item=layout.widgets.find(w=>w.id===id),horizontal=['ArrowLeft','ArrowRight'].includes(e.key),sizes=horizontal?widths:heights,field=horizontal?'width':'height';
-        item[field]=sizes[Math.max(0,Math.min(sizes.length-1,sizes.indexOf(item[field])+(['ArrowLeft','ArrowUp'].includes(e.key)?-1:1)))];changed();
+        adjust(id,horizontal?{width:Math.max(2,Math.min(12,item.width+(e.key==='ArrowLeft'?-2:2)))}:{height:Math.max(minimumHeight(id),Math.min(960,item.height+(e.key==='ArrowUp'?-40:40)))});
       };
     }
     const calendar=cards.get('calendar').querySelector('.dashboard-widget-body');calendar.replaceChildren(document.querySelector('.admin-schedule-summary'));const tools=document.createElement('details');tools.className='dashboard-calendar-tools';tools.innerHTML='<summary>Calendar tools</summary><div></div>';
@@ -120,46 +145,49 @@
     $('dashboardEdit').onclick=()=>{edit=!edit;apply();};
     $('dashboardMenuToggle').onclick=()=>{const open=$('dashboardMenu').hidden;$('dashboardMenu').hidden=!open;$('dashboardMenuToggle').setAttribute('aria-expanded',String(open));};
     $('dashboardReset').onclick=()=>{layout=defaults();changed();};
+    $('dashboardStackCalendar').onclick=stackCalendar;
+    $('dashboardSlimTotals').onclick=()=>{layout.widgets=layout.widgets.map(w=>({...w,height:statIds.includes(w.id)?44:w.height}));changed();};
     $('dashboardRetrySave').onclick=()=>save();
     $('dashboardRefresh').onclick=()=>{void loadWidgets();void loadSubcontractorActivity();};
     document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!$('summarySection').hidden){e.preventDefault();e.stopImmediatePropagation();$('adminGlobalSearchInput').focus();}},true);
     let pointer=null;
-    grid.addEventListener('pointerdown',e=>{
-      const handle=e.target.closest('.dashboard-move,.dashboard-resize');if(!edit||!handle||e.button!==0)return;
-      const card=handle.closest('[data-widget]'),item=layout.widgets.find(w=>w.id===card.dataset.widget);
-      pointer={id:item.id,startX:e.clientX,startY:e.clientY,width:item.width,height:item.height,resize:handle.classList.contains('dashboard-resize'),target:null,handle};
+    const surface=$('summarySection');
+    const preview=document.createElement('div');preview.className='dashboard-drop-preview';preview.hidden=true;preview.setAttribute('aria-hidden','true');grid.append(preview);
+    surface.addEventListener('pointerdown',e=>{
+      const handle=e.target.closest('.dashboard-resize,.dashboard-widget-header');
+      if(!ready||!edit||!handle||e.button!==0||e.target.closest('.dashboard-widget-options,a')||innerWidth<=650)return;
+      const id=handle.closest('[data-widget]')?.dataset.widget||handle.closest('[data-widget-controls]')?.dataset.widgetControls;
+      const item=layout.widgets.find(w=>w.id===id);selected=id;
+      // Keep the captured element attached during a gesture; apply() reparents cards only after release.
+      const rect=grid.getBoundingClientRect();
+      pointer={id,startX:e.clientX,startY:e.clientY,scrollY:window.scrollY,item:{...item},original:structuredClone(layout.widgets),resize:handle.classList.contains('dashboard-resize'),handle,pointerId:e.pointerId,step:(rect.width+14)/12};
       handle.setPointerCapture(e.pointerId);e.preventDefault();
     });
-    grid.addEventListener('pointermove',e=>{
-      if(!pointer)return;const card=cards.get(pointer.id);
-      if(pointer.resize){
-        const dx=e.clientX-pointer.startX,dy=e.clientY-pointer.startY,step=grid.clientWidth/12;
-        const closest=(values,value)=>values.reduce((a,b)=>Math.abs(b-value)<Math.abs(a-value)?b:a);
-        pointer.nextWidth=closest(widths,pointer.width+dx/step);pointer.nextHeight=closest(heights,pointer.height+dy);
-        card.style.setProperty('--widget-width',pointer.nextWidth);card.style.setProperty('--widget-height',pointer.nextHeight+'px');
-      }else{
-        card.classList.add('is-dragging');
-        cards.forEach(c=>c.classList.remove('is-drop-target'));
-        const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-widget]');
-        pointer.target=target&&target!==card?target.dataset.widget:null;if(pointer.target)target.classList.add('is-drop-target');
-        if(e.clientY>innerHeight-70)window.scrollBy(0,18);else if(e.clientY<90)window.scrollBy(0,-18);
-      }
+    surface.addEventListener('pointermove',e=>{
+      if(!pointer)return;const p=pointer,dx=e.clientX-p.startX,dy=e.clientY-p.startY+window.scrollY-p.scrollY;
+      if(!p.moved&&Math.abs(dx)+Math.abs(dy)<4)return;p.moved=true;
+      const patch=p.resize?{width:Math.max(2,Math.min(12,Math.round(p.item.width+dx/p.step))),height:Math.max(minimumHeight(p.id),Math.min(960,Math.round(p.item.height+dy)))}:{x:Math.round(p.item.x+dx/p.step),y:Math.max(0,Math.round((p.item.y+dy)/8)*8)};
+      p.next=geometry.place(p.original,p.id,patch);renderPositions(p.next);
+      const target=p.next.find(w=>w.id===p.id);preview.hidden=false;preview.style.gridColumn=(target.x+1)+' / span '+target.width;preview.style.gridRow=(target.y+1)+' / span '+target.height;
+      cards.get(p.id).classList.add('is-dragging');
+      if(e.clientY>innerHeight-60)window.scrollBy(0,16);else if(e.clientY<70)window.scrollBy(0,-16);
     });
     function end(e){
-      if(!pointer)return;const p=pointer;pointer=null;cards.forEach(c=>c.classList.remove('is-dragging','is-drop-target'));
-      if(e.type==='pointercancel'){apply();return;}
-      if(p.resize){const item=layout.widgets.find(w=>w.id===p.id);item.width=p.nextWidth||item.width;item.height=p.nextHeight||item.height;changed();}
-      else if(p.target){const from=layout.widgets.findIndex(w=>w.id===p.id),to=layout.widgets.findIndex(w=>w.id===p.target);layout.widgets.splice(to,0,layout.widgets.splice(from,1)[0]);changed();}
-      p.handle.focus();
+      if(!pointer)return;const p=pointer;pointer=null;preview.hidden=true;cards.get(p.id).classList.remove('is-dragging');
+      if(p.handle.hasPointerCapture(p.pointerId))p.handle.releasePointerCapture(p.pointerId);
+      if(e.type==='pointerup'&&p.next){layout.widgets=p.next;changed();}else apply();
     }
-    grid.addEventListener('pointerup',end);grid.addEventListener('pointercancel',end);
-    document.querySelectorAll('.dashboard-quick-actions a').forEach((a,i)=>a.insertAdjacentHTML('afterbegin',icon(['plus','file','calculator','briefcase'][i])));
+    surface.addEventListener('pointerup',end);surface.addEventListener('pointercancel',end);surface.addEventListener('lostpointercapture',end);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pointer){e.preventDefault();end(e);}});
+    window.addEventListener('resize',()=>{if(pointer)end({type:'cancel'});});
+    document.querySelectorAll('.dashboard-quick-actions a').forEach((a,i)=>a.insertAdjacentHTML('afterbegin',icon(['calculator','plus','file','briefcase'][i])));
     $('adminGlobalSearchButton').innerHTML=icon('search')+'<span>Search</span>';
     $('dashboardGreeting').insertAdjacentHTML('beforebegin','<span class="dashboard-greeting-icon">'+icon('sun')+'</span>');
     apply();
   }
   function fill(id,content,links=[]) {
     const card=cards.get(id);card.querySelector('.dashboard-widget-body').innerHTML=content;
+    if(statIds.includes(id)&&links.length)card.querySelector('h2>span:last-child').innerHTML=`<a href="${esc(links[0][1])}">${esc(definitions.find(d=>d[0]===id)[1])}</a>`;
     const footer=card.querySelector('.dashboard-widget-footer');footer.hidden=!links.length;
     footer.innerHTML=links.map(([text,href])=>`<a href="${esc(href)}">${esc(text)} →</a>`).join('');
   }
@@ -225,7 +253,6 @@
     if(generation===loadId)$('dashboardRefresh').disabled=false;
   }
   setup();
-  fill('estimate-desk','<p>Build quotes, review pricing and prepare customer proposals.</p>',[['Open Estimate Desk','estimating/']]);
   const name=String(worker.display||'').split(' ')[0],hour=new Date().getHours();
   $('dashboardGreeting').textContent='Good '+(hour<12?'morning':hour<17?'afternoon':'evening')+(name?', '+name:'');
   $('dashboardToday').textContent=new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
