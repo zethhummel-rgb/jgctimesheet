@@ -50,3 +50,14 @@ test("estimator state merge stops conflicting edits to the same field", () => {
   expect(result.state).toBeNull();
   expect(result.conflicts).toContain("quotes[quote-a].project");
 });
+
+
+test("shop drawing revisions merge independently but concurrent edits of one revision require review", () => {
+  const merge=loadMergeHelper(),base=state();base.jobs=[{id:'job',shopDrawings:[{id:'sd1',revision:0,status:'Submitted for review',revisions:[],history:[]},{id:'sd2',revision:0,status:'Required',history:[]}]}];
+  const local=structuredClone(base),remote=structuredClone(base);
+  local.jobs[0].shopDrawings[0].status='Approved';local.jobs[0].shopDrawings[0].history=[{id:'event1',action:'Approved'}];
+  remote.jobs[0].shopDrawings[1].status='Requested from vendor';
+  expect(merge(base,local,remote).state.jobs[0].shopDrawings.map(d=>d.status)).toEqual(['Approved','Requested from vendor']);
+  remote.jobs[0].shopDrawings[0].revision=1;remote.jobs[0].shopDrawings[0].revisions=[{id:'revision1',revision:0}];
+  const conflict=merge(base,local,remote);expect(conflict.state).toBeNull();expect(conflict.conflicts).toContain('jobs[job].shopDrawings[sd1]');
+});
