@@ -61,7 +61,6 @@ const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
-  { key: "estimatorJobs", label: "Jobs", href: "estimating/?view=jobs" },
   { key: "timesheets", label: "Timesheets", href: "admin.html?tab=timesheets" },
   { key: "accounting", label: "Accounting", href: "accounting-admin.html", standalone: true },
   { key: "safetyRecords", label: "Safety Records", href: "admin.html?tab=safetyRecords" },
