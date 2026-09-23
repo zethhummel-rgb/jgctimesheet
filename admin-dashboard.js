@@ -1,18 +1,19 @@
 (function () {
   "use strict";
   const $ = id => document.getElementById(id);
+  // Approved desktop layout; explicit positions also define Reset to default.
   const definitions = [
-    ['jobs-stat','Active Jobs',3,44], ['quotes','Quotes',3,44],
-    ['work-orders','Work Orders',3,44], ['purchase-orders','Purchase Orders',3,44],
-    ['calendar','Schedule Calendar',6,640],
-    ['recent','Recent Work',6,313], ['active-jobs','Active Jobs',6,313],
-    ['subcontractors','Subcontractor Activity',4,280], ['tasks','Tasks / Follow-Ups',4,280], ['announcements','Announcements',4,280]
+    ['jobs-stat','Active Jobs',3,63,0,0], ['quotes','Quotes',3,61,3,0],
+    ['work-orders','Work Orders',3,62,6,0], ['purchase-orders','Purchase Orders',3,62,9,0],
+    ['calendar','Schedule Calendar',7,636,0,78],
+    ['recent','Recent Work',5,299,7,80], ['active-jobs','Active Jobs',5,311,7,400],
+    ['subcontractors','Subcontractor Activity',4,280,0,728], ['tasks','Tasks / Follow-Ups',4,280,4,728], ['announcements','Announcements',4,280,8,728]
   ];
   const widths = [2,3,4,5,6,7,8,9,10,11,12], heights = [44,144,280,313,408,456,640];
   const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders"];
   let selected="recent"; const toolbars=new Map();
   const minimumHeight=id=>statIds.includes(id)?44:id==='calendar'?280:144;
-  const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height]) => ({id,width,height,visible:true})))});
+  const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height,x,y]) => ({id,width,height,x,y,visible:true})))});
   let layout = defaults(), userId = '', edit = false, ready = false, saving = false, revision = 0, savedRevision = 0, timer, loadId = 0;
   const cards = new Map();
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
