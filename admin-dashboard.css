@@ -260,3 +260,8 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
  #summarySection [data-widget="calendar"] .admin-schedule-day { position:relative; }
  #summarySection [data-widget="calendar"] .admin-schedule-day:has(.admin-schedule-item)::after { content:""; position:absolute; right:3px; top:4px; width:4px; height:4px; border-radius:50%; background:var(--jgc-color-brand-500); pointer-events:none; }
 }
+/* Compact totals show the number only; empty-list copy belongs in expanded cards. */
+#summarySection .dashboard-widget[data-compact="true"] .dashboard-widget-body:has(.dashboard-metric)>p { display:none; }
+#summarySection .dashboard-widget[data-slim="true"] .dashboard-widget-body:has(.dashboard-metric) { display:flex; align-items:center; align-self:center; flex-shrink:0; }
+#summarySection .dashboard-grid.is-editing .dashboard-widget[data-slim="true"] { padding-right:66px; }
+#summarySection .dashboard-widget[data-slim="true"] .dashboard-resize { right:32px; bottom:8px; border-radius:5px; }
