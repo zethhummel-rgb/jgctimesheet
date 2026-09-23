@@ -1,3 +1,4 @@
+import { JobRfis } from "./job-rfis";
 import { ShopDrawingHistory } from "./shop-drawing-history";
 import { approvedDrawingFile, drawingHistory, drawingSnapshot, validateDrawing } from "../lib/shop-drawing-workflow";
 import type { JobCreationDraft } from "../lib/job-creation";
@@ -181,12 +182,13 @@ const navItems: { key: ViewKey; label: string; icon: string }[] = [
 ];
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "purchase-orders" | "changes" | "shop-drawings" | "statistics";
+type JobTab = "summary" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "changes", label: "CCNs / Change Orders" },
   { key: "shop-drawings", label: "Shop Drawings" },
+  { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
@@ -6560,6 +6562,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
+        {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         {tab === "statistics" && <>
           <section className="job-kpi-grid job-operational-costs" aria-label="Job costs to date">
             <div><span>Actual cost to date</span><strong>{jobCostingStatus === "ready" ? money(totals.actual) : "Awaiting labour"}</strong><small>Loaded Portal labour + entered actuals</small></div>

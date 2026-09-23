@@ -1,3 +1,4 @@
+import type { Rfi } from "./rfi-workflow";
 import { normalizeProposalScopeClosingLine } from "./proposal-rich-text";
 
 export type ViewKey =
@@ -439,6 +440,7 @@ export interface Job {
   costs: JobCostEntry[];
   purchaseOrders?: PurchaseOrder[];
   shopDrawings?: ShopDrawing[];
+  rfis?: Rfi[];
   notes: string;
 }
 
@@ -1292,6 +1294,7 @@ export function normalizeAppState(state: AppState): AppState {
             updatedAt: purchaseOrder.updatedAt ?? purchaseOrder.createdAt ?? new Date().toISOString(),
           }))
         : [],
+      rfis: Array.isArray(job.rfis) ? job.rfis : [],
       shopDrawings: Array.isArray(job.shopDrawings)
         ? job.shopDrawings.map((drawing, index) => {
             const allowedStatuses: ShopDrawingStatus[] = ["Required", "Requested from vendor", "Received from vendor", "Submitted for review", "Under review", "Approved", "Approved as noted", "Revise and resubmit", "Rejected", "Closed"];

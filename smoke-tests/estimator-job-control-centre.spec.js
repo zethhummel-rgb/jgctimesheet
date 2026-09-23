@@ -307,7 +307,7 @@ test("Job Control Centre exposes accessible tabs and a complete Summary", async 
 
   const tabList = page.getByRole("tablist", { name: /job/i });
   await expect(tabList).toBeVisible();
-  for (const label of ["Summary", "Purchase Orders", "CCNs / Change Orders", "Shop Drawings", "Statistics / Other"]) {
+  for (const label of ["Summary", "Purchase Orders", "CCNs / Change Orders", "Shop Drawings", "RFIs", "Statistics / Other"]) {
     await expect(jobTab(page, label)).toBeVisible();
   }
   await expect(jobTab(page, "Summary")).toHaveAttribute("aria-selected", "true");
@@ -639,7 +639,7 @@ test("Statistics / Other fetches and renders the connected Portal job records wi
     expect(style.color).toBe("rgb(67, 84, 102)");
   }
 
-  for (const label of ["Summary", "Purchase Orders", "CCNs / Change Orders", "Shop Drawings", "Statistics / Other"]) {
+  for (const label of ["Summary", "Purchase Orders", "CCNs / Change Orders", "Shop Drawings", "RFIs", "Statistics / Other"]) {
     await jobTab(page, label).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
@@ -722,4 +722,27 @@ test('Shop drawing saves and reloads without a file link, with a link added late
  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('Approved');await expect(row.getByRole('link',{name:/Approved file/})).toHaveCount(0);
  await row.getByRole('button',{name:'Open / edit'}).click();await panel.getByLabel('Current revision OneDrive link').fill('https://jgc.sharepoint.com/drawings/doors.pdf');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
  await expect(row.getByRole('link',{name:/Approved file/})).toHaveAttribute('href','https://jgc.sharepoint.com/drawings/doors.pdf');
+});
+
+
+test('RFI numbering, complete question PDF, answers, reopen history and exports survive reload',async({page},testInfo)=>{
+ test.setTimeout(90000);
+ const state=jobControlState(),captures={savedStates:[],portalDocumentUpdates:[],statisticsRequests:[]};await serveJobControl(page,state,captures);await page.goto('/estimating/index.html?dev=1');await openJob(page);await jobTab(page,'RFIs').click();const panel=jobPanel(page,'RFIs');
+ await panel.getByRole('button',{name:'New RFI',exact:true}).click();await panel.getByRole('button',{name:'Close RFI editor'}).click();expect(captures.savedStates.flatMap(s=>s.jobs.flatMap(j=>j.rfis||[]))).toHaveLength(0);
+ await panel.getByRole('button',{name:'New RFI',exact:true}).click();await panel.getByRole('button',{name:'Save RFI',exact:true}).click();await expect(panel.getByLabel('Subject *',{exact:true})).toHaveAttribute('aria-invalid','true');
+ await panel.getByLabel('Subject *',{exact:true}).fill('Canopy connection clarification');await panel.getByLabel('Created date *',{exact:true}).fill('2026-09-01');await panel.getByLabel('Raised by *',{exact:true}).fill('JGC Superintendent');await panel.getByLabel('Sent to',{exact:true}).fill('Structural engineer');await panel.getByLabel('RFI status',{exact:true}).selectOption('Open / Sent');await panel.getByLabel('Sent date',{exact:true}).fill('2026-09-02');await panel.getByLabel('Response due date',{exact:true}).fill('2026-09-03');
+ const question='Please confirm the canopy anchor connection shown on S201 detail 4. '+('The existing steel differs from the drawing. ').repeat(45)+'END OF FULL QUESTION';
+ await panel.getByLabel('Question / clarification request',{exact:true}).fill(question);await panel.getByLabel('Drawing / specification / detail references',{exact:true}).fill('S201 detail 4; specification 05 12 00');
+ await panel.getByRole('button',{name:'Save RFI',exact:true}).dblclick();await expect(panel.locator('.rfi-table tbody tr')).toHaveCount(1);await expect(panel.locator('.rfi-table')).toContainText('RFI-001');await expect(panel.locator('.rfi-table')).toContainText('Overdue');
+ await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.rfis?.length).toBe(1);
+ let dl=page.waitForEvent('download');await panel.getByRole('button',{name:'PDF',exact:true}).click();await (await dl).saveAs(testInfo.outputPath('rfi-question.pdf'));
+ await panel.getByRole('button',{name:'Open RFI',exact:true}).click();await expect(panel.getByLabel('Question / clarification request',{exact:true})).toHaveValue(question);await panel.getByLabel('RFI status',{exact:true}).selectOption('Answered');await panel.getByRole('button',{name:'Save RFI',exact:true}).click();await expect(panel.getByLabel('Complete answer',{exact:true})).toHaveAttribute('aria-invalid','true');
+ await panel.getByLabel('Responder',{exact:true}).fill('Structural engineer');await panel.getByLabel('Response date',{exact:true}).fill('2026-09-04');await panel.getByLabel('Complete answer',{exact:true}).fill('Use detail 4 with the revised plate. Retain all other requirements.');await panel.getByRole('button',{name:'Save RFI',exact:true}).click();await expect(panel.locator('.rfi-table')).toContainText('Answered');
+ await panel.getByRole('button',{name:'Open RFI',exact:true}).click();await panel.getByLabel('RFI status',{exact:true}).selectOption('Closed');await panel.getByRole('button',{name:'Save RFI',exact:true}).click();await panel.getByRole('button',{name:'Open RFI',exact:true}).click();await expect(panel.getByLabel('Question / clarification request',{exact:true})).toBeDisabled();await panel.getByRole('button',{name:'Reopen / follow up',exact:true}).click();await panel.getByLabel('Follow-up / change note',{exact:true}).fill('Confirm revised anchor spacing.');await panel.getByLabel('Question / clarification request',{exact:true}).fill('Please confirm the anchor spacing on the revised plate.');await panel.getByRole('button',{name:'Add attachment link',exact:true}).click();await panel.getByLabel('Attachment 1 name',{exact:true}).fill('Marked-up detail');await panel.getByLabel('Attachment 1 URL',{exact:true}).fill('https://example.com/detail.pdf');await panel.getByRole('button',{name:'Save reopened RFI',exact:true}).click();
+ await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.rfis?.[0]?.cycle).toBe(1);await page.reload();await openJob(page);await jobTab(page,'RFIs').click();await expect(panel.locator('.rfi-table')).toContainText('1 follow-up cycles');await panel.getByRole('button',{name:'Open RFI',exact:true}).click();await expect(panel.getByLabel('Complete answer',{exact:true})).toHaveValue('');await panel.locator('.rfi-history summary').click();await expect(panel.locator('.rfi-history')).toContainText('Use detail 4 with the revised plate.');await expect(panel.locator('.rfi-history')).toContainText('END OF FULL QUESTION');
+ dl=page.waitForEvent('download');await panel.getByRole('button',{name:'Download RFI PDF',exact:true}).click();await (await dl).saveAs(testInfo.outputPath('rfi-history.pdf'));
+ await panel.getByRole('button',{name:'Close RFI editor'}).click();dl=page.waitForEvent('download');await panel.getByRole('button',{name:'RFI log PDF',exact:true}).click();await (await dl).saveAs(testInfo.outputPath('rfi-log.pdf'));
+ dl=page.waitForEvent('download');await panel.getByRole('button',{name:'Export RFI log',exact:true}).click();await (await dl).saveAs(testInfo.outputPath('rfi-log.csv'));
+ await panel.getByRole('button',{name:'New RFI',exact:true}).click();await panel.getByLabel('Subject *',{exact:true}).fill('Second request');await panel.getByRole('button',{name:'Save RFI',exact:true}).click();await expect(panel.locator('.rfi-table')).toContainText('RFI-002');
+ await page.screenshot({path:testInfo.outputPath('rfi-register.png'),fullPage:true});await panel.getByRole('button',{name:'Open RFI',exact:true}).first().click();await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('rfi-mobile.png'),fullPage:true});
 });
