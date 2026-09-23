@@ -2134,3 +2134,35 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
    outline-offset: -.6pt;
  }
 }
+
+/* Shop drawing submittal register and append-only review history. */
+.shop-register-dates { margin:0; min-width:130px; font-size:11px; }
+.shop-register-dates>div { display:flex; justify-content:space-between; gap:10px; margin:3px 0; }
+.shop-register-dates dt { color:var(--slate-600); } .shop-register-dates dd { margin:0; font-weight:650; }
+.shop-not-approved { font-size:11px; color:var(--slate-600); }
+.shop-approved-file { white-space:normal; text-align:center; min-width:120px; }
+.shop-drawing-status.status-under-review { color:var(--blue-600); background:var(--blue-100); }
+.shop-review-history { border-top:1px solid var(--slate-200); margin-top:18px; padding-top:8px; }
+.shop-review-history summary { cursor:pointer; font-weight:700; padding:12px 0; color:var(--navy-950); }
+.shop-review-history p { font-size:12px; line-height:1.5; color:var(--slate-700); }
+.shop-review-history .shop-revision-record { display:block; margin:8px 0; padding:16px; border:1px solid var(--slate-200); border-radius:8px; background:var(--white); }
+.shop-revision-record header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.shop-revision-record header span { color:var(--slate-600); font-size:12px; }
+.shop-review-dates { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; font-size:12px; margin:14px 0; }
+.shop-review-dates dt { color:var(--slate-600); } .shop-review-dates dd { margin:4px 0 0; font-weight:600; color:var(--navy-950); }
+.shop-history-comment { white-space:pre-wrap; overflow-wrap:anywhere; }
+.shop-history-links { display:flex; flex-wrap:wrap; gap:12px; }
+.shop-review-timeline ol { list-style:none; padding:0 0 0 16px; margin:0 0 12px 6px; border-left:2px solid var(--slate-300); }
+.shop-review-timeline li { position:relative; padding:10px 0 16px 10px; border-bottom:1px solid var(--slate-200); }
+.shop-review-timeline li::before { content:""; position:absolute; left:-23px; top:15px; width:10px; height:10px; border-radius:50%; background:var(--green-600); }
+.shop-review-timeline li strong { font-size:12px; color:var(--navy-950); }
+.shop-review-timeline li small { display:block; margin-top:5px; color:var(--slate-600); font-size:11px; }
+.shop-review-timeline li summary { font-size:11px; color:var(--green-700); }
+@media(max-width:700px) { .shop-review-dates { grid-template-columns:repeat(2,minmax(0,1fr)); } .shop-drawing-table .shop-register-dates { min-width:0; flex:1; } .shop-approved-file { min-height:44px; } }
+
+.shop-review-timeline { margin:0 18px 18px; }
+.shop-review-history .shop-drawing-history>p { margin:12px; }
+@media(min-width:761px) { .job-detail-page .shop-drawing-table { min-width:0; table-layout:fixed; } .shop-drawing-table th,.shop-drawing-table td { white-space:normal; overflow-wrap:anywhere; padding:12px 8px; } .shop-drawing-table th:nth-child(1) { width:9%; } .shop-drawing-table th:nth-child(2) { width:16%; } .shop-drawing-table th:nth-child(3) { width:9%; } .shop-drawing-table th:nth-child(4) { width:12%; } .shop-drawing-table th:nth-child(5) { width:9%; } .shop-drawing-table th:nth-child(6) { width:18%; } .shop-drawing-table th:nth-child(7) { width:14%; } .shop-drawing-table th:nth-child(8) { width:13%; } .shop-drawing-table .shop-approved-file { min-width:0; } .shop-drawing-table .shop-drawing-row-actions .button { white-space:normal; } }
+
+.shop-drawing-action-cell .shop-drawing-row-actions { min-width:0; flex-direction:column; align-items:stretch; }
+.shop-drawing-table .shop-register-dates { min-width:0; }

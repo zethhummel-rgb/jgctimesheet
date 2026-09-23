@@ -63,6 +63,13 @@ function mergeValue(path: string, base: MergeValue, local: MergeValue, remote: M
   if (same(local, base)) return remote;
   if (same(remote, base)) return local;
 
+  // A revision, its decision and its audit entries form one unit. Never combine
+  // two reviewers' competing edits or two separately created "next" revisions.
+  if (/\.shopDrawings\[[^\]]+\]$/.test(path)) {
+    conflicts.push(path);
+    return local;
+  }
+
   if (isPlainRecord(base) && isPlainRecord(local) && isPlainRecord(remote)) {
     const result: Record<string, unknown> = {};
     const keys = new Set([...Object.keys(base), ...Object.keys(local), ...Object.keys(remote)]);

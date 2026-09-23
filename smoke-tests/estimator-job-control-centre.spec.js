@@ -235,7 +235,8 @@ function jobStatistics() {
 async function serveJobControl(page, state, captures) {
   await page.route("**/api/state", async (route) => {
     if (route.request().method() === "PUT") {
-      captures.savedStates.push(route.request().postDataJSON().state);
+      state = route.request().postDataJSON().state;
+      captures.savedStates.push(state);
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ saved: true, updatedAt: new Date().toISOString() }) });
     }
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ state, updatedAt: "2026-09-05T12:00:00.000Z" }) });
@@ -403,6 +404,8 @@ test("Shop Drawings tracks status, saves revisions only on command, and shares o
   await panel.getByLabel("Shop drawing consultant").fill("WSP Structural");
   await panel.getByLabel("Shop drawing status").selectOption("Submitted for review");
   await expect(panel.getByLabel("Shop drawing responsibility")).toHaveValue("Consultant / Client");
+  await panel.getByLabel("Requested from vendor date").fill("2026-08-27");
+  await panel.getByLabel("Received from vendor date").fill("2026-08-28");
   await panel.getByLabel("Submitted for review date").fill("2026-08-28");
   await panel.getByLabel("Reviewer due date").fill("2026-08-31");
   await panel.getByLabel("Current revision OneDrive link").fill("http://insecure.example.com/SD-001");
@@ -425,6 +428,7 @@ test("Shop Drawings tracks status, saves revisions only on command, and shares o
 
   await row.getByRole("button", { name: "Open / edit" }).click();
   await panel.getByLabel("Shop drawing status").selectOption("Approved as noted");
+  await panel.getByLabel("Reviewer comments").fill("Verify the site dimensions before fabrication.");
   await panel.getByRole("button", { name: "Save drawing" }).click();
   await panel.getByRole("button", { name: "All", exact: true }).click();
   await expect(row).toContainText("Approved as noted");
@@ -648,4 +652,60 @@ test("Statistics / Other fetches and renders the connected Portal job records wi
     return { topbarBottom: topbar.bottom, tabsTop: tabs.top };
   });
   expect(stickyPositions.tabsTop).toBeGreaterThanOrEqual(stickyPositions.topbarBottom - 1);
+});
+
+
+test("Shop drawing review workflow preserves two revisions, decisions, files and reload history", async ({ page }, testInfo) => {
+  const state=jobControlState(), captures={savedStates:[],portalDocumentUpdates:[],statisticsRequests:[]};
+  await serveJobControl(page,state,captures);await page.goto('/estimating/index.html?dev=1');await openJob(page);await jobTab(page,'Shop Drawings').click();
+  const panel=jobPanel(page,'Shop Drawings');
+  await panel.getByRole('button',{name:'New shop drawing'}).click();
+  await panel.getByLabel('Shop drawing description').fill('Mechanical equipment submittal');
+  await panel.getByLabel('Requested from vendor date').fill('2026-09-01');
+  await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+  const row=panel.locator('.shop-drawing-table tbody tr').filter({hasText:'SD-001'});
+  const edit=async()=>row.getByRole('button',{name:'Open / edit'}).click();
+  const save=async()=>panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+  const file=rev=>`https://jgc.sharepoint.com/drawings/SD-001-Rev${rev}.pdf`;
+  await edit();await panel.getByLabel('Shop drawing status').selectOption('Received from vendor');await panel.getByLabel('Received from vendor date').fill('2026-09-02');await panel.getByLabel('Current revision OneDrive link').fill(file(0));await save();
+  await edit();await panel.getByLabel('Shop drawing status').selectOption('Submitted for review');await panel.getByLabel('Submitted for review date').fill('2026-09-03');await save();
+  await expect(panel.getByRole('status')).toContainText('Recipient / reviewer is required');
+  await panel.getByLabel('Shop drawing consultant').fill('Synthetic structural reviewer');await save();
+  await edit();await panel.getByLabel('Shop drawing status').selectOption('Under review');await save();await expect(row).toContainText('Under review');
+  await edit();await panel.getByLabel('Shop drawing status').selectOption('Revise and resubmit');await panel.getByLabel('Reviewed date').fill('2026-09-04');await save();
+  await expect(panel.getByRole('status')).toContainText('Reviewer comments are required');
+  await panel.getByLabel('Reviewer comments').fill('Revise bracket spacing to 24 inches.');await save();
+  await edit();await panel.getByLabel('Current revision OneDrive link').fill(file(1));await save();await expect(panel.getByRole('status')).toContainText('Start next revision');
+  await panel.getByRole('button',{name:'Close shop drawing editor'}).click();await edit();await panel.getByRole('button',{name:'Start next revision'}).click();
+  await panel.getByLabel('Requested from vendor date').fill('2026-09-05');await panel.getByLabel('Current revision OneDrive link').fill(file(0));await panel.getByRole('button',{name:'Save new revision'}).click();await expect(panel.getByRole('status')).toContainText('separate file link');
+  await panel.getByLabel('Current revision OneDrive link').fill(file(1));await panel.getByRole('button',{name:'Save new revision'}).click();await expect(row).toContainText('1 revision cycle');
+  await edit();await panel.getByLabel('Shop drawing status').selectOption('Approved as noted');await panel.getByLabel('Reviewed date').fill('2026-09-08');await panel.getByLabel('Reviewer comments').fill('Approved with fastener note A.');
+  const stamped='https://jgc.sharepoint.com/drawings/SD-001-Rev1-reviewed.pdf';await panel.getByLabel('Approved-for-use file link').fill(stamped);await save();
+  await expect(row.getByRole('link',{name:/Approved file/})).toHaveAttribute('href',stamped);
+  await row.getByRole('button',{name:'Share to employee job list'}).click();expect(captures.portalDocumentUpdates.at(-1).documentLink).toBe(stamped);
+  await edit();await panel.getByRole('button',{name:'Start next revision'}).click();await panel.getByRole('button',{name:'Save new revision'}).click();
+  await expect(row).toContainText('2 revision cycles');await expect(row).toContainText('Not approved for use');expect(captures.portalDocumentUpdates.at(-1).documentLink).toBe('');
+  await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.shopDrawings[0].revision).toBe(2);
+  const drawing=captures.savedStates.at(-1).jobs.find(j=>j.id==='job-control').shopDrawings[0];
+  expect(drawing.revisions).toHaveLength(2);expect(JSON.parse(drawing.revisions[0].snapshot)).toMatchObject({oneDriveUrl:file(0),reviewComments:'Revise bracket spacing to 24 inches.',status:'Revise and resubmit'});
+  expect(JSON.parse(drawing.revisions[1].snapshot)).toMatchObject({oneDriveUrl:file(1),approvedFileUrl:stamped,reviewComments:'Approved with fastener note A.'});
+  expect(drawing.history.map(h=>h.action)).toContain('Submitted for review → Under review');expect(drawing.history.length).toBeGreaterThanOrEqual(8);
+  await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(row).toContainText('Revision 2');await edit();
+  await panel.getByText('Revision history (2)',{exact:true}).click();await expect(panel.getByRole('link',{name:'Open Rev 0 submission'})).toHaveAttribute('href',file(0));await expect(panel.getByRole('link',{name:'Open archived review file'})).toHaveAttribute('href',stamped);
+  await expect(panel.locator('.shop-revision-record').first()).toContainText('Revise bracket spacing to 24 inches.');
+  await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('shop-drawing-history-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:testInfo.outputPath('shop-drawing-history-mobile.png'),fullPage:true});
+  await panel.getByRole('button',{name:'Close shop drawing editor'}).click();await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>window.scrollTo(0,0));expect(await panel.locator('.data-table-wrap').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('shop-drawing-register.png'),fullPage:true});
+});
+
+
+test('Shop drawing legacy approval survives opening, metadata correction and reload',async({page})=>{
+ const state=jobControlState(),captures={savedStates:[],portalDocumentUpdates:[],statisticsRequests:[]};
+ state.jobs.find(j=>j.id==='job-control').shopDrawings=[{id:'legacy-sd',number:'SD-014',title:'Legacy approved shop drawing',revision:2,status:'Approved',consultant:'Legacy reviewer',requestedDate:'2026-08-01',receivedDate:'2026-08-02',submittedDate:'2026-08-03',returnedDate:'2026-08-06',oneDriveUrl:'https://example.com/sd14-rev2.pdf',revisions:[],createdAt:'2026-08-01T12:00:00Z',updatedAt:'2026-08-06T12:00:00Z'}];
+ await serveJobControl(page,state,captures);await page.goto('/estimating/index.html?dev=1');await openJob(page);await jobTab(page,'Shop Drawings').click();
+ const panel=jobPanel(page,'Shop Drawings');await expect(panel.getByRole('link',{name:/Approved file/})).toHaveAttribute('href','https://example.com/sd14-rev2.pdf');await panel.getByRole('button',{name:'Open / edit'}).click();
+ await expect(panel).toContainText('Detailed tracking begins');await panel.getByLabel('Shop drawing internal notes').fill('Location confirmed');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
+ await expect.poll(()=>captures.savedStates.at(-1)?.jobs.find(j=>j.id==='job-control')?.shopDrawings[0]?.history?.length).toBe(2);
+ expect(captures.savedStates.at(-1).jobs.find(j=>j.id==='job-control').shopDrawings[0].revision).toBe(2);
+ await page.reload();await openJob(page);await jobTab(page,'Shop Drawings').click();await expect(panel.getByRole('link',{name:/Approved file/})).toHaveAttribute('href','https://example.com/sd14-rev2.pdf');
 });

@@ -345,6 +345,7 @@ export type ShopDrawingStatus =
   | "Requested from vendor"
   | "Received from vendor"
   | "Submitted for review"
+  | "Under review"
   | "Approved"
   | "Approved as noted"
   | "Revise and resubmit"
@@ -357,6 +358,15 @@ export interface ShopDrawingRevision {
   id: string;
   revision: number;
   savedAt: string;
+  snapshot: string;
+}
+
+export interface ShopDrawingEvent {
+  id: string;
+  revision: number;
+  recordedAt: string;
+  actor: string;
+  action: string;
   snapshot: string;
 }
 
@@ -381,6 +391,9 @@ export interface ShopDrawing {
   notes: string;
   sharedWithEmployees: boolean;
   revisions: ShopDrawingRevision[];
+  reviewComments?: string;
+  approvedFileUrl?: string;
+  history?: ShopDrawingEvent[];
   createdAt: string;
   updatedAt: string;
 }
@@ -1281,7 +1294,7 @@ export function normalizeAppState(state: AppState): AppState {
         : [],
       shopDrawings: Array.isArray(job.shopDrawings)
         ? job.shopDrawings.map((drawing, index) => {
-            const allowedStatuses: ShopDrawingStatus[] = ["Required", "Requested from vendor", "Received from vendor", "Submitted for review", "Approved", "Approved as noted", "Revise and resubmit", "Rejected", "Closed"];
+            const allowedStatuses: ShopDrawingStatus[] = ["Required", "Requested from vendor", "Received from vendor", "Submitted for review", "Under review", "Approved", "Approved as noted", "Revise and resubmit", "Rejected", "Closed"];
             const allowedResponsibilities: ShopDrawingResponsibility[] = ["Vendor", "JGC", "Consultant / Client", "Complete"];
             const secureUrl = (() => {
               const value = typeof drawing.oneDriveUrl === "string" ? drawing.oneDriveUrl.trim() : "";
@@ -1311,6 +1324,9 @@ export function normalizeAppState(state: AppState): AppState {
               returnedDate: typeof drawing.returnedDate === "string" ? drawing.returnedDate : "",
               requiredOnsiteDate: typeof drawing.requiredOnsiteDate === "string" ? drawing.requiredOnsiteDate : "",
               oneDriveUrl: secureUrl,
+              reviewComments: typeof drawing.reviewComments === "string" ? drawing.reviewComments : "",
+              approvedFileUrl: typeof drawing.approvedFileUrl === "string" && /^https:\/\//i.test(drawing.approvedFileUrl) ? drawing.approvedFileUrl : "",
+              history: Array.isArray(drawing.history) ? drawing.history.filter((event) => event && typeof event.id === "string" && typeof event.snapshot === "string").map((event) => ({ ...event, recordedAt: typeof event.recordedAt === "string" ? event.recordedAt : drawing.updatedAt || drawing.createdAt || "", actor: typeof event.actor === "string" ? event.actor : "", action: typeof event.action === "string" ? event.action : "Recorded update" })) : [],
               notes: typeof drawing.notes === "string" ? drawing.notes : "",
               sharedWithEmployees: drawing.sharedWithEmployees === true && Boolean(secureUrl),
               revisions: Array.isArray(drawing.revisions)
