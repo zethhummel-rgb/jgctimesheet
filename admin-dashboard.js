@@ -116,7 +116,7 @@
     const commandbar=document.createElement('div');commandbar.className='dashboard-commandbar';
     const search=document.querySelector('#summarySection .admin-global-search');search.before(commandbar);commandbar.append(search,document.querySelector('.dashboard-quick-actions'));
     const panel=document.createElement('div');panel.id='dashboardLayoutControls';panel.className='dashboard-layout-controls';panel.hidden=true;
-    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all four totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
+    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardDoneEditing">Done editing</button><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all four totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
     $('summarySection').append(panel);
     const grid=document.createElement('div');grid.id='dashboardGrid';grid.className='dashboard-grid';$('summarySection').append(grid);
     for(const [id,title,width,height] of definitions){
@@ -125,7 +125,7 @@
       cards.set(id,card);grid.append(card);const tools=card.querySelector('.dashboard-edit-tools');tools.dataset.widgetControls=id;toolbars.set(id,tools);panel.append(tools);
       card.querySelector('.dashboard-widget-options').onclick=()=>{if(!ready)return;selectWidget(id);toolbars.get(id).querySelector('.dashboard-move').focus();};
       tools.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>move(id,Number(b.dataset.move)));
-      tools.querySelector('[data-hide]').onclick=()=>{layout.widgets.find(w=>w.id===id).visible=false;changed();$('dashboardMenuToggle').focus();};
+      tools.querySelector('[data-hide]').onclick=()=>{layout.widgets.find(w=>w.id===id).visible=false;changed();$('jgcAppearanceSettingsButton').focus();};
       tools.querySelectorAll('[data-size]').forEach(s=>s.onchange=()=>adjust(id,{[s.dataset.size]:Number(s.value)}));
       tools.querySelector('[data-half]').onclick=()=>adjust(id,{height:Math.max(minimumHeight(id),Math.floor((layout.widgets.find(w=>w.id===id).height-geometry.gap)/2))});
       tools.querySelector('.dashboard-move').onkeydown=e=>{if(['ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.key)){e.preventDefault();const item=layout.widgets.find(w=>w.id===id);adjust(id,['ArrowLeft','ArrowRight'].includes(e.key)?{x:item.x+(e.key==='ArrowLeft'?-1:1)}:{y:Math.max(0,item.y+(e.key==='ArrowUp'?-80:80))});}};
@@ -140,10 +140,11 @@
     calendar.querySelector('.admin-schedule-controls').append(tools);
     const calendarFooter=cards.get('calendar').querySelector('footer');calendarFooter.hidden=false;calendarFooter.innerHTML='<a href="schedule.html">Open full calendar →</a>';
     const sub=cards.get('subcontractors').querySelector('.dashboard-widget-body');sub.replaceChildren($('subcontractorActivityPanel'));$('subcontractorActivityPanel').open=false;const subRecent=document.createElement('div');subRecent.className='dashboard-sub-recent';sub.prepend(subRecent);$('subcontractorActivityPanel').querySelector('summary>span').textContent='View activity details';
-    const empty=document.createElement('p');empty.id='dashboardEmpty';empty.className='dashboard-empty';empty.textContent='Your widgets are hidden. Open Widget Menu to restore them.';grid.append(empty);
+    const empty=document.createElement('p');empty.id='dashboardEmpty';empty.className='dashboard-empty';empty.textContent='Your widgets are hidden. Open the gear settings, then Widget Menu, to restore them.';grid.append(empty);
     $('dashboardWidgetChoices').innerHTML=definitions.map(([id,title])=>`<label><input type="checkbox" value="${id}" checked>${title}${id==='jobs-stat'?' total':''}</label>`).join('');
     $('dashboardWidgetChoices').onchange=e=>{const item=layout.widgets.find(w=>w.id===e.target.value);if(item){item.visible=e.target.checked;changed();}};
-    $('dashboardEdit').onclick=()=>{edit=!edit;apply();};
+    $('dashboardEdit').onclick=()=>{edit=!edit;apply();window.JGCAppearanceSettings?.close();(edit?$('dashboardDoneEditing'):$('jgcAppearanceSettingsButton')).focus();};
+    $('dashboardDoneEditing').onclick=()=>{edit=false;apply();$('jgcAppearanceSettingsButton').focus();};
     $('dashboardMenuToggle').onclick=()=>{const open=$('dashboardMenu').hidden;$('dashboardMenu').hidden=!open;$('dashboardMenuToggle').setAttribute('aria-expanded',String(open));};
     $('dashboardReset').onclick=()=>{layout=defaults();changed();};
     $('dashboardStackCalendar').onclick=stackCalendar;
@@ -253,7 +254,20 @@
     ]);
     if(generation===loadId)$('dashboardRefresh').disabled=false;
   }
+  function mountDashboardSettings() {
+    const body=document.querySelector('#jgcAppearanceSettingsPanel .jgc-appearance-settings__body');
+    if(!body)return;
+    body.append($('dashboardSettings'));
+    const sync=()=>{
+      const summaryVisible=!$('summarySection').hidden;
+      $('dashboardSettings').hidden=!summaryVisible;
+      $('jgcAppearanceSettingsTitle').textContent=summaryVisible?'Appearance & layout':'Appearance';
+    };
+    sync();
+    new MutationObserver(sync).observe($('summarySection'),{attributes:true,attributeFilter:['hidden']});
+  }
   setup();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountDashboardSettings,{once:true});else mountDashboardSettings();
   const name=String(worker.display||'').split(' ')[0],hour=new Date().getHours();
   $('dashboardGreeting').textContent='Good '+(hour<12?'morning':hour<17?'afternoon':'evening')+(name?', '+name:'');
   $('dashboardToday').textContent=new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
