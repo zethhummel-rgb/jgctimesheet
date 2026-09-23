@@ -5048,7 +5048,10 @@ test('injury redesign touch signature survives resize and can be cleared', async
 
 async function expectReadableText(locator, label) {
   const samples = await locator.evaluateAll(elements => {
-    const rgba = value => { const n=(value.match(/[\d.]+/g)||[]).map(Number); return [n[0]||0,n[1]||0,n[2]||0,n.length>3?n[3]:1]; };
+    // Browser color resolution handles rgb(), color(srgb ...) and color-mix consistently.
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    const rgba=value=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=value;ctx.fillRect(0,0,1,1);const c=ctx.getImageData(0,0,1,1).data;return [c[0],c[1],c[2],c[3]/255];};
     const over = (a,b) => [0,1,2].map(i=>a[i]*a[3]+b[i]*(1-a[3])).concat(1);
     const lum = c => { const x=c.slice(0,3).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*x[0]+.7152*x[1]+.0722*x[2]; };
     return elements.filter(el=>el.getClientRects().length && getComputedStyle(el).visibility!=='hidden' && (el.textContent.trim()||el.value)).map(el=>{
@@ -5169,7 +5172,9 @@ for (const mode of ['summary', 'spyglass']) test(`${mode} searches Estimator and
  await page.goto('/admin.html?tab=summary');
  if(mode === 'spyglass') { await page.locator('#jgcAdminGlobalSearchButton').click(); await page.locator('#jgcAdminGlobalSearchInput').fill('0999'); await page.locator('#jgcAdminGlobalSearchSubmit').click();
  const group=page.locator('.jgc-admin-search-group').filter({hasText:'Estimator'});await group.locator('.jgc-admin-search-group-header').click();await expect(group).toContainText('Unique conversion reference');await group.locator('[data-jgc-admin-search-result]').click();
- } else {await page.locator('#adminGlobalSearchInput').fill('0999');await page.locator('#adminGlobalSearchButton').click();const group=page.locator('.admin-global-search-group').filter({hasText:'Estimator'});await group.locator('.admin-global-search-group-header').click();await expect(group).toContainText('Unique conversion reference');await group.locator('.admin-global-search-result button').click();}
+ } else {await page.locator('#adminGlobalSearchInput').fill('0999');await page.locator('#adminGlobalSearchButton').click();const group=page.locator('.admin-global-search-group').filter({hasText:'Estimator'});await group.locator('.admin-global-search-group-header').click();await expect(group).toContainText('Unique conversion reference');
+ // The pending 350ms type-ahead search must not collapse the opened result group.
+ await page.waitForTimeout(450);await expect(group.locator('.admin-global-search-result button')).toBeVisible();await group.locator('.admin-global-search-result button').click();}
  await expect(page).toHaveURL(/estimating\/\?view=jobs&job=26999/);
 });
 async function installPreparedJsaMock(page, isAdmin = true) {
@@ -5297,4 +5302,117 @@ test('JSA PDF preserves long controls and existing signatures and clearly marks 
     if(kind==='prepared'){expect(text).toContain('PREPARED / DRAFT');expect(text).not.toContain('Synthetic Signed Worker');}
     else {expect(text).toContain('DIGITAL JSA ACKNOWLEDGMENTS');expect(text).toContain('Synthetic Signed Worker');}
   }
+});
+
+async function mockDashboard(page, options={}) {
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme:options.theme||'light'}});
+  const state={layout:options.layout||null,writes:[],failSave:false};
+  await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`,route=>route.fulfill({json:options.admin!==false}));
+  await page.route(`${supabaseOrigin}/rest/v1/portal_dashboard_layouts*`,async route=>{
+    if(route.request().method()==='POST'){
+      if(state.failSave)return route.fulfill({status:400,json:{message:'Synthetic offline sync'}});
+      const body=route.request().postDataJSON();state.layout=body.layout;state.writes.push(body);return route.fulfill({json:[]});
+    }
+    return route.fulfill({json:state.layout?{layout:state.layout}:null});
+  });
+  await page.route(`${supabaseOrigin}/rest/v1/estimator_workspaces*`,route=>route.fulfill({json:{payload:{clients:[{id:'c',name:'Synthetic Client'}],jobs:[{id:'j',quoteId:'converted',jobNumber:'26999'}],quotes:[{id:'converted',number:'Q-OLD',project:'Already converted',jobId:'j'}, {id:'q',number:'Q-NEW',clientId:'c',project:'Dashboard test project',status:'Draft',updatedAt:'2026-09-22T12:00:00Z'}],activity:[{id:'a',quoteId:'q',title:'Quote updated',detail:'Synthetic activity',createdAt:'2026-09-22T12:00:00Z'}]}}}));
+  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,route=>route.fulfill({json:[{id:'j',job_number:'26999',job_name:'Dashboard project',customer:'Synthetic Client',active:true,job_type:'Contract'}]}));
+  await page.route(`${supabaseOrigin}/rest/v1/work_orders*`,route=>route.fulfill({headers:{'content-range':'0-0/6','access-control-expose-headers':'content-range'},json:[{id:'wo',wo_number:'WO-TEST',customer:'Synthetic Client',job_name:'Dashboard project',status:'draft'}]}));
+  await page.route(`${supabaseOrigin}/rest/v1/digital_purchase_orders*`,route=>route.fulfill({headers:{'content-range':'0-0/14','access-control-expose-headers':'content-range'},json:[{id:'po',po_number:39999,supplier_name:'Synthetic Supplier',job_number:'26999',workflow_status:'draft'}]}));
+  await page.route(`${supabaseOrigin}/rest/v1/tasks*`,route=>route.fulfill({json:[{id:'t',title:'Order synthetic material',status:'open',priority:'high',due_date:'2026-09-23'}]}));
+  await page.route(`${supabaseOrigin}/rest/v1/announcements*`,route=>route.fulfill({json:[{id:'a',title:'Synthetic safety notice',body:'Review site conditions',is_active:true,created_at:'2026-09-22T12:00:00Z'}]}));
+  return state;
+}
+
+test('Dashboard saves layout, hides/restores widgets, resets, and preserves the shared calendar',async({page})=>{
+ const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');
+ await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await expect(page.locator('[data-widget="active-jobs"]')).toContainText('26999');
+ await expect(page.locator('[data-widget="quotes"] .dashboard-metric strong')).toHaveText('1');
+ await expect(page.locator('[data-widget="work-orders"] .dashboard-metric strong')).toHaveText('6');
+ await expect(page.locator('[data-widget="purchase-orders"] .dashboard-metric strong')).toHaveText('14');
+ await expect(page.locator('[data-widget="calendar"] #adminScheduleCalendar')).toBeVisible();
+ await page.locator('#dashboardEdit').click();
+ const card=page.locator('[data-widget="tasks"]');await card.getByLabel('Tasks / Follow-Ups width',{exact:true}).selectOption('6');
+ await card.getByLabel('Move Tasks / Follow-Ups earlier',{exact:true}).click();
+ await card.getByLabel('Hide Tasks / Follow-Ups',{exact:true}).click();
+ await expect(card).toBeHidden();await expect.poll(()=>state.writes.length).toBeGreaterThan(0);
+ await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
+ expect(state.layout.widgets.find(w=>w.id==='tasks')).toMatchObject({width:6,visible:false});
+ await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(card).toBeHidden();
+ await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardWidgetChoices input[value="tasks"]').check();await expect(card).toBeVisible();
+ await page.locator('#dashboardReset').click();await expect.poll(()=>state.layout.widgets.find(w=>w.id==='tasks').width).toBe(4);
+ await page.keyboard.press('Control+k');await expect(page.locator('#adminGlobalSearchInput')).toBeFocused();
+ await expect(page.getByRole('link',{name:'Start New Quote',exact:true})).toHaveAttribute('href','estimating/?newQuote=1');
+});
+
+test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
+ const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1000});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await page.locator('#dashboardEdit').click();
+ const first=page.locator('[data-widget="jobs-stat"]'),second=page.locator('[data-widget="quotes"]');
+ await first.locator('.dashboard-move').scrollIntoViewIfNeeded();
+ const from=await first.locator('.dashboard-move').boundingBox(),to=await second.boundingBox();
+ await page.mouse.move(from.x+10,from.y+10);await page.mouse.down();await page.mouse.move(to.x+to.width/2,to.y+30,{steps:10});await page.mouse.up();
+ await expect.poll(()=>state.layout?.widgets[0].id).toBe('quotes');
+ const handle=first.locator('.dashboard-resize');await handle.scrollIntoViewIfNeeded();const box=await handle.boundingBox();
+ await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+250,box.y+210,{steps:10});await page.mouse.up();
+ await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='jobs-stat').width).toBeGreaterThan(2);
+ expect(state.writes.every(w=>w.user_id===fakeUser.id)).toBe(true);
+});
+
+test('Dashboard failed preference save stays pending and retries; widget failure is not zero',async({page})=>{
+ const state=await mockDashboard(page);state.failSave=true;
+ await page.route(`${supabaseOrigin}/rest/v1/digital_purchase_orders*`,r=>r.fulfill({status:400,json:{message:'synthetic failure'}}));
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await expect(page.locator('[data-widget="purchase-orders"]')).toContainText('Could not load this widget');
+ await page.locator('#dashboardMenuToggle').click();await page.locator('#dashboardWidgetChoices input[value="tasks"]').uncheck();
+ await expect(page.locator('#dashboardRetrySave')).toBeVisible();
+ expect(await page.evaluate(id=>JSON.parse(localStorage.getItem('jgcDashboardLayout:v1:'+id)).pending,fakeUser.id)).toBe(true);
+ state.failSave=false;await page.locator('#dashboardRetrySave').click();await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');
+});
+
+test('Dashboard ignores another user cache and denies employee customization',async({page})=>{
+ await mockDashboard(page,{admin:false});await page.addInitScript(()=>localStorage.setItem('jgcDashboardLayout:v1:other-user',JSON.stringify({layout:{widgets:[{id:'calendar',visible:false}]},pending:true})));
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardLayoutStatus')).toContainText('approved admins');await expect(page.locator('#dashboardEdit')).toBeDisabled();
+ await expect(page.locator('[data-widget="calendar"]')).toBeVisible();
+});
+
+for(const theme of ['light','dark']) for(const width of [390,1440])test(`Dashboard layout readable ${theme} ${width}`,async({page},testInfo)=>{
+ await mockDashboard(page,{theme});await mockDashboardVisualRecords(page);await page.setViewportSize({width,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(page.locator('[data-widget="tasks"]')).toContainText('Order synthetic material');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ const jobList=page.getByRole('link',{name:'Open Job List',exact:true});
+ await expect(jobList).toHaveAttribute('href','estimating/?view=jobs');
+ const buttonStyle=await jobList.evaluate(el=>{const s=getComputedStyle(el);return {border:parseFloat(s.borderTopWidth),radius:parseFloat(s.borderRadius),background:s.backgroundColor,height:el.getBoundingClientRect().height};});
+ expect(buttonStyle.border).toBeGreaterThanOrEqual(1);expect(buttonStyle.radius).toBeGreaterThan(0);expect(buttonStyle.background).not.toBe('rgba(0, 0, 0, 0)');
+ expect(Math.abs(buttonStyle.height-(await page.getByRole('link',{name:'Add Job',exact:true}).boundingBox()).height)).toBeLessThan(1);
+ await expectReadableText(page.locator('#summarySection .dashboard-widget-header h2, #summarySection .dashboard-quick-actions a, #summarySection .dashboard-list small, #summarySection .dashboard-widget-body>p, #summarySection .dashboard-heading button'),'Dashboard '+theme);
+ await page.screenshot({path:testInfo.outputPath('dashboard.png'),fullPage:true});
+});
+
+
+// Synthetic populated cards exercise wrapping and density without reading live data.
+async function mockDashboardVisualRecords(page) {
+ const clients=['Cedar Mechanical','Northern Pipeline','Federal Properties','Eastside Electric','Riverdale Rail'];
+ const projects=['Ingleside Development','Gate operator replacement','Office painting and repairs','Control room renovation','Platform repairs'];
+ const jobs=clients.map((customer,i)=>({id:'visual-job-'+i,job_number:String(26999-i),customer,job_name:projects[i],active:true,job_type:i%2?'T&M':'Contract'}));
+ await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>r.fulfill({json:jobs}));
+ await page.route(`${supabaseOrigin}/rest/v1/estimator_workspaces*`,r=>r.fulfill({json:{payload:{clients:clients.map((name,i)=>({id:'c'+i,name})),jobs:[],quotes:projects.map((project,i)=>({id:'q'+i,number:'JGC-Q-2026-00'+(50-i),clientId:'c'+i,project,status:i===4?'Draft':'Finished',updatedAt:'2026-09-22T12:00:00Z'}))}}}));
+ await page.route(`${supabaseOrigin}/rest/v1/subcontractor_portal_activity*`,r=>r.fulfill({json:clients.slice(0,3).map((company_name,i)=>({id:'s'+i,company_name,action:['Submitted quote','Uploaded site document','Confirmed start date'][i],created_at:'2026-09-22T12:00:00Z'}))}));
+ await page.route(`${supabaseOrigin}/rest/v1/tasks*`,r=>r.fulfill({json:['Order synthetic material','Confirm concrete pour schedule','Review shop drawings','Follow up with painter'].map((title,i)=>({id:'t'+i,title,status:'open',priority:i?'normal':'high',due_date:'2026-09-23'}))}));
+}
+
+test('Dashboard restores subcontractor activity after a failed request',async({page})=>{
+ await mockDashboard(page);let fail=true;
+ await page.route(`${supabaseOrigin}/rest/v1/subcontractor_portal_activity*`,r=>r.fulfill(fail?{status:400,json:{message:'synthetic failure'}}:{json:[{id:'s',company_name:'Recovered Supplier',action:'Document updated',created_at:'2026-09-22T12:00:00Z'}]}));
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="subcontractors"]')).toContainText('Could not load this widget');
+ fail=false;await page.locator('#dashboardRefresh').click();await expect(page.locator('.dashboard-sub-recent')).toContainText('Recovered Supplier');
+ await expect(page.locator('#subcontractorActivityPanel')).toHaveCount(1);
+});
+
+test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{
+ await mockDashboard(page,{layout:{widgets:[{id:'tasks',width:999,height:0},{id:'tasks'},{id:'unknown'}]}});
+ await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>{const offset=Number(new URL(r.request().url()).searchParams.get('offset')||0);return r.fulfill({json:Array.from({length:offset?1:500},(_,i)=>({id:'j'+(i+offset),job_number:String(26999-i-offset),customer:'Synthetic Client',job_name:'Project',active:true}))});});
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(11);
+ await expect(page.locator('.dashboard-widget').first()).toHaveAttribute('data-widget','tasks');
+ await page.locator('#dashboardEdit').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
 });
