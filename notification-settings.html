@@ -12,7 +12,7 @@
 <body class="notification-settings-page jgc-theme jgc-page jgc-system-page">
   <div class="tabs">
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=summary'">Summary</button>
-    <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=jobDashboard'">Job Dashboard</button>
+    <button type="button" class="tab-button" onclick="window.location.href='estimating/?view=jobs'">Jobs</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=employeeProfile'">Employee Profiles</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=timesheets'">Timesheets</button>
     <button type="button" class="tab-button" onclick="window.location.href='admin.html?tab=safetyRecords'">Safety Records</button>
@@ -61,7 +61,7 @@
   </main>
 
   <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-  <script src="common.js?v=47"></script>
+  <script src="common.js?v=48"></script>
   <script>
     const supabaseClient = createJgcSupabaseClient();
     const worker = requireJgcWorker();

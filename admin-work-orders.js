@@ -428,7 +428,7 @@ async function loadAdminWorkOrders() {
         }
     }
     renderAdminWorkOrders();
-    renderJobDashboard();
+
     renderEmployeeProfile();
     renderPortalSummary();
 }

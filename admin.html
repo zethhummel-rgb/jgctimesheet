@@ -26,7 +26,6 @@
 <body class="jgc-page jgc-system-page jgc-admin-shell-page">
 <div class="tabs jgc-tabs">
     <button id="summaryTab" class="tab-button active" onclick="showTab('summary')">Summary</button>
-    <button id="jobDashboardTab" class="tab-button" onclick="showTab('jobDashboard')">Job Dashboard</button>
     <button id="timesheetsTab" class="tab-button" onclick="showTab('timesheets')">Timesheets</button>
     <button id="safetyRecordsTab" class="tab-button" onclick="showTab('safetyRecords')">Safety Records</button>
     <button id="vacationTab" class="tab-button" onclick="showTab('vacation')">Vacation Requests</button>
@@ -72,7 +71,7 @@
         <h2 class="portal-summary-title">Portal Summary</h2>
         <div class="jgc-actions">
             <a class="jgc-button" href="estimating/?view=jobs&amp;newJob=1">＋ New Job</a>
-            <a class="jgc-button jgc-button--secondary" href="estimating/?view=jobs">Open Job List</a>
+            <a class="secondary jgc-button jgc-button--secondary" href="estimating/?view=jobs">Open Job List</a>
         </div>
         <p>Search and review activity across the JGC Portal.</p>
     </div>
@@ -158,9 +157,9 @@
             <strong>Calculator</strong>
             <span>Open the field calculator for quick site measurements and conversions.</span>
         </button>
-        <button type="button" class="admin-tool-card" onclick="openAdminTool('jobs')">
+        <button type="button" class="admin-tool-card" onclick="window.location.href='estimating/?view=jobs'">
             <strong>Job List</strong>
-            <span>Import jobs, update job types, project managers, and drawing links.</span>
+            <span>Open Estimator Jobs to manage project details, status, and document links.</span>
         </button>
         <button type="button" class="admin-tool-card" onclick="openAdminTool('equipment')">
             <strong>Equipment / Vehicles</strong>
@@ -270,37 +269,6 @@
             <button id="adminScheduleSaveButton" type="button" class="jgc-button" onclick="saveAdminScheduleEvent()">Save event</button>
             <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="closeAdminScheduleModal()">Cancel</button>
         </div>
-    </section>
-</div>
-
-<div id="jobDashboardSection" class="card job-dashboard-card jgc-panel jgc-job-admin" hidden>
-    <h2 class="jgc-section-title">Job Dashboard / Job Costing</h2>
-    <div class="job-dashboard-controls">
-        <div>
-            <label for="jobDashboardSearch">Select Job</label>
-            <div id="jobDashboardPicker" class="job-dashboard-picker">
-                <input id="jobDashboardSearch" class="jgc-input job-dashboard-search" type="search" role="combobox" aria-autocomplete="list" aria-controls="jobDashboardOptions" aria-expanded="false" autocomplete="off" placeholder="Type a job number or name" onfocus="openJobDashboardOptions(true)" onclick="openJobDashboardOptions(true)" oninput="handleJobDashboardSearchInput()" onkeydown="handleJobDashboardSearchKeydown(event)">
-                <input id="jobDashboardSelect" type="hidden">
-                <div id="jobDashboardOptions" class="job-dashboard-options" role="listbox" aria-label="Matching jobs" hidden></div>
-            </div>
-        </div>
-        <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="loadJobsManagement()">Refresh Jobs</button>
-    </div>
-    <div id="jobDashboardContent" class="small">Loading job dashboard...</div>
-</div>
-
-<div id="jobDashboardRecordModal" class="job-dashboard-record-modal jgc-modal" hidden onclick="closeJobDashboardRecordModal()">
-    <section class="job-dashboard-record-dialog jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="jobDashboardRecordTitle" onclick="event.stopPropagation()">
-        <header class="job-dashboard-record-header jgc-modal__header">
-            <div>
-                <span id="jobDashboardRecordType" class="job-dashboard-record-type">Record</span>
-                <h2 id="jobDashboardRecordTitle">Record Details</h2>
-            </div>
-            <button type="button" class="job-dashboard-record-close jgc-button jgc-button--secondary jgc-button--icon" aria-label="Close details" title="Close details" onclick="closeJobDashboardRecordModal()">
-                <i data-lucide="x"></i>
-            </button>
-        </header>
-        <div id="jobDashboardRecordContent"></div>
     </section>
 </div>
 
@@ -924,25 +892,6 @@
     </section>
 </div>
 
-<div id="jobsSection" class="card jgc-panel jgc-admin-feature-surface jgc-job-admin" hidden>
-    <h2 class="jgc-section-title">Jobs Management</h2>
-    <div class="announcement-grid">
-        <div class="full">
-            <label hidden>Upload Excel Job List</label>
-            <input hidden disabled id="jobsExcelFile" class="jgc-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <div hidden class="small">Excel layout used: tabs 2025-present only, job name from columns A-E, job number from column F, Project Manager from column H, and Contract / T&M from column K. Red-highlighted rows are skipped as cancelled. Other highlighted rows are imported as Inactive; unhighlighted rows are imported as Active.</div>
-        </div>
-    </div>
-    <div class="actions jgc-actions admin-space-top-2">
-        <button hidden disabled class="jgc-button" type="button" onclick="importJobsFromExcel()">Upload & Import</button>
-        <button hidden disabled class="delete-button jgc-button jgc-button--danger" type="button" onclick="deleteImportedJobs()">Delete Uploaded Jobs</button>
-        <button class="secondary jgc-button jgc-button--secondary" type="button" onclick="loadJobsManagement()">Refresh Jobs</button>
-    </div>
-    <div id="jobsImportStatus" class="small admin-space-top-2"></div>
-    <div id="jobsSummary" class="small admin-space-top-3">Loading job summary...</div>
-    <div id="jobsList" class="small admin-space-top-3">Loading jobs...</div>
-</div>
-
 <div id="workOrdersSection" class="card jgc-panel jgc-admin-feature-surface jgc-work-orders-admin" hidden>
     <h2>Work Orders</h2>
     <div class="small wo-section-intro">Work Orders are saved independently from the active job list, so completed records remain available after a job is removed from the Excel upload.</div>
@@ -1164,7 +1113,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="common.js?v=47"></script>
+  <script src="common.js?v=48"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="admin-housekeeping.js?v=1"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
@@ -1179,12 +1128,11 @@
 <script src="admin-inspections.js?v=4"></script>
 <script src="admin-reports.js?v=4"></script>
 <script src="admin-employee-profile.js?v=1"></script>
-<script src="admin-jobs.js?v=9"></script>
-<script src="admin-work-orders.js?v=3"></script>
+<script src="admin-work-orders.js?v=4"></script>
 <script src="admin-equipment.js?v=2"></script>
 <script src="admin-timesheets.js?v=11"></script>
 <script src="schedule-ui.js?v=1"></script>
-<script src="admin-summary.js?v=4"></script>
-<script src="admin-core.js?v=6"></script>
+<script src="admin-summary.js?v=5"></script>
+<script src="admin-core.js?v=7"></script>
 </body>
 </html>

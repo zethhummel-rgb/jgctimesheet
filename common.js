@@ -49,7 +49,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "8";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
-const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "7";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "8";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
 const JGC_THEME_STORAGE_KEY = "jgcPortalTheme";
 const JGC_THEME_ACCOUNT_STORAGE_PREFIX = "jgcPortalTheme:";
@@ -61,7 +61,7 @@ const JGC_DIAGNOSTICS_QUEUE_KEY = "jgcDiagnosticsQueue";
 const JGC_DIAGNOSTICS_DEDUPE_KEY = "jgcDiagnosticsDedupe";
 const JGC_ADMIN_NAV_ITEMS = [
   { key: "summary", label: "Summary", href: "admin.html?tab=summary" },
-  { key: "jobDashboard", label: "Job Dashboard", href: "admin.html?tab=jobDashboard" },
+  { key: "estimatorJobs", label: "Jobs", href: "estimating/?view=jobs" },
   { key: "timesheets", label: "Timesheets", href: "admin.html?tab=timesheets" },
   { key: "accounting", label: "Accounting", href: "accounting-admin.html", standalone: true },
   { key: "safetyRecords", label: "Safety Records", href: "admin.html?tab=safetyRecords" },
@@ -5767,4 +5767,34 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", activateJgcEnhancements);
 } else {
   activateJgcEnhancements();
+}
+
+function getJgcEstimatorUrl() {
+  const script = document.querySelector('script[src*="common.js"]');
+  return new URL("estimating/", script ? script.src : document.baseURI).href;
+}
+
+// Only admin search calls this; estimator workspace RLS enforces access.
+async function loadJgcEstimatorSearchRecords(client) {
+  const result = await client.from("estimator_workspaces").select("payload").eq("id", "main").maybeSingle();
+  if (result.error) throw new Error("Estimator search could not be loaded.");
+  const data = result.data && result.data.payload || {};
+  const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+  const quotes = Array.isArray(data.quotes) ? data.quotes : [];
+  const clients = Array.isArray(data.clients) ? data.clients : [];
+  const clientName = (id) => (clients.find((item) => item.id === id) || {}).name || "";
+  const records = jobs.map((job) => ({
+    id:job.id, title:[job.jobNumber,job.portalJobName || job.project].filter(Boolean).join(" - "),
+    detail:[job.portalCustomer || clientName(job.clientId),job.portalSiteName,job.clientReference,job.projectManager].filter(Boolean).join(" · "),
+    href:getJgcEstimatorUrl() + "?view=jobs&job=" + encodeURIComponent(job.jobNumber),
+    updated_at:job.portalLastSyncedAt || job.acceptedAt || ""
+  }));
+  quotes.forEach((quote) => {
+    const job = jobs.find((item) => item.quoteId === quote.id || item.id === quote.jobId);
+    records.push({ id:quote.id, title:[quote.number,quote.project].filter(Boolean).join(" - "),
+      detail:[clientName(quote.clientId),quote.site,quote.reference,quote.customerPo,job && job.jobNumber].filter(Boolean).join(" · "),
+      href:getJgcEstimatorUrl() + (job ? "?view=jobs&job=" + encodeURIComponent(job.jobNumber) : "?quote=" + encodeURIComponent(quote.id)),
+      updated_at:quote.updatedAt || "" });
+  });
+  return records;
 }

@@ -1,3 +1,4 @@
+let estimatorSearchRecords = [];
 function getLocalDateValue(date) {
     return date.toISOString().slice(0, 10);
 }
@@ -27,7 +28,7 @@ function getAdminViewedKey(tab) {
 function initializeAdminSummaryBaselines() {
     const now = new Date().toISOString();
 
-    ["jobDashboard", "employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "jobs", "equipment", "contacts", "subcontractorsSuppliers", "backups", "accounts"].forEach((tab) => {
+    ["employeeProfile", "timesheets", "inspections", "reports", "certificates", "vacation", "tasks", "workOrders", "adminTools", "noticePolicy", "equipment", "contacts", "subcontractorsSuppliers", "backups", "accounts"].forEach((tab) => {
         const key = getAdminViewedKey(tab);
 
         if (!localStorage.getItem(key)) {
@@ -188,6 +189,7 @@ function addAdminGlobalSearchCollection(index, config) {
             tab: config.tab,
             action: config.action || "",
             recordId: record.id || "",
+            href: config.category === "Job" ? "estimating/?view=jobs&job=" + encodeURIComponent(record.job_number) : config.category === "Estimator" ? record.href || "" : "",
             searchText: normalizeAdminGlobalSearchText(searchValues.join(" ")),
             sortDate: getAdminGlobalSearchValue(record, config.dateKeys || ["updated_at", "created_at"]),
             sourceIndex: recordIndex
@@ -220,7 +222,7 @@ function buildAdminGlobalSearchIndex() {
         { category: "Employee Injury", records: employeeInjuryReports, tab: "reports", keywords: "employee injury accident report worker job", titleKeys: ["employee_name", "employee_display", "worker_name"], detailKeys: ["job_number", "accident_location", "accident_description"], dateKeys: ["accident_date", "created_at"] },
         { category: "Injury Acknowledgement", records: employeeInjuryAcknowledgements, tab: "reports", keywords: "employee injury acknowledgement worker", titleKeys: ["worker_display_name", "worker_name"], detailKeys: ["status", "note"], dateKeys: ["acknowledged_at", "created_at"] },
         { category: "Safety Acknowledgement", records: safetyAcknowledgements, tab: "reports", keywords: "safety acknowledgement employee worker", titleKeys: ["attendee_name", "worker_name", "record_title"], detailKeys: ["record_type", "record_title", "project", "location"], dateKeys: ["record_date", "acknowledged_at", "created_at"] },
-        { category: "Job", records: jobs, tab: "jobDashboard", keywords: "job job number project site", title: (record) => [getAdminGlobalSearchValue(record, ["job_number"]), getAdminGlobalSearchValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
+        { category: "Job", records: jobs, tab: "summary", keywords: "job job number project site", title: (record) => [getAdminGlobalSearchValue(record, ["job_number"]), getAdminGlobalSearchValue(record, ["job_name"])].filter(Boolean).join(" - "), detailKeys: ["address", "job_type", "project_manager"], dateKeys: ["updated_at", "created_at"] },
         { category: "Work Order", records: workOrders, tab: "workOrders", action: "work_order", keywords: "work order wo wo number job customer", title: (record) => "WO " + (getAdminGlobalSearchValue(record, ["wo_number", "work_order_number", "number"]) || getAdminGlobalSearchValue(record, ["job_name"]) || "record"), detailKeys: ["job_number", "job_name", "customer_name", "status"], dateKeys: ["work_order_date", "submitted_at", "created_at"] },
         { group: "Purchase Orders", category: "Purchase Order", records: digitalPurchaseOrders, tab: "summary", action: "digital_purchase_order", keywords: "purchase order po po number supplier creator submitter job materials", title: (record) => formatAdminGlobalSearchPoNumber(getAdminGlobalSearchValue(record, ["po_number"])), detailKeys: ["supplier_name", "job_number", "job_name", "workflow_status"], dateKeys: ["order_date", "created_at"] },
         { category: "Work Order Labour", records: workOrderLabourRows, tab: "workOrders", keywords: "work order wo labour employee worker hours", titleKeys: ["employee_name", "worker_name"], detailKeys: ["wo_number", "job_number", "hours", "description"], dateKeys: ["work_date", "created_at"] },
@@ -238,6 +240,7 @@ function buildAdminGlobalSearchIndex() {
         { category: "Task", records: adminGlobalSearchTasks, tab: "tasks", keywords: "task assignment employee worker job follow up", titleKeys: ["title"], detailKeys: ["job_number", "job_name", "assigned_to_name", "status"], dateKeys: ["due_date", "completed_at", "created_at"] }
     ];
 
+    collections.push({ category: "Estimator", group: "Estimator", records: estimatorSearchRecords, titleKeys: ["title"], detailKeys: ["detail"] });
     collections.forEach((config) => addAdminGlobalSearchCollection(index, config));
     return index;
 }
@@ -504,13 +507,13 @@ function buildAdminDateSearchResults(dateSearch) {
 
     jobsWorked.forEach((job) => {
         const workerNames = Array.from(job.workers).sort();
-        results.push(makeAdminDateSearchResult(
+        results.push({ ...makeAdminDateSearchResult(
             "Jobs Worked",
             "Job",
             [job.jobNumber, job.jobName].filter(Boolean).join(" - "),
             job.hours.toFixed(2) + " total hours | " + workerNames.length + " worker" + (workerNames.length === 1 ? "" : "s") + ": " + workerNames.join(", "),
-            "jobDashboard"
-        ));
+            "summary"
+        ), href: "estimating/?view=jobs&job=" + encodeURIComponent(job.jobNumber || "") });
     });
 
     const matchingWorkOrderIds = new Set();
@@ -757,6 +760,7 @@ async function searchAdminEverything() {
 
     try {
         await ensureAdminGlobalSearchData();
+        estimatorSearchRecords = await loadJgcEstimatorSearchRecords(supabaseClient);
         adminGlobalSearchIndex = buildAdminGlobalSearchIndex();
         const currentQuery = input.value.trim();
 
@@ -799,6 +803,8 @@ function openAdminGlobalSearchResult(index) {
     if (!result) {
         return;
     }
+
+    if (result.href) { window.location.href = result.href; return; }
 
     if (result.action === "digital_purchase_order" && result.recordId) {
         window.location.href = "purchase-orders-admin.html?po=" + encodeURIComponent(result.recordId);
@@ -2520,7 +2526,7 @@ function renderPortalSummary() {
             value: activeJobs,
             badgeCount: null,
             detail: "Job costing and project summaries",
-            action: "openAdminSummaryTile('jobDashboard')"
+            action: "window.location.href='estimating/?view=jobs'"
         },
         {
             title: "Profiles",
@@ -2590,7 +2596,7 @@ function renderPortalSummary() {
             value: activeJobs,
             badgeCount: null,
             detail: "Active jobs available for timesheets",
-            action: "openAdminSummaryTile('jobs')"
+            action: "window.location.href='estimating/?view=jobs'"
         },
         {
             title: "WO",
