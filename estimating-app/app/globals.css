@@ -2117,3 +2117,20 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 @media(max-width:760px) {
  .job-directory-page.job-view-list .jobs-table tbody > tr > td[data-label="Customer PO/WO #"]::before { display:inline; content:"PO/WO #: "; }
 }
+
+/* Subtle neutral field edges on internal worksheets and subcontractor POs.
+   Outlines do not change layout or the existing pale background colours. */
+:is(.estimate-panel, .purchase-order-modal) :is(input:not([type="checkbox"]), select, textarea, .money-input),
+.breakdown-page :is(th, td, .breakdown-summary > div),
+:is(.quote-po-layout, .subcontract-po-panel) :is(th, td, .quote-po-total) {
+  outline: 1px solid #b8b8b8;
+  outline-offset: -1px;
+}
+@media print {
+ :is(.estimate-panel, .purchase-order-modal) :is(input:not([type="checkbox"]), select, textarea, .money-input),
+ .breakdown-page :is(th, td, .breakdown-summary > div),
+ :is(.quote-po-layout, .subcontract-po-panel) :is(th, td, .quote-po-total) {
+   outline: .6pt solid #b8b8b8 !important;
+   outline-offset: -.6pt;
+ }
+}
