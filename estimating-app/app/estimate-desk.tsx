@@ -1124,7 +1124,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
   const [lastSaved, setLastSaved] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
-  const [view, setView] = useState<ViewKey>(() => new URLSearchParams(window.location.search).get("view") === "jobs" ? "jobs" : "dashboard");
+  const [view, setView] = useState<ViewKey>(() => new URLSearchParams(window.location.search).get("view") === "jobs" ? "jobs" : new URLSearchParams(window.location.search).get("view") === "quotes" ? "quotes" : "dashboard");
   const [newJobOpen, setNewJobOpen] = useState(() => new URLSearchParams(window.location.search).get("newJob") === "1");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -1356,6 +1356,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
     if (!ready || deepLinkHandled.current) return;
     deepLinkHandled.current = true;
     const params = new URLSearchParams(window.location.search);
+    if (params.get("newQuote") === "1") {
+      if (!currentEstimator.isAdmin) return;
+      const url = new URL(window.location.href); url.searchParams.delete("newQuote"); window.history.replaceState(null, "", url);
+      createQuote(); return;
+    }
     const number = params.get("job");
     const quoteId = params.get("quote");
     const target = number ? state.jobs.find((item) => item.jobNumber === number || item.portalJobId === number || item.id === number) : quoteId ? state.jobs.find((item) => item.quoteId === quoteId) : undefined;

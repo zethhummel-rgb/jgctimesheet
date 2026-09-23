@@ -1,0 +1,27 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const {PGlite}=require(process.env.JGC_PGLITE_MODULE);
+(async()=>{
+ const db=new PGlite();
+ await db.exec(`create role anon; create role authenticated; create schema auth; create table public.profiles(id uuid primary key,admin boolean);
+ create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+ create function public.is_admin() returns boolean language sql security definer as $$ select coalesce((select admin from public.profiles where id=auth.uid()),false) $$;
+ grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
+ insert into profiles values ('00000000-0000-4000-8000-000000000001',true),('00000000-0000-4000-8000-000000000002',true),('00000000-0000-4000-8000-000000000003',false);`);
+ await db.exec(fs.readFileSync('supabase/migrations/20260923013931_admin_dashboard_layouts.sql','utf8'));
+ const identity=async(id)=>db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${id}';`);
+ const a='00000000-0000-4000-8000-000000000001',b='00000000-0000-4000-8000-000000000002',c='00000000-0000-4000-8000-000000000003';
+ await identity(a);await db.query('insert into portal_dashboard_layouts(user_id,layout) values($1,$2)',[a,{version:1,widgets:[]}]);
+ assert.equal((await db.query('select * from portal_dashboard_layouts')).rows.length,1);
+ await identity(b);assert.equal((await db.query('select * from portal_dashboard_layouts')).rows.length,0);
+ assert.equal((await db.query('update portal_dashboard_layouts set layout=$1 where user_id=$2 returning *',[{version:2},a])).rows.length,0);
+ await assert.rejects(db.query('insert into portal_dashboard_layouts(user_id,layout) values($1,$2)',[a,{}]));
+ await db.query('insert into portal_dashboard_layouts(user_id,layout) values($1,$2)',[b,{}]);
+ await identity(a);await assert.rejects(db.query('update portal_dashboard_layouts set user_id=$1 where user_id=$2',[c,a]));
+ await db.query('update portal_dashboard_layouts set layout=$1 where user_id=$2',[{version:1,widgets:[{id:'calendar',visible:false}]},a]);
+ assert.equal((await db.query('select layout from portal_dashboard_layouts')).rows[0].layout.widgets[0].visible,false);
+ await assert.rejects(db.query('update portal_dashboard_layouts set layout=$1',[{large:'x'.repeat(17000)}]));
+ await identity(c);assert.equal((await db.query('select * from portal_dashboard_layouts')).rows.length,0);await assert.rejects(db.query('insert into portal_dashboard_layouts(user_id,layout) values($1,$2)',[c,{}]));
+ await db.exec('reset role;set role anon');await assert.rejects(db.query('select * from portal_dashboard_layouts'));
+ await db.close();console.log('PASS: private admin layout read/write, other-user denial, reassignment denial, employee/anonymous denial and size guard');
+})().catch(e=>{console.error(e);process.exitCode=1;});

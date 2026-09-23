@@ -744,6 +744,9 @@ function renderAdminGlobalSearchResults(query) {
 }
 
 async function searchAdminEverything() {
+    // An explicit Search click consumes the pending search-as-you-type request.
+    clearTimeout(adminGlobalSearchTimer);
+    adminGlobalSearchTimer = null;
     const input = document.getElementById("adminGlobalSearchInput");
     const status = document.getElementById("adminGlobalSearchStatus");
     const button = document.getElementById("adminGlobalSearchButton");

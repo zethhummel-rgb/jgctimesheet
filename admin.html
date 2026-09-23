@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="schedule-design-system.css?v=5">
 <link rel="stylesheet" href="vacation-design-system.css?v=2">
 <link rel="stylesheet" href="directory-design-system.css?v=2">
+<link rel="stylesheet" href="admin-dashboard.css?v=1">
 </head>
 
 <body class="jgc-page jgc-system-page jgc-admin-shell-page">
@@ -42,41 +43,29 @@
 <h1 class="jgc-page-title">Admin</h1>
 <div id="currentUser" class="user-bar jgc-page-user"></div>
 
-<div id="summarySection" class="card jgc-panel jgc-admin-shell-surface">
-    <section class="estimating-access" aria-labelledby="estimatingAccessTitle">
-        <span class="estimating-access-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M6 2.75h9l3 3V21.25H6z"></path>
-                <path d="M15 2.75v3h3M9 10h6M9 14h2M14 14h1M9 17.5h2M14 17.5h1"></path>
-            </svg>
-        </span>
-        <div class="estimating-access-copy">
-            <span class="estimating-access-eyebrow">Dedicated estimating workspace</span>
-            <h2 id="estimatingAccessTitle">JGC Estimate Desk</h2>
-            <p>Build quotes, review pricing, and prepare customer proposals in one focused workspace.</p>
-            <div class="estimating-access-features" aria-label="Estimate Desk features">
-                <span>Quotes</span>
-                <span>Pricing</span>
-                <span>Proposals</span>
-            </div>
-        </div>
-        <a class="estimating-access-action" href="estimating/">
-            <span>Open Estimate Desk</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <path d="M4 10h11M11 6l4 4-4 4"></path>
-            </svg>
-        </a>
+<div id="summarySection" class="dashboard-summary">
+    <header class="dashboard-heading">
+        <div><span class="dashboard-eyebrow">JGC · YOUR WORKSPACE</span><h2 id="dashboardGreeting">Portal Summary</h2><p>Your projects, people and next steps, in one place.</p></div>
+        <img class="dashboard-brand" src="estimating/jgc-logo-transparent.png" alt="John Gordon Construction">
+        <div class="dashboard-date"><strong id="dashboardToday"></strong></div><div class="jgc-actions"><button id="dashboardEdit" type="button" disabled aria-pressed="false">Edit layout</button><button id="dashboardMenuToggle" class="secondary" type="button" disabled aria-expanded="false" aria-controls="dashboardMenu">Widget Menu</button><button id="dashboardRefresh" class="secondary" type="button">Refresh</button></div>
+    </header>
+    <nav class="dashboard-quick-actions" aria-label="Quick actions">
+        <a class="jgc-button" href="estimating/?view=jobs&amp;newJob=1">Add Job</a>
+        <a class="jgc-button jgc-button--secondary" href="estimating/?newQuote=1">Start New Quote</a>
+        <a class="jgc-button jgc-button--secondary" href="estimating/">Open Estimate Desk</a>
+        <a class="jgc-button jgc-button--secondary" href="estimating/?view=jobs">Open Job List</a>
+    </nav>
+    <section id="dashboardMenu" class="dashboard-menu" hidden aria-label="Widget Menu">
+        <h3>Your widgets</h3><p>Choose what appears on your dashboard. Hidden widgets can be restored here.</p>
+        <div id="dashboardWidgetChoices"></div>
+        <button id="dashboardReset" type="button" class="secondary">Reset to default JGC layout</button>
     </section>
-    <div class="portal-summary-heading">
-        <h2 class="portal-summary-title">Portal Summary</h2>
-        <div class="jgc-actions">
-            <a class="jgc-button" href="estimating/?view=jobs&amp;newJob=1">＋ New Job</a>
-            <a class="secondary jgc-button jgc-button--secondary" href="estimating/?view=jobs">Open Job List</a>
-        </div>
-        <p>Search and review activity across the JGC Portal.</p>
-    </div>
+    <p id="dashboardLayoutStatus" class="small" role="status">Loading your layout…</p>
+    <button id="dashboardRetrySave" type="button" class="secondary" hidden>Retry saving layout</button>
+    <p id="dashboardEditHelp" hidden>Drag a widget by its Move handle, or use the arrow buttons. Resize from the corner or use the size menus. Changes save automatically to your account.</p>
     <div class="admin-global-search">
         <div class="admin-global-search-row">
+            <label class="dashboard-search-label" for="adminGlobalSearchInput">Search the Portal and Estimate Desk</label>
             <input id="adminGlobalSearchInput" type="search" placeholder="Search dates, names, jobs, WO or PO numbers..." autocomplete="off" oninput="scheduleAdminGlobalSearch()" onkeydown="handleAdminGlobalSearchKeydown(event)">
             <button id="adminGlobalSearchButton" type="button" onclick="searchAdminEverything()">Search</button>
         </div>
@@ -1133,7 +1122,8 @@
 <script src="admin-equipment.js?v=2"></script>
 <script src="admin-timesheets.js?v=11"></script>
 <script src="schedule-ui.js?v=1"></script>
-<script src="admin-summary.js?v=5"></script>
+<script src="admin-summary.js?v=6"></script>
 <script src="admin-core.js?v=7"></script>
+<script src="admin-dashboard.js?v=1"></script>
 </body>
 </html>
