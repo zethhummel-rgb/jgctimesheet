@@ -13,3 +13,10 @@ test('review dates and approved files cannot be silently replaced; malformed his
  expect(validateDrawing({...draft,approvedFileUrl:'https://example.com/different.pdf'},{...draft,revisions:[]})).toContain('approved-for-use file is preserved');
  expect(approvedDrawingFile({...draft,status:'Under review'})).toBe('');expect(drawingRecord('null')).toEqual({});expect(drawingRecord('invalid')).toEqual({});
 });
+
+test('file links are optional at every shop drawing review stage',()=>{
+ for(const status of ['Not requested','Requested from vendor','Received from vendor','Submitted for review','Under review','Approved','Approved as noted','Revise and resubmit','Rejected']){
+  const draft={status,consultant:'Reviewer',requestedDate:'2026-09-01',receivedDate:'2026-09-02',submittedDate:'2026-09-03',returnedDate:'2026-09-04',reviewComments:'Review decision recorded',oneDriveUrl:'',approvedFileUrl:''};
+  expect(validateDrawing(draft),status).toBe('');expect(approvedDrawingFile(draft)).toBe('');
+ }
+});

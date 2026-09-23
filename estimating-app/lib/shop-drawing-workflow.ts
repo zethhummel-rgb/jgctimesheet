@@ -35,7 +35,6 @@ export function validateDrawing(draft: Partial<ShopDrawing>, previous?: ShopDraw
   if ((sent || hasReview) && !draft.consultant?.trim()) return "Recipient / reviewer is required.";
   if (hasReview && !draft.returnedDate) return "Reviewed date is required for a review decision.";
   if (["Approved as noted", "Revise and resubmit", "Rejected"].includes(draft.status || "") && !draft.reviewComments?.trim()) return "Reviewer comments are required for this decision.";
-  if ((sent || hasReview || draft.status === "Received from vendor") && !draft.oneDriveUrl?.trim()) return "A current revision file link is required.";
   const dates = [draft.requestedDate, draft.receivedDate, draft.submittedDate, draft.returnedDate].filter(Boolean) as string[];
   if (dates.some((date, i) => i > 0 && date < dates[i - 1])) return "Check the dates: requested, received, submitted and reviewed must follow that order.";
   if (draft.submittedDate && draft.dueDate && draft.dueDate < draft.submittedDate) return "The reviewer due date cannot be before submission.";
