@@ -453,8 +453,9 @@ body.timesheet-page {
       outline: 2px solid color-mix(in srgb, var(--jgc-color-brand-500) 24%, transparent);
     }
 
+    /* Mid to deep green keeps white text readable in both themes (the bright green end was ~2.2:1 in dark mode). */
     .timesheet-page button {
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
       color: white;
       border: none;
       cursor: pointer;
@@ -464,7 +465,7 @@ body.timesheet-page {
     }
 
     .timesheet-page button:hover {
-      background: linear-gradient(135deg, var(--jgc-color-brand-400), var(--jgc-color-brand-600));
+      background: linear-gradient(135deg, var(--jgc-color-brand-700), var(--jgc-color-brand-600));
     }
 
     .timesheet-page .small {
@@ -554,7 +555,7 @@ body.timesheet-page {
     }
 
     .timesheet-page .weekly-summary-view-toggle button.active-view {
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
       color: var(--jgc-color-on-brand);
       border-color: color-mix(in srgb, var(--jgc-color-brand-500) 72%, transparent);
     }
@@ -918,12 +919,14 @@ body.timesheet-page {
       width: auto;
       margin: 0;
       padding: 7px 12px;
-      background: color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 13%, transparent);
+      color: var(--jgc-color-text);
+      background: color-mix(in srgb, var(--jgc-color-text) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-text) 13%, transparent);
     }
 
     .timesheet-page .tab-buttons button.active-tab {
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      color: var(--jgc-color-on-brand);
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
     }
 
     .timesheet-page .entries-utility-row {
@@ -999,7 +1002,7 @@ body.timesheet-page {
       min-width: 110px;
       margin: 0;
       padding: 7px 12px;
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
     }
 
     .timesheet-page .timesheet-calendar-grid {

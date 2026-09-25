@@ -68,14 +68,14 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
-// Real pages that use these components in their own layouts. Timesheet is limited to its calendar
-// header buttons; its other buttons use the page's own primary gradient.
+// Real pages that use these components in their own layouts. Timesheet checks every button,
+// including its green gradient buttons.
 const PAGES = [
   { url: "/admin.html?tab=workOrders" }, { url: "/admin.html?tab=safetyRecords&records=reports" }, { url: "/admin.html?tab=noticePolicy" },
   { url: "/admin.html?tab=equipment" }, { url: "/work-orders.html" }, { url: "/schedule.html" }, { url: "/job-lists.html" },
   { url: "/field-calculator.html" }, { url: "/notification-settings.html" }, { url: "/accounting-admin.html" },
   { url: "/employee-writeups-admin.html" }, { url: "/home.html" },
-  { url: "/timesheet.html", selector: ".timesheet-calendar-header button" },
+  { url: "/timesheet.html", selector: ".timesheet-page button" },
   { url: "/index.html", selector: ".toggle-button", signedOut: true }
 ];
 
