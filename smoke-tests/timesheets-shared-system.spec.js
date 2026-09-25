@@ -172,17 +172,17 @@ test("Timesheets family has one token-only visual source", async () => {
   expect(employeeHead).not.toMatch(/<style\b/i);
   expect(employeeHead).not.toContain("styles.css");
   expect(employeeHead).toContain('jgc-design-system.css?v=9');
-  expect(employeeHead).toContain('timesheet-design-system.css?v=4');
+  expect(employeeHead).toContain('timesheet-design-system.css?v=5');
   expect(employee).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(employee.match(/<style\b/gi) || [], "Only the generated PDF template keeps its print style block").toHaveLength(1);
   expect(featureCss, "Timesheet-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
-  expect(admin).toContain('timesheet-design-system.css?v=4');
+  expect(admin).toContain('timesheet-design-system.css?v=5');
   expect(adminCss).not.toMatch(/admin-time-entry-card|timesheet-(?:edit|worker)/i);
   expect(adminJs.match(/\sstyle\s*=/gi) || [], "Only the generated Admin PDF night row keeps inline print styling").toHaveLength(1);
   const releaseMatch = serviceWorker.match(/const JGC_RELEASE_ID = "(\d+)"/);
   expect(releaseMatch, "The service worker must expose a numeric release id").not.toBeNull();
   expect(Number(releaseMatch[1])).toBeGreaterThanOrEqual(758);
-  expect(serviceWorker).toContain('timesheet-design-system.css?v=4');
+  expect(serviceWorker).toContain('timesheet-design-system.css?v=5');
 });
 
 for (const viewport of [
