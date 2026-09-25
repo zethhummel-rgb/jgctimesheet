@@ -83,6 +83,14 @@
     return addDays(PAY_DATE_ANCHOR, periods * 14);
   }
 
+  // Summary links open a specific past period with ?payDate=YYYY-MM-DD; anything else falls back to current.
+  function requestedPayDate() {
+    const value = new URLSearchParams(window.location.search).get("payDate") || "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || isoDate(utcDate(value).toISOString()) !== value) return "";
+    const offset = daysBetween(PAY_DATE_ANCHOR, value);
+    return offset % 14 === 0 && value <= currentPayDate() ? value : "";
+  }
+
   function periodDates(payDate) {
     return {
       payDate,
@@ -1048,7 +1056,7 @@
     captureElements();
     bindEvents();
     updateIcons();
-    state.payDate = currentPayDate();
+    state.payDate = requestedPayDate() || currentPayDate();
     state.periodDates = periodDates(state.payDate);
     state.client = createJgcSupabaseClient();
     if (!state.client) {

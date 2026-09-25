@@ -256,10 +256,41 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
  #summarySection [data-widget="calendar"] .admin-schedule-controls button { font-size:9px; padding:3px; }
  #summarySection [data-widget="calendar"] .admin-schedule-day { padding:1px; }
 }
-@container dashboard-calendar (height < 260px) {
- #summarySection [data-widget="calendar"] .admin-schedule-day { position:relative; }
- #summarySection [data-widget="calendar"] .admin-schedule-day:has(.admin-schedule-item)::after { content:""; position:absolute; right:3px; top:4px; width:4px; height:4px; border-radius:50%; background:var(--jgc-color-brand-500); pointer-events:none; }
+/* Each day shows two items; "+N" shares the date row and opens the rest, so rows never grow. */
+#summarySection [data-widget="calendar"] .admin-schedule-day { display:flex; flex-direction:column; }
+#summarySection [data-widget="calendar"] .admin-schedule-day-top { display:flex; align-items:center; justify-content:space-between; gap:2px; flex:none; min-width:0; }
+#summarySection [data-widget="calendar"] .admin-schedule-day-top .admin-schedule-day-number { margin:0; }
+#summarySection [data-widget="calendar"] .admin-schedule-more { flex:none; min-width:0; min-height:0; margin:0; padding:0 5px; border:1px solid var(--jgc-color-brand-700); border-radius:999px; background:var(--jgc-color-brand-500); color:var(--jgc-color-text-dark); font-size:10px; font-weight:800; line-height:14px; cursor:pointer; }
+#summarySection [data-widget="calendar"] .admin-schedule-more:focus-visible { outline:2px solid var(--jgc-color-text); outline-offset:1px; }
+#summarySection [data-widget="calendar"] .admin-schedule-day-list { display:grid; grid-template-rows:repeat(2,auto); gap:1px; min-height:0; overflow:hidden; }
+#summarySection [data-widget="calendar"] #adminScheduleCalendar .admin-schedule-item { display:block; -webkit-line-clamp:unset; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; margin:0; }
+@media(min-width:651px) {
+ #summarySection [data-widget="calendar"] .admin-schedule-day:not(.muted) { container-type:size; }
+ #summarySection [data-widget="calendar"] #adminScheduleCalendar .admin-schedule-item { font-size:clamp(7px, calc((100cqh - 18px) / 2.9), 11px); line-height:1.25; padding:1px 3px; }
 }
+@container dashboard-calendar (height < 260px) {
+ #summarySection [data-widget="calendar"] .admin-schedule-more { font-size:8px; line-height:11px; padding:0 3px; }
+}
+
+/* Overflow list opened from "+N"; attached to <body> so the card never clips it. */
+.admin-schedule-overflow { position:fixed; z-index:1200; max-height:min(60vh,360px); overflow:auto; padding:10px; border:1px solid var(--jgc-color-border); border-radius:10px; background:var(--jgc-color-surface-raised); color:var(--jgc-color-text); box-shadow:0 12px 32px rgba(0,0,0,.28); }
+.admin-schedule-overflow-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; font-size:13px; }
+.admin-schedule-overflow-close { min-width:32px; min-height:32px; border:0; border-radius:6px; background:transparent; color:inherit; font-size:20px; line-height:1; cursor:pointer; }
+.admin-schedule-overflow-list { display:grid; gap:4px; }
+.admin-schedule-overflow .admin-schedule-item { display:flex; align-items:center; gap:5px; width:100%; margin:0; padding:6px 8px; border:0; border-radius:6px; font-size:12px; line-height:1.3; text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.admin-schedule-overflow .admin-schedule-event-button { cursor:pointer; }
+.admin-schedule-overflow .admin-job-milestone { color:var(--jgc-color-text); background:var(--jgc-color-table-row-alt); border-left:4px solid var(--jgc-color-info); }
+.admin-schedule-overflow .admin-job-milestone-kind { font-weight:800; }
+.admin-schedule-overflow .schedule-sync-dot { display:inline-block; flex:none; width:7px; height:7px; border-radius:50%; background:var(--jgc-color-danger); }
+.admin-schedule-overflow .schedule-sync-dot.synced { background:var(--jgc-color-success); }
+.admin-schedule-overflow .schedule-event-time { font-weight:700; white-space:nowrap; }
+.admin-schedule-overflow-open { width:100%; min-height:36px; margin-top:8px; border:1px solid var(--jgc-color-border); border-radius:7px; background:var(--jgc-color-surface); color:var(--jgc-color-text); font-weight:700; cursor:pointer; }
+
+/* New counters: the number itself opens the related area; a red note flags overdue items. */
+#summarySection a.dashboard-metric { text-decoration:none; }
+#summarySection a.dashboard-metric:hover strong, #summarySection a.dashboard-metric:focus-visible strong { text-decoration:underline; }
+#summarySection .dashboard-metric-alert { font-size:.72rem; font-weight:700; color:var(--jgc-color-danger); white-space:nowrap; }
+#summarySection .dashboard-widget[data-compact="true"] .dashboard-metric .dashboard-metric-alert { display:inline; }
 /* Compact totals show the number only; empty-list copy belongs in expanded cards. */
 #summarySection .dashboard-widget[data-compact="true"] .dashboard-widget-body:has(.dashboard-metric)>p { display:none; }
 #summarySection .dashboard-widget[data-slim="true"] .dashboard-widget-body:has(.dashboard-metric) { display:flex; align-items:center; align-self:center; flex-shrink:0; }
