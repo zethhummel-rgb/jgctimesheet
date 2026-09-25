@@ -91,6 +91,12 @@
     box-shadow: none;
 }
 
+/* admin.css still carries the old dark-panel text colours; use theme tokens so the entry panel reads in both themes. */
+#equipmentSection .admin-collapsible-panel.jgc-card > summary { color: var(--jgc-color-text); }
+#equipmentSection .admin-collapsible-panel.jgc-card > summary::after { color: var(--jgc-color-text-muted); }
+#equipmentSection .admin-collapsible-panel.jgc-card label { color: var(--jgc-color-text); }
+#equipmentSection .admin-collapsible-panel.jgc-card .small { color: var(--jgc-color-text-muted); }
+
 #equipmentSection details.sub-card.jgc-card:not(.admin-collapsible-panel) {
     padding: 14px;
     color: var(--jgc-color-text);
