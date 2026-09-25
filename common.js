@@ -4093,6 +4093,276 @@ async function toggleJgcPushNotifications() {
   await subscribeJgcPushNotifications();
 }
 
+// One-time push onboarding. Push is enabled per device, so the prompt is remembered per device and account.
+const JGC_PUSH_ONBOARDING_KEY_PREFIX = "jgcPushOnboarding:v1:";
+
+function getJgcPushOnboardingKey() {
+  const worker = getCurrentWorkerRecord();
+  return worker && worker.key ? JGC_PUSH_ONBOARDING_KEY_PREFIX + worker.key : "";
+}
+
+function readJgcPushOnboardingChoice() {
+  const key = getJgcPushOnboardingKey();
+  if (!key) return "unavailable";
+  try {
+    return localStorage.getItem(key) || "";
+  } catch (error) {
+    return "unavailable";
+  }
+}
+
+function rememberJgcPushOnboardingChoice(choice) {
+  const key = getJgcPushOnboardingKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({ choice, at: new Date().toISOString() }));
+  } catch (error) {
+    console.warn("Push onboarding choice could not be saved.", error);
+  }
+}
+
+async function shouldShowJgcPushOnboarding() {
+  if (window.top !== window || new URLSearchParams(window.location.search).get("embedded") === "1") return false;
+  if (!document.getElementById("jgcNotificationBell") || document.getElementById("jgcPushOnboarding")) return false;
+  // Storage that cannot remember the choice would nag on every page, so skip rather than repeat.
+  if (readJgcPushOnboardingChoice() !== "") return false;
+  if (!isJgcPushSupported() || Notification.permission !== "default") return false;
+  // A service worker that is slow to start should not hold the prompt back indefinitely.
+  const subscription = await Promise.race([
+    getJgcCurrentPushSubscription().catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+  ]);
+  return !subscription;
+}
+
+function injectJgcPushOnboardingStyles() {
+  if (document.getElementById("jgcPushOnboardingStyles")) return;
+  const style = document.createElement("style");
+  style.id = "jgcPushOnboardingStyles";
+  style.textContent = `
+    .jgc-push-onboarding {
+      position: fixed;
+      inset: 0;
+      z-index: 10100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.55);
+      font-family: var(--jgc-font-family, Arial, sans-serif);
+    }
+
+    .jgc-push-onboarding__card {
+      width: min(440px, 100%);
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 22px;
+      border: 1px solid var(--jgc-color-border, rgba(255, 255, 255, 0.16));
+      border-top: 4px solid var(--jgc-color-brand-500, #39c848);
+      border-radius: 12px;
+      background: var(--jgc-color-surface-raised, #10231a);
+      color: var(--jgc-color-text, #f4f8f4);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+    }
+
+    .jgc-push-onboarding__card h2 {
+      margin: 0 0 8px;
+      font-size: 1.25rem;
+      line-height: 1.25;
+      color: var(--jgc-color-text, #f4f8f4);
+    }
+
+    .jgc-push-onboarding__card p {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--jgc-color-text, #f4f8f4);
+    }
+
+    .jgc-push-onboarding__bell {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 14px 0;
+      padding: 12px;
+      border-radius: 10px;
+      background: var(--jgc-color-surface, rgba(255, 255, 255, 0.06));
+    }
+
+    .jgc-push-onboarding__bell svg {
+      flex: none;
+      width: 30px;
+      height: 30px;
+      padding: 6px;
+      border-radius: 50%;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      color: var(--jgc-color-on-brand, #ffffff);
+      background: var(--jgc-color-brand-700, #0b5e3b);
+    }
+
+    .jgc-push-onboarding__bell p {
+      margin: 0;
+    }
+
+    .jgc-push-onboarding__note,
+    .jgc-push-onboarding__status {
+      font-size: 0.85rem !important;
+      color: var(--jgc-color-text-muted, #c7d6cc) !important;
+    }
+
+    .jgc-push-onboarding__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .jgc-push-onboarding__actions button {
+      flex: 1 1 160px;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .jgc-push-onboarding__enable {
+      border: 0;
+      background: var(--jgc-color-brand-700, #0b5e3b);
+      color: var(--jgc-color-on-brand, #ffffff);
+    }
+
+    .jgc-push-onboarding .jgc-push-onboarding__later {
+      border: 1px solid var(--jgc-color-border, rgba(255, 255, 255, 0.24));
+      background: var(--jgc-color-surface, #0c1a13) !important;
+      color: var(--jgc-color-text, #f4f8f4) !important;
+    }
+
+    .jgc-push-onboarding .jgc-push-onboarding__enable {
+      background: var(--jgc-color-brand-700, #0b5e3b) !important;
+      color: var(--jgc-color-on-brand, #ffffff) !important;
+    }
+
+    .jgc-push-onboarding__actions button:focus-visible {
+      outline: 3px solid var(--jgc-color-brand-500, #39c848);
+      outline-offset: 2px;
+    }
+
+    .jgc-push-onboarding__actions button:disabled {
+      opacity: 0.65;
+      cursor: progress;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function closeJgcPushOnboarding() {
+  const overlay = document.getElementById("jgcPushOnboarding");
+  if (!overlay) return;
+  const returnFocus = overlay._returnFocus;
+  overlay.remove();
+  if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === "function") returnFocus.focus();
+}
+
+function openJgcPushOnboarding() {
+  injectJgcPushOnboardingStyles();
+  const overlay = document.createElement("div");
+  overlay.id = "jgcPushOnboarding";
+  overlay.className = "jgc-push-onboarding";
+  overlay.innerHTML = `
+    <section class="jgc-push-onboarding__card" role="dialog" aria-modal="true" aria-labelledby="jgcPushOnboardingTitle" aria-describedby="jgcPushOnboardingIntro">
+      <h2 id="jgcPushOnboardingTitle">Get JGC alerts on this device</h2>
+      <p id="jgcPushOnboardingIntro">Push notifications let the Portal alert you about things that need you, such as new tasks, approvals, schedule changes and submissions, even when the Portal is closed.</p>
+      <div class="jgc-push-onboarding__bell">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
+        <p>Every alert also lands in the <strong>Notification Centre</strong>. Tap the <strong>bell</strong> at the top of the page to see and clear them.</p>
+      </div>
+      <p class="jgc-push-onboarding__note">Your browser will ask for permission after you choose Enable. You can turn push on or off later from the bell with <strong>Enable Push</strong> / <strong>Disable Push</strong>.</p>
+      <p class="jgc-push-onboarding__status" role="status" aria-live="polite" hidden></p>
+      <div class="jgc-push-onboarding__actions">
+        <button type="button" class="jgc-push-onboarding__later">Not now</button>
+        <button type="button" class="jgc-push-onboarding__enable">Enable Push Notifications</button>
+      </div>
+    </section>
+  `;
+  overlay._returnFocus = document.activeElement;
+  document.body.appendChild(overlay);
+
+  const card = overlay.querySelector(".jgc-push-onboarding__card");
+  const enable = overlay.querySelector(".jgc-push-onboarding__enable");
+  const later = overlay.querySelector(".jgc-push-onboarding__later");
+  const status = overlay.querySelector(".jgc-push-onboarding__status");
+
+  const dismiss = function() {
+    rememberJgcPushOnboardingChoice("dismissed");
+    closeJgcPushOnboarding();
+  };
+
+  later.addEventListener("click", dismiss);
+  overlay.addEventListener("keydown", function(event) {
+    if (event.key === "Escape" && !enable.disabled) {
+      event.preventDefault();
+      if (enable.dataset.done === "true") closeJgcPushOnboarding(); else dismiss();
+      return;
+    }
+    if (event.key === "Tab") {
+      const focusable = Array.from(card.querySelectorAll("button:not(:disabled)"));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  });
+
+  enable.addEventListener("click", async function() {
+    if (enable.dataset.done === "true") {
+      closeJgcPushOnboarding();
+      return;
+    }
+    // Remember first so a closed tab or blocked prompt never re-asks.
+    rememberJgcPushOnboardingChoice("enable");
+    enable.disabled = true;
+    later.disabled = true;
+    enable.textContent = "Waiting for your browser...";
+    const withinSeconds = (promise, seconds) => Promise.race([
+      Promise.resolve(promise).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), seconds * 1000))
+    ]);
+    // The native prompt waits on the person, so it has no time limit; the setup after it does.
+    const permission = await Notification.requestPermission().catch(() => Notification.permission);
+    let subscription = null;
+    if (permission === "granted") {
+      await withinSeconds(subscribeJgcPushNotifications(), 20);
+      subscription = await withinSeconds(getJgcCurrentPushSubscription(), 5);
+    }
+    status.hidden = false;
+    status.textContent = subscription
+      ? "Push notifications are on for this device."
+      : Notification.permission === "denied"
+        ? "Notifications are blocked in this browser. To allow them later, change the site's notification setting in your browser, then use Enable Push in the bell."
+        : "Push was not turned on. You can try again any time with Enable Push in the bell.";
+    later.hidden = true;
+    enable.disabled = false;
+    enable.dataset.done = "true";
+    enable.textContent = "Done";
+    enable.focus();
+  });
+
+  enable.focus();
+}
+
+function activateJgcPushOnboarding() {
+  runJgcBackgroundTask(async function() {
+    if (await shouldShowJgcPushOnboarding()) openJgcPushOnboarding();
+  }, 2500);
+}
+
 async function sendJgcPushForNotifications(client, notificationIds, lookup) {
   const pushClient = client || createJgcSupabaseClient();
   const ids = Array.from(new Set((notificationIds || []).filter(Boolean)))
@@ -5855,6 +6125,7 @@ function activateJgcEnhancements() {
   activateJgcPwaRefresh();
   activateJgcAppearanceSettings();
   activateJgcNotificationBell();
+  activateJgcPushOnboarding();
   activateJgcAdminGlobalSearch();
   activateJgcContactsFeature();
   activateJgcPoliciesFeature();

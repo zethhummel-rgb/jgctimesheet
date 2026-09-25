@@ -650,6 +650,91 @@ for (const width of [1440, 1024, 390, 360]) {
   });
 }
 
+// Headless Chromium reports "denied"; these tests simulate a device that has not decided yet.
+async function stubUndecidedPushPermission(page, answer = "denied", initial = "default") {
+  await page.addInitScript(({ answer, initial }) => {
+    let permission = initial;
+    window.__jgcPushPermissionRequests = 0;
+    Object.defineProperty(Notification, "permission", { configurable: true, get: () => permission });
+    Notification.requestPermission = async () => { window.__jgcPushPermissionRequests += 1; permission = answer; return permission; };
+  }, { answer, initial });
+}
+
+const pushPrompt = (page) => page.getByRole("dialog", { name: "Get JGC alerts on this device" });
+
+for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
+  test(`push onboarding explains the bell and asks permission only after Enable ${theme} ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await stubUndecidedPushPermission(page);
+    await mockPortalServices(page, fakeProfile, { themePreferenceState: { theme } });
+    await installAuthenticatedPortalState(page);
+    await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+    const prompt = pushPrompt(page);
+    await expect(prompt).toBeVisible({ timeout: 10000 });
+    await expect(prompt).toContainText("Notification Centre");
+    await expect(prompt).toContainText("bell");
+    await expect(prompt.getByRole("button", { name: "Enable Push Notifications", exact: true })).toBeFocused();
+    expect(await page.evaluate(() => window.__jgcPushPermissionRequests)).toBe(0);
+    await expectReadableText(prompt.locator("h2, p, button"), "Push onboarding " + theme);
+    const box = await prompt.boundingBox();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({ path: testInfo.outputPath("push-onboarding.png") });
+
+    await prompt.getByRole("button", { name: "Enable Push Notifications", exact: true }).click();
+    await expect(prompt.getByRole("status")).toContainText("blocked in this browser");
+    expect(await page.evaluate(() => window.__jgcPushPermissionRequests)).toBe(1);
+    await prompt.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(prompt).toBeHidden();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(5000);
+    await expect(prompt).toHaveCount(0);
+    expect(await page.evaluate(() => window.__jgcPushPermissionRequests)).toBe(0);
+  });
+}
+
+test("push onboarding Not now and Escape are remembered, and the bell keeps Enable Push", async ({ page }) => {
+  await stubUndecidedPushPermission(page);
+  await mockPortalServices(page);
+  await installAuthenticatedPortalState(page);
+  await page.goto("/inspections.html", { waitUntil: "domcontentloaded" });
+  const prompt = pushPrompt(page);
+  await expect(prompt).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(prompt.locator("button:focus")).toHaveCount(1);
+  await prompt.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect(prompt).toBeHidden();
+  expect(await page.evaluate(() => window.__jgcPushPermissionRequests)).toBe(0);
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).choice, "jgcPushOnboarding:v1:" + fakeProfile.worker_key)).toBe("dismissed");
+
+  await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(5000);
+  await expect(prompt).toHaveCount(0);
+  await page.locator("#jgcNotificationButton").click();
+  await expect(page.locator("#jgcPushToggleButton")).toBeVisible();
+
+  await page.evaluate((key) => localStorage.removeItem(key), "jgcPushOnboarding:v1:" + fakeProfile.worker_key);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(prompt).toBeVisible({ timeout: 10000 });
+  await page.keyboard.press("Escape");
+  await expect(prompt).toBeHidden();
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).choice, "jgcPushOnboarding:v1:" + fakeProfile.worker_key)).toBe("dismissed");
+});
+
+for (const decided of ["granted", "denied"]) {
+  test(`push onboarding stays hidden when this device already chose ${decided}`, async ({ page }) => {
+    await stubUndecidedPushPermission(page, decided, decided);
+    await mockPortalServices(page);
+    await installAuthenticatedPortalState(page);
+    await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(5000);
+    await expect(pushPrompt(page)).toHaveCount(0);
+    expect(await page.evaluate(() => window.__jgcPushPermissionRequests)).toBe(0);
+  });
+}
+
 test("service worker installs and controls the portal", async ({ browser }) => {
   const context = await browser.newContext({ serviceWorkers: "allow" });
   try {
