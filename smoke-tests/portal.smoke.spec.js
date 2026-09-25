@@ -5450,6 +5450,15 @@ test('Accounting opens the pay period requested by the Summary link and ignores 
  await page.goto('/accounting-admin.html?payDate=2026-09-04',{waitUntil:'domcontentloaded'});await expect(page.locator('#accountingPayDate')).not.toHaveValue('2026-09-04');
 });
 
+for(const theme of ['light','dark'])test(`Equipment entry panel heading and labels are readable ${theme}`,async({page})=>{
+ await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/admin.html?tab=equipment');
+ const panel=page.locator('#equipmentEntryPanel');await expect(panel).toBeVisible({timeout:10000});
+ await expectReadableText(panel.locator(':scope > summary'),'Equipment entry heading '+theme);
+ await panel.locator(':scope > summary').click();await expect(panel).toHaveAttribute('open','');
+ await expectReadableText(panel.locator('label:visible'),'Equipment entry labels '+theme);
+});
+
 test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await toggleDashboardEditing(page);
  const card=page.locator('[data-widget="recent"]');await card.scrollIntoViewIfNeeded();

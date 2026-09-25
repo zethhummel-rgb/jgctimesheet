@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "915";
+const JGC_RELEASE_ID = "916";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -307,7 +307,7 @@ const JGC_APP_SHELL = [
   "./estimator-theme.css?v=1",
   "./certificates-admin.css?v=1",
   "./certificates-embedded.css?v=1",
-  "./equipment-admin.css?v=1",
+  "./equipment-admin.css?v=2",
   "./employee-access-admin.css?v=3",
   "./job-lists.css?v=11",
   "./permit-design-system.css?v=2",
