@@ -10,10 +10,10 @@
   function renderList() {
     $("myWriteupsList").hidden = false;
     $("myWriteupDetail").hidden = true;
-    $("myWriteupsList").innerHTML = rows.map(row => `<article class="writeup-card">
-      <div><h2>${W.escape((row.categories || []).map(W.label).join(", "))}</h2><small>Incident ${W.escape(W.formatDate(row.incident_date))}</small></div>
-      <span class="writeup-status" data-status="${W.escape(row.status)}">${W.escape(row.status === "sent" ? "Needs your acknowledgment" : W.STATUS[row.status] || row.status)}</span>
-      <button type="button" class="writeup-btn writeup-btn--secondary" data-open="${W.escape(row.id)}">Open</button></article>`).join("");
+    $("myWriteupsList").innerHTML = rows.length ? rows.map(row => `<article class="jgc-record-row writeup-record">
+      <div class="writeup-record-date"><strong>${W.escape(W.formatDate(row.incident_date))}</strong><small>Incident date</small></div>
+      <div class="writeup-record-main"><h3>${W.escape((row.categories || []).map(W.label).join(", "))}</h3></div>
+      <div class="jgc-table-actions">${W.badge(row.status, row.status === "sent" ? "Needs your acknowledgment" : "")}<button type="button" class="jgc-button ${row.status === "sent" ? "" : "jgc-button--secondary"}" data-open="${W.escape(row.id)}">${row.status === "sent" ? "Review & acknowledge" : "Open"}</button></div></article>`).join("") : '<p class="jgc-empty-state">You have no write-ups.</p>';
     const waiting = rows.filter(r => r.status === "sent").length;
     status(rows.length ? `${rows.length} write-up${rows.length === 1 ? "" : "s"}${waiting ? ` · ${waiting} waiting for your acknowledgment` : ""}.` : "You have no write-ups.");
   }

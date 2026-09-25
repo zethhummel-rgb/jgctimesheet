@@ -9,6 +9,7 @@
   const jobLabel = job => [job.job_number, job.customer, job.job_name, job.job_type].filter(Boolean).join(" — ");
   const status = text => { $("writeupsStatus").textContent = text; };
   const show = view => {
+    $("writeupsStatus").hidden = view !== "list";
     $("writeupsControls").hidden = view !== "list";
     $("writeupForm").hidden = view !== "form";
     $("writeupDetail").hidden = view !== "detail";
@@ -29,10 +30,10 @@
     const filter = $("writeupsFilter").value;
     const rows = state.rows.filter(row => (filter === "all" || (filter === "open" ? row.status === "draft" || row.status === "sent" : row.status === filter))
       && [row.employee_name, (row.categories || []).map(W.label).join(" ")].join(" ").toLowerCase().includes(term));
-    $("writeupsList").innerHTML = rows.length ? rows.map(row => `<article class="writeup-card">
-      <div><h2>${W.escape(row.employee_name)}</h2><p>${W.escape((row.categories || []).map(W.label).join(", "))}</p><small>Incident ${W.escape(W.formatDate(row.incident_date))} · Version ${row.current_version}</small></div>
-      <span class="writeup-status" data-status="${W.escape(row.status)}">${W.escape(W.STATUS[row.status] || row.status)}</span>
-      <button type="button" class="writeup-btn writeup-btn--secondary" data-open="${W.escape(row.id)}">Open</button></article>`).join("") : '<p class="writeup-empty">No write-ups match this view.</p>';
+    $("writeupsList").innerHTML = rows.length ? rows.map(row => `<article class="jgc-record-row writeup-record">
+      <div class="writeup-record-date"><strong>${W.escape(W.formatDate(row.incident_date))}</strong><small>Version ${row.current_version}</small></div>
+      <div class="writeup-record-main"><h3>${W.escape(row.employee_name)}</h3><p>${W.escape((row.categories || []).map(W.label).join(", "))}</p></div>
+      <div class="jgc-table-actions">${W.badge(row.status)}<button type="button" class="jgc-button jgc-button--secondary" data-open="${W.escape(row.id)}">Open</button></div></article>`).join("") : '<p class="jgc-empty-state">No write-ups match this view.</p>';
     status(`${rows.length} write-up${rows.length === 1 ? "" : "s"} shown.`);
   }
 
@@ -59,7 +60,8 @@
   function setLocationMode(mode) {
     document.querySelectorAll('[name="writeupLocationMode"]').forEach(input => { input.checked = input.value === mode; });
     $("writeupJobField").hidden = mode !== "job";
-    $("writeupLocationLabel").innerHTML = mode === "job" ? "Area on site (optional)" : 'Location <span aria-hidden="true">*</span>';
+    $("writeupLocationLabel").innerHTML = mode === "job" ? 'Area on site <span class="writeups-optional">optional</span>' : "Location *";
+    $("writeupLocation").placeholder = mode === "job" ? "For example: mezzanine, east stairwell" : "Address, site or building";
   }
 
   function openForm(record) {
@@ -68,10 +70,10 @@
     const sent = record && record.writeup.status !== "draft";
     const employees = state.employees.slice();
     if (record && !employees.some(e => e.id === record.writeup.employee_profile_id)) employees.unshift({ id: record.writeup.employee_profile_id, display_name: record.writeup.employee_name });
-    $("writeupEmployee").innerHTML = '<option value="">Select employee</option>' + employees.map(e => `<option value="${W.escape(e.id)}">${W.escape(e.display_name || e.email)}</option>`).join("");
+    $("writeupEmployee").innerHTML = '<option value="">Choose an employee</option>' + employees.map(e => `<option value="${W.escape(e.id)}">${W.escape(e.display_name || e.email)}</option>`).join("");
     $("writeupEmployee").value = record?.writeup.employee_profile_id || "";
     $("writeupEmployee").disabled = Boolean(sent);
-    $("writeupCategories").innerHTML = W.CATEGORIES.map(([key, text]) => `<label class="checkbox-label"><input type="checkbox" value="${key}" ${(payload.categories || []).includes(key) ? "checked" : ""}> ${W.escape(text)}</label>`).join("");
+    $("writeupCategories").innerHTML = W.CATEGORIES.map(([key, text]) => `<label class="writeup-chip"><input type="checkbox" value="${key}" ${(payload.categories || []).includes(key) ? "checked" : ""}><span>${W.escape(text)}</span></label>`).join("");
     $("writeupCustom").value = payload.custom_issue || "";
     $("writeupCustomField").hidden = !(payload.categories || []).includes("other");
     $("writeupDate").value = payload.incident_date || torontoToday();
@@ -186,11 +188,11 @@
       $("writeupDetailTitle").textContent = "Write-up — " + record.writeup.employee_name;
       $("writeupDetailBody").innerHTML = W.reportHtml(record);
       const s = record.writeup.status;
-      const actions = [['download', "Download PDF", "writeup-btn"]];
-      if (s === "draft") actions.push(["edit", "Edit draft", "writeup-btn writeup-btn--secondary"]);
-      if (s === "sent" || s === "acknowledged") actions.push(["edit", "Correct & resend", "writeup-btn writeup-btn--secondary"]);
-      if (s === "sent") actions.push(["notify", "Notify employee again", "writeup-btn writeup-btn--secondary"]);
-      if (s !== "voided") actions.push(["void", "Void", "writeup-btn writeup-btn--danger"]);
+      const actions = [['download', "Download PDF", "jgc-button"]];
+      if (s === "draft") actions.push(["edit", "Edit draft", "jgc-button jgc-button--secondary"]);
+      if (s === "sent" || s === "acknowledged") actions.push(["edit", "Correct & resend", "jgc-button jgc-button--secondary"]);
+      if (s === "sent") actions.push(["notify", "Notify employee again", "jgc-button jgc-button--secondary"]);
+      if (s !== "voided") actions.push(["void", "Void", "jgc-button jgc-button--danger"]);
       $("writeupDetailActions").innerHTML = actions.map(([key, text, cls]) => `<button type="button" data-action="${key}" class="${cls}">${text}</button>`).join("");
       $("writeupDetailTitle").focus?.();
     } catch (error) { $("writeupDetailBody").innerHTML = `<p>Could not load this write-up. ${W.escape(error.message || "")}</p>`; }

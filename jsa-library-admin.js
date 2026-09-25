@@ -36,13 +36,16 @@
     if (!exact && !similar.length) box.innerHTML = "";
     box.hidden = !exact && !similar.length;
     box.dataset.kind = exact ? "exact" : similar.length ? "similar" : "";
+    box.classList.toggle("jgc-notice--danger", Boolean(exact));
+    box.classList.toggle("jgc-notice--warning", !exact);
     $("libraryConfirmField").hidden = !similar.length;
     if (!similar.length) $("libraryConfirm").checked = false;
     return { exact, similar };
   }
 
   const status = text => { $("libraryStatus").textContent = text; };
-  const show = view => { $("libraryControls").hidden = view !== "list"; $("libraryForm").hidden = view !== "form"; };
+  const show = view => { $("libraryStatus").hidden = view !== "list"; $("libraryControls").hidden = view !== "list"; $("libraryForm").hidden = view !== "form"; };
+  const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const lines = value => value.split(/\r?\n/).map(s => s.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
 
   function renderList() {
@@ -52,16 +55,16 @@
     if (view === "system") {
       const rows = JgcJsaPresets.filter(matches);
       const groups = [...new Set(rows.map(p => p.category))];
-      $("libraryList").innerHTML = groups.map(g => `<section class="library-group"><h2>${escape(g)}</h2><ul>${rows.filter(p => p.category === g).map(p => `<li><strong>${escape(p.task)}</strong><small>${p.hazards.length} hazards · ${p.controls.length} controls</small></li>`).join("")}</ul></section>`).join("") || '<p class="library-empty">No built-in presets match.</p>';
+      $("libraryList").innerHTML = groups.map(g => `<section class="jgc-list-card library-group"><h3>${escape(g)}</h3><ul>${rows.filter(p => p.category === g).map(p => `<li><strong>${escape(p.task)}</strong><small>${count(p.hazards.length, "hazard")} · ${count(p.controls.length, "control")}</small></li>`).join("")}</ul></section>`).join("") || '<p class="jgc-empty-state">No built-in presets match.</p>';
       status(`${rows.length} built-in preset${rows.length === 1 ? "" : "s"} shown. Built-in presets are maintained with the Portal and cannot be edited here.`);
       return;
     }
     const rows = items.filter(i => (view === "archived") === Boolean(i.archived_at)).filter(matches);
-    $("libraryList").innerHTML = rows.map(item => `<article class="library-card">
-      <div><h2>${escape(item.task)}</h2><p>${escape(item.category)}</p><small>${item.hazards.length} hazards · ${item.controls.length} controls · updated ${escape(new Date(item.updated_at).toLocaleDateString("en-CA"))}</small></div>
-      <div class="actions">${item.archived_at
-        ? `<button type="button" class="library-btn library-btn--secondary" data-restore="${escape(item.id)}">Restore</button>`
-        : `<button type="button" class="library-btn library-btn--secondary" data-edit="${escape(item.id)}">Edit</button><button type="button" class="library-btn library-btn--danger" data-archive="${escape(item.id)}">Archive</button>`}</div></article>`).join("") || `<p class="library-empty">${view === "archived" ? "No archived custom tasks." : "No custom tasks yet. Use New custom task to add one."}</p>`;
+    $("libraryList").innerHTML = rows.map(item => `<article class="jgc-record-row library-card">
+      <div><h3>${escape(item.task)}</h3><p>${escape(item.category)}</p><small>${count(item.hazards.length, "hazard")} · ${count(item.controls.length, "control")} · updated ${escape(new Date(item.updated_at).toLocaleDateString("en-CA"))}</small></div>
+      <div class="jgc-table-actions">${item.archived_at
+        ? `<button type="button" class="jgc-button jgc-button--secondary" data-restore="${escape(item.id)}">Restore</button>`
+        : `<button type="button" class="jgc-button jgc-button--secondary" data-edit="${escape(item.id)}">Edit</button><button type="button" class="jgc-button jgc-button--danger" data-archive="${escape(item.id)}">Archive</button>`}</div></article>`).join("") || `<p class="jgc-empty-state">${view === "archived" ? "No archived custom tasks." : "No custom tasks yet. Use New custom task to add one."}</p>`;
     status(`${rows.length} custom task${rows.length === 1 ? "" : "s"} shown.`);
   }
 

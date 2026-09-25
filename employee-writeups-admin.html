@@ -1,73 +1,116 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow,noarchive"><title>Employee Write-Ups — JGC</title>
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="theme-color" content="#0b5e3b">
+<title>JGC Portal - Employee Write-Ups</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
-<link rel="stylesheet" href="report-design-system.css?v=2">
-<link rel="stylesheet" href="employee-writeups.css?v=2">
-</head><body class="report-family-page report-form-page jgc-page jgc-system-page writeups-page">
-<main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
-<div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
-<section class="container jgc-panel">
-<div class="writeups-heading"><div><p class="eyebrow">CONFIDENTIAL · ADMIN AND AFFECTED EMPLOYEE ONLY</p><h1>Employee Write-Ups</h1></div><a class="writeup-btn writeup-btn--secondary" href="admin.html?tab=adminTools">Admin Tools</a></div>
-<p>Record lateness and attendance, being sent home, behaviour, PPE / harness and safety violations, failure to follow direction, or a custom issue. The employee is notified to review and acknowledge it.</p>
-<p id="writeupsStatus" role="status" aria-live="polite">Checking admin access…</p>
+<link rel="stylesheet" href="employee-writeups.css?v=3">
+</head><body class="jgc-page jgc-system-page writeups-page">
+<main class="jgc-page-shell jgc-page-shell--wide writeups-shell">
+  <header class="jgc-page-header">
+    <div class="jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+    <h1 class="jgc-page-title">Employee Write-Ups</h1>
+    <p class="jgc-page-user">Confidential · visible only to administrators and the employee involved</p>
+  </header>
+  <p id="writeupsStatus" class="writeups-status" role="status" aria-live="polite">Checking admin access…</p>
 
-<div id="writeupsControls" hidden>
-  <div class="actions jgc-actions"><button id="writeupNew" type="button" class="writeup-btn">New write-up</button><button id="writeupsRefresh" type="button" class="writeup-btn writeup-btn--secondary">Refresh</button></div>
-  <div class="grid jgc-form-grid writeups-filters">
-    <div class="field"><label for="writeupsSearch">Search employee, issue or location</label><input id="writeupsSearch" type="search" autocomplete="off"></div>
-    <div class="field"><label for="writeupsFilter">Status</label><select id="writeupsFilter"><option value="open">Drafts and awaiting acknowledgment</option><option value="all">All</option><option value="draft">Draft</option><option value="sent">Awaiting acknowledgment</option><option value="acknowledged">Acknowledged</option><option value="voided">Voided</option></select></div>
-  </div>
-  <div id="writeupsList" class="writeups-list"></div>
-</div>
-
-<form id="writeupForm" class="writeup-form" novalidate hidden>
-  <h2 id="writeupFormTitle">New write-up</h2>
-  <fieldset><legend>Employee &amp; issue</legend><div class="grid">
-    <div class="field full"><label for="writeupEmployee">Employee <span aria-hidden="true">*</span></label><select id="writeupEmployee" required></select></div>
-    <div class="full"><p id="writeupCategoriesLabel" class="writeup-label">Issue type <span aria-hidden="true">*</span> <small>Select all that apply.</small></p><div id="writeupCategories" class="checks" role="group" aria-labelledby="writeupCategoriesLabel"></div></div>
-    <div class="field full" id="writeupCustomField" hidden><label for="writeupCustom">Describe the custom issue <span aria-hidden="true">*</span></label><input id="writeupCustom" type="text" maxlength="200"></div>
-    <div class="field"><label for="writeupDate">Incident date <span aria-hidden="true">*</span></label><input id="writeupDate" type="date" required></div>
-    <div class="field"><label for="writeupTime">Time (optional)</label><input id="writeupTime" type="time"></div>
-  </div></fieldset>
-  <fieldset><legend>Job or location</legend><div class="grid">
-    <div class="full writeup-choice" role="radiogroup" aria-label="Job or location">
-      <label><input type="radio" name="writeupLocationMode" value="job" checked> Existing job / project</label>
-      <label><input type="radio" name="writeupLocationMode" value="manual"> Enter a location</label>
+  <section id="writeupsControls" class="jgc-panel writeups-panel" aria-labelledby="writeupsListTitle" hidden>
+    <div class="writeups-section-heading">
+      <div><h2 id="writeupsListTitle" class="jgc-section-title">Write-ups</h2><p>Attendance, behaviour and safety write-ups. The employee is notified to review and acknowledge each one.</p></div>
+      <div class="jgc-actions"><button id="writeupsRefresh" type="button" class="jgc-button jgc-button--secondary">Refresh</button><button id="writeupNew" type="button" class="jgc-button">New write-up</button></div>
     </div>
-    <div class="field full" id="writeupJobField"><label for="writeupJob">Job <span aria-hidden="true">*</span> <small>Number — client — job name — type</small></label><input id="writeupJob" type="text" list="writeupJobList" autocomplete="off" placeholder="Search job number, client or job name"><datalist id="writeupJobList"></datalist></div>
-    <div class="field full"><label for="writeupLocation" id="writeupLocationLabel">Area on site (optional)</label><input id="writeupLocation" type="text" maxlength="300"></div>
-  </div></fieldset>
-  <fieldset><legend>Details</legend><div class="grid">
-    <div class="field full"><label for="writeupDescription">Factual description <span aria-hidden="true">*</span> <small>What happened, stated as facts.</small></label><textarea id="writeupDescription" rows="5" maxlength="10000" required></textarea></div>
-    <div class="field full"><label for="writeupAction">Action taken <span aria-hidden="true">*</span></label><textarea id="writeupAction" rows="3" maxlength="10000" required></textarea></div>
-    <div class="field full"><label for="writeupExpectations">Corrective expectations <span aria-hidden="true">*</span></label><textarea id="writeupExpectations" rows="3" maxlength="10000" required></textarea></div>
-    <div class="field"><label for="writeupFollowDate">Follow-up date</label><input id="writeupFollowDate" type="date"></div>
-    <div class="field full"><label for="writeupFollowNotes">Follow-up notes</label><textarea id="writeupFollowNotes" rows="2" maxlength="4000"></textarea></div>
-    <div class="field full" id="writeupChangeField" hidden><label for="writeupChange">What changed in this correction? <span aria-hidden="true">*</span> <small>The employee will be asked to acknowledge the corrected version.</small></label><input id="writeupChange" type="text" maxlength="1000"></div>
-  </div></fieldset>
-  <p id="writeupFormError" class="writeup-error" role="alert" hidden></p>
-  <div class="actions jgc-actions"><button id="writeupSend" type="submit" class="writeup-btn">Send to employee</button><button id="writeupDraft" type="button" class="writeup-btn writeup-btn--secondary">Save draft</button><button id="writeupCancel" type="button" class="writeup-btn writeup-btn--secondary">Cancel</button></div>
-</form>
+    <div class="jgc-filter-grid writeups-filters">
+      <div class="jgc-field"><label class="jgc-label" for="writeupsSearch">Search</label><input id="writeupsSearch" class="jgc-input" type="search" autocomplete="off" placeholder="Employee, issue or location"></div>
+      <div class="jgc-field"><label class="jgc-label" for="writeupsFilter">Status</label><select id="writeupsFilter" class="jgc-select"><option value="open">Drafts and awaiting acknowledgment</option><option value="all">All</option><option value="draft">Draft</option><option value="sent">Awaiting acknowledgment</option><option value="acknowledged">Acknowledged</option><option value="voided">Voided</option></select></div>
+    </div>
+    <div id="writeupsList" class="writeups-list"></div>
+  </section>
 
-<section id="writeupDetail" class="writeup-detail" hidden aria-labelledby="writeupDetailTitle">
-  <div class="writeups-heading"><h2 id="writeupDetailTitle" tabindex="-1">Write-up</h2><button id="writeupBack" type="button" class="writeup-btn writeup-btn--secondary">Back to list</button></div>
-  <div id="writeupDetailBody"></div>
-  <p id="writeupDetailStatus" role="status" aria-live="polite"></p>
-  <div class="actions jgc-actions" id="writeupDetailActions"></div>
-</section>
+  <form id="writeupForm" class="writeup-form" novalidate hidden>
+    <div class="writeups-form-head">
+      <h2 id="writeupFormTitle" class="jgc-section-title">New write-up</h2>
+      <p>Fields marked <span aria-hidden="true">*</span><span class="jgc-visually-hidden">with an asterisk</span> are required. The employee sees it only after you send it.</p>
+    </div>
 
-<dialog id="writeupVoidDialog" class="writeup-dialog" aria-labelledby="writeupVoidTitle">
-  <form method="dialog"><h2 id="writeupVoidTitle">Void this write-up?</h2><p>It stays in history, marked voided. The employee can still see it was voided.</p>
-  <label for="writeupVoidReason">Reason <span aria-hidden="true">*</span></label><input id="writeupVoidReason" type="text" maxlength="1000">
-  <p id="writeupVoidError" class="writeup-error" role="alert" hidden></p>
-  <div class="actions jgc-actions"><button id="writeupVoidConfirm" type="button" class="writeup-btn writeup-btn--danger">Void write-up</button><button value="cancel" class="writeup-btn writeup-btn--secondary">Cancel</button></div></form>
-</dialog>
-</section></main>
+    <section class="jgc-panel writeups-panel" aria-labelledby="writeupStep1">
+      <h3 id="writeupStep1" class="writeups-step"><span aria-hidden="true">1</span>Employee &amp; issue</h3>
+      <div class="jgc-form-grid">
+        <div class="jgc-field jgc-field--full"><label class="jgc-label" for="writeupEmployee">Employee *</label><select id="writeupEmployee" class="jgc-select" required></select></div>
+        <fieldset class="jgc-field jgc-field--full writeups-fieldset">
+          <legend class="jgc-label" id="writeupCategoriesLabel">Issue type * <span class="writeups-optional">Select all that apply</span></legend>
+          <div id="writeupCategories" class="writeup-chips"></div>
+        </fieldset>
+        <div class="jgc-field jgc-field--full" id="writeupCustomField" hidden><label class="jgc-label" for="writeupCustom">Describe the custom issue *</label><input id="writeupCustom" class="jgc-input" type="text" maxlength="200" placeholder="For example: left ladder unsecured at end of shift"></div>
+      </div>
+    </section>
+
+    <section class="jgc-panel writeups-panel" aria-labelledby="writeupStep2">
+      <h3 id="writeupStep2" class="writeups-step"><span aria-hidden="true">2</span>When &amp; where</h3>
+      <div class="jgc-form-grid">
+        <div class="jgc-field"><label class="jgc-label" for="writeupDate">Incident date *</label><input id="writeupDate" class="jgc-input" type="date" required></div>
+        <div class="jgc-field"><label class="jgc-label" for="writeupTime">Time <span class="writeups-optional">optional</span></label><input id="writeupTime" class="jgc-input" type="time"></div>
+        <fieldset class="jgc-field jgc-field--full writeups-fieldset">
+          <legend class="jgc-label">Where did it happen? *</legend>
+          <div class="writeup-toggle">
+            <label class="jgc-tab"><input type="radio" name="writeupLocationMode" value="job" checked><span>Existing job / project</span></label>
+            <label class="jgc-tab"><input type="radio" name="writeupLocationMode" value="manual"><span>Enter a location</span></label>
+          </div>
+        </fieldset>
+        <div class="jgc-field jgc-field--full" id="writeupJobField"><label class="jgc-label" for="writeupJob">Job *</label><input id="writeupJob" class="jgc-input" type="text" list="writeupJobList" autocomplete="off" placeholder="Start typing a job number, client or job name" aria-describedby="writeupJobHint"><p id="writeupJobHint" class="jgc-help-text">Pick from the list: number — client — job name — type.</p><datalist id="writeupJobList"></datalist></div>
+        <div class="jgc-field jgc-field--full"><label class="jgc-label" for="writeupLocation" id="writeupLocationLabel">Area on site <span class="writeups-optional">optional</span></label><input id="writeupLocation" class="jgc-input" type="text" maxlength="300"></div>
+      </div>
+    </section>
+
+    <section class="jgc-panel writeups-panel" aria-labelledby="writeupStep3">
+      <h3 id="writeupStep3" class="writeups-step"><span aria-hidden="true">3</span>What happened</h3>
+      <div class="jgc-form-grid">
+        <div class="jgc-field jgc-field--full"><label class="jgc-label" for="writeupDescription">Factual description *</label><textarea id="writeupDescription" class="jgc-textarea" rows="5" maxlength="10000" required aria-describedby="writeupDescriptionHint"></textarea><p id="writeupDescriptionHint" class="jgc-help-text">Stick to facts: what was seen or heard, when, and who was present.</p></div>
+        <div class="jgc-field jgc-field--full"><label class="jgc-label" for="writeupAction">Action taken *</label><textarea id="writeupAction" class="jgc-textarea" rows="3" maxlength="10000" required aria-describedby="writeupActionHint"></textarea><p id="writeupActionHint" class="jgc-help-text">What was done at the time, for example stopped work, sent home or a verbal warning.</p></div>
+        <div class="jgc-field jgc-field--full"><label class="jgc-label" for="writeupExpectations">Corrective expectations *</label><textarea id="writeupExpectations" class="jgc-textarea" rows="3" maxlength="10000" required aria-describedby="writeupExpectationsHint"></textarea><p id="writeupExpectationsHint" class="jgc-help-text">What the employee needs to do from now on.</p></div>
+      </div>
+    </section>
+
+    <section class="jgc-panel writeups-panel" aria-labelledby="writeupStep4">
+      <h3 id="writeupStep4" class="writeups-step"><span aria-hidden="true">4</span>Follow-up <span class="writeups-optional">optional</span></h3>
+      <div class="jgc-form-grid writeups-follow-grid">
+        <div class="jgc-field"><label class="jgc-label" for="writeupFollowDate">Follow-up date</label><input id="writeupFollowDate" class="jgc-input" type="date"></div>
+        <div class="jgc-field"><label class="jgc-label" for="writeupFollowNotes">Follow-up notes</label><textarea id="writeupFollowNotes" class="jgc-textarea" rows="2" maxlength="4000"></textarea></div>
+      </div>
+    </section>
+
+    <section class="jgc-panel writeups-panel writeups-change" id="writeupChangeField" hidden>
+      <div class="jgc-field"><label class="jgc-label" for="writeupChange">What changed in this correction? *</label><input id="writeupChange" class="jgc-input" type="text" maxlength="1000" aria-describedby="writeupChangeHint"><p id="writeupChangeHint" class="jgc-help-text">The employee will be asked to acknowledge the corrected version.</p></div>
+    </section>
+
+    <div class="jgc-panel writeups-actionbar">
+      <p id="writeupFormError" class="jgc-notice jgc-notice--danger" role="alert" hidden></p>
+      <div class="jgc-actions"><button id="writeupCancel" type="button" class="jgc-button jgc-button--secondary">Cancel</button><button id="writeupDraft" type="button" class="jgc-button jgc-button--secondary">Save draft</button><button id="writeupSend" type="submit" class="jgc-button">Send to employee</button></div>
+    </div>
+  </form>
+
+  <section id="writeupDetail" class="jgc-panel writeups-panel" hidden aria-labelledby="writeupDetailTitle">
+    <div class="writeups-section-heading">
+      <h2 id="writeupDetailTitle" class="jgc-section-title" tabindex="-1">Write-up</h2>
+      <button id="writeupBack" type="button" class="jgc-button jgc-button--secondary">Back to list</button>
+    </div>
+    <div id="writeupDetailBody"></div>
+    <p id="writeupDetailStatus" class="writeups-status" role="status" aria-live="polite"></p>
+    <div class="jgc-actions" id="writeupDetailActions"></div>
+  </section>
+
+  <dialog id="writeupVoidDialog" class="jgc-panel writeups-dialog" aria-labelledby="writeupVoidTitle">
+    <form method="dialog">
+      <h2 id="writeupVoidTitle" class="jgc-section-title">Void this write-up?</h2>
+      <p>It stays in history, marked voided. The employee can still see it was voided.</p>
+      <div class="jgc-field"><label class="jgc-label" for="writeupVoidReason">Reason *</label><input id="writeupVoidReason" class="jgc-input" type="text" maxlength="1000"></div>
+      <p id="writeupVoidError" class="jgc-notice jgc-notice--danger" role="alert" hidden></p>
+      <div class="jgc-actions"><button value="cancel" class="jgc-button jgc-button--secondary">Cancel</button><button id="writeupVoidConfirm" type="button" class="jgc-button jgc-button--danger">Void write-up</button></div>
+    </form>
+  </dialog>
+</main>
 <script src="vendor/supabase-js.min.js?v=1"></script>
-<script src="common.js?v=51"></script>
+<script src="common.js?v=52"></script>
 <script src="vendor/jspdf.umd.min.js?v=1"></script>
-<script src="employee-writeups-shared.js?v=1"></script>
-<script src="employee-writeups-admin.js?v=1"></script>
+<script src="employee-writeups-shared.js?v=2"></script>
+<script src="employee-writeups-admin.js?v=2"></script>
 </body></html>

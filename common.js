@@ -49,7 +49,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
 ];
 const JGC_DESIGN_SYSTEM_VERSION = "8";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
-const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "8";
+const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "9";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
 const JGC_THEME_STORAGE_KEY = "jgcPortalTheme";
 const JGC_THEME_ACCOUNT_STORAGE_PREFIX = "jgcPortalTheme:";
@@ -2280,6 +2280,11 @@ function getJgcMobileNavItems() {
     };
   }
 
+  const worker = getCurrentWorkerRecord();
+  // Admins manage every write-up; employees only ever see their own.
+  const writeUps = isAdminWorker(worker.key, worker.role, worker.email)
+    ? { label: "Write-Ups", href: "employee-writeups-admin.html", icon: "report" }
+    : { label: "My Write-Ups", href: "employee-writeups.html", icon: "report" };
   return {
     primary: [
       { label: "Home", href: "home.html", icon: "home", home: true },
@@ -2294,6 +2299,7 @@ function getJgcMobileNavItems() {
       { label: "Purchase Orders", href: "purchase-orders.html", icon: "file" },
       { label: "Job Notes", href: "job-lists.html", icon: "tasks" },
       { label: "Reports", href: "reports.html", icon: "report" },
+      writeUps,
       { label: "Permits", href: "permits.html", icon: "permit" },
       { label: "Vacation", href: "vacation-request.html", icon: "vacation" },
       { label: "Schedule", href: "schedule.html", icon: "schedule" },

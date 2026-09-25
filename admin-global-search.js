@@ -78,6 +78,7 @@
     { title: "Permits", detail: "Start or review permit forms", href: "permits.html", keywords: "hot work confined space excavation" },
     { title: "Reports", detail: "Start or review reports", href: "reports.html", keywords: "daily site jsa toolbox incident accident injury" },
     { title: "Policies / Announcements", detail: "Company policies and notices", href: "policies-announcements.html", keywords: "policy notice announcement pdf" },
+    { title: "My Write-Ups", detail: "Review and acknowledge write-ups shared with you", href: "employee-writeups.html", keywords: "writeup write up warning discipline acknowledge attendance behaviour safety" },
     { title: "Contacts", detail: "Company contact directory", href: "contacts.html", keywords: "phone email directory" },
     { title: "Subcontractors / Suppliers", detail: "Supplier and subcontractor directory", href: "subcontractors-suppliers.html", keywords: "vendor rental company phone email" },
     { title: "Field Calculator", detail: "Construction field calculator", href: "field-calculator.html", keywords: "calculate conversion measurement" },

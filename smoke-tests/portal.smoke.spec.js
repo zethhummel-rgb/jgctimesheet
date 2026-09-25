@@ -4401,7 +4401,7 @@ for (const theme of ["light", "dark"]) {
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
       await expect(sheet).toHaveCSS("opacity", "1");
-      await expect(sheet.locator("a")).toHaveCount(14);
+      await expect(sheet.locator("a")).toHaveCount(15);
 
       async function checkMenuContrast() {
         const samples = await sheet.evaluate((element) => {

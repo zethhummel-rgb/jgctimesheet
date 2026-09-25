@@ -14,6 +14,9 @@
   const ACK_STATEMENT = "Signing confirms that I received and reviewed this write-up. It does not necessarily mean I agree with it.";
   const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const label = key => (CATEGORIES.find(c => c[0] === key) || [key, key])[1];
+  const BADGE_TONE = { draft: "info", sent: "warning", acknowledged: "success", voided: "danger" };
+  // Design-system status badge; `text` overrides the label (the employee page says "Needs your acknowledgment").
+  const badge = (status, text) => `<span class="jgc-badge jgc-badge--${BADGE_TONE[status] || "info"}">${escape(text || STATUS[status] || status)}</span>`;
 
   function issueText(payload) {
     return (payload.categories || []).map(key => key === "other" && payload.custom_issue ? "Other: " + payload.custom_issue : label(key)).join(", ");
@@ -88,16 +91,16 @@
   function reportHtml(record) {
     const { writeup, version, acknowledgement, versions = [], acknowledgements = [] } = record;
     const voided = writeup.status === "voided"
-      ? `<p class="writeup-voided" role="note"><strong>Voided ${escape(formatDateTime(writeup.voided_at))}.</strong> ${escape(writeup.void_reason || "")}</p>` : "";
-    const body = sections(record).map(([title, rows]) => `<section class="writeup-section"><h3>${escape(title)}</h3>${rows.map(([name, value]) => name
+      ? `<p class="jgc-notice jgc-notice--danger writeup-voided" role="note"><strong>Voided ${escape(formatDateTime(writeup.voided_at))}.</strong> ${escape(writeup.void_reason || "")}</p>` : "";
+    const body = sections(record).map(([title, rows]) => `<section class="jgc-list-card writeup-section"><h3>${escape(title)}</h3>${rows.map(([name, value]) => name
       ? `<div class="writeup-row"><span>${escape(name)}</span><p>${escape(value || "—")}</p></div>`
       : `<p class="writeup-text">${escape(value || "—")}</p>`).join("")}${title === "Employee acknowledgment" && acknowledgement
       ? `<img class="writeup-signature" alt="Signature of ${escape(acknowledgement.printed_name)}" src="${signatureImage(acknowledgement.signature)}">` : ""}</section>`).join("");
-    const history = versions.length > 1 || acknowledgements.length ? `<section class="writeup-section"><h3>History</h3><ul class="writeup-history">${versions.slice().sort((a, b) => b.version - a.version).map(v => {
+    const history = versions.length > 1 || acknowledgements.length ? `<section class="jgc-list-card writeup-section"><h3>History</h3><ul class="writeup-history">${versions.slice().sort((a, b) => b.version - a.version).map(v => {
       const ack = acknowledgements.find(a => a.version === v.version);
       return `<li><strong>Version ${v.version}</strong> · ${escape(v.sent_at ? "sent " + formatDateTime(v.sent_at) : "draft")} · ${escape(v.created_by_name)}${v.change_note ? `<br>Change: ${escape(v.change_note)}` : ""}<br>${ack ? "Acknowledged " + escape(formatDateTime(ack.acknowledged_at)) + " by " + escape(ack.printed_name) : "Not acknowledged"}</li>`;
     }).join("")}</ul></section>` : "";
-    return `${voided}<div class="writeup-meta"><span class="writeup-status" data-status="${escape(writeup.status)}">${escape(STATUS[writeup.status] || writeup.status)}</span><span>Version ${version.version}</span></div>${body}${history}`;
+    return `${voided}<div class="writeup-meta">${badge(writeup.status)}<span>Version ${version.version}</span></div>${body}${history}`;
   }
 
   // Same visual language as the JSA PDF (jsa-pdf.js): logo, green title and rule, label cards,
@@ -271,5 +274,5 @@
     return { writeup: header.data, version, versions: versions.data, acknowledgements: acks.data, acknowledgement: acks.data.find(a => a.version === version.version) || null };
   }
 
-  window.JGCWriteUps = { CATEGORIES, STATUS, ACK_STATEMENT, escape, label, issueText, locationText, formatDate, formatDateTime, reportHtml, pdf, download, load };
+  window.JGCWriteUps = { CATEGORIES, STATUS, ACK_STATEMENT, escape, label, badge, issueText, locationText, formatDate, formatDateTime, reportHtml, pdf, download, load };
 }());

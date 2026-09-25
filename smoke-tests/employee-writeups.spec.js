@@ -100,6 +100,7 @@ async function signIn(page, backend, person, theme = "light") {
       let rows = backend.writeups.filter(visible);
       if (params.get("id")) rows = rows.filter(w => w.id === eq("id"));
       if (params.get("employee_profile_id")) rows = rows.filter(w => w.employee_profile_id === eq("employee_profile_id"));
+      if (params.get("status")) rows = rows.filter(w => w.status === eq("status"));
       return json(single ? rows[0] || null : rows);
     }
     if (path.endsWith("/employee_writeup_versions")) {
@@ -203,7 +204,7 @@ test("drafts stay private to admins, and the employee acknowledges with a signat
   const ack = employee.getByRole("region", { name: "Acknowledge this write-up" });
   await expect(ack).toContainText("It does not necessarily mean I agree with it.");
   await expect(employee.locator("#myWriteupBody")).toContainText("Yard at 111 Water St");
-  await ack.getByLabel("Your comments (optional)").fill("I had the harness in the truck.");
+  await ack.getByLabel(/^Your comments/).fill("I had the harness in the truck.");
   await ack.getByRole("button", { name: "Sign to acknowledge", exact: true }).click();
   const pad = employee.locator(".safety-signature-pad");
   const box = await pad.boundingBox();
@@ -268,10 +269,25 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
     const admin = await (await browser.newContext({ viewport: { width, height: 900 } })).newPage();
     await signIn(admin, backend, ADMIN, theme);
     await admin.goto("/employee-writeups-admin.html", { waitUntil: "domcontentloaded" });
+    await admin.getByRole("button", { name: "New write-up", exact: true }).click();
+    await admin.getByRole("checkbox", { name: "Lateness / attendance" }).check();
+    const shell = await admin.locator(".jgc-page-shell").boundingBox();
+    expect(Math.abs(shell.x - (width - shell.x - shell.width)), "form is centred in the page shell").toBeLessThanOrEqual(2);
+    expect(await admin.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const formContrast = await admin.locator("#writeupForm :is(.jgc-label, .writeups-step, .writeup-chip span, .writeup-toggle .jgc-tab span, .jgc-help-text, .jgc-button)").evaluateAll(elements => {
+      const parse = c => (c.match(/[\d.]+/g) || []).map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const background = el => { for (let n = el; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length === 3 || (c.length === 4 && c[3] > 0.9)) return c.slice(0, 3); } return [255, 255, 255]; };
+      return elements.filter(el => el.getClientRects().length).map(el => { const a = lum(parse(getComputedStyle(el).color).slice(0, 3)), b = lum(background(el)); return { text: el.textContent.trim().slice(0, 30), ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; });
+    });
+    expect(formContrast.length).toBeGreaterThan(20);
+    for (const sample of formContrast) expect(sample.ratio, theme + " form " + sample.text).toBeGreaterThanOrEqual(4.5);
+    await admin.screenshot({ path: testInfo.outputPath("admin-form.png"), fullPage: true });
+    await admin.getByRole("button", { name: "Cancel", exact: true }).click();
     await createWriteUp(admin);
     await expect(admin.locator("#writeupDetailBody")).toContainText("Awaiting acknowledgment");
     expect(await admin.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    for (const button of await admin.locator("#writeupDetailActions .writeup-btn").all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(40);
+    for (const button of await admin.locator("#writeupDetailActions .jgc-button").all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(40);
     const voidButton = await admin.getByRole("button", { name: "Void", exact: true }).evaluate(el => { const p = c => (c.match(/[\d.]+/g) || []).map(Number); const l = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0); const s = getComputedStyle(el); const a = l(p(s.color)), b = l(p(s.backgroundColor)); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); });
     expect(voidButton, theme + " Void button contrast").toBeGreaterThanOrEqual(4.5);
     await admin.screenshot({ path: testInfo.outputPath("admin-detail.png"), fullPage: true });
@@ -281,7 +297,7 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
     await expect(employee.getByRole("region", { name: "Acknowledge this write-up" })).toBeVisible();
     await expect(employee.locator("#myWriteupsList")).toBeHidden();
     expect(await employee.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    const contrast = await employee.locator(".writeup-section h3, .writeup-row span, .writeup-row p, .writeup-ack-statement, .writeup-status, .writeup-btn").evaluateAll(elements => {
+    const contrast = await employee.locator(".writeup-section h3, .writeup-row span, .writeup-row p, .writeup-ack-statement, .jgc-badge, .jgc-button").evaluateAll(elements => {
       const parse = c => (c.match(/[\d.]+/g) || []).map(Number);
       const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
       const background = el => { for (let n = el; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length === 3 || (c.length === 4 && c[3] > 0.9)) return c.slice(0, 3); } return [255, 255, 255]; };
@@ -291,3 +307,55 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
     await employee.screenshot({ path: testInfo.outputPath("employee-detail.png"), fullPage: true });
   });
 }
+
+test("write-ups are reachable from the phone More menu, the employee Home page and employee search", async ({ browser }) => {
+  const backend = createBackend();
+  const adminContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const admin = await adminContext.newPage();
+  await signIn(admin, backend, ADMIN);
+  await admin.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await admin.getByRole("button", { name: /More/ }).last().click();
+  await expect(admin.getByRole("link", { name: "Write-Ups", exact: true })).toHaveAttribute("href", "employee-writeups-admin.html");
+  await admin.goto("/employee-writeups-admin.html", { waitUntil: "domcontentloaded" });
+  await createWriteUp(admin);
+  await adminContext.close();
+
+  const employeeContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const employee = await employeeContext.newPage();
+  await signIn(employee, backend, EMPLOYEE);
+  await employee.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+  await employee.getByRole("button", { name: /More/ }).last().click();
+  await expect(employee.getByRole("link", { name: "My Write-Ups", exact: true })).toHaveAttribute("href", "employee-writeups.html");
+
+  await employee.setViewportSize({ width: 1280, height: 900 });
+  await employee.goto("/home.html", { waitUntil: "domcontentloaded" });
+  const reminder = employee.locator("#writeupsReminder");
+  await expect(reminder).toBeVisible({ timeout: 10000 });
+  await expect(reminder).toContainText("You have a document to review");
+  await expect(reminder).not.toContainText("harness");
+  await expect(employee.getByRole("button", { name: "My Write-Ups", exact: true })).toBeVisible();
+  for (const theme of ["light", "dark"]) {
+    await employee.evaluate(value => document.documentElement.setAttribute("data-jgc-theme", value), theme);
+    const ratio = await reminder.locator(".vacation-reminder-text, button").evaluateAll(elements => elements.map(el => {
+      const parse = c => (c.match(/[\d.]+/g) || []).map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const back = n => { for (; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length === 3 || c[3] > 0.9) return c.slice(0, 3); const img = getComputedStyle(n).backgroundImage.match(/rgba?\([^)]*\)/); if (img) return parse(img[0]).slice(0, 3); } return [255, 255, 255]; };
+      const a = lum(parse(getComputedStyle(el).color).slice(0, 3)), b = lum(back(el));
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }));
+    for (const value of ratio) expect(value, theme + " reminder contrast").toBeGreaterThanOrEqual(4.5);
+    await employee.screenshot({ path: test.info().outputPath(`home-reminder-${theme}.png`) });
+  }
+  await employee.getByRole("button", { name: "Review", exact: true }).click();
+  await expect(employee).toHaveURL(/employee-writeups\.html$/);
+  await employeeContext.close();
+
+  const other = await (await browser.newContext()).newPage();
+  await signIn(other, backend, OTHER);
+  await other.goto("/home.html", { waitUntil: "domcontentloaded" });
+  await other.waitForTimeout(2500);
+  await expect(other.locator("#writeupsReminder")).toBeHidden();
+
+  const fs = require("fs"), path = require("path");
+  expect(fs.readFileSync(path.join(__dirname, "../admin-global-search.js"), "utf8")).toContain('href: "employee-writeups.html"');
+});
