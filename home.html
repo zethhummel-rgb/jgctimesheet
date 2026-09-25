@@ -6,7 +6,7 @@
   <title>JGC Portal - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="jgc-design-system.css?v=8" />
-  <link rel="stylesheet" href="home-design-system.css?v=4" />
+  <link rel="stylesheet" href="home-design-system.css?v=5" />
 </head>
 
 <body class="home-dashboard-page jgc-page jgc-system-page">
@@ -93,6 +93,17 @@
     <button type="button" onclick="goTo('timesheet.html')">View Timesheet</button>
   </section>
 
+  <section id="writeupsReminder" class="vacation-reminder jgc-notice" hidden>
+    <div class="vacation-reminder-main">
+      <i data-lucide="file-warning"></i>
+      <div>
+        <div id="writeupsReminderText" class="vacation-reminder-text">You have a document to review</div>
+        <div class="vacation-reminder-detail">Open it to read and acknowledge</div>
+      </div>
+    </div>
+    <button type="button" onclick="goTo('employee-writeups.html')">Review</button>
+  </section>
+
   <div class="main-grid">
     <aside class="sidebar jgc-panel">
       <nav class="side-nav" aria-label="Main navigation">
@@ -109,6 +120,7 @@
         <button type="button" class="side-link" onclick="goTo('work-orders.html')"><i data-lucide="clipboard-check"></i><span class="side-label">Work Orders</span></button>
         <button type="button" class="side-link" onclick="goTo('permits.html')"><i data-lucide="file-check"></i><span class="side-label">Permits</span></button>
         <button type="button" class="side-link" onclick="goTo('reports.html')"><i data-lucide="clipboard-list"></i><span class="side-label">Reports</span></button>
+        <button type="button" class="side-link" onclick="goTo('employee-writeups.html')"><i data-lucide="file-warning"></i><span class="side-label">My Write-Ups</span></button>
         <button type="button" class="side-link" onclick="goTo('contacts.html')"><i data-lucide="phone"></i><span class="side-label">Contacts</span></button>
         <button type="button" class="side-link" onclick="goTo('subcontractors-suppliers.html')"><i data-lucide="users-round"></i><span class="side-label">Subs / Suppliers</span></button>
         <button id="policiesAnnouncementsSideLink" type="button" class="side-link" onclick="goTo('policies-announcements.html')"><i data-lucide="file-text"></i><span class="side-label">Policies / Announcements</span></button>
@@ -385,7 +397,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="vendor/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest';"></script>
-<script src="common.js?v=51"></script>
+<script src="common.js?v=52"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
 <script>
@@ -1094,6 +1106,26 @@ async function loadDashboardStats() {
     setStat("vacationSide", vacationCount);
   } catch (error) {
     console.warn("Dashboard stats could not be loaded.", error);
+  }
+  loadMyWriteUpsSummary();
+}
+
+// Reminds employees about write-ups awaiting acknowledgment. Worded discreetly, like the push notification,
+// because the Home screen may be seen by others. The database only returns the employee's own sent write-ups.
+async function loadMyWriteUpsSummary() {
+  const banner = document.getElementById("writeupsReminder");
+  if (!banner) return;
+  try {
+    const identity = await supabaseClient.auth.getUser();
+    const userId = identity.data && identity.data.user && identity.data.user.id;
+    if (!userId) return;
+    const result = await supabaseClient.from("employee_writeups").select("id").eq("employee_profile_id", userId).eq("status", "sent");
+    if (result.error) throw result.error;
+    const waiting = (result.data || []).length;
+    banner.hidden = waiting === 0;
+    setStat("writeupsReminderText", waiting > 1 ? "You have " + waiting + " documents to review" : "You have a document to review");
+  } catch (error) {
+    console.warn("Write-up reminder could not be loaded.", error);
   }
 }
 

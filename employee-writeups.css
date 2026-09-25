@@ -1,232 +1,291 @@
-/* Employee write-ups: admin and employee pages. Theme tokens only. */
+/* Employee write-ups. Layout, panels, fields, buttons, badges and notices come from
+   jgc-design-system.css; this file only adds what the design system does not have. */
 .writeups-page [hidden] {
   display: none !important;
 }
 
-.writeups-page .writeup-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 10px 18px;
-  border: 1px solid var(--jgc-color-brand-700);
-  border-radius: 8px;
-  background: var(--jgc-color-brand-700);
-  color: var(--jgc-color-on-brand);
-  font: inherit;
-  font-weight: 800;
-  line-height: 1.2;
-  text-decoration: none;
-  cursor: pointer;
+.writeups-page .writeups-panel {
+  margin-bottom: var(--jgc-space-4);
 }
 
-.writeups-page .writeup-btn--secondary {
-  border-color: var(--jgc-color-border);
-  background: var(--jgc-color-surface-raised);
-  color: var(--jgc-color-text);
+.writeups-page .writeups-status {
+  margin: 0 0 var(--jgc-space-3);
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+  text-align: center;
 }
 
-.writeups-page .writeup-btn--danger {
-  border: 2px solid var(--jgc-color-danger);
-  background: var(--jgc-color-surface-raised);
-  color: var(--jgc-color-text);
+.writeups-page .writeups-status:empty {
+  display: none;
 }
 
-.writeups-page .writeup-btn:hover {
-  filter: brightness(1.08);
-}
-
-.writeups-page .writeup-btn:focus-visible {
-  outline: 3px solid var(--jgc-color-brand-500);
-  outline-offset: 2px;
-}
-
-.writeups-page .writeup-btn:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.writeups-page .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.writeups-page h2[tabindex="-1"]:focus {
-  outline: none;
-}
-
-.writeups-page textarea {
-  font: inherit;
-}
-.writeups-page .writeups-heading {
+.writeups-page .writeups-section-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--jgc-space-3);
+  margin-bottom: var(--jgc-space-4);
 }
 
-.writeups-page .writeups-heading h1,
-.writeups-page .writeups-heading h2 {
+.writeups-page .writeups-section-heading h2 {
+  margin-bottom: var(--jgc-space-1);
+}
+
+/* Headings receive focus only so screen readers announce the opened write-up. */
+.writeups-page h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.writeups-page .writeups-section-heading p,
+.writeups-page .writeups-form-head p {
+  margin: 0;
+  color: var(--jgc-color-text-muted);
+  line-height: 1.45;
+}
+
+.writeups-page .writeups-optional {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
+  font-weight: 600;
+}
+
+.writeups-page .writeups-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.writeups-page .writeups-fieldset > legend {
+  padding: 0;
+}
+
+.writeups-page .jgc-help-text {
   margin: 0;
 }
 
-.writeups-page .eyebrow {
-  margin: 0 0 4px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--jgc-color-text-muted);
+/* Same treatment as the Vacation admin page so secondary buttons read in both themes. */
+.writeups-page .jgc-button--secondary {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border-color: var(--jgc-color-border);
 }
 
+/* The shared warning badge keeps its dark background in light mode but switches to dark text. */
+:root[data-jgc-theme="light"] .writeups-page .jgc-badge--warning {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-warning);
+}
+
+/* List rows: date | employee and issues | status and actions */
 .writeups-list {
   display: grid;
-  gap: 10px;
-  margin-top: 14px;
+  gap: var(--jgc-space-2);
 }
 
-.writeup-card {
+.writeups-filters {
+  margin-bottom: var(--jgc-space-4);
+}
+
+.writeup-record {
+  grid-template-columns: minmax(110px, 0.6fr) minmax(0, 2fr) auto;
+}
+
+.writeup-record-date {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--jgc-color-border);
-  border-radius: var(--jgc-radius-lg);
-  background: var(--jgc-color-surface-raised);
+  gap: 2px;
 }
 
-.writeup-card h2 {
-  margin: 0 0 4px;
-  font-size: 1rem;
-  overflow-wrap: anywhere;
+.writeup-record-date small {
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-xs);
 }
 
-.writeup-card p {
+.writeup-record-main h3 {
   margin: 0 0 2px;
+  font-size: var(--jgc-font-size-md);
   overflow-wrap: anywhere;
 }
 
-.writeup-card small {
+.writeup-record-main p {
+  margin: 0;
   color: var(--jgc-color-text-muted);
+  overflow-wrap: anywhere;
 }
 
-.writeup-status {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: var(--jgc-radius-pill);
-  font-size: 0.78rem;
-  font-weight: 800;
-  white-space: nowrap;
+/* Form */
+.writeups-form-head {
+  margin: 0 0 var(--jgc-space-3);
+  text-align: center;
+}
+
+.writeups-page .writeups-step {
+  display: flex;
+  align-items: center;
+  gap: var(--jgc-space-2);
+  margin: 0 0 var(--jgc-space-4);
   color: var(--jgc-color-text);
-  background: color-mix(in srgb, var(--jgc-color-info) 20%, transparent);
+  font-size: var(--jgc-font-size-md);
 }
 
-.writeup-status[data-status="sent"] {
-  background: color-mix(in srgb, var(--jgc-color-warning) 24%, transparent);
+.writeups-page .writeups-step > span[aria-hidden="true"] {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--jgc-radius-pill);
+  background: var(--jgc-color-brand-600);
+  color: var(--jgc-color-on-brand);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 800;
 }
 
-.writeup-status[data-status="acknowledged"] {
-  background: color-mix(in srgb, var(--jgc-color-success) 24%, transparent);
+.writeups-follow-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
 }
 
-.writeup-status[data-status="voided"] {
-  background: color-mix(in srgb, var(--jgc-color-danger) 22%, transparent);
-}
-
-.writeup-empty {
-  color: var(--jgc-color-text-muted);
-}
-
-.writeup-form fieldset {
-  margin: 0 0 16px;
-}
-
-.writeup-label {
-  margin: 0 0 6px;
-  font-weight: 700;
-}
-
-.writeup-label small,
-.writeup-form label small {
-  font-weight: 400;
-  color: var(--jgc-color-text-muted);
-}
-
-.writeup-form .checks {
+/* Issue types: selectable tiles in the same style as the Portal's tabs */
+.writeup-chips {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--jgc-space-2);
 }
 
-.writeup-choice {
+.writeup-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--jgc-space-2);
+  min-height: 46px;
+  padding: 9px 12px;
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.writeup-chip input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--jgc-color-brand-600);
+}
+
+.writeup-chip:has(input:checked) {
+  border-color: var(--jgc-color-brand-500);
+  box-shadow: inset 0 0 0 1px var(--jgc-color-brand-500);
+}
+
+.writeup-chip:has(input:focus-visible) {
+  outline: 3px solid var(--jgc-color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Job / location: two .jgc-tab pills acting as a radio choice */
+.writeup-toggle {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: var(--jgc-space-2);
 }
 
-.writeup-form [aria-invalid="true"] {
+.writeup-toggle .jgc-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.writeup-toggle input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Selected option uses the admin tab row's active colours, which read in both themes. */
+.writeup-toggle .jgc-tab:has(input:checked) {
+  color: var(--jgc-admin-tab-active-text);
+  background: var(--jgc-admin-tab-active-background);
+  border-color: var(--jgc-admin-tab-active-background);
+}
+
+.writeup-toggle .jgc-tab:has(input:focus-visible) {
+  outline: 3px solid var(--jgc-color-brand-400);
+  outline-offset: 2px;
+}
+
+.writeups-page [aria-invalid="true"] {
+  border-color: var(--jgc-color-danger) !important;
   outline: 2px solid var(--jgc-color-danger);
   outline-offset: 2px;
 }
 
-.writeup-error {
-  padding: 10px 12px;
-  border-left: 4px solid var(--jgc-color-danger);
-  border-radius: 6px;
-  color: var(--jgc-color-text);
-  background: color-mix(in srgb, var(--jgc-color-danger) 12%, transparent);
+.writeups-change {
+  border-top-color: var(--jgc-color-warning);
 }
 
+/* Actions stay in reach on long forms (desktop; phones have the bottom navigation) */
+.writeups-actionbar {
+  display: grid;
+  gap: var(--jgc-space-3);
+}
+
+.writeups-actionbar .jgc-actions {
+  justify-content: flex-end;
+}
+
+@media (min-width: 781px) {
+  .writeups-actionbar {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    box-shadow: var(--jgc-shadow-md);
+  }
+}
+
+/* Detail view */
 .writeup-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin: 8px 0 14px;
+  gap: var(--jgc-space-2);
+  margin: 0 0 var(--jgc-space-3);
   color: var(--jgc-color-text-muted);
-}
-
-.writeup-voided {
-  padding: 10px 12px;
-  border-left: 4px solid var(--jgc-color-danger);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--jgc-color-danger) 12%, transparent);
+  font-weight: 700;
 }
 
 .writeup-section {
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--jgc-color-border);
-  border-radius: var(--jgc-radius-lg);
-  background: var(--jgc-color-surface-raised);
+  margin: 0 0 var(--jgc-space-3);
 }
 
 .writeup-section h3 {
-  margin: 0 0 8px;
-  font-size: 0.95rem;
+  margin: 0 0 var(--jgc-space-2);
+  font-size: var(--jgc-font-size-md);
 }
 
-.writeup-row {
+.writeup-section .writeup-row {
   display: grid;
   grid-template-columns: minmax(120px, 190px) minmax(0, 1fr);
-  gap: 4px 14px;
-  padding: 6px 0;
+  gap: 4px var(--jgc-space-3);
+  padding: 7px 0;
   border-top: 1px solid var(--jgc-color-border-soft);
 }
 
-.writeup-row:first-of-type {
+.writeup-section .writeup-row:first-of-type {
   border-top: 0;
 }
 
-.writeup-row span {
-  font-weight: 700;
+.writeup-section .writeup-row span {
   color: var(--jgc-color-text-muted);
+  font-weight: 700;
 }
 
-.writeup-row p,
+.writeup-section .writeup-row p,
 .writeup-text {
   margin: 0;
   white-space: pre-wrap;
@@ -237,10 +296,10 @@
   display: block;
   width: min(300px, 100%);
   height: auto;
-  margin-top: 10px;
+  margin-top: var(--jgc-space-2);
   border: 1px solid var(--jgc-color-border);
-  border-radius: 6px;
-  background: var(--jgc-color-surface);
+  border-radius: var(--jgc-radius-md);
+  background: #ffffff;
 }
 
 .writeup-history {
@@ -249,19 +308,23 @@
 }
 
 .writeup-history li {
-  margin-bottom: 8px;
+  margin-bottom: var(--jgc-space-2);
   overflow-wrap: anywhere;
 }
 
-.writeup-ack {
-  margin: 0 0 14px;
-  padding: 14px;
-  border: 2px solid var(--jgc-color-brand-500);
-  border-radius: var(--jgc-radius-lg);
-  background: var(--jgc-color-surface-raised);
+.writeup-voided {
+  margin: 0 0 var(--jgc-space-3);
 }
 
-.writeup-ack h3 {
+.writeups-ack {
+  margin: 0 0 var(--jgc-space-3);
+  padding: var(--jgc-space-4);
+  background: var(--jgc-color-surface-raised);
+  border: 2px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-md);
+}
+
+.writeups-ack h3 {
   margin-top: 0;
 }
 
@@ -269,35 +332,31 @@
   font-weight: 700;
 }
 
-.writeup-ack textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.writeup-dialog {
+.writeups-dialog {
   width: min(460px, calc(100vw - 32px));
-  border: 1px solid var(--jgc-color-border);
-  border-radius: var(--jgc-radius-lg);
-  color: var(--jgc-color-text);
-  background: var(--jgc-color-surface-raised);
 }
 
-.writeup-dialog input {
-  width: 100%;
-  box-sizing: border-box;
+.writeups-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
 }
 
-@media (max-width: 600px) {
-  .writeup-card {
+@media (max-width: 700px) {
+  .writeups-page .writeups-section-heading .jgc-actions,
+  .writeups-actionbar .jgc-actions {
+    width: 100%;
+  }
+
+  .writeups-page .writeups-section-heading .jgc-button,
+  .writeups-actionbar .jgc-button {
+    flex: 1 1 auto;
+  }
+
+  .writeups-follow-grid,
+  .writeup-record {
     grid-template-columns: minmax(0, 1fr);
-    justify-items: start;
   }
 
-  .writeup-card button {
-    justify-self: stretch;
-  }
-
-  .writeup-row {
+  .writeup-section .writeup-row {
     grid-template-columns: minmax(0, 1fr);
   }
 }
