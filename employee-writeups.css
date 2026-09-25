@@ -89,6 +89,12 @@
   margin-bottom: var(--jgc-space-4);
 }
 
+@media (min-width: 781px) {
+  .writeups-filters {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
 .writeup-record {
   grid-template-columns: minmax(110px, 0.6fr) minmax(0, 2fr) auto;
 }

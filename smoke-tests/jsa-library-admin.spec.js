@@ -106,7 +106,7 @@ test("admin creates, edits, archives and restores custom JSA tasks with duplicat
   expect(backend.items[0].archived_at).toBeNull();
 
   await page.locator("#libraryView").selectOption("system");
-  await expect(page.locator(".library-group h2").first()).toHaveText("Access & working at heights");
+  await expect(page.locator(".library-group h3").first()).toHaveText("Access & working at heights");
   await expect(page.locator("#libraryList")).toContainText("Trenching and shoring");
 });
 
@@ -125,14 +125,28 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
     await page.goto("/jsa-library-admin.html", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".library-card")).toHaveCount(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    const contrast = await page.locator(".library-card h2, .library-card p, .library-card small, .library-btn, .library-heading h1").evaluateAll(elements => {
+    const contrast = await page.locator(".library-card h3, .library-card p, .library-card small, .jgc-button, .jgc-page-title").evaluateAll(elements => {
       const parse = c => (c.match(/[\d.]+/g) || []).map(Number);
       const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
       const background = el => { for (let n = el; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length === 3 || (c.length === 4 && c[3] > 0.9)) return c.slice(0, 3); } return [255, 255, 255]; };
       return elements.filter(el => el.getClientRects().length).map(el => { const a = lum(parse(getComputedStyle(el).color).slice(0, 3)), b = lum(background(el)); return { text: el.textContent.trim().slice(0, 30), ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; });
     });
     for (const sample of contrast) expect(sample.ratio, theme + " " + sample.text).toBeGreaterThanOrEqual(4.5);
+    await page.screenshot({ path: testInfo.outputPath("library-list.png"), fullPage: true });
     await page.getByRole("button", { name: "New custom task", exact: true }).click();
+    await page.locator("#libraryTask").fill("Trench shoring installation");
+    await expect(page.locator("#libraryDuplicates")).toBeVisible();
+    const shell = await page.locator(".jgc-page-shell").boundingBox();
+    expect(Math.abs(shell.x - (width - shell.x - shell.width)), "form is centred in the page shell").toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const formContrast = await page.locator("#libraryForm :is(.jgc-label, .jgc-help-text, .jgc-button, .library-duplicates, .library-confirm)").evaluateAll(elements => {
+      const parse = c => (c.match(/[\d.]+/g) || []).map(Number);
+      const lum = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const background = el => { for (let n = el; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c.length === 3 || (c.length === 4 && c[3] > 0.9)) return c.slice(0, 3); } return [255, 255, 255]; };
+      return elements.filter(el => el.getClientRects().length).map(el => { const a = lum(parse(getComputedStyle(el).color).slice(0, 3)), b = lum(background(el)); return { text: el.textContent.trim().slice(0, 30), ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }; });
+    });
+    expect(formContrast.length).toBeGreaterThan(6);
+    for (const sample of formContrast) expect(sample.ratio, theme + " form " + sample.text).toBeGreaterThanOrEqual(4.5);
     await page.screenshot({ path: testInfo.outputPath("library-form.png"), fullPage: true });
   });
 }
