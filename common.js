@@ -2091,6 +2091,93 @@ function activateGlobalTopNavigation() {
         padding-right: 5px;
       }
     }
+
+    /* Compact logo beside Home replaces the large page-top logo. */
+    .jgc-nav-start {
+      position: absolute;
+      top: 8px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .jgc-nav-start .jgc-nav-home {
+      position: static;
+    }
+
+    /* logo.webp is 1536x1024 with the artwork at x 114-1423, y 264-686; crop to the artwork. */
+    .jgc-global-top-nav .jgc-nav-brand {
+      --jgc-nav-logo-height: 34px;
+      display: block;
+      flex: none;
+      box-sizing: content-box;
+      width: calc(var(--jgc-nav-logo-height) * 1310 / 423) !important;
+      min-width: 0 !important;
+      height: var(--jgc-nav-logo-height) !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+    }
+
+    .jgc-global-top-nav .jgc-nav-brand:hover {
+      background: transparent;
+    }
+
+    .jgc-global-top-nav .jgc-nav-brand:focus-visible {
+      outline: 2px solid #ffffff;
+      outline-offset: 3px;
+    }
+
+    .jgc-nav-brand img {
+      display: block;
+      width: auto;
+      max-width: none;
+      height: calc(var(--jgc-nav-logo-height) * 1024 / 423);
+      margin: calc(var(--jgc-nav-logo-height) * -264 / 423) 0 0 calc(var(--jgc-nav-logo-height) * -114 / 423);
+    }
+
+    .jgc-global-top-nav {
+      padding-left: calc(var(--jgc-nav-start-width, 190px) + 30px);
+    }
+
+    /* Settings, search and the bell are pinned 104-250px from the right edge; keep the tabs clear of them. */
+    @media (min-width: 781px) {
+      .jgc-global-top-nav {
+        padding-right: 258px;
+      }
+    }
+
+    /* Stay inside the space beside the logo; "safe" keeps the first tab reachable when the row scrolls. */
+    .jgc-nav-center {
+      max-width: 100%;
+      justify-content: safe center;
+    }
+
+    @media (max-width: 780px) {
+      .jgc-global-top-nav .jgc-nav-brand {
+        --jgc-nav-logo-height: 26px;
+      }
+    }
+
+    @media (max-width: 370px) {
+      .jgc-global-top-nav .jgc-nav-brand {
+        --jgc-nav-logo-height: 19px;
+      }
+    }
+
+    @media screen {
+      body.jgc-has-global-nav:not(.jgc-keep-page-logo) :is(.logo-wrap, .jgc-brand, .jgc-brand-region, .jgc-brand-lockup) > img[src^="logo"] {
+        display: none !important;
+      }
+
+      body.jgc-has-global-nav:not(.jgc-keep-page-logo) :is(.logo-wrap, .jgc-brand, .jgc-brand-region):not(:has(> :not(img))) {
+        display: none !important;
+      }
+    }
   `;
   document.head.appendChild(style);
 
@@ -2099,7 +2186,10 @@ function activateGlobalTopNavigation() {
   nav.className = "jgc-global-top-nav";
   nav.setAttribute("aria-label", "JGC Portal navigation");
   nav.innerHTML = `
-    <button type="button" class="jgc-nav-home">Home</button>
+    <div class="jgc-nav-start">
+      <button type="button" class="jgc-nav-home">Home</button>
+      <button type="button" class="jgc-nav-brand" aria-label="John Gordon Construction - Home"><img src="logo.webp" alt="" decoding="async"></button>
+    </div>
     <div class="jgc-nav-center">
       ${links.map((link) => '<a href="' + link.href + '"' + (page === link.href ? ' class="active"' : "") + ">" + link.label + "</a>").join("")}
     </div>
@@ -2109,14 +2199,24 @@ function activateGlobalTopNavigation() {
   document.body.classList.add("jgc-has-global-nav");
   document.body.prepend(nav);
 
-  nav.querySelector(".jgc-nav-home").addEventListener("click", function() {
+  function goJgcHome() {
     const worker = getCurrentWorkerRecord();
     window.location.href = isJgcLimitedAccessSession(worker)
       ? JGC_LIMITED_ACCESS_HOME_PAGE
       : isJgcSubcontractorSession(worker)
       ? JGC_SUBCONTRACTOR_HOME_PAGE
       : (isAdminWorker(worker.key, worker.role, worker.email) ? "admin.html?tab=summary" : "home.html");
-  });
+  }
+  nav.querySelector(".jgc-nav-home").addEventListener("click", goJgcHome);
+  nav.querySelector(".jgc-nav-brand").addEventListener("click", goJgcHome);
+
+  // The page links start after Home + logo; the logo's width is only known once it loads.
+  const navStart = nav.querySelector(".jgc-nav-start");
+  const syncNavStart = function() {
+    nav.style.setProperty("--jgc-nav-start-width", Math.ceil(navStart.getBoundingClientRect().width) + "px");
+  };
+  syncNavStart();
+  if (window.ResizeObserver) new ResizeObserver(syncNavStart).observe(navStart);
 
   nav.querySelector(".jgc-nav-logout").addEventListener("click", async function() {
     await signOutJgc(createJgcSupabaseClient());

@@ -591,6 +591,65 @@ test("shared phone header is opaque above Admin", async ({ page }) => {
   expect(styles.backdropFilter).toBe("none");
 });
 
+for (const width of [1440, 1024, 390, 360]) {
+  test(`compact logo sits beside Home and replaces the page-top logo at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockPortalServices(page);
+    await installAuthenticatedPortalState(page);
+    for (const path of ["/timesheet.html", "/inspections.html", "/admin.html?tab=timesheets", "/accounting-admin.html", "/purchase-orders.html", "/policies-announcements.html", "/schedule.html"]) {
+      await page.goto(path, { waitUntil: "domcontentloaded" });
+      const nav = page.locator("#jgcGlobalTopNav");
+      const brand = nav.getByRole("button", { name: "John Gordon Construction - Home", exact: true });
+      await expect(brand, path).toBeVisible();
+      await expect(brand.locator("img")).toHaveJSProperty("complete", true);
+      const layout = await nav.evaluate((element) => {
+        const box = (el) => el && el.getBoundingClientRect();
+        const home = box(element.querySelector(".jgc-nav-home")), logo = box(element.querySelector(".jgc-nav-brand"));
+        const links = [...element.querySelectorAll(".jgc-nav-center a")].filter((a) => a.getClientRects().length);
+        const firstLink = links.map(box).find((r) => r.width > 0);
+        const center = box(element.querySelector(".jgc-nav-center"));
+        const rightItems = [...document.querySelectorAll("button, a")].filter((el) => !element.querySelector(".jgc-nav-start").contains(el) && !element.querySelector(".jgc-nav-center").contains(el) && el.getClientRects().length).map(box).filter((r) => r.top < 56 && r.bottom > 0 && r.left > logo.right - 1);
+        return {
+          logoAfterHome: logo.left >= home.right,
+          logoHeight: logo.height,
+          logoInsideNav: logo.top >= 0 && logo.bottom <= box(element).bottom,
+          centerClear: !center.width || center.left >= logo.right,
+          firstLinkClear: !firstLink || firstLink.left >= logo.right,
+          nearestRight: rightItems.length ? Math.min(...rightItems.map((r) => r.left)) : Infinity,
+          centerRight: center.width ? center.right : 0,
+          logoRight: logo.right,
+          logoWidth: logo.width,
+          logoNatural: 1310 / 423, // visible artwork inside logo.webp
+          overflow: document.documentElement.scrollWidth > innerWidth + 1
+        };
+      });
+      expect(layout.logoAfterHome, path).toBe(true);
+      expect(layout.logoInsideNav, path).toBe(true);
+      expect(layout.logoHeight, path).toBeGreaterThanOrEqual(18);
+      expect(layout.centerClear && layout.firstLinkClear, path).toBe(true);
+      expect(layout.nearestRight, path).toBeGreaterThanOrEqual(layout.logoRight);
+      expect(layout.centerRight, path + " tabs clear of the header icons").toBeLessThanOrEqual(layout.nearestRight + 1);
+      expect(Math.abs(layout.logoWidth / layout.logoHeight - layout.logoNatural), path + " logo keeps its proportions").toBeLessThan(0.05);
+      expect(layout.overflow, path).toBe(false);
+      const pageLogos = page.locator('body > :not(#jgcGlobalTopNav) img[src^="logo"]:visible');
+      await expect(pageLogos, path + " page-top logo hidden on screen").toHaveCount(0);
+    }
+    await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+    await page.emulateMedia({ media: "print" });
+    await expect(page.locator('.logo-wrap img[src^="logo"]')).toBeVisible();
+    await page.emulateMedia({ media: "screen" });
+    // Admin Summary keeps its own large logo in the greeting row.
+    await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#summarySection .dashboard-brand")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("summary.png") });
+    await page.locator("#timesheetsTab").click();
+    await expect(page.locator('.logo-wrap img[src^="logo"]')).toBeHidden();
+    await expect(page.locator("#timesheetsSection")).toBeVisible();
+    await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
+    await page.screenshot({ path: testInfo.outputPath("timesheet.png") });
+  });
+}
+
 test("service worker installs and controls the portal", async ({ browser }) => {
   const context = await browser.newContext({ serviceWorkers: "allow" });
   try {
