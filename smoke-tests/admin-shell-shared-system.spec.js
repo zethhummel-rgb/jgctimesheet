@@ -17,7 +17,7 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
 
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
-  expect(html).toContain('jgc-design-system.css?v=8');
+  expect(html).toContain('jgc-design-system.css?v=9');
   expect(html).toContain('admin-shell-design-system.css?v=3');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
   expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');

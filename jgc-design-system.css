@@ -875,8 +875,14 @@
   pointer-events: none;
 }
 
+/* Text follows the theme so the soft surface stays readable in light mode. */
 .jgc-button--secondary {
+  color: var(--jgc-color-text);
   background: var(--jgc-color-surface-soft);
+}
+
+:where(:root[data-jgc-theme="light"]) .jgc-button--secondary {
+  border-color: var(--jgc-color-border);
 }
 
 .jgc-button--danger {
@@ -949,7 +955,7 @@
 .jgc-tab[aria-selected="true"],
 .jgc-tab[aria-current="page"] {
   color: var(--jgc-admin-tab-active-text);
-  background: var(--jgc-color-brand-500);
+  background: var(--jgc-admin-tab-active-background);
 }
 
 /* Forms */
@@ -1118,6 +1124,11 @@
 .jgc-badge--warning {
   color: var(--jgc-color-badge-warning-text);
   background: var(--jgc-color-badge-warning);
+}
+
+/* The amber badge background is dark in both themes, so it keeps light text. */
+:where(:root[data-jgc-theme="light"]) .jgc-badge--warning {
+  color: var(--jgc-color-on-brand);
 }
 
 .jgc-badge--danger {

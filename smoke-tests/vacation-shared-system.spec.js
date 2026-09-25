@@ -207,12 +207,12 @@ test("Vacation Requests family uses one shared visual source", async () => {
   expect(pageHead).not.toMatch(/<style\b/i);
   expect(pageSource).not.toContain('style="margin-top:14px;"');
   expect(pageSource).not.toContain("styles.css");
-  expect(pageSource).toContain('jgc-design-system.css?v=8');
+  expect(pageSource).toContain('jgc-design-system.css?v=9');
   expect(pageSource).toContain('vacation-design-system.css?v=2');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Vacation-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   expect(featureCss).toMatch(/input\[type="date"\]\.jgc-input\s*\{[\s\S]*?min-inline-size:\s*0;[\s\S]*?max-inline-size:\s*100%;/i);
-  expect(adminSource).toContain('admin.css?v=16');
+  expect(adminSource).toContain('admin.css?v=17');
   expect(adminSource).toContain('vacation-design-system.css?v=2');
   expect(adminSource).toContain('jgc-panel jgc-vacation-admin');
   expect(adminVacationSource).not.toMatch(/\sstyle\s*=/i);

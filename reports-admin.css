@@ -21,8 +21,9 @@
 }
 
 .admin-report-tabs button.active {
-    background: var(--jgc-color-brand-600);
-    color: var(--jgc-color-text);
+    border-color: var(--jgc-admin-tab-active-background);
+    background: var(--jgc-admin-tab-active-background);
+    color: var(--jgc-admin-tab-active-text);
 }
 
 .admin-report-count {
@@ -38,7 +39,8 @@
 }
 
 .admin-report-tabs button.active .admin-report-count {
-    background: color-mix(in srgb, var(--jgc-color-text) 22%, transparent);
+    background: color-mix(in srgb, var(--jgc-admin-tab-active-text) 16%, transparent);
+    color: var(--jgc-admin-tab-active-text);
 }
 
 .admin-report-panel {

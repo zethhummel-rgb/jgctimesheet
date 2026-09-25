@@ -9,8 +9,8 @@ test("Notification Settings uses one token-only visual source", async () => {
   const css = fs.readFileSync(path.join(portalRoot, "notification-settings-design-system.css"), "utf8");
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=8');
-  expect(html).toContain('notification-settings-design-system.css?v=3');
+  expect(html).toContain('jgc-design-system.css?v=9');
+  expect(html).toContain('notification-settings-design-system.css?v=4');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-system-page\b/i);
   expect(html).toMatch(/<h1\b[^>]*\bjgc-page-title\b[^>]*>Notification Settings<\/h1>/i);
   expect(html).toMatch(/id="currentUser"[^>]*\bjgc-page-user\b/i);
@@ -20,7 +20,7 @@ test("Notification Settings uses one token-only visual source", async () => {
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('"./notification-settings-design-system.css?v=3"');
+  expect(worker).toContain('"./notification-settings-design-system.css?v=4"');
 });
 
 for (const viewport of [
