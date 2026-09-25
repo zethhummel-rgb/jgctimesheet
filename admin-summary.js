@@ -1270,6 +1270,85 @@ function changeAdminScheduleMonth(offset) {
     renderAdminScheduleCalendar();
 }
 
+const ADMIN_SCHEDULE_VISIBLE_ITEMS = 2;
+let adminScheduleOverflowDays = new Map();
+
+function closeAdminScheduleOverflow(restoreFocus) {
+    const panel = document.getElementById("adminScheduleOverflow");
+    if (!panel) return;
+    const opener = panel._opener;
+    panel.remove();
+    document.removeEventListener("pointerdown", handleAdminScheduleOverflowOutside, true);
+    document.removeEventListener("keydown", handleAdminScheduleOverflowKey, true);
+    window.removeEventListener("resize", closeAdminScheduleOverflowSilently);
+    window.removeEventListener("scroll", closeAdminScheduleOverflowSilently, true);
+    if (opener) {
+        opener.setAttribute("aria-expanded", "false");
+        if (restoreFocus && opener.isConnected) opener.focus();
+    }
+}
+
+function closeAdminScheduleOverflowSilently(event) {
+    const panel = document.getElementById("adminScheduleOverflow");
+    if (event && event.type === "scroll" && panel && panel.contains(event.target)) return;
+    closeAdminScheduleOverflow(false);
+}
+
+function handleAdminScheduleOverflowOutside(event) {
+    const panel = document.getElementById("adminScheduleOverflow");
+    if (panel && !panel.contains(event.target) && event.target !== panel._opener) closeAdminScheduleOverflow(false);
+}
+
+function handleAdminScheduleOverflowKey(event) {
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeAdminScheduleOverflow(true);
+    }
+}
+
+function toggleAdminScheduleOverflow(button, dateValue) {
+    const current = document.getElementById("adminScheduleOverflow");
+    const reopening = current && current._opener === button;
+    closeAdminScheduleOverflow(false);
+    const day = adminScheduleOverflowDays.get(dateValue);
+    if (reopening || !day) return;
+
+    const panel = document.createElement("div");
+    panel.id = "adminScheduleOverflow";
+    panel.className = "admin-schedule-overflow";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "All items on " + day.title);
+    panel.innerHTML = '<div class="admin-schedule-overflow-head"><strong>' + escapeHtml(day.title) + '</strong>' +
+        '<button type="button" class="admin-schedule-overflow-close" aria-label="Close">&times;</button></div>' +
+        '<div class="admin-schedule-overflow-list">' + day.items + '</div>' +
+        '<button type="button" class="admin-schedule-overflow-open">Open day</button>';
+    panel._opener = button;
+    panel.querySelector(".admin-schedule-overflow-close").onclick = () => closeAdminScheduleOverflow(true);
+    panel.querySelector(".admin-schedule-overflow-open").onclick = () => {
+        closeAdminScheduleOverflow(false);
+        openAdminScheduleModal(dateValue);
+    };
+    // Event buttons keep their inline onclick; close the list once one is chosen.
+    panel.querySelectorAll(".admin-schedule-event-button").forEach((item) => item.addEventListener("click", () => closeAdminScheduleOverflow(false)));
+    document.body.append(panel);
+
+    const anchor = button.getBoundingClientRect();
+    const width = Math.min(280, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8));
+    const below = anchor.bottom + 4;
+    panel.style.width = width + "px";
+    panel.style.left = left + "px";
+    const height = panel.offsetHeight;
+    panel.style.top = (below + height > window.innerHeight - 8 ? Math.max(8, anchor.top - height - 4) : below) + "px";
+
+    button.setAttribute("aria-expanded", "true");
+    document.addEventListener("pointerdown", handleAdminScheduleOverflowOutside, true);
+    document.addEventListener("keydown", handleAdminScheduleOverflowKey, true);
+    window.addEventListener("resize", closeAdminScheduleOverflowSilently);
+    window.addEventListener("scroll", closeAdminScheduleOverflowSilently, true);
+    panel.querySelector(".admin-schedule-overflow-close").focus();
+}
+
 function renderAdminScheduleCalendar() {
     const calendar = document.getElementById("adminScheduleCalendar");
     const title = document.getElementById("adminScheduleTitle");
@@ -1286,6 +1365,8 @@ function renderAdminScheduleCalendar() {
     const todayValue = formatAdminScheduleDateValue(new Date());
     let html = dayNames.map((day) => '<div class="admin-schedule-head">' + day + '</div>').join("");
 
+    closeAdminScheduleOverflow(false);
+    adminScheduleOverflowDays = new Map();
     title.textContent = firstDay.toLocaleDateString("en-CA", { month: "long", year: "numeric" });
 
     for (let i = 0; i < firstDay.getDay(); i++) {
@@ -1321,18 +1402,25 @@ function renderAdminScheduleCalendar() {
             '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
             escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
         );
-        const visibleItems = milestoneItems.concat(eventItems, vacationItems).slice(0, 6);
-        const totalCount = jobMilestones.length + events.length + vacations.length;
-        const more = totalCount > 6 ? '<div class="small">+' + (totalCount - 6) + ' more</div>' : "";
-        const dayLabel = date.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) +
+        // Booked work comes first so automatic job milestones never push it behind "+N".
+        const allItems = eventItems.concat(vacationItems, milestoneItems);
+        const visibleItems = allItems.slice(0, ADMIN_SCHEDULE_VISIBLE_ITEMS);
+        const hiddenCount = allItems.length - visibleItems.length;
+        const longDate = date.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        const dayLabel = longDate +
             ". " + events.length + " schedule item" + (events.length === 1 ? "" : "s") +
             ", " + vacations.length + " vacation" + (vacations.length === 1 ? "" : "s") +
             ", and " + jobMilestones.length + " job milestone" + (jobMilestones.length === 1 ? "" : "s") + ". Open day details.";
+        if (hiddenCount) adminScheduleOverflowDays.set(dateValue, { title: longDate, items: allItems.join("") });
+        // "+N" shares the day-number row so extra items never make the week taller.
+        const more = hiddenCount
+            ? '<button type="button" class="admin-schedule-more" aria-expanded="false" aria-label="Show ' + hiddenCount + ' more on ' + escapeHtml(longDate) + '" onclick="event.stopPropagation(); toggleAdminScheduleOverflow(this, \'' + dateValue + '\');">+' + hiddenCount + '</button>'
+            : "";
 
         html += `
             <div role="button" tabindex="0" aria-label="${escapeHtml(dayLabel)}" class="admin-schedule-day${todayClass}" onclick="openAdminScheduleModal('${dateValue}')" onkeydown="if(event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openAdminScheduleModal('${dateValue}'); }">
-                <div class="admin-schedule-day-number">${day}</div>
-                <div class="admin-schedule-day-list">${visibleItems.join("")}${more}</div>
+                <div class="admin-schedule-day-top"><div class="admin-schedule-day-number">${day}</div>${more}</div>
+                <div class="admin-schedule-day-list">${visibleItems.join("")}</div>
             </div>
         `;
     }

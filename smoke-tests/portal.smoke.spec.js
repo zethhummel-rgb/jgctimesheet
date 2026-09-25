@@ -5322,6 +5322,12 @@ async function mockDashboard(page, options={}) {
   await page.route(`${supabaseOrigin}/rest/v1/digital_purchase_orders*`,route=>route.fulfill({headers:{'content-range':'0-0/14','access-control-expose-headers':'content-range'},json:[{id:'po',po_number:39999,supplier_name:'Synthetic Supplier',job_number:'26999',workflow_status:'draft'}]}));
   await page.route(`${supabaseOrigin}/rest/v1/tasks*`,route=>route.fulfill({json:[{id:'t',title:'Order synthetic material',status:'open',priority:'high',due_date:'2026-09-23'}]}));
   await page.route(`${supabaseOrigin}/rest/v1/announcements*`,route=>route.fulfill({json:[{id:'a',title:'Synthetic safety notice',body:'Review site conditions',is_active:true,created_at:'2026-09-22T12:00:00Z'}]}));
+  await page.route(`${supabaseOrigin}/rest/v1/vacation_requests*`,route=>route.fulfill({json:options.vacations||[]}));
+  await page.route(`${supabaseOrigin}/rest/v1/equipment_vehicles*`,route=>route.fulfill({json:options.equipment||[]}));
+  // Missing-timesheet inputs are only overridden when a test supplies them; profiles only for the dashboard's hire-date query.
+  const accounting=options.accounting;
+  if(accounting)for(const [table,rows] of Object.entries({profiles:accounting.profiles,work_order_labour_workers:accounting.workers,employee_feature_access:accounting.access,accounting_timesheet_submissions:accounting.submissions,timesheet_entries:accounting.live}))
+   await page.route(`${supabaseOrigin}/rest/v1/${table}*`,route=>{const u=decodeURIComponent(route.request().url());return route.request().method()==='GET'&&(table!=='profiles'||u.includes('hire_date'))?route.fulfill({json:rows||[]}):route.fallback();});
   return state;
 }
 
@@ -5375,7 +5381,7 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 
 test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
- const expected=[['jobs-stat',3,63,0,0],['quotes',3,61,3,0],['work-orders',3,62,6,0],['purchase-orders',3,62,9,0],['calendar',7,636,0,78],['recent',5,299,7,80],['active-jobs',5,311,7,400],['subcontractors',4,280,0,728],['tasks',4,280,4,728],['announcements',4,280,8,728]];
+ const expected=[['jobs-stat',3,63,0,0],['quotes',3,61,3,0],['work-orders',3,62,6,0],['purchase-orders',3,62,9,0],['vacation',4,62,0,77],['equipment-expiry',4,62,4,77],['missing-timesheets',4,62,8,77],['calendar',7,636,0,154],['recent',5,299,7,156],['active-jobs',5,311,7,476],['subcontractors',4,280,0,804],['tasks',4,280,4,804],['announcements',4,280,8,804]];
  const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
  expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
  await page.locator('[data-widget="recent"] .dashboard-widget-options').click();await page.getByLabel('Recent Work width',{exact:true}).selectOption('4');
@@ -5384,6 +5390,64 @@ test('Dashboard approved default layout applies to new accounts and Reset while 
  await openDashboardWidgetMenu(page);await page.locator('#dashboardReset').click();
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');expect(await read()).toEqual(expected);
  await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(expected);
+});
+
+test('Dashboard counters show pending vacation, 30-day expiries and last pay period missing timesheets',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-09-25T16:00:00Z'));
+ await mockDashboard(page,{
+  vacations:[{id:'v1',worker_display_name:'Synthetic Painter',start_date:'2026-10-05',end_date:'2026-10-09',request_type:'vacation_paid',status:'pending'},{id:'v2',worker_name:'Synthetic Labourer',start_date:'2026-10-14',end_date:'2026-10-14',status:null}],
+  equipment:[{id:'e1',name:'Synthetic Scissor Lift',unit_number:'SL-7',yearly_inspection_expiry:'2026-10-03'},{id:'e2',name:'Synthetic Truck',yearly_inspection_expiry:'2026-09-01'},{id:'e3',name:'Synthetic Trailer',yearly_inspection_expiry:'2026-09-20'}],
+  accounting:{
+   profiles:[{id:'p-a',display_name:'Synthetic Framer',hire_date:null},{id:'p-b',display_name:'Synthetic New Hire',hire_date:'2026-09-14'},{id:'p-c',display_name:'Synthetic Office',hire_date:null}],
+   workers:[{id:'w-a',profile_id:'p-a',approved:true},{id:'w-b',profile_id:'p-b',approved:true},{id:'w-c',profile_id:'p-c',approved:true}],
+   access:[{worker_id:'w-a',feature_key:'accounting',enabled:true},{worker_id:'w-b',feature_key:'accounting',enabled:true}],
+   submissions:[{profile_id:'p-a',week_start:'2026-08-30'}],live:[]
+  }
+ });
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ const vacation=page.locator('[data-widget="vacation"]');
+ await expect(vacation.locator('.dashboard-metric strong')).toHaveText('2');
+ await expect(vacation.locator('a.dashboard-metric')).toHaveAttribute('href','admin.html?tab=vacation');
+ const expiry=page.locator('[data-widget="equipment-expiry"]');
+ await expect(expiry.locator('.dashboard-metric strong')).toHaveText('1');
+ await expect(expiry.locator('.dashboard-metric-alert')).toHaveText('2 expired');
+ await expect(expiry.locator('.dashboard-metric-alert')).toBeVisible();await expectReadableText(expiry.locator('.dashboard-metric-alert'),'Expired equipment note');
+ await expect(expiry.locator('a.dashboard-metric')).toHaveAttribute('href','admin.html?tab=equipment');
+ // Sep 25 is inside the pay period ending Sep 26, so the last completed one is Aug 30 – Sep 12 (paid Sep 17).
+ // Framer submitted week 1 only; New Hire started after that period; Office has no accounting access.
+ const missing=page.locator('[data-widget="missing-timesheets"]');
+ await expect(missing.locator('.dashboard-metric strong')).toHaveText('1');
+ await expect(missing.locator('a.dashboard-metric')).toHaveAttribute('href','accounting-admin.html?payDate=2026-09-17');
+ await missing.locator('.dashboard-widget-options').click();await page.getByLabel('Missing Timesheets height',{exact:true}).selectOption('280');
+ await expect(missing.locator('.dashboard-list')).toContainText('Synthetic Framer');await expect(missing.locator('.dashboard-list')).toContainText('Week of Sep 6');
+ await expect(missing.locator('.dashboard-list')).not.toContainText('Synthetic New Hire');
+});
+
+for(const theme of ['light','dark'])test(`Dashboard calendar keeps two items per day and reveals the rest from +N ${theme}`,async({page},testInfo)=>{
+ await mockDashboard(page,{theme});await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ const card=page.locator('[data-widget="calendar"]');
+ await page.evaluate(()=>{adminScheduleMonth=new Date(2026,7,1);scheduleEvents=['Pour footings','Crane lift','Inspection walk','Deliver rebar','Safety meeting'].map((title,i)=>({id:'busy-'+i,event_date:'2026-08-18',event_type:'work',title,start_time:'0'+(7+i)+':00'})).concat([{id:'quiet',event_date:'2026-08-19',event_type:'work',title:'Single item',start_time:'08:00'}]);renderAdminScheduleCalendar();});
+ const busy=card.getByRole('button',{name:/^Tuesday, August 18, 2026/}),quiet=card.getByRole('button',{name:/^Wednesday, August 19, 2026/});
+ await expect(busy.locator('.admin-schedule-day-list .admin-schedule-item')).toHaveCount(2);
+ const more=busy.getByRole('button',{name:'Show 3 more on Tuesday, August 18, 2026'});await expect(more).toHaveText('+3');
+ await expectReadableText(more,'Calendar +N '+theme);
+ const heights=await Promise.all([busy,quiet].map(d=>d.evaluate(el=>el.getBoundingClientRect().height)));expect(Math.abs(heights[0]-heights[1])).toBeLessThan(1);
+ for(const item of await busy.locator('.admin-schedule-day-list .admin-schedule-item').all()){const box=await item.boundingBox(),day=await busy.boundingBox();expect(box.height).toBeGreaterThan(6);expect(box.y+box.height).toBeLessThanOrEqual(day.y+day.height+0.5);}
+ await card.scrollIntoViewIfNeeded();await more.click();
+ const list=page.getByRole('dialog',{name:'All items on Tuesday, August 18, 2026'});
+ await expect(list).toBeVisible();await expect(list.locator('.admin-schedule-item')).toHaveCount(5);await expect(list).toContainText('Safety meeting');
+ await expect(page.locator('#adminScheduleModal')).not.toHaveClass(/open/);await expect(more).toHaveAttribute('aria-expanded','true');
+ // A viewport screenshot keeps the page still; scrolling closes the pinned list by design.
+ await expectReadableText(list.locator('strong, .admin-schedule-overflow-open'),'Calendar overflow list '+theme);
+ await page.screenshot({path:testInfo.outputPath('calendar-overflow-page.png')});await expect(list).toBeVisible();
+ await page.keyboard.press('Escape');await expect(list).toBeHidden();await expect(more).toBeFocused();
+ await more.click();await list.getByRole('button',{name:/Safety meeting/}).click();await expect(list).toBeHidden();await expect(page.locator('#adminScheduleModal')).toHaveClass(/open/);
+});
+
+test('Accounting opens the pay period requested by the Summary link and ignores invalid dates',async({page})=>{
+ await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile);
+ await page.goto('/accounting-admin.html?payDate=2026-09-03',{waitUntil:'domcontentloaded'});await expect(page.locator('#accountingPayDate')).toHaveValue('2026-09-03');
+ await page.goto('/accounting-admin.html?payDate=2026-09-04',{waitUntil:'domcontentloaded'});await expect(page.locator('#accountingPayDate')).not.toHaveValue('2026-09-04');
 });
 
 test('Dashboard pointer drag and resize persist without changing business records',async({page})=>{
@@ -5454,7 +5518,7 @@ test('Dashboard restores subcontractor activity after a failed request',async({p
 test('Dashboard counts active jobs across pages and normalizes invalid layout',async({page})=>{
  await mockDashboard(page,{layout:{widgets:[{id:'tasks',width:999,height:0},{id:'tasks'},{id:'unknown'}]}});
  await page.route(`${supabaseOrigin}/rest/v1/jobs*`,r=>{const offset=Number(new URL(r.request().url()).searchParams.get('offset')||0);return r.fulfill({json:Array.from({length:offset?1:500},(_,i)=>({id:'j'+(i+offset),job_number:String(26999-i-offset),customer:'Synthetic Client',job_name:'Project',active:true}))});});
- await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(10);
+ await page.goto('/admin.html?tab=summary');await expect(page.locator('[data-widget="jobs-stat"] .dashboard-metric strong')).toHaveText('501');await expect(page.locator('.dashboard-widget')).toHaveCount(13);
  await expect(page.locator('.dashboard-widget').first()).toHaveAttribute('data-widget','tasks');
  await page.locator('[data-widget="tasks"] .dashboard-widget-options').click();await expect(page.getByLabel('Tasks / Follow-Ups width',{exact:true})).toHaveValue('4');
 });
@@ -5470,7 +5534,7 @@ for(const theme of ['light','dark'])test(`Dashboard stacked calendar layout and 
   const rects=await page.locator('.dashboard-widget').evaluateAll(elements=>Object.fromEntries(elements.filter(el=>!el.hidden).map(el=>{const r=el.getBoundingClientRect();return [el.dataset.widget,{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}];})));
   const c=rects.calendar,r=rects.recent,j=rects['active-jobs'];
   expect(Math.abs(c.y-r.y)).toBeLessThan(1);expect(Math.abs(j.x-r.x)).toBeLessThan(1);expect(Math.abs(j.y-r.bottom-14)).toBeLessThan(1);expect(Math.abs(j.bottom-c.bottom)).toBeLessThan(1);
-  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])expect(rects[id].height).toBe(44);
+  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders','vacation','equipment-expiry','missing-timesheets'])expect(rects[id].height).toBe(44);
   const entries=Object.entries(rects);for(let i=0;i<entries.length;i++)for(let k=i+1;k<entries.length;k++){const a=entries[i][1],b=entries[k][1];expect(a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1,entries[i][0]+' overlaps '+entries[k][0]).toBe(false);}
  }
  await check();await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await check();

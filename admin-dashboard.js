@@ -5,12 +5,13 @@
   const definitions = [
     ['jobs-stat','Active Jobs',3,63,0,0], ['quotes','Quotes',3,61,3,0],
     ['work-orders','Work Orders',3,62,6,0], ['purchase-orders','Purchase Orders',3,62,9,0],
-    ['calendar','Schedule Calendar',7,636,0,78],
-    ['recent','Recent Work',5,299,7,80], ['active-jobs','Active Jobs',5,311,7,400],
-    ['subcontractors','Subcontractor Activity',4,280,0,728], ['tasks','Tasks / Follow-Ups',4,280,4,728], ['announcements','Announcements',4,280,8,728]
+    ['vacation','Vacation Requests',4,62,0,77], ['equipment-expiry','Vehicle / Equipment Expiries',4,62,4,77], ['missing-timesheets','Missing Timesheets',4,62,8,77],
+    ['calendar','Schedule Calendar',7,636,0,154],
+    ['recent','Recent Work',5,299,7,156], ['active-jobs','Active Jobs',5,311,7,476],
+    ['subcontractors','Subcontractor Activity',4,280,0,804], ['tasks','Tasks / Follow-Ups',4,280,4,804], ['announcements','Announcements',4,280,8,804]
   ];
   const widths = [2,3,4,5,6,7,8,9,10,11,12], heights = [44,144,280,313,408,456,640];
-  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders"];
+  const geometry=window.JgcDashboardGrid, statIds=["jobs-stat","quotes","work-orders","purchase-orders","vacation","equipment-expiry","missing-timesheets"];
   let selected="recent"; const toolbars=new Map();
   const minimumHeight=id=>statIds.includes(id)?44:id==='calendar'?280:144;
   const defaults = () => ({version:2, widgets:geometry.pack(definitions.map(([id,,width,height,x,y]) => ({id,width,height,x,y,visible:true})))});
@@ -32,10 +33,13 @@
     notice:'<path d="m3 10 14-5v14L3 14zM7 15l2 6M21 8v8"/>',
     sun:'<circle cx="12" cy="12" r="4"/><path d="M12 1v2M12 21v2M1 12h2M21 12h2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
     search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
-    plus:'<path d="M12 5v14M5 12h14"/>'
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+    truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18H9M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+    clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h4"/>'
   };
   const icon=key=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[key]||iconPaths.briefcase}</svg>`;
-  const widgetIcons={'jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase',subcontractors:'users',tasks:'check',announcements:'notice'};
+  const widgetIcons={'jobs-stat':'briefcase',quotes:'file','work-orders':'wrench','purchase-orders':'cart','estimate-desk':'calculator',calendar:'calendar',recent:'clock','active-jobs':'briefcase',subcontractors:'users',tasks:'check',announcements:'notice',vacation:'plane','equipment-expiry':'truck','missing-timesheets':'clipboard'};
   function normalize(value) {
     const result=defaults(), supplied=Array.isArray(value?.widgets) ? value.widgets : [];
     const seen=new Set(), ordered=[];
@@ -116,7 +120,7 @@
     const commandbar=document.createElement('div');commandbar.className='dashboard-commandbar';
     const search=document.querySelector('#summarySection .admin-global-search');search.before(commandbar);commandbar.append(search,document.querySelector('.dashboard-quick-actions'));
     const panel=document.createElement('div');panel.id='dashboardLayoutControls';panel.className='dashboard-layout-controls';panel.hidden=true;
-    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardDoneEditing">Done editing</button><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all four totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
+    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardDoneEditing">Done editing</button><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
     $('summarySection').append(panel);
     const grid=document.createElement('div');grid.id='dashboardGrid';grid.className='dashboard-grid';$('summarySection').append(grid);
     for(const [id,title,width,height] of definitions){
@@ -196,7 +200,18 @@
   function list(rows,empty) {
     return rows.length?'<ul class="dashboard-list">'+rows.slice(0,8).map(r=>`<li>${r.icon?`<span class="dashboard-row-icon">${icon(r.icon)}</span>`:''}<div><a href="${esc(r.href)}">${esc(r.title)}</a><small>${esc(r.detail)}</small></div>${r.badge?`<span class="dashboard-badge" data-tone="${r.badge==='Active'?'green':r.badge==='Draft'?'blue':'amber'}">${esc(r.badge)}</span>`:''}</li>`).join('')+'</ul>':`<p class="small">${esc(empty)}</p>`;
   }
-  const metric=(count,label)=>`<div class="dashboard-metric"><strong>${esc(count)}</strong><span>${esc(label)}</span></div>`;
+  const metric=(count,label,href,alert)=>{const inner=`<strong>${esc(count)}</strong><span>${esc(label)}</span>${alert?`<span class="dashboard-metric-alert">${esc(alert)}</span>`:''}`;return href?`<a class="dashboard-metric" href="${esc(href)}" aria-label="${esc(count+' '+label+(alert?', '+alert:''))}">${inner}</a>`:`<div class="dashboard-metric">${inner}</div>`;};
+  // Calendar-day helpers shared with Accounting: Toronto dates, bi-weekly pay periods anchored on 2026-08-20.
+  const PAY_DATE_ANCHOR='2026-08-20', WEEKDAYS=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+  const utcDay=value=>{const [y,m,d]=String(value).slice(0,10).split('-').map(Number);return new Date(Date.UTC(y,m-1,d,12));};
+  const addDays=(value,days)=>{const d=utcDay(value);d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);};
+  const daysBetween=(from,to)=>Math.round((utcDay(to)-utcDay(from))/86400000);
+  const torontoToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  function lastCompletedPayPeriod(){
+    // A period's second week ends 5 days before pay day; it is complete once that Saturday has passed.
+    const today=torontoToday(),payDate=addDays(PAY_DATE_ANCHOR,Math.floor(daysBetween(PAY_DATE_ANCHOR,addDays(today,4))/14)*14);
+    return {payDate,weekStarts:[addDays(payDate,-18),addDays(payDate,-11)],end:addDays(payDate,-5)};
+  }
   async function rows(query){const result=await query;if(result.error)throw result.error;return result;}
   let workspacePromise;
   function workspace(){return workspacePromise ||= rows(supabaseClient.from('estimator_workspaces').select('payload').eq('id','main').maybeSingle()).then(r=>r.data?.payload||{});}
@@ -209,7 +224,7 @@
         for(let offset=0;;offset+=500){const result=await rows(supabaseClient.from('jobs').select('id,job_number,job_name,customer,site_name,job_type,start_date').eq('active',true).order('job_number',{ascending:false}).order('id').range(offset,offset+499));all.push(...result.data);if(result.data.length<500)break;}
         if(generation!==loadId)return;
         const entries=all.map(j=>({title:j.job_number+' · '+(j.customer||'Client not entered'),detail:[j.job_name,j.site_name,j.job_type].filter(Boolean).join(' · '),badge:'Active',href:url('estimating/?view=jobs&job=',j.job_number)}));
-        fill('jobs-stat',metric(all.length,'active jobs'),[['View all','estimating/?view=jobs']]);
+        fill('jobs-stat',metric(all.length,'active jobs','estimating/?view=jobs'),[['View all','estimating/?view=jobs']]);
         fill('active-jobs',list(entries,'No active jobs.'),[['View all','estimating/?view=jobs']]);
       }),
       load(['quotes','recent'],async()=>{
@@ -217,7 +232,7 @@
         const entries=quotes.map(q=>({title:[q.number,(data.clients||[]).find(c=>c.id===q.clientId)?.name].filter(Boolean).join(' · '),detail:[q.project,q.status,date(q.updatedAt||q.quoteDate)].filter(Boolean).join(' · '),badge:q.status,href:url('estimating/?quote=',q.id)}));
         if(generation!==loadId)return;
         const links=[['View all','estimating/?view=quotes']];if(entries.length)links.push(['Open latest',entries[0].href]);
-        fill('quotes',metric(quotes.length,'quotes')+list(entries,'No quotes yet.'),links);
+        fill('quotes',metric(quotes.length,'quotes','estimating/?view=quotes')+list(entries,'No quotes yet.'),links);
         const activity=(data.activity||[]).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(a=>{const job=jobs.find(j=>j.quoteId===a.quoteId);return {title:a.title,detail:[a.detail,date(a.createdAt)].filter(Boolean).join(' · '),href:job?url('estimating/?view=jobs&job=',job.jobNumber):a.quoteId?url('estimating/?quote=',a.quoteId):'estimating/'};});
         const recentJobs=jobs.slice().sort((a,b)=>String(b.portalLastSyncedAt||b.acceptedAt||'').localeCompare(String(a.portalLastSyncedAt||a.acceptedAt||''))).map(j=>({title:[j.jobNumber,j.portalCustomer||(data.clients||[]).find(c=>c.id===j.clientId)?.name].filter(Boolean).join(' · '),detail:[j.portalJobName||j.project,j.status].filter(Boolean).join(' · '),href:url('estimating/?view=jobs&job=',j.jobNumber)}));
         fill('recent',`<div class="dashboard-recent-tabs"><button type="button" data-recent="quotes" aria-pressed="true">Quotes</button><button type="button" data-recent="jobs" aria-pressed="false">Jobs</button><button type="button" data-recent="activity" aria-pressed="false">Activity</button></div><div class="dashboard-recent-list">${list(entries,'No recent quotes.')}</div>`,links);
@@ -226,14 +241,55 @@
       load(['work-orders'],async()=>{
         const result=await rows(supabaseClient.from('work_orders').select('id,wo_number,customer,job_name,status,updated_at',{count:'exact'}).neq('status','submitted').order('updated_at',{ascending:false}).limit(8));
         if(generation!==loadId)return;
-        fill('work-orders',metric(result.count??result.data.length,'open work orders')+list(result.data.map(w=>({title:w.wo_number+' · '+(w.customer||w.job_name||''),detail:[w.job_name,w.status].filter(Boolean).join(' · '),href:url('work-orders.html?wo=',w.id)})),'No open work orders.'),[['View all','admin.html?tab=workOrders'],...(result.data.length?[['Open latest',url('work-orders.html?wo=',result.data[0].id)]]:[])]);
+        fill('work-orders',metric(result.count??result.data.length,'open work orders','admin.html?tab=workOrders')+list(result.data.map(w=>({title:w.wo_number+' · '+(w.customer||w.job_name||''),detail:[w.job_name,w.status].filter(Boolean).join(' · '),href:url('work-orders.html?wo=',w.id)})),'No open work orders.'),[['View all','admin.html?tab=workOrders'],...(result.data.length?[['Open latest',url('work-orders.html?wo=',result.data[0].id)]]:[])]);
       }),
       load(['purchase-orders'],async()=>{
         const result=await rows(supabaseClient.from('digital_purchase_orders').select('id,po_number,supplier_name,job_number,workflow_status,updated_at',{count:'exact'}).not('workflow_status','in','(cancelled,closed)').order('updated_at',{ascending:false}).limit(8));
         if(generation!==loadId)return;
         const entries=result.data.map(p=>({title:'PO-'+p.po_number+' · '+(p.supplier_name||''),detail:[p.job_number,p.workflow_status].filter(Boolean).join(' · '),href:url('purchase-orders-admin.html?po=',p.id)}));
         const links=[['View all','purchase-orders-admin.html']];if(entries.length)links.push(['Open latest',entries[0].href]);
-        fill('purchase-orders',metric(result.count??result.data.length,'open digital POs')+list(entries,'No open digital purchase orders.'),links);
+        fill('purchase-orders',metric(result.count??result.data.length,'open digital POs','purchase-orders-admin.html')+list(entries,'No open digital purchase orders.'),links);
+      }),
+      load(['vacation'],async()=>{
+        // Same rule as the Vacation tab: a missing status counts as pending.
+        const result=await rows(supabaseClient.from('vacation_requests').select('id,worker_display_name,worker_name,start_date,end_date,request_type,status,created_at').or('status.is.null,status.ilike.pending').order('start_date',{ascending:true}));
+        if(generation!==loadId)return;
+        const href='admin.html?tab=vacation';
+        fill('vacation',metric(result.data.length,'awaiting approval',href)+list(result.data.map(r=>({title:r.worker_display_name||r.worker_name||'Employee',icon:'plane',detail:[r.start_date&&r.end_date&&r.end_date!==r.start_date?date(r.start_date)+' – '+date(r.end_date):date(r.start_date),String(r.request_type||'').replace(/_/g,' ')].filter(Boolean).join(' · '),href})),'No vacation requests awaiting approval.'),[['Review requests',href]]);
+      }),
+      load(['equipment-expiry'],async()=>{
+        // Mirrors the Equipment tab's 30-day expiry notices; already-expired items are flagged separately.
+        const today=torontoToday(),href='admin.html?tab=equipment';
+        const result=await rows(supabaseClient.from('equipment_vehicles').select('id,name,unit_number,identification_number,yearly_inspection_expiry').eq('is_active',true).not('yearly_inspection_expiry','is',null).lte('yearly_inspection_expiry',addDays(today,30)).order('yearly_inspection_expiry',{ascending:true}));
+        if(generation!==loadId)return;
+        const items=result.data.map(e=>({...e,days:daysBetween(today,e.yearly_inspection_expiry)}));
+        const expiring=items.filter(e=>e.days>=0),expired=items.filter(e=>e.days<0);
+        const entries=expiring.concat(expired).map(e=>({title:[e.name,e.unit_number||e.identification_number].filter(Boolean).join(' · '),icon:'truck',detail:e.days<0?'Expired '+date(e.yearly_inspection_expiry):'Expires '+date(e.yearly_inspection_expiry)+' · '+(e.days===0?'today':e.days+' day'+(e.days===1?'':'s')),badge:e.days<0?'Expired':'',href}));
+        fill('equipment-expiry',metric(expiring.length,'expiring in 30 days',href,expired.length?expired.length+' expired':'')+list(entries,'Nothing expires in the next 30 days.'),[['Open Equipment',href]]);
+      }),
+      load(['missing-timesheets'],async()=>{
+        // Same rule Accounting uses to block Final & Lock, applied to the last completed pay period only.
+        const period=lastCompletedPayPeriod(),href='accounting-admin.html?payDate='+period.payDate;
+        const [profiles,workers,access,submissions,live]=await Promise.all([
+          rows(supabaseClient.from('profiles').select('id,display_name,hire_date').order('display_name')),
+          rows(supabaseClient.from('work_order_labour_workers').select('id,profile_id,approved')),
+          rows(supabaseClient.from('employee_feature_access').select('worker_id,feature_key,enabled').eq('feature_key','accounting')),
+          rows(supabaseClient.from('accounting_timesheet_submissions').select('profile_id,week_start').in('week_start',period.weekStarts)),
+          rows(supabaseClient.from('timesheet_entries').select('profile_id,week_start,day_of_week').in('week_start',period.weekStarts))
+        ]);
+        if(generation!==loadId)return;
+        const enabled=new Set(access.data.filter(a=>a.enabled!==false).map(a=>a.worker_id));
+        const included=new Set(workers.data.filter(w=>w.profile_id&&w.approved!==false&&enabled.has(w.id)).map(w=>w.profile_id));
+        const submitted=new Set(submissions.data.map(s=>s.profile_id+'|'+String(s.week_start).slice(0,10)));
+        const dayIndex=['Sunday',...WEEKDAYS,'Saturday'];
+        const missing=[];
+        for(const profile of profiles.data.filter(p=>included.has(p.id)))for(const weekStart of period.weekStarts){
+          const hire=String(profile.hire_date||'').slice(0,10);
+          const required=WEEKDAYS.filter((_,i)=>!hire||addDays(weekStart,i+1)>=hire);
+          const entered=live.data.some(e=>e.profile_id===profile.id&&String(e.week_start).slice(0,10)===weekStart&&(!hire||addDays(weekStart,dayIndex.indexOf(e.day_of_week))>=hire));
+          if((required.length||entered)&&!submitted.has(profile.id+'|'+weekStart))missing.push({profile,weekStart});
+        }
+        fill('missing-timesheets',metric(missing.length,'missing, pay period ending '+date(period.end),href)+list(missing.map(m=>({title:m.profile.display_name||'Employee',icon:'clipboard',detail:'Week of '+date(m.weekStart),href})),'All timesheets for the pay period ending '+date(period.end)+' are submitted.'),[['Open Accounting',href]]);
       }),
       load(['subcontractors'],async()=>{
         const result=await rows(supabaseClient.from('subcontractor_portal_activity').select('id,company_name,contact_name,action,page,created_at').order('created_at',{ascending:false}).limit(6));
