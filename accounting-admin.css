@@ -33,6 +33,74 @@
   margin: 0 0 16px;
 }
 
+/* Slim version of the Summary search; results open in the shared Portal search panel. */
+.accounting-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 0 16px;
+  padding: 4px 4px 4px 14px;
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-pill);
+  background: var(--jgc-color-surface);
+}
+
+.accounting-search:focus-within {
+  border-color: var(--jgc-color-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jgc-color-brand-500) 25%, transparent);
+}
+
+.accounting-search-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--jgc-color-text-muted);
+}
+
+.accounting-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--jgc-color-text);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.accounting-search-input:focus {
+  outline: none;
+}
+
+.accounting-search-input::placeholder {
+  color: var(--jgc-color-text-muted);
+}
+
+.accounting-search-button {
+  flex: none;
+  min-height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--jgc-radius-pill);
+  background: var(--jgc-color-brand-700);
+  color: var(--jgc-color-on-brand);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accounting-search-button:focus-visible {
+  outline: 2px solid var(--jgc-color-text);
+  outline-offset: 2px;
+}
+
+.accounting-search-status {
+  margin: -8px 0 16px 14px;
+  color: var(--jgc-color-text-muted);
+  font-size: 0.85rem;
+}
+
 .accounting-panel {
   margin-bottom: 16px;
   border: 1px solid var(--jgc-color-border);
