@@ -272,6 +272,8 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) {
     await expect(admin.locator("#writeupDetailBody")).toContainText("Awaiting acknowledgment");
     expect(await admin.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     for (const button of await admin.locator("#writeupDetailActions .writeup-btn").all()) expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(40);
+    const voidButton = await admin.getByRole("button", { name: "Void", exact: true }).evaluate(el => { const p = c => (c.match(/[\d.]+/g) || []).map(Number); const l = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0); const s = getComputedStyle(el); const a = l(p(s.color)), b = l(p(s.backgroundColor)); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); });
+    expect(voidButton, theme + " Void button contrast").toBeGreaterThanOrEqual(4.5);
     await admin.screenshot({ path: testInfo.outputPath("admin-detail.png"), fullPage: true });
     const employee = await (await browser.newContext({ viewport: { width, height: 900 } })).newPage();
     await signIn(employee, backend, EMPLOYEE, theme);

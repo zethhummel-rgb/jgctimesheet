@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "920";
+const JGC_RELEASE_ID = "921";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -288,14 +288,17 @@ const JGC_APP_SHELL = [
   "./jsa.html",
   "./prepared-jsas.html",
   "./prepared-jsas.js?v=1",
+  "./jsa-library-admin.html",
+  "./jsa-library-admin.js?v=1",
+  "./jsa-library-admin.css?v=1",
   "./employee-writeups.html",
   "./employee-writeups.js?v=1",
   "./employee-writeups-admin.html",
   "./employee-writeups-admin.js?v=1",
   "./employee-writeups-shared.js?v=1",
-  "./employee-writeups.css?v=1",
-  "./jsa-editor.js?v=1",
-  "./jsa-presets.js?v=1",
+  "./employee-writeups.css?v=2",
+  "./jsa-editor.js?v=2",
+  "./jsa-presets.js?v=2",
   "./tele-handler.html",
   "./policies-admin.html",
   "./styles.css?v=3",
@@ -319,7 +322,7 @@ const JGC_APP_SHELL = [
   "./permit-design-system.css?v=2",
   "./report-design-system.css?v=2",
   "./daily-site-report.css?v=1",
-  "./jsa-report.css?v=2",
+  "./jsa-report.css?v=3",
   "./toolbox-talks-report.css?v=1",
   "./incident-report.css?v=1",
   "./accident-report.css?v=2",

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive"><title>JSA Library — JGC</title>
+<link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
+<link rel="stylesheet" href="report-design-system.css?v=2">
+<link rel="stylesheet" href="jsa-library-admin.css?v=1">
+</head><body class="report-family-page report-form-page jgc-page jgc-system-page jsa-library-page">
+<main class="report-page-shell jgc-page-shell jgc-page-shell--wide">
+<div class="logo-wrap jgc-brand"><img src="logo.webp" alt="John Gordon Construction"></div>
+<section class="container jgc-panel">
+<div class="library-heading"><div><p class="eyebrow">JGC HEALTH &amp; SAFETY</p><h1>JSA Library</h1></div><a class="library-btn library-btn--secondary" href="admin.html?tab=safetyRecords">Safety Records</a></div>
+<p>Custom tasks you save here appear in every JSA's "Add from construction library" search, next to the built-in presets. Inserting a task copies its text into the JSA, so editing a JSA never changes the library, and changing the library never changes existing JSAs.</p>
+<p id="libraryStatus" role="status" aria-live="polite">Checking admin access…</p>
+
+<div id="libraryControls" hidden>
+  <div class="actions"><button id="libraryNew" type="button" class="library-btn">New custom task</button><button id="libraryRefresh" type="button" class="library-btn library-btn--secondary">Refresh</button></div>
+  <div class="library-filters">
+    <div class="field"><label for="librarySearch">Search tasks, hazards or controls</label><input id="librarySearch" type="search" autocomplete="off"></div>
+    <div class="field"><label for="libraryView">Show</label><select id="libraryView"><option value="active">Custom tasks — active</option><option value="archived">Custom tasks — archived</option><option value="system">Built-in presets (read-only)</option></select></div>
+  </div>
+  <div id="libraryList" class="library-list"></div>
+</div>
+
+<form id="libraryForm" class="library-form" novalidate hidden>
+  <h2 id="libraryFormTitle">New custom task</h2>
+  <div class="library-grid">
+    <div class="field"><label for="libraryCategory">Category <span aria-hidden="true">*</span></label><select id="libraryCategory" required></select></div>
+    <div class="field" id="libraryNewCategoryField" hidden><label for="libraryNewCategory">New category name <span aria-hidden="true">*</span></label><input id="libraryNewCategory" type="text" maxlength="80"></div>
+    <div class="field full"><label for="libraryTask">Task / job step <span aria-hidden="true">*</span></label><input id="libraryTask" type="text" maxlength="150" autocomplete="off"></div>
+    <div id="libraryDuplicates" class="library-duplicates full" role="status" aria-live="polite" hidden></div>
+    <label id="libraryConfirmField" class="library-confirm full" hidden><input id="libraryConfirm" type="checkbox"> This is a different task from the similar ones listed above</label>
+    <div class="field full"><label for="libraryHazards">Hazards <span aria-hidden="true">*</span> <small>One per line.</small></label><textarea id="libraryHazards" rows="5"></textarea></div>
+    <div class="field full"><label for="libraryControlsInput">Controls / PPE <span aria-hidden="true">*</span> <small>One per line. Keep each one practical and specific.</small></label><textarea id="libraryControlsInput" rows="7"></textarea></div>
+  </div>
+  <p id="libraryFormError" class="library-error" role="alert" hidden></p>
+  <div class="actions"><button id="librarySave" type="submit" class="library-btn">Save to library</button><button id="libraryCancel" type="button" class="library-btn library-btn--secondary">Cancel</button></div>
+</form>
+</section></main>
+<script src="vendor/supabase-js.min.js?v=1"></script>
+<script src="common.js?v=51"></script>
+<script src="jsa-presets.js?v=2"></script>
+<script src="jsa-library-admin.js?v=1"></script>
+</body></html>

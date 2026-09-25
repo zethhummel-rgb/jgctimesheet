@@ -5384,6 +5384,69 @@ for (const theme of ['light','dark']) test(`JSA editable presets and stacked tas
   await page.screenshot({path:testInfo.outputPath(`jsa-phone-${theme}.png`),fullPage:true});
 });
 
+test('JSA library presets are complete, categorised, unique and keep the original 20 unchanged',async()=>{
+  const fs=require('fs'),vm=require('vm'),path=require('path');
+  const sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../jsa-presets.js'),'utf8'),sandbox);
+  const presets=sandbox.window.JgcJsaPresets,categories=sandbox.window.JgcJsaPresetCategories;
+  expect(presets.length).toBeGreaterThanOrEqual(90);
+  expect(categories.length).toBeGreaterThanOrEqual(20);
+  const norm=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  expect(new Set(presets.map(p=>norm(p.task))).size).toBe(presets.length);
+  expect(new Set(presets.map(p=>p.id)).size).toBe(presets.length);
+  for(const p of presets){
+    expect(categories).toContain(p.category);
+    expect(p.hazards.length,p.task).toBeGreaterThan(0);
+    expect(p.controls.length,p.task).toBeGreaterThan(1);
+    for(const c of p.controls)expect(c.length,p.task+': '+c).toBeGreaterThan(14);
+  }
+  // The original library entries keep their exact wording.
+  const original={Ladders:'Falls; unstable footing; dropped tools',Grinding:'Wheel failure; sparks; dust; noise; entanglement','Confined spaces':'Oxygen deficiency; toxic/flammable atmosphere; engulfment; restricted rescue','Weather and outdoor work':'Heat/cold stress; lightning; wind; ice; reduced visibility'};
+  for(const [task,hazards] of Object.entries(original))expect(presets.find(p=>p.task===task).hazards.join('; ')).toBe(hazards);
+  for(const task of ['Ladders','Working at heights','Power tools','Cutting and sawing','Grinding','Silica-producing work','Demolition','Manual lifting and handling','Scaffolding','Electrical work / isolation','Hot work','Excavation','Mobile equipment','Concrete placement and finishing','Chemicals / coatings','Confined spaces','Rigging and hoisting','Occupied areas / public protection','Housekeeping and access','Weather and outdoor work'])expect(presets.map(p=>p.task),task).toContain(task);
+  // Every topic on the requested list has at least one task.
+  const text=presets.map(p=>[p.category,p.task].join(' ').toLowerCase()).join('\n');
+  for(const topic of ['ladder','scaffold','height','hand tools','power tools','knives','saw','grinding','silica','demolition','lifting','overhead','extension cords','hot work','trench','confined','concrete','whmis','vehicle','traffic','housekeeping','heat','cold','noise','spill','lockout','first aid','eyewash'])expect(text,topic).toContain(topic);
+});
+
+test('JSA library filters by category, merges admin custom tasks and inserts editable copies',async({page},testInfo)=>{
+  await installPreparedJsaMock(page);
+  const custom={id:'11111111-2222-4333-8444-555555555555',category:'General building trades',task:'Installing washroom partitions',hazards:['Heavy panels','Pinch points'],controls:['Two-person lift for panels','Keep fingers clear of hinge side when fastening']};
+  await page.route(`${supabaseOrigin}/rest/v1/jsa_library_items*`,route=>route.fulfill({json:[custom]}));
+  await page.goto('/jsa.html?prepared=new');
+  await expect(page.locator('#jsaSaveDraft')).toBeEnabled();
+  await page.locator('#jsaLibrary summary').click();
+  await expect(page.locator('#jsaLibraryManage')).toBeVisible();
+  await page.locator('#jsaPresetCategory').selectOption('Excavation & trenching');
+  const groups=page.locator('.jsa-preset-group');
+  await expect(groups).toHaveCount(1);
+  await expect(groups.first().locator('h3')).toHaveText('Excavation & trenching');
+  await expect(groups.first().locator('[data-preset]')).toContainText(['Excavation','Trenching and shoring']);
+  await page.locator('#jsaPresetCategory').selectOption('');
+  await page.locator('#jsaPresetSearch').fill('partitions');
+  const customButton=page.locator('[data-preset="custom:'+custom.id+'"]');
+  await expect(customButton).toContainText('JGC custom');
+  await customButton.click();
+  await page.locator('[data-preset-part="hazards"]').nth(1).uncheck();
+  await page.locator('#jsaInsertPreset').click();
+  const row=page.locator('#tableBody tr').first();
+  await expect(row.getByLabel('Task / job step')).toHaveValue('Installing washroom partitions');
+  await expect(row.getByLabel('Hazards')).toHaveValue('Heavy panels');
+  await expect(row.getByLabel('Controls / PPE')).toHaveValue('Two-person lift for panels\nKeep fingers clear of hinge side when fastening');
+  await row.getByLabel('Hazards').fill('Heavy panels\nSite-specific: wet floor');
+  await page.locator('#jsaLibrary summary').click();
+  await page.locator('#jsaPresetSearch').fill('trench');
+  await page.locator('[data-preset]').filter({hasText:'Trenching and shoring'}).click();
+  await expect(page.locator('#jsaPresetDetail')).toContainText('Trenches deeper than 1.2 m need sloping, shoring or a trench box');
+  await page.locator('#jsaLibrary').screenshot({path:testInfo.outputPath('jsa-library-panel.png')});
+  await page.locator('#jsaInsertPreset').click();
+  await expect(page.locator('#tableBody tr').nth(1).getByLabel('Task / job step')).toHaveValue('Trenching and shoring');
+  await page.locator('#jsaLibrary summary').click();
+  await page.locator('#jsaPresetSearch').fill('partitions');
+  await page.locator('[data-preset="custom:'+custom.id+'"]').click();
+  await expect(page.locator('#jsaPresetDetail')).not.toContainText('wet floor');
+  await expect(page.locator('#jsaPresetDetail label')).toHaveCount(4);
+});
+
 test('JSA draft saves and reopens planned crew without assignment, then activates through existing signatures',async({page})=>{
   const state=await installPreparedJsaMock(page); await fillPreparedJsa(page);
   await expect(page.locator('#jsaSignoffChoiceSection')).toBeHidden();
