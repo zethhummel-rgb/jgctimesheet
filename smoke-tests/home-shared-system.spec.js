@@ -140,7 +140,7 @@ test("Employee Home uses one token-only visual source", async () => {
   expect(source).not.toMatch(/<style\b/i);
   expect(source).not.toMatch(/\sstyle\s*=/i);
   expect(source).not.toContain('href="styles.css');
-  expect(source).toContain('jgc-design-system.css?v=8');
+  expect(source).toContain('jgc-design-system.css?v=9');
   expect(source).toContain('home-design-system.css?v=5');
   expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(source).not.toContain('class="mobile-bottom-nav"');

@@ -86,7 +86,7 @@ test("the nine migrated pages have one visual source of truth", async () => {
   for (const file of sharedPages) {
     const source = fs.readFileSync(path.join(portalRoot, file), "utf8");
     expect(source, `${file} must not retain inline CSS`).not.toMatch(/<style\b/i);
-    expect(source, `${file} must load design-system version 8`).toContain('jgc-design-system.css?v=8');
+    expect(source, `${file} must load design-system version 9`).toContain('jgc-design-system.css?v=9');
     expect(source, `${file} must opt into the centralized component system`).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     for (const stylesheet of removedStylesheets) {
       expect(source, `${file} must not load ${stylesheet}`).not.toContain(stylesheet);
@@ -130,7 +130,7 @@ for (const viewport of [
       await page.goto(`/${file}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(150);
 
-      await expect(page.locator('link[data-jgc-design-system="8"]')).toHaveCount(1);
+      await expect(page.locator('link[data-jgc-design-system="9"]')).toHaveCount(1);
       const dimensions = await page.evaluate(() => ({
         bodyWidth: document.body.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
@@ -341,6 +341,9 @@ test("shared token combinations meet normal-text contrast", async ({ page }) => 
       secondaryButton: contrast("#ffffff", "#1b3127"),
       dangerButton: contrast("#ffffff", "#c72a22"),
       warningBadge: contrast("#fff6d6", "#775816"),
+      activeTab: contrast("#061411", "#39c848"),
+      lightSecondaryButton: contrast("#17251d", "#e0e8e2"),
+      lightWarningBadge: contrast("#ffffff", "#775816"),
       inputText: contrast("#102018", "#f7faf6"),
       greenLink: contrast("#52dc63", "#06110f")
     };

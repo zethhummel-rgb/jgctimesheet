@@ -102,7 +102,7 @@ h1 {
 }
 
 .admin-collapsible-panel input,
-.admin-collapsible-panel button,
+.admin-collapsible-panel button:not(.jgc-button),
 .admin-collapsible-panel select {
     background: #f8fff8;
 }
@@ -239,11 +239,11 @@ button:hover,
     background: #08452b;
 }
 
-.secondary {
+.secondary:not(.jgc-button) {
     background: #47534b;
 }
 
-.secondary:hover {
+.secondary:not(.jgc-button):hover {
     background: #354039;
 }
 

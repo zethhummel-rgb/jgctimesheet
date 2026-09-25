@@ -44,13 +44,6 @@
   margin: 0;
 }
 
-/* Same treatment as the Vacation admin page so secondary buttons read in both themes. */
-.jsa-library-page .jgc-button--secondary {
-  color: var(--jgc-color-text);
-  background: var(--jgc-color-surface-soft);
-  border-color: var(--jgc-color-border);
-}
-
 .library-filters {
   margin-bottom: var(--jgc-space-4);
 }

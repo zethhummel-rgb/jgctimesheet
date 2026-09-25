@@ -974,8 +974,9 @@ body.timesheet-page {
       width: auto;
       min-width: 92px;
       margin: 0;
-      background: color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 14%, transparent);
+      color: var(--jgc-color-text);
+      background: color-mix(in srgb, var(--jgc-color-text) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--jgc-color-text) 14%, transparent);
     }
 
     .timesheet-page .timesheet-calendar-title {

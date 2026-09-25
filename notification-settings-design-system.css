@@ -144,7 +144,7 @@ body.notification-settings-page {
 }
 
 .notification-settings-page button.secondary.jgc-button {
-  color: var(--jgc-color-on-brand);
+  color: var(--jgc-color-text);
   background: var(--jgc-color-surface-soft);
   border: 1px solid var(--jgc-color-border-soft);
 }
