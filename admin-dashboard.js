@@ -120,7 +120,7 @@
     const commandbar=document.createElement('div');commandbar.className='dashboard-commandbar';
     const search=document.querySelector('#summarySection .admin-global-search');search.before(commandbar);commandbar.append(search,document.querySelector('.dashboard-quick-actions'));
     const panel=document.createElement('div');panel.id='dashboardLayoutControls';panel.className='dashboard-layout-controls';panel.hidden=true;
-    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardDoneEditing">Done editing</button><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all four totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
+    panel.innerHTML='<div class="dashboard-layout-presets"><strong id="dashboardSelectedTitle">Recent Work</strong><button type="button" id="dashboardDoneEditing">Done editing</button><button type="button" id="dashboardStackCalendar">Calendar + stacked Recent Work / Active Jobs</button><button type="button" id="dashboardSlimTotals">Make all totals slim</button></div><p class="small">Drag a card by its heading. Drop in the outlined position. Drag its bottom-right corner to resize. Escape cancels a drag.</p>';
     $('summarySection').append(panel);
     const grid=document.createElement('div');grid.id='dashboardGrid';grid.className='dashboard-grid';$('summarySection').append(grid);
     for(const [id,title,width,height] of definitions){

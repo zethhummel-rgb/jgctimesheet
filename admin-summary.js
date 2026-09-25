@@ -1402,7 +1402,8 @@ function renderAdminScheduleCalendar() {
             '<span class="schedule-sync-dot ' + (getJgcScheduleSyncClass(request) === "synced" ? "synced" : "unsynced") + '" title="' + escapeHtml(getJgcScheduleSyncLabel(request)) + '"></span>' +
             escapeHtml(request.worker_display_name || request.worker_name || "Vacation") + '</div>'
         );
-        const allItems = milestoneItems.concat(eventItems, vacationItems);
+        // Booked work comes first so automatic job milestones never push it behind "+N".
+        const allItems = eventItems.concat(vacationItems, milestoneItems);
         const visibleItems = allItems.slice(0, ADMIN_SCHEDULE_VISIBLE_ITEMS);
         const hiddenCount = allItems.length - visibleItems.length;
         const longDate = date.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" });

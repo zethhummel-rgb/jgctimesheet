@@ -260,7 +260,7 @@ body:has(#summarySection:not([hidden]))>.tabs { background:transparent !importan
 #summarySection [data-widget="calendar"] .admin-schedule-day { display:flex; flex-direction:column; }
 #summarySection [data-widget="calendar"] .admin-schedule-day-top { display:flex; align-items:center; justify-content:space-between; gap:2px; flex:none; min-width:0; }
 #summarySection [data-widget="calendar"] .admin-schedule-day-top .admin-schedule-day-number { margin:0; }
-#summarySection [data-widget="calendar"] .admin-schedule-more { flex:none; min-width:0; min-height:0; margin:0; padding:0 5px; border:1px solid var(--jgc-color-brand-700); border-radius:999px; background:var(--jgc-color-brand-500); color:var(--jgc-color-text-dark); font-size:10px; font-weight:800; line-height:14px; cursor:pointer; }
+#summarySection [data-widget="calendar"] .admin-schedule-more { flex:none; min-width:0; min-height:0; margin:0 1px 0 0; padding:0 5px; border:0; border-radius:999px; background:var(--jgc-color-brand-700); color:var(--jgc-color-on-brand); font-size:10px; font-weight:800; line-height:14px; cursor:pointer; }
 #summarySection [data-widget="calendar"] .admin-schedule-more:focus-visible { outline:2px solid var(--jgc-color-text); outline-offset:1px; }
 #summarySection [data-widget="calendar"] .admin-schedule-day-list { display:grid; grid-template-rows:repeat(2,auto); gap:1px; min-height:0; overflow:hidden; }
 #summarySection [data-widget="calendar"] #adminScheduleCalendar .admin-schedule-item { display:block; -webkit-line-clamp:unset; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; margin:0; }
