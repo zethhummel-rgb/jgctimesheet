@@ -467,7 +467,14 @@ button:hover {
 .jsa-preparation[hidden], #jsaAdminEntry[hidden] { display: none; }
 .jsa-library summary, .jsa-conditions summary { cursor: pointer; font-weight: 700; min-height: 30px; }
 .jsa-library input[type="search"] { width: 100%; padding: 12px; border: 1px solid var(--jgc-color-input-border); border-radius: 6px; background: var(--jgc-color-input); color: var(--jgc-color-text); font: inherit; box-sizing: border-box; }
-.jsa-preset-results { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; max-height: 200px; overflow-y: auto; }
+.jsa-preset-results { display: grid; gap: 10px; margin: 12px 0; max-height: 340px; overflow-y: auto; }
+.jsa-preset-filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; align-items: end; }
+.jsa-preset-filters select { width: 100%; min-height: 46px; padding: 10px; border: 1px solid var(--jgc-color-input-border); border-radius: 6px; background: var(--jgc-color-input); color: var(--jgc-color-text); font: inherit; box-sizing: border-box; }
+.jsa-preset-count { margin: 8px 0 0; font-size: .85rem; color: var(--jgc-color-text-muted); }
+.jsa-preset-group h3 { margin: 0 0 6px; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; color: var(--jgc-color-text-muted); }
+.jsa-preset-group > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.jsa-preset-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: color-mix(in srgb, var(--jgc-color-info) 22%, transparent); color: var(--jgc-color-text); }
+#jsaLibraryManage[hidden] { display: none; }
 .jsa-preset-results button { text-align: left; background: var(--jgc-color-surface); color: var(--jgc-color-text); border: 1px solid var(--jgc-color-input-border); min-height: 44px; }
 .jsa-preset-results button[aria-pressed="true"] { border-color: var(--jgc-color-brand-500); outline: 2px solid var(--jgc-color-brand-500); outline-offset: -2px; }
 .jsa-preset-options { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -504,6 +511,7 @@ button:hover {
  .report-form-page #jsaTable .delete-cell { text-align: right; }
  .report-form-page #jsaTable .danger { width: auto; min-height: 44px; }
  .jsa-preset-options { grid-template-columns: minmax(0,1fr); }
+  .jsa-preset-filters { grid-template-columns: minmax(0,1fr); }
  .jsa-library, .jsa-preparation { padding: 12px; }
 }
 

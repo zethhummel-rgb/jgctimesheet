@@ -27,9 +27,9 @@
 }
 
 .writeups-page .writeup-btn--danger {
-  border-color: var(--jgc-color-danger);
+  border: 2px solid var(--jgc-color-danger);
   background: var(--jgc-color-surface-raised);
-  color: var(--jgc-color-danger);
+  color: var(--jgc-color-text);
 }
 
 .writeups-page .writeup-btn:hover {

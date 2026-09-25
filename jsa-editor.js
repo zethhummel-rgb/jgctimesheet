@@ -164,16 +164,44 @@
     });
   }
 
+  // Built-in presets plus admin-created library items; inserted text is always a copy.
+  const CUSTOM_CACHE = "jgcJsaCustomLibrary:v1";
+  let customPresets = [];
+  try { customPresets = JSON.parse(localStorage.getItem(CUSTOM_CACHE) || "[]"); } catch (_) { customPresets = []; }
+  const allPresets = () => JgcJsaPresets.concat(customPresets);
+  function toCustomPreset(item) {
+    return { id: "custom:" + item.id, source: "custom", category: item.category, task: item.task, hazards: item.hazards || [], controls: item.controls || [] };
+  }
+  async function loadCustomPresets() {
+    try {
+      const result = await inspectionSupabaseClient.from("jsa_library_items").select("id,category,task,hazards,controls").is("archived_at", null).order("task");
+      if (result.error) throw result.error;
+      customPresets = result.data.map(toCustomPreset);
+      try { localStorage.setItem(CUSTOM_CACHE, JSON.stringify(customPresets)); } catch (_) { /* cache is optional */ }
+      renderCategories(); searchPresets();
+    } catch (error) { console.warn("Custom JSA library items could not load; showing built-in presets.", error); }
+  }
+  function renderCategories() {
+    const select = $("jsaPresetCategory"), current = select.value;
+    const categories = [...new Set(JgcJsaPresetCategories.concat(customPresets.map(p => p.category)))];
+    select.innerHTML = '<option value="">All categories</option>' + categories.map(c => `<option value="${escapeJsaHtml(c)}">${escapeJsaHtml(c)}</option>`).join("");
+    select.value = categories.includes(current) ? current : "";
+  }
+
   let selectedPreset = null;
   function searchPresets() {
     const words = $("jsaPresetSearch").value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    const matches = JgcJsaPresets.filter(p => words.every(w => [p.task, ...p.hazards, ...p.controls].join(" ").toLowerCase().includes(w)));
-    $("jsaPresetResults").innerHTML = matches.length ? matches.map(p => `<button type="button" data-preset="${p.id}" aria-pressed="${selectedPreset?.id === p.id}">${escapeJsaHtml(p.task)}</button>`).join("") : "<p>No presets found. Add a blank row for your task.</p>";
+    const category = $("jsaPresetCategory").value;
+    const matches = allPresets().filter(p => (!category || p.category === category) && words.every(w => [p.task, p.category, ...p.hazards, ...p.controls].join(" ").toLowerCase().includes(w)));
+    const groups = [...new Set(matches.map(p => p.category))];
+    $("jsaPresetResults").innerHTML = matches.length ? groups.map(group => `<section class="jsa-preset-group" aria-label="${escapeJsaHtml(group)}"><h3>${escapeJsaHtml(group)}</h3><div>${matches.filter(p => p.category === group).map(p => `<button type="button" data-preset="${escapeJsaHtml(p.id)}" aria-pressed="${selectedPreset?.id === p.id}">${escapeJsaHtml(p.task)}${p.source === "custom" ? ' <span class="jsa-preset-badge">JGC custom</span>' : ""}</button>`).join("")}</div></section>`).join("") : "<p>No presets found. Add a blank row for your task.</p>";
+    $("jsaPresetCount").textContent = `${matches.length} of ${allPresets().length} library tasks shown.`;
   }
   $("jsaPresetSearch").addEventListener("input", searchPresets);
+  $("jsaPresetCategory").addEventListener("change", searchPresets);
   $("jsaPresetResults").addEventListener("click", event => {
     const button = event.target.closest("[data-preset]"); if (!button) return;
-    selectedPreset = JgcJsaPresets.find(p => p.id === button.dataset.preset); searchPresets();
+    selectedPreset = allPresets().find(p => p.id === button.dataset.preset); searchPresets();
     $("jsaPresetDetail").innerHTML = `<h3>${escapeJsaHtml(selectedPreset.task)}</h3><div class="jsa-preset-options">${[["hazards", "Hazards"], ["controls", "Controls / PPE"]].map(([key, title]) => `<fieldset><legend>${title}</legend>${selectedPreset[key].map((text, index) => `<label><input type="checkbox" checked data-inspection-skip="true" data-preset-part="${key}" value="${index}"><span>${escapeJsaHtml(text)}</span></label>`).join("")}</fieldset>`).join("")}</div><div class="actions"><button type="button" id="jsaInsertPreset">Insert task</button></div>`;
   });
   $("jsaPresetDetail").addEventListener("click", event => {
@@ -186,7 +214,9 @@
     else first = insertRow(cells);
     $("jsaLibrary").open = false; first.focus(); first.scrollIntoView({ block: "center", behavior: "smooth" });
   });
+  renderCategories();
   searchPresets();
+  loadCustomPresets();
 
   $("jsaSaveDraft").onclick = () => run(async () => { await persist(); status("Draft saved. No crew assigned or notified."); });
   $("jsaDraftPdf").onclick = () => { if (!busy) void exportDraft(false); };
@@ -203,6 +233,7 @@
   (async () => {
     const result = await inspectionSupabaseClient.rpc("is_admin");
     admin = !result.error && result.data === true;
+    $("jsaLibraryManage").hidden = !admin;
     if (!param) { $("jsaAdminEntry").hidden = !admin; return; }
     if (!admin) { document.querySelector(".container").textContent = "Prepared JSAs are available to approved administrators only."; return; }
     await window.jsaCrewReady;
