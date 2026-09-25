@@ -1,0 +1,303 @@
+/* Employee write-ups: admin and employee pages. Theme tokens only. */
+.writeups-page [hidden] {
+  display: none !important;
+}
+
+.writeups-page .writeup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--jgc-color-brand-700);
+  border-radius: 8px;
+  background: var(--jgc-color-brand-700);
+  color: var(--jgc-color-on-brand);
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.writeups-page .writeup-btn--secondary {
+  border-color: var(--jgc-color-border);
+  background: var(--jgc-color-surface-raised);
+  color: var(--jgc-color-text);
+}
+
+.writeups-page .writeup-btn--danger {
+  border-color: var(--jgc-color-danger);
+  background: var(--jgc-color-surface-raised);
+  color: var(--jgc-color-danger);
+}
+
+.writeups-page .writeup-btn:hover {
+  filter: brightness(1.08);
+}
+
+.writeups-page .writeup-btn:focus-visible {
+  outline: 3px solid var(--jgc-color-brand-500);
+  outline-offset: 2px;
+}
+
+.writeups-page .writeup-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.writeups-page .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.writeups-page h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.writeups-page textarea {
+  font: inherit;
+}
+.writeups-page .writeups-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.writeups-page .writeups-heading h1,
+.writeups-page .writeups-heading h2 {
+  margin: 0;
+}
+
+.writeups-page .eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--jgc-color-text-muted);
+}
+
+.writeups-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.writeup-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  background: var(--jgc-color-surface-raised);
+}
+
+.writeup-card h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.writeup-card p {
+  margin: 0 0 2px;
+  overflow-wrap: anywhere;
+}
+
+.writeup-card small {
+  color: var(--jgc-color-text-muted);
+}
+
+.writeup-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--jgc-radius-pill);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--jgc-color-text);
+  background: color-mix(in srgb, var(--jgc-color-info) 20%, transparent);
+}
+
+.writeup-status[data-status="sent"] {
+  background: color-mix(in srgb, var(--jgc-color-warning) 24%, transparent);
+}
+
+.writeup-status[data-status="acknowledged"] {
+  background: color-mix(in srgb, var(--jgc-color-success) 24%, transparent);
+}
+
+.writeup-status[data-status="voided"] {
+  background: color-mix(in srgb, var(--jgc-color-danger) 22%, transparent);
+}
+
+.writeup-empty {
+  color: var(--jgc-color-text-muted);
+}
+
+.writeup-form fieldset {
+  margin: 0 0 16px;
+}
+
+.writeup-label {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.writeup-label small,
+.writeup-form label small {
+  font-weight: 400;
+  color: var(--jgc-color-text-muted);
+}
+
+.writeup-form .checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.writeup-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.writeup-form [aria-invalid="true"] {
+  outline: 2px solid var(--jgc-color-danger);
+  outline-offset: 2px;
+}
+
+.writeup-error {
+  padding: 10px 12px;
+  border-left: 4px solid var(--jgc-color-danger);
+  border-radius: 6px;
+  color: var(--jgc-color-text);
+  background: color-mix(in srgb, var(--jgc-color-danger) 12%, transparent);
+}
+
+.writeup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  color: var(--jgc-color-text-muted);
+}
+
+.writeup-voided {
+  padding: 10px 12px;
+  border-left: 4px solid var(--jgc-color-danger);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--jgc-color-danger) 12%, transparent);
+}
+
+.writeup-section {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  background: var(--jgc-color-surface-raised);
+}
+
+.writeup-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.writeup-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) minmax(0, 1fr);
+  gap: 4px 14px;
+  padding: 6px 0;
+  border-top: 1px solid var(--jgc-color-border-soft);
+}
+
+.writeup-row:first-of-type {
+  border-top: 0;
+}
+
+.writeup-row span {
+  font-weight: 700;
+  color: var(--jgc-color-text-muted);
+}
+
+.writeup-row p,
+.writeup-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.writeup-signature {
+  display: block;
+  width: min(300px, 100%);
+  height: auto;
+  margin-top: 10px;
+  border: 1px solid var(--jgc-color-border);
+  border-radius: 6px;
+  background: var(--jgc-color-surface);
+}
+
+.writeup-history {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.writeup-history li {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
+.writeup-ack {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 2px solid var(--jgc-color-brand-500);
+  border-radius: var(--jgc-radius-lg);
+  background: var(--jgc-color-surface-raised);
+}
+
+.writeup-ack h3 {
+  margin-top: 0;
+}
+
+.writeup-ack-statement {
+  font-weight: 700;
+}
+
+.writeup-ack textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.writeup-dialog {
+  width: min(460px, calc(100vw - 32px));
+  border: 1px solid var(--jgc-color-border);
+  border-radius: var(--jgc-radius-lg);
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-raised);
+}
+
+.writeup-dialog input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 600px) {
+  .writeup-card {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .writeup-card button {
+    justify-self: stretch;
+  }
+
+  .writeup-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
