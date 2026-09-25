@@ -971,7 +971,31 @@
     loadData();
   }
 
+  // The page search hands its query to the shared Portal search, which common.js loads on every admin page.
+  function runPortalSearch(event) {
+    event.preventDefault();
+    const query = elements.searchInput.value.trim();
+    const portalSearch = window.JGCAdminGlobalSearch;
+    const portalInput = byId("jgcAdminGlobalSearchInput");
+    if (query.length < 2) {
+      elements.searchStatus.textContent = "Enter at least 2 characters.";
+      elements.searchStatus.hidden = false;
+      return;
+    }
+    if (!portalSearch || !portalInput) {
+      elements.searchStatus.textContent = "Search is still loading. Try again in a moment.";
+      elements.searchStatus.hidden = false;
+      return;
+    }
+    elements.searchStatus.hidden = true;
+    portalInput.value = query;
+    portalSearch.open();
+    portalSearch.search();
+  }
+
   function bindEvents() {
+    elements.search.addEventListener("submit", runPortalSearch);
+    elements.searchInput.addEventListener("input", () => { elements.searchStatus.hidden = true; });
     elements.previousPeriod.addEventListener("click", () => shiftPeriod(-14));
     elements.nextPeriod.addEventListener("click", () => shiftPeriod(14));
     elements.currentPeriod.addEventListener("click", () => {
@@ -1026,6 +1050,9 @@
       page: byId("accountingPage"),
       currentUser: byId("accountingCurrentUser"),
       notice: byId("accountingNotice"),
+      search: byId("accountingSearch"),
+      searchInput: byId("accountingSearchInput"),
+      searchStatus: byId("accountingSearchStatus"),
       previousPeriod: byId("accountingPreviousPeriod"),
       nextPeriod: byId("accountingNextPeriod"),
       currentPeriod: byId("accountingCurrentPeriod"),

@@ -9,7 +9,7 @@
   <title>JGC Portal - Accounting</title>
   <link rel="manifest" href="manifest.json?v=7">
   <link rel="stylesheet" href="jgc-design-system.css?v=8" data-jgc-design-system="8">
-  <link rel="stylesheet" href="accounting-admin.css?v=8">
+  <link rel="stylesheet" href="accounting-admin.css?v=9">
 </head>
 <body class="accounting-page jgc-page jgc-system-page">
   <nav class="accounting-admin-tabs jgc-admin-nav" data-jgc-admin-nav="true" aria-label="Admin navigation">
@@ -31,6 +31,14 @@
       <h1 class="jgc-page-title">Accounting</h1>
       <p id="accountingCurrentUser" class="accounting-user-line jgc-page-user"></p>
     </header>
+
+    <form id="accountingSearch" class="accounting-search" role="search" autocomplete="off">
+      <label class="jgc-visually-hidden" for="accountingSearchInput">Search the Portal and Estimate Desk</label>
+      <i data-lucide="search" class="accounting-search-icon" aria-hidden="true"></i>
+      <input id="accountingSearchInput" class="accounting-search-input" type="search" placeholder="Search dates, names, jobs, WO or PO numbers...">
+      <button id="accountingSearchButton" class="accounting-search-button" type="submit">Search</button>
+    </form>
+    <p id="accountingSearchStatus" class="accounting-search-status" role="status" aria-live="polite" hidden></p>
 
     <div id="accountingNotice" class="accounting-notice jgc-notice" hidden role="status" aria-live="polite"></div>
 
@@ -138,6 +146,6 @@
   <script src="common.js?v=49"></script>
   <script src="accounting-workbook.js?v=9"></script>
   <script src="job-list-sync.js?v=1"></script>
-  <script src="accounting-admin.js?v=13"></script>
+  <script src="accounting-admin.js?v=14"></script>
 </body>
 </html>

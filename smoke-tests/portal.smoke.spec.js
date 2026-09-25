@@ -5444,6 +5444,23 @@ for(const theme of ['light','dark'])test(`Dashboard calendar keeps two items per
  await more.click();await list.getByRole('button',{name:/Safety meeting/}).click();await expect(list).toBeHidden();await expect(page.locator('#adminScheduleModal')).toHaveClass(/open/);
 });
 
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`Accounting search bar opens the shared Portal search ${theme} ${width}`,async({page},testInfo)=>{
+ await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile,{themePreferenceState:{theme}});
+ await page.setViewportSize({width,height:900});await page.goto('/accounting-admin.html',{waitUntil:'domcontentloaded'});
+ const bar=page.getByRole('search');const input=page.getByRole('searchbox',{name:'Search the Portal and Estimate Desk'});
+ await expect(input).toBeVisible();
+ const box=await bar.boundingBox();expect(box.height).toBeLessThanOrEqual(52);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await expectReadableText(page.locator('#accountingSearchButton'),'Accounting search button '+theme);
+ await input.fill('a');await input.press('Enter');await expect(page.locator('#accountingSearchStatus')).toHaveText('Enter at least 2 characters.');
+ await expect(page.locator('#jgcAdminGlobalSearchInput')).toBeAttached();
+ await input.fill('26090');await page.getByRole('button',{name:'Search',exact:true}).first().click();
+ const panel=page.locator('#jgcAdminGlobalSearchPanel');await expect(panel).toBeVisible();
+ await expect(page.locator('#jgcAdminGlobalSearchInput')).toHaveValue('26090');
+ await expect(page.locator('#jgcAdminGlobalSearchStatus')).toContainText('26090');
+ await expect(page.locator('#accountingSearchStatus')).toBeHidden();
+ await page.screenshot({path:testInfo.outputPath('accounting-search.png')});
+});
+
 test('Accounting opens the pay period requested by the Summary link and ignores invalid dates',async({page})=>{
  await installAuthenticatedPortalState(page);await mockPortalServices(page,fakeProfile);
  await page.goto('/accounting-admin.html?payDate=2026-09-03',{waitUntil:'domcontentloaded'});await expect(page.locator('#accountingPayDate')).toHaveValue('2026-09-03');

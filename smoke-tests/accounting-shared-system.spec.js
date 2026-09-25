@@ -13,8 +13,8 @@ test("Accounting Admin uses one token-only visual source", async () => {
 
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=8');
-  expect(html).toContain('accounting-admin.css?v=8');
-  expect(html).toContain('accounting-admin.js?v=13');
+  expect(html).toContain('accounting-admin.css?v=9');
+  expect(html).toContain('accounting-admin.js?v=14');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-system-page\b/i);
   expect(html).toMatch(/<h1\b[^>]*\bjgc-page-title\b[^>]*>Accounting<\/h1>/i);
   expect(html).toMatch(/id="accountingCurrentUser"[^>]*\bjgc-page-user\b/i);
@@ -27,8 +27,8 @@ test("Accounting Admin uses one token-only visual source", async () => {
   expect(script).toContain('accounting-table jgc-table');
   expect(script).toContain('accounting-empty jgc-empty-state');
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+"/);
-  expect(worker).toContain('"./accounting-admin.css?v=8"');
-  expect(worker).toContain('"./accounting-admin.js?v=13"');
+  expect(worker).toContain('"./accounting-admin.css?v=9"');
+  expect(worker).toContain('"./accounting-admin.js?v=14"');
 });
 
 function populatedAccountingMarkup() {
