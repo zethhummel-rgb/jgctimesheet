@@ -206,7 +206,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Work Orders CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
-  expect(adminSource).toContain('admin.css?v=17');
+  expect(adminSource).toContain('admin.css?v=18');
   expect(adminSource).toContain('work-orders-design-system.css?v=3');
   expect(adminSource).toContain('admin-work-orders.js?v=4');
   expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
@@ -215,7 +215,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(adminCss).not.toContain(".admin-wo-editor-panel {");
 
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(serviceWorker).toContain('"./admin.css?v=17"');
+  expect(serviceWorker).toContain('"./admin.css?v=18"');
   expect(serviceWorker).toContain('"./work-orders-design-system.css?v=3"');
   expect(serviceWorker).toContain('"./admin-work-orders.js?v=4"');
 });

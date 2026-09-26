@@ -215,3 +215,9 @@
     padding: 15px;
   }
 }
+
+
+/* Light mode: the shared light-theme label colour must not darken the white tile text. */
+:root[data-jgc-theme="light"] body.jgc-theme .admin-safety-record-tile :is(strong, span) {
+    color: var(--jgc-color-on-brand) !important;
+}

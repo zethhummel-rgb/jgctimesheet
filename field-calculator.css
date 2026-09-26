@@ -16,6 +16,11 @@
   --calc-display-text: var(--jgc-color-text-dark);
 }
 
+/* Light mode: keep the display a light LCD so its dark digits stay readable. */
+:root[data-jgc-theme="light"] {
+  --calc-display: var(--jgc-color-surface-soft);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1787,4 +1792,11 @@ body.quick-calc-active .quick-calc-panel {
   .field-calculator-page .field-calculator-design-shell {
     overflow: visible;
   }
+}
+
+
+/* Shift labels on the dark convert/clear keys use light text in both themes. */
+.calc-key.convert .secondary-label,
+.calc-key.danger .secondary-label {
+  color: color-mix(in srgb, var(--jgc-color-on-brand) 82%, transparent);
 }

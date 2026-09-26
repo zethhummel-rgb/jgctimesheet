@@ -165,6 +165,7 @@
 #equipmentStatus.jgc-notice,
 #equipmentDocumentsStatus.jgc-notice {
     padding: 0;
+    color: var(--jgc-color-text-muted);
     background: transparent;
     border-left: 0;
 }

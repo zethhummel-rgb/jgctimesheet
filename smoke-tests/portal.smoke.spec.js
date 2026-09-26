@@ -5501,7 +5501,8 @@ test('JSA PDF preserves long controls and existing signatures and clearly marks 
     const active=await JgcJsaPdf.create(record,{acknowledgements:[ack]});
     return {prepared:prepared.output('datauristring').split(',')[1],active:active.output('datauristring').split(',')[1]};
   });
-  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(process.env.JGC_PDFJS_MODULE || 'C:/Users/Zeth/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  // Use the same pdf.js copy as the Estimator PDF tests: two versions in one test worker clash ("API version does not match the Worker version").
+  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(process.env.JGC_PDFJS_MODULE || path.join(__dirname, '../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs'))).href);
   for(const [kind,base64] of Object.entries(outputs)){
     const bytes=Buffer.from(base64,'base64');
     fs.writeFileSync(testInfo.outputPath(`jsa-${kind}.pdf`),Buffer.from(bytes));

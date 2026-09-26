@@ -83,7 +83,7 @@ body.inspection-history-page.jgc-page {
 
 .inspection-history-page .empty.jgc-empty-state {
     padding: 18px;
-    background: var(--jgc-color-text);
+    background: var(--jgc-color-input);
     border: 1px solid var(--jgc-color-input-border);
     text-align: center;
     color: var(--jgc-color-text-dark);
@@ -186,7 +186,8 @@ th {
 
 .empty {
     padding: 18px;
-    background: var(--jgc-color-text);
+    color: var(--jgc-color-text-dark);
+    background: var(--jgc-color-input);
     border: 1px solid var(--jgc-color-input-border);
     text-align: center;
 }

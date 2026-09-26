@@ -190,13 +190,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=9');
-  expect(pageSource).toContain('schedule-design-system.css?v=5');
+  expect(pageSource).toContain('schedule-design-system.css?v=6');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
-  expect(adminSource).toContain('admin.css?v=17');
-  expect(adminSource).toContain('schedule-design-system.css?v=5');
+  expect(adminSource).toContain('admin.css?v=18');
+  expect(adminSource).toContain('schedule-design-system.css?v=6');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -204,8 +204,8 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-summary");
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(serviceWorker).toContain('"./admin.css?v=17"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=5"');
+  expect(serviceWorker).toContain('"./admin.css?v=18"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=6"');
 });
 
 for (const viewport of [

@@ -85,6 +85,27 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
+for (const theme of ["light", "dark"]) {
+  test(`Admin Notice panels, labels and read-status expanders are readable in ${theme} mode`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "load" });
+    await page.evaluate(theme => {
+      document.documentElement.setAttribute("data-jgc-theme", theme);
+      document.body.classList.add("jgc-theme");
+      document.getElementById("summarySection").hidden = true;
+      document.getElementById("noticePolicySection").hidden = false;
+      document.getElementById("announcementsList").innerHTML = `<div class="table-wrap jgc-table-wrap"><table class="jgc-table jgc-table--wide">
+        <thead><tr><th>Title</th><th>Read Status</th><th>Created</th></tr></thead>
+        <tbody><tr><td>Safety meeting Friday</td><td><details><summary>0/1 read</summary></details></td><td>2026-09-21</td></tr></tbody></table></div>`;
+    }, theme);
+    const samples = await page.evaluate(measure, "#noticePolicySection .admin-collapsible-panel > summary, #noticePolicySection .jgc-label, #announcementsList th, #announcementsList td, #announcementsList summary");
+    expect(samples.map(sample => sample.text)).toEqual(expect.arrayContaining(["Announcements / Notices", "Title", "Message", "0/1 read"]));
+    for (const sample of samples) expect(sample.ratio, `${theme} ${sample.text}`).toBeGreaterThanOrEqual(4.5);
+    await context.close();
+  });
+}
+
 // Real pages that use these components in their own layouts. Timesheet checks every button,
 // including its green gradient buttons.
 const PAGES = [

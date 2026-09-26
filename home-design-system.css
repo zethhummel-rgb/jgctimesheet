@@ -1614,3 +1614,8 @@ body.home-dashboard-page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Light mode: the section heading uses the deeper brand green so it reads on the pale page. */
+:root[data-jgc-theme="light"] .home-dashboard-page .section-title.jgc-section-title {
+  color: var(--jgc-color-brand-700);
+}

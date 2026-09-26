@@ -814,3 +814,20 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Light mode: the profile header and edit drawers use light surfaces so their dark text stays readable. */
+:root[data-jgc-theme="light"] .jgc-admin-shell-page .profile-hero {
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--jgc-color-brand-400) 14%, transparent), transparent 32%),
+    linear-gradient(135deg, var(--jgc-color-surface-soft), var(--jgc-color-surface));
+}
+
+:root[data-jgc-theme="light"] .jgc-admin-shell-page .profile-edit-drawer summary {
+  color: var(--jgc-color-text);
+  background: var(--jgc-color-surface-soft);
+}
+
+:root[data-jgc-theme="light"] .jgc-admin-shell-page :where(.profile-fact-icon, .profile-tile-icon) {
+  color: var(--jgc-color-brand-700);
+}

@@ -10,7 +10,7 @@ test("Safety Acknowledgement uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=9');
-  expect(html).toContain('acknowledgement-design-system.css?v=2');
+  expect(html).toContain('acknowledgement-design-system.css?v=3');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -19,7 +19,7 @@ test("Safety Acknowledgement uses one token-only visual source", async () => {
   expect(css).toContain("var(--jgc-color-");
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  expect(worker).toContain('"./acknowledgement-design-system.css?v=2"');
+  expect(worker).toContain('"./acknowledgement-design-system.css?v=3"');
 });
 
 for (const viewport of [
