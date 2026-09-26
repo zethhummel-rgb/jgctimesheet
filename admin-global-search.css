@@ -55,7 +55,7 @@
   border: 1px solid color-mix(in srgb, var(--jgc-color-brand-400) 48%, transparent);
   border-top: 4px solid var(--jgc-color-brand-400);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--jgc-color-surface) 99%, transparent);
+  background: var(--jgc-color-surface);
   color: var(--jgc-color-text);
   box-shadow: var(--jgc-shadow-lg);
 }
@@ -342,4 +342,61 @@
   .jgc-admin-search-result button {
     width: 100% !important;
   }
+}
+
+/*
+ * Readable in both themes on every page. Page stylesheets paint bare buttons (Timesheets: green
+ * gradient, Admin: solid green), which turned the result-group headings into green-on-green and left
+ * the white header buttons on a light panel in light mode. These rules are anchored on the panel id
+ * so page styles cannot override them.
+ */
+#jgcAdminGlobalSearchPanel {
+  --jgc-search-accent: var(--jgc-color-brand-400);
+}
+
+:root[data-jgc-theme="light"] #jgcAdminGlobalSearchPanel {
+  --jgc-search-accent: var(--jgc-color-brand-700);
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-eyebrow,
+#jgcAdminGlobalSearchPanel .jgc-admin-search-result-category {
+  color: var(--jgc-search-accent);
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-header button {
+  color: var(--jgc-color-text) !important;
+  background: var(--jgc-color-surface-raised) !important;
+  border: 1px solid var(--jgc-color-border) !important;
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-header button:hover,
+#jgcAdminGlobalSearchPanel .jgc-admin-search-header button:focus-visible {
+  background: var(--jgc-color-surface-soft) !important;
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-header {
+  color: var(--jgc-color-text) !important;
+  background: color-mix(in srgb, var(--jgc-color-brand-600) 14%, var(--jgc-color-surface-raised)) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-header:hover,
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-header[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--jgc-color-brand-600) 24%, var(--jgc-color-surface-raised)) !important;
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-title {
+  color: var(--jgc-search-accent);
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-count {
+  color: var(--jgc-color-surface-raised);
+  background: var(--jgc-search-accent);
+}
+
+#jgcAdminGlobalSearchPanel .jgc-admin-search-group-chevron {
+  color: var(--jgc-color-text);
 }
