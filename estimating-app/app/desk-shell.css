@@ -1,6 +1,23 @@
 /* Estimate Desk shell: the Portal's coloured page tiles, the single header row, the Overview numbers strip
    and the phone tab bar. The Estimate Desk keeps its own look; the tiles are what it shares with the Portal. */
 
+/* iPhone Home Screen app: common.js lays a solid band (--jgc-top-inset, 12px there, 0 elsewhere) across the top
+   of the screen so iOS paints the status bar in one plain colour instead of blurring. The Estimate Desk starts
+   below it, as the Portal's pages do (the sticky header and tabs add it to their offsets in globals.css). The band
+   is white like the header, and dark green like the sidebar while the menu is open. */
+.main-column,
+.sidebar {
+  padding-top: var(--jgc-top-inset, 0px);
+}
+
+html body:not(.jgc-has-global-nav) > .jgc-safe-area-top {
+  background-color: #ffffff;
+}
+
+html.estimator-nav-open body:not(.jgc-has-global-nav) > .jgc-safe-area-top {
+  background-color: #06271f;
+}
+
 /* Tile colours: [background, icon], the same pairs as common.js JGC_PAGE_TILE_TONES. */
 .desk-tile[data-tone="green"] { --desk-tile-bg: #4ade80; --desk-tile-ink: #052e16; }
 .desk-tile[data-tone="blue"] { --desk-tile-bg: #60a5fa; --desk-tile-ink: #0b1f44; }
@@ -201,6 +218,11 @@
 
   .topbar-title-text span {
     font-size: 12px;
+  }
+
+  /* Two rows in 106px, the height the sticky quote and job tabs and the add-line bar are placed under. */
+  .topbar {
+    row-gap: 5px;
   }
 
   /* Second header row: save status and New quote (plus Refresh jobs on the Jobs list). */
