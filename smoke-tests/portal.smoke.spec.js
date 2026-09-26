@@ -595,6 +595,14 @@ test("shared phone header is opaque above Admin", async ({ page }) => {
   expect(styles.backdropFilter).toBe("none");
 });
 
+// Phones fold the Admin tab row into the page bar's section menu.
+async function openAdminSection(page, label) {
+  const tab = page.locator(".jgc-admin-nav").getByRole("link", { name: label, exact: true });
+  if (await tab.isVisible()) return tab.click();
+  await page.locator("#jgcPageBar .jgc-page-bar__switch").click();
+  await page.locator("#jgcPageBarMenu").getByRole("link", { name: label, exact: true }).click();
+}
+
 for (const width of [1440, 1024, 390, 360]) {
   test(`compact logo sits beside Home and replaces the page-top logo at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
@@ -646,7 +654,7 @@ for (const width of [1440, 1024, 390, 360]) {
     await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
     await expect(page.locator("#summarySection .dashboard-brand")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("summary.png") });
-    await page.locator("#timesheetsTab").click();
+    await openAdminSection(page, "Timesheets");
     await expect(page.locator('.logo-wrap img[src^="logo"]')).toBeHidden();
     await expect(page.locator("#timesheetsSection")).toBeVisible();
     await page.goto("/timesheet.html", { waitUntil: "domcontentloaded" });
@@ -5568,7 +5576,7 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboar
  const box=await page.locator('#jgcAppearanceSettingsPanel').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);expect(box.y+box.height).toBeLessThanOrEqual(1001);
  await page.screenshot({path:testInfo.outputPath('gear-settings.png')});
  await page.keyboard.press('Escape');await expect(page.locator('#jgcAppearanceSettingsPanel')).toBeHidden();
- await page.locator('#timesheetsTab').click();await page.locator('#jgcAppearanceSettingsButton').click();await expect(page.locator('#dashboardSettings')).toBeHidden();
+ await openAdminSection(page,'Timesheets');await page.locator('#jgcAppearanceSettingsButton').click();await expect(page.locator('#dashboardSettings')).toBeHidden();
 });
 
 test('Dashboard saves layout, hides/restores widgets, resets, and preserves the shared calendar',async({page})=>{
