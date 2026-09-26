@@ -6320,6 +6320,11 @@ const JGC_PAGE_BAR_ICONS = {
   warning: '<path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.3-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.3 2.5 3.5 5.5"/>',
   bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  clipcheck: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 13.5l2 2 4-4"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  medical: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
+  flame: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chevron: '<path d="M6 9l6 6 6-6"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
@@ -6357,7 +6362,44 @@ const JGC_PAGE_BAR_PAGES = {
   "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential · visible only to administrators and the employee involved", icon: "warning", tone: "rose" },
   "policies-admin.html": { title: "Manage Policies", subtitle: "Publish policies and announcements", icon: "megaphone", tone: "rose" },
   "accounts.html": { title: "Accounts", subtitle: "Approve accounts and set access", icon: "users", tone: "blue" },
-  "notification-settings.html": { title: "Notification Settings", subtitle: "Who receives each notification", icon: "bell", tone: "amber" }
+  "notification-settings.html": { title: "Notification Settings", subtitle: "Who receives each notification", icon: "bell", tone: "amber" },
+
+  // Employee pages. Their headers differ page to page, so each lists exactly what the bar replaces
+  // on screen ("hide"). Form pages keep their printed letterhead; it is only hidden on screen.
+  // titleFrom / subtitleFrom mirror page text that changes while the page is open.
+  "timesheet.html": { title: "Timesheets", subtitle: "Log your hours and submit your week", icon: "clock", tone: "amber", hide: ["main > .logo-wrap", "main > .page-title", "main > #currentUser"] },
+  "inspections.html": { title: "Inspections", subtitle: "Start an inspection or look up past ones", icon: "clipcheck", tone: "sky", hide: ["header.inspection-page-header", "main > .container > h1"] },
+  "todays-inspections.html": { title: "Today's Inspections", subtitle: "Inspections dated today", icon: "clipcheck", tone: "sky", titleFrom: "main > .container > h1", subtitleFrom: "main > .container > .subtitle", hide: ["header.inspection-page-header", "main > .container > h1", "main > .container > .subtitle"] },
+  "previous-inspections.html": { title: "Previous Inspections", subtitle: "Completed inspections from the last 2 months", icon: "clipcheck", tone: "sky", titleFrom: "main > .container > h1", subtitleFrom: "main > .container > .subtitle", hide: ["header.inspection-page-header", "main > .container > h1", "main > .container > .subtitle"] },
+  "certificates.html": { title: "Certificates", subtitle: "Your training certificates", icon: "award", tone: "gold", hide: ["header.certificates-page-header"] },
+  "vacation-request.html": { title: "Vacation Request", subtitle: "Submit a request for review", icon: "sun", tone: "sky", subtitleFrom: "#vacationFormSubtitle", hide: ["header.vacation-page-header"] },
+  "equipment-vehicles.html": { title: "Equipment / Vehicles", subtitle: "Vehicles, equipment and their records", icon: "truck", tone: "indigo", hide: ["header.equipment-page-header"] },
+  "work-orders.html": { title: "Work Orders", subtitle: "Create and track work orders", icon: "clipboard", tone: "orange", hide: ["header.work-order-page-header"] },
+  "purchase-orders.html": { title: "Purchase Orders", subtitle: "Request and track purchase orders", icon: "cart", tone: "teal", hide: ["main > header.jgc-page-header"] },
+  "job-lists.html": { title: "Job Notes", subtitle: "Notes and lists for each job", icon: "notes", tone: "lime", hide: ["main > header.jgc-page-header"] },
+  "permits.html": { title: "Permits", subtitle: "Start a permit or look up past ones", icon: "key", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
+  "reports.html": { title: "Reports", subtitle: "Safety reports and site forms", icon: "notes", tone: "blue", hide: ["main > header.jgc-page-header", "main > .container > h1"] },
+  "tasks.html": { title: "Tasks", subtitle: "Your assigned tasks", icon: "checklist", tone: "violet", hide: ["header.tasks-page-header"] },
+  "schedule.html": { title: "Schedule", subtitle: "Crew schedule and upcoming events", icon: "calendar", tone: "green", hide: ["header.schedule-page-header"] },
+  "jobs.html": { title: "Job Lookup", subtitle: "Find job details and contacts", icon: "search", tone: "blue", hide: ["header.jobs-page-header"] },
+  "contacts.html": { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
+  "subcontractors-suppliers.html": { title: "Subcontractors / Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
+  "policies-announcements.html": { title: "Policies & Announcements", subtitle: "Company policies and previous announcements", icon: "megaphone", tone: "rose", hide: ["main > .top-actions", "main > .hero-card"] },
+  "employee-writeups.html": { title: "My Write-Ups", subtitle: "Private · only you and JGC administrators can see these", icon: "warning", tone: "rose", hide: ["main > header.jgc-page-header"] },
+  "jsa.html": { title: "Job Safety Analysis", subtitle: "Plan the work, review the hazards, confirm the controls", icon: "shield", tone: "red", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
+  "prepared-jsas.html": { title: "Prepared JSAs", subtitle: "Prepare and export a JSA ahead of the work", icon: "shield", tone: "red", hide: ["main > .logo-wrap", ".jsa-section-heading > h1"] },
+  "toolbox-talks.html": { title: "Tool Box Talks", subtitle: "Pick a talk, complete the report, record the crew", icon: "users", tone: "violet", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
+  "daily-site-report.html": { title: "Daily Site Report", subtitle: "Work, crew, weather and site notes", icon: "notes", tone: "blue", titleFrom: "main > .container > h1", hide: ["main > .logo-wrap", "main > #userBar", "main > .container > h1"] },
+  "incident-report.html": { title: "Incident / Near Miss Report", subtitle: "Near misses, injuries, damage and spills", icon: "warning", tone: "orange", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
+  "accident-report.html": { title: "Accident Investigation", subtitle: "Supervisor's accident investigation", icon: "warning", tone: "red", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + h2"] },
+  "employee-injury-report.html": { title: "Injury & Incident Report", subtitle: "JGC health and safety", icon: "medical", tone: "red", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > .eyebrow", "main > .container > h1"] },
+  "aerial-lifts.html": { title: "Aerial Lift Inspection", subtitle: "Pre-use inspection form", icon: "clipcheck", tone: "sky", hide: ["body > .logo-wrap", "body > #userBar", "body > .container > h1"] },
+  "forklift.html": { title: "Forklift Inspection", subtitle: "Daily inspection form", icon: "clipcheck", tone: "sky", hide: ["body > .logo-wrap", "body > #userBar", "body > .container > h1", "body > .container > h1 + h2"] },
+  "harness.html": { title: "Harness Inspection", subtitle: "Harness inspection checklist", icon: "clipcheck", tone: "sky", hide: ["body > .logo-wrap", "body > #userBar", "body > .container > h1", "body > .container > h1 + h2"] },
+  "tele-handler.html": { title: "Telehandler Inspection", subtitle: "Inspection and daily checklist", icon: "clipcheck", tone: "sky", hide: ["body > .logo-wrap", "body > #userBar", "body > .container > h1"] },
+  "hot-work-permit.html": { title: "Hot Work Permit", subtitle: "Complete before any hot work starts", icon: "flame", tone: "orange", hide: ["header.permit-page-header", "main > .container > h1"] },
+  "confined-space-permit.html": { title: "Confined Space Entry Permit", subtitle: "Complete before anyone enters the space", icon: "warning", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
+  "excavation-permit.html": { title: "Excavation Permit", subtitle: "Complete before digging starts", icon: "warning", tone: "amber", hide: ["header.permit-page-header", "main > .container > h1"] }
 };
 
 function getJgcPageBarIcon(name) {
@@ -6397,6 +6439,13 @@ function ensureJgcPageBarStyles() {
     #jgcPageBar[hidden],
     #jgcPageBar.jgc-page-bar--phone-only {
       display: none !important;
+    }
+
+    /* Employee pages: as wide as the page's own content column (measured by common.js). */
+    #jgcPageBar.jgc-page-bar--page {
+      width: var(--jgc-page-bar-width, min(var(--jgc-page-width, 1180px), calc(100vw - 32px))) !important;
+      max-width: calc(100vw - 32px) !important;
+      margin: 16px auto var(--jgc-page-bar-gap, 0px) !important;
     }
 
     #jgcPageBar svg {
@@ -6603,6 +6652,12 @@ function ensureJgcPageBarStyles() {
         display: none !important;
       }
 
+      #jgcPageBar.jgc-page-bar--page {
+        width: 100vw !important;
+        max-width: none !important;
+        margin: 0 calc(50% - 50vw) var(--jgc-page-bar-gap, 0px) !important;
+      }
+
       #jgcPageBar .jgc-page-bar__tile {
         width: 38px !important;
         height: 38px !important;
@@ -6726,6 +6781,11 @@ function markJgcPageBarSources() {
   });
 }
 
+function getJgcPageBarMirroredText(selector) {
+  const element = selector && document.querySelector(selector);
+  return element ? element.textContent.replace(/\s+/g, " ").trim() : "";
+}
+
 // A panel that opens with the same heading as the bar ("Timesheets" under "Timesheets") drops it on screen.
 function markJgcPageBarDuplicateHeading(title, scope) {
   const heading = scope && scope.querySelector("h2");
@@ -6748,8 +6808,24 @@ function activateJgcPageBar() {
   }
 
   const adminNav = document.querySelector("[data-jgc-admin-nav]");
+  const globalNav = document.getElementById("jgcGlobalTopNav");
+  const pageConfig = onAdminHtml ? null : getJgcPageBarConfig(page);
+
+  // Employee pages only get the bar under the Portal top bar (a signed-in session).
+  if (!adminNav && !globalNav) {
+    return;
+  }
+
   ensureJgcPageBarStyles();
-  markJgcPageBarSources();
+  if (pageConfig && pageConfig.hide) {
+    pageConfig.hide.forEach(function(selector) {
+      document.querySelectorAll(selector).forEach(function(element) {
+        element.classList.add("jgc-page-bar-source");
+      });
+    });
+  } else {
+    markJgcPageBarSources();
+  }
 
   const bar = document.createElement("header");
   bar.id = "jgcPageBar";
@@ -6770,7 +6846,34 @@ function activateJgcPageBar() {
   if (adminNav) {
     adminNav.after(bar);
   } else {
-    document.body.insertBefore(bar, document.body.firstChild);
+    // Employee pages: line the bar up with the page's content (the widest visible block inside <main>,
+    // or the form panel itself on pages without one) and keep a steady 16px gap above that content.
+    globalNav.after(bar);
+    bar.classList.add("jgc-page-bar--page");
+    const main = document.querySelector("main");
+    const shell = main || document.querySelector("body > .container");
+    if (shell && window.ResizeObserver) {
+      let gapAdded = 0;
+      const syncLayout = function() {
+        const blocks = main
+          ? Array.from(main.children).filter(function(element) {
+            const position = getComputedStyle(element).position;
+            return !element.classList.contains("jgc-page-bar-source") && element.getClientRects().length && position !== "fixed" && position !== "absolute";
+          })
+          : [shell];
+        const widths = blocks.map(function(element) { return element.getBoundingClientRect().width; }).filter(Boolean);
+        bar.style.setProperty("--jgc-page-bar-width", Math.round(widths.length ? Math.max.apply(null, widths) : shell.getBoundingClientRect().width) + "px");
+
+        if (blocks[0]) {
+          const naturalGap = blocks[0].getBoundingClientRect().top - bar.getBoundingClientRect().bottom - gapAdded;
+          gapAdded = Math.max(0, Math.round(16 - naturalGap));
+          bar.style.setProperty("--jgc-page-bar-gap", gapAdded + "px");
+        }
+      };
+      syncLayout();
+      new ResizeObserver(syncLayout).observe(shell);
+      window.addEventListener("load", syncLayout);
+    }
   }
   document.body.classList.add("jgc-has-page-bar");
 
@@ -6792,13 +6895,15 @@ function activateJgcPageBar() {
       ? document.getElementById(sectionKey + "Section")
       : document.querySelector("main") || document.body);
 
+    const title = getJgcPageBarMirroredText(config.titleFrom) || config.title;
+    const subtitleText = getJgcPageBarMirroredText(config.subtitleFrom) || config.subtitle || "";
     tile.setAttribute("data-tone", config.tone);
     tile.innerHTML = getJgcPageBarIcon(config.icon);
-    titleText.textContent = config.title;
-    switchButton.querySelector("span").textContent = config.title;
-    switchButton.setAttribute("aria-label", config.title + ", switch Admin section");
-    subtitle.textContent = config.subtitle || "";
-    subtitle.hidden = !config.subtitle;
+    titleText.textContent = title;
+    switchButton.querySelector("span").textContent = title;
+    switchButton.setAttribute("aria-label", title + ", switch Admin section");
+    subtitle.textContent = subtitleText;
+    subtitle.hidden = !subtitleText;
     bar.classList.toggle("jgc-page-bar--phone-only", Boolean(config.phoneOnly));
 
     action = config.action && document.querySelector(config.action.target) ? config.action : null;
@@ -6893,6 +6998,16 @@ function activateJgcPageBar() {
   });
 
   render();
+
+  // Page text the bar mirrors can change later (e.g. "Today's Reports", "Edit Daily Site Report").
+  if (pageConfig) {
+    [pageConfig.titleFrom, pageConfig.subtitleFrom].forEach(function(selector) {
+      const source = selector && document.querySelector(selector);
+      if (source) {
+        new MutationObserver(render).observe(source, { childList: true, characterData: true, subtree: true });
+      }
+    });
+  }
 
   if (onAdminHtml) {
     const observer = new MutationObserver(render);
