@@ -78,9 +78,9 @@ for (const viewport of [{ name: "phone", width: 390, height: 844, pad: 58 }, { n
     await expect(page.locator(".jgc-global-top-nav")).toBeVisible();
     await expect(page.locator(".jgc-safe-area-top")).toHaveCount(1);
 
-    // Without an inset nothing moves.
+    // Without an inset nothing moves; the strip stays a 1px colour sample for iOS at the top edge.
     const plain = await topLayout(page);
-    expect(plain.strip.height).toBe(0);
+    expect(plain.strip.height).toBe(1);
     expect(plain.nav.top).toBe(0);
     expect(plain.bodyPadding).toBe(viewport.pad);
 
@@ -104,6 +104,8 @@ for (const viewport of [{ name: "phone", width: 390, height: 844, pad: 58 }, { n
     });
     expect(strip.width).toBe(viewport.width);
     expect(strip.colour).toBe("rgb(7, 55, 28)");
+    // iOS only samples a plain background colour, never a gradient.
+    expect(await page.locator(".jgc-safe-area-top").evaluate(el => getComputedStyle(el).backgroundImage)).toBe("none");
     expect(strip.z).toBeGreaterThan(strip.highestBelow);
   });
 }

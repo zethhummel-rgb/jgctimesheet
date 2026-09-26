@@ -6149,15 +6149,17 @@ function activateJgcSafeArea() {
       padding-top: var(--jgc-safe-area-top);
     }
 
+    /* iOS 26+ replaces its status-bar blur with the plain background-color of a fixed element
+       touching the top edge. It ignores gradients and pseudo-elements, and a 0px box cannot be
+       sampled, so this strip is always at least 1px tall and one solid colour. */
     .jgc-safe-area-top {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 10090;
-      height: var(--jgc-safe-area-top);
+      height: max(1px, var(--jgc-safe-area-top));
       background-color: #07371c;
-      background-image: linear-gradient(90deg, #07371c 0%, #0b5e3b 100%);
       pointer-events: none;
     }
 
