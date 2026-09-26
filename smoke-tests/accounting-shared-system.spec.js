@@ -57,7 +57,8 @@ for (const viewport of [
   test(`populated Accounting Admin stays readable on ${viewport.name}`, async ({ browser }) => {
     const context = await browser.newContext({ viewport, javaScriptEnabled: false });
     const page = await context.newPage();
-    await page.goto("/accounting-admin.html", { waitUntil: "domcontentloaded" });
+    // Wait for stylesheets before measuring; DOMContentLoaded can fire first on a busy machine.
+    await page.goto("/accounting-admin.html", { waitUntil: "load" });
     const markup = populatedAccountingMarkup();
     await page.evaluate((content) => {
       document.body.classList.add("jgc-app", "jgc-admin-page");

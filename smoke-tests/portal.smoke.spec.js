@@ -5329,7 +5329,9 @@ async function installPreparedJsaMock(page, isAdmin = true) {
     if (request.method() !== 'POST') return;
     if (/notifications/.test(request.url())) {
       const payload=request.postDataJSON();
-      if ([payload].flat().some(n=>n.notification_type==='jsa_acknowledgement')) state.earlyWrites.push(request.url());
+      // The notification bell's own "acknowledgement required" reminder for the signed-in crew member
+      // is expected once the JSA is active; only notices addressed to anyone else count as early writes.
+      if ([payload].flat().some(n=>n.notification_type==='jsa_acknowledgement'&&n.target_worker_key!==fakeProfile.worker_key)) state.earlyWrites.push(request.url());
     } else if (/safety_acknowledgements|functions\/v1|script.google.com/.test(request.url())) state.earlyWrites.push(request.url());
   });
   await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`, route => route.fulfill({json:isAdmin}));

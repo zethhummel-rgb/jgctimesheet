@@ -387,6 +387,7 @@
 
     .side-link:hover,
     .side-link.active {
+      color: var(--jgc-color-on-brand);
       background: linear-gradient(90deg, color-mix(in srgb, var(--jgc-color-brand-600) 88%, transparent), color-mix(in srgb, var(--jgc-color-brand-700) 82%, transparent));
     }
 

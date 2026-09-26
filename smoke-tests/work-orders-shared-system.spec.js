@@ -208,7 +208,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
 
   expect(adminSource).toContain('admin.css?v=17');
   expect(adminSource).toContain('work-orders-design-system.css?v=3');
-  expect(adminSource).toContain('admin-work-orders.js?v=3');
+  expect(adminSource).toContain('admin-work-orders.js?v=4');
   expect(adminSource).toMatch(/id="workOrdersSection"[^>]*class="[^"]*\bjgc-admin-feature-surface\b[^"]*\bjgc-work-orders-admin\b/);
   expect(adminWorkOrders).not.toMatch(/class="small" style=/i);
   expect(adminCss).not.toContain(".admin-wo-management {");
@@ -217,7 +217,7 @@ test("Work Orders family uses one token-only shared visual source", async () => 
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(serviceWorker).toContain('"./admin.css?v=17"');
   expect(serviceWorker).toContain('"./work-orders-design-system.css?v=3"');
-  expect(serviceWorker).toContain('"./admin-work-orders.js?v=3"');
+  expect(serviceWorker).toContain('"./admin-work-orders.js?v=4"');
 });
 
 for (const viewport of [

@@ -294,7 +294,7 @@
 
 .specialty-inspection-page .status-btn.pass { background: var(--jgc-color-badge-success); }
 .specialty-inspection-page .status-btn.fail { background: var(--jgc-color-danger); }
-.specialty-inspection-page .status-btn.na { background: var(--jgc-color-input-border); }
+.specialty-inspection-page .status-btn.na { background: color-mix(in srgb, var(--jgc-color-input-border) 80%, var(--jgc-color-text-dark)); }
 
 .specialty-inspection-page .status-btn.selected {
   border-color: var(--jgc-color-warning);

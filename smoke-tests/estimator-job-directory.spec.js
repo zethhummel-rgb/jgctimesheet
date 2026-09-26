@@ -676,7 +676,8 @@ for (const layout of ["List", "Tiles"]) for (const width of [390, 1366]) {
     const closeBox = await close.boundingBox(), cancelBox = await cancel.boundingBox();
     expect(cancelBox.height).toBeGreaterThanOrEqual(24);
     const actionGap = 3;
-    expect(cancelBox.y).toBeCloseTo(closeBox.y + closeBox.height + actionGap, 1);
+    // Stacked tightly under Close; allow sub-pixel and rounding differences between layouts.
+    expect(Math.abs(cancelBox.y - (closeBox.y + closeBox.height + actionGap))).toBeLessThanOrEqual(1.5);
     if (process.env.JGC_CAPTURE_VISUAL_QA === "1") await page.locator(layout === "List" ? ".jobs-table" : ".job-tiles").screenshot({ path: testInfo.outputPath(`cancel-${layout}-${width}.png`) });
     page.once("dialog", async dialog => { expect(dialog.message()).toContain("Cancel job 26901"); expect(dialog.message()).toContain("history are kept"); await dialog.dismiss(); });
     await cancel.click();

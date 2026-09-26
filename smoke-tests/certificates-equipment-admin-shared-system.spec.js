@@ -80,7 +80,8 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
   expect(adminPage).toContain('admin-certificates.js?v=4');
   expect(adminPage).toContain('admin-equipment.js?v=2');
   const certificatesSection = adminPage.match(/<div id="certificatesSection"[\s\S]*?(?=<div id="vacationSection")/)?.[0] || "";
-  const equipmentSection = adminPage.match(/<div id="equipmentSection"[\s\S]*?(?=<div id="jobsSection")/)?.[0] || "";
+  // The Jobs section moved to the Estimator; Work Orders now follows Equipment in admin.html.
+  const equipmentSection = adminPage.match(/<div id="equipmentSection"[\s\S]*?(?=<div id="workOrdersSection")/)?.[0] || "";
   expect(certificatesSection).not.toMatch(/\sstyle\s*=/i);
   expect(equipmentSection).not.toMatch(/\sstyle\s*=/i);
   expect(certificatesSection).toContain("jgc-panel");

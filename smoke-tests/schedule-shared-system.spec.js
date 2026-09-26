@@ -391,8 +391,22 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   await expect(page.locator("#adminScheduleCalendar")).toBeVisible();
   await expect(page.locator("#adminScheduleAgenda")).toBeHidden();
   await expect(page.locator("#adminScheduleCalendar .admin-schedule-head")).toHaveCount(7);
-  await expect(page.locator("#adminScheduleCalendar .admin-job-milestone")).toHaveCount(2);
+  // Each day shows two items plus "+N". Today's booked event and vacation come first,
+  // so the job start and target milestones are listed in the "+2" panel.
+  const more = page.locator("#adminScheduleCalendar .admin-schedule-more");
+  await expect(more).toHaveText("+2");
+  // The panel closes on scroll or re-render, so let data loading and scrolling settle before opening it.
+  await page.waitForLoadState("networkidle");
+  await more.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await more.click();
+  await expect(page.locator("#adminScheduleOverflow .admin-job-milestone")).toHaveCount(2);
+  await page.locator("#adminScheduleOverflow .admin-schedule-overflow-close").click();
+  await expect(page.locator("#adminScheduleOverflow")).toHaveCount(0);
 
+  // The Admin calendar is now a resizable Summary dashboard widget, so columns are narrower than the
+  // old full-width calendar; each day must still be a comfortable 44px tap target.
+  const minimumAdminColumnWidth = 44;
   const dimensions = await page.evaluate(() => {
     const wrapper = document.querySelector(".admin-schedule-calendar-scroll");
     const calendar = document.getElementById("adminScheduleCalendar");
@@ -410,7 +424,7 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
   expect(dimensions.wrapperScrollWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
   expect(dimensions.calendarWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
-  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(70);
+  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(minimumAdminColumnWidth);
   if (process.env.JGC_SCHEDULE_SCREENSHOT_DIR) {
     fs.mkdirSync(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({

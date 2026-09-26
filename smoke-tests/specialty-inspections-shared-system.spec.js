@@ -70,7 +70,7 @@ test("specialty inspection forms use one token-only shared visual source", async
     expect(source, `${file} must not load the legacy portal stylesheet`).not.toContain('href="styles.css');
     expect(source, `${file} must not load the legacy inspection mobile stylesheet`).not.toContain("inspection-mobile.css");
     expect(source).toContain('jgc-design-system.css?v=9');
-    expect(source).toContain('specialty-inspection-design-system.css?v=2');
+    expect(source).toContain('specialty-inspection-design-system.css?v=3');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
 
@@ -79,7 +79,7 @@ test("specialty inspection forms use one token-only shared visual source", async
   expect(featureCss, "Specialty-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(762);
-  expect(serviceWorker).toContain('"./specialty-inspection-design-system.css?v=2"');
+  expect(serviceWorker).toContain('"./specialty-inspection-design-system.css?v=3"');
 });
 
 for (const viewport of [

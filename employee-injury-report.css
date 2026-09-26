@@ -9,6 +9,6 @@
 #injuryForm .remove-row{justify-self:start}
 #injuryForm .signoff-card{min-width:0;border:1px solid var(--jgc-color-border);border-radius:8px;padding:12px}
 #injuryForm .signoff-card .field{margin-top:12px}
-#injuryForm.show-errors :invalid{outline:2px solid #be3030;outline-offset:2px}
+#injuryForm.show-errors :invalid{outline:2px solid var(--jgc-color-danger);outline-offset:2px}
 #injuryForm [hidden]{display:none!important}
 @media(max-width:700px){#injuryForm fieldset{padding:12px}#injuryForm .checks,#injuryForm .repeat-row{grid-template-columns:1fr}#injuryForm legend{font-size:16px}}

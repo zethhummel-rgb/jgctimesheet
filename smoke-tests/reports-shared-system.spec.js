@@ -23,7 +23,7 @@ test("Reports forms and embedded Admin Reports use centralized token-only stylin
     expect(source).not.toContain("styles.css");
     expect(source).toContain('jgc-design-system.css?v=9');
     expect(source).toContain('report-design-system.css?v=2');
-    expect(source).toContain(`${report.css}?v=${["jsa.html", "accident-report.html", "employee-injury-report.html"].includes(report.file) ? 2 : 1}`);
+    expect(source).toContain(`${report.css}?v=${({ "jsa.html": 3, "accident-report.html": 2, "employee-injury-report.html": 3 })[report.file] || 1}`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     expect(screenMarkup).not.toMatch(/<style\b/i);
     expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -41,7 +41,7 @@ test("Reports forms and embedded Admin Reports use centralized token-only stylin
   expect(reportsAdminCss).not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["report-design-system.css?v=2", ...reportForms.map((report) => `${report.css}?v=${["jsa.html", "accident-report.html", "employee-injury-report.html"].includes(report.file) ? 2 : 1}`), "reports-admin.css?v=2", "admin.css?v=17"]) {
+  for (const asset of ["report-design-system.css?v=2", ...reportForms.map((report) => `${report.css}?v=${({ "jsa.html": 3, "accident-report.html": 2, "employee-injury-report.html": 3 })[report.file] || 1}`), "reports-admin.css?v=2", "admin.css?v=17"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

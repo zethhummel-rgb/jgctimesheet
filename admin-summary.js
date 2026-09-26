@@ -1338,8 +1338,16 @@ function toggleAdminScheduleOverflow(button, dateValue) {
     const below = anchor.bottom + 4;
     panel.style.width = width + "px";
     panel.style.left = left + "px";
+    // Keep the panel below the fixed Portal top bar so its close button is never covered (short phone-landscape screens).
+    const topBarBottom = Math.max(0, ...[".jgc-global-top-nav", "#jgcAppearanceSettings"].map((selector) => {
+        const element = document.querySelector(selector);
+        return element ? element.getBoundingClientRect().bottom : 0;
+    }));
+    const minTop = Math.max(8, topBarBottom + 4);
     const height = panel.offsetHeight;
-    panel.style.top = (below + height > window.innerHeight - 8 ? Math.max(8, anchor.top - height - 4) : below) + "px";
+    const top = Math.max(minTop, below + height > window.innerHeight - 8 ? anchor.top - height - 4 : below);
+    panel.style.top = top + "px";
+    panel.style.maxHeight = Math.max(120, window.innerHeight - top - 8) + "px";
 
     button.setAttribute("aria-expanded", "true");
     document.addEventListener("pointerdown", handleAdminScheduleOverflowOutside, true);
