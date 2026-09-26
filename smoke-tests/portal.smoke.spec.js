@@ -561,9 +561,13 @@ authenticatedPageGroups.forEach((pageGroup, groupIndex) => {
 });
 
 test("every required app-shell asset exists", async ({ request }) => {
-  for (const asset of appShell) {
-    const response = await request.get(`/${asset.replace(/^\.\//, "")}`);
-    expect(response.status(), `Missing required asset: ${asset}`).toBe(200);
+  // Hundreds of files: fetch a batch at a time and allow for a busy full-suite run.
+  test.setTimeout(120000);
+  for (let start = 0; start < appShell.length; start += 20) {
+    await Promise.all(appShell.slice(start, start + 20).map(async asset => {
+      const response = await request.get(`/${asset.replace(/^\.\//, "")}`);
+      expect(response.status(), `Missing required asset: ${asset}`).toBe(200);
+    }));
   }
 });
 
