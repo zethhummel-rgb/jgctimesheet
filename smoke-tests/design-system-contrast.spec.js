@@ -4,7 +4,8 @@ const USER_ID = "00000000-0000-4000-8000-000000000093";
 
 // Contrast of each element's text against the colours actually painted behind it:
 // semi-transparent layers are blended down to the first opaque colour or gradient,
-// and a gradient is judged by its worst colour stop.
+// a gradient is judged by its worst colour stop, and see-through gradient stops are
+// blended over whatever is painted behind that element.
 const measure = selector => {
   const parse = value => {
     const nums = (value.match(/-?[\d.]+/g) || []).map(Number);
@@ -20,8 +21,24 @@ const measure = selector => {
     for (let n = el; n; n = n.parentElement) {
       const style = getComputedStyle(n);
       const color = parse(style.backgroundColor);
-      const stops = style.backgroundImage.includes("gradient") ? (style.backgroundImage.match(/rgba?\([^)]*\)|color\([^)]*\)/g) || []).map(parse) : [];
-      if (stops.length) return stops.map(stop => paint(over(stop, color[3] > 0 ? over(color, WHITE) : WHITE)));
+      if (style.backgroundImage.includes("gradient")) {
+        // Split stacked background layers (first listed is painted on top) and blend them bottom-up.
+        const layers = [];
+        let depth = 0, current = "";
+        for (const ch of style.backgroundImage) {
+          if (ch === "(") depth++;
+          if (ch === ")") depth--;
+          if (ch === "," && depth === 0) { layers.push(current); current = ""; } else current += ch;
+        }
+        layers.push(current);
+        const behind = n.parentElement ? backgroundsOf(n.parentElement)[0] : WHITE;
+        let candidates = [color[3] > 0 ? over(color, behind) : behind];
+        for (const layer of layers.reverse()) {
+          const stops = (layer.match(/rgba?\([^)]*\)|color\([^)]*\)/g) || []).map(parse);
+          if (stops.length) candidates = candidates.flatMap(base => stops.map(stop => over(stop, base)));
+        }
+        return candidates.map(paint);
+      }
       if (color[3] >= 1) return [paint(color)];
       if (color[3] > 0) above.push(color);
     }
@@ -68,6 +85,27 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
+for (const theme of ["light", "dark"]) {
+  test(`Admin Notice panels, labels and read-status expanders are readable in ${theme} mode`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/admin.html", { waitUntil: "load" });
+    await page.evaluate(theme => {
+      document.documentElement.setAttribute("data-jgc-theme", theme);
+      document.body.classList.add("jgc-theme");
+      document.getElementById("summarySection").hidden = true;
+      document.getElementById("noticePolicySection").hidden = false;
+      document.getElementById("announcementsList").innerHTML = `<div class="table-wrap jgc-table-wrap"><table class="jgc-table jgc-table--wide">
+        <thead><tr><th>Title</th><th>Read Status</th><th>Created</th></tr></thead>
+        <tbody><tr><td>Safety meeting Friday</td><td><details><summary>0/1 read</summary></details></td><td>2026-09-21</td></tr></tbody></table></div>`;
+    }, theme);
+    const samples = await page.evaluate(measure, "#noticePolicySection .admin-collapsible-panel > summary, #noticePolicySection .jgc-label, #announcementsList th, #announcementsList td, #announcementsList summary");
+    expect(samples.map(sample => sample.text)).toEqual(expect.arrayContaining(["Announcements / Notices", "Title", "Message", "0/1 read"]));
+    for (const sample of samples) expect(sample.ratio, `${theme} ${sample.text}`).toBeGreaterThanOrEqual(4.5);
+    await context.close();
+  });
+}
+
 // Real pages that use these components in their own layouts. Timesheet checks every button,
 // including its green gradient buttons.
 const PAGES = [
@@ -76,7 +114,12 @@ const PAGES = [
   { url: "/field-calculator.html" }, { url: "/notification-settings.html" }, { url: "/accounting-admin.html" },
   { url: "/employee-writeups-admin.html" }, { url: "/home.html" },
   { url: "/timesheet.html", selector: ".timesheet-page button" },
-  { url: "/index.html", selector: ".toggle-button", signedOut: true }
+  { url: "/index.html", selector: ".login-page button.jgc-button", signedOut: true },
+  { url: "/harness.html", selector: ".status-btn" },
+  { url: "/admin.html?tab=safetyRecords&records=reports", selector: ".admin-safety-record-tile" },
+  { url: "/home.html", selector: ".side-link" },
+  // Operator keys (large symbols) meet the 3:1 large-text rule and are not listed here.
+  { url: "/field-calculator.html", selector: ".toolbar-button, .quick-calc-tab, .calc-key.function, .calc-key.danger" }
 ];
 
 for (const theme of ["light", "dark"]) {

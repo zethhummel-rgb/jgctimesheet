@@ -238,6 +238,8 @@ test("embedded Admin Tasks keeps the shared layout without duplicate portal chro
   await installState(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/tasks.html?embedded=1&admin=1", { waitUntil: "domcontentloaded" });
+  // Let the page's own start-up loads finish so they cannot replace the sample tasks.
+  await page.waitForLoadState("networkidle");
   await populateTasks(page);
 
   await expect(page.locator(".tasks-page-header")).toBeHidden();

@@ -42,14 +42,14 @@
 .admin-safety-record-tile:hover,
 .admin-safety-record-tile:focus-visible {
     transform: translateY(-2px);
-    background: var(--jgc-color-brand-500);
+    background: var(--jgc-color-brand-600);
     border-color: var(--jgc-color-brand-400);
     box-shadow: inset 0 -5px 0 color-mix(in srgb, var(--jgc-color-brand-400) 72%, transparent), 0 16px 32px color-mix(in srgb, var(--jgc-color-page-deep) 75%, transparent);
 }
 
 .admin-safety-record-tile.active,
 .admin-safety-record-tile[aria-selected="true"] {
-    background: var(--jgc-color-brand-500);
+    background: var(--jgc-color-brand-600);
     border-color: var(--jgc-color-brand-400);
     box-shadow: inset 0 -5px 0 var(--jgc-color-brand-500), 0 0 0 2px color-mix(in srgb, var(--jgc-color-brand-400) 24%, transparent), 0 16px 32px color-mix(in srgb, var(--jgc-color-page-deep) 76%, transparent);
 }
@@ -214,4 +214,10 @@
     min-height: 78px;
     padding: 15px;
   }
+}
+
+
+/* Light mode: the shared light-theme label colour must not darken the white tile text. */
+:root[data-jgc-theme="light"] body.jgc-theme .admin-safety-record-tile :is(strong, span) {
+    color: var(--jgc-color-on-brand) !important;
 }

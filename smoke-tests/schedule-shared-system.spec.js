@@ -190,13 +190,13 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
   expect(pageSource).toContain('jgc-design-system.css?v=9');
-  expect(pageSource).toContain('schedule-design-system.css?v=5');
+  expect(pageSource).toContain('schedule-design-system.css?v=6');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(featureCss, "Schedule-only CSS must use centralized design tokens instead of page colours").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
-  expect(adminSource).toContain('admin.css?v=17');
-  expect(adminSource).toContain('schedule-design-system.css?v=5');
+  expect(adminSource).toContain('admin.css?v=18');
+  expect(adminSource).toContain('schedule-design-system.css?v=6');
   expect(adminSource).toContain('class="admin-schedule-calendar-scroll"');
   expect(adminSource).toContain("admin-schedule-day-events");
   expect(adminSource).toContain("admin-schedule-vehicle-hint");
@@ -204,8 +204,8 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(adminCss).not.toContain(".admin-schedule-summary");
   expect(adminCss).not.toContain(".admin-schedule-modal-backdrop");
   expect(serviceWorker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(serviceWorker).toContain('"./admin.css?v=17"');
-  expect(serviceWorker).toContain('"./schedule-design-system.css?v=5"');
+  expect(serviceWorker).toContain('"./admin.css?v=18"');
+  expect(serviceWorker).toContain('"./schedule-design-system.css?v=6"');
 });
 
 for (const viewport of [
@@ -391,8 +391,22 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   await expect(page.locator("#adminScheduleCalendar")).toBeVisible();
   await expect(page.locator("#adminScheduleAgenda")).toBeHidden();
   await expect(page.locator("#adminScheduleCalendar .admin-schedule-head")).toHaveCount(7);
-  await expect(page.locator("#adminScheduleCalendar .admin-job-milestone")).toHaveCount(2);
+  // Each day shows two items plus "+N". Today's booked event and vacation come first,
+  // so the job start and target milestones are listed in the "+2" panel.
+  const more = page.locator("#adminScheduleCalendar .admin-schedule-more");
+  await expect(more).toHaveText("+2");
+  // The panel closes on scroll or re-render, so let data loading and scrolling settle before opening it.
+  await page.waitForLoadState("networkidle");
+  await more.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await more.click();
+  await expect(page.locator("#adminScheduleOverflow .admin-job-milestone")).toHaveCount(2);
+  await page.locator("#adminScheduleOverflow .admin-schedule-overflow-close").click();
+  await expect(page.locator("#adminScheduleOverflow")).toHaveCount(0);
 
+  // The Admin calendar is now a resizable Summary dashboard widget, so columns are narrower than the
+  // old full-width calendar; each day must still be a comfortable 44px tap target.
+  const minimumAdminColumnWidth = 44;
   const dimensions = await page.evaluate(() => {
     const wrapper = document.querySelector(".admin-schedule-calendar-scroll");
     const calendar = document.getElementById("adminScheduleCalendar");
@@ -410,7 +424,7 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
   expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.viewportWidth + 1);
   expect(dimensions.wrapperScrollWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
   expect(dimensions.calendarWidth).toBeLessThanOrEqual(dimensions.wrapperWidth + 1);
-  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(70);
+  expect(dimensions.minimumColumnWidth).toBeGreaterThanOrEqual(minimumAdminColumnWidth);
   if (process.env.JGC_SCHEDULE_SCREENSHOT_DIR) {
     fs.mkdirSync(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({

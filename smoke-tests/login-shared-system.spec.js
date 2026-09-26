@@ -11,7 +11,7 @@ test("Login uses one token-only visual source", async () => {
 
   expect(html).not.toContain("styles.css");
   expect(html).toContain('jgc-design-system.css?v=9');
-  expect(html).toContain('login-design-system.css?v=4');
+  expect(html).toContain('login-design-system.css?v=5');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);
   expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -21,7 +21,7 @@ test("Login uses one token-only visual source", async () => {
 
   const worker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+"/);
-  expect(worker).toContain('"./login-design-system.css?v=4"');
+  expect(worker).toContain('"./login-design-system.css?v=5"');
 });
 
 test("iPhone PWA uses an opaque status bar above the app controls", () => {

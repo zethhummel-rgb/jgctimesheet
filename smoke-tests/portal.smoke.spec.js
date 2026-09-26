@@ -5329,7 +5329,9 @@ async function installPreparedJsaMock(page, isAdmin = true) {
     if (request.method() !== 'POST') return;
     if (/notifications/.test(request.url())) {
       const payload=request.postDataJSON();
-      if ([payload].flat().some(n=>n.notification_type==='jsa_acknowledgement')) state.earlyWrites.push(request.url());
+      // The notification bell's own "acknowledgement required" reminder for the signed-in crew member
+      // is expected once the JSA is active; only notices addressed to anyone else count as early writes.
+      if ([payload].flat().some(n=>n.notification_type==='jsa_acknowledgement'&&n.target_worker_key!==fakeProfile.worker_key)) state.earlyWrites.push(request.url());
     } else if (/safety_acknowledgements|functions\/v1|script.google.com/.test(request.url())) state.earlyWrites.push(request.url());
   });
   await page.route(`${supabaseOrigin}/rest/v1/rpc/is_admin`, route => route.fulfill({json:isAdmin}));
@@ -5499,7 +5501,8 @@ test('JSA PDF preserves long controls and existing signatures and clearly marks 
     const active=await JgcJsaPdf.create(record,{acknowledgements:[ack]});
     return {prepared:prepared.output('datauristring').split(',')[1],active:active.output('datauristring').split(',')[1]};
   });
-  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(process.env.JGC_PDFJS_MODULE || 'C:/Users/Zeth/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pdfjs-dist/legacy/build/pdf.mjs')).href);
+  // Use the same pdf.js copy as the Estimator PDF tests: two versions in one test worker clash ("API version does not match the Worker version").
+  const pdfjs=await import(require('node:url').pathToFileURL(path.resolve(process.env.JGC_PDFJS_MODULE || path.join(__dirname, '../estimating-app/node_modules/pdfjs-dist/legacy/build/pdf.mjs'))).href);
   for(const [kind,base64] of Object.entries(outputs)){
     const bytes=Buffer.from(base64,'base64');
     fs.writeFileSync(testInfo.outputPath(`jsa-${kind}.pdf`),Buffer.from(bytes));

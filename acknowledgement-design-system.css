@@ -147,8 +147,9 @@ button:disabled {
     font-weight: bold;
 }
 
+/* Blend toward the theme text colour so the red stays readable on dark and light surfaces. */
 .error {
-    color: var(--jgc-color-danger);
+    color: color-mix(in srgb, var(--jgc-color-danger) 65%, var(--jgc-color-text));
 }
 
 .hidden {

@@ -75,12 +75,13 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
   expect(standalone).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
 
   expect(adminPage).toContain('certificates-embedded.css?v=1');
-  expect(adminPage).toContain('equipment-admin.css?v=2');
-  expect(adminPage).toContain('admin.css?v=17');
+  expect(adminPage).toContain('equipment-admin.css?v=3');
+  expect(adminPage).toContain('admin.css?v=18');
   expect(adminPage).toContain('admin-certificates.js?v=4');
   expect(adminPage).toContain('admin-equipment.js?v=2');
   const certificatesSection = adminPage.match(/<div id="certificatesSection"[\s\S]*?(?=<div id="vacationSection")/)?.[0] || "";
-  const equipmentSection = adminPage.match(/<div id="equipmentSection"[\s\S]*?(?=<div id="jobsSection")/)?.[0] || "";
+  // The Jobs section moved to the Estimator; Work Orders now follows Equipment in admin.html.
+  const equipmentSection = adminPage.match(/<div id="equipmentSection"[\s\S]*?(?=<div id="workOrdersSection")/)?.[0] || "";
   expect(certificatesSection).not.toMatch(/\sstyle\s*=/i);
   expect(equipmentSection).not.toMatch(/\sstyle\s*=/i);
   expect(certificatesSection).toContain("jgc-panel");
@@ -99,7 +100,7 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
 
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(765);
-  for (const asset of ["certificates-admin.css?v=1", "certificates-embedded.css?v=1", "equipment-admin.css?v=2", "admin.css?v=17", "admin-certificates.js?v=4", "admin-equipment.js?v=2"]) {
+  for (const asset of ["certificates-admin.css?v=1", "certificates-embedded.css?v=1", "equipment-admin.css?v=3", "admin.css?v=18", "admin-certificates.js?v=4", "admin-equipment.js?v=2"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

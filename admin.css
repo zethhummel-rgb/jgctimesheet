@@ -65,7 +65,7 @@ h1 {
     color: #f7fff7;
 }
 
-.admin-collapsible-panel summary {
+.admin-collapsible-panel > summary {
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -77,18 +77,18 @@ h1 {
     list-style: none;
 }
 
-.admin-collapsible-panel summary::-webkit-details-marker {
+.admin-collapsible-panel > summary::-webkit-details-marker {
     display: none;
 }
 
-.admin-collapsible-panel summary::after {
+.admin-collapsible-panel > summary::after {
     content: "▶";
     color: #4ee06e;
     font-size: 14px;
     line-height: 1;
 }
 
-.admin-collapsible-panel[open] summary::after {
+.admin-collapsible-panel[open] > summary::after {
     content: "▼";
 }
 
@@ -137,6 +137,30 @@ h1 {
 .admin-collapsible-panel thead th {
     color: #2df06d;
     background: rgba(15, 55, 31, 0.95);
+}
+
+/* Light mode: these legacy panels switch to the shared light card so labels and table text stay readable. */
+:root[data-jgc-theme="light"] .admin-collapsible-panel {
+    border-color: var(--jgc-color-border);
+    background: var(--jgc-color-surface-raised);
+    color: var(--jgc-color-text);
+}
+
+:root[data-jgc-theme="light"] .admin-collapsible-panel > summary {
+    color: var(--jgc-color-text);
+}
+
+:root[data-jgc-theme="light"] .admin-collapsible-panel > summary::after {
+    color: var(--jgc-color-brand-600);
+}
+
+:root[data-jgc-theme="light"] .admin-collapsible-panel .table-wrap {
+    border-color: var(--jgc-color-border);
+    background: var(--jgc-color-table);
+}
+
+:root[data-jgc-theme="light"] .admin-collapsible-panel table {
+    color: var(--jgc-color-text);
 }
 
 h2 {

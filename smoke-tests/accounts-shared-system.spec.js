@@ -29,7 +29,8 @@ for (const viewport of [
   test(`populated Accounts stays usable on ${viewport.name}`, async ({ browser }) => {
     const context = await browser.newContext({ viewport, javaScriptEnabled: false });
     const page = await context.newPage();
-    await page.goto("/accounts.html", { waitUntil: "domcontentloaded" });
+    // Wait for stylesheets before measuring; DOMContentLoaded can fire first on a busy machine.
+    await page.goto("/accounts.html", { waitUntil: "load" });
     await page.locator("#accountsList").evaluate((list) => {
       list.innerHTML = `<div class="table-wrap jgc-table-wrap"><table class="accounts-table jgc-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Account Type</th><th>Digital PO</th><th>Created</th><th>Actions</th></tr></thead><tbody><tr><td>Darlene Test</td><td>darlene@example.com</td><td><span class="status approved jgc-badge jgc-badge--success">Approved</span></td><td>Admin</td><td><span class="status po-create-allowed jgc-badge jgc-badge--success">PO Allowed</span></td><td>Aug 24, 2026</td><td><div class="row-actions jgc-table-actions"><button class="secondary jgc-button jgc-button--secondary">Limited Access</button><button class="danger jgc-button jgc-button--danger">Deactivate</button></div></td></tr></tbody></table></div>`;
     });

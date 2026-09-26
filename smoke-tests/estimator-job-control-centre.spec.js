@@ -714,7 +714,9 @@ test('Shop drawing saves and reloads without a file link, with a link added late
  const state=jobControlState(),captures={savedStates:[],portalDocumentUpdates:[],statisticsRequests:[]};
  await serveJobControl(page,state,captures);await page.goto('/estimating/index.html?dev=1');await openJob(page);await jobTab(page,'Shop Drawings').click();
  const panel=jobPanel(page,'Shop Drawings');await panel.getByRole('button',{name:'New shop drawing'}).click();
- await panel.getByLabel('Shop drawing description').fill('Door and hardware');await panel.getByLabel('Shop drawing status').selectOption('Received from vendor');await panel.getByLabel('Received from vendor date').fill('2026-09-23');
+ await panel.getByLabel('Shop drawing description').fill('Door and hardware');await panel.getByLabel('Shop drawing status').selectOption('Received from vendor');
+ // Requested defaults to today; fix it before the received date so the order holds on any run date.
+ await panel.getByLabel('Requested from vendor date').fill('2026-09-20');await panel.getByLabel('Received from vendor date').fill('2026-09-23');
  await expect(panel.getByLabel('Current revision OneDrive link')).toHaveValue('');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();
  const row=panel.locator('.shop-drawing-table tbody tr').filter({hasText:'SD-001'});await expect(row).toContainText('Received from vendor');
  await row.getByRole('button',{name:'Open / edit'}).click();await panel.getByLabel('Shop drawing status').selectOption('Approved');await panel.getByLabel('Shop drawing consultant').fill('Client');await panel.getByLabel('Reviewed date').fill('2026-09-23');await panel.getByRole('button',{name:'Save drawing',exact:true}).click();

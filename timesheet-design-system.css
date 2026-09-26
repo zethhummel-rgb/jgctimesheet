@@ -1665,3 +1665,9 @@ body.timesheet-page {
 #timesheetsSection .timesheet-admin-note {
     margin-top: 6px;
 }
+
+
+/* Light mode: the success colour is dark, so the worker count uses white text. */
+:root[data-jgc-theme="light"] #timesheetsSection .timesheet-worker-count {
+    color: var(--jgc-color-on-brand);
+}

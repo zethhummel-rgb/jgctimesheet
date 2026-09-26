@@ -232,7 +232,7 @@
     }
 
     button {
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-700));
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
       color: var(--jgc-color-on-brand);
       border: none;
       cursor: pointer;
@@ -261,13 +261,13 @@
 
     .public-tool-button {
       margin-top: 4px;
-      background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+      background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
       color: var(--jgc-color-text-dark);
       border: 1px solid var(--jgc-color-border-soft);
     }
 
     .public-tool-button:hover {
-      background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+      background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
     }
 
     .public-tool-button-top {
@@ -282,7 +282,7 @@
     }
 
     .public-notes-button:hover {
-      background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
     }
 
     .subcontractor-access-button {
@@ -770,7 +770,7 @@ body.login-page.jgc-page {
   margin: 0 0 14px;
   padding: 15px;
   color: var(--jgc-color-on-brand);
-  background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-700));
+  background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
   border: 0;
   border-radius: 8px;
   box-shadow: none;
@@ -800,12 +800,12 @@ body.login-page.jgc-page {
 
 .login-page button.public-tool-button.jgc-button {
   color: var(--jgc-color-text-dark);
-  background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+  background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
   border: 1px solid var(--jgc-color-border-soft);
 }
 
 .login-page button.public-tool-button.jgc-button:hover {
-  background: linear-gradient(135deg, var(--jgc-color-warning), var(--jgc-color-badge-warning));
+  background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
 }
 
 .login-page button.public-notes-button.jgc-button {
@@ -814,7 +814,7 @@ body.login-page.jgc-page {
 }
 
 .login-page button.public-notes-button.jgc-button:hover {
-  background: linear-gradient(135deg, var(--jgc-color-brand-500), var(--jgc-color-brand-600));
+  background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
 }
 
 .login-page button.subcontractor-access-button.jgc-button {

@@ -18,12 +18,11 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
   expect(html).not.toMatch(/href=["']styles\.css/i);
   expect(html).not.toMatch(/\sstyle\s*=/i);
   expect(html).toContain('jgc-design-system.css?v=9');
-  expect(html).toContain('admin-shell-design-system.css?v=3');
+  expect(html).toContain('admin-shell-design-system.css?v=4');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-admin-shell-page\b/i);
-  expect(html).toContain('id="summarySection" class="card jgc-panel jgc-admin-shell-surface"');
-  expect(html).toContain('class="estimating-access"');
-  expect(html).toContain('id="estimatingAccessTitle">JGC Estimate Desk</h2>');
-  expect(html).toContain('class="estimating-access-action" href="estimating/"');
+  expect(html).toContain('id="summarySection" class="dashboard-summary"');
+  expect(html).toContain('<nav class="dashboard-quick-actions" aria-label="Quick actions">');
+  expect(html).toContain('<a class="jgc-button" href="estimating/">Open Estimate Desk</a>');
   expect(html).toContain('id="adminToolsSection" class="card jgc-panel jgc-admin-shell-surface"');
   for (const id of [
     "timesheetsSection",
@@ -50,7 +49,7 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
 
   expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "9";');
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
-  expect(worker).toContain('"./admin-shell-design-system.css?v=3"');
+  expect(worker).toContain('"./admin-shell-design-system.css?v=4"');
   expect(worker).toContain('"./admin-global-search.css?v=9"');
   expect(worker).toContain('"./admin-global-search.js?v=9"');
   expect(worker).toContain('"./' + commonAsset[1] + '"');
@@ -107,25 +106,20 @@ for (const viewport of [
     expect(layout.surface.left).toBeGreaterThanOrEqual(0);
     expect(layout.surface.right).toBeLessThanOrEqual(layout.viewport + 1);
     expect(layout.overflowingControls).toEqual([]);
-    const estimateAccess = await page.locator(".estimating-access").evaluate((card) => {
-      const action = card.querySelector(".estimating-access-action");
-      const cardRect = card.getBoundingClientRect();
-      const actionRect = action.getBoundingClientRect();
+    // The Summary dashboard's quick actions replace the former Estimate Desk card.
+    const quickActions = await page.locator(".dashboard-quick-actions").evaluate((nav) => {
+      const navRect = nav.getBoundingClientRect();
+      const links = Array.from(nav.querySelectorAll("a"));
       return {
-        href: action.getAttribute("href"),
-        cardLeft: cardRect.left,
-        cardRight: cardRect.right,
-        actionLeft: actionRect.left,
-        actionRight: actionRect.right,
-        actionWidth: actionRect.width
+        hrefs: links.map((link) => link.getAttribute("href")),
+        contained: links.every((link) => {
+          const rect = link.getBoundingClientRect();
+          return rect.left >= navRect.left - 1 && rect.right <= navRect.right + 1;
+        })
       };
     });
-    expect(estimateAccess.href).toBe("estimating/");
-    expect(estimateAccess.actionLeft).toBeGreaterThanOrEqual(estimateAccess.cardLeft - 1);
-    expect(estimateAccess.actionRight).toBeLessThanOrEqual(estimateAccess.cardRight + 1);
-    if (viewport.name === "phone") {
-      expect(estimateAccess.actionWidth).toBeGreaterThan(estimateAccess.cardRight - estimateAccess.cardLeft - 30);
-    }
+    expect(quickActions.hrefs[0]).toBe("estimating/");
+    expect(quickActions.contained).toBe(true);
     const tabsOverflow = await page.locator("body > .tabs").evaluate((tabs) => getComputedStyle(tabs).overflowX);
     expect(["auto", "scroll"]).toContain(tabsOverflow);
     await context.close();
@@ -162,8 +156,9 @@ for (const viewport of [
     await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
 
     const styles = await page.evaluate((selectors) => {
-      const summary = document.querySelector("#summarySection");
-      const expectedSurface = getComputedStyle(summary).backgroundColor;
+      // The Summary is now a transparent dashboard, so compare against the Admin Tools shell panel.
+      const reference = document.querySelector("#adminToolsSection");
+      const expectedSurface = getComputedStyle(reference).backgroundColor;
       return selectors.map((selector) => {
         const surface = document.querySelector(selector);
         surface.hidden = false;
@@ -200,9 +195,13 @@ for (const viewport of [
 test('Open Job List has readable contrast in light and dark modes',async({browser})=>{
  const context=await browser.newContext({javaScriptEnabled:false});const page=await context.newPage();await page.goto('/admin.html');
  for(const theme of ['light','dark']) {await page.locator('html').evaluate((el,theme)=>{el.dataset.jgcTheme=theme;el.dataset.theme=theme;document.body.dataset.jgcTheme=theme;document.body.dataset.theme=theme;},theme);
+ // Colours from color-mix() compute as color(srgb 0-1 ...); blend translucent layers down to an opaque one.
  const ratio=await page.getByRole('link',{name:'Open Job List',exact:true}).evaluate(el=>{
- const rgb=s=>(s.match(/[\d.]+/g)||[]).slice(0,3).map(Number);const lum=c=>c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
- let bg=el;while(bg.parentElement&&getComputedStyle(bg).backgroundColor==='rgba(0, 0, 0, 0)')bg=bg.parentElement;
- const a=lum(rgb(getComputedStyle(el).color)),b=lum(rgb(getComputedStyle(bg).backgroundColor));return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);});expect(ratio).toBeGreaterThanOrEqual(4.5);}
+ const parse=s=>{const n=(s.match(/-?[\d.]+/g)||[]).map(Number);return s.startsWith('color(')?[n[0]*255,n[1]*255,n[2]*255,n.length>3?n[3]:1]:[n[0],n[1],n[2],n.length>3?n[3]:1];};
+ const over=(t,b)=>[0,1,2].map(i=>t[i]*t[3]+b[i]*(1-t[3])).concat(1);
+ const lum=c=>c.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
+ const layers=[];for(let n=el;n;n=n.parentElement){const c=parse(getComputedStyle(n).backgroundColor);if(c[3]>0)layers.push(c);if(c[3]>=1)break;}
+ const bg=layers.reverse().reduce((r,l)=>over(l,r),[255,255,255,1]);
+ const a=lum(over(parse(getComputedStyle(el).color),bg)),b=lum(bg);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05);});expect(ratio).toBeGreaterThanOrEqual(4.5);}
  await context.close();
 });

@@ -16,6 +16,11 @@
   --calc-display-text: var(--jgc-color-text-dark);
 }
 
+/* Light mode: keep the display a light LCD so its dark digits stay readable. */
+:root[data-jgc-theme="light"] {
+  --calc-display: var(--jgc-color-surface-soft);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -88,10 +93,10 @@ body.field-calculator-page.quick-calc-active {
   width: 100%;
   min-height: 58px;
   padding: 6px 2px;
-  border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 13%, transparent);
   border-radius: 13px;
   background: linear-gradient(180deg, var(--jgc-color-surface-soft), var(--jgc-color-page));
-  color: color-mix(in srgb, var(--jgc-color-on-brand) 78%, transparent);
+  color: color-mix(in srgb, var(--jgc-color-text) 78%, transparent);
   font-size: clamp(9px, 1.5vh, 13px);
   font-weight: 900;
   line-height: 1.05;
@@ -372,10 +377,10 @@ body.quick-calc-active .quick-calc-panel {
   min-height: clamp(32px, 4.4vh, 44px);
   min-width: clamp(42px, 6vw, 74px);
   padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 16%, transparent);
   border-radius: 11px;
   background: linear-gradient(180deg, var(--jgc-color-surface-soft), var(--jgc-color-surface));
-  color: color-mix(in srgb, var(--jgc-color-on-brand) 74%, transparent);
+  color: color-mix(in srgb, var(--jgc-color-text) 74%, transparent);
   font-weight: 900;
   font-size: clamp(10px, 1.55vh, 15px);
   cursor: pointer;
@@ -388,6 +393,12 @@ body.quick-calc-active .quick-calc-panel {
   border-color: color-mix(in srgb, var(--jgc-color-brand-400) 82%, transparent);
   color: var(--calc-green);
   background: linear-gradient(180deg, var(--jgc-color-brand-800), var(--jgc-color-page));
+}
+
+/* The light page colour would fade this button to near-white, so keep it solid green with white text. */
+:root[data-jgc-theme="light"] .toolbar-button.home-button {
+  color: var(--jgc-color-on-brand);
+  background: linear-gradient(180deg, var(--jgc-color-brand-700), var(--jgc-color-brand-800));
 }
 
 .toolbar-button:focus-visible,
@@ -562,7 +573,7 @@ body.quick-calc-active .quick-calc-panel {
   background:
     radial-gradient(circle at 50% 10%, color-mix(in srgb, var(--jgc-color-brand-400) 25%, transparent), transparent 55%),
     linear-gradient(180deg, var(--jgc-color-brand-800), var(--jgc-color-brand-800));
-  color: var(--jgc-color-text);
+  color: var(--jgc-color-on-brand);
 }
 
 .calc-key.convert.active {
@@ -1609,9 +1620,9 @@ body.quick-calc-active .quick-calc-panel {
   width: 100%;
   min-height: 58px;
   padding: 6px 2px;
-  color: color-mix(in srgb, var(--jgc-color-on-brand) 78%, transparent);
+  color: color-mix(in srgb, var(--jgc-color-text) 78%, transparent);
   background: linear-gradient(180deg, var(--jgc-color-surface-soft), var(--jgc-color-page));
-  border: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-text) 13%, transparent);
   border-radius: 13px;
   font-size: clamp(9px, 1.5vh, 13px);
   font-weight: 900;
@@ -1781,4 +1792,11 @@ body.quick-calc-active .quick-calc-panel {
   .field-calculator-page .field-calculator-design-shell {
     overflow: visible;
   }
+}
+
+
+/* Shift labels on the dark convert/clear keys use light text in both themes. */
+.calc-key.convert .secondary-label,
+.calc-key.danger .secondary-label {
+  color: color-mix(in srgb, var(--jgc-color-on-brand) 82%, transparent);
 }

@@ -156,11 +156,12 @@ test("Estimate and Breakdown buttons download separate internal PDFs", async ({ 
   const expandedLine = page.locator(".estimate-table tbody > tr.expanded:not(.line-detail-row)");
   const description = expandedLine.locator("input.description-input");
   await description.fill("Stairwell framing");
-  for (const media of ["screen", "print"]) {
-    await page.emulateMedia({ media });
-    await expect(description).toHaveCSS("outline-style", "solid");
-    await expect(description).toHaveCSS("outline-color", "rgb(184, 184, 184)");
-  }
+  // Estimate field outlines are print-only (5306ff2); on screen the fields keep their normal border.
+  await page.emulateMedia({ media: "screen" });
+  await expect(description).toHaveCSS("outline-style", "none");
+  await page.emulateMedia({ media: "print" });
+  await expect(description).toHaveCSS("outline-style", "solid");
+  await expect(description).toHaveCSS("outline-color", "rgb(184, 184, 184)");
   await page.emulateMedia({ media: "screen" });
   await expandedLine.locator("select.division-input").selectOption({ label: "Division 03 – Concrete" });
   await page.waitForTimeout(50);

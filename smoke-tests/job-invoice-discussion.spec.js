@@ -24,8 +24,12 @@ for (const width of [390, 1366]) {
     const row = page.locator(".jobs-table tbody tr");
     await expect(row).toHaveCount(1);
     await expect(row).toHaveClass(/job-invoice-review/);
-    // Keep the compact directory's existing two actions and row density.
-    await expect(row.locator(".job-status-actions button")).toHaveCount(2);
+    // Keep the compact directory's existing two actions and row density. The actions sit in the
+    // row's "Change Status" menu, so open it to count them and close it again.
+    const statusMenu = row.locator(".job-status-menu > summary");
+    await statusMenu.click();
+    await expect(row.locator(".job-status-menu-options button")).toHaveCount(2);
+    await statusMenu.click();
     for (const theme of ["light", "dark"]) {
       await page.evaluate(theme => window.applyJgcTheme(theme), theme);
       const backgrounds = await row.locator("td").evaluateAll(cells => cells.filter(c => c.checkVisibility()).map(c => getComputedStyle(c).backgroundColor));
