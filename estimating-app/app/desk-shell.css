@@ -220,18 +220,37 @@ html.estimator-nav-open body:not(.jgc-has-global-nav) > .jgc-safe-area-top {
     font-size: 12px;
   }
 
-  /* Two rows in 106px, the height the sticky quote and job tabs and the add-line bar are placed under. */
+  /* One 62px header row on phones: ☰, tile and title, save status, then icon-only buttons. Their text stays
+     for screen readers and is clipped, so its size transition can't spill past the button. The sticky quote
+     and job tabs and the add-line bar sit under the row (globals.css). */
   .topbar {
-    row-gap: 5px;
+    min-height: 62px;
+    height: 62px;
+    padding-block: 0;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
 
-  /* Second header row: save status and New quote (plus Refresh jobs on the Jobs list). */
-  .topbar-actions {
-    grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
-  }
-
+  .topbar-actions,
   .topbar-actions.jobs-directory-topbar {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1fr);
+    width: auto;
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+  }
+
+  .topbar-actions .button,
+  .topbar-actions.jobs-directory-topbar .button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .topbar-actions .button span {
+    font-size: 20px;
   }
 
   .overview-stats {

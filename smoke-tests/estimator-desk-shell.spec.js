@@ -176,6 +176,57 @@ test("outside the Home Screen app there is no band and the header sits at the ve
   expect(top).toEqual({ band: 0, topbar: 0 });
 });
 
+// Phones: one 62px header row (☰, tile and title, save status, icon-only buttons that keep their names),
+// the sticky quote tabs right under it, and search hints that fit their boxes.
+const placeholdersCut = (page) => page.evaluate(() => {
+  const canvas = document.createElement("canvas").getContext("2d");
+  return [...document.querySelectorAll("input[placeholder]")].filter((input) => input.getClientRects().length).filter((input) => {
+    const style = getComputedStyle(input);
+    canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    return canvas.measureText(input.placeholder).width > input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) + 1;
+  }).map((input) => input.placeholder);
+});
+
+for (const width of [390, 320]) {
+  test(`phones get a one-row header and search hints that fit at ${width}px`, async ({ page }) => {
+    await openDesk(page, { width, height: 844 });
+    const row = () => page.evaluate(() => {
+      const box = (element) => element.getBoundingClientRect();
+      const topbar = box(document.querySelector(".topbar"));
+      const parts = [".mobile-menu", ".topbar-title", ".save-indicator", ".topbar-actions .button.primary"].map((selector) => box(document.querySelector(selector)));
+      const refresh = document.querySelector(".job-directory-refresh-button");
+      if (refresh) parts.push(box(refresh));
+      return {
+        height: Math.round(topbar.height),
+        oneRow: parts.every((part) => part.top >= topbar.top - 1 && part.bottom <= topbar.bottom + 1),
+        fits: parts.every((part) => part.right <= innerWidth + 1) && document.documentElement.scrollWidth <= innerWidth + 1
+      };
+    });
+
+    expect(await row()).toEqual({ height: 62, oneRow: true, fits: true });
+    await expect(page.locator(".topbar").getByRole("button", { name: /New quote/ })).toBeVisible();
+    expect(await placeholdersCut(page), "Overview search hint").toEqual([]);
+
+    await page.locator(".desk-tabbar a", { hasText: "Jobs" }).click();
+    await expect(page.locator(".topbar").getByRole("button", { name: "Refresh jobs", exact: true })).toBeVisible();
+    expect(await row()).toEqual({ height: 62, oneRow: true, fits: true });
+    expect(await placeholdersCut(page), "Jobs search hint").toEqual([]);
+
+    await page.locator(".desk-tabbar a", { hasText: "Overview" }).click();
+    await openDemoQuote(page);
+    expect(await placeholdersCut(page), "quote search and cost hints").toEqual([]);
+    await page.evaluate(() => window.scrollTo(0, 1400));
+    await expect.poll(() => page.evaluate(() => Math.round(document.querySelector(".quote-tabs").getBoundingClientRect().top - document.querySelector(".topbar").getBoundingClientRect().bottom)), { message: "quote tabs sit right under the header" }).toBe(0);
+  });
+}
+
+test("computers keep the full search hints and labelled header buttons", async ({ page }) => {
+  await openDesk(page, DESKTOP);
+  await expect(page.getByRole("searchbox", { name: "Search estimates and jobs" })).toHaveAttribute("placeholder", "Search quote #, job #, PO #, client, site, project or reference…");
+  await expect(page.locator(".topbar").getByRole("button", { name: /New quote/ })).toContainText("New quote");
+  expect(await page.locator(".topbar").getByRole("button", { name: /New quote/ }).evaluate((button) => parseFloat(getComputedStyle(button).fontSize))).toBeGreaterThan(0);
+});
+
 test("computers never show the phone tab bar", async ({ page }) => {
   await openDesk(page, DESKTOP);
   await expect(page.locator(".desk-tabbar")).toBeHidden();
