@@ -3573,6 +3573,7 @@ function activateJgcAppearanceSettings() {
         <button type="button" data-jgc-appearance-close>Close</button>
       </header>
       <div class="jgc-appearance-settings__body">
+        <p class="jgc-appearance-settings__account" hidden>Signed in as <b></b></p>
         <p>Choose how the Portal looks for your account.</p>
         <div class="jgc-appearance-settings__choices" aria-label="Choose Portal appearance">
           <button type="button" data-jgc-theme-choice="dark" aria-pressed="false">
@@ -3592,6 +3593,14 @@ function activateJgcAppearanceSettings() {
   `;
 
   document.body.appendChild(wrapper);
+  ensureJgcPageBarStyles();
+  const accountLine = wrapper.querySelector(".jgc-appearance-settings__account");
+  const signedInWorker = getCurrentWorkerRecord();
+  const signedInName = signedInWorker.display || signedInWorker.key;
+  if (signedInName) {
+    accountLine.querySelector("b").textContent = signedInName;
+    accountLine.hidden = false;
+  }
   syncJgcAppearanceSettingsPosition(wrapper);
   window.addEventListener("resize", function() {
     syncJgcAppearanceSettingsPosition(wrapper);
@@ -6283,9 +6292,623 @@ function activateJgcSafeArea() {
   document.body.prepend(strip);
 }
 
+// Page bar: one green header per page with a coloured icon tile, the page name, a one-line description
+// and the page's main action. It replaces the old page title and "Signed in as" line on screen only;
+// printouts and PDFs keep the original header. On phones the Admin section tabs fold into the bar's
+// title ("Timesheets v"); computers keep the tab row.
+const JGC_PAGE_BAR_ICONS = {
+  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15v3M8 18h.01M12 18h.01"/>',
+  shield: '<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  checklist: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/>',
+  cart: '<circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/>',
+  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c.7-3.8 4-6 8-6s7.3 2.2 8 6"/>',
+  award: '<circle cx="12" cy="9" r="5.5"/><path d="M9 14l-1 7 4-2 4 2-1-7"/>',
+  megaphone: '<path d="M3 10h4l9-5v14l-9-5H3z"/><path d="M7 14v5h3v-4M19 9.5a3.5 3.5 0 0 1 0 5"/>',
+  truck: '<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  contacts: '<rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 17c.6-2 2-3 3.5-3s2.9 1 3.5 3M3 8h2M3 12h2M3 16h2"/>',
+  building: '<path d="M4 21V5l8-2v18M12 21h8V9l-8-2M2 21h20"/><path d="M8 8h.01M8 12h.01M8 16h.01M16 12h.01M16 16h.01"/>',
+  database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14.5 8.5l2 2"/>',
+  pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  notes: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h5"/>',
+  book: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H20v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H20M9 7h7"/>',
+  warning: '<path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.3-5.5 6.5-5.5s6 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.3 2.5 3.5 5.5"/>',
+  bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  chevron: '<path d="M6 9l6 6 6-6"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+};
+
+// Admin sections, keyed like JGC_ADMIN_NAV_ITEMS and the admin.html "<key>Section" panels.
+const JGC_PAGE_BAR_ADMIN_SECTIONS = {
+  summary: { title: "Summary", subtitle: "Your day at a glance", icon: "dashboard", tone: "green", phoneOnly: true },
+  timesheets: { title: "Timesheets", subtitle: "Live entries and payroll", icon: "clock", tone: "amber", action: { label: "Add time", target: "#timesheetsSection details.admin-time-entry-card > summary" } },
+  accounting: { title: "Accounting", subtitle: "Job lists, pay periods and exports", icon: "calculator", tone: "blue" },
+  safetyRecords: { title: "Safety Records", subtitle: "Inspections, reports and permits", icon: "shield", tone: "red" },
+  vacation: { title: "Vacation Requests", subtitle: "Review and approve time off", icon: "sun", tone: "sky" },
+  tasks: { title: "Tasks", subtitle: "Assign and track tasks", icon: "checklist", tone: "violet" },
+  workOrders: { title: "Work Orders", subtitle: "Create and track work orders", icon: "clipboard", tone: "orange" },
+  purchaseOrders: { title: "Purchase Orders", subtitle: "Approvals, drafts and number blocks", icon: "cart", tone: "teal" },
+  adminTools: { title: "Admin Tools", subtitle: "Setup and maintenance tools", icon: "sliders", tone: "slate" },
+  employeeProfile: { title: "Employee Profiles", subtitle: "History, hours, certificates and activity", icon: "user", tone: "cyan" },
+  certificates: { title: "Certificates", subtitle: "Upload certificates and track expiries", icon: "award", tone: "gold" },
+  noticePolicy: { title: "Notices & Policies", subtitle: "Announcements and acknowledgements", icon: "megaphone", tone: "rose" },
+  equipment: { title: "Equipment", subtitle: "Vehicles, equipment and QR codes", icon: "truck", tone: "indigo" },
+  contacts: { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan" },
+  subcontractorsSuppliers: { title: "Subcontractors & Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo" },
+  backups: { title: "Backups", subtitle: "Portal data backups", icon: "database", tone: "slate" }
+};
+
+// Admin pages outside admin.html. "key" reuses a section above.
+const JGC_PAGE_BAR_PAGES = {
+  "accounting-admin.html": { key: "accounting" },
+  "purchase-orders-admin.html": { key: "purchaseOrders" },
+  "certificates-admin.html": { key: "certificates", action: { label: "Upload", target: "details.sub-card > summary" } },
+  "employee-access-admin.html": { title: "Employee Page Access", subtitle: "Choose the pages each employee sees", icon: "key", tone: "teal" },
+  "diagnostics-admin.html": { title: "Portal Diagnostics", subtitle: "Sync, email and backup health", icon: "pulse", tone: "slate" },
+  "job-lists-admin.html": { title: "Job Notes", subtitle: "Manage job note lists", icon: "notes", tone: "lime" },
+  "jsa-library-admin.html": { title: "JSA Library", subtitle: "Custom tasks for every JSA's library search", icon: "book", tone: "red" },
+  "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential · visible only to administrators and the employee involved", icon: "warning", tone: "rose" },
+  "policies-admin.html": { title: "Manage Policies", subtitle: "Publish policies and announcements", icon: "megaphone", tone: "rose" },
+  "accounts.html": { title: "Accounts", subtitle: "Approve accounts and set access", icon: "users", tone: "blue" },
+  "notification-settings.html": { title: "Notification Settings", subtitle: "Who receives each notification", icon: "bell", tone: "amber" }
+};
+
+function getJgcPageBarIcon(name) {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (JGC_PAGE_BAR_ICONS[name] || JGC_PAGE_BAR_ICONS.dashboard) + "</svg>";
+}
+
+function ensureJgcPageBarStyles() {
+  if (document.getElementById("jgcPageBarStyles")) {
+    return;
+  }
+
+  // Page CSS styles bare buttons, links and paragraphs heavily, so every bar rule is anchored on the
+  // bar's id and marked important.
+  const style = document.createElement("style");
+  style.id = "jgcPageBarStyles";
+  style.textContent = `
+    #jgcPageBar {
+      position: relative !important;
+      z-index: 110 !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 14px !important;
+      width: min(var(--jgc-admin-width, 1500px), calc(100vw - 40px)) !important;
+      max-width: var(--jgc-admin-width, 1500px) !important;
+      margin: 0 auto 16px !important;
+      padding: 14px 18px !important;
+      color: #ffffff !important;
+      background: linear-gradient(135deg, #0f5a33 0%, #0b4a2a 100%) !important;
+      border: 1px solid rgba(57, 200, 72, 0.24) !important;
+      border-radius: 16px !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16) !important;
+      font-family: var(--jgc-font-family, Arial, sans-serif) !important;
+      text-align: left !important;
+    }
+
+    #jgcPageBar[hidden],
+    #jgcPageBar.jgc-page-bar--phone-only {
+      display: none !important;
+    }
+
+    #jgcPageBar svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    #jgcPageBar [data-tone] { --jgc-tile-bg: #4ade80; --jgc-tile-ink: #052e16; }
+    #jgcPageBar [data-tone="amber"] { --jgc-tile-bg: #f5a524; --jgc-tile-ink: #2b1a00; }
+    #jgcPageBar [data-tone="blue"] { --jgc-tile-bg: #60a5fa; --jgc-tile-ink: #0b1f44; }
+    #jgcPageBar [data-tone="red"] { --jgc-tile-bg: #f87171; --jgc-tile-ink: #450a0a; }
+    #jgcPageBar [data-tone="sky"] { --jgc-tile-bg: #38bdf8; --jgc-tile-ink: #06283a; }
+    #jgcPageBar [data-tone="violet"] { --jgc-tile-bg: #a78bfa; --jgc-tile-ink: #2e1065; }
+    #jgcPageBar [data-tone="orange"] { --jgc-tile-bg: #fb923c; --jgc-tile-ink: #431407; }
+    #jgcPageBar [data-tone="teal"] { --jgc-tile-bg: #2dd4bf; --jgc-tile-ink: #042f2e; }
+    #jgcPageBar [data-tone="slate"] { --jgc-tile-bg: #cbd5e1; --jgc-tile-ink: #0f172a; }
+    #jgcPageBar [data-tone="cyan"] { --jgc-tile-bg: #22d3ee; --jgc-tile-ink: #083344; }
+    #jgcPageBar [data-tone="gold"] { --jgc-tile-bg: #facc15; --jgc-tile-ink: #3b2f00; }
+    #jgcPageBar [data-tone="rose"] { --jgc-tile-bg: #fb7185; --jgc-tile-ink: #4c0519; }
+    #jgcPageBar [data-tone="indigo"] { --jgc-tile-bg: #a5b4fc; --jgc-tile-ink: #1e1b4b; }
+    #jgcPageBar [data-tone="lime"] { --jgc-tile-bg: #a3e635; --jgc-tile-ink: #1a2e05; }
+
+    #jgcPageBar .jgc-page-bar__tile {
+      display: grid !important;
+      flex: 0 0 auto !important;
+      place-items: center !important;
+      width: 44px !important;
+      height: 44px !important;
+      color: var(--jgc-tile-ink) !important;
+      background: var(--jgc-tile-bg) !important;
+      border-radius: 12px !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 4px 10px rgba(0, 0, 0, 0.18) !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__text {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__heading {
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      color: #ffffff !important;
+      font-size: 22px !important;
+      font-weight: 800 !important;
+      line-height: 1.2 !important;
+      letter-spacing: -0.01em !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__subtitle {
+      display: block !important;
+      margin: 3px 0 0 !important;
+      padding: 0 !important;
+      color: #d5e8db !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      line-height: 1.35 !important;
+    }
+
+    #jgcPageBar button {
+      all: unset;
+      box-sizing: border-box !important;
+      cursor: pointer !important;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #jgcPageBar button:focus-visible,
+    #jgcPageBar a:focus-visible {
+      outline: 3px solid #9be7a6 !important;
+      outline-offset: 2px !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__switch {
+      display: none !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__action {
+      display: inline-flex !important;
+      flex: 0 0 auto !important;
+      align-items: center !important;
+      gap: 6px !important;
+      min-height: 40px !important;
+      padding: 8px 14px !important;
+      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.45) !important;
+      border-radius: 10px !important;
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      line-height: 1.2 !important;
+      white-space: nowrap !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__action:hover {
+      background: rgba(255, 255, 255, 0.18) !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__action svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu {
+      position: absolute !important;
+      top: calc(100% + 6px) !important;
+      left: 10px !important;
+      right: 10px !important;
+      z-index: 5 !important;
+      display: grid !important;
+      gap: 2px !important;
+      max-height: min(70vh, 540px) !important;
+      overflow-y: auto !important;
+      margin: 0 !important;
+      padding: 6px !important;
+      background: var(--jgc-color-surface-raised, #12211c) !important;
+      border: 1px solid var(--jgc-color-border, rgba(255, 255, 255, 0.16)) !important;
+      border-radius: 14px !important;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32) !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu[hidden] {
+      display: none !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu a {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      min-height: 46px !important;
+      margin: 0 !important;
+      padding: 6px 10px !important;
+      color: var(--jgc-color-text, #eef7f1) !important;
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 10px !important;
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      text-decoration: none !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu a[aria-current="page"] {
+      background: rgba(57, 200, 72, 0.16) !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu a > span:not(.jgc-page-bar__tile) {
+      flex: 1 1 auto !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu .jgc-page-bar__tile {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 9px !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu .jgc-page-bar__tile svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    #jgcPageBar .jgc-page-bar__menu a > svg {
+      width: 20px;
+      height: 20px;
+      color: var(--jgc-color-brand-500, #39c848);
+    }
+
+    /* The old page header stays in the page for printouts and PDFs. */
+    @media screen {
+      .jgc-page-bar-source {
+        display: none !important;
+      }
+    }
+
+    @media print {
+      #jgcPageBar {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 780px) {
+      html body.jgc-app.jgc-has-page-bar .jgc-admin-nav {
+        display: none !important;
+      }
+
+      #jgcPageBar,
+      #jgcPageBar.jgc-page-bar--phone-only {
+        display: flex !important;
+        gap: 12px !important;
+        width: 100vw !important;
+        max-width: none !important;
+        margin: 0 calc(50% - 50vw) 12px !important;
+        padding: 10px 14px !important;
+        border-width: 0 0 1px !important;
+        border-radius: 0 !important;
+      }
+
+      #jgcPageBar[hidden] {
+        display: none !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__tile {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 10px !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__tile svg {
+        width: 21px;
+        height: 21px;
+      }
+
+      #jgcPageBar .jgc-page-bar__heading {
+        font-size: 18px !important;
+      }
+
+      #jgcPageBar.jgc-page-bar--switcher .jgc-page-bar__title {
+        display: none !important;
+      }
+
+      #jgcPageBar.jgc-page-bar--switcher .jgc-page-bar__switch {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        max-width: 100% !important;
+        min-height: 30px !important;
+        color: #ffffff !important;
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        line-height: 1.2 !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__switch > span {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__switch svg {
+        width: 18px;
+        height: 18px;
+        transition: transform 160ms ease;
+      }
+
+      #jgcPageBar .jgc-page-bar__switch[aria-expanded="true"] svg {
+        transform: rotate(180deg);
+      }
+
+      #jgcPageBar .jgc-page-bar__subtitle {
+        display: -webkit-box !important;
+        overflow: hidden !important;
+        font-size: 12.5px !important;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      #jgcPageBar .jgc-page-bar__action {
+        min-height: 38px !important;
+        padding: 7px 10px !important;
+        font-size: 13px !important;
+      }
+    }
+
+    /* Signed-in name, shown in the gear (settings) panel now that pages no longer print it on screen. */
+    .jgc-appearance-settings__body > .jgc-appearance-settings__account {
+      margin: 0 !important;
+      padding: 0 0 12px !important;
+      color: var(--jgc-color-text) !important;
+      font-size: 14px !important;
+      border-bottom: 1px solid var(--jgc-color-border) !important;
+    }
+
+    .jgc-appearance-settings__account b {
+      font-weight: 800 !important;
+    }
+
+    /* Last, so the hidden attribute beats every display rule above (the button reset clears it). */
+    #jgcPageBar [hidden][hidden] {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function getJgcPageBarConfig(page) {
+  const entry = JGC_PAGE_BAR_PAGES[page];
+  if (!entry) {
+    return null;
+  }
+
+  return Object.assign({}, entry.key ? JGC_PAGE_BAR_ADMIN_SECTIONS[entry.key] : {}, entry);
+}
+
+// The section panel admin.html is showing right now ("timesheets", "certificates", ...).
+function getJgcAdminHtmlVisibleSection() {
+  return Object.keys(JGC_PAGE_BAR_ADMIN_SECTIONS).find(function(key) {
+    const section = document.getElementById(key + "Section");
+    return section && !section.hidden;
+  }) || "summary";
+}
+
+// Hide the old title block on screen: the whole header when it only carries the logo, title and
+// "Signed in as" line, otherwise just those pieces.
+function markJgcPageBarSources() {
+  const title = document.querySelector(".jgc-page-header h1, body > h1, .hero h1, .top-actions h1");
+  if (!title) {
+    return;
+  }
+
+  const lockup = title.closest(".jgc-brand-lockup");
+  const header = title.closest(".jgc-page-header, .hero");
+  const sources = lockup
+    ? [lockup]
+    : header
+    ? [header]
+    : [title, document.querySelector("body > #currentUser, body > .user-bar"), document.querySelector("body > .logo-wrap")];
+
+  sources.forEach(function(element) {
+    if (element) {
+      element.classList.add("jgc-page-bar-source");
+    }
+  });
+}
+
+// A panel that opens with the same heading as the bar ("Timesheets" under "Timesheets") drops it on screen.
+function markJgcPageBarDuplicateHeading(title, scope) {
+  const heading = scope && scope.querySelector("h2");
+  if (heading && !heading.closest("#jgcPageBar") && heading.textContent.trim().toLowerCase() === String(title).toLowerCase()) {
+    heading.classList.add("jgc-page-bar-source");
+  }
+}
+
+function activateJgcPageBar() {
+  const page = getCurrentJgcPageName();
+  const params = new URLSearchParams(window.location.search);
+  const onAdminHtml = page === "admin.html";
+
+  if (!document.body || document.getElementById("jgcPageBar") || params.get("embedded") === "1" || window.self !== window.top) {
+    return;
+  }
+
+  if (!onAdminHtml && !JGC_PAGE_BAR_PAGES[page]) {
+    return;
+  }
+
+  const adminNav = document.querySelector("[data-jgc-admin-nav]");
+  ensureJgcPageBarStyles();
+  markJgcPageBarSources();
+
+  const bar = document.createElement("header");
+  bar.id = "jgcPageBar";
+  bar.className = "jgc-page-bar" + (adminNav ? " jgc-page-bar--switcher" : "");
+  bar.innerHTML = `
+    <span class="jgc-page-bar__tile" aria-hidden="true"></span>
+    <div class="jgc-page-bar__text">
+      <div class="jgc-page-bar__heading" role="heading" aria-level="1">
+        <span class="jgc-page-bar__title"></span>
+        <button type="button" class="jgc-page-bar__switch" aria-haspopup="true" aria-expanded="false" aria-controls="jgcPageBarMenu"><span></span>${getJgcPageBarIcon("chevron")}</button>
+      </div>
+      <p class="jgc-page-bar__subtitle"></p>
+    </div>
+    <button type="button" class="jgc-page-bar__action" hidden></button>
+    <nav id="jgcPageBarMenu" class="jgc-page-bar__menu" aria-label="Admin sections" hidden></nav>
+  `;
+
+  if (adminNav) {
+    adminNav.after(bar);
+  } else {
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+  document.body.classList.add("jgc-has-page-bar");
+
+  const tile = bar.querySelector(".jgc-page-bar__tile");
+  const titleText = bar.querySelector(".jgc-page-bar__title");
+  const switchButton = bar.querySelector(".jgc-page-bar__switch");
+  const subtitle = bar.querySelector(".jgc-page-bar__subtitle");
+  const actionButton = bar.querySelector(".jgc-page-bar__action");
+  const menu = bar.querySelector(".jgc-page-bar__menu");
+  let action = null;
+
+  function render() {
+    const sectionKey = onAdminHtml ? getJgcAdminHtmlVisibleSection() : "";
+    const config = onAdminHtml
+      ? JGC_PAGE_BAR_ADMIN_SECTIONS[sectionKey]
+      : getJgcPageBarConfig(page);
+
+    markJgcPageBarDuplicateHeading(config.title, onAdminHtml
+      ? document.getElementById(sectionKey + "Section")
+      : document.querySelector("main") || document.body);
+
+    tile.setAttribute("data-tone", config.tone);
+    tile.innerHTML = getJgcPageBarIcon(config.icon);
+    titleText.textContent = config.title;
+    switchButton.querySelector("span").textContent = config.title;
+    switchButton.setAttribute("aria-label", config.title + ", switch Admin section");
+    subtitle.textContent = config.subtitle || "";
+    subtitle.hidden = !config.subtitle;
+    bar.classList.toggle("jgc-page-bar--phone-only", Boolean(config.phoneOnly));
+
+    action = config.action && document.querySelector(config.action.target) ? config.action : null;
+    actionButton.hidden = !action;
+    if (action) {
+      actionButton.innerHTML = getJgcPageBarIcon("plus") + "<span></span>";
+      actionButton.querySelector("span").textContent = action.label;
+    }
+  }
+
+  actionButton.addEventListener("click", function() {
+    const target = action && document.querySelector(action.target);
+    if (!target || target.closest("[hidden]")) {
+      return;
+    }
+
+    if (target.tagName === "SUMMARY") {
+      target.parentElement.open = true;
+      target.scrollIntoView({ block: "start", behavior: "smooth" });
+      target.focus({ preventScroll: true });
+      return;
+    }
+
+    target.click();
+  });
+
+  function buildMenu() {
+    const activeSection = getJgcAdminNavigationSection(page, adminNav);
+    menu.replaceChildren();
+
+    JGC_ADMIN_NAV_ITEMS.forEach(function(item) {
+      if (item.key === "accounting" && JGC_ACCOUNTING_ACCESS_ALLOWED === false) {
+        return;
+      }
+
+      const section = JGC_PAGE_BAR_ADMIN_SECTIONS[item.key];
+      const link = document.createElement("a");
+      link.href = item.href;
+      link.setAttribute("data-jgc-admin-section", item.key);
+      link.innerHTML = '<span class="jgc-page-bar__tile" aria-hidden="true"></span><span></span>';
+      link.firstElementChild.setAttribute("data-tone", section.tone);
+      link.firstElementChild.innerHTML = getJgcPageBarIcon(section.icon);
+      link.lastElementChild.textContent = item.label;
+
+      if (item.key === activeSection) {
+        link.setAttribute("aria-current", "page");
+        link.insertAdjacentHTML("beforeend", getJgcPageBarIcon("check"));
+      }
+
+      if (onAdminHtml && !item.standalone) {
+        link.addEventListener("click", function(event) {
+          if (typeof window.showTab !== "function") {
+            return;
+          }
+
+          event.preventDefault();
+          toggleMenu(false);
+          window.showTab(item.key);
+          window.scrollTo({ top: 0 });
+        });
+      }
+
+      menu.appendChild(link);
+    });
+  }
+
+  function toggleMenu(force) {
+    const open = typeof force === "boolean" ? force : menu.hidden;
+    if (open) {
+      buildMenu();
+    }
+    menu.hidden = !open;
+    switchButton.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  switchButton.addEventListener("click", function(event) {
+    event.stopPropagation();
+    toggleMenu();
+  });
+
+  document.addEventListener("click", function(event) {
+    if (!menu.hidden && !bar.contains(event.target)) {
+      toggleMenu(false);
+    }
+  });
+
+  document.addEventListener("keydown", function(event) {
+    if (event.key === "Escape" && !menu.hidden) {
+      toggleMenu(false);
+      switchButton.focus();
+    }
+  });
+
+  render();
+
+  if (onAdminHtml) {
+    const observer = new MutationObserver(render);
+    Object.keys(JGC_PAGE_BAR_ADMIN_SECTIONS).forEach(function(key) {
+      const section = document.getElementById(key + "Section");
+      if (section) {
+        observer.observe(section, { attributes: true, attributeFilter: ["hidden"] });
+      }
+    });
+  }
+}
+
 function activateJgcEnhancements() {
   activateJgcDesignSystemHooks();
   activateGlobalTopNavigation();
+  activateJgcPageBar();
   activateMobileBottomNavigation();
   activateJgcPwaRefresh();
   activateJgcAppearanceSettings();

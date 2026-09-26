@@ -309,7 +309,9 @@ test("Admin Vacation calendar and approval table stay contained on phone", async
   await installAdminState(page);
   await page.goto("/admin.html", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.renderVacationRequests === "function");
-  await page.locator("#vacationTab").click();
+  // Phones switch Admin sections from the page bar's menu.
+  await page.locator("#jgcPageBar .jgc-page-bar__switch").click();
+  await page.locator("#jgcPageBarMenu").getByRole("link", { name: "Vacation Requests", exact: true }).click();
   await expect(page.locator("#vacationSection")).toBeVisible();
   await expect(page.locator("#vacationList details[data-vacation-worker]")).toHaveCount(1);
   await page.locator("#vacationList details[data-vacation-worker] summary").click();
