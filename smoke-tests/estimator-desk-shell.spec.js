@@ -125,6 +125,57 @@ test("phones get a tab bar for Overview, Quotes, Jobs and Clients, hidden inside
   await expect(page.locator(".sticky-quote-summary")).toBeVisible();
 });
 
+// iPhone Home Screen app: the Portal's solid 12px band covers the top of the screen (so iOS never blurs the
+// status bar). Nothing in the Estimate Desk may sit under it: not the header, the menu or the sticky tabs.
+test("in the iPhone Home Screen app the header, menu and sticky tabs start below the top band", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, "standalone", { get: () => true }));
+  await openDesk(page, PHONE);
+  await expect(page.locator("html")).toHaveClass(/jgc-ios-app/);
+  const edges = () => page.evaluate(() => {
+    const box = (selector) => { const element = document.querySelector(selector); return element ? element.getBoundingClientRect() : null; };
+    const band = document.querySelector("body > .jgc-safe-area-top");
+    return {
+      bandBottom: band.getBoundingClientRect().bottom,
+      bandColour: getComputedStyle(band).backgroundColor,
+      topbarTop: box(".topbar").top,
+      topbarBottom: box(".topbar").bottom,
+      menuTop: box(".mobile-menu").top,
+      brandTop: box(".brand-block").top,
+      quoteTabsTop: box(".quote-tabs") && box(".quote-tabs").top
+    };
+  });
+
+  let now = await edges();
+  expect(now.bandBottom).toBe(12);
+  expect(now.bandColour, "white like the header").toBe("rgb(255, 255, 255)");
+  expect(now.topbarTop).toBeGreaterThanOrEqual(now.bandBottom);
+  expect(now.menuTop, "the ☰ button is not cut off").toBeGreaterThanOrEqual(now.bandBottom);
+
+  await page.getByRole("button", { name: "Company-wide" }).click();
+  await page.evaluate(() => window.scrollTo(0, 600));
+  now = await edges();
+  expect(now.topbarTop, "the sticky header stops below the band").toBe(now.bandBottom);
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.locator("#estimate-navigation")).toHaveClass(/is-open/);
+  await expect.poll(async () => (await edges()).brandTop).toBeGreaterThanOrEqual(12);
+  expect((await edges()).bandColour, "dark green like the menu").toBe("rgb(6, 39, 31)");
+  await page.locator(".sidebar-close").click();
+
+  await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");
+  await page.locator(".overview-result-group > button").filter({ hasText: "JGC-Q-2026-0001" }).click();
+  await expect(page.getByText("JGC-Q-2026-0001 · REV 0")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  await expect.poll(async () => { const e = await edges(); return e.quoteTabsTop >= e.topbarBottom - 1; }, { message: "quote tabs stick below the header" }).toBe(true);
+});
+
+test("outside the Home Screen app there is no band and the header sits at the very top", async ({ page }) => {
+  await openDesk(page, PHONE);
+  const top = await page.evaluate(() => ({ band: document.querySelector("body > .jgc-safe-area-top").getBoundingClientRect().height, topbar: document.querySelector(".topbar").getBoundingClientRect().top }));
+  expect(top).toEqual({ band: 0, topbar: 0 });
+});
+
 test("computers never show the phone tab bar", async ({ page }) => {
   await openDesk(page, DESKTOP);
   await expect(page.locator(".desk-tabbar")).toBeHidden();
