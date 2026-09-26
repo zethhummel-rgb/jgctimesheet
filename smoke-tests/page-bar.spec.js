@@ -60,7 +60,7 @@ for (const [url, title, userLine] of STANDALONE) {
     await page.goto(url, { waitUntil: "load" });
     await expect(bar(page)).toBeVisible();
     await expect(bar(page).locator(".jgc-page-bar__title")).toHaveText(title);
-    await expect(bar(page).locator(".jgc-page-bar__tile svg")).toBeVisible();
+    await expect(bar(page).locator(":scope > .jgc-page-bar__tile svg")).toBeVisible();
     await expect(page.locator(userLine)).toBeHidden();
     await expect(page.locator("h1").first()).toBeHidden();
     // Computers keep the Admin tab row, directly above the bar.
@@ -76,7 +76,7 @@ test("admin.html follows the open section and the Add time action opens the time
   await page.goto("/admin.html?tab=timesheets", { waitUntil: "load" });
   await expect(bar(page).locator(".jgc-page-bar__title")).toHaveText("Timesheets");
   await expect(bar(page).locator(".jgc-page-bar__subtitle")).toHaveText("Live entries and payroll");
-  await expect(bar(page).locator(".jgc-page-bar__tile")).toHaveAttribute("data-tone", "amber");
+  await expect(bar(page).locator(":scope > .jgc-page-bar__tile")).toHaveAttribute("data-tone", "amber");
   await expect(page.locator("body > h1")).toBeHidden();
   await expect(page.locator("#currentUser")).toBeHidden();
   // The panel no longer repeats "Timesheets" right under the bar.
@@ -398,8 +398,8 @@ test("a Home tile looks the same as the bar on the page it opens", async ({ page
   }
   for (const [target, tile] of Object.entries(home)) {
     await page.goto("/" + target, { waitUntil: "load" });
-    await expect(bar(page).locator(".jgc-page-bar__tile"), target).toHaveAttribute("data-tone", tile.tone);
-    expect(await bar(page).locator(".jgc-page-bar__tile").innerHTML(), target).toBe(tile.icon);
+    await expect(bar(page).locator(":scope > .jgc-page-bar__tile"), target).toHaveAttribute("data-tone", tile.tone);
+    expect(await bar(page).locator(":scope > .jgc-page-bar__tile").innerHTML(), target).toBe(tile.icon);
   }
 });
 
@@ -443,4 +443,99 @@ test("pages with the green top bar keep the gear, search and bell pinned in it",
     expect(box.top, box.selector).toBeGreaterThanOrEqual(nav.y);
     expect(box.bottom, box.selector).toBeLessThanOrEqual(nav.y + nav.height + 1);
   }
+});
+
+// Compact bar: once the full bar scrolls away, a slim copy (tile, title or section switcher, action)
+// is pinned under the top bar (or the Admin tab row on computers). The page never jumps.
+const compact = page => page.locator("#jgcPageBar .jgc-page-bar__compact");
+const scrollLongPage = async (page, y) => {
+  // No slide-in animation, so positions can be measured straight away.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(y => {
+    if (!document.getElementById("pageBarSpacer")) {
+      const spacer = document.createElement("div");
+      spacer.id = "pageBarSpacer";
+      spacer.style.height = "2400px";
+      document.body.appendChild(spacer);
+    }
+    window.scrollTo(0, y);
+  }, y);
+};
+
+test("phones get a compact bar with the section switcher and action once the bar scrolls away", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page);
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "load" });
+  await scrollLongPage(page, 0);
+  await expect(compact(page)).toBeHidden();
+
+  await scrollLongPage(page, 700);
+  await expect(compact(page)).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY), "the page does not jump").toBe(700);
+  const edges = await page.evaluate(() => ({
+    navBottom: document.getElementById("jgcGlobalTopNav").getBoundingClientRect().bottom,
+    compact: document.querySelector("#jgcPageBar .jgc-page-bar__compact").getBoundingClientRect().toJSON()
+  }));
+  expect(Math.abs(edges.compact.top - edges.navBottom)).toBeLessThanOrEqual(1);
+  expect(edges.compact.left).toBe(0);
+  expect(Math.round(edges.compact.width)).toBe(390);
+
+  // Section switcher: the menu drops down from the compact bar and switching works.
+  const switcher = compact(page).getByRole("button", { name: "Timesheets, switch Admin section" });
+  await switcher.click();
+  const menu = page.locator("#jgcPageBarMenu");
+  await expect(menu).toBeVisible();
+  const menuTop = await menu.evaluate(el => el.getBoundingClientRect().top);
+  expect(menuTop).toBeGreaterThanOrEqual(edges.compact.bottom);
+  await menu.getByRole("link", { name: "Tasks", exact: true }).click();
+  await expect(page.locator("#tasksSection")).toBeVisible();
+  await expect(compact(page)).toBeHidden();
+  await expect(bar(page).locator(".jgc-page-bar__switch")).toHaveAccessibleName("Tasks, switch Admin section");
+
+  // Action: "Add time" works from the compact bar too.
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "load" });
+  await scrollLongPage(page, 700);
+  await compact(page).getByRole("button", { name: "Add time" }).click();
+  await expect(page.locator("#timesheetsSection details.admin-time-entry-card")).toHaveAttribute("open", "");
+});
+
+test("on computers the compact bar sits under the Admin tab row and lines up with the bar", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await signIn(page);
+  await page.goto("/admin.html?tab=timesheets", { waitUntil: "load" });
+  const barBox = await bar(page).boundingBox();
+  await scrollLongPage(page, 700);
+  await expect(compact(page)).toBeVisible();
+  const layout = await page.evaluate(() => ({
+    tabsBottom: document.querySelector(".jgc-admin-nav").getBoundingClientRect().bottom,
+    compact: document.querySelector("#jgcPageBar .jgc-page-bar__compact").getBoundingClientRect().toJSON()
+  }));
+  expect(Math.abs(layout.compact.top - layout.tabsBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layout.compact.left - barBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layout.compact.width - barBox.width)).toBeLessThanOrEqual(1);
+  await expect(compact(page).locator(".jgc-page-bar__compact-title")).toHaveText("Timesheets");
+
+  // Summary has no bar on computers, so no compact bar either.
+  await page.goto("/admin.html?tab=summary", { waitUntil: "load" });
+  await scrollLongPage(page, 700);
+  await expect(compact(page)).toBeHidden();
+});
+
+test("employee pages get a compact bar hanging from the top bar, never in print", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await signIn(page, "light", EMPLOYEE);
+  await page.goto("/jsa.html", { waitUntil: "load" });
+  const barBox = await bar(page).boundingBox();
+  await scrollLongPage(page, 900);
+  await expect(compact(page)).toBeVisible();
+  const layout = await page.evaluate(() => ({
+    navBottom: document.getElementById("jgcGlobalTopNav").getBoundingClientRect().bottom,
+    compact: document.querySelector("#jgcPageBar .jgc-page-bar__compact").getBoundingClientRect().toJSON()
+  }));
+  expect(Math.abs(layout.compact.top - layout.navBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layout.compact.left - barBox.x)).toBeLessThanOrEqual(1);
+  await expect(compact(page).locator(".jgc-page-bar__compact-title")).toHaveText("Job Safety Analysis");
+  await expect(compact(page).locator(".jgc-page-bar__compact-switch")).toBeHidden();
+  await page.emulateMedia({ media: "print" });
+  await expect(compact(page)).toBeHidden();
 });

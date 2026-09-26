@@ -6681,6 +6681,105 @@ ${Object.keys(JGC_PAGE_TILE_TONES).map(function(tone) {
       color: var(--jgc-color-brand-500, #39c848);
     }
 
+    /* Menu opened from the compact bar drops down from it (common.js sets the position). */
+    #jgcPageBar.jgc-page-bar--menu-from-compact .jgc-page-bar__menu {
+      position: fixed !important;
+      top: var(--jgc-page-bar-menu-top) !important;
+      left: var(--jgc-page-bar-menu-left) !important;
+      right: auto !important;
+      width: var(--jgc-page-bar-menu-width) !important;
+      max-height: calc(100vh - var(--jgc-page-bar-menu-top) - 16px) !important;
+    }
+
+    /* Compact bar: pinned under the top bar once the full bar has scrolled away (common.js sets
+       top/left/width and .is-shown). Title, tile, section switcher and action only. */
+    #jgcPageBar .jgc-page-bar__compact {
+      position: fixed !important;
+      z-index: 4 !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      min-height: 48px !important;
+      margin: 0 !important;
+      padding: 7px 14px !important;
+      color: #ffffff !important;
+      background: linear-gradient(135deg, #0f5a33 0%, #0b4a2a 100%) !important;
+      border: 1px solid rgba(57, 200, 72, 0.24) !important;
+      border-top: 0 !important;
+      border-radius: 0 0 14px 14px !important;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22) !important;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-10px);
+      transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact.is-shown {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: none;
+      transition-delay: 0s;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact .jgc-page-bar__tile {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 9px !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact .jgc-page-bar__tile svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact-title {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+      color: #ffffff !important;
+      font-size: 16px !important;
+      font-weight: 800 !important;
+      line-height: 1.2 !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact-switch {
+      display: none !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact-action {
+      display: inline-flex !important;
+      flex: 0 0 auto !important;
+      align-items: center !important;
+      gap: 5px !important;
+      min-height: 34px !important;
+      padding: 5px 11px !important;
+      color: #ffffff !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.45) !important;
+      border-radius: 9px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      white-space: nowrap !important;
+    }
+
+    #jgcPageBar .jgc-page-bar__compact-action svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #jgcPageBar .jgc-page-bar__compact,
+      #jgcPageBar .jgc-page-bar__compact.is-shown {
+        transform: none;
+        transition: none;
+      }
+    }
+
     /* The old page header stays in the page for printouts and PDFs. */
     @media screen {
       .jgc-page-bar-source {
@@ -6767,6 +6866,43 @@ ${Object.keys(JGC_PAGE_TILE_TONES).map(function(tone) {
       }
 
       #jgcPageBar .jgc-page-bar__switch[aria-expanded="true"] svg {
+        transform: rotate(180deg);
+      }
+
+      #jgcPageBar .jgc-page-bar__compact {
+        padding: 6px 12px !important;
+        border-width: 0 0 1px !important;
+        border-radius: 0 !important;
+      }
+
+      #jgcPageBar.jgc-page-bar--switcher .jgc-page-bar__compact-title {
+        display: none !important;
+      }
+
+      #jgcPageBar.jgc-page-bar--switcher .jgc-page-bar__compact-switch {
+        display: inline-flex !important;
+        flex: 1 1 auto !important;
+        align-items: center !important;
+        gap: 4px !important;
+        min-width: 0 !important;
+        min-height: 34px !important;
+        color: #ffffff !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__compact-switch > span {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+      }
+
+      #jgcPageBar .jgc-page-bar__compact-switch svg {
+        width: 17px;
+        height: 17px;
+      }
+
+      #jgcPageBar .jgc-page-bar__compact-switch[aria-expanded="true"] svg {
         transform: rotate(180deg);
       }
 
@@ -6906,6 +7042,12 @@ function activateJgcPageBar() {
     </div>
     <button type="button" class="jgc-page-bar__action" hidden></button>
     <nav id="jgcPageBarMenu" class="jgc-page-bar__menu" aria-label="Admin sections" hidden></nav>
+    <div class="jgc-page-bar__compact" aria-hidden="true" inert>
+      <span class="jgc-page-bar__tile" aria-hidden="true"></span>
+      <span class="jgc-page-bar__compact-title"></span>
+      <button type="button" class="jgc-page-bar__compact-switch" aria-haspopup="true" aria-expanded="false" aria-controls="jgcPageBarMenu"><span></span>${getJgcPageBarIcon("chevron")}</button>
+      <button type="button" class="jgc-page-bar__compact-action" hidden></button>
+    </div>
   `;
 
   if (adminNav) {
@@ -6948,7 +7090,14 @@ function activateJgcPageBar() {
   const subtitle = bar.querySelector(".jgc-page-bar__subtitle");
   const actionButton = bar.querySelector(".jgc-page-bar__action");
   const menu = bar.querySelector(".jgc-page-bar__menu");
+  const compact = bar.querySelector(".jgc-page-bar__compact");
+  const compactTile = compact.querySelector(".jgc-page-bar__tile");
+  const compactTitle = compact.querySelector(".jgc-page-bar__compact-title");
+  const compactSwitch = compact.querySelector(".jgc-page-bar__compact-switch");
+  const compactAction = compact.querySelector(".jgc-page-bar__compact-action");
   let action = null;
+  let menuOpener = switchButton;
+  let compactReady = false;
 
   function render() {
     const sectionKey = onAdminHtml ? getJgcAdminHtmlVisibleSection() : "";
@@ -6972,14 +7121,25 @@ function activateJgcPageBar() {
     bar.classList.toggle("jgc-page-bar--phone-only", Boolean(config.phoneOnly));
 
     action = config.action && document.querySelector(config.action.target) ? config.action : null;
-    actionButton.hidden = !action;
-    if (action) {
-      actionButton.innerHTML = getJgcPageBarIcon("plus") + "<span></span>";
-      actionButton.querySelector("span").textContent = action.label;
+    [actionButton, compactAction].forEach(function(button) {
+      button.hidden = !action;
+      if (action) {
+        button.innerHTML = getJgcPageBarIcon("plus") + "<span></span>";
+        button.querySelector("span").textContent = action.label;
+      }
+    });
+
+    compactTile.setAttribute("data-tone", config.tone);
+    compactTile.innerHTML = getJgcPageBarIcon(config.icon);
+    compactTitle.textContent = title;
+    compactSwitch.querySelector("span").textContent = title;
+    compactSwitch.setAttribute("aria-label", title + ", switch Admin section");
+    if (typeof schedulePlaceCompact === "function" && compactReady) {
+      schedulePlaceCompact();
     }
   }
 
-  actionButton.addEventListener("click", function() {
+  function runAction() {
     const target = action && document.querySelector(action.target);
     if (!target || target.closest("[hidden]")) {
       return;
@@ -6993,7 +7153,10 @@ function activateJgcPageBar() {
     }
 
     target.click();
-  });
+  }
+
+  actionButton.addEventListener("click", runAction);
+  compactAction.addEventListener("click", runAction);
 
   function buildMenu() {
     const activeSection = getJgcAdminNavigationSection(page, adminNav);
@@ -7039,14 +7202,30 @@ function activateJgcPageBar() {
     const open = typeof force === "boolean" ? force : menu.hidden;
     if (open) {
       buildMenu();
+      // Opened from the compact bar: drop the menu down from it (the full bar is off screen).
+      const fromCompact = menuOpener === compactSwitch;
+      bar.classList.toggle("jgc-page-bar--menu-from-compact", fromCompact);
+      if (fromCompact) {
+        const box = compact.getBoundingClientRect();
+        bar.style.setProperty("--jgc-page-bar-menu-top", Math.round(box.bottom + 6) + "px");
+        bar.style.setProperty("--jgc-page-bar-menu-left", Math.round(box.left + 10) + "px");
+        bar.style.setProperty("--jgc-page-bar-menu-width", Math.round(box.width - 20) + "px");
+      }
     }
     menu.hidden = !open;
-    switchButton.setAttribute("aria-expanded", open ? "true" : "false");
+    switchButton.setAttribute("aria-expanded", open && menuOpener === switchButton ? "true" : "false");
+    compactSwitch.setAttribute("aria-expanded", open && menuOpener === compactSwitch ? "true" : "false");
   }
 
-  switchButton.addEventListener("click", function(event) {
-    event.stopPropagation();
-    toggleMenu();
+  [switchButton, compactSwitch].forEach(function(button) {
+    button.addEventListener("click", function(event) {
+      event.stopPropagation();
+      if (!menu.hidden && menuOpener !== button) {
+        toggleMenu(false);
+      }
+      menuOpener = button;
+      toggleMenu();
+    });
   });
 
   document.addEventListener("click", function(event) {
@@ -7058,11 +7237,51 @@ function activateJgcPageBar() {
   document.addEventListener("keydown", function(event) {
     if (event.key === "Escape" && !menu.hidden) {
       toggleMenu(false);
-      switchButton.focus();
+      menuOpener.focus();
     }
   });
 
+  // Compact bar: once the full bar has scrolled away under the top bar (and the Admin tab row on
+  // computers), a slim copy with the tile, title, section switcher and action slides in there. It is
+  // pinned rather than resizing the real bar, so the page never jumps.
+  let compactShown = false;
+  let compactFrame = 0;
+  function placeCompact() {
+    compactFrame = 0;
+    let shown = false;
+    if (bar.getClientRects().length) {
+      const barBox = bar.getBoundingClientRect();
+      let top = globalNav ? globalNav.getBoundingClientRect().bottom : 0;
+      if (adminNav && adminNav.getClientRects().length) {
+        top = Math.max(top, adminNav.getBoundingClientRect().bottom);
+      }
+      shown = barBox.bottom <= top + 1;
+      compact.style.top = Math.round(top) + "px";
+      compact.style.left = Math.round(barBox.left) + "px";
+      compact.style.width = Math.round(barBox.width) + "px";
+    }
+
+    if (shown !== compactShown) {
+      compactShown = shown;
+      compact.classList.toggle("is-shown", shown);
+      compact.inert = !shown;
+      compact.setAttribute("aria-hidden", shown ? "false" : "true");
+      toggleMenu(false);
+    }
+  }
+
+  function schedulePlaceCompact() {
+    if (!compactFrame) {
+      compactFrame = window.requestAnimationFrame(placeCompact);
+    }
+  }
+
+  window.addEventListener("scroll", schedulePlaceCompact, { passive: true });
+  window.addEventListener("resize", schedulePlaceCompact);
+
   render();
+  compactReady = true;
+  placeCompact();
 
   // Page text the bar mirrors can change later (e.g. "Today's Reports", "Edit Daily Site Report").
   if (pageConfig) {
