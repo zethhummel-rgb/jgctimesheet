@@ -507,19 +507,19 @@ function storeJgcThemePreference(theme, userId) {
   return normalized;
 }
 
-function updateJgcThemeMeta(theme) {
+function updateJgcThemeMeta() {
   if (!document.head) {
     return;
   }
 
-  const normalized = normalizeJgcThemePreference(theme);
   let themeMeta = document.querySelector('meta[name="theme-color"]');
   if (!themeMeta) {
     themeMeta = document.createElement("meta");
     themeMeta.name = "theme-color";
     document.head.appendChild(themeMeta);
   }
-  themeMeta.content = normalized === "light" ? "#597265" : "#0b5e3b";
+  // The status-bar strip and top bar are JGC green in both themes, so the browser chrome matches.
+  themeMeta.content = "#0b5e3b";
 }
 
 function updateJgcAppearanceSettingsUi(theme) {
@@ -542,7 +542,7 @@ function applyJgcTheme(theme) {
     document.body.classList.toggle("jgc-theme--dark", normalized === "dark");
   }
 
-  updateJgcThemeMeta(normalized);
+  updateJgcThemeMeta();
   updateJgcAppearanceSettingsUi(normalized);
   window.dispatchEvent(new CustomEvent("jgc-theme-change", { detail: { theme: normalized } }));
   return normalized;
@@ -6124,6 +6124,124 @@ function activateJgcPwaRefresh() {
   document.addEventListener("touchcancel", resetPullIndicator, { passive: true });
 }
 
+// iPhone status bar: pages opt into viewport-fit=cover, so the page reaches under the clock and battery.
+// A solid green strip fills that area and the fixed top controls move down by the same inset, so iOS
+// never frosts Portal buttons. Where the device has no inset every offset below is zero.
+// --jgc-safe-area-top can be set on <html> to simulate an iPhone inset in tests.
+function activateJgcSafeArea() {
+  if (document.getElementById("jgcSafeAreaStyles")) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = "jgcSafeAreaStyles";
+  style.textContent = `
+    :root {
+      --jgc-safe-area-top: env(safe-area-inset-top, 0px);
+    }
+
+    html {
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    html:has(> body:is(.login-page, .reset-password-page, .home-dashboard-page, .acknowledgement-page, .qr-inspection-page, .subcontractor-page)) {
+      padding-top: var(--jgc-safe-area-top);
+    }
+
+    .jgc-safe-area-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10090;
+      height: var(--jgc-safe-area-top);
+      background-color: #07371c;
+      background-image: linear-gradient(90deg, #07371c 0%, #0b5e3b 100%);
+      pointer-events: none;
+    }
+
+    html body.jgc-has-global-nav {
+      padding-top: calc(66px + var(--jgc-safe-area-top)) !important;
+    }
+
+    html .jgc-global-top-nav {
+      top: var(--jgc-safe-area-top);
+    }
+
+    html .jgc-nav-start,
+    html .jgc-nav-home {
+      left: calc(14px + env(safe-area-inset-left, 0px));
+    }
+
+    html .jgc-nav-logout {
+      right: calc(14px + env(safe-area-inset-right, 0px));
+    }
+
+    html .jgc-appearance-settings,
+    html .jgc-notification-bell,
+    html .jgc-admin-global-search {
+      top: var(--jgc-safe-area-top);
+    }
+
+    html .jgc-appearance-settings__panel,
+    html .jgc-notification-panel,
+    html .jgc-admin-search-panel {
+      top: calc(62px + var(--jgc-safe-area-top));
+    }
+
+    html .jgc-notification-panel {
+      max-height: min(540px, calc(100vh - 110px - var(--jgc-safe-area-top)));
+    }
+
+    html .jgc-admin-search-panel {
+      max-height: min(720px, calc(100vh - 88px - var(--jgc-safe-area-top)));
+    }
+
+    html body.jgc-app .jgc-admin-nav {
+      top: calc(66px + var(--jgc-safe-area-top)) !important;
+    }
+
+    /* Without the green top bar (Home, Field Calculator) the round controls sit on a light page in light mode. */
+    html[data-jgc-theme="light"] body:not(.jgc-has-global-nav) :is(#jgcAppearanceSettingsButton, .jgc-notification-button, .jgc-admin-search-button) {
+      color: var(--jgc-color-text) !important;
+      background: var(--jgc-color-surface-raised) !important;
+      border-color: var(--jgc-color-border) !important;
+    }
+
+    @media (max-width: 780px) {
+      html body.jgc-has-global-nav {
+        padding-top: calc(58px + var(--jgc-safe-area-top)) !important;
+      }
+
+      html .jgc-appearance-settings__panel,
+      html .jgc-notification-panel,
+      html .jgc-admin-search-panel {
+        top: calc(56px + var(--jgc-safe-area-top));
+      }
+
+      html .jgc-appearance-settings__panel,
+      html .jgc-notification-panel {
+        max-height: calc(100vh - 142px - var(--jgc-safe-area-top));
+      }
+
+      html .jgc-admin-search-panel {
+        max-height: calc(100vh - 76px - var(--jgc-safe-area-top));
+      }
+
+      html body.jgc-app .jgc-admin-nav {
+        top: calc(58px + var(--jgc-safe-area-top)) !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const strip = document.createElement("div");
+  strip.className = "jgc-safe-area-top";
+  strip.setAttribute("aria-hidden", "true");
+  document.body.prepend(strip);
+}
+
 function activateJgcEnhancements() {
   activateJgcDesignSystemHooks();
   activateGlobalTopNavigation();
@@ -6137,6 +6255,7 @@ function activateJgcEnhancements() {
   activateJgcPoliciesFeature();
   activatePoliciesAnnouncementsTile();
   activateTimesheetTableContrastFeature();
+  activateJgcSafeArea();
 }
 
 if (document.readyState === "loading") {
