@@ -588,10 +588,11 @@ test("shared phone header is opaque above Admin", async ({ page }) => {
     };
   });
 
+  // Top to bottom, starting on the green iOS paints behind the clock (the safe-area strip), so the two
+  // join without a seam; never left to right.
   expect(styles.backgroundColor).toBe("rgb(7, 55, 28)");
-  expect(styles.backgroundImage).toContain("rgb(7, 55, 28)");
-  expect(styles.backgroundImage).toContain("rgb(11, 94, 59)");
-  expect(styles.backgroundImage).not.toContain("rgba(");
+  expect(styles.backgroundImage).toMatch(/^linear-gradient\((180deg, |to bottom, )?rgb\(7, 55, 28\) 0%, rgb\(11, 94, 59\) 100%\)$/);
+  expect(await page.locator(".jgc-safe-area-top").evaluate(el => getComputedStyle(el).backgroundColor)).toBe(styles.backgroundColor);
   expect(styles.backdropFilter).toBe("none");
 });
 

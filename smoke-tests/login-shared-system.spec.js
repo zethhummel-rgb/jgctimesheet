@@ -39,8 +39,9 @@ test("shared portal header stays opaque on iPhone", () => {
   const common = fs.readFileSync(path.join(portalRoot, "common.js"), "utf8");
   const headerStyles = common.match(/\.jgc-global-top-nav \{([\s\S]*?)\n\s*\}/)?.[1] || "";
 
+  // Top-to-bottom gradient that starts on the iOS status-area colour, so they join without a seam.
   expect(headerStyles).toContain("background-color: #07371c;");
-  expect(headerStyles).toContain("background-image: linear-gradient(90deg, #07371c 0%, #0b5e3b 100%);");
+  expect(headerStyles).toContain("background-image: linear-gradient(180deg, #07371c 0%, #0b5e3b 100%);");
   expect(headerStyles).toContain("-webkit-backdrop-filter: none;");
   expect(headerStyles).toContain("backdrop-filter: none;");
   expect(headerStyles).not.toMatch(/background(?:-color|-image)?:.*rgba\(/);
