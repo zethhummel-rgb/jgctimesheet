@@ -47,7 +47,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "9";
+const JGC_DESIGN_SYSTEM_VERSION = "10";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
@@ -1893,7 +1893,7 @@ function activateJgcDesignSystemHooks() {
 function activateGlobalTopNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
-  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", "acknowledge.html", "equipment-inspection.html", JGC_SUBCONTRACTOR_HOME_PAGE];
+  const excludedPages = ["index.html", "reset-password.html", "home.html", "field-calculator.html", "acknowledge.html", "equipment-inspection.html"];
 
   if (excludedPages.includes(page) || params.get("embedded") === "1" || document.getElementById("jgcGlobalTopNav")) {
     return;
@@ -6216,7 +6216,7 @@ function activateJgcSafeArea() {
       padding-right: env(safe-area-inset-right, 0px);
     }
 
-    html:has(> body:is(.login-page, .reset-password-page, .home-dashboard-page, .acknowledgement-page, .qr-inspection-page, .subcontractor-page)) {
+    html:has(> body:is(.login-page, .reset-password-page, .home-dashboard-page, .acknowledgement-page, .qr-inspection-page)) {
       padding-top: var(--jgc-top-inset);
     }
 
@@ -6435,7 +6435,11 @@ const JGC_PAGE_BAR_PAGES = {
   "tele-handler.html": { title: "Telehandler Inspection", subtitle: "Inspection and daily checklist", icon: "clipcheck", tone: "sky", hide: ["body > .logo-wrap", "body > #userBar", "body > .container > h1"] },
   "hot-work-permit.html": { title: "Hot Work Permit", subtitle: "Complete before any hot work starts", icon: "flame", tone: "orange", hide: ["header.permit-page-header", "main > .container > h1"] },
   "confined-space-permit.html": { title: "Confined Space Entry Permit", subtitle: "Complete before anyone enters the space", icon: "warning", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
-  "excavation-permit.html": { title: "Excavation Permit", subtitle: "Complete before digging starts", icon: "warning", tone: "amber", hide: ["header.permit-page-header", "main > .container > h1"] }
+  "excavation-permit.html": { title: "Excavation Permit", subtitle: "Complete before digging starts", icon: "warning", tone: "amber", hide: ["header.permit-page-header", "main > .container > h1"] },
+
+  // Home pages for limited and subcontractor accounts: the green Home tile, as on their tab bar.
+  "limited-access.html": { title: "Limited Access", subtitle: "Read-only view of your own records", icon: "home", tone: "green", hide: ["header.limited-hero"] },
+  "subcontractor.html": { title: "Subcontractor Portal", subtitle: "Submit project paperwork or review JGC safety information", icon: "home", tone: "green", hide: ["main > section.subcontractor-header"] }
 };
 
 // Tile colours: [background, icon]. Neighbouring Home cards must not share a colour.

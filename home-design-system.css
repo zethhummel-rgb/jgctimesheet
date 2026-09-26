@@ -1626,6 +1626,27 @@ body.home-dashboard-page {
 }
 
 /* Light mode: the section heading uses the deeper brand green so it reads on the pale page. */
-:root[data-jgc-theme="light"] .home-dashboard-page .section-title.jgc-section-title {
+:root[data-jgc-theme="light"] .home-dashboard-page .section-title.jgc-section-title,
+:root[data-jgc-theme="light"] .home-dashboard-page .profile-icon {
   color: var(--jgc-color-brand-700);
+}
+
+/* Computers: the header is a card 10px down the page, so the gear, search and bell move down inside
+   it, level with the date. Their panels open the same distance lower. */
+@media (min-width: 981px) {
+  html body.home-dashboard-page > :is(.jgc-appearance-settings, .jgc-notification-bell, .jgc-admin-global-search) {
+    top: calc(22px + var(--jgc-top-inset, 0px));
+  }
+
+  html body.home-dashboard-page :is(.jgc-appearance-settings__panel, .jgc-notification-panel, .jgc-admin-search-panel) {
+    top: calc(84px + var(--jgc-top-inset, 0px));
+  }
+
+  html body.home-dashboard-page .jgc-notification-panel {
+    max-height: min(540px, calc(100vh - 132px - var(--jgc-top-inset, 0px)));
+  }
+
+  html body.home-dashboard-page .jgc-admin-search-panel {
+    max-height: min(720px, calc(100vh - 110px - var(--jgc-top-inset, 0px)));
+  }
 }

@@ -12,7 +12,7 @@ test("Accounting Admin uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
 
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=9');
+  expect(html).toContain('jgc-design-system.css?v=10');
   expect(html).toContain('accounting-admin.css?v=9');
   expect(html).toContain('accounting-admin.js?v=14');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b[^>]*\bjgc-system-page\b/i);

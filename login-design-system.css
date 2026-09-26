@@ -711,6 +711,11 @@ body.login-page.jgc-page {
   background: var(--jgc-color-surface-soft);
 }
 
+/* Light mode darkens the headline over the pale photo; the label above it follows. */
+:root[data-jgc-theme="light"] .login-page .portal-label {
+  color: var(--jgc-color-text);
+}
+
 .login-page .status.jgc-notice,
 .login-page .subcontractor-status.jgc-notice {
   min-height: 18px;

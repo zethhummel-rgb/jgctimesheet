@@ -70,7 +70,7 @@ test("Certificate and Equipment admin views use scoped token-only extensions", a
 
   expect(standalone).not.toMatch(/<style\b|\sstyle\s*=/i);
   expect(standalone).not.toContain('href="styles.css');
-  expect(standalone).toContain('jgc-design-system.css?v=9');
+  expect(standalone).toContain('jgc-design-system.css?v=10');
   expect(standalone).toContain('certificates-admin.css?v=1');
   expect(standalone).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
 

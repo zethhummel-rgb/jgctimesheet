@@ -176,6 +176,79 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
+// Light mode: the grey status lines, empty states and profile facts (the shared muted text colour),
+// the Limited Access tabs and the Home initials, each signed in as someone who sees that page.
+const LIGHT_TEXT = [
+  { who: "admin", url: "/employee-writeups-admin.html", selector: "#writeupsStatus" },
+  { who: "admin", url: "/jsa-library-admin.html", selector: "#libraryStatus" },
+  { who: "admin", url: "/diagnostics-admin.html", selector: "#diagnosticsUpdatedAt" },
+  { who: "admin", url: "/admin.html?tab=employeeProfile", selector: ".profile-contact-grid .small" },
+  { who: "admin", url: "/home.html", selector: "#homeProfileIcon" },
+  { who: "worker", url: "/purchase-orders.html", selector: ".po-list-empty" },
+  { who: "worker", url: "/employee-writeups.html", selector: "#myWriteupsStatus, #myWriteupsList .jgc-empty-state" },
+  { who: "limited", url: "/limited-access.html", selector: ".limited-tab" }
+];
+
+test("light-mode grey status text, Limited Access tabs and Home initials are readable", async ({ browser }) => {
+  test.setTimeout(120000);
+  const failures = [];
+  for (const { who, url, selector } of LIGHT_TEXT) {
+    const id = who === "admin" ? USER_ID : "00000000-0000-4000-8000-00000000e00" + (who === "limited" ? "2" : "1");
+    const key = who === "admin" ? "zeth hummel" : who === "limited" ? "sam reed" : "pat framer";
+    const role = who === "admin" ? "admin" : "worker";
+    const status = who === "limited" ? "limited" : "approved";
+    const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
+    const now = Math.floor(Date.now() / 1000);
+    const user = { id, aud: "authenticated", role: "authenticated", email: key.replace(" ", ".") + "@example.com", user_metadata: { display_name: key } };
+    const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: id, exp: now + 3600, role: "authenticated" }), "light"].join("."), refresh_token: "light", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    await page.addInitScript(({ auth, id, key, role, status }) => {
+      localStorage.setItem("jgcPortalTheme", "light");
+      localStorage.setItem("jgcPortalTheme:" + id, "light");
+      localStorage.setItem("sb-xnrljkkszoimegfivlya-auth-token", JSON.stringify(auth));
+      localStorage.setItem("currentWorker", key);
+      localStorage.setItem("currentWorkerDisplay", key);
+      localStorage.setItem("currentUserEmail", auth.user.email);
+      localStorage.setItem("currentUserRole", role);
+      localStorage.setItem("currentAccountStatus", status);
+      localStorage.setItem("jgcStayLoggedIn", "true");
+      localStorage.setItem("jgcPushOnboarding:v1:" + key, "dismissed");
+      sessionStorage.setItem("jgcActiveSession", "true");
+    }, { auth, id, key, role, status });
+    await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => {
+      const p = new URL(route.request().url()).pathname;
+      if (p.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
+      if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: String(role === "admin") });
+      if (p.endsWith("/profiles")) {
+        const profile = { id, email: user.email, display_name: key, worker_key: key, role, account_status: status };
+        const single = String(route.request().headers().accept || "").includes("vnd.pgrst.object");
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(single ? profile : [profile]) });
+      }
+      return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    await page.goto(url, { waitUntil: "load" });
+    await expect(page.locator(selector).first(), url).toBeVisible();
+    await expect(page.locator(selector).first(), url).not.toHaveText("");
+    const samples = await page.evaluate(measure, selector);
+    expect(samples.length, `${url} ${selector}`).toBeGreaterThan(0);
+    for (const sample of samples) if (sample.ratio < 4.5) failures.push(`${url} "${sample.text}" ${sample.ratio.toFixed(2)}`);
+    await context.close();
+  }
+  expect(failures).toEqual([]);
+});
+
+test("the sign-in page label follows the headline colour in light mode", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("jgcPortalTheme", "light"));
+  await page.goto("/index.html", { waitUntil: "load" });
+  const colours = await page.evaluate(() => ({
+    label: getComputedStyle(document.querySelector(".portal-label")).color,
+    headline: getComputedStyle(document.querySelector(".hero-copy h1")).color
+  }));
+  expect(colours.label).toBe(colours.headline);
+});
+
 // The shared Portal search panel (the magnifying-glass button), with results, for an employee and an
 // admin, in both themes: header buttons, title, status, result groups and result rows.
 const SEARCH_PANEL_TEXT = [

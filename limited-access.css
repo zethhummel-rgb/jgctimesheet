@@ -104,10 +104,11 @@
       outline: none;
     }
 
+    /* The shared active-tab colours, readable in both themes. */
     .limited-tab.active {
-      border-color: var(--limited-green);
-      background: var(--limited-green);
-      color: var(--jgc-color-text-dark);
+      border-color: var(--jgc-admin-tab-active-background);
+      background: var(--jgc-admin-tab-active-background);
+      color: var(--jgc-admin-tab-active-text);
     }
 
     .limited-panel {

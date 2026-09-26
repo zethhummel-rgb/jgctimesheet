@@ -21,7 +21,7 @@ test("Reports forms and embedded Admin Reports use centralized token-only stylin
     const screenMarkup = source.split("<script src=")[0];
     const featureCss = fs.readFileSync(path.join(portalRoot, report.css), "utf8");
     expect(source).not.toContain("styles.css");
-    expect(source).toContain('jgc-design-system.css?v=9');
+    expect(source).toContain('jgc-design-system.css?v=10');
     expect(source).toContain('report-design-system.css?v=2');
     expect(source).toContain(`${report.css}?v=${({ "jsa.html": 3, "accident-report.html": 2, "employee-injury-report.html": 3 })[report.file] || 1}`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
