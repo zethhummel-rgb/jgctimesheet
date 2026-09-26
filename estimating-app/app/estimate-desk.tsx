@@ -68,6 +68,7 @@ import {
 } from "../lib/estimator-data";
 import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
+import { DeskHeaderContext, DeskTile, useDeskHeader, type DeskHeader } from "./desk-shell";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
 // leave an already-open quote pointing at an old, removed download file.
@@ -172,14 +173,17 @@ function unitPricingChoice(unit: string) {
   return unitPricingOptions.some((option) => option.value === unit) ? unit : "__custom__";
 }
 
-const navItems: { key: ViewKey; label: string; icon: string }[] = [
-  { key: "dashboard", label: "Overview", icon: "▦" },
-  { key: "quotes", label: "Quotes", icon: "▤" },
-  { key: "clients", label: "Clients", icon: "◎" },
-  { key: "pricebook", label: "Price Book", icon: "⌘" },
-  { key: "vendors", label: "Vendors", icon: "◇" },
-  { key: "jobs", label: "Jobs", icon: "✓" },
+// Quotes turn into Jobs, so the two sit together. Each shows its coloured tile (desk-shell.tsx).
+const navItems: { key: ViewKey; label: string }[] = [
+  { key: "dashboard", label: "Overview" },
+  { key: "quotes", label: "Quotes" },
+  { key: "jobs", label: "Jobs" },
+  { key: "clients", label: "Clients" },
+  { key: "pricebook", label: "Price Book" },
+  { key: "vendors", label: "Vendors" },
 ];
+// Phones: the everyday sections in a bottom tab bar; the ☰ menu keeps the rest.
+const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
 type JobTab = "summary" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
@@ -1128,7 +1132,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
   const [lastSaved, setLastSaved] = useState("");
   const [saveErrorMessage, setSaveErrorMessage] = useState("");
-  const [view, setView] = useState<ViewKey>(() => new URLSearchParams(window.location.search).get("view") === "jobs" ? "jobs" : new URLSearchParams(window.location.search).get("view") === "quotes" ? "quotes" : "dashboard");
+  const [view, setView] = useState<ViewKey>(() => {
+    const requested = new URLSearchParams(window.location.search).get("view");
+    return navItems.find((item) => item.key === requested)?.key ?? (requested === "settings" ? "settings" : "dashboard");
+  });
+  const [pageHeader, setPageHeader] = useState<DeskHeader | null>(null);
   const [newJobOpen, setNewJobOpen] = useState(() => new URLSearchParams(window.location.search).get("newJob") === "1");
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -1931,7 +1939,7 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
 
   const renderContent = () => {
     if (!ready) return <LoadingState />;
-    if (view === "dashboard") return <Dashboard state={state} currentEstimator={currentEstimator} onNewQuote={createQuote} onOpenQuote={openQuote} onOpenJob={openJob} />;
+    if (view === "dashboard") return <Dashboard state={state} currentEstimator={currentEstimator} onOpenQuote={openQuote} onOpenJob={openJob} onShowQuotes={(status) => { openView("quotes"); setQuoteStatusFilter(status); }} onShowJobs={() => openView("jobs")} />;
     if (view === "quotes") {
       if (selectedQuote) {
         return (
@@ -2038,6 +2046,16 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
   };
 
   const draftQuoteCount = state.quotes.filter((quote) => !isChangeNotice(quote) && quote.status === "Draft").length;
+  const estimatorInitials = currentEstimator.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "JGC";
+
+  // One header row: the section tile, then the open quote or job, or the page's own title and description.
+  const quoteOpen = view === "quotes" && !!selectedQuote;
+  const jobOpen = view === "jobs" && !!selectedJob;
+  const header = quoteOpen && selectedQuote
+    ? { tile: "quotes" as ViewKey, title: selectedQuote.number, description: [selectedQuote.clientId ? clientName(state, selectedQuote.clientId) : "", selectedQuote.project].filter(Boolean).join(" · "), record: true }
+    : jobOpen && selectedJob
+    ? { tile: "jobs" as ViewKey, title: selectedJob.jobNumber, description: selectedJob.portalJobName || selectedJob.project, record: true }
+    : { tile: view, title: pageHeader?.title ?? (navItems.find((item) => item.key === view)?.label || "Settings"), description: pageHeader?.description, record: false };
 
   return (
     <div className="desk-shell">
@@ -2050,11 +2068,12 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
           </div>
           <button className="sidebar-close" aria-label="Close navigation" onClick={() => setSidebarOpen(false)}>×</button>
         </div>
+        <a className="sidebar-portal-link" href="../admin.html?tab=summary"><span aria-hidden="true">←</span> JGC Portal</a>
         <nav className="primary-nav" aria-label="Primary navigation">
           <span className="nav-heading">WORKSPACE</span>
           {navItems.map((item) => (
             <button key={item.key} className={view === item.key ? "active" : ""} onClick={() => openView(item.key)}>
-              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <DeskTile view={item.key} />
               {item.label}
               {item.key === "quotes" && <span className="nav-count" title={`${draftQuoteCount} draft quote${draftQuoteCount === 1 ? "" : "s"}`}>{draftQuoteCount} draft{draftQuoteCount === 1 ? "" : "s"}</span>}
             </button>
@@ -2062,11 +2081,11 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
         </nav>
         <div className="sidebar-bottom">
           <button className={view === "settings" ? "active" : ""} onClick={() => openView("settings")}>
-            <span className="nav-icon" aria-hidden="true">⚙</span>
+            <DeskTile view="settings" />
             Settings
           </button>
           <div className="workspace-card">
-            <div className="workspace-avatar">ZG</div>
+            <div className="workspace-avatar">{estimatorInitials}</div>
             <div>
               <strong>{currentEstimator.name}</strong>
               <span>Estimator workspace</span>
@@ -2079,12 +2098,14 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
       <div className="main-column">
         <header className="topbar">
           <button className="mobile-menu" aria-label={sidebarOpen ? "Close navigation" : "Open navigation"} aria-controls="estimate-navigation" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}>☰</button>
-          <div className="topbar-context">
-            <span>Connected to JGC Portal</span>
-            <strong>{selectedQuote ? selectedQuote.number : state.settings.appName}</strong>
+          <div className="topbar-title">
+            <DeskTile view={header.tile} className="topbar-tile" />
+            <div className="topbar-title-text">
+              {header.record ? <strong>{header.title}</strong> : <h1>{header.title}</h1>}
+              {header.description && <span>{header.description}</span>}
+            </div>
           </div>
           <div className={`topbar-actions${view === "jobs" && !selectedJob ? " jobs-directory-topbar" : ""}`}>
-            <a className="button secondary compact portal-return-button" href="../admin.html?tab=summary"><span aria-hidden="true">←</span> Return to Portal</a>
             {view === "jobs" && !selectedJob && <span className="job-directory-refresh-slot" ref={setJobDirectoryActionTarget} />}
             <div
               className={`save-indicator ${saveStatus}`}
@@ -2105,7 +2126,24 @@ export default function EstimateDesk({ currentEstimator = { id: "", name: "Zeth"
             <button className="button primary compact" onClick={createQuote}><span aria-hidden="true">＋</span> New quote</button>
           </div>
         </header>
-        <main className="page-canvas">{renderContent()}</main>
+        <main className="page-canvas"><DeskHeaderContext.Provider value={setPageHeader}>{renderContent()}</DeskHeaderContext.Provider></main>
+        {/* Phones: hidden inside a quote, where its price summary holds the bottom of the screen. */}
+        {!quoteOpen && (
+          <nav className="desk-tabbar" aria-label="Estimate Desk sections">
+            {tabBarItems.map((item) => (
+              <a
+                key={item.key}
+                href={`?view=${item.key}`}
+                className={view === item.key ? "active" : ""}
+                aria-current={view === item.key ? "page" : undefined}
+                onClick={(event) => { event.preventDefault(); openView(item.key); }}
+              >
+                <DeskTile view={item.key} />
+                <span>{item.label}</span>
+              </a>
+            ))}
+          </nav>
+        )}
       </div>
 
       {modal && (
@@ -2188,15 +2226,13 @@ function LoadingState() {
   );
 }
 
-function PageHeading({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode }) {
+// The title and description show in the header row (useDeskHeader); the page keeps its own actions.
+function PageHeading({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
+  useDeskHeader(title, description);
+  if (!actions) return null;
   return (
     <div className="page-heading">
-      <div>
-        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
-        <h1>{title}</h1>
-        {description && <p>{description}</p>}
-      </div>
-      {actions && <div className="page-actions">{actions}</div>}
+      <div className="page-actions">{actions}</div>
     </div>
   );
 }
@@ -2385,9 +2421,10 @@ function matchesWorkSearch(query: string, ...values: Array<string | null | undef
   });
 }
 
-function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob }: { state: AppState; currentEstimator: CurrentEstimator; onNewQuote: () => void; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void }) {
+function Dashboard({ state, currentEstimator, onOpenQuote, onOpenJob, onShowQuotes, onShowJobs }: { state: AppState; currentEstimator: CurrentEstimator; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void; onShowQuotes: (status: string) => void; onShowJobs: () => void }) {
   const [workLayout, setWorkLayout] = useWorkListLayout();
   const [companyWide, setCompanyWide] = useState(false);
+  useDeskHeader("Overview", companyWide ? "Every estimator's quotes and jobs" : "Your quotes and jobs at a glance");
   const [dashboardSearch, setDashboardSearch] = useState("");
   const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
   const baseQuotes = state.quotes.filter((quote) => !isChangeNotice(quote));
@@ -2444,7 +2481,6 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     }).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt))
     : [];
   const activeQuotes = dashboardQuotes.filter((quote) => quote.status === "Draft" || quote.status === "Finished");
-  const pipeline = activeQuotes.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
   const sent = dashboardQuotes.filter((quote) => quote.status === "Finished").length;
   const wonValue = dashboardQuotes.filter((quote) => quote.status === "Won").reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
   const attention = activeQuotes
@@ -2464,6 +2500,25 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
     { label: "Won", count: dashboardQuotes.filter((quote) => quote.status === "Won").length, value: wonValue, color: "green" },
   ];
   const maxStage = Math.max(1, ...stageValues.map((stage) => stage.value));
+  // The numbers strip: same quotes as the Quotes page (no change notices, nothing already won), and each
+  // number opens the matching list.
+  const listedQuotes = dashboardQuotes.filter((quote) => quote.status !== "Won" && !state.jobs.some((job) => job.quoteId === quote.id));
+  const draftQuotes = listedQuotes.filter((quote) => quoteDisplayStatus(quote) === "Draft");
+  const awaitingQuotes = listedQuotes.filter((quote) => quoteDisplayStatus(quote) === "Finished");
+  const now = new Date();
+  const wonThisMonth = dashboardJobs.filter((job) => {
+    const accepted = new Date(job.acceptedAt);
+    return accepted.getFullYear() === now.getFullYear() && accepted.getMonth() === now.getMonth();
+  });
+  const activeJobs = (companyWide ? state.jobs : dashboardJobs).filter((job) => job.status === "Active");
+  const quoteValue = (quotes: Quote[]) => quotes.reduce((sum, quote) => sum + quoteTotals(quote).subtotal, 0);
+  const jobValue = (jobs: Job[]) => jobs.reduce((sum, job) => sum + jobTotals(job).revisedRevenue, 0);
+  const stats = [
+    { key: "drafts", label: "Drafts", count: draftQuotes.length, detail: `${compactMoney(quoteValue(draftQuotes))} in progress`, onClick: () => onShowQuotes("Draft") },
+    { key: "awaiting", label: "Awaiting reply", count: awaitingQuotes.length, detail: `${compactMoney(quoteValue(awaitingQuotes))} finished, not yet won`, onClick: () => onShowQuotes("Finished") },
+    { key: "won", label: "Won this month", count: wonThisMonth.length, detail: `${compactMoney(jobValue(wonThisMonth))} accepted`, onClick: onShowJobs },
+    { key: "active", label: "Active jobs", count: activeJobs.length, detail: `${compactMoney(jobValue(activeJobs))} accepted price`, onClick: onShowJobs },
+  ];
   const recentWork = (
     <section className="recent-work-section" aria-label="Recent work">
     <div className="recent-work-layout-bar"><strong>Recent work</strong><WorkLayoutSwitch layout={workLayout} onChange={setWorkLayout} label="Recent work layout" /></div>
@@ -2515,13 +2570,14 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
   return (
     <div className="page-stack">
       {currentEstimator.isAdmin && <div className="dashboard-scope-switch"><span>Viewing</span><button className={!companyWide ? "active" : ""} onClick={() => setCompanyWide(false)}>My estimates</button><button className={companyWide ? "active" : ""} onClick={() => setCompanyWide(true)}>Company-wide</button></div>}
-      <section className="welcome-panel compact">
-        <div>
-          <span className="eyebrow inverse">ESTIMATING CONTROL CENTRE</span>
-          <h1>Clear pricing. Controlled risk. Better handoff.</h1>
-          <p>Build the quote once, review the numbers, finish a clean proposal, then connect accepted work to its Portal job.</p>
-        </div>
-        <div className="welcome-actions"><img src="../logo.webp" alt="John Gordon Construction" /><button className="button light" onClick={onNewQuote}>＋ Start a quote</button></div>
+      <section className="overview-stats" aria-label={companyWide ? "Company-wide numbers" : "Your numbers"}>
+        {stats.map((stat) => (
+          <button type="button" key={stat.key} className={`overview-stat ${stat.key}`} onClick={stat.onClick}>
+            <span className="overview-stat-label">{stat.label}</span>
+            <strong>{stat.count}</strong>
+            <small>{stat.detail}</small>
+          </button>
+        ))}
       </section>
       <section className={`panel overview-search ${searchTerms.length ? "has-results" : ""}`}>
         <label>
@@ -2575,13 +2631,6 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
       </section>
       {!companyWide && recentWork}
 
-      {companyWide && <section className="metric-grid">
-        <MetricCard label="Active pipeline" value={compactMoney(pipeline)} detail={`${activeQuotes.length} open quotes`} tone="navy" />
-        <MetricCard label="Awaiting response" value={String(sent)} detail="finished quotes awaiting response" tone="amber" />
-        <MetricCard label="Won value" value={compactMoney(wonValue)} detail="pre-tax accepted work" tone="green" />
-        <MetricCard label="Won quotes tracked" value={String(state.jobs.filter((job) => job.status === "Active").length)} detail="estimate follow-up only" tone="blue" />
-      </section>}
-
       <div className={`dashboard-grid ${companyWide ? "company-wide" : "personal"}`}>
         {companyWide && <section className="panel pipeline-panel">
           <div className="panel-heading">
@@ -2620,16 +2669,6 @@ function Dashboard({ state, currentEstimator, onNewQuote, onOpenQuote, onOpenJob
       </div>
 
       {companyWide && recentWork}
-    </div>
-  );
-}
-
-function MetricCard({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: string }) {
-  return (
-    <div className={`metric-card ${tone}`}>
-      <span className="metric-label">{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
     </div>
   );
 }
@@ -2779,11 +2818,10 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
 
   return (
     <div className="page-stack">
+      {/* New quote lives in the header row. */}
       <PageHeading
-        eyebrow="SALES PIPELINE"
         title="Quotes"
         description="Browse by estimator, year, client and work location, or search across every quote."
-        actions={<button className="button primary" onClick={onNewQuote}>＋ New quote</button>}
       />
       <section className="panel toolbar-panel">
         <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" /></div>
@@ -4935,7 +4973,7 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
   const clients = alphabeticalByName(state.clients.filter((client) => `${client.name} ${client.contact} ${(client.contacts ?? []).map((contact) => `${contact.name} ${contact.role}`).join(" ")} ${client.sites.map((site) => site.label).join(" ")}`.toLowerCase().includes(normalized)));
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="RELATIONSHIPS" title="Clients and sites" description="Keep the customer, contact and work location consistent across every quote." actions={<button className="button primary" onClick={onAdd}>＋ Add client</button>} />
+      <PageHeading title="Clients and sites" description="Keep the customer, contact and work location consistent across every quote." actions={<button className="button primary" onClick={onAdd}>＋ Add client</button>} />
       <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search clients or sites" /></div><span className="toolbar-note">{clients.length} client{clients.length === 1 ? "" : "s"}</span></section>
       <div className="entity-grid">
         {clients.map((client) => {
@@ -5043,7 +5081,6 @@ function PriceBookPage({ state, setState, search, setSearch, category, setCatego
   return (
     <div className="page-stack">
       <PageHeading
-        eyebrow="PRICING INTELLIGENCE"
         title="Price Book"
         description={priceBookSection === "services"
           ? "Reusable subcontract pricing, labour, allowances and installed unit rates such as sq. ft. and ln. ft."
@@ -5216,7 +5253,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
   };
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="SUBCONTRACTOR PRICING" title="Vendors" description="The same subcontractor companies and contacts are shared with the Portal." actions={<div className="heading-actions"><button className="button secondary" onClick={() => void syncRequest("/api/vendors")} disabled={busy}>↻ Refresh</button><button className="button primary" onClick={onAdd}>＋ Add subcontractor</button></div>} />
+      <PageHeading title="Vendors" description="The same subcontractor companies and contacts are shared with the Portal." actions={<div className="heading-actions"><button className="button secondary" onClick={() => void syncRequest("/api/vendors")} disabled={busy}>↻ Refresh</button><button className="button primary" onClick={onAdd}>＋ Add subcontractor</button></div>} />
       <div className="estimating-boundary-note"><strong>One shared list</strong><p>Edit companies and contacts here or on the Portal’s Subs/Suppliers page. Both screens use the same records.</p><a href="../admin.html?tab=adminTools&section=subcontractorsSuppliers">Open Subs/Suppliers in Portal →</a></div>
       {message && <div className={`vendor-sync-message ${message.includes("updated") ? "success" : "error"}`}>{message}</div>}
       <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subcontractor, trade or contact" /></div><span className="toolbar-note">{vendors.length} subcontractor{vendors.length === 1 ? "" : "s"}</span></section>
@@ -6642,7 +6679,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
 
   return (
     <div className={`page-stack job-directory-page job-view-${jobLayout}`}>
-      <PageHeading title="Jobs" actions={currentEstimator.isAdmin && <button type="button" className="button secondary job-preview-launch" onClick={onNewJob}>＋ New job</button>} />
+      <PageHeading title="Jobs" description="Won work with its purchase orders, changes, RFIs and shop drawings." actions={currentEstimator.isAdmin && <button type="button" className="button secondary job-preview-launch" onClick={onNewJob}>＋ New job</button>} />
       {directoryActionTarget && createPortal(<button className="button secondary compact job-directory-refresh-button" disabled={directoryRefreshing || statusSaving} aria-busy={directoryRefreshing} onClick={() => void refreshDirectory().catch(() => {})}><span aria-hidden="true">↻</span>{directoryRefreshing ? "Refreshing…" : "Refresh jobs"}</button>, directoryActionTarget)}
       <div className="job-directory-controls">
       {directoryMessage && <p role="status">{directoryMessage}</p>}
@@ -6762,7 +6799,7 @@ function SettingsPage({ state, setState }: { state: AppState; setState: React.Di
   const update = <K extends keyof AppState["settings"]>(key: K, value: AppState["settings"][K]) => setState((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
   return (
     <div className="page-stack settings-page">
-      <PageHeading eyebrow="WORKSPACE" title="Settings" description="Company defaults for new quotes. Existing quotes keep their own pricing snapshot." />
+      <PageHeading title="Settings" description="Company defaults for new quotes. Existing quotes keep their own pricing snapshot." />
       <div className="settings-grid">
         <section className="panel form-panel"><div className="panel-heading"><div><span className="eyebrow">COMPANY</span><h2>Proposal identity</h2></div></div><div className="form-grid two-column"><label className="field full"><span>Company name</span><input value={state.settings.companyName} onChange={(event) => update("companyName", event.target.value)} /></label><label className="field full"><span>Application name</span><input value={state.settings.appName} onChange={(event) => update("appName", event.target.value)} /></label><label className="field"><span>Phone</span><input value={formatPhoneNumber(state.settings.companyPhone ?? "(613) 932-1293")} inputMode="numeric" autoComplete="tel" maxLength={14} onChange={(event) => update("companyPhone", formatPhoneNumber(event.target.value))} /></label><label className="field"><span>Fax</span><input value={state.settings.companyFax ?? "(613) 937-3656"} onChange={(event) => update("companyFax", event.target.value)} /></label><label className="field full"><span>Street address</span><input value={state.settings.companyAddress ?? "830 Campbell St. Unit 3"} onChange={(event) => update("companyAddress", event.target.value)} /></label><label className="field"><span>City</span><input value={state.settings.companyCity ?? "Cornwall, Ontario"} onChange={(event) => update("companyCity", event.target.value)} /></label><label className="field"><span>Postal code</span><input value={state.settings.companyPostalCode ?? "K6H 6L7"} onChange={(event) => update("companyPostalCode", event.target.value)} /></label><label className="field full"><span>Fallback proposal signatory</span><input value={state.settings.signatoryName ?? "Zeth Hummel"} onChange={(event) => update("signatoryName", event.target.value)} /><small>Used only when an older quote has no saved preparer.</small></label><label className="field full"><span>Proposal introduction</span><textarea rows={4} value={state.settings.proposalIntro} onChange={(event) => update("proposalIntro", event.target.value)} /></label><label className="field full"><span>Default proposal terms</span><textarea rows={5} value={state.settings.proposalTerms} onChange={(event) => update("proposalTerms", event.target.value)} /></label></div></section>
         <section className="panel form-panel"><div className="panel-heading"><div><span className="eyebrow">NEW QUOTE DEFAULTS</span><h2>Pricing and numbering</h2></div></div><div className="form-grid two-column"><label className="field"><span>Quote prefix</span><input value={state.settings.quotePrefix} onChange={(event) => update("quotePrefix", event.target.value)} /></label><label className="field"><span>Next number</span><ClearableNumberInput min="1" value={state.settings.nextQuoteNumber} emptyValue={1} normalizeValue={(value) => Math.max(1, Math.round(value))} onValueChange={(value) => update("nextQuoteNumber", value ?? 1)} /></label><label className="field"><span>Default markup</span><div className="input-suffix"><ClearableNumberInput value={state.settings.defaultMarkup * 100} onValueChange={(value) => update("defaultMarkup", (value ?? 0) / 100)} /><span>%</span></div></label><label className="field"><span>Target margin</span><div className="input-suffix"><ClearableNumberInput value={state.settings.targetMargin * 100} onValueChange={(value) => update("targetMargin", (value ?? 0) / 100)} /><span>%</span></div></label><label className="field"><span>Tax name</span><input value={state.settings.taxName} onChange={(event) => update("taxName", event.target.value)} /></label><label className="field"><span>Tax rate</span><div className="input-suffix"><ClearableNumberInput value={state.settings.taxRate * 100} onValueChange={(value) => update("taxRate", (value ?? 0) / 100)} /><span>%</span></div></label><label className="field"><span>Default validity</span><div className="input-suffix"><ClearableNumberInput min="1" value={state.settings.defaultValidityDays} emptyValue={1} normalizeValue={(value) => Math.max(1, Math.round(value))} onValueChange={(value) => update("defaultValidityDays", value ?? 1)} /><span>days</span></div></label></div><div className="settings-note"><strong>Customer proposals always use JGC Classic lump-sum pricing with HST extra.</strong><p>These defaults apply only to newly created quotes. Finished and accepted pricing does not change when workspace defaults are updated.</p></div></section>
