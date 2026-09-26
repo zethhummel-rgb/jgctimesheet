@@ -47,11 +47,11 @@ test("main Admin shell uses one scoped token-only visual layer", async () => {
     expect(css).toContain("var(--jgc-color-");
   }
 
-  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "9";');
+  expect(common).toContain('const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";');
   expect(worker).toMatch(/const JGC_RELEASE_ID = "\d+";/);
   expect(worker).toContain('"./admin-shell-design-system.css?v=4"');
-  expect(worker).toContain('"./admin-global-search.css?v=9"');
-  expect(worker).toContain('"./admin-global-search.js?v=9"');
+  expect(worker).toContain('"./admin-global-search.css?v=10"');
+  expect(worker).toContain('"./admin-global-search.js?v=10"');
   expect(worker).toContain('"./' + commonAsset[1] + '"');
 });
 

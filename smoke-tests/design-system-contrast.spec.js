@@ -175,3 +175,62 @@ for (const theme of ["light", "dark"]) {
     expect(checked).toBeGreaterThanOrEqual(30);
   });
 }
+
+// The shared Portal search panel (the magnifying-glass button), with results, for an employee and an
+// admin, in both themes: header buttons, title, status, result groups and result rows.
+const SEARCH_PANEL_TEXT = [
+  ".jgc-admin-search-eyebrow", "#jgcAdminGlobalSearchTitle", ".jgc-admin-search-header button", "#jgcAdminGlobalSearchSubmit",
+  ".jgc-admin-search-status", ".jgc-admin-search-group-title", ".jgc-admin-search-group-count", ".jgc-admin-search-result-category",
+  ".jgc-admin-search-result-title", ".jgc-admin-search-result-detail", ".jgc-admin-search-result button", ".jgc-admin-search-empty"
+].map(selector => "#jgcAdminGlobalSearchPanel " + selector).join(", ");
+
+for (const theme of ["light", "dark"]) {
+  for (const role of ["worker", "admin"]) {
+    test(`Portal search panel is readable in ${theme} mode for ${role === "admin" ? "an admin" : "an employee"}`, async ({ page }) => {
+      const id = role === "admin" ? USER_ID : "00000000-0000-4000-8000-00000000e001";
+      const key = role === "admin" ? "zeth hummel" : "pat framer";
+      const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
+      const now = Math.floor(Date.now() / 1000);
+      const user = { id, aud: "authenticated", role: "authenticated", email: key.replace(" ", ".") + "@example.com", user_metadata: { display_name: key } };
+      const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: id, exp: now + 3600, role: "authenticated" }), "search"].join("."), refresh_token: "search", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.addInitScript(({ auth, theme, id, key, role }) => {
+        localStorage.setItem("jgcPortalTheme", theme);
+        localStorage.setItem("jgcPortalTheme:" + id, theme);
+        localStorage.setItem("sb-xnrljkkszoimegfivlya-auth-token", JSON.stringify(auth));
+        localStorage.setItem("currentWorker", key);
+        localStorage.setItem("currentWorkerDisplay", key);
+        localStorage.setItem("currentUserEmail", auth.user.email);
+        localStorage.setItem("currentUserRole", role);
+        localStorage.setItem("currentAccountStatus", "approved");
+        localStorage.setItem("jgcStayLoggedIn", "true");
+        localStorage.setItem("jgcPushOnboarding:v1:" + key, "dismissed");
+        sessionStorage.setItem("jgcActiveSession", "true");
+      }, { auth, theme, id, key, role });
+      await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => {
+        const p = new URL(route.request().url()).pathname;
+        if (p.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
+        if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: String(role === "admin") });
+        if (p.endsWith("/profiles")) {
+          const profile = { id, email: user.email, display_name: key, worker_key: key, role, account_status: "approved" };
+          const single = String(route.request().headers().accept || "").includes("vnd.pgrst.object");
+          return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(single ? profile : [profile]) });
+        }
+        return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+      });
+      await page.goto("/timesheet.html", { waitUntil: "load" });
+      await page.locator(".jgc-admin-search-button").click();
+      await expect(page.locator("#jgcAdminGlobalSearchPanel")).toBeVisible();
+      await page.locator("#jgcAdminGlobalSearchInput").fill("time");
+      await page.locator("#jgcAdminGlobalSearchSubmit").click();
+      await expect(page.locator("#jgcAdminGlobalSearchStatus")).not.toContainText("Searching");
+      await page.waitForTimeout(400);
+      const firstGroup = page.locator(".jgc-admin-search-group-header").first();
+      if (await firstGroup.count() && (await firstGroup.getAttribute("aria-expanded")) !== "true") await firstGroup.click();
+      const samples = await page.evaluate(measure, SEARCH_PANEL_TEXT);
+      expect(samples.map(sample => sample.text)).toEqual(expect.arrayContaining(["Refresh Data", "Close", "Search"]));
+      const failures = samples.filter(sample => sample.ratio < 4.5).map(sample => `"${sample.text}" ${sample.ratio.toFixed(2)}`);
+      expect(failures, `${theme} ${role}: ${JSON.stringify(samples.map(s => s.text))}`).toEqual([]);
+    });
+  }
+}
