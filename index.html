@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json?v=7" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=4" />
   <link rel="stylesheet" href="jgc-design-system.css?v=9" data-jgc-design-system="9" />
-  <link rel="stylesheet" href="login-design-system.css?v=5" />
+  <link rel="stylesheet" href="login-design-system.css?v=6" />
 </head>
 
 <body class="login-page jgc-page">
@@ -45,7 +45,6 @@
       </div>
       <div class="divider"></div>
       <button type="button" class="public-tool-button public-tool-button-top jgc-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
-      <button type="button" class="public-tool-button public-notes-button jgc-button" onclick="openLoginNotes()">Notes</button>
       <button type="button" class="secondary subcontractor-access-button jgc-button jgc-button--secondary" onclick="openSubcontractorAccess()">Subcontractor Access</button>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
@@ -95,40 +94,6 @@
   </section>
 </main>
 
-<div id="loginNotesOverlay" class="notes-overlay jgc-modal" hidden onclick="closeLoginNotes()">
-  <section class="notes-panel jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="loginNotesTitle" onclick="event.stopPropagation()">
-    <div class="notes-panel-inner">
-      <div class="notes-header jgc-modal__header">
-        <div>
-          <h3 id="loginNotesTitle">Notes</h3>
-          <p>Quick scratch pads for measurements and material lists. These save only on this device.</p>
-        </div>
-        <button type="button" class="notes-close-button jgc-button jgc-button--secondary" onclick="closeLoginNotes()">Close</button>
-      </div>
-
-      <div class="notes-grid">
-        <div class="notes-card jgc-card">
-          <label class="jgc-label" for="loginMeasurementNotes">Measurement Scratch Pad</label>
-          <textarea id="loginMeasurementNotes" class="jgc-textarea" placeholder="Example: Opening 42 1/2 x 81, footing 10 ft x 24 in x 8 in"></textarea>
-        </div>
-
-        <div class="notes-card jgc-card">
-          <label class="jgc-label" for="loginMaterialNotes">Material List Scratch Pad</label>
-          <textarea id="loginMaterialNotes" class="jgc-textarea" placeholder="Example: 12 - 2x4x8, 3 sheets 5/8 plywood, 2 bags concrete"></textarea>
-        </div>
-      </div>
-
-      <div class="notes-actions jgc-actions">
-        <p id="loginNotesStatus" class="notes-status">Auto-saves on this device.</p>
-        <div>
-          <button type="button" class="notes-clear-button jgc-button jgc-button--danger" onclick="clearLoginNotes()">Clear Notes</button>
-          <button type="button" class="notes-done-button jgc-button" onclick="closeLoginNotes()">Done</button>
-        </div>
-      </div>
-    </div>
-  </section>
-</div>
-
 <div id="subcontractorAccessOverlay" class="subcontractor-overlay jgc-modal" hidden onclick="closeSubcontractorAccess()">
   <section class="subcontractor-panel jgc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="subcontractorAccessTitle" onclick="event.stopPropagation()">
     <div class="subcontractor-panel-inner">
@@ -155,102 +120,13 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=60"></script>
+<script src="common.js?v=61"></script>
 <script src="auth.js?v=7"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
-const LOGIN_NOTES_KEY = "jgc_login_notes_v1";
-let loginNotesTimer = null;
 
 function setStatus(message) {
   document.getElementById("loginStatus").innerText = message || "";
-}
-
-function getLoginNotesFields() {
-  return {
-    overlay: document.getElementById("loginNotesOverlay"),
-    measurements: document.getElementById("loginMeasurementNotes"),
-    materials: document.getElementById("loginMaterialNotes"),
-    status: document.getElementById("loginNotesStatus")
-  };
-}
-
-function setLoginNotesStatus(message) {
-  const { status } = getLoginNotesFields();
-  if (status) {
-    status.innerText = message || "";
-  }
-}
-
-function readLoginNotes() {
-  try {
-    return JSON.parse(localStorage.getItem(LOGIN_NOTES_KEY) || "{}") || {};
-  } catch (err) {
-    return {};
-  }
-}
-
-function loadLoginNotes() {
-  const { measurements, materials } = getLoginNotesFields();
-  const saved = readLoginNotes();
-  if (measurements) measurements.value = saved.measurements || "";
-  if (materials) materials.value = saved.materials || "";
-
-  if (saved.updatedAt) {
-    setLoginNotesStatus("Saved " + new Date(saved.updatedAt).toLocaleString());
-  } else {
-    setLoginNotesStatus("Auto-saves on this device.");
-  }
-}
-
-function saveLoginNotes() {
-  const { measurements, materials } = getLoginNotesFields();
-  const payload = {
-    measurements: measurements ? measurements.value : "",
-    materials: materials ? materials.value : "",
-    updatedAt: new Date().toISOString()
-  };
-
-  try {
-    localStorage.setItem(LOGIN_NOTES_KEY, JSON.stringify(payload));
-    setLoginNotesStatus("Saved " + new Date(payload.updatedAt).toLocaleString());
-  } catch (err) {
-    setLoginNotesStatus("Notes could not be saved on this device.");
-  }
-}
-
-function scheduleLoginNotesSave() {
-  clearTimeout(loginNotesTimer);
-  setLoginNotesStatus("Saving...");
-  loginNotesTimer = setTimeout(saveLoginNotes, 250);
-}
-
-function openLoginNotes() {
-  const { overlay, measurements } = getLoginNotesFields();
-  loadLoginNotes();
-  if (overlay) overlay.hidden = false;
-  setTimeout(() => measurements && measurements.focus(), 50);
-}
-
-function closeLoginNotes() {
-  const { overlay } = getLoginNotesFields();
-  saveLoginNotes();
-  if (overlay) overlay.hidden = true;
-}
-
-function clearLoginNotes() {
-  if (!confirm("Clear both scratch pads from this device?")) return;
-  const { measurements, materials } = getLoginNotesFields();
-  if (measurements) measurements.value = "";
-  if (materials) materials.value = "";
-  saveLoginNotes();
-}
-
-function setupLoginNotes() {
-  const { measurements, materials } = getLoginNotesFields();
-  loadLoginNotes();
-  if (measurements) measurements.addEventListener("input", scheduleLoginNotesSave);
-  if (materials) materials.addEventListener("input", scheduleLoginNotesSave);
 }
 
 function cleanLoginEmail(value) {
@@ -527,7 +403,6 @@ function submitOnEnter(event) {
   }
 }
 
-setupLoginNotes();
 checkExistingSession();
 </script>
 

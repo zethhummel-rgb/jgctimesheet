@@ -222,11 +222,25 @@ test("iPhone Home Screen app: pages without the top bar start below the band in 
   expect((await topLayout(page)).htmlPadding).toBe(APP_BAND);
   expect(await page.locator(".jgc-safe-area-top").evaluate(el => getComputedStyle(el).backgroundColor)).toBe("rgb(231, 236, 232)");
 
-  // Field Calculator pads itself by the device inset, so it only takes the extra band.
+  // Field Calculator keeps its own top room (field-calculator.css reads --jgc-top-inset), so the page
+  // itself is not pushed down and the bottom row of keys is never cut off.
   await page.goto("/field-calculator.html", { waitUntil: "load" });
-  expect((await topLayout(page)).htmlPadding).toBe(APP_BAND);
-  await simulateInset(page, IPHONE_INSET);
-  expect((await topLayout(page)).htmlPadding).toBe(0);
+  const calculator = () => page.evaluate(() => {
+    const keys = Array.from(document.querySelectorAll("#calcKeypad button"));
+    return {
+      htmlPadding: parseFloat(getComputedStyle(document.documentElement).paddingTop),
+      workbenchTop: document.querySelector(".calculator-workbench").getBoundingClientRect().top,
+      lowestKey: Math.max(...keys.map(key => key.getBoundingClientRect().bottom)),
+      viewportHeight: innerHeight
+    };
+  });
+  for (const inset of [0, IPHONE_INSET]) {
+    await simulateInset(page, inset);
+    const layout = await calculator();
+    expect(layout.htmlPadding, `inset ${inset}`).toBe(0);
+    expect(layout.workbenchTop, `inset ${inset}`).toBeGreaterThanOrEqual(Math.max(APP_BAND, inset));
+    expect(layout.lowestKey, `inset ${inset}`).toBeLessThanOrEqual(layout.viewportHeight);
+  }
 });
 
 test("iPhone Home Screen app: the pull-to-refresh message is hidden until a pull starts", async ({ page }) => {
