@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "937";
+const JGC_RELEASE_ID = "938";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -147,7 +147,7 @@ const JGC_APP_SHELL = [
   "./vehicle-inspection.html",
   "./subcontractor.html",
   "./limited-access.html",
-  "./limited-access.css?v=1",
+  "./limited-access.css?v=2",
   "./home.html",
   "./timesheet.html",
   "./inspections.html",
@@ -312,7 +312,7 @@ const JGC_APP_SHELL = [
   "./safety-records-admin.css?v=3",
   "./admin-global-search.css?v=10",
   "./accounting-admin.css?v=9",
-  "./jgc-design-system.css?v=9",
+  "./jgc-design-system.css?v=10",
   "./estimator-theme.css?v=1",
   "./certificates-admin.css?v=1",
   "./certificates-embedded.css?v=1",
@@ -340,11 +340,11 @@ const JGC_APP_SHELL = [
   "./qr-inspection-design-system.css?v=2",
   "./equipment-qr-inspection.css?v=1",
   "./vehicle-qr-inspection.css?v=1",
-  "./home-design-system.css?v=7",
+  "./home-design-system.css?v=8",
   "./notification-settings-design-system.css?v=4",
   "./acknowledgement-design-system.css?v=3",
-  "./login-design-system.css?v=6",
-  "./common.js?v=65",
+  "./login-design-system.css?v=7",
+  "./common.js?v=66",
   "./admin-global-search.js?v=10",
   "./accounting-workbook.js?v=9",
   "./accounting-admin.js?v=14",

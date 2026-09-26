@@ -189,7 +189,7 @@ test("Schedule family uses one token-only shared visual source", async () => {
   expect(pageSource).not.toMatch(/<style\b/i);
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
   expect(pageSource).not.toContain("styles.css");
-  expect(pageSource).toContain('jgc-design-system.css?v=9');
+  expect(pageSource).toContain('jgc-design-system.css?v=10');
   expect(pageSource).toContain('schedule-design-system.css?v=6');
   expect(pageSource).toContain('id="scheduleAgenda"');
   expect(pageSource).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);

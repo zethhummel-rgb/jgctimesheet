@@ -4,6 +4,8 @@ const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1366, height: 900 };
 const ADMIN = { id: "00000000-0000-4000-8000-000000000094", email: "zeth@johngordonconstruction.com", name: "Zeth Hummel", key: "zeth hummel", role: "admin" };
 const EMPLOYEE = { id: "00000000-0000-4000-8000-00000000e001", email: "pat.framer@example.com", name: "Pat Framer", key: "pat framer", role: "worker" };
+const LIMITED = { id: "00000000-0000-4000-8000-00000000e002", email: "sam.reed@example.com", name: "Sam Reed", key: "sam reed", role: "worker", status: "limited" };
+const SUBCONTRACTOR = { id: "00000000-0000-4000-8000-00000000e003", email: "lee@subtrade.example.com", name: "Lee Subtrade", key: "lee subtrade", role: "subcontractor" };
 
 async function signIn(page, theme = "light", person = ADMIN) {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
@@ -18,7 +20,7 @@ async function signIn(page, theme = "light", person = ADMIN) {
     localStorage.setItem("currentWorkerDisplay", person.name);
     localStorage.setItem("currentUserEmail", person.email);
     localStorage.setItem("currentUserRole", person.role);
-    localStorage.setItem("currentAccountStatus", "approved");
+    localStorage.setItem("currentAccountStatus", person.status || "approved");
     localStorage.setItem("jgcStayLoggedIn", "true");
     localStorage.setItem("jgcPushOnboarding:v1:" + person.key, "dismissed");
     sessionStorage.setItem("jgcActiveSession", "true");
@@ -28,7 +30,7 @@ async function signIn(page, theme = "light", person = ADMIN) {
     if (p.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
     if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: String(person.role === "admin") });
     if (p.endsWith("/profiles")) {
-      const profile = { id: person.id, email: person.email, display_name: person.name, worker_key: person.key, role: person.role, account_status: "approved" };
+      const profile = { id: person.id, email: person.email, display_name: person.name, worker_key: person.key, role: person.role, account_status: person.status || "approved" };
       const single = String(route.request().headers().accept || "").includes("vnd.pgrst.object");
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(single ? profile : [profile]) });
     }
@@ -325,6 +327,44 @@ test("employee pages opened without signing in do not get a bar", async ({ page 
   await expect(page.locator("#jgcPageBar")).toHaveCount(0);
 });
 
+// Limited and subcontractor accounts land on their own home page: it gets the top bar and the page bar
+// (with the green Home tile of their tab bar) like every other page they can open.
+for (const [who, person, url, title, replaced, links] of [
+  ["Limited Access", LIMITED, "/limited-access.html", "Limited Access", ".limited-hero", ["Certificates", "Timesheets", "Inspections", "Reports"]],
+  ["Subcontractor home", SUBCONTRACTOR, "/subcontractor.html", "Subcontractor Portal", ".subcontractor-header", ["Inspections", "Permits", "Reports", "Policies", "Contacts"]]
+]) {
+  for (const viewport of [PHONE, DESKTOP]) {
+    test(`${who} gets the top bar and the page bar at ${viewport.width}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await signIn(page, "light", person);
+      await page.goto(url, { waitUntil: "load" });
+      await expect(page).toHaveURL(new RegExp(url.replace(".", "\\.")));
+      await expect(page.locator("#jgcGlobalTopNav")).toBeVisible();
+      await expect(bar(page)).toBeVisible();
+      await expect(bar(page).locator(".jgc-page-bar__title")).toHaveText(title);
+      await expect(bar(page).locator(":scope > .jgc-page-bar__tile")).toHaveAttribute("data-tone", "green");
+      await expect(page.locator(replaced)).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+
+      const edges = await page.evaluate(() => {
+        const nav = document.getElementById("jgcGlobalTopNav").getBoundingClientRect();
+        const barBox = document.getElementById("jgcPageBar").getBoundingClientRect();
+        const next = document.querySelector("main > :not(.jgc-page-bar-source)").getBoundingClientRect();
+        return { navBottom: nav.bottom, barTop: barBox.top, gap: next.top - barBox.bottom, fullBleed: barBox.left === 0 && Math.round(barBox.width) === innerWidth };
+      });
+      expect(edges.gap, "gap under the bar").toBeGreaterThanOrEqual(14);
+      if (viewport === PHONE) {
+        expect(edges.fullBleed, "edge to edge on phones").toBe(true);
+        expect(Math.abs(edges.barTop - edges.navBottom), "flush under the top bar").toBeLessThanOrEqual(1);
+        await expect(page.locator("#jgcMobileBottomNav .active")).toHaveText("Home");
+      } else {
+        // Their own links only, never the employee list.
+        expect(await page.locator("#jgcGlobalTopNav .jgc-nav-center a").allTextContents()).toEqual(links);
+      }
+    });
+  }
+}
+
 // No strip of page colour between the phone top bar and the page bar, in a browser and in the
 // iPhone Home Screen app (which adds a 12px band above the top bar).
 for (const [who, person, urls] of [["Admin", ADMIN, ["/admin.html?tab=summary", "/accounts.html"]], ["employee", EMPLOYEE, ["/timesheet.html", "/forklift.html"]]]) {
@@ -462,18 +502,31 @@ for (const viewport of [PHONE, DESKTOP]) {
     await page.goto("/home.html", { waitUntil: "load" });
     for (const control of CONTROLS) await expect(page.locator(control), control).toBeVisible();
     const header = await page.locator(".home-dashboard-page header").first().boundingBox();
-    for (const box of await controlBoxes(page)) {
-      expect(box.top, box.selector + " at the top of the page").toBeGreaterThanOrEqual(0);
+    const boxes = await controlBoxes(page);
+    for (const box of boxes) {
+      expect(box.top, box.selector + " inside the header card").toBeGreaterThanOrEqual(header.y);
       expect(box.bottom, box.selector + " within the header").toBeLessThanOrEqual(header.y + header.height + 1);
+    }
+    if (viewport === DESKTOP) {
+      // On computers the header is a card with a margin above it; the controls sit level with the date.
+      const date = await page.locator(".topbar .date-chip").boundingBox();
+      for (const box of boxes) expect(Math.abs((box.top + box.bottom) / 2 - (date.y + date.height / 2)), box.selector + " level with the date").toBeLessThanOrEqual(2);
     }
 
     await page.evaluate(() => window.scrollTo(0, 600));
     for (const box of await controlBoxes(page)) expect(box.bottom, box.selector + " scrolled away").toBeLessThanOrEqual(0);
 
-    // Back at the top the gear still opens its panel.
+    // Back at the top each control still opens its panel, just below it.
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.locator("#jgcAppearanceSettingsButton").click();
-    await expect(page.locator("#jgcAppearanceSettingsPanel")).toBeVisible();
+    const panelGap = ([button, panel]) => document.querySelector(panel).getBoundingClientRect().top - document.querySelector(button).getBoundingClientRect().bottom;
+    for (const [button, panel] of [["#jgcAppearanceSettingsButton", "#jgcAppearanceSettingsPanel"], [".jgc-notification-button", ".jgc-notification-panel"]]) {
+      await page.locator(button).click();
+      await expect(page.locator(panel)).toBeVisible();
+      const gap = await page.evaluate(panelGap, [button, panel]);
+      expect(gap, panel + " opens below its button").toBeGreaterThanOrEqual(4);
+      expect(gap, panel + " opens close to its button").toBeLessThanOrEqual(24);
+      await page.keyboard.press("Escape");
+    }
   });
 }
 
