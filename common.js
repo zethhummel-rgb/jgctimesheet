@@ -2259,10 +2259,10 @@ function getJgcMobileNavItems() {
     return {
       primary: [
         { label: "Home", href: "limited-access.html", icon: "home", home: true },
-        { label: "Certificates", href: "limited-access.html#certificates", icon: "award" },
-        { label: "Timesheets", href: "limited-access.html#timesheets", icon: "clock" },
-        { label: "Inspections", href: "limited-access.html#inspections", icon: "shield" },
-        { label: "Reports", href: "limited-access.html#reports", icon: "report" }
+        { label: "Certificates", href: "limited-access.html#certificates", icon: "award", tile: "certificates.html" },
+        { label: "Timesheets", href: "limited-access.html#timesheets", icon: "clock", tile: "timesheet.html" },
+        { label: "Inspections", href: "limited-access.html#inspections", icon: "shield", tile: "inspections.html" },
+        { label: "Reports", href: "limited-access.html#reports", icon: "report", tile: "reports.html" }
       ],
       more: []
     };
@@ -2339,6 +2339,22 @@ function getJgcMobileNavIcon(name) {
   return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (icons[name] || icons.file) + '</svg>';
 }
 
+// Bottom tab bar and More sheet: each link shows the coloured tile of the page it opens (the same tile
+// as that page's bar and its Home card). Home gets the green house tile; More keeps its plain dots.
+function getJgcMobileNavTile(item) {
+  if (item.more) {
+    return getJgcMobileNavIcon(item.icon);
+  }
+
+  const page = item.home ? "home.html" : (item.tile || String(item.href || "").split("#")[0]);
+  const config = getJgcPageBarConfig(page) || JGC_PAGE_TILE_ONLY[page];
+  if (!config) {
+    return getJgcMobileNavIcon(item.icon);
+  }
+
+  return '<span class="jgc-page-tile" data-tone="' + config.tone + '" aria-hidden="true">' + getJgcPageBarIcon(config.icon) + "</span>";
+}
+
 function activateMobileBottomNavigation() {
   const page = window.location.pathname.split("/").pop() || "index.html";
   const params = new URLSearchParams(window.location.search);
@@ -2354,6 +2370,7 @@ function activateMobileBottomNavigation() {
   }
 
   const navItems = getJgcMobileNavItems();
+  ensureJgcPageBarStyles();
   const style = document.createElement("style");
   style.id = "jgcMobileBottomNavStyles";
   style.textContent = `
@@ -2418,6 +2435,18 @@ function activateMobileBottomNavigation() {
         stroke-width: 2;
         stroke-linecap: round;
         stroke-linejoin: round;
+        flex: 0 0 auto;
+      }
+
+      .jgc-mobile-bottom-nav .jgc-page-tile {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+      }
+
+      .jgc-mobile-more-grid .jgc-page-tile {
+        width: 30px;
+        height: 30px;
         flex: 0 0 auto;
       }
 
@@ -2508,14 +2537,14 @@ function activateMobileBottomNavigation() {
     }
 
     if (item.home) {
-      return '<button type="button" class="' + (page === item.href || page === "home.html" || page === "admin.html" ? "active" : "") + '" id="jgcMobileHomeButton">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></button>';
+      return '<button type="button" class="' + (page === item.href || page === "home.html" || page === "admin.html" ? "active" : "") + '" id="jgcMobileHomeButton">' + getJgcMobileNavTile(item) + '<span>' + item.label + '</span></button>';
     }
 
-    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></a>';
+    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavTile(item) + '<span>' + item.label + '</span></a>';
   }).join("");
 
   const moreHtml = navItems.more.map(function(item) {
-    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavIcon(item.icon) + '<span>' + item.label + '</span></a>';
+    return '<a href="' + item.href + '" class="' + (page === item.href ? "active" : "") + '">' + getJgcMobileNavTile(item) + '<span>' + item.label + '</span></a>';
   }).join("");
 
   const backdrop = document.createElement("div");
@@ -6331,6 +6360,7 @@ const JGC_PAGE_BAR_ICONS = {
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   medical: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>',
   flame: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z"/>',
+  home: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chevron: '<path d="M6 9l6 6 6-6"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
@@ -6365,7 +6395,7 @@ const JGC_PAGE_BAR_PAGES = {
   "diagnostics-admin.html": { title: "Portal Diagnostics", subtitle: "Sync, email and backup health", icon: "pulse", tone: "slate" },
   "job-lists-admin.html": { title: "Job Notes", subtitle: "Manage job note lists", icon: "notes", tone: "lime" },
   "jsa-library-admin.html": { title: "JSA Library", subtitle: "Custom tasks for every JSA's library search", icon: "book", tone: "red" },
-  "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential · visible only to administrators and the employee involved", icon: "warning", tone: "rose" },
+  "employee-writeups-admin.html": { title: "Employee Write-Ups", subtitle: "Confidential · visible only to administrators and the employee involved", icon: "warning", tone: "slate" },
   "policies-admin.html": { title: "Manage Policies", subtitle: "Publish policies and announcements", icon: "megaphone", tone: "rose" },
   "accounts.html": { title: "Accounts", subtitle: "Approve accounts and set access", icon: "users", tone: "blue" },
   "notification-settings.html": { title: "Notification Settings", subtitle: "Who receives each notification", icon: "bell", tone: "amber" },
@@ -6391,7 +6421,7 @@ const JGC_PAGE_BAR_PAGES = {
   "contacts.html": { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "subcontractors-suppliers.html": { title: "Subcontractors / Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "policies-announcements.html": { title: "Policies & Announcements", subtitle: "Company policies and previous announcements", icon: "megaphone", tone: "rose", hide: ["main > .top-actions", "main > .hero-card"] },
-  "employee-writeups.html": { title: "My Write-Ups", subtitle: "Private · only you and JGC administrators can see these", icon: "warning", tone: "rose", hide: ["main > header.jgc-page-header"] },
+  "employee-writeups.html": { title: "My Write-Ups", subtitle: "Private · only you and JGC administrators can see these", icon: "warning", tone: "slate", hide: ["main > header.jgc-page-header"] },
   "jsa.html": { title: "Job Safety Analysis", subtitle: "Plan the work, review the hazards, confirm the controls", icon: "shield", tone: "red", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
   "prepared-jsas.html": { title: "Prepared JSAs", subtitle: "Prepare and export a JSA ahead of the work", icon: "shield", tone: "red", hide: ["main > .logo-wrap", ".jsa-section-heading > h1"] },
   "toolbox-talks.html": { title: "Tool Box Talks", subtitle: "Pick a talk, complete the report, record the crew", icon: "users", tone: "violet", hide: ["main > .logo-wrap", "main > #currentUser", "main > .container > h1", "main > .container > h1 + .subtitle"] },
@@ -6426,9 +6456,10 @@ const JGC_PAGE_TILE_TONES = {
   lime: ["#a3e635", "#1a2e05"]
 };
 
-// Pages with a Home tile but no page bar.
+// Pages with a tile (Home cards, bottom tab bar) but no page bar.
 const JGC_PAGE_TILE_ONLY = {
-  "field-calculator.html": { title: "Field Calculator", icon: "calculator", tone: "orange" }
+  "field-calculator.html": { title: "Field Calculator", icon: "calculator", tone: "orange" },
+  "home.html": { title: "Home", icon: "home", tone: "green" }
 };
 
 // Employee Home cards and counters show the same icon tile as the page they open, taken from the

@@ -387,6 +387,50 @@ for (const viewport of [PHONE, DESKTOP]) {
   });
 }
 
+// Phone bottom tab bar and More sheet: each link shows the tile of the page it opens; neighbours never
+// share a colour or a look-alike colour.
+const LOOKALIKE = { red: "red", rose: "red", amber: "amber", gold: "amber", teal: "teal", cyan: "teal", violet: "violet", indigo: "violet" };
+const toneFamily = tone => LOOKALIKE[tone] || tone;
+
+for (const person of [EMPLOYEE, ADMIN]) {
+  test(`phone tab bar and More sheet use the page tiles for ${person === ADMIN ? "an admin" : "an employee"}`, async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await signIn(page, "dark", person);
+    await page.goto("/timesheet.html", { waitUntil: "load" });
+    const nav = page.locator("#jgcMobileBottomNav");
+    await expect(nav).toBeVisible();
+
+    const barItems = await nav.locator(":scope > a, :scope > button").evaluateAll(items => items.map(item => ({
+      label: item.textContent.trim(),
+      tone: item.querySelector(".jgc-page-tile") ? item.querySelector(".jgc-page-tile").getAttribute("data-tone") : null
+    })));
+    expect(barItems.map(item => item.label)).toEqual(["Home", "Timesheets", "PO", "WO", "Inspections", "More"]);
+    expect(barItems.find(item => item.label === "Home").tone).toBe("green");
+    expect(barItems.find(item => item.label === "Timesheets").tone).toBe("amber");
+    expect(barItems.find(item => item.label === "More").tone, "More keeps its dots").toBeNull();
+    for (let i = 1; i < barItems.length - 1; i++) {
+      expect(toneFamily(barItems[i].tone), `${barItems[i - 1].label} next to ${barItems[i].label}`).not.toBe(toneFamily(barItems[i - 1].tone));
+    }
+
+    await page.locator("#jgcMobileMoreButton").click();
+    await expect(page.locator("#jgcMobileMoreSheet")).toHaveClass(/open/);
+    const moreItems = await page.locator("#jgcMobileMoreSheet a").evaluateAll(links => links.map(link => {
+      const r = link.getBoundingClientRect();
+      const tile = link.querySelector(".jgc-page-tile");
+      return { label: link.textContent.trim(), tone: tile && tile.getAttribute("data-tone"), x: Math.round(r.left), y: Math.round(r.top), w: r.width, h: r.height };
+    }));
+    expect(moreItems.length).toBeGreaterThanOrEqual(14);
+    for (const item of moreItems) expect(item.tone, item.label + " has a page tile").toBeTruthy();
+    for (const a of moreItems) {
+      for (const b of moreItems) {
+        const sideBySide = a.y === b.y && Math.abs(b.x - (a.x + a.w)) < 20;
+        const stacked = a.x === b.x && Math.abs(b.y - (a.y + a.h)) < 20;
+        if (sideBySide || stacked) expect(toneFamily(a.tone), `${a.label} next to ${b.label}`).not.toBe(toneFamily(b.tone));
+      }
+    }
+  });
+}
+
 test("a Home tile looks the same as the bar on the page it opens", async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   await signIn(page, "light", EMPLOYEE);
