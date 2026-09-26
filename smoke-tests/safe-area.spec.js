@@ -5,6 +5,10 @@ const { test, expect } = require("@playwright/test");
 const root = path.resolve(__dirname, "..");
 const USER_ID = "00000000-0000-4000-8000-000000000094";
 const IPHONE_INSET = 47;
+const APP_BAND = 12;
+
+// Run the page as an iPhone Home Screen web app (Safari exposes navigator.standalone there).
+const openAsHomeScreenApp = page => page.addInitScript(() => Object.defineProperty(navigator, "standalone", { get: () => true }));
 
 async function signIn(page, theme = "light") {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
@@ -78,9 +82,9 @@ for (const viewport of [{ name: "phone", width: 390, height: 844, pad: 58 }, { n
     await expect(page.locator(".jgc-global-top-nav")).toBeVisible();
     await expect(page.locator(".jgc-safe-area-top")).toHaveCount(1);
 
-    // Without an inset nothing moves; the strip stays a 1px colour sample for iOS at the top edge.
+    // In a browser without an inset nothing moves and there is no band.
     const plain = await topLayout(page);
-    expect(plain.strip.height).toBe(1);
+    expect(plain.strip.height).toBe(0);
     expect(plain.nav.top).toBe(0);
     expect(plain.bodyPadding).toBe(viewport.pad);
 
@@ -133,6 +137,118 @@ for (const url of ["/home.html", "/index.html"]) {
     }
   });
 }
+
+// WebKit's status-bar colour probe (LocalFrameView::fixedContainerEdges): hit-test the middle of the
+// top edge a few px down (ignoring pointer-events), walk up to the first fixed/sticky box, and use its
+// plain background-color only if it is over 10px both ways, at least 90% of the screen wide and
+// visible. Anything else and iOS 26+ blurs the top of the Home Screen app.
+const probeTopEdge = page => page.evaluate(() => {
+  const fixedAncestor = el => {
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      if (["fixed", "sticky"].includes(getComputedStyle(node).position)) return node;
+    }
+    return null;
+  };
+  const force = document.createElement("style");
+  force.textContent = "* { pointer-events: auto !important; }";
+  document.head.appendChild(force);
+  const results = [0, 2, 4, 8].map(y => {
+    const box = fixedAncestor(document.elementFromPoint(Math.floor(window.innerWidth / 2), y));
+    if (!box) return { y, box: null };
+    const rect = box.getBoundingClientRect();
+    const style = getComputedStyle(box);
+    return {
+      y,
+      box: box.className,
+      wideEnough: rect.width >= window.innerWidth * 0.9,
+      tallEnough: rect.height > 10,
+      solid: /^rgb\(/.test(style.backgroundColor),
+      noImage: style.backgroundImage === "none",
+      visible: style.visibility === "visible" && style.opacity === "1"
+    };
+  });
+  force.remove();
+  return results;
+});
+
+for (const [name, url, signedIn] of [["Summary", "/admin.html?tab=summary", true], ["Timesheets", "/timesheet.html", true], ["Home", "/home.html", true], ["Field Calculator", "/field-calculator.html", true], ["Login", "/index.html", false]]) {
+  test(`iPhone Home Screen app: iOS reads a solid colour at the top of ${name}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openAsHomeScreenApp(page);
+    if (signedIn) await signIn(page, "dark");
+    await page.goto(url, { waitUntil: "load" });
+    await expect(page.locator("html")).toHaveClass(/jgc-ios-app/);
+    await expect(page.locator(".jgc-safe-area-top")).toHaveCount(1);
+
+    // A fresh install puts the page below an opaque status bar (inset 0); older installs draw under it.
+    for (const inset of [0, IPHONE_INSET]) {
+      await simulateInset(page, inset);
+      for (const sample of await probeTopEdge(page)) {
+        expect(sample, `inset ${inset}, ${sample.y}px down`).toEqual({ y: sample.y, box: "jgc-safe-area-top", wideEnough: true, tallEnough: true, solid: true, noImage: true, visible: true });
+      }
+    }
+  });
+}
+
+test("iPhone Home Screen app: the band sits above the top bar without covering it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAsHomeScreenApp(page);
+  await signIn(page);
+  await page.goto("/admin.html", { waitUntil: "load" });
+  await expect(page.locator(".jgc-global-top-nav")).toBeVisible();
+
+  for (const inset of [0, IPHONE_INSET]) {
+    await simulateInset(page, inset);
+    const top = Math.max(APP_BAND, inset);
+    const layout = await topLayout(page);
+    expect(layout.strip).toMatchObject({ top: 0, height: top });
+    expect(layout.nav.top).toBe(top);
+    expect(layout.bodyPadding).toBe(58 + top);
+    expect(layout.adminNavTop).toBe(`${58 + top}px`);
+    for (const control of ["home", "logout", "gear", "bell", "search"]) {
+      expect(layout[control].top, `${control} below the band`).toBeGreaterThanOrEqual(top);
+      expect(layout[control].bottom, `${control} inside the top bar`).toBeLessThanOrEqual(layout.nav.bottom + 1);
+    }
+  }
+  // On pages with the green bar the band is the bar's own green.
+  expect(await page.locator(".jgc-safe-area-top").evaluate(el => getComputedStyle(el).backgroundColor)).toBe("rgb(7, 55, 28)");
+});
+
+test("iPhone Home Screen app: pages without the top bar start below the band in the page colour", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAsHomeScreenApp(page);
+  await signIn(page, "light");
+  await page.goto("/home.html", { waitUntil: "load" });
+  expect((await topLayout(page)).htmlPadding).toBe(APP_BAND);
+  expect(await page.locator(".jgc-safe-area-top").evaluate(el => getComputedStyle(el).backgroundColor)).toBe("rgb(231, 236, 232)");
+
+  // Field Calculator pads itself by the device inset, so it only takes the extra band.
+  await page.goto("/field-calculator.html", { waitUntil: "load" });
+  expect((await topLayout(page)).htmlPadding).toBe(APP_BAND);
+  await simulateInset(page, IPHONE_INSET);
+  expect((await topLayout(page)).htmlPadding).toBe(0);
+});
+
+test("iPhone Home Screen app: the pull-to-refresh message is hidden until a pull starts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openAsHomeScreenApp(page);
+  await signIn(page);
+  await page.goto("/timesheet.html", { waitUntil: "load" });
+  const indicator = page.locator("#jgcPwaPullIndicator");
+  await expect(indicator).toHaveCount(1);
+  await expect(indicator).toHaveCSS("visibility", "hidden");
+  await indicator.evaluate(el => el.classList.add("is-visible"));
+  await expect(indicator).toHaveCSS("visibility", "visible");
+});
+
+test("browsers never get the Home Screen band", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page);
+  await page.goto("/admin.html", { waitUntil: "load" });
+  await expect(page.locator("html")).not.toHaveClass(/jgc-ios-app/);
+  expect(await page.evaluate(() => isJgcIosHomeScreenApp())).toBe(false);
+  expect((await topLayout(page)).strip.height).toBe(0);
+});
 
 test("the status bar colour is JGC green in both themes", async ({ page }) => {
   await signIn(page, "light");

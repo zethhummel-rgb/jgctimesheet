@@ -5898,9 +5898,11 @@ function activateJgcPwaRefresh() {
       transition: transform 220ms cubic-bezier(0.2, 0.75, 0.25, 1) !important;
     }
 
+    /* Hidden (not just transparent) until a pull starts: iOS reads the top edge for the status-bar
+       colour, and an invisible box parked there makes it fall back to a blur. */
     .jgc-pwa-pull-indicator {
       position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      top: calc(var(--jgc-top-inset, env(safe-area-inset-top, 0px)) + 10px);
       left: 50%;
       z-index: 10030;
       display: inline-flex;
@@ -5913,14 +5915,17 @@ function activateJgcPwaRefresh() {
       background: transparent;
       border: 0;
       opacity: 0;
+      visibility: hidden;
       pointer-events: none;
       transform: translate(-50%, -16px);
-      transition: opacity 140ms ease, transform 120ms ease;
+      transition: opacity 140ms ease, transform 120ms ease, visibility 0s linear 140ms;
     }
 
     .jgc-pwa-pull-indicator.is-visible {
       opacity: 1;
+      visibility: visible;
       transform: translate(-50%, 0);
+      transition-delay: 0s;
     }
 
     .jgc-pwa-pull-indicator svg {
@@ -6124,13 +6129,33 @@ function activateJgcPwaRefresh() {
   document.addEventListener("touchcancel", resetPullIndicator, { passive: true });
 }
 
-// iPhone status bar: pages opt into viewport-fit=cover, so the page reaches under the clock and battery.
-// A solid green strip fills that area and the fixed top controls move down by the same inset, so iOS
-// never frosts Portal buttons. Where the device has no inset every offset below is zero.
+// iPhone status bar: iOS 26+ blurs the top of a Home Screen web app unless it can read a solid colour
+// there. WebKit hit-tests the middle of the top edge a few px down, takes the first fixed box it lands
+// on, and uses that box's plain background-color only if it is taller than 10px, at least 90% of the
+// screen wide and visible. So the Home Screen app gets a solid 12px band (or the full status-bar inset
+// when the page draws under the clock) above everything, and the fixed top controls move below it.
+// Browsers get no band; there every offset below is the device inset (zero on computers).
 // --jgc-safe-area-top can be set on <html> to simulate an iPhone inset in tests.
+const JGC_IOS_APP_BAND = 12;
+
+function isJgcIosHomeScreenApp() {
+  if (window.self !== window.top || !isInstalledJgcPwa()) {
+    return false;
+  }
+
+  const nav = window.navigator;
+  return nav.standalone === true
+    || /iP(hone|ad|od)/.test(nav.userAgent)
+    || (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
+}
+
 function activateJgcSafeArea() {
   if (document.getElementById("jgcSafeAreaStyles")) {
     return;
+  }
+
+  if (isJgcIosHomeScreenApp()) {
+    document.documentElement.classList.add("jgc-ios-app");
   }
 
   const style = document.createElement("style");
@@ -6138,6 +6163,12 @@ function activateJgcSafeArea() {
   style.textContent = `
     :root {
       --jgc-safe-area-top: env(safe-area-inset-top, 0px);
+      --jgc-app-band: 0px;
+      --jgc-top-inset: max(var(--jgc-app-band), var(--jgc-safe-area-top));
+    }
+
+    html.jgc-ios-app {
+      --jgc-app-band: ${JGC_IOS_APP_BAND}px;
     }
 
     html {
@@ -6146,29 +6177,37 @@ function activateJgcSafeArea() {
     }
 
     html:has(> body:is(.login-page, .reset-password-page, .home-dashboard-page, .acknowledgement-page, .qr-inspection-page, .subcontractor-page)) {
-      padding-top: var(--jgc-safe-area-top);
+      padding-top: var(--jgc-top-inset);
     }
 
-    /* iOS 26+ replaces its status-bar blur with the plain background-color of a fixed element
-       touching the top edge. It ignores gradients and pseudo-elements, and a 0px box cannot be
-       sampled, so this strip is always at least 1px tall and one solid colour. */
+    /* Field Calculator already pads itself by the device inset; only the extra band is added here. */
+    html:has(> body.field-calculator-page) {
+      padding-top: calc(var(--jgc-top-inset) - var(--jgc-safe-area-top));
+    }
+
+    /* The box iOS reads: full width, one plain background-color, never a gradient or pseudo-element. */
     .jgc-safe-area-top {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 10090;
-      height: max(1px, var(--jgc-safe-area-top));
+      height: var(--jgc-top-inset);
       background-color: #07371c;
       pointer-events: none;
     }
 
+    /* Without the green top bar the band matches the page, so it reads as page margin. */
+    body:not(.jgc-has-global-nav) > .jgc-safe-area-top {
+      background-color: var(--jgc-color-page, #06110f);
+    }
+
     html body.jgc-has-global-nav {
-      padding-top: calc(66px + var(--jgc-safe-area-top)) !important;
+      padding-top: calc(66px + var(--jgc-top-inset)) !important;
     }
 
     html .jgc-global-top-nav {
-      top: var(--jgc-safe-area-top);
+      top: var(--jgc-top-inset);
     }
 
     html .jgc-nav-start,
@@ -6183,25 +6222,25 @@ function activateJgcSafeArea() {
     html .jgc-appearance-settings,
     html .jgc-notification-bell,
     html .jgc-admin-global-search {
-      top: var(--jgc-safe-area-top);
+      top: var(--jgc-top-inset);
     }
 
     html .jgc-appearance-settings__panel,
     html .jgc-notification-panel,
     html .jgc-admin-search-panel {
-      top: calc(62px + var(--jgc-safe-area-top));
+      top: calc(62px + var(--jgc-top-inset));
     }
 
     html .jgc-notification-panel {
-      max-height: min(540px, calc(100vh - 110px - var(--jgc-safe-area-top)));
+      max-height: min(540px, calc(100vh - 110px - var(--jgc-top-inset)));
     }
 
     html .jgc-admin-search-panel {
-      max-height: min(720px, calc(100vh - 88px - var(--jgc-safe-area-top)));
+      max-height: min(720px, calc(100vh - 88px - var(--jgc-top-inset)));
     }
 
     html body.jgc-app .jgc-admin-nav {
-      top: calc(66px + var(--jgc-safe-area-top)) !important;
+      top: calc(66px + var(--jgc-top-inset)) !important;
     }
 
     /* Without the green top bar (Home, Field Calculator) the round controls sit on a light page in light mode. */
@@ -6213,26 +6252,26 @@ function activateJgcSafeArea() {
 
     @media (max-width: 780px) {
       html body.jgc-has-global-nav {
-        padding-top: calc(58px + var(--jgc-safe-area-top)) !important;
+        padding-top: calc(58px + var(--jgc-top-inset)) !important;
       }
 
       html .jgc-appearance-settings__panel,
       html .jgc-notification-panel,
       html .jgc-admin-search-panel {
-        top: calc(56px + var(--jgc-safe-area-top));
+        top: calc(56px + var(--jgc-top-inset));
       }
 
       html .jgc-appearance-settings__panel,
       html .jgc-notification-panel {
-        max-height: calc(100vh - 142px - var(--jgc-safe-area-top));
+        max-height: calc(100vh - 142px - var(--jgc-top-inset));
       }
 
       html .jgc-admin-search-panel {
-        max-height: calc(100vh - 76px - var(--jgc-safe-area-top));
+        max-height: calc(100vh - 76px - var(--jgc-top-inset));
       }
 
       html body.jgc-app .jgc-admin-nav {
-        top: calc(58px + var(--jgc-safe-area-top)) !important;
+        top: calc(58px + var(--jgc-top-inset)) !important;
       }
     }
   `;
