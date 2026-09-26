@@ -68,7 +68,7 @@ import {
 } from "../lib/estimator-data";
 import { proposalCostBreakdownLineOptions, proposalCostBreakdownRows, selectedProposalCostBreakdownCategories, selectedProposalCostBreakdownLineIds } from "../lib/proposal-cost-breakdown";
 import { mergeConcurrentEstimatorState } from "../lib/estimator-state-sync";
-import { DeskHeaderContext, DeskTile, useDeskHeader, type DeskHeader } from "./desk-shell";
+import { DeskHeaderContext, DeskTile, useDeskHeader, useIsPhone, type DeskHeader } from "./desk-shell";
 
 // Start loading the PDF maker with the workspace so a later site update cannot
 // leave an already-open quote pointing at an old, removed download file.
@@ -2424,6 +2424,7 @@ function matchesWorkSearch(query: string, ...values: Array<string | null | undef
 function Dashboard({ state, currentEstimator, onOpenQuote, onOpenJob, onShowQuotes, onShowJobs }: { state: AppState; currentEstimator: CurrentEstimator; onOpenQuote: (id: string, tab?: QuoteTab) => void; onOpenJob: (id: string) => void; onShowQuotes: (status: string) => void; onShowJobs: () => void }) {
   const [workLayout, setWorkLayout] = useWorkListLayout();
   const [companyWide, setCompanyWide] = useState(false);
+  const isPhone = useIsPhone();
   useDeskHeader("Overview", companyWide ? "Every estimator's quotes and jobs" : "Your quotes and jobs at a glance");
   const [dashboardSearch, setDashboardSearch] = useState("");
   const currentOwnerName = currentEstimator.name.trim().toLocaleLowerCase();
@@ -2587,7 +2588,7 @@ function Dashboard({ state, currentEstimator, onOpenQuote, onOpenJob, onShowQuot
             type="search"
             value={dashboardSearch}
             onChange={(event) => setDashboardSearch(event.target.value)}
-            placeholder="Search quote #, job #, PO #, client, site, project or reference…"
+            placeholder={isPhone ? "Quote, job, PO or client" : "Search quote #, job #, PO #, client, site, project or reference…"}
             autoComplete="off"
             spellCheck={false}
           />
@@ -3800,6 +3801,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
   catalogToAdd: string;
   setCatalogToAdd: (value: string) => void;
 }) {
+  const isPhone = useIsPhone();
   const [pendingDeleteLineId, setPendingDeleteLineId] = useState<string | null>(null);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
@@ -4119,7 +4121,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
         {!locked && (
           <div className="add-line-bar">
             <div className="catalog-search-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogPickerOpen(false); }}>
-              <label><span className="sr-only">Search products and services</span><span className="catalog-search-icon">⌕</span><input role="combobox" aria-expanded={catalogPickerOpen} aria-controls={`catalog-results-${quote.id}`} aria-autocomplete="list" value={catalogSearch} onFocus={() => setCatalogPickerOpen(true)} onChange={(event) => { const value = event.target.value; setCatalogSearch(value); setCatalogToAdd(""); setCatalogPickerOpen(true); if (value.trim().length < 2) setSupplierSearchLoading(false); }} onKeyDown={(event) => { if (event.key === "Enter" && (catalogMatches.length || visibleSupplierCatalogMatches.length)) { event.preventDefault(); if (catalogMatches.length) selectCatalogItem(catalogMatches[0]); else selectSupplierCatalogItem(visibleSupplierCatalogMatches[0]); } if (event.key === "Escape") setCatalogPickerOpen(false); }} placeholder="Search services, installed rates or materials…" /></label>
+              <label><span className="sr-only">Search products and services</span><span className="catalog-search-icon">⌕</span><input role="combobox" aria-expanded={catalogPickerOpen} aria-controls={`catalog-results-${quote.id}`} aria-autocomplete="list" value={catalogSearch} onFocus={() => setCatalogPickerOpen(true)} onChange={(event) => { const value = event.target.value; setCatalogSearch(value); setCatalogToAdd(""); setCatalogPickerOpen(true); if (value.trim().length < 2) setSupplierSearchLoading(false); }} onKeyDown={(event) => { if (event.key === "Enter" && (catalogMatches.length || visibleSupplierCatalogMatches.length)) { event.preventDefault(); if (catalogMatches.length) selectCatalogItem(catalogMatches[0]); else selectSupplierCatalogItem(visibleSupplierCatalogMatches[0]); } if (event.key === "Escape") setCatalogPickerOpen(false); }} placeholder={isPhone ? "Search services or materials" : "Search services, installed rates or materials…"} /></label>
               {catalogPickerOpen && <div className="catalog-search-results" id={`catalog-results-${quote.id}`} role="listbox">
                 {!!catalogMatches.length && <div className="catalog-result-heading">SERVICES &amp; ASSEMBLIES</div>}
                 {catalogMatches.map((item) => <button type="button" role="option" aria-selected="false" key={item.id} onPointerDown={(event) => event.preventDefault()} onPointerUp={(event) => { if (event.pointerType !== "mouse") { event.preventDefault(); selectCatalogItem(item); } }} onClick={() => selectCatalogItem(item)}><span><strong>{item.name}</strong><small>{item.category} · {item.costType} · {item.unit}</small></span><b>{item.liveQuote ? "Live quote" : item.typical === null ? "No cost" : money(item.typical)}</b></button>)}
@@ -4159,7 +4161,7 @@ function EstimateBuilder({ state, quote, locked, mutateQuote, expandedLineId, se
                       <td data-label="Qty"><ClearableNumberInput className="cell-input number-input" min="0" step="0.01" value={line.quantity} disabled={locked} onValueChange={(value) => updateLine(line.id, { quantity: value ?? 0 })} /></td>
                       <td data-label="Unit"><input className="cell-input unit-input" value={line.unit} disabled={locked} onChange={(event) => updateLine(line.id, { unit: event.target.value })} /></td>
                       <td className="direct-unit-cost-cell" data-label="Direct unit cost">
-                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={directCostInputValue(line, buildUpTotals.total)} disabled={locked || !!line.costBuildUp} onFocus={() => startDirectCostEdit(line)} onChange={(event) => changeDirectCost(line, event.target.value)} onBlur={(event) => finishDirectCostEdit(line, event.target.value)} placeholder={line.liveQuote ? "Quote required" : "0.00"} /></div>
+                        <div className={`money-input ${needsLiveCost ? "required" : ""} ${line.costBuildUp ? "built-up-cost" : ""}`}><span>$</span><input type="number" min="0" step="0.01" value={directCostInputValue(line, buildUpTotals.total)} disabled={locked || !!line.costBuildUp} onFocus={() => startDirectCostEdit(line)} onChange={(event) => changeDirectCost(line, event.target.value)} onBlur={(event) => finishDirectCostEdit(line, event.target.value)} placeholder={line.liveQuote ? (isPhone ? "Required" : "Quote required") : "0.00"} /></div>
                         {line.costBuildUp ? <div className="build-up-mini-totals">{line.costType === "Sub / Vendor" ? <><span>Vendor {money(buildUpTotals.subcontractors)}</span><span>Other {money(buildUpTotals.other)}</span></> : <><span>Labour {money(buildUpTotals.labour)}</span><span>Materials {money(buildUpTotals.materials)}</span></>}</div> : line.catalogCost !== null && <small className="cell-hint">Catalog {money(line.catalogCost)}</small>}
                       </td>
                       <td className="direct-cost-cell" data-label="Direct cost"><strong>{money(direct)}</strong></td>
@@ -5627,6 +5629,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
   jobCostingMessage: string;
   onRefreshJobCosting: () => void;
 }) {
+  const isPhone = useIsPhone();
   const [statusFilter, setStatusFilter] = useState<"Active" | "Archived">("Active");
   const [jobLayout, setJobLayout] = useWorkListLayout();
   const [jobSearch, setJobSearch] = useState("");
@@ -6695,7 +6698,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
       </section>
       <section className="panel toolbar-panel job-directory-toolbar">
-        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder="Search job #, name, client, manager or location" aria-label="Search jobs" aria-describedby="job-search-scope" /></div>
+        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder={isPhone ? "Search job #, name or client" : "Search job #, name, client, manager or location"} aria-label="Search jobs" aria-describedby="job-search-scope" /></div>
         <label className="compact-select"><span>Project manager</span><select value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)} aria-label="Filter jobs by project manager"><option value="">All managers</option>{managerOptions.map((manager) => <option key={manager.key} value={manager.key}>{manager.label}</option>)}</select></label>
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
           {(["Active", "Archived"] as const).map((status) => <button key={status} className={!searchingAllJobStatuses && statusFilter === status ? "active" : ""} aria-pressed={!searchingAllJobStatuses && statusFilter === status} disabled={searchingAllJobStatuses} title={searchingAllJobStatuses ? "Search includes both statuses. Clear the search to use status tabs." : undefined} onClick={() => setStatusFilter(status)}>{quoteStatusLabel(status)}</button>)}

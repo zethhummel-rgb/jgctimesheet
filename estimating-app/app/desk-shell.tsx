@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { ViewKey } from "../lib/estimator-data";
 
 // The Portal's page tiles (common.js JGC_PAGE_BAR_ICONS and JGC_PAGE_TILE_TONES), so each Estimate Desk
@@ -39,6 +39,18 @@ export function DeskTile({ view, className = "" }: { view: ViewKey; className?: 
 // description, and the header shows them beside the section tile.
 export type DeskHeader = { title: string; description?: string };
 export const DeskHeaderContext = createContext<(header: DeskHeader | null) => void>(() => {});
+
+// Phones (the 760px layout) get search hints that fit their narrower boxes instead of being cut off.
+const PHONE_QUERY = "(max-width: 760px)";
+const subscribePhone = (onChange: () => void) => {
+  const query = window.matchMedia(PHONE_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+
+export function useIsPhone() {
+  return useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
+}
 
 export function useDeskHeader(title: string, description?: string) {
   const setHeader = useContext(DeskHeaderContext);
