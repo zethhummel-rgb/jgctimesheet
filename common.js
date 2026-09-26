@@ -6338,15 +6338,15 @@ const JGC_PAGE_BAR_ADMIN_SECTIONS = {
   timesheets: { title: "Timesheets", subtitle: "Live entries and payroll", icon: "clock", tone: "amber", action: { label: "Add time", target: "#timesheetsSection details.admin-time-entry-card > summary" } },
   accounting: { title: "Accounting", subtitle: "Job lists, pay periods and exports", icon: "calculator", tone: "blue" },
   safetyRecords: { title: "Safety Records", subtitle: "Inspections, reports and permits", icon: "shield", tone: "red" },
-  vacation: { title: "Vacation Requests", subtitle: "Review and approve time off", icon: "sun", tone: "sky" },
+  vacation: { title: "Vacation Requests", subtitle: "Review and approve time off", icon: "sun", tone: "gold" },
   tasks: { title: "Tasks", subtitle: "Assign and track tasks", icon: "checklist", tone: "violet" },
   workOrders: { title: "Work Orders", subtitle: "Create and track work orders", icon: "clipboard", tone: "orange" },
   purchaseOrders: { title: "Purchase Orders", subtitle: "Approvals, drafts and number blocks", icon: "cart", tone: "teal" },
   adminTools: { title: "Admin Tools", subtitle: "Setup and maintenance tools", icon: "sliders", tone: "slate" },
   employeeProfile: { title: "Employee Profiles", subtitle: "History, hours, certificates and activity", icon: "user", tone: "cyan" },
-  certificates: { title: "Certificates", subtitle: "Upload certificates and track expiries", icon: "award", tone: "gold" },
+  certificates: { title: "Certificates", subtitle: "Upload certificates and track expiries", icon: "award", tone: "violet" },
   noticePolicy: { title: "Notices & Policies", subtitle: "Announcements and acknowledgements", icon: "megaphone", tone: "rose" },
-  equipment: { title: "Equipment", subtitle: "Vehicles, equipment and QR codes", icon: "truck", tone: "indigo" },
+  equipment: { title: "Equipment", subtitle: "Vehicles, equipment and QR codes", icon: "truck", tone: "slate" },
   contacts: { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan" },
   subcontractorsSuppliers: { title: "Subcontractors & Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo" },
   backups: { title: "Backups", subtitle: "Portal data backups", icon: "database", tone: "slate" }
@@ -6373,17 +6373,17 @@ const JGC_PAGE_BAR_PAGES = {
   "inspections.html": { title: "Inspections", subtitle: "Start an inspection or look up past ones", icon: "clipcheck", tone: "sky", hide: ["header.inspection-page-header", "main > .container > h1"] },
   "todays-inspections.html": { title: "Today's Inspections", subtitle: "Inspections dated today", icon: "clipcheck", tone: "sky", titleFrom: "main > .container > h1", subtitleFrom: "main > .container > .subtitle", hide: ["header.inspection-page-header", "main > .container > h1", "main > .container > .subtitle"] },
   "previous-inspections.html": { title: "Previous Inspections", subtitle: "Completed inspections from the last 2 months", icon: "clipcheck", tone: "sky", titleFrom: "main > .container > h1", subtitleFrom: "main > .container > .subtitle", hide: ["header.inspection-page-header", "main > .container > h1", "main > .container > .subtitle"] },
-  "certificates.html": { title: "Certificates", subtitle: "Your training certificates", icon: "award", tone: "gold", hide: ["header.certificates-page-header"] },
-  "vacation-request.html": { title: "Vacation Request", subtitle: "Submit a request for review", icon: "sun", tone: "sky", subtitleFrom: "#vacationFormSubtitle", hide: ["header.vacation-page-header"] },
-  "equipment-vehicles.html": { title: "Equipment / Vehicles", subtitle: "Vehicles, equipment and their records", icon: "truck", tone: "indigo", hide: ["header.equipment-page-header"] },
+  "certificates.html": { title: "Certificates", subtitle: "Your training certificates", icon: "award", tone: "violet", hide: ["header.certificates-page-header"] },
+  "vacation-request.html": { title: "Vacation Request", subtitle: "Submit a request for review", icon: "sun", tone: "gold", subtitleFrom: "#vacationFormSubtitle", hide: ["header.vacation-page-header"] },
+  "equipment-vehicles.html": { title: "Equipment / Vehicles", subtitle: "Vehicles, equipment and their records", icon: "truck", tone: "slate", hide: ["header.equipment-page-header"] },
   "work-orders.html": { title: "Work Orders", subtitle: "Create and track work orders", icon: "clipboard", tone: "orange", hide: ["header.work-order-page-header"] },
   "purchase-orders.html": { title: "Purchase Orders", subtitle: "Request and track purchase orders", icon: "cart", tone: "teal", hide: ["main > header.jgc-page-header"] },
   "job-lists.html": { title: "Job Notes", subtitle: "Notes and lists for each job", icon: "notes", tone: "lime", hide: ["main > header.jgc-page-header"] },
-  "permits.html": { title: "Permits", subtitle: "Start a permit or look up past ones", icon: "key", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
+  "permits.html": { title: "Permits", subtitle: "Start a permit or look up past ones", icon: "key", tone: "red", hide: ["header.permit-page-header", "main > .container > h1"] },
   "reports.html": { title: "Reports", subtitle: "Safety reports and site forms", icon: "notes", tone: "blue", hide: ["main > header.jgc-page-header", "main > .container > h1"] },
   "tasks.html": { title: "Tasks", subtitle: "Your assigned tasks", icon: "checklist", tone: "violet", hide: ["header.tasks-page-header"] },
   "schedule.html": { title: "Schedule", subtitle: "Crew schedule and upcoming events", icon: "calendar", tone: "green", hide: ["header.schedule-page-header"] },
-  "jobs.html": { title: "Job Lookup", subtitle: "Find job details and contacts", icon: "search", tone: "blue", hide: ["header.jobs-page-header"] },
+  "jobs.html": { title: "Job Lookup", subtitle: "Find job details and contacts", icon: "search", tone: "teal", hide: ["header.jobs-page-header"] },
   "contacts.html": { title: "Contacts", subtitle: "Company and crew contacts", icon: "contacts", tone: "cyan", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "subcontractors-suppliers.html": { title: "Subcontractors / Suppliers", subtitle: "Trade partners and suppliers", icon: "building", tone: "indigo", hide: ["main > .logo-wrap", "main > h1", "main > #currentUser"] },
   "policies-announcements.html": { title: "Policies & Announcements", subtitle: "Company policies and previous announcements", icon: "megaphone", tone: "rose", hide: ["main > .top-actions", "main > .hero-card"] },
@@ -6403,6 +6403,51 @@ const JGC_PAGE_BAR_PAGES = {
   "confined-space-permit.html": { title: "Confined Space Entry Permit", subtitle: "Complete before anyone enters the space", icon: "warning", tone: "gold", hide: ["header.permit-page-header", "main > .container > h1"] },
   "excavation-permit.html": { title: "Excavation Permit", subtitle: "Complete before digging starts", icon: "warning", tone: "amber", hide: ["header.permit-page-header", "main > .container > h1"] }
 };
+
+// Tile colours: [background, icon]. Neighbouring Home cards must not share a colour.
+const JGC_PAGE_TILE_TONES = {
+  green: ["#4ade80", "#052e16"],
+  amber: ["#f5a524", "#2b1a00"],
+  blue: ["#60a5fa", "#0b1f44"],
+  red: ["#f87171", "#450a0a"],
+  sky: ["#38bdf8", "#06283a"],
+  violet: ["#a78bfa", "#2e1065"],
+  orange: ["#fb923c", "#431407"],
+  teal: ["#2dd4bf", "#042f2e"],
+  slate: ["#cbd5e1", "#0f172a"],
+  cyan: ["#22d3ee", "#083344"],
+  gold: ["#facc15", "#3b2f00"],
+  rose: ["#fb7185", "#4c0519"],
+  indigo: ["#a5b4fc", "#1e1b4b"],
+  lime: ["#a3e635", "#1a2e05"]
+};
+
+// Pages with a Home tile but no page bar.
+const JGC_PAGE_TILE_ONLY = {
+  "field-calculator.html": { title: "Field Calculator", icon: "calculator", tone: "orange" }
+};
+
+// Employee Home cards and counters show the same icon tile as the page they open, taken from the
+// page-bar config, so a page looks the same everywhere. Mark an element data-jgc-page-tile="page.html".
+function activateJgcPageTiles() {
+  const hosts = document.querySelectorAll("[data-jgc-page-tile]");
+  if (!hosts.length) {
+    return;
+  }
+
+  ensureJgcPageBarStyles();
+  hosts.forEach(function(host) {
+    const page = host.getAttribute("data-jgc-page-tile");
+    const config = getJgcPageBarConfig(page) || JGC_PAGE_TILE_ONLY[page];
+    if (!config) {
+      return;
+    }
+
+    host.classList.add("jgc-page-tile");
+    host.setAttribute("data-tone", config.tone);
+    host.innerHTML = getJgcPageBarIcon(config.icon);
+  });
+}
 
 function getJgcPageBarIcon(name) {
   return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + (JGC_PAGE_BAR_ICONS[name] || JGC_PAGE_BAR_ICONS.dashboard) + "</svg>";
@@ -6461,20 +6506,32 @@ function ensureJgcPageBarStyles() {
       flex: 0 0 auto;
     }
 
-    #jgcPageBar [data-tone] { --jgc-tile-bg: #4ade80; --jgc-tile-ink: #052e16; }
-    #jgcPageBar [data-tone="amber"] { --jgc-tile-bg: #f5a524; --jgc-tile-ink: #2b1a00; }
-    #jgcPageBar [data-tone="blue"] { --jgc-tile-bg: #60a5fa; --jgc-tile-ink: #0b1f44; }
-    #jgcPageBar [data-tone="red"] { --jgc-tile-bg: #f87171; --jgc-tile-ink: #450a0a; }
-    #jgcPageBar [data-tone="sky"] { --jgc-tile-bg: #38bdf8; --jgc-tile-ink: #06283a; }
-    #jgcPageBar [data-tone="violet"] { --jgc-tile-bg: #a78bfa; --jgc-tile-ink: #2e1065; }
-    #jgcPageBar [data-tone="orange"] { --jgc-tile-bg: #fb923c; --jgc-tile-ink: #431407; }
-    #jgcPageBar [data-tone="teal"] { --jgc-tile-bg: #2dd4bf; --jgc-tile-ink: #042f2e; }
-    #jgcPageBar [data-tone="slate"] { --jgc-tile-bg: #cbd5e1; --jgc-tile-ink: #0f172a; }
-    #jgcPageBar [data-tone="cyan"] { --jgc-tile-bg: #22d3ee; --jgc-tile-ink: #083344; }
-    #jgcPageBar [data-tone="gold"] { --jgc-tile-bg: #facc15; --jgc-tile-ink: #3b2f00; }
-    #jgcPageBar [data-tone="rose"] { --jgc-tile-bg: #fb7185; --jgc-tile-ink: #4c0519; }
-    #jgcPageBar [data-tone="indigo"] { --jgc-tile-bg: #a5b4fc; --jgc-tile-ink: #1e1b4b; }
-    #jgcPageBar [data-tone="lime"] { --jgc-tile-bg: #a3e635; --jgc-tile-ink: #1a2e05; }
+${Object.keys(JGC_PAGE_TILE_TONES).map(function(tone) {
+    return `    #jgcPageBar [data-tone="${tone}"], .jgc-page-tile[data-tone="${tone}"] { --jgc-tile-bg: ${JGC_PAGE_TILE_TONES[tone][0]}; --jgc-tile-ink: ${JGC_PAGE_TILE_TONES[tone][1]}; }`;
+  }).join("\n")}
+
+    /* Page tiles outside the bar (employee Home cards and counters): same colours, rounded square. */
+    .jgc-page-tile[data-tone] {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: var(--jgc-tile-ink) !important;
+      background: var(--jgc-tile-bg) !important;
+      border: 0 !important;
+      border-radius: 28% !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28), 0 4px 10px rgba(0, 0, 0, 0.16) !important;
+    }
+
+    .jgc-page-tile[data-tone] svg {
+      width: 54% !important;
+      height: 54% !important;
+      color: inherit !important;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
 
     #jgcPageBar .jgc-page-bar__tile {
       display: grid !important;
@@ -7028,6 +7085,7 @@ function activateJgcEnhancements() {
   activateJgcDesignSystemHooks();
   activateGlobalTopNavigation();
   activateJgcPageBar();
+  activateJgcPageTiles();
   activateMobileBottomNavigation();
   activateJgcPwaRefresh();
   activateJgcAppearanceSettings();
