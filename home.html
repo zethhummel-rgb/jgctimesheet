@@ -6,7 +6,7 @@
   <title>JGC Portal - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="stylesheet" href="jgc-design-system.css?v=9" />
-  <link rel="stylesheet" href="home-design-system.css?v=6" />
+  <link rel="stylesheet" href="home-design-system.css?v=7" />
 </head>
 
 <body class="home-dashboard-page jgc-page jgc-system-page">
@@ -49,7 +49,7 @@
   <section class="quick-info" aria-label="Quick information">
     <div class="section-title">Quick Info</div>
     <div class="info-item">
-      <span class="info-icon"><i data-lucide="clock-3"></i></span>
+      <span class="info-icon" data-jgc-page-tile="timesheet.html"><i data-lucide="clock-3"></i></span>
       <div>
         <div class="muted">Hours This Week</div>
         <div id="weekHoursSide" class="info-value">0.00</div>
@@ -57,7 +57,7 @@
       </div>
     </div>
     <div class="info-item">
-      <span class="info-icon"><i data-lucide="shield-check"></i></span>
+      <span class="info-icon" data-jgc-page-tile="inspections.html"><i data-lucide="shield-check"></i></span>
       <div>
         <div class="muted">Inspections Today</div>
         <div id="inspectionsSide" class="info-value">0</div>
@@ -65,7 +65,7 @@
       </div>
     </div>
     <div class="info-item">
-      <span class="info-icon"><i data-lucide="badge-alert"></i></span>
+      <span class="info-icon" data-jgc-page-tile="certificates.html"><i data-lucide="badge-alert"></i></span>
       <div>
         <div class="muted">Certificates Expiring</div>
         <div id="certificatesSide" class="info-value">0</div>
@@ -73,7 +73,7 @@
       </div>
     </div>
     <div class="info-item">
-      <span class="info-icon"><i data-lucide="users-round"></i></span>
+      <span class="info-icon" data-jgc-page-tile="vacation-request.html"><i data-lucide="users-round"></i></span>
       <div>
         <div class="muted">Vacation Requests</div>
         <div id="vacationSide" class="info-value">0</div>
@@ -137,22 +137,22 @@
       <section class="overview jgc-panel">
         <div class="overview-grid">
           <div class="stat jgc-card">
-            <span class="stat-icon"><i data-lucide="clock-3"></i></span>
+            <span class="stat-icon" data-jgc-page-tile="timesheet.html"><i data-lucide="clock-3"></i></span>
             <div id="todayHours" class="stat-value">0.00</div>
             <div class="stat-label">Hours This Week</div>
           </div>
           <div class="stat jgc-card">
-            <span class="stat-icon"><i data-lucide="shield-check"></i></span>
+            <span class="stat-icon" data-jgc-page-tile="inspections.html"><i data-lucide="shield-check"></i></span>
             <div id="todayInspections" class="stat-value">0</div>
             <div class="stat-label">Inspections Today</div>
           </div>
           <div class="stat jgc-card">
-            <span class="stat-icon"><i data-lucide="badge-alert"></i></span>
+            <span class="stat-icon" data-jgc-page-tile="certificates.html"><i data-lucide="badge-alert"></i></span>
             <div id="expiringCertificates" class="stat-value">0</div>
             <div class="stat-label">Certificates Expiring</div>
           </div>
           <div class="stat jgc-card">
-            <span class="stat-icon"><i data-lucide="calendar-days"></i></span>
+            <span class="stat-icon" data-jgc-page-tile="vacation-request.html"><i data-lucide="calendar-days"></i></span>
             <div id="pendingVacations" class="stat-value">0</div>
             <div class="stat-label">Vacation Request Pending</div>
           </div>
@@ -166,7 +166,7 @@
 
       <details id="homeSchedulePanel" class="home-schedule-panel jgc-panel">
         <summary>
-          <span class="home-schedule-heading"><i data-lucide="calendar-check"></i><span>Schedule / Agenda</span></span>
+          <span class="home-schedule-heading"><span class="home-schedule-icon" data-jgc-page-tile="schedule.html"><i data-lucide="calendar-check"></i></span><span>Schedule / Agenda</span></span>
           <span id="homeScheduleCount" class="home-schedule-count">Loading schedule...</span>
         </summary>
         <div class="home-schedule-body">
@@ -181,97 +181,97 @@
       <div class="section-title jgc-section-title">Quick Access</div>
       <section class="cards-grid jgc-card-grid">
         <button type="button" class="feature-card jgc-card" onclick="goTo('schedule.html')">
-          <span class="card-icon"><i data-lucide="calendar-check"></i></span>
+          <span class="card-icon" data-jgc-page-tile="schedule.html"><i data-lucide="calendar-check"></i></span>
           <h2>Schedule</h2>
           <p>View scheduled work, job assignments, training, and appointments</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('timesheet.html')">
-          <span class="card-icon"><i data-lucide="clock-3"></i></span>
+          <span class="card-icon" data-jgc-page-tile="timesheet.html"><i data-lucide="clock-3"></i></span>
           <h2>Timesheets</h2>
           <p>Record and manage your work hours</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('tasks.html')">
-          <span class="card-icon"><i data-lucide="list-checks"></i></span>
+          <span class="card-icon" data-jgc-page-tile="tasks.html"><i data-lucide="list-checks"></i></span>
           <h2>Tasks</h2>
           <p>Track small fixes, reminders, follow-ups, and action items</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('job-lists.html')">
-          <span class="card-icon"><i data-lucide="notebook-tabs"></i></span>
+          <span class="card-icon" data-jgc-page-tile="job-lists.html"><i data-lucide="notebook-tabs"></i></span>
           <h2>Job Notes</h2>
           <p>Build shared material and job lists with reminders for the crew</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('field-calculator.html')">
-          <span class="card-icon"><i data-lucide="calculator"></i></span>
+          <span class="card-icon" data-jgc-page-tile="field-calculator.html"><i data-lucide="calculator"></i></span>
           <h2>Field Calculator</h2>
           <p>Feet, inches, metric conversions, stairs, areas, and volumes</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('inspections.html')">
-          <span class="card-icon"><i data-lucide="shield-check"></i></span>
+          <span class="card-icon" data-jgc-page-tile="inspections.html"><i data-lucide="shield-check"></i></span>
           <h2>Inspections</h2>
           <p>View and complete site inspections</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('reports.html')">
-          <span class="card-icon"><i data-lucide="files"></i></span>
+          <span class="card-icon" data-jgc-page-tile="reports.html"><i data-lucide="files"></i></span>
           <h2>Reports</h2>
           <p>Daily site reports, toolbox talks, and near miss reporting</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('permits.html')">
-          <span class="card-icon"><i data-lucide="file-check"></i></span>
+          <span class="card-icon" data-jgc-page-tile="permits.html"><i data-lucide="file-check"></i></span>
           <h2>Permits</h2>
           <p>Hot work, confined space, and excavation permits</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('certificates.html')">
-          <span class="card-icon"><i data-lucide="badge-check"></i></span>
+          <span class="card-icon" data-jgc-page-tile="certificates.html"><i data-lucide="badge-check"></i></span>
           <h2>Certificates</h2>
           <p>Manage and track your certifications</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('vacation-request.html')">
-          <span class="card-icon"><i data-lucide="calendar-days"></i></span>
+          <span class="card-icon" data-jgc-page-tile="vacation-request.html"><i data-lucide="calendar-days"></i></span>
           <h2>Vacation Requests</h2>
           <p>Request time off and view approvals</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('contacts.html')">
-          <span class="card-icon"><i data-lucide="phone"></i></span>
+          <span class="card-icon" data-jgc-page-tile="contacts.html"><i data-lucide="phone"></i></span>
           <h2>Contacts</h2>
           <p>Company and emergency contacts</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('subcontractors-suppliers.html')">
-          <span class="card-icon"><i data-lucide="users-round"></i></span>
+          <span class="card-icon" data-jgc-page-tile="subcontractors-suppliers.html"><i data-lucide="users-round"></i></span>
           <h2>Subs / Suppliers</h2>
           <p>Look up subcontractors, suppliers, rentals, and service contacts</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('equipment-vehicles.html')">
-          <span class="card-icon"><i data-lucide="truck"></i></span>
+          <span class="card-icon" data-jgc-page-tile="equipment-vehicles.html"><i data-lucide="truck"></i></span>
           <h2>Equipment / Vehicles</h2>
           <p>View equipment, operators, and inspection expiry dates</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('jobs.html')">
-          <span class="card-icon"><i data-lucide="briefcase"></i></span>
+          <span class="card-icon" data-jgc-page-tile="jobs.html"><i data-lucide="briefcase"></i></span>
           <h2>Jobs</h2>
           <p>Look up job names, numbers, and Contract / T&M status</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button type="button" class="feature-card jgc-card" onclick="goTo('work-orders.html')">
-          <span class="card-icon"><i data-lucide="clipboard-check"></i></span>
+          <span class="card-icon" data-jgc-page-tile="work-orders.html"><i data-lucide="clipboard-check"></i></span>
           <h2>Work Orders</h2>
           <p>T&M backup documentation and PO tracking</p>
           <i class="arrow" data-lucide="arrow-right"></i>
         </button>
         <button id="policiesAnnouncementsCard" type="button" class="feature-card jgc-card" onclick="goTo('policies-announcements.html')">
-          <span class="card-icon"><i data-lucide="file-text"></i></span>
+          <span class="card-icon" data-jgc-page-tile="policies-announcements.html"><i data-lucide="file-text"></i></span>
           <h2>Policies</h2>
           <p>Review JGC policies and previous announcements</p>
           <i class="arrow" data-lucide="arrow-right"></i>
@@ -397,7 +397,7 @@
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="vendor/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest';"></script>
-<script src="common.js?v=59"></script>
+<script src="common.js?v=60"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
 <script>

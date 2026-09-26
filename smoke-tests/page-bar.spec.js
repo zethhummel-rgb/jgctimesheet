@@ -345,3 +345,60 @@ for (const [who, person, urls] of [["Admin", ADMIN, ["/admin.html?tab=summary", 
     });
   }
 }
+
+// Employee Home: Quick Access cards, counters, Quick Info and Schedule use the same tiles as the pages.
+for (const viewport of [PHONE, DESKTOP]) {
+  test(`employee Home icons are the page tiles, with no two neighbouring cards the same colour at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await signIn(page, "dark", EMPLOYEE);
+    await page.goto("/home.html", { waitUntil: "load" });
+    const hosts = page.locator("[data-jgc-page-tile]");
+    expect(await hosts.count()).toBeGreaterThanOrEqual(25);
+    const tiles = await hosts.evaluateAll(elements => elements.map(el => {
+      const box = el.getBoundingClientRect();
+      const svg = el.querySelector("svg");
+      return {
+        page: el.getAttribute("data-jgc-page-tile"),
+        tone: el.getAttribute("data-tone"),
+        tile: el.classList.contains("jgc-page-tile"),
+        lucideLeft: Boolean(el.querySelector("[data-lucide], .lucide")),
+        iconShare: svg && box.width ? svg.getBoundingClientRect().width / box.width : 0,
+        filled: getComputedStyle(el).backgroundColor !== "rgba(0, 0, 0, 0)"
+      };
+    }));
+    for (const tile of tiles) {
+      expect(tile, tile.page).toMatchObject({ tile: true, lucideLeft: false, filled: true });
+      expect(tile.tone, tile.page).toBeTruthy();
+      if (tile.iconShare) expect(tile.iconShare, tile.page + " icon fills the tile").toBeGreaterThan(0.45);
+    }
+
+    const cards = await page.locator(".cards-grid > .feature-card:visible").evaluateAll(elements => elements.map(el => {
+      const r = el.getBoundingClientRect();
+      return { name: el.querySelector("h2").textContent.trim(), tone: el.querySelector("[data-tone]").getAttribute("data-tone"), x: Math.round(r.left), y: Math.round(r.top + window.scrollY), w: r.width, h: r.height };
+    }));
+    expect(cards.length).toBeGreaterThanOrEqual(15);
+    for (const a of cards) {
+      for (const b of cards) {
+        const sideBySide = a.y === b.y && Math.abs(b.x - (a.x + a.w)) < 40;
+        const stacked = a.x === b.x && Math.abs(b.y - (a.y + a.h)) < 40;
+        if (sideBySide || stacked) expect(a.tone, `${a.name} next to ${b.name}`).not.toBe(b.tone);
+      }
+    }
+  });
+}
+
+test("a Home tile looks the same as the bar on the page it opens", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await signIn(page, "light", EMPLOYEE);
+  await page.goto("/home.html", { waitUntil: "load" });
+  const home = {};
+  for (const target of ["timesheet.html", "certificates.html", "vacation-request.html", "permits.html"]) {
+    const tile = page.locator(`.cards-grid [data-jgc-page-tile="${target}"]`);
+    home[target] = { tone: await tile.getAttribute("data-tone"), icon: await tile.innerHTML() };
+  }
+  for (const [target, tile] of Object.entries(home)) {
+    await page.goto("/" + target, { waitUntil: "load" });
+    await expect(bar(page).locator(".jgc-page-bar__tile"), target).toHaveAttribute("data-tone", tile.tone);
+    expect(await bar(page).locator(".jgc-page-bar__tile").innerHTML(), target).toBe(tile.icon);
+  }
+});

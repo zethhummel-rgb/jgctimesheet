@@ -655,6 +655,16 @@
       flex: 0 0 auto;
     }
 
+    /* Holds the Schedule page tile (common.js fills it in). */
+    .home-schedule-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+    }
+
     .home-schedule-count {
       color: var(--muted);
       font-size: 13px;
