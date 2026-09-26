@@ -2444,6 +2444,14 @@ function activateMobileBottomNavigation() {
         flex: 0 0 auto;
       }
 
+      /* Page button styles (Timesheet's green hover) must not repaint the tab bar. Phones keep a tapped
+         item in hover, which left More's faint label on green. */
+      .jgc-mobile-bottom-nav a:hover,
+      .jgc-mobile-bottom-nav button:hover {
+        background: transparent;
+        color: #ffffff;
+      }
+
       .jgc-mobile-more-grid .jgc-page-tile {
         width: 30px;
         height: 30px;
@@ -5473,8 +5481,9 @@ function injectJgcNotificationBellStyles() {
       cursor: pointer;
     }
 
+    /* The Portal's primary button green: white text reads at 4.5:1 on it (#159447 was 3.9:1). */
     .jgc-notification-panel-footer button {
-      background: #159447;
+      background: #13843f;
       color: var(--jgc-color-on-brand);
     }
 
@@ -5513,12 +5522,13 @@ function injectJgcNotificationBellStyles() {
       padding-top: 2px;
     }
 
+    /* "Disable Push" stays small and quiet, in muted text (white on the light surface was invisible). */
     #jgcPushToggleButton[data-push-enabled="true"] {
       padding: 4px 7px !important;
       background: var(--jgc-color-surface-raised);
+      color: var(--jgc-color-text-muted);
       font-size: 10px;
       line-height: 1.1;
-      opacity: 0.78;
     }
 
     .jgc-notification-panel-footer button:disabled {

@@ -494,8 +494,10 @@
   border-color: var(--jgc-color-brand-400);
 }
 
+/* Pale mint: the chips sit on the profile header's green glow, where the plain brand green was too faint.
+   Light mode keeps the deep green (below). */
 .jgc-admin-shell-page :where(.profile-fact-icon, .profile-tile-icon) {
-  color: var(--jgc-color-brand-400);
+  color: color-mix(in srgb, var(--jgc-color-brand-400) 45%, var(--jgc-color-on-brand));
   background: color-mix(in srgb, var(--jgc-color-brand-400) 14%, transparent);
 }
 

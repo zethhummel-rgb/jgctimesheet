@@ -249,6 +249,75 @@ test("the sign-in page label follows the headline colour in light mode", async (
   expect(colours.label).toBe(colours.headline);
 });
 
+// Shared chrome in both themes: the notification panel's buttons (and "Disable Push" once push is on),
+// the phone tab bar right after a tap (phones keep the tapped item in hover, and Timesheet's green button
+// hover must not reach the bar), and the Employee Profile contact chips on the profile header's green glow.
+async function signInForContrast(page, theme) {
+  const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const user = { id: USER_ID, aud: "authenticated", role: "authenticated", email: "zeth@johngordonconstruction.com", user_metadata: { display_name: "Zeth Hummel" } };
+  const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: USER_ID, exp: now + 3600, role: "authenticated" }), "chrome"].join("."), refresh_token: "chrome", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
+  await page.addInitScript(({ auth, theme, id }) => {
+    localStorage.setItem("jgcPortalTheme", theme);
+    localStorage.setItem("jgcPortalTheme:" + id, theme);
+    localStorage.setItem("sb-xnrljkkszoimegfivlya-auth-token", JSON.stringify(auth));
+    localStorage.setItem("currentWorker", "zeth hummel");
+    localStorage.setItem("currentWorkerDisplay", "Zeth Hummel");
+    localStorage.setItem("currentUserEmail", auth.user.email);
+    localStorage.setItem("currentUserRole", "admin");
+    localStorage.setItem("currentAccountStatus", "approved");
+    localStorage.setItem("jgcStayLoggedIn", "true");
+    localStorage.setItem("jgcPushOnboarding:v1:zeth hummel", "dismissed");
+    sessionStorage.setItem("jgcActiveSession", "true");
+  }, { auth, theme, id: USER_ID });
+  await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => {
+    const p = new URL(route.request().url()).pathname;
+    if (p.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
+    if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: "true" });
+    if (p.endsWith("/profiles")) {
+      const profile = { id: USER_ID, email: user.email, display_name: "Zeth Hummel", worker_key: "zeth hummel", role: "admin", account_status: "approved" };
+      const single = String(route.request().headers().accept || "").includes("vnd.pgrst.object");
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(single ? profile : [profile]) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+}
+
+for (const theme of ["light", "dark"]) {
+  test(`notification buttons, a tapped tab bar and profile chips are readable in ${theme} mode`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInForContrast(page, theme);
+    const failures = [];
+    const check = async (label, selector) => {
+      const samples = await page.evaluate(measure, selector);
+      expect(samples.length, label).toBeGreaterThan(0);
+      for (const sample of samples) if (sample.ratio < 4.5) failures.push(`${label} "${sample.text}" ${sample.ratio.toFixed(2)}`);
+    };
+
+    await page.goto("/timesheet.html", { waitUntil: "load" });
+    await page.locator(".jgc-notification-button").click();
+    await expect(page.locator("#jgcNotificationPanel")).toBeVisible();
+    await check("notification footer", "#jgcNotificationPanel .jgc-notification-footer-actions button");
+    await page.evaluate(() => {
+      const button = document.getElementById("jgcPushToggleButton");
+      button.dataset.pushEnabled = "true";
+      button.textContent = "Disable Push";
+    });
+    await check("push on", "#jgcPushToggleButton");
+
+    await page.goto("/timesheet.html", { waitUntil: "load" });
+    await page.locator("#jgcMobileMoreButton").click();
+    await expect(page.locator("#jgcMobileMoreButton")).toHaveAttribute("aria-expanded", "true");
+    await page.locator("#jgcMobileMoreButton").hover();
+    await check("tab bar after a tap", "#jgcMobileBottomNav > a, #jgcMobileBottomNav > button");
+
+    await page.goto("/admin.html?tab=employeeProfile", { waitUntil: "load" });
+    await expect(page.locator(".profile-fact-icon").first()).toBeVisible();
+    await check("profile chips", ".profile-fact-icon");
+    expect(failures).toEqual([]);
+  });
+}
+
 // The shared Portal search panel (the magnifying-glass button), with results, for an employee and an
 // admin, in both themes: header buttons, title, status, result groups and result rows.
 const SEARCH_PANEL_TEXT = [
