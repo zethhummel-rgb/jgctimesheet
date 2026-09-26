@@ -1946,8 +1946,10 @@ function activateGlobalTopNavigation() {
       display: flex;
       align-items: center;
       justify-content: center;
+      /* Top to bottom, starting on the colour of .jgc-safe-area-top: iOS paints the clock area above the
+         bar in that colour, so the two join without a seam. (A left-to-right gradient left one.) */
       background-color: #07371c;
-      background-image: linear-gradient(90deg, #07371c 0%, #0b5e3b 100%);
+      background-image: linear-gradient(180deg, #07371c 0%, #0b5e3b 100%);
       border-bottom: 1px solid var(--jgc-nav-border, rgba(255, 255, 255, 0.16));
       box-shadow: var(--jgc-nav-shadow, 0 10px 26px rgba(0, 0, 0, 0.26));
       font-family: var(--jgc-font-family, Arial, sans-serif);
@@ -6636,13 +6638,15 @@ function ensureJgcPageBarStyles() {
         display: none !important;
       }
 
+      /* Pages start 58px below the phone top bar, which is 50px tall: pull the bar up by the
+         difference so it sits flush under the top bar with no page colour showing between. */
       #jgcPageBar,
       #jgcPageBar.jgc-page-bar--phone-only {
         display: flex !important;
         gap: 12px !important;
         width: 100vw !important;
         max-width: none !important;
-        margin: 0 calc(50% - 50vw) 12px !important;
+        margin: -8px calc(50% - 50vw) 12px !important;
         padding: 10px 14px !important;
         border-width: 0 0 1px !important;
         border-radius: 0 !important;
@@ -6655,7 +6659,7 @@ function ensureJgcPageBarStyles() {
       #jgcPageBar.jgc-page-bar--page {
         width: 100vw !important;
         max-width: none !important;
-        margin: 0 calc(50% - 50vw) var(--jgc-page-bar-gap, 0px) !important;
+        margin: -8px calc(50% - 50vw) var(--jgc-page-bar-gap, 0px) !important;
       }
 
       #jgcPageBar .jgc-page-bar__tile {

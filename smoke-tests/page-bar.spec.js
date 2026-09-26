@@ -324,3 +324,24 @@ test("employee pages opened without signing in do not get a bar", async ({ page 
   await expect(page.locator("#jgcGlobalTopNav")).toHaveCount(0);
   await expect(page.locator("#jgcPageBar")).toHaveCount(0);
 });
+
+// No strip of page colour between the phone top bar and the page bar, in a browser and in the
+// iPhone Home Screen app (which adds a 12px band above the top bar).
+for (const [who, person, urls] of [["Admin", ADMIN, ["/admin.html?tab=summary", "/accounts.html"]], ["employee", EMPLOYEE, ["/timesheet.html", "/forklift.html"]]]) {
+  for (const homeScreenApp of [false, true]) {
+    test(`${who} page bar sits flush under the phone top bar${homeScreenApp ? " in the Home Screen app" : ""}`, async ({ page }) => {
+      await page.setViewportSize(PHONE);
+      if (homeScreenApp) await page.addInitScript(() => Object.defineProperty(navigator, "standalone", { get: () => true }));
+      await signIn(page, "light", person);
+      for (const url of urls) {
+        await page.goto(url, { waitUntil: "load" });
+        await expect(bar(page), url).toBeVisible();
+        const edges = await page.evaluate(() => ({
+          navBottom: document.getElementById("jgcGlobalTopNav").getBoundingClientRect().bottom,
+          barTop: document.getElementById("jgcPageBar").getBoundingClientRect().top
+        }));
+        expect(Math.abs(edges.barTop - edges.navBottom), url).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+}
