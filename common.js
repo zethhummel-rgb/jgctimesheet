@@ -6258,6 +6258,13 @@ function activateJgcSafeArea() {
       border-color: var(--jgc-color-border) !important;
     }
 
+    /* Without the green top bar the round controls belong to the page's own header (Home), so they
+       scroll away with it instead of floating over the content. Same spot at the top of the page;
+       their panels still open pinned to the screen. Field Calculator never scrolls and keeps them pinned. */
+    html body:not(.jgc-has-global-nav):not(.field-calculator-page) > :is(.jgc-appearance-settings, .jgc-notification-bell, .jgc-admin-global-search) {
+      position: absolute !important;
+    }
+
     @media (max-width: 780px) {
       html body.jgc-has-global-nav {
         padding-top: calc(58px + var(--jgc-top-inset)) !important;

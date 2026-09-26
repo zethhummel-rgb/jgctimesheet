@@ -402,3 +402,45 @@ test("a Home tile looks the same as the bar on the page it opens", async ({ page
     expect(await bar(page).locator(".jgc-page-bar__tile").innerHTML(), target).toBe(tile.icon);
   }
 });
+
+// Home has no green top bar: its gear/search/bell belong to the header card and scroll away with it
+// instead of floating over the content. Pages with the top bar keep them pinned inside it.
+const CONTROLS = ["#jgcAppearanceSettingsButton", ".jgc-notification-button", ".jgc-admin-search-button"];
+const controlBoxes = page => page.evaluate(selectors => selectors.map(selector => {
+  const box = document.querySelector(selector).getBoundingClientRect();
+  return { selector, top: box.top, bottom: box.bottom };
+}), CONTROLS);
+
+for (const viewport of [PHONE, DESKTOP]) {
+  test(`Home gear, search and bell scroll away with the header at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await signIn(page, "dark", EMPLOYEE);
+    await page.goto("/home.html", { waitUntil: "load" });
+    for (const control of CONTROLS) await expect(page.locator(control), control).toBeVisible();
+    const header = await page.locator(".home-dashboard-page header").first().boundingBox();
+    for (const box of await controlBoxes(page)) {
+      expect(box.top, box.selector + " at the top of the page").toBeGreaterThanOrEqual(0);
+      expect(box.bottom, box.selector + " within the header").toBeLessThanOrEqual(header.y + header.height + 1);
+    }
+
+    await page.evaluate(() => window.scrollTo(0, 600));
+    for (const box of await controlBoxes(page)) expect(box.bottom, box.selector + " scrolled away").toBeLessThanOrEqual(0);
+
+    // Back at the top the gear still opens its panel.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator("#jgcAppearanceSettingsButton").click();
+    await expect(page.locator("#jgcAppearanceSettingsPanel")).toBeVisible();
+  });
+}
+
+test("pages with the green top bar keep the gear, search and bell pinned in it", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page, "dark", EMPLOYEE);
+  await page.goto("/timesheet.html", { waitUntil: "load" });
+  await page.evaluate(() => window.scrollTo(0, 600));
+  const nav = await page.locator("#jgcGlobalTopNav").boundingBox();
+  for (const box of await controlBoxes(page)) {
+    expect(box.top, box.selector).toBeGreaterThanOrEqual(nav.y);
+    expect(box.bottom, box.selector).toBeLessThanOrEqual(nav.y + nav.height + 1);
+  }
+});
