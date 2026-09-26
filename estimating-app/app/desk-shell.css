@@ -1,0 +1,280 @@
+/* Estimate Desk shell: the Portal's coloured page tiles, the single header row, the Overview numbers strip
+   and the phone tab bar. The Estimate Desk keeps its own look; the tiles are what it shares with the Portal. */
+
+/* Tile colours: [background, icon], the same pairs as common.js JGC_PAGE_TILE_TONES. */
+.desk-tile[data-tone="green"] { --desk-tile-bg: #4ade80; --desk-tile-ink: #052e16; }
+.desk-tile[data-tone="blue"] { --desk-tile-bg: #60a5fa; --desk-tile-ink: #0b1f44; }
+.desk-tile[data-tone="teal"] { --desk-tile-bg: #2dd4bf; --desk-tile-ink: #042f2e; }
+.desk-tile[data-tone="violet"] { --desk-tile-bg: #a78bfa; --desk-tile-ink: #2e1065; }
+.desk-tile[data-tone="gold"] { --desk-tile-bg: #facc15; --desk-tile-ink: #3b2f00; }
+.desk-tile[data-tone="indigo"] { --desk-tile-bg: #a5b4fc; --desk-tile-ink: #1e1b4b; }
+.desk-tile[data-tone="slate"] { --desk-tile-bg: #cbd5e1; --desk-tile-ink: #0f172a; }
+
+.desk-tile {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28%;
+  background: var(--desk-tile-bg);
+  color: var(--desk-tile-ink);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28), 0 3px 8px rgba(0, 0, 0, .14);
+}
+
+.desk-tile svg {
+  width: 58%;
+  height: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sidebar: the way back to the Portal sits under the logo. */
+.sidebar-portal-link {
+  margin: 12px 12px 0;
+  min-height: 38px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 8px;
+  color: #a7ecca;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: .15s ease;
+}
+
+.sidebar-portal-link:hover,
+.sidebar-portal-link:focus-visible {
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+  outline: none;
+}
+
+/* Header row: section tile, then the page title and description (or the open quote or job). */
+.topbar-title {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-tile {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.topbar-title-text {
+  min-width: 0;
+}
+
+.topbar-title-text h1,
+.topbar-title-text strong {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  color: var(--navy-950);
+  font-size: 19px;
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-title-text span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--slate-600);
+  font-size: 12.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-actions {
+  flex: 0 0 auto;
+}
+
+/* The page title moved to the header row; what is left of a page heading is its own actions. */
+.page-heading {
+  justify-content: flex-end;
+}
+
+/* Overview numbers: each opens the matching list. */
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-stat {
+  position: relative;
+  min-width: 0;
+  padding: 14px 16px 14px 19px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--slate-200);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  color: var(--navy-950);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.overview-stat::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--overview-stat-accent);
+}
+
+.overview-stat.drafts { --overview-stat-accent: #2672b8; }
+.overview-stat.awaiting { --overview-stat-accent: var(--amber-500); }
+.overview-stat.won { --overview-stat-accent: var(--green-600); }
+.overview-stat.active { --overview-stat-accent: #0f9f8f; }
+
+.overview-stat:hover,
+.overview-stat:focus-visible {
+  border-color: var(--green-600);
+  box-shadow: var(--jgc-estimator-focus-ring);
+  outline: none;
+}
+
+.overview-stat-label {
+  color: var(--slate-600);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.overview-stat strong {
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+}
+
+.overview-stat small {
+  overflow: hidden;
+  color: var(--slate-600);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Phone tab bar: shown on phones only. */
+.desk-tabbar {
+  display: none;
+}
+
+@media screen and (max-width: 760px) {
+  .topbar-tile {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .topbar-title {
+    gap: 10px;
+  }
+
+  .topbar-title-text h1,
+  .topbar-title-text strong {
+    font-size: 17px;
+  }
+
+  .topbar-title-text span {
+    font-size: 12px;
+  }
+
+  /* Second header row: save status and New quote (plus Refresh jobs on the Jobs list). */
+  .topbar-actions {
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
+  }
+
+  .topbar-actions.jobs-directory-topbar {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1fr);
+  }
+
+  .overview-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .overview-stat {
+    padding: 11px 12px 11px 15px;
+  }
+
+  .overview-stat strong {
+    font-size: 23px;
+  }
+
+  .overview-stat small {
+    white-space: normal;
+  }
+
+  .desk-tabbar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 28;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    background: #07291f;
+    border-top: 1px solid rgba(255, 255, 255, .1);
+    box-shadow: 0 -8px 24px rgba(6, 23, 39, .16);
+  }
+
+  .desk-tabbar a {
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 9px;
+    color: #c9dbe7;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .desk-tabbar a.active {
+    background: rgba(31, 151, 105, .28);
+    color: #fff;
+  }
+
+  .desk-tabbar .desk-tile {
+    width: 26px;
+    height: 26px;
+  }
+
+  .page-canvas {
+    padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+}
+
+@media print {
+  .desk-tabbar {
+    display: none !important;
+  }
+}

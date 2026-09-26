@@ -60,9 +60,9 @@ for (const viewport of [
       const primaryButton = document.querySelector(".button.primary");
       const panel = document.querySelector(".panel");
       const sidebar = document.querySelector(".sidebar");
-      const welcomeHeading = document.querySelector(".welcome-panel h1");
-      const welcomeCopy = document.querySelector(".welcome-panel p");
-      const welcomeEyebrow = document.querySelector(".welcome-panel .eyebrow.inverse");
+      const headerTitle = document.querySelector(".topbar-title h1");
+      const statLabel = document.querySelector(".overview-stat-label");
+      const statNumber = document.querySelector(".overview-stat strong");
       return {
         brand: rootStyle.getPropertyValue("--green-600").trim(),
         page: rootStyle.getPropertyValue("--jgc-estimator-page").trim(),
@@ -72,9 +72,9 @@ for (const viewport of [
         primaryBackground: primaryButton ? getComputedStyle(primaryButton).backgroundColor : "",
         panelBackground: panel ? getComputedStyle(panel).backgroundColor : "",
         sidebarBackground: sidebar ? getComputedStyle(sidebar).backgroundImage : "",
-        welcomeHeadingColor: welcomeHeading ? getComputedStyle(welcomeHeading).color : "",
-        welcomeCopyColor: welcomeCopy ? getComputedStyle(welcomeCopy).color : "",
-        welcomeEyebrowColor: welcomeEyebrow ? getComputedStyle(welcomeEyebrow).color : "",
+        headerTitleColor: headerTitle ? getComputedStyle(headerTitle).color : "",
+        statLabelColor: statLabel ? getComputedStyle(statLabel).color : "",
+        statNumberColor: statNumber ? getComputedStyle(statNumber).color : "",
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         stylesheets: Array.from(document.styleSheets).map((sheet) => sheet.href || "")
       };
@@ -88,31 +88,31 @@ for (const viewport of [
     expect(themeState.primaryBackground).toBe("rgb(19, 132, 63)");
     expect(themeState.panelBackground).toBe("rgb(255, 255, 255)");
     expect(themeState.sidebarBackground).toContain("linear-gradient");
-    expect(themeState.welcomeHeadingColor).toBe("rgb(255, 255, 255)");
-    expect(themeState.welcomeCopyColor).toBe("rgb(230, 243, 237)");
-    expect(themeState.welcomeEyebrowColor).toBe("rgb(185, 243, 215)");
+    expect(themeState.headerTitleColor).toBe("rgb(8, 43, 34)");
+    expect(themeState.statLabelColor).toBe("rgb(95, 113, 131)");
+    expect(themeState.statNumberColor).toBe("rgb(8, 43, 34)");
     expect(themeState.overflow).toBeLessThanOrEqual(1);
     expect(themeState.stylesheets.some((href) => /\/estimating\/assets\/index-[^/]+\.css/.test(href))).toBe(true);
     await expect(page.locator('link[data-jgc-design-system="8"][data-jgc-estimator-theme="1"]')).toHaveCount(1);
     const badThemeRequest = await page.evaluate(() => performance.getEntriesByType("resource").some((entry) => entry.name.includes("/estimating/jgc-design-system.css")));
     expect(badThemeRequest).toBe(false);
 
-    const lightWelcomeState = await page.evaluate(() => {
+    // The Portal's light theme must not wash out the header row or the Overview numbers (white surfaces).
+    const lightState = await page.evaluate(() => {
       document.documentElement.setAttribute("data-jgc-theme", "light");
-      const welcomeHeading = document.querySelector(".welcome-panel h1");
-      const welcomeCopy = document.querySelector(".welcome-panel p");
-      const welcomeEyebrow = document.querySelector(".welcome-panel .eyebrow.inverse");
+      const luminance = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number).map((c) => c / 255).map((c) => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+      const onWhite = (selector) => { const l = luminance(getComputedStyle(document.querySelector(selector)).color); return 1.05 / (l + .05); };
       return {
         selectedTheme: document.documentElement.getAttribute("data-jgc-theme"),
-        heading: welcomeHeading ? getComputedStyle(welcomeHeading).color : "",
-        copy: welcomeCopy ? getComputedStyle(welcomeCopy).color : "",
-        eyebrow: welcomeEyebrow ? getComputedStyle(welcomeEyebrow).color : ""
+        heading: onWhite(".topbar-title h1"),
+        subtitle: onWhite(".topbar-title-text span"),
+        statLabel: onWhite(".overview-stat-label"),
+        statDetail: onWhite(".overview-stat small")
       };
     });
-    expect(lightWelcomeState.selectedTheme).toBe("light");
-    expect(lightWelcomeState.heading).toBe("rgb(255, 255, 255)");
-    expect(lightWelcomeState.copy).toBe("rgb(230, 243, 237)");
-    expect(lightWelcomeState.eyebrow).toBe("rgb(185, 243, 215)");
+    expect(lightState.selectedTheme).toBe("light");
+    expect(lightState.heading).toBeGreaterThanOrEqual(7);
+    for (const ratio of [lightState.subtitle, lightState.statLabel, lightState.statDetail]) expect(ratio).toBeGreaterThanOrEqual(4.5);
 
     await page.getByRole("button", { name: "Company-wide" }).click();
     await page.getByRole("searchbox", { name: "Search estimates and jobs" }).fill("Lancaster");

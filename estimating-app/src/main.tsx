@@ -4,6 +4,7 @@ import EstimateDesk from "../app/estimate-desk";
 import { JobAccountingPanel } from "../app/job-accounting-panel";
 import "../app/globals.css";
 import "./portal-shell.css";
+import "../app/desk-shell.css";
 import { installEstimatorApiBridge } from "./portal-api";
 
 declare global {
@@ -84,7 +85,7 @@ function PortalEstimator() {
   }, []);
 
   if (gate === "allowed" && new URLSearchParams(window.location.search).get("view") === "accounting-download") return <main className="accounting-download-page"><JobAccountingPanel workspaceSaved={true} /></main>;
-  if (gate === "allowed") return <><div className="estimator-portal-strip"><span>Connected to JGC Portal</span><small>{name}</small></div><EstimateDesk currentEstimator={{ id: userId, name, isAdmin: true }} /></>;
+  if (gate === "allowed") return <EstimateDesk currentEstimator={{ id: userId, name, isAdmin: true }} />;
   const title = gate === "denied" ? "Admin access required" : gate === "signed-out" ? "Sign in to the JGC Portal" : gate === "error" ? "Connection problem" : "Opening Estimate Desk";
   const detail = gate === "denied" ? "The Estimate Desk is available only to approved Portal administrators." : gate === "signed-out" ? "Use your existing Portal account. You will return here after signing in." : gate === "error" ? message : "Checking your Portal access and shared data…";
   return <main className="estimator-gate"><img className="estimator-gate-logo" src="../icon-192.png" alt="JGC" /><p>JGC ESTIMATE DESK</p><h1>{title}</h1><span>{detail}</span>{gate !== "loading" && <a className="gate-button" href="../index.html">{gate === "signed-out" ? "Go to Portal sign in" : "Return to Portal"}</a>}</main>;

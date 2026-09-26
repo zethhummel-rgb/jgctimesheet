@@ -9,14 +9,16 @@ for (const width of [320, 390, 768, 1366, 1600]) test(`job directory controls st
   const captures = await serveDirectory(page, state);
   await page.setViewportSize({ width, height: 1000 });
   if (width <= 1020) await expect(page.locator('.sidebar')).not.toBeInViewport();
-  await expect(page.locator('.job-directory-page > .page-heading').getByRole('heading', { name: 'Jobs', exact: true })).toBeVisible();
+  // The page title shows in the header row; the page keeps its New job action.
+  await expect(page.locator('.topbar-title').getByRole('heading', { name: 'Jobs', exact: true })).toBeVisible();
   await expect(page.locator('.job-directory-page > .page-heading').getByRole('button', { name: /New job/ })).toBeVisible();
   await expect(page.locator('.job-directory-page .job-kpi-grid > div')).toHaveCount(2);
   await expect(page.locator('.job-directory-page .job-kpi-grid > div > span')).toHaveText(['Active jobs', 'Inactive jobs']);
   const refresh = page.locator('.topbar-actions').getByRole('button', { name: 'Refresh jobs', exact: true });
   await expect(refresh).toBeVisible();
-  await expect(page.locator('.portal-return-button + .job-directory-refresh-slot')).toHaveCount(1);
-  expect((await refresh.boundingBox()).y).toBeCloseTo((await page.locator('.portal-return-button').boundingBox()).y, 0);
+  // Refresh jobs leads the header actions, level with New quote.
+  await expect(page.locator('.topbar-actions > .job-directory-refresh-slot:first-child')).toHaveCount(1);
+  expect((await refresh.boundingBox()).y).toBeCloseTo((await page.locator('.topbar-actions').getByRole('button', { name: /New quote/ }).boundingBox()).y, 0);
   const size = await page.evaluate(() => {
     const first = document.querySelector('.job-directory-controls') || document.querySelector('.job-directory-page > .job-costing-connection');
     const last = document.querySelector('.job-directory-toolbar');

@@ -75,32 +75,30 @@ test("overview search finds and opens quotes by client, site, project or referen
   await expect(page.getByText("JGC-Q-2026-0001 · REV 0")).toBeVisible();
 });
 
-test("personal overview orders compact greeting, search and recent work before company-only statistics", async ({ page }) => {
+test("personal overview orders the numbers strip, search and recent work before company-only statistics", async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto("/estimating/index.html?dev=1");
 
   const scopeSwitch = page.locator(".dashboard-scope-switch");
-  const greeting = page.locator(".welcome-panel.compact");
+  const numbers = page.locator(".overview-stats");
   const search = page.locator(".overview-search");
   const recentWork = page.locator(".recent-work-grid");
-  await expect(greeting).toBeVisible();
+  await expect(numbers).toBeVisible();
   await expect(recentWork).toBeVisible();
-  await expect(page.locator(".metric-grid")).toHaveCount(0);
   await expect(page.locator(".pipeline-panel")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => {
     const selector = document.querySelector(".dashboard-scope-switch");
-    const greetingPanel = document.querySelector(".welcome-panel.compact");
+    const strip = document.querySelector(".overview-stats");
     const searchPanel = document.querySelector(".overview-search");
     const recent = document.querySelector(".recent-work-grid");
     const follows = (first, second) => !!first && !!second && Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
-    return follows(selector, greetingPanel) && follows(greetingPanel, searchPanel) && follows(searchPanel, recent);
+    return follows(selector, strip) && follows(strip, searchPanel) && follows(searchPanel, recent);
   })).toBe(true);
-  await expect.poll(async () => Math.round((await greeting.boundingBox())?.height ?? 999)).toBeLessThanOrEqual(125);
+  await expect.poll(async () => Math.round((await numbers.boundingBox())?.height ?? 999)).toBeLessThanOrEqual(110);
   await expect(scopeSwitch).toBeVisible();
   await expect(search).toBeVisible();
 
   await page.getByRole("button", { name: "Company-wide" }).click();
-  await expect(page.locator(".metric-grid")).toBeVisible();
   await expect(page.locator(".pipeline-panel")).toBeVisible();
   await expect(recentWork).toBeVisible();
 });
