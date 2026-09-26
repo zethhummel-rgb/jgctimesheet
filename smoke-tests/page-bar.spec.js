@@ -1,33 +1,34 @@
 const { test, expect } = require("@playwright/test");
 
-const USER_ID = "00000000-0000-4000-8000-000000000094";
 const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1366, height: 900 };
+const ADMIN = { id: "00000000-0000-4000-8000-000000000094", email: "zeth@johngordonconstruction.com", name: "Zeth Hummel", key: "zeth hummel", role: "admin" };
+const EMPLOYEE = { id: "00000000-0000-4000-8000-00000000e001", email: "pat.framer@example.com", name: "Pat Framer", key: "pat framer", role: "worker" };
 
-async function signIn(page, theme = "light") {
+async function signIn(page, theme = "light", person = ADMIN) {
   const b64 = v => Buffer.from(JSON.stringify(v)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
-  const user = { id: USER_ID, aud: "authenticated", role: "authenticated", email: "zeth@johngordonconstruction.com", user_metadata: { display_name: "Zeth Hummel" } };
-  const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: USER_ID, exp: now + 3600, role: "authenticated" }), "page-bar"].join("."), refresh_token: "page-bar", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
-  await page.addInitScript(({ auth, theme, id }) => {
+  const user = { id: person.id, aud: "authenticated", role: "authenticated", email: person.email, user_metadata: { display_name: person.name } };
+  const auth = { access_token: [b64({ alg: "HS256", typ: "JWT" }), b64({ sub: person.id, exp: now + 3600, role: "authenticated" }), "page-bar"].join("."), refresh_token: "page-bar", expires_at: now + 3600, expires_in: 3600, token_type: "bearer", user };
+  await page.addInitScript(({ auth, theme, person }) => {
     localStorage.setItem("jgcPortalTheme", theme);
-    localStorage.setItem("jgcPortalTheme:" + id, theme);
+    localStorage.setItem("jgcPortalTheme:" + person.id, theme);
     localStorage.setItem("sb-xnrljkkszoimegfivlya-auth-token", JSON.stringify(auth));
-    localStorage.setItem("currentWorker", "zeth hummel");
-    localStorage.setItem("currentWorkerDisplay", "Zeth Hummel");
-    localStorage.setItem("currentUserEmail", auth.user.email);
-    localStorage.setItem("currentUserRole", "admin");
+    localStorage.setItem("currentWorker", person.key);
+    localStorage.setItem("currentWorkerDisplay", person.name);
+    localStorage.setItem("currentUserEmail", person.email);
+    localStorage.setItem("currentUserRole", person.role);
     localStorage.setItem("currentAccountStatus", "approved");
     localStorage.setItem("jgcStayLoggedIn", "true");
-    localStorage.setItem("jgcPushOnboarding:v1:zeth hummel", "dismissed");
+    localStorage.setItem("jgcPushOnboarding:v1:" + person.key, "dismissed");
     sessionStorage.setItem("jgcActiveSession", "true");
-  }, { auth, theme, id: USER_ID });
+  }, { auth, theme, person });
   await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => {
     const p = new URL(route.request().url()).pathname;
     if (p.startsWith("/auth/v1/user")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
-    if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: "true" });
+    if (p.includes("/rpc/")) return route.fulfill({ status: 200, contentType: "application/json", body: String(person.role === "admin") });
     if (p.endsWith("/profiles")) {
-      const profile = { id: USER_ID, email: user.email, display_name: "Zeth Hummel", worker_key: "zeth hummel", role: "admin", account_status: "approved" };
+      const profile = { id: person.id, email: person.email, display_name: person.name, worker_key: person.key, role: person.role, account_status: "approved" };
       const single = String(route.request().headers().accept || "").includes("vnd.pgrst.object");
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(single ? profile : [profile]) });
     }
@@ -218,3 +219,108 @@ for (const theme of ["light", "dark"]) {
     });
   }
 }
+
+// Employee pages: the bar title, and the old on-screen header pieces it replaces (still printed).
+const EMPLOYEE_PAGES = [
+  ["timesheet", "Timesheets", ["main > .page-title", "#currentUser"]],
+  ["inspections", "Inspections", [".inspection-page-header", "main > .container > h1"]],
+  ["todays-inspections", "Today's Inspections", [".inspection-page-header", "main > .container > h1"]],
+  ["previous-inspections", "Previous Inspections", [".inspection-page-header", "main > .container > h1"]],
+  ["certificates", "Certificates", [".certificates-page-header"]],
+  ["vacation-request", "Vacation Request", [".vacation-page-header"]],
+  ["equipment-vehicles", "Equipment / Vehicles", [".equipment-page-header"]],
+  ["work-orders", "Work Orders", [".work-order-page-header"]],
+  ["purchase-orders", "Purchase Orders", ["main > header"]],
+  ["job-lists", "Job Notes", ["main > header"]],
+  ["permits", "Permits", [".permit-page-header", "main > .container > h1"]],
+  ["reports", "Reports", ["main > header", "main > .container > h1"]],
+  ["tasks", "Tasks", [".tasks-page-header"]],
+  ["schedule", "Schedule", [".schedule-page-header"]],
+  ["jobs", "Job Lookup", [".jobs-page-header"]],
+  ["contacts", "Contacts", ["main > h1", "#currentUser"]],
+  ["subcontractors-suppliers", "Subcontractors / Suppliers", ["main > h1", "#currentUser"]],
+  ["policies-announcements", "Policies & Announcements", [".hero-card", "#workerName"]],
+  ["employee-writeups", "My Write-Ups", ["main > header"]],
+  ["jsa", "Job Safety Analysis", ["main > .container > h1", "#currentUser"]],
+  ["prepared-jsas", "Prepared JSAs", [".jsa-section-heading > h1"]],
+  ["toolbox-talks", "Tool Box Talks", ["main > .container > h1", "#currentUser"]],
+  ["daily-site-report", "Daily Site Report", ["main > .container > h1", "#userBar"]],
+  ["incident-report", "Incident / Near Miss Report", ["main > .container > h1", "#currentUser"]],
+  ["accident-report", "Accident Investigation", ["main > .container > h1", "main > .container > h2"]],
+  ["employee-injury-report", "Injury & Incident Report", ["main > .container > h1", "#currentUser"]],
+  ["aerial-lifts", "Aerial Lift Inspection", ["body > .container > h1", "#userBar"]],
+  ["forklift", "Forklift Inspection", ["body > .container > h1", "body > .container > h2"]],
+  ["harness", "Harness Inspection", ["body > .container > h1", "body > .container > h2"]],
+  ["tele-handler", "Telehandler Inspection", ["body > .container > h1", "#userBar"]],
+  ["hot-work-permit", "Hot Work Permit", [".permit-page-header", "main > .container > h1"]],
+  ["confined-space-permit", "Confined Space Entry Permit", [".permit-page-header", "main > .container > h1"]],
+  ["excavation-permit", "Excavation Permit", [".permit-page-header", "main > .container > h1"]]
+];
+
+for (const viewport of [PHONE, DESKTOP]) {
+  test(`employee pages get the page bar at ${viewport.width}px`, async ({ page }) => {
+    test.setTimeout(120000);
+    await page.setViewportSize(viewport);
+    await signIn(page, "light", EMPLOYEE);
+    for (const [name, title, replaced] of EMPLOYEE_PAGES) {
+      await page.goto(`/${name}.html`, { waitUntil: "load" });
+      await expect(bar(page), name).toBeVisible();
+      await expect(bar(page).locator(".jgc-page-bar__title"), name).toHaveText(title);
+      await expect(bar(page).locator(".jgc-page-bar__title"), name + " title shows on phones too").toBeVisible();
+      await expect(bar(page).locator(".jgc-page-bar__switch"), name + " no Admin switcher").toBeHidden();
+      for (const selector of replaced) await expect(page.locator(selector).first(), `${name} ${selector}`).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), name + " no sideways scroll").toBe(true);
+
+      // The bar lines up with the page's content and sits 16px above it.
+      const fit = await page.evaluate(() => {
+        const barBox = document.getElementById("jgcPageBar").getBoundingClientRect();
+        const main = document.querySelector("main");
+        const blocks = main
+          ? Array.from(main.children).filter(el => !el.classList.contains("jgc-page-bar-source") && el.getClientRects().length && !["fixed", "absolute"].includes(getComputedStyle(el).position))
+          : [document.querySelector("body > .container")];
+        const widest = blocks.reduce((best, el) => el.getBoundingClientRect().width > best.getBoundingClientRect().width ? el : best);
+        const content = widest.getBoundingClientRect();
+        return { left: Math.abs(barBox.left - content.left), right: Math.abs(barBox.right - content.right), gap: blocks[0].getBoundingClientRect().top - barBox.bottom, fullBleed: barBox.left === 0 && Math.round(barBox.width) === innerWidth };
+      });
+      if (viewport === PHONE) {
+        expect(fit.fullBleed, name + " edge to edge on phones").toBe(true);
+      } else {
+        expect(fit.left, name + " left edge").toBeLessThanOrEqual(2);
+        expect(fit.right, name + " right edge").toBeLessThanOrEqual(2);
+      }
+      expect(fit.gap, name + " gap under the bar").toBeGreaterThanOrEqual(14);
+    }
+  });
+}
+
+test("employee bars follow page titles that change while the page is open", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await signIn(page, "light", EMPLOYEE);
+  await page.goto("/todays-inspections.html?recordType=reports", { waitUntil: "load" });
+  const pageTitle = (await page.locator("main > .container > h1").textContent()).trim();
+  expect(pageTitle).toContain("Report");
+  await expect(bar(page).locator(".jgc-page-bar__title")).toHaveText(pageTitle);
+  await expect(bar(page).locator(".jgc-page-bar__subtitle")).toHaveText((await page.locator("main > .container > .subtitle").textContent()).trim());
+
+  await page.goto("/vacation-request.html", { waitUntil: "load" });
+  await page.evaluate(() => { document.getElementById("vacationFormSubtitle").textContent = "Editing approved vacation dates."; });
+  await expect(bar(page).locator(".jgc-page-bar__subtitle")).toHaveText("Editing approved vacation dates.");
+});
+
+test("employee form printouts keep their letterhead and never show the bar", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await signIn(page, "light", EMPLOYEE);
+  await page.goto("/forklift.html", { waitUntil: "load" });
+  await page.emulateMedia({ media: "print" });
+  await expect(bar(page)).toBeHidden();
+  await expect(page.locator("body > .container > h1")).toBeVisible();
+  await expect(page.locator("body > .container > h2")).toHaveText("Daily Forklift Inspection Form");
+});
+
+test("employee pages opened without signing in do not get a bar", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await page.route("https://xnrljkkszoimegfivlya.supabase.co/**", route => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
+  await page.goto("/reports.html", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#jgcGlobalTopNav")).toHaveCount(0);
+  await expect(page.locator("#jgcPageBar")).toHaveCount(0);
+});
