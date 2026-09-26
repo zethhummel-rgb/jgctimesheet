@@ -2189,11 +2189,9 @@ test("login controls work without throwing", async ({ page }) => {
   await mockPortalServices(page);
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
 
-  await page.getByRole("button", { name: "Notes" }).click();
-  await expect(page.locator("#loginNotesOverlay")).toBeVisible();
-  await page.locator("#loginMeasurementNotes").fill("Smoke test note");
-  await page.getByRole("button", { name: "Done" }).click();
-  await expect(page.locator("#loginNotesOverlay")).toBeHidden();
+  // The Notes scratch pad was removed from the sign-in page (933).
+  await expect(page.getByRole("button", { name: "Notes", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Field Calculator", exact: true })).toBeVisible();
 
   await page.locator("#createAccountToggle").click();
   await expect(page.locator("#createAccountPanel")).toBeVisible();

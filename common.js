@@ -6191,10 +6191,7 @@ function activateJgcSafeArea() {
       padding-top: var(--jgc-top-inset);
     }
 
-    /* Field Calculator already pads itself by the device inset; only the extra band is added here. */
-    html:has(> body.field-calculator-page) {
-      padding-top: calc(var(--jgc-top-inset) - var(--jgc-safe-area-top));
-    }
+    /* Field Calculator keeps its own top room from --jgc-top-inset (field-calculator.css). */
 
     /* The box iOS reads: full width, one plain background-color, never a gradient or pseudo-element. */
     .jgc-safe-area-top {
@@ -7081,6 +7078,34 @@ function activateJgcPageBar() {
   }
 }
 
+// Field Calculator fills the screen, so the floating gear/search/bell can land on its toolbar (phones,
+// small laptops). When they would, the calculator gives up a row at the top for them
+// (.jgc-calc-controls-room in field-calculator.css). The check is made against the layout without that
+// row, so it never flips back and forth.
+function activateJgcCalculatorControlsRoom() {
+  const workbench = document.querySelector("body.field-calculator-page .calculator-workbench");
+  if (!workbench) {
+    return;
+  }
+
+  const controls = "#jgcAppearanceSettingsButton, .jgc-notification-button, .jgc-admin-search-button";
+  function update() {
+    document.body.classList.remove("jgc-calc-controls-room");
+    const bench = workbench.getBoundingClientRect();
+    const covers = Array.from(document.querySelectorAll(controls)).some(function(button) {
+      const box = button.getBoundingClientRect();
+      return box.width > 0 && box.left < bench.right && box.right > bench.left && box.top < bench.bottom && box.bottom > bench.top;
+    });
+    document.body.classList.toggle("jgc-calc-controls-room", covers);
+  }
+
+  update();
+  window.addEventListener("resize", update);
+  window.addEventListener("load", update);
+  // Search is added a moment later, when its script has loaded.
+  new MutationObserver(update).observe(document.body, { childList: true });
+}
+
 function activateJgcEnhancements() {
   activateJgcDesignSystemHooks();
   activateGlobalTopNavigation();
@@ -7097,6 +7122,7 @@ function activateJgcEnhancements() {
   activatePoliciesAnnouncementsTile();
   activateTimesheetTableContrastFeature();
   activateJgcSafeArea();
+  activateJgcCalculatorControlsRoom();
 }
 
 if (document.readyState === "loading") {

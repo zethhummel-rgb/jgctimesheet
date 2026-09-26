@@ -275,16 +275,6 @@
       margin-bottom: 8px;
     }
 
-    .public-notes-button {
-      margin-top: 8px;
-      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
-      color: var(--jgc-color-on-brand);
-    }
-
-    .public-notes-button:hover {
-      background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
-    }
-
     .subcontractor-access-button {
       margin-top: 18px;
       background: color-mix(in srgb, var(--jgc-color-text) 6%, transparent);
@@ -329,12 +319,10 @@
       line-height: 1.35;
     }
 
-    .notes-overlay[hidden],
     .subcontractor-overlay[hidden] {
       display: none;
     }
 
-    .notes-overlay,
     .subcontractor-overlay {
       position: fixed;
       inset: 0;
@@ -347,7 +335,6 @@
       backdrop-filter: blur(8px);
     }
 
-    .notes-panel,
     .subcontractor-panel {
       width: min(760px, 100%);
       max-height: min(88dvh, 760px);
@@ -364,27 +351,8 @@
       width: min(560px, 100%);
     }
 
-    .notes-panel-inner {
-      padding: 22px;
-    }
-
     .subcontractor-panel-inner {
       padding: 24px;
-    }
-
-    .notes-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-
-    .notes-header h3 {
-      margin: 0 0 5px;
-      color: var(--jgc-color-brand-500);
-      font-size: 1.55rem;
-      text-align: left;
     }
 
     .subcontractor-panel h3 {
@@ -394,85 +362,11 @@
       text-align: left;
     }
 
-    .notes-header p,
-    .notes-status,
     .subcontractor-status {
       margin: 0;
       color: var(--jgc-color-text-muted);
       font-size: 0.92rem;
       line-height: 1.4;
-    }
-
-    .notes-close-button,
-    .notes-clear-button,
-    .notes-done-button {
-      width: auto;
-      margin: 0;
-      padding: 10px 14px;
-      border-radius: 10px;
-      letter-spacing: 0;
-      text-transform: none;
-    }
-
-    .notes-close-button {
-      flex: 0 0 auto;
-      background: color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
-      border: 1px solid var(--jgc-color-border-soft);
-    }
-
-    .notes-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .notes-card {
-      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
-      border-radius: 14px;
-      background: color-mix(in srgb, var(--jgc-color-text) 4.5%, transparent);
-      padding: 14px;
-    }
-
-    .notes-card label {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--jgc-color-on-brand);
-      font-size: 0.95rem;
-    }
-
-    .notes-card textarea {
-      width: 100%;
-      min-height: 220px;
-      resize: vertical;
-      box-sizing: border-box;
-      border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 25%, transparent);
-      border-radius: 12px;
-      background: var(--jgc-color-input);
-      color: var(--jgc-color-text-dark);
-      padding: 12px;
-      font: 600 0.98rem/1.45 var(--jgc-font-family);
-    }
-
-    .notes-card textarea:focus {
-      outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent);
-      border-color: var(--jgc-color-brand-500);
-    }
-
-    .notes-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    .notes-clear-button {
-      background: var(--jgc-color-danger);
-    }
-
-    .notes-done-button {
-      background: var(--jgc-color-brand-600);
     }
 
     .small {
@@ -579,27 +473,6 @@
       .card {
         border-radius: 14px;
         padding: 22px;
-      }
-
-      .notes-overlay {
-        align-items: stretch;
-        padding: 12px;
-      }
-
-      .notes-panel {
-        max-height: calc(100dvh - 24px);
-      }
-
-      .notes-panel-inner {
-        padding: 18px;
-      }
-
-      .notes-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .notes-card textarea {
-        min-height: 170px;
       }
     }
 
@@ -808,15 +681,6 @@ body.login-page.jgc-page {
   background: linear-gradient(135deg, var(--jgc-color-warning), color-mix(in srgb, var(--jgc-color-warning) 72%, var(--jgc-color-badge-warning)));
 }
 
-.login-page button.public-notes-button.jgc-button {
-  color: var(--jgc-color-on-brand);
-  background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
-}
-
-.login-page button.public-notes-button.jgc-button:hover {
-  background: linear-gradient(135deg, var(--jgc-color-brand-600), var(--jgc-color-brand-700));
-}
-
 .login-page button.subcontractor-access-button.jgc-button {
   margin-top: 18px;
   color: var(--jgc-color-on-brand);
@@ -914,7 +778,6 @@ body.login-page.jgc-page {
   text-align: center;
 }
 
-.login-page .notes-overlay.jgc-modal,
 .login-page .subcontractor-overlay.jgc-modal {
   z-index: 50;
   display: flex;
@@ -925,12 +788,10 @@ body.login-page.jgc-page {
   backdrop-filter: blur(8px);
 }
 
-.login-page .notes-overlay.jgc-modal[hidden],
 .login-page .subcontractor-overlay.jgc-modal[hidden] {
   display: none !important;
 }
 
-.login-page .notes-panel.jgc-modal__dialog,
 .login-page .subcontractor-panel.jgc-modal__dialog {
   width: min(760px, 100%);
   max-height: min(88dvh, 760px);
@@ -947,81 +808,6 @@ body.login-page.jgc-page {
 
 .login-page .subcontractor-panel.jgc-modal__dialog {
   width: min(560px, 100%);
-}
-
-.login-page .notes-header.jgc-modal__header {
-  margin-bottom: 18px;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.login-page button.notes-close-button.jgc-button,
-.login-page button.notes-clear-button.jgc-button,
-.login-page button.notes-done-button.jgc-button {
-  width: auto;
-  min-height: var(--jgc-control-height);
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 10px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.login-page button.notes-close-button.jgc-button {
-  flex: 0 0 auto;
-  color: var(--jgc-color-on-brand);
-  background: color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
-  border: 1px solid var(--jgc-color-border-soft);
-}
-
-.login-page button.notes-clear-button.jgc-button {
-  background: var(--jgc-color-danger);
-}
-
-.login-page button.notes-done-button.jgc-button {
-  background: var(--jgc-color-brand-600);
-}
-
-.login-page .notes-card.jgc-card {
-  padding: 14px;
-  color: inherit;
-  background: color-mix(in srgb, var(--jgc-color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 28%, transparent);
-  border-radius: 14px;
-  box-shadow: none;
-}
-
-.login-page .notes-card label.jgc-label {
-  margin-bottom: 8px;
-  color: var(--jgc-color-on-brand);
-  font-size: 0.95rem;
-}
-
-.login-page .notes-card textarea.jgc-textarea {
-  width: 100%;
-  min-height: 220px;
-  padding: 12px;
-  resize: vertical;
-  color: var(--jgc-color-text-dark);
-  background: var(--jgc-color-input);
-  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 25%, transparent);
-  border-radius: 12px;
-  outline-offset: 0;
-  font: 600 0.98rem/1.45 var(--jgc-font-family);
-  color-scheme: light;
-  box-sizing: border-box;
-}
-
-.login-page .notes-card textarea.jgc-textarea:focus {
-  border-color: var(--jgc-color-brand-500);
-  outline: 3px solid color-mix(in srgb, var(--jgc-color-brand-500) 34%, transparent);
-  outline-offset: 0;
-}
-
-.login-page .notes-actions.jgc-actions {
-  margin-top: 16px;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .login-page .subcontractor-status.jgc-notice {
@@ -1062,19 +848,6 @@ body.login-page.jgc-page {
   .login-page .login-card.jgc-panel {
     padding: 22px;
     border-radius: 14px;
-  }
-
-  .login-page .notes-overlay.jgc-modal {
-    padding: 12px;
-    align-items: stretch;
-  }
-
-  .login-page .notes-panel.jgc-modal__dialog {
-    max-height: calc(100dvh - 24px);
-  }
-
-  .login-page .notes-card textarea.jgc-textarea {
-    min-height: 170px;
   }
 }
 

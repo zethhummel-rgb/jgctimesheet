@@ -49,6 +49,18 @@ body.field-calculator-page {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Room kept clear above the calculator: the device inset (common.js adds the iPhone Home Screen band
+   through --jgc-top-inset) plus, when the Portal's gear/search/bell would otherwise sit on the
+   calculator, a row for them (common.js sets .jgc-calc-controls-room). */
+body.field-calculator-page {
+  --fc-controls-room: 0px;
+  --fc-safe-top: calc(var(--jgc-top-inset, env(safe-area-inset-top, 0px)) + var(--fc-controls-room));
+}
+
+body.field-calculator-page.jgc-calc-controls-room {
+  --fc-controls-room: 52px;
+}
+
 body.field-calculator-page.quick-calc-active {
   overflow: auto;
 }
@@ -56,7 +68,7 @@ body.field-calculator-page.quick-calc-active {
 .field-calculator-shell {
   height: 100dvh;
   min-height: 0;
-  padding: calc(8px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+  padding: calc(8px + var(--fc-safe-top)) 10px calc(8px + env(safe-area-inset-bottom));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -64,8 +76,8 @@ body.field-calculator-page.quick-calc-active {
 }
 
 .calculator-workbench {
-  width: min(100%, 920px, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px) * 0.86));
-  height: min(980px, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px));
+  width: min(100%, 920px, calc((100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 16px) * 0.86));
+  height: min(980px, calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 16px));
   min-height: 0;
   display: grid;
   grid-template-columns: clamp(42px, 5vw, 58px) minmax(0, 1fr);
@@ -168,12 +180,12 @@ body.quick-calc-active .field-calculator-shell {
 
 body.quick-calc-active .calculator-workbench {
   height: auto;
-  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  min-height: calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 16px);
 }
 
 body.quick-calc-active .quick-calc-panel {
   height: auto;
-  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  min-height: calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 16px);
   overflow: visible;
 }
 
@@ -833,13 +845,13 @@ body.quick-calc-active .quick-calc-panel {
   .tape-overlay {
     width: 100%;
     max-width: none;
-    height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    height: calc(100dvh - 16px - var(--fc-safe-top) - env(safe-area-inset-bottom));
     max-height: none;
     border-radius: 0;
   }
 
   .tape-overlay .calc-overlay-header {
-    padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+    padding: calc(12px + var(--fc-safe-top)) 14px 12px;
   }
 
   .tape-overlay .calc-overlay-header h2 {
@@ -1195,12 +1207,12 @@ body.quick-calc-active .quick-calc-panel {
 @media (max-width: 520px) {
   .field-calculator-shell {
     align-items: stretch;
-    padding: calc(8px + env(safe-area-inset-top)) 6px calc(8px + env(safe-area-inset-bottom));
+    padding: calc(8px + var(--fc-safe-top)) 6px calc(8px + env(safe-area-inset-bottom));
   }
 
   .field-calculator {
     width: 100%;
-    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+    min-height: calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 16px);
     gap: 7px;
     padding: 8px;
     border-radius: 16px;
@@ -1355,12 +1367,12 @@ body.quick-calc-active .quick-calc-panel {
 
   .field-calculator-shell {
     align-items: center;
-    padding: calc(5px + env(safe-area-inset-top)) 4px calc(5px + env(safe-area-inset-bottom));
+    padding: calc(5px + var(--fc-safe-top)) 4px calc(5px + env(safe-area-inset-bottom));
   }
 
   .calculator-workbench {
     width: 100%;
-    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px);
+    height: calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 10px);
     grid-template-columns: 38px minmax(0, 1fr);
     gap: 4px;
   }
@@ -1495,7 +1507,7 @@ body.quick-calc-active .quick-calc-panel {
   }
 
   .calc-overlay-backdrop {
-    padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));
+    padding: calc(8px + var(--fc-safe-top)) 8px calc(8px + env(safe-area-inset-bottom));
   }
 
   .quick-calc-panel {
@@ -1514,7 +1526,7 @@ body.quick-calc-active .quick-calc-panel {
   }
 
   body.quick-calc-active .calculator-workbench {
-    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px);
+    height: calc(100dvh - var(--fc-safe-top) - env(safe-area-inset-bottom) - 10px);
     min-height: 0;
   }
 
@@ -1573,7 +1585,7 @@ body.quick-calc-active .quick-calc-panel {
   height: 100dvh;
   min-height: 0;
   margin: 0;
-  padding: calc(8px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+  padding: calc(8px + var(--fc-safe-top)) 10px calc(8px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1733,7 +1745,7 @@ body.quick-calc-active .quick-calc-panel {
   .field-calculator-page .calc-overlay.jgc-modal__dialog.tape-overlay {
     width: 100%;
     max-width: none;
-    height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    height: calc(100dvh - 16px - var(--fc-safe-top) - env(safe-area-inset-bottom));
     max-height: none;
     border-radius: 0;
   }
@@ -1751,7 +1763,7 @@ body.quick-calc-active .quick-calc-panel {
     height: 100dvh;
     min-height: 0;
     margin: 0;
-    padding: calc(5px + env(safe-area-inset-top)) 4px calc(5px + env(safe-area-inset-bottom));
+    padding: calc(5px + var(--fc-safe-top)) 4px calc(5px + env(safe-area-inset-bottom));
   }
 
   .field-calculator-page .quick-calc-rail.jgc-tabs {
