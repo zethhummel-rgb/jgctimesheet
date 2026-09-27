@@ -48,7 +48,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "10";
+const JGC_DESIGN_SYSTEM_VERSION = "11";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
@@ -1043,7 +1043,8 @@ function installJgcEmployeeJobDetails() {
         cards.set(field, card);
       }
       const value = String(field.value || '').trim().toLowerCase();
-      const matches = value ? rows.filter(job => [job.id, job.job_number, job.job_name, getJgcProjectJobDisplay(job)].some(candidate => String(candidate || '').trim().toLowerCase() === value)) : [];
+      // Work Orders shows the full label (number - client - job - type) in its job box.
+      const matches = value ? rows.filter(job => [job.id, job.job_number, job.job_name, getJgcProjectJobDisplay(job), getJgcEmployeeJobLabel(job)].some(candidate => String(candidate || '').trim().toLowerCase() === value)) : [];
       const card = cards.get(field);
       const html = matches.length === 1 ? getJgcEmployeeJobDetailsHtml(matches[0]) : '';
       if (card.innerHTML !== html) card.innerHTML = html;
