@@ -324,8 +324,9 @@ body.quick-calc-active .quick-calc-panel {
   justify-content: space-between;
   gap: 14px;
   padding: 10px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-on-brand) 10%, transparent);
-  color: color-mix(in srgb, var(--jgc-color-on-brand) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-text) 12%, transparent);
+  /* Theme text, not the always-white brand text: the labels were white on the light-mode card. */
+  color: color-mix(in srgb, var(--jgc-color-text) 88%, transparent);
   font-weight: 800;
 }
 
@@ -334,7 +335,7 @@ body.quick-calc-active .quick-calc-panel {
 }
 
 .quick-result-row strong {
-  color: var(--jgc-color-on-brand);
+  color: var(--jgc-color-text);
   text-align: right;
 }
 
@@ -348,7 +349,7 @@ body.quick-calc-active .quick-calc-panel {
 }
 
 .quick-result-row.muted {
-  color: color-mix(in srgb, var(--jgc-color-on-brand) 60%, transparent);
+  color: var(--jgc-color-text-muted);
 }
 
 .quick-result-row.warning,
@@ -1539,8 +1540,25 @@ body.quick-calc-active .quick-calc-panel {
     padding-bottom: calc(28px + env(safe-area-inset-bottom));
   }
 
+  /* The panel scrolls inside itself here, so the title row stays pinned at its top edge instead of
+     sliding half out of view ("Quick Calculations" was cut off on the iPhone). The panel drops its top
+     padding (browsers differ on whether sticky counts it) and the row spans the side padding, so the
+     scrolled cards pass underneath it. */
   .quick-calc-header {
     align-items: center;
+  }
+
+  body.field-calculator-page.quick-calc-active .quick-calc-panel.jgc-panel {
+    padding-top: 0;
+  }
+
+  body.quick-calc-active .quick-calc-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: 0 -10px;
+    padding: 14px 14px 12px;
+    background: var(--jgc-color-surface);
   }
 
   .quick-calc-header h1 {

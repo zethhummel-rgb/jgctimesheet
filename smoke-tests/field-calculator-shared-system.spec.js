@@ -11,14 +11,14 @@ test("Field Calculator uses one token-only feature stylesheet", async () => {
 
   expect(pageSource).not.toMatch(/<style\b/i);
   expect(pageSource).not.toMatch(/\sstyle\s*=/i);
-  expect(pageSource).toContain('jgc-design-system.css?v=10');
-  expect(pageSource).toContain('field-calculator.css?v=17');
+  expect(pageSource).toContain('jgc-design-system.css?v=11');
+  expect(pageSource).toContain('field-calculator.css?v=18');
   expect(pageSource).not.toContain("field-calculator-design-system.css");
   expect(featureCss, "calculator-specific CSS must inherit centralized theme tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
 
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(764);
-  expect(serviceWorker).toContain('"./field-calculator.css?v=17"');
+  expect(serviceWorker).toContain('"./field-calculator.css?v=18"');
   expect(serviceWorker).not.toContain("field-calculator-design-system.css");
 });
 

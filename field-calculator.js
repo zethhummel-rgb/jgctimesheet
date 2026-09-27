@@ -545,8 +545,30 @@
           return;
         }
         showQuickCalc(button.getAttribute("data-quick-calc"));
+        // Each calculator opens at its title, not wherever the last one was scrolled to.
+        const quick = document.getElementById("quickCalcPanel");
+        if (quick) {
+          quick.scrollTop = 0;
+        }
       });
     });
+
+    // iOS scrolls the whole page to lift a field above the keyboard and can leave it there after the
+    // keyboard closes. On phones only the calculator panel scrolls, never the page, so that leftover
+    // offset pushed the calculator up under the status bar. Put the page back once no field is in use.
+    const restorePageScroll = () => {
+      const field = document.activeElement;
+      if (field && /^(INPUT|SELECT|TEXTAREA)$/.test(field.tagName)) {
+        return;
+      }
+      if (window.scrollY !== 0 && getComputedStyle(document.body).overflowY === "hidden") {
+        window.scrollTo(0, 0);
+      }
+    };
+    document.addEventListener("focusout", () => setTimeout(restorePageScroll, 100));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", restorePageScroll);
+    }
 
     const form = document.getElementById("sonotubeCalcForm");
     if (form) {

@@ -8,7 +8,7 @@
 <title>JGC Portal - Work Orders</title>
 <meta name="theme-color" content="#0b5e3b">
 <link rel="manifest" href="manifest.json?v=7">
-<link rel="stylesheet" href="jgc-design-system.css?v=10" data-jgc-design-system="10">
+<link rel="stylesheet" href="jgc-design-system.css?v=11" data-jgc-design-system="11">
 <link rel="stylesheet" href="work-orders-design-system.css?v=3">
 </head>
 <body class="work-orders-page jgc-page jgc-system-page">
@@ -247,7 +247,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=68"></script>
+<script src="common.js?v=69"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script>
@@ -645,8 +645,12 @@ async function updateWorkOrderNumberForSelectedJob() {
   field.placeholder = "Select a job to generate";
 }
 
+// The same label as the suggestion list (number - client - job - type), so the chosen job keeps its client.
 function getJobOptionLabel(job) {
-  return [job.job_number, job.job_name, job.job_type].filter(Boolean).join(" - ");
+  if (typeof getJgcEmployeeJobLabel === "function") {
+    return getJgcEmployeeJobLabel(job);
+  }
+  return [job.job_number, job.customer, job.job_name, job.job_type].filter(Boolean).join(" - ");
 }
 
 function getSelectedJob() {
@@ -675,8 +679,14 @@ function getFilteredJobSuggestions(value) {
     return jobs.slice(0, 12);
   }
 
+  // Tapping back into a chosen job lists it first, with the other jobs to switch to.
+  const chosen = jobs.find((job) => normalizeText(getJobOptionLabel(job)) === normalizedValue);
+  if (chosen) {
+    return [chosen].concat(jobs.filter((job) => job !== chosen).slice(0, 11));
+  }
+
   return jobs.filter((job) => {
-    const haystack = normalizeText([job.job_number, job.customer, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
+    const haystack = normalizeText([getJobOptionLabel(job), job.job_number, job.customer, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
     return haystack.includes(normalizedValue) || normalizeJobNumber(job.job_number).includes(normalizeJobNumber(value));
   }).slice(0, 12);
 }
@@ -690,16 +700,18 @@ function renderJobSearchSuggestions() {
   }
 
   const matches = getFilteredJobSuggestions(input.value);
+  const html = matches.length
+    ? matches.map((job) =>
+      '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</button>'
+    ).join("")
+    : '<div class="small wo-empty-message">No matching jobs found.</div>';
 
-  if (!matches.length) {
-    list.innerHTML = '<div class="small wo-empty-message">No matching jobs found.</div>';
-    list.classList.add("open");
-    return;
+  // Leaving the box to press a suggestion fires "change", which renders the list again. Rebuilding the
+  // same buttons mid-click lost the click, so an unchanged list is left in place.
+  if (list.dataset.rendered !== html) {
+    list.innerHTML = html;
+    list.dataset.rendered = html;
   }
-
-  list.innerHTML = matches.map((job) =>
-    '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</button>'
-  ).join("");
   list.classList.add("open");
 }
 

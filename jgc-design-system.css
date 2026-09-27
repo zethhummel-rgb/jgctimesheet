@@ -1006,6 +1006,37 @@
   resize: vertical;
 }
 
+/* Date and time boxes. iOS draws their value with a 24px side margin and its own height, so on a phone
+   they ran past the right edge and stood taller than the other fields (Timesheet Week Date, PO Date of
+   Order, Work Order Date). Keep them inside their column at text-box height, with the date on the left
+   like typed text. The value pseudo-element is iOS/Safari only, so it gets a rule of its own. */
+input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]) {
+  min-width: 0;
+  min-inline-size: 0;
+  max-width: 100%;
+  max-inline-size: 100%;
+}
+
+.jgc-input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]) {
+  display: block;
+}
+
+input::-webkit-date-and-time-value {
+  height: 1.4em;
+  margin: 0;
+  text-align: left;
+}
+
+/* iPhone and iPad only: the native date style kept its own width even with min-width 0 (the Vacation
+   page had that and still overflowed), so draw date boxes like the other fields. Tapping still opens
+   the iOS date picker. */
+@supports (-webkit-touch-callout: none) {
+  input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]) {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
 .jgc-input:focus,
 .jgc-select:focus,
 .jgc-textarea:focus {
