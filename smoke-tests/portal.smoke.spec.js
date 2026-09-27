@@ -412,11 +412,16 @@ async function mockPortalServices(page, profile = fakeProfile, options = {}) {
   }));
 }
 
+// A failed network request is not a JavaScript crash: supabase-js logs "TypeError: Failed to fetch" with
+// console.error before throwing an error the Portal handles (for example when a reload cuts off a background
+// sign-in check). Crashes still count, and a failure nothing handles still arrives as a pageerror.
+const HANDLED_FETCH_FAILURE = /^TypeError: Failed to fetch\b/;
+
 function watchRuntimeErrors(page, dialogAction = "dismiss") {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.stack || error.message));
   page.on("console", (message) => {
-    if (message.type() === "error" && /(?:Uncaught|ReferenceError|TypeError|SyntaxError)/i.test(message.text())) {
+    if (message.type() === "error" && /(?:Uncaught|ReferenceError|TypeError|SyntaxError)/i.test(message.text()) && !HANDLED_FETCH_FAILURE.test(message.text())) {
       errors.push(message.text());
     }
   });
@@ -2549,6 +2554,31 @@ test("admin tools stay lazy while the job search list preloads", async ({ page }
   }
 
   await expectNoRuntimeErrors(errors, "admin tool lazy loading");
+});
+
+// The flake in "admin tools stay lazy…": under load a reload cut off the background theme-preference sign-in
+// check, supabase-js logged the handled "Failed to fetch", and the watcher counted it as a crash.
+test("a network failure the page handles is not counted as a crash, but an unhandled one is", async ({ page }) => {
+  const errors = watchRuntimeErrors(page);
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  await installAuthenticatedPortalState(page);
+  await mockPortalServices(page);
+  let cutOff = false;
+  await page.route(`${supabaseOrigin}/auth/v1/user**`, (route) => cutOff ? route.abort("failed") : route.fallback());
+  await page.goto("/admin.html?tab=adminTools", { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => adminDataLoaded === true);
+
+  cutOff = true;
+  await page.evaluate(() => loadJgcThemePreference());
+  await expect(page.locator("#jgcAppearanceSettingsStatus")).toHaveAttribute("data-state", "warning");
+  expect(consoleErrors.some((text) => /^TypeError: Failed to fetch/.test(text)), "supabase-js logged the failed request").toBe(true);
+  await expectNoRuntimeErrors(errors, "a handled network failure");
+
+  await page.evaluate(() => { Promise.reject(new TypeError("Failed to fetch")); });
+  await expect.poll(() => errors.some((text) => text.includes("Failed to fetch")), { message: "an unhandled failure is still reported" }).toBe(true);
 });
 
 test("admin inspection categories build their tables only when opened", async ({ page }) => {
