@@ -1,5 +1,6 @@
 const JGC_SUPABASE_URL = "https://xnrljkkszoimegfivlya.supabase.co";
 const JGC_SUPABASE_KEY = "sb_publishable_k_m_R-jzMnsnHhNY_OHwJA_cbO1qO58";
+// Who receives admin notices (schedule, notifications). Never used to grant admin rights.
 const JGC_ADMIN_EMAILS = ["zeth@johngordonconstruction.com", "jeff@johngordonconstruction.com"];
 const JGC_GOOGLE_CALENDAR_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0Z_lMrs25SO3G4L8cK46vs7ZVcrVH9nxsLsZxyIhpwjsuveu4L3DGlso0xPORmaXf/exec";
 const JGC_PUSH_VAPID_PUBLIC_KEY = "BOpdsPpzS67XkYTNHcPDQiLAGaL70bg2KOfYmBFe9CrhenrD9vXhI8ivuZZlCU_EcA8aQH89H1hhNNaDso43XvY";
@@ -1363,9 +1364,10 @@ function getCurrentWorkerRecord() {
   };
 }
 
-function isAdminWorker(workerKey, role, email) {
-  const storedEmail = normalizeWorkerName(email || localStorage.getItem("currentUserEmail"));
-  return normalizeWorkerName(role || localStorage.getItem("currentUserRole")) === "admin" || JGC_ADMIN_EMAILS.includes(storedEmail);
+// Admin comes from the account's role only, as in the database rules. Employees can edit their profile email,
+// so an email address never grants admin (JGC_ADMIN_EMAILS is only who receives admin notices).
+function isAdminWorker(workerKey, role) {
+  return normalizeWorkerName(role || localStorage.getItem("currentUserRole")) === "admin";
 }
 
 function isSupervisorWorker(worker) {
