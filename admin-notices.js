@@ -346,6 +346,48 @@ function setToolboxTalkStatus(message) {
     document.getElementById("toolboxTalkStatus").textContent = message || "";
 }
 
+// A readable title from a PDF name, e.g. "back_care_basic_manual-material-handling.pdf" becomes
+// "Back Care Basic Manual Material Handling". Acronyms and numbers stay as written ("HEPA", "3").
+const TOOLBOX_TITLE_SMALL_WORDS = new Set(["a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "vs"]);
+
+function cleanToolboxTalkTitle(fileName) {
+    return String(fileName || "")
+        .replace(/\.pdf$/i, "")
+        .replace(/[_\-.]+/g, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word, index) => {
+            if (/^[A-Z0-9]{2,}$/.test(word) || /^\d+$/.test(word)) {
+                return word;
+            }
+            const lower = word.toLowerCase();
+            if (index > 0 && TOOLBOX_TITLE_SMALL_WORDS.has(lower)) {
+                return lower;
+            }
+            return lower.charAt(0).toUpperCase() + lower.slice(1);
+        })
+        .join(" ");
+}
+
+// Choosing a PDF fills in its clean title, unless the admin has already typed one.
+function fillToolboxTalkTitleFromFile(fileInput) {
+    const titleInput = document.getElementById("toolboxTalkTitle");
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    if (!titleInput || !file) {
+        return;
+    }
+
+    const current = titleInput.value.trim();
+    if (current && current !== titleInput.dataset.autoTitle) {
+        return;
+    }
+
+    const title = cleanToolboxTalkTitle(file.name);
+    titleInput.value = title;
+    titleInput.dataset.autoTitle = title;
+}
+
 async function prepareToolboxTalkUrls() {
     toolboxTalkUrls = {};
 
