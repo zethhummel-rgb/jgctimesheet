@@ -4738,7 +4738,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
   const changeNotice = isChangeNotice(quote);
   const approvedChange = changeNotice && quote.status === "Won" && Boolean(quote.changeOrder);
   const documentTitle = approvedChange ? "Change Order" : changeNotice ? "Contemplated Change Notice" : quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal";
-  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION";
+  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : "";
   const documentNumber = approvedChange ? quote.changeOrder?.coNumber || quote.number : quote.number;
   const documentNumberLabel = approvedChange ? "CHANGE ORDER NUMBER" : changeNotice ? "CCN NUMBER" : "QUOTE NUMBER";
   const customerDocumentSubtotal = approvedChange ? quote.changeOrder?.approvedAmount ?? totals.subtotal : totals.subtotal;
@@ -4785,7 +4785,7 @@ function QuoteProposal({ state, quote }: { state: AppState; quote: Quote }) {
               </div>
             </header>
             <div className="hybrid-titlebar">
-              <div><span>{documentEyebrow}</span><h1>{documentTitle}</h1></div>
+              <div>{documentEyebrow && <span>{documentEyebrow}</span>}<h1>{documentTitle}</h1></div>
               <div className="hybrid-quote-id"><span>{documentNumberLabel}</span><strong>{documentNumber}</strong><small>{changeNotice && approvedChange ? `${quote.number} · ` : ""}Revision {quote.revision}</small></div>
             </div>
             {quote.demo && <div className="demo-watermark">DEMO ONLY — VERIFY OR DELETE</div>}

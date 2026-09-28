@@ -454,7 +454,7 @@ test("Proposal PDF has fillable acceptance and date fields", async ({ page }, te
   const proposalPath = testInfo.outputPath("fillable-proposal.pdf");
   await proposalDownload.saveAs(proposalPath);
   const proposalText = await extractPdfText(proposalPath);
-  for (const heading of ["GENERAL CONTRACTOR", "QUOTATION", "QUOTE NUMBER", "PREPARED FOR", "PROJECT SCOPE", "Scope of Work", "ASSUMPTIONS & CLARIFICATIONS", "LUMP SUM PROPOSAL", "Terms", "ACCEPTANCE"]) {
+  for (const heading of ["GENERAL CONTRACTOR", "Proposal", "QUOTE NUMBER", "PREPARED FOR", "PROJECT SCOPE", "Scope of Work", "ASSUMPTIONS & CLARIFICATIONS", "LUMP SUM PROPOSAL", "Terms", "ACCEPTANCE"]) {
     expect(proposalText).toContain(heading);
   }
 
