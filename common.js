@@ -48,7 +48,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "11";
+const JGC_DESIGN_SYSTEM_VERSION = "12";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
@@ -1012,6 +1012,24 @@ function getJgcEmployeeJobLabel(job) {
     .map((value) => String(value || "").trim()).filter(Boolean).join(" - ");
 }
 
+function getJgcJobTypeTag(job) {
+  const type = String(job && job.job_type || "").trim().toLowerCase();
+  if (type.includes("contract")) return "Contract";
+  if (type.includes("t&m") || type === "tm" || type.includes("time")) return "T&M";
+  return "";
+}
+
+// One row of the shared job dropdown (.jgc-job-dropdown in jgc-design-system.css), the Timesheet look:
+// green job number, Contract/T&M tag, job name, client. `attributes` carries the page's select handler.
+function getJgcJobOptionHtml(job, attributes) {
+  const tag = getJgcJobTypeTag(job);
+  return '<button type="button" class="jgc-job-option" role="option" ' + (attributes || '') + '>'
+    + '<span class="jgc-job-option__meta"><span class="jgc-job-option__number">' + escapeHtml(String(job && job.job_number || '').trim() || 'No Job #') + '</span>'
+    + (tag ? '<span class="jgc-job-option__type' + (tag === 'Contract' ? ' is-contract' : '') + '">' + tag + '</span>' : '')
+    + '</span><span class="jgc-job-option__name">' + escapeHtml(cleanJgcRepeatedJobName(job && job.job_name)) + '</span>'
+    + '<span class="jgc-job-option__client">' + escapeHtml(job && job.customer || 'Client not provided') + '</span></button>';
+}
+
 function getJgcEmployeeJobDetailsHtml(job) {
   const href = String(job.document_link || "").trim();
   const documents = /^https?:\/\//i.test(href)
@@ -1038,7 +1056,7 @@ function installJgcEmployeeJobDetails() {
         card.setAttribute('aria-label', 'Selected job details');
         card.style.cssText = 'grid-column:1/-1;min-width:0;margin-top:10px;padding:12px;border:1px solid var(--jgc-color-border-soft,#ccd8d2);border-radius:8px;font-size:14px;line-height:1.45';
         card.hidden = true;
-        const anchor = field.closest('.jgc-project-job-picker, .po-job-picker') || field;
+        const anchor = field.closest('.jgc-project-job-picker, .po-job-picker, .jgc-job-picker') || field;
         anchor.insertAdjacentElement('afterend', card);
         cards.set(field, card);
       }

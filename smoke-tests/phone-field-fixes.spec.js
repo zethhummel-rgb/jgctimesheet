@@ -190,33 +190,108 @@ for (const [name, url, selector, form] of [
   });
 }
 
-test("Work Orders: a picked job keeps its client, and tapping back in lists it instead of 'No matching jobs found'", async ({ page }) => {
+test("Work Orders: a picked job keeps its client and shows the job details card", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await signIn(page);
   await page.goto("/work-orders.html", { waitUntil: "load" });
   const search = page.locator("#woJobSearch");
   await expect(search).toBeVisible();
   await search.fill("McKay");
-  const suggestion = page.locator("#woJobSuggestions .job-suggestion").filter({ hasText: "McKay Mechanical" });
-  await expect(suggestion).toHaveText("26132 - McKay Mechanical - Ingleside Development - Contract");
+  const suggestion = page.locator("#woJobSuggestions .jgc-job-option").filter({ hasText: "McKay Mechanical" });
+  await expect(suggestion).toHaveCount(1);
   await suggestion.click();
 
   await expect(search).toHaveValue("26132 - McKay Mechanical - Ingleside Development - Contract");
   await expect(page.locator("#woJobNumber")).toHaveValue("26132");
   await expect(page.locator("#woJobName")).toHaveValue("Ingleside Development");
-  // The shared "Selected job details" card now recognises the label and shows the client.
+  // The shared "Selected job details" card recognises the label and shows the client.
   const card = page.locator(".jgc-employee-job-details").filter({ hasText: "McKay Mechanical" });
   await expect(card).toBeVisible();
   await expect(card).toContainText("Ingleside Development");
+});
 
-  // Tapping back into the box lists the chosen job first, with others to switch to.
+test("Work Orders: the job list uses the Timesheet cards (number, Contract/T&M tag, job, client)", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page);
+  await page.goto("/work-orders.html", { waitUntil: "load" });
+  await page.locator("#woJobSearch").focus();
+  const options = page.locator("#woJobSuggestions .jgc-job-option");
+  await expect(options).toHaveCount(2);
+  const first = options.first();
+  await expect(first.locator(".jgc-job-option__number")).toHaveText("26132");
+  await expect(first.locator(".jgc-job-option__type")).toHaveText("Contract");
+  await expect(first.locator(".jgc-job-option__name")).toHaveText("Ingleside Development");
+  await expect(first.locator(".jgc-job-option__client")).toHaveText("McKay Mechanical");
+  await expect(options.nth(1).locator(".jgc-job-option__type")).toHaveText("T&M");
+  // The iPhone keyboard suggestion list is gone; the page's own dropdown is the only list.
+  expect(await page.locator("#woJobSearch").getAttribute("list")).toBeNull();
+  // Same look as the Timesheet: white card rows, green bold number, overlaying the form.
+  const style = await first.evaluate(el => ({
+    number: getComputedStyle(el.querySelector(".jgc-job-option__number")).fontWeight,
+    list: getComputedStyle(el.parentElement).position,
+    background: getComputedStyle(el).backgroundColor
+  }));
+  expect(Number(style.number)).toBeGreaterThanOrEqual(700);
+  expect(style.list).toBe("absolute");
+  expect(style.background).toBe("rgb(255, 255, 255)");
+});
+
+test("Work Orders: a picked job is locked and the X is the only way to remove it", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page);
+  await page.goto("/work-orders.html", { waitUntil: "load" });
+  const search = page.locator("#woJobSearch");
+  const clear = page.locator("#woJobClear");
+  await expect(clear).toBeHidden();
+
+  await search.fill("Ingleside");
+  await page.locator("#woJobSuggestions .jgc-job-option").first().click();
+  await expect(search).toHaveValue("26132 - McKay Mechanical - Ingleside Development - Contract");
+  await expect(search).not.toBeEditable();
+  await expect(clear).toBeVisible();
+  // Backspace does nothing and tapping the box does not reopen the list.
+  await search.click();
+  await page.keyboard.press("Backspace");
+  await expect(search).toHaveValue("26132 - McKay Mechanical - Ingleside Development - Contract");
+  await expect(page.locator("#woJobSuggestions")).toBeHidden();
+  // The X sits inside the box.
+  const [box, x] = await Promise.all([search.boundingBox(), clear.boundingBox()]);
+  expect(x.x + x.width).toBeLessThanOrEqual(box.x + box.width);
+  expect(x.y).toBeGreaterThanOrEqual(box.y);
+  expect(x.y + x.height).toBeLessThanOrEqual(box.y + box.height);
+
+  await clear.click();
+  await expect(search).toHaveValue("");
+  await expect(search).toBeEditable();
+  await expect(search).toBeFocused();
+  await expect(clear).toBeHidden();
+  await expect(page.locator("#woJobNumber")).toHaveValue("");
+  await expect(page.locator("#woJobName")).toHaveValue("");
+  await expect(page.locator("#woNumber")).toHaveValue("");
+  await expect(page.locator("#woJobSuggestions .jgc-job-option")).toHaveCount(2);
+  await expect(page.locator(".jgc-employee-job-details").filter({ hasText: "McKay Mechanical" })).toBeHidden();
+});
+
+test("Work Orders: typing or backspacing to a job number never re-picks the job", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page);
+  await page.goto("/work-orders.html", { waitUntil: "load" });
+  const search = page.locator("#woJobSearch");
+  await search.click();
+  await page.keyboard.type("26132 - Mc");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Backspace");
+  // This used to snap back to the full "26132 - ..." label.
+  await expect(search).toHaveValue("26132 - ");
+  await expect(search).toBeEditable();
+  await expect(page.locator("#woJobNumber")).toHaveValue("");
+  await expect(page.locator("#woJobSuggestions .jgc-job-option")).toHaveCount(1);
+
+  // Leaving the box with a whole job number still picks that job.
+  await search.fill("26140");
+  await expect(search).toBeEditable();
   await search.blur();
-  await search.focus();
-  await expect(page.locator("#woJobSuggestions")).not.toContainText("No matching jobs found");
-  await expect(page.locator("#woJobSuggestions .job-suggestion").first()).toHaveText("26132 - McKay Mechanical - Ingleside Development - Contract");
-  await expect(page.locator("#woJobSuggestions .job-suggestion")).toHaveCount(2);
-
-  // Typing the label style shown in the box still finds the job.
-  await search.fill("26132 - McKay");
-  await expect(page.locator("#woJobSuggestions .job-suggestion")).toHaveCount(1);
+  await expect(search).toHaveValue("26140 - Trans Northern Pipeline - Gate Replacement - T&M");
+  await expect(search).not.toBeEditable();
+  await expect(page.locator("#woJobNumber")).toHaveValue("26140");
 });
