@@ -109,7 +109,7 @@
     if (!elements.autosaveStatus) {
       return;
     }
-    elements.autosaveStatus.textContent = message || "Changes save at each step";
+    elements.autosaveStatus.textContent = message || "Saves as you go";
     elements.autosaveStatus.classList.toggle("is-saving", status === "saving");
     elements.autosaveStatus.classList.toggle("is-saved", status === "saved");
     elements.autosaveStatus.classList.toggle("is-error", status === "error");
@@ -318,13 +318,76 @@
     }).join("");
 
     elements.jobFilter.innerHTML = '<option value="">All jobs</option>' + jobOptions;
-    elements.job.innerHTML = '<option value="">Select a job</option>' + jobOptions;
     if (state.jobs.some(function (job) { return job.id === currentJobFilter; })) {
       elements.jobFilter.value = currentJobFilter;
     }
-    if (state.jobs.some(function (job) { return job.id === currentFormJob; })) {
-      elements.job.value = currentFormJob;
+    if (currentFormJob) {
+      renderJobPicker();
     }
+  }
+
+  // The editor's job box is the shared job picker (jgc-design-system.css), as on Work Orders, PO and
+  // Timesheet: a picked job locks and the X removes it. #jobListJob keeps the job id for saving; a saved
+  // note's job can't change, so its X stays disabled (and hidden).
+  function renderJobPicker() {
+    const jobId = elements.job.value;
+    const picked = Boolean(jobId);
+    if (picked) {
+      const job = state.jobs.find(function (entry) { return entry.id === jobId; });
+      const list = state.lists.find(function (entry) { return entry.id === elements.listId.value; });
+      elements.jobSearch.value = job
+        ? getJgcEmployeeJobLabel(job)
+        : list ? [list.job_number, list.job_name].filter(Boolean).join(" - ") : elements.jobSearch.value;
+      closeJobOptions();
+    }
+    elements.jobPicker.classList.toggle("is-selected", picked);
+    elements.jobSearch.readOnly = picked;
+    elements.jobSearch.disabled = elements.job.disabled && !picked;
+    elements.jobClear.disabled = elements.job.disabled;
+  }
+
+  function renderJobOptions() {
+    const terms = String(elements.jobSearch.value || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const matches = state.jobs.filter(function (job) {
+      const label = getJgcEmployeeJobLabel(job).toLowerCase();
+      return terms.every(function (term) { return label.includes(term); });
+    }).slice(0, 40);
+    elements.jobOptions.innerHTML = matches.length
+      ? matches.map(function (job) {
+        return getJgcJobOptionHtml(job, 'data-job-list-pick-job="' + escapeHtml(job.id) + '"');
+      }).join("")
+      : '<div class="jgc-job-dropdown__empty">No matching jobs.</div>';
+  }
+
+  function openJobOptions() {
+    window.clearTimeout(state.jobOptionsCloseTimer);
+    if (elements.jobSearch.readOnly || elements.jobSearch.disabled) {
+      return;
+    }
+    renderJobOptions();
+    elements.jobOptions.classList.add("open");
+    elements.jobSearch.setAttribute("aria-expanded", "true");
+  }
+
+  function closeJobOptions() {
+    window.clearTimeout(state.jobOptionsCloseTimer);
+    elements.jobOptions.classList.remove("open");
+    elements.jobSearch.setAttribute("aria-expanded", "false");
+  }
+
+  function pickJob(jobId) {
+    elements.job.value = jobId || "";
+    renderJobPicker();
+    queueCheckpointSave();
+  }
+
+  function clearJob() {
+    elements.job.value = "";
+    elements.jobSearch.value = "";
+    renderJobPicker();
+    elements.jobSearch.focus();
+    openJobOptions();
+    queueCheckpointSave();
   }
 
   function renderMemberSelector(selectedIds, disabled) {
@@ -343,22 +406,42 @@
     renderOptionsSummary();
   }
 
+  // People and reminders show as chips on the closed panel: who else is tagged, the next reminder, and
+  // an Add/Edit chip. Tapping any of them opens the panel.
   function renderOptionsSummary() {
     if (!elements.optionsSummary) {
       return;
     }
-    const tagged = elements.memberGrid
-      ? elements.memberGrid.querySelectorAll('input[type="checkbox"]:checked').length
-      : 0;
-    const reminders = state.editingReminders.length;
-    const parts = [];
-    if (tagged) {
-      parts.push(tagged + " tagged");
+    const others = elements.memberGrid
+      ? Array.from(elements.memberGrid.querySelectorAll('input[type="checkbox"]:checked'))
+        .filter(function (input) { return !(state.user && input.value === state.user.id); })
+        .map(function (input) { return input.closest("label").textContent.trim(); })
+      : [];
+    const reminders = state.editingReminders;
+    const chips = [];
+    if (others.length) {
+      chips.push('<span class="job-list-option-chip"><i data-lucide="users" aria-hidden="true"></i><span>'
+        + escapeHtml(others.slice(0, 2).join(", ") + (others.length > 2 ? " +" + (others.length - 2) : ""))
+        + "</span></span>");
     }
-    if (reminders) {
-      parts.push(reminders + " reminder" + (reminders === 1 ? "" : "s"));
+    if (reminders.length) {
+      chips.push('<span class="job-list-option-chip"><i data-lucide="bell" aria-hidden="true"></i><span>'
+        + escapeHtml(formatDateTime(reminders[0].reminder_at) + (reminders.length > 1 ? " +" + (reminders.length - 1) : ""))
+        + "</span></span>");
     }
-    elements.optionsSummary.textContent = parts.join(" | ");
+    chips.push('<span class="job-list-option-chip is-add"><i data-lucide="' + (chips.length ? "pencil" : "plus") + '" aria-hidden="true"></i><span>'
+      + (chips.length ? "Edit" : "People and reminders") + "</span></span>");
+    elements.optionsSummary.innerHTML = chips.join("");
+    refreshIcons();
+  }
+
+  function renderChecklistCount() {
+    if (!elements.checklistCount) {
+      return;
+    }
+    const items = readItemEditor().filter(function (item) { return item.item_text; });
+    const done = items.filter(function (item) { return item.completed; }).length;
+    elements.checklistCount.textContent = items.length ? "· " + done + " of " + items.length + " done" : "";
   }
 
   function jobGroupKey(list) {
@@ -488,18 +571,19 @@
         + (state.editorCanToggle ? "" : " disabled")
         + ' aria-label="' + escapeHtml(item.completed ? "Mark line incomplete" : "Mark line complete") + '"'
         + ' aria-pressed="' + (item.completed ? "true" : "false") + '"></button>'
-        + '<label class="job-list-item-quantity"><span>Qty</span>'
-        + '<input data-job-list-item-quantity="' + index + '" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off"'
-        + ' placeholder="-" aria-label="Quantity for line ' + (index + 1) + '"'
-        + (disabled ? " disabled" : "") + ' value="' + escapeHtml(item.quantity !== null && item.quantity !== undefined ? item.quantity : "") + '"></label>'
         + '<textarea class="job-list-line-input" data-job-list-item-input="' + index + '" maxlength="240" rows="1"'
         + ' placeholder="' + (index ? "Add another item" : "Start typing") + '"'
         + (disabled ? " disabled" : "") + ">" + escapeHtml(item.item_text || "") + "</textarea>"
-        + '<button class="jgc-button jgc-button--danger" type="button" data-job-list-remove-item="' + index + '"'
-        + (disabled ? " hidden" : "") + ' aria-label="Remove item" title="Remove item">X</button>'
+        + '<label class="job-list-item-quantity"><span class="job-list-sr-only">Quantity</span>'
+        + '<input data-job-list-item-quantity="' + index + '" type="number" min="0" step="0.001" inputmode="decimal" autocomplete="off"'
+        + ' placeholder="Qty" aria-label="Quantity for line ' + (index + 1) + '"'
+        + (disabled ? " disabled" : "") + ' value="' + escapeHtml(item.quantity !== null && item.quantity !== undefined ? item.quantity : "") + '"></label>'
+        + '<button class="job-list-item-remove" type="button" data-job-list-remove-item="' + index + '"'
+        + (disabled ? " hidden" : "") + ' aria-label="Remove item" title="Remove item">&times;</button>'
         + "</div>";
     }).join("");
     elements.itemEditor.querySelectorAll("[data-job-list-item-input]").forEach(autoSizeItemInput);
+    renderChecklistCount();
   }
 
   function readItemEditor() {
@@ -636,7 +720,7 @@
     elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
     elements.accessLine.textContent = controller
       ? (list && list.status === "completed"
-        ? "Uncheck an item to reopen this note, or use Reopen Note for full editing."
+        ? "Uncheck an item to reopen this note, or use Reopen for full editing."
         : "Tagged employees can edit this note and its reminder.")
       : "You can view and check items. Tagged employees manage the note.";
 
@@ -657,6 +741,8 @@
 
     elements.title.disabled = !editable;
     elements.job.disabled = !editable || Boolean(list);
+    elements.jobSearch.value = "";
+    renderJobPicker();
     elements.reminder.disabled = !editable;
     elements.addReminder.disabled = !editable;
     elements.addItem.hidden = !editable;
@@ -664,13 +750,15 @@
     elements.complete.hidden = !controller || !list;
     elements.deleteButton.hidden = !controller || !list;
     elements.complete.innerHTML = list && list.status === "completed"
-      ? '<i data-lucide="rotate-ccw"></i> Reopen Note'
-      : '<i data-lucide="check-circle"></i> Complete Note';
+      ? '<i data-lucide="rotate-ccw"></i> Reopen'
+      : '<i data-lucide="check-circle"></i> Complete';
+    // One green action: Complete when it shows, otherwise Save and close.
+    elements.save.classList.toggle("jgc-button--secondary", !elements.complete.hidden);
 
     elements.modal.hidden = false;
     document.body.style.overflow = "hidden";
     setAutosaveStatus(
-      savedDraft && editable ? "Saved device draft restored" : "Changes save at each step",
+      savedDraft && editable ? "Saved device draft restored" : "Saves as you go",
       savedDraft && editable ? "saved" : ""
     );
     scheduleReminderExpiryRefresh();
@@ -690,7 +778,7 @@
     document.body.style.overflow = "";
     state.editorEditable = false;
     state.editorCanToggle = false;
-    setAutosaveStatus("Changes save at each step", "");
+    setAutosaveStatus("Saves as you go", "");
     if (pendingCompletion) {
       renderCards();
       showNotice(pendingCompletion.offline
@@ -991,7 +1079,7 @@
     } catch (error) {
       storeEditorDraft(snapshot, elements.listId.value || originalListId);
       const message = error && error.message || "The job note could not be saved.";
-      setAutosaveStatus("Not synced - use Save & Close to retry", "error");
+      setAutosaveStatus("Not synced - use Save and close to retry", "error");
       if (manual) {
         showNotice(message, "error");
       } else {
@@ -1407,7 +1495,32 @@
       }
     });
     elements.complete.addEventListener("click", setListStatus);
-    elements.deleteButton.addEventListener("click", deleteList);
+    // No argument: deleteList falls back to the open note (the click event used to be taken as its id).
+    elements.deleteButton.addEventListener("click", function () { deleteList(); });
+    elements.jobSearch.addEventListener("focus", openJobOptions);
+    elements.jobSearch.addEventListener("click", openJobOptions);
+    elements.jobSearch.addEventListener("input", openJobOptions);
+    elements.jobSearch.addEventListener("blur", function () {
+      state.jobOptionsCloseTimer = window.setTimeout(closeJobOptions, 200);
+    });
+    elements.jobSearch.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeJobOptions();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const options = elements.jobOptions.querySelectorAll("[data-job-list-pick-job]");
+        if (options.length === 1) {
+          pickJob(options[0].dataset.jobListPickJob);
+        }
+      }
+    });
+    elements.jobOptions.addEventListener("click", function (event) {
+      const option = event.target.closest("[data-job-list-pick-job]");
+      if (option) {
+        pickJob(option.dataset.jobListPickJob);
+      }
+    });
+    elements.jobClear.addEventListener("click", clearJob);
     elements.search.addEventListener("input", renderCards);
     elements.jobFilter.addEventListener("change", renderCards);
 
@@ -1447,6 +1560,7 @@
     elements.itemEditor.addEventListener("input", function (event) {
       if (event.target.matches("[data-job-list-item-input]")) {
         autoSizeItemInput(event.target);
+        renderChecklistCount();
       }
     });
     elements.itemEditor.addEventListener("focusout", function (event) {
@@ -1462,7 +1576,6 @@
       elements.modalTitle.textContent = String(elements.title.value || "").trim() || "New Job Note";
     });
     elements.title.addEventListener("blur", queueCheckpointSave);
-    elements.job.addEventListener("change", queueCheckpointSave);
     elements.options.addEventListener("toggle", function () {
       if (elements.options.open) {
         queueCheckpointSave();
@@ -1513,6 +1626,11 @@
     elements.listId = byId("jobListId");
     elements.title = byId("jobListTitle");
     elements.job = byId("jobListJob");
+    elements.jobPicker = byId("jobListJobPicker");
+    elements.jobSearch = byId("jobListJobSearch");
+    elements.jobClear = byId("jobListJobClear");
+    elements.jobOptions = byId("jobListJobOptions");
+    elements.checklistCount = byId("jobListChecklistCount");
     elements.reminder = byId("jobListReminder");
     elements.addReminder = byId("jobListAddReminder");
     elements.reminderChips = byId("jobListReminderChips");

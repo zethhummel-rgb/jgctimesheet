@@ -35,7 +35,8 @@
   min-height: 72px;
   margin: 0;
   padding: 12px max(20px, calc((100vw - 1040px) / 2));
-  background: var(--jgc-nav-mobile-background);
+  /* The theme surface, so the title reads in light mode too (the dark nav colour hid it on computers). */
+  background: var(--jgc-color-surface);
   border-bottom: 1px solid var(--jgc-color-border);
 }
 
@@ -65,6 +66,25 @@
   flex: 0 0 auto;
   min-width: 46px;
   border-radius: var(--jgc-radius-pill);
+}
+
+/* Autosave status sits at the right of the editor header ("Saved"), balancing the back button. */
+.job-list-note-header .job-list-autosave-status {
+  flex: 0 1 auto;
+  max-width: 34%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: 0;
+  font-size: var(--jgc-font-size-xs);
+  line-height: 1.25;
+  text-align: right;
+}
+
+.job-list-note-header .job-list-autosave-status.is-saved::before {
+  content: "\2713";
+  font-weight: 800;
 }
 
 .job-list-note-form {
@@ -108,66 +128,95 @@
   outline: 0 !important;
 }
 
+/* Light mode paints every field white (jgc-design-system.css); the note title stays text on the page
+   and the quantity pills stay soft. */
+:root[data-jgc-theme="light"] body.jgc-theme .job-list-title-input {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+:root[data-jgc-theme="light"] body.jgc-theme .job-list-title-input:focus {
+  border-bottom-color: var(--jgc-color-brand-500) !important;
+}
+
+:root[data-jgc-theme="light"] body.jgc-theme .job-list-item-quantity input {
+  background: var(--jgc-color-surface-soft) !important;
+  border-color: var(--jgc-color-border-soft) !important;
+}
+
 .job-list-job-field {
   min-width: 0;
 }
 
+/* People and reminders: a row of chips (tagged people, next reminder, Add/Edit) that opens the panel. */
 .job-list-note-options {
-  margin: var(--jgc-space-4) 0;
-  background: var(--jgc-color-surface-raised);
-  border: 1px solid var(--jgc-color-border-soft);
-  border-radius: var(--jgc-radius-md);
+  margin: var(--jgc-space-3) 0 var(--jgc-space-4);
 }
 
 .job-list-note-options > summary {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--jgc-space-3);
-  padding: 10px var(--jgc-space-3);
+  display: block;
   cursor: pointer;
   list-style: none;
-  font-weight: 750;
 }
 
 .job-list-note-options > summary::-webkit-details-marker {
   display: none;
 }
 
-.job-list-note-options > summary > span:first-child {
-  display: inline-flex;
-  align-items: center;
+.job-list-option-chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--jgc-space-2);
 }
 
-.job-list-note-options > summary::after {
-  content: "+";
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  color: var(--jgc-color-brand-400);
-  font-size: 24px;
-}
-
-.job-list-note-options[open] > summary::after {
-  content: "-";
-}
-
-.job-list-options-summary {
-  margin-left: auto;
-  color: var(--jgc-color-text-muted);
+.job-list-option-chip {
+  min-height: 34px;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  color: var(--jgc-color-text);
+  background: color-mix(in srgb, var(--jgc-color-brand-500) 14%, var(--jgc-color-surface-raised));
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 30%, transparent);
+  border-radius: var(--jgc-radius-pill);
   font-size: var(--jgc-font-size-sm);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.job-list-option-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-list-option-chip svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.job-list-option-chip.is-add {
+  color: var(--jgc-color-text-muted);
+  background: transparent;
+  border: 1px dashed var(--jgc-color-input-border);
+}
+
+.job-list-note-options > summary:focus-visible {
+  outline: 3px solid var(--jgc-color-brand-500);
+  outline-offset: 3px;
+  border-radius: var(--jgc-radius-md);
 }
 
 .job-list-note-options-body {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: var(--jgc-space-4);
+  margin-top: var(--jgc-space-3);
   padding: var(--jgc-space-4);
-  border-top: 1px solid var(--jgc-color-border-soft);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-md);
 }
 
 .job-list-note-option-section {
@@ -180,10 +229,21 @@
 
 .job-list-note-page {
   min-height: 48vh;
-  padding: 4px var(--jgc-space-3) var(--jgc-space-5);
-  background: var(--jgc-color-notice);
-  border-top: 2px solid var(--jgc-color-brand-500);
-  border-bottom: 1px solid var(--jgc-color-border);
+  padding: var(--jgc-space-3) var(--jgc-space-4) var(--jgc-space-4);
+  background: var(--jgc-color-surface-raised);
+  border: 1px solid var(--jgc-color-border-soft);
+  border-radius: var(--jgc-radius-lg);
+}
+
+.job-list-checklist-title {
+  margin: 0 0 var(--jgc-space-1);
+  color: var(--jgc-color-text-muted);
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
+}
+
+.job-list-checklist-title span {
+  font-weight: 600;
 }
 
 .job-list-sr-only {
@@ -662,36 +722,62 @@
   gap: 0;
 }
 
+/* Checklist rows: round check, the item, a small quantity pill and a quiet remove X. */
 .job-list-item-edit-row {
-  min-height: 58px;
+  min-height: 54px;
   display: grid;
-  grid-template-columns: 42px 72px minmax(0, 1fr) 44px;
+  grid-template-columns: 34px minmax(0, 1fr) 64px 34px;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid var(--jgc-color-border-soft);
 }
 
 .job-list-item-quantity {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 4px;
-  color: var(--jgc-color-text-muted);
-  font-size: var(--jgc-font-size-xs);
-  font-weight: 700;
+  display: block;
+  min-width: 0;
 }
 
 .jgc-theme .job-list-item-quantity input {
   width: 100%;
   min-width: 0;
-  height: 34px;
-  padding: 4px 5px;
+  height: 32px;
+  min-height: 0;
+  padding: 4px 6px;
   color: var(--jgc-color-text) !important;
-  background: var(--jgc-color-surface-raised) !important;
-  border: 1px solid var(--jgc-color-input-border) !important;
-  border-radius: var(--jgc-radius-sm);
+  background: var(--jgc-color-surface-soft) !important;
+  border: 1px solid var(--jgc-color-border-soft) !important;
+  border-radius: var(--jgc-radius-pill);
   font: inherit;
+  font-size: var(--jgc-font-size-sm);
+  font-weight: 700;
   text-align: center;
+}
+
+.jgc-theme .job-list-item-quantity input::placeholder {
+  color: var(--jgc-color-text-muted);
+  font-weight: 600;
+}
+
+.job-list-item-remove {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--jgc-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.job-list-item-remove:hover,
+.job-list-item-remove:focus-visible {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-danger);
+  outline: none;
 }
 
 .jgc-theme .job-list-item-quantity input::-webkit-outer-spin-button,
@@ -775,11 +861,6 @@
   text-decoration: line-through;
 }
 
-.job-list-item-edit-row .jgc-button {
-  min-width: 44px;
-  padding: 0;
-}
-
 .job-list-add-line {
   min-height: 54px;
   display: inline-flex;
@@ -806,9 +887,9 @@
   display: grid;
   place-items: center;
   color: var(--jgc-color-brand-400);
-  border: 2px solid var(--jgc-color-border);
+  border: 2px dashed var(--jgc-color-input-border);
   border-radius: 50%;
-  font-size: 25px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -818,20 +899,39 @@
   border-top: 1px solid var(--jgc-color-border);
 }
 
+/* Bottom bar: delete (icon only, confirms first), Save and close, Complete. */
 .job-list-note-toolbar {
   position: sticky;
   bottom: 0;
   z-index: 4;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
+  gap: var(--jgc-space-2);
   margin-top: auto;
   padding: var(--jgc-space-3) 0 calc(var(--jgc-space-3) + env(safe-area-inset-bottom, 0px));
-  background: var(--jgc-nav-mobile-background);
-  box-shadow: var(--jgc-bottom-nav-shadow);
+  background: var(--jgc-color-page-deep);
+  box-shadow: 0 -1px 0 var(--jgc-color-border-soft);
+}
+
+.job-list-note-toolbar .jgc-button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.job-list-note-toolbar .job-list-delete-note {
+  flex: 0 0 48px;
+  padding: 0;
+}
+
+.job-list-note-toolbar .job-list-delete-note:hover,
+.job-list-note-toolbar .job-list-delete-note:focus-visible {
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-danger);
+  border-color: var(--jgc-color-danger);
 }
 
 .job-list-autosave-status {
-  margin-right: auto;
   color: var(--jgc-color-text-muted);
   font-size: var(--jgc-font-size-sm);
   font-weight: 700;
@@ -1105,18 +1205,14 @@
     padding: var(--jgc-space-3);
   }
 
-  .job-list-options-summary {
-    display: none;
-  }
-
   .job-list-note-page {
     min-height: 50vh;
-    padding-right: 4px;
-    padding-left: 4px;
+    padding: var(--jgc-space-3) 10px;
   }
 
   .job-list-item-edit-row {
-    grid-template-columns: 42px 68px minmax(0, 1fr) 42px;
+    grid-template-columns: 34px minmax(0, 1fr) 56px 32px;
+    gap: 6px;
   }
 
   .job-list-line-input {
@@ -1136,21 +1232,12 @@
     width: 100%;
   }
 
-  .job-list-note-toolbar {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--jgc-space-2);
-    padding-bottom: calc(var(--jgc-space-3) + env(safe-area-inset-bottom, 0px));
-  }
-
-  .job-list-note-toolbar #jobListSave {
-    grid-column: 1 / -1;
-  }
-
-  .job-list-autosave-status {
-    grid-column: 1 / -1;
-    margin-right: 0;
-    text-align: center;
+  .job-list-note-toolbar .jgc-button {
+    width: auto;
+    padding-right: 10px;
+    padding-left: 10px;
+    font-size: var(--jgc-font-size-sm);
+    white-space: nowrap;
   }
 
 }
