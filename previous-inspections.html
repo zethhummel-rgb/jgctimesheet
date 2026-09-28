@@ -41,7 +41,7 @@
 <script src="common.js?v=71"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
 <script src="toolbox-report-actions.js?v=1"></script>
-<script src="inspection-records.js?v=11"></script>
+<script src="inspection-records.js?v=12"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 const worker = getCurrentWorker();
@@ -301,6 +301,20 @@ function normalizeVehicleInspectionRecord(record) {
     };
 }
 
+// Plain-text summary of a saved JSA's first answers; it is escaped once when the row is drawn. It used
+// to reuse buildDetails' HTML, so Previous Reports showed a literal "<br>" and doubled the job lines.
+function getFormFieldSummary(record) {
+    const fields = record.form_data && Array.isArray(record.form_data.fields)
+        ? record.form_data.fields
+        : [];
+
+    return fields
+        .filter((field) => field.label && field.value && field.value !== "No" && !/^(Project|Job|Location)/i.test(field.label))
+        .slice(0, 4)
+        .map((field) => `${field.label}: ${field.value}`)
+        .join("; ");
+}
+
 function normalizeReportRecord(source, record) {
     if (source === "jsa") {
         return {
@@ -311,7 +325,7 @@ function normalizeReportRecord(source, record) {
             completed_by: record.worker_display_name || record.worker_name || "",
             project: findFieldValue(record, /Project|Job/i),
             location: findFieldValue(record, /Location/i),
-            summary: buildDetails(record),
+            summary: getFormFieldSummary(record),
             supports_inspection_actions: true
         };
     }

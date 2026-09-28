@@ -103,7 +103,13 @@
 
 .specialty-inspection-page .field-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: var(--jgc-space-4);
+  margin: var(--jgc-space-4) 0;
+}
+
+/* Harness details (Project / Site, Serial Number, Date): stacked fields instead of a two-column table
+   that scrolled sideways on phones. */
+.specialty-inspection-page .field-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .specialty-inspection-page .signature-grid,

@@ -980,3 +980,44 @@ reportInspectionSyncState("idle");
 if (navigator.onLine) {
     window.setTimeout(syncPendingInspectionRecords, 0);
 }
+
+// A real dropdown for picking a company unit on the Aerial Lift, Forklift and Telehandler inspections.
+// iPhones only show a <datalist> as suggestions above the keyboard. The page's text box stays the saved
+// field: it holds the chosen unit's label and only shows, for typing, when "Rented or other unit" is
+// picked. The dropdown itself is skipped when saving. Returns { render(items) } for the page's loader.
+function installInspectionUnitSelect(input, settings) {
+    const OTHER = "__other__";
+    const select = document.createElement("select");
+    select.id = input.id + "Select";
+    select.dataset.inspectionSkip = "true";
+    select.setAttribute("aria-label", settings.label);
+    input.insertAdjacentElement("beforebegin", select);
+
+    function syncTextBox() {
+        input.hidden = select.value !== OTHER;
+    }
+
+    function render(items) {
+        const labels = (items || []).map(settings.getLabel).filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        select.innerHTML = '<option value="">' + escapeInspectionHtml(settings.placeholder) + "</option>"
+            + labels.map((label) => '<option value="' + escapeInspectionHtml(label) + '">' + escapeInspectionHtml(label) + "</option>").join("")
+            + '<option value="' + OTHER + '">Rented or other unit</option>';
+        const current = input.value.trim();
+        select.value = !current ? "" : (labels.includes(current) ? current : OTHER);
+        syncTextBox();
+    }
+
+    select.addEventListener("change", () => {
+        input.value = select.value === OTHER ? "" : select.value;
+        syncTextBox();
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        if (select.value === OTHER) {
+            input.focus();
+        }
+    });
+
+    render([]);
+    return { render };
+}
