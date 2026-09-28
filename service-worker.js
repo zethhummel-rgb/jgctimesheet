@@ -1,4 +1,4 @@
-const JGC_RELEASE_ID = "950";
+const JGC_RELEASE_ID = "951";
 const JGC_CACHE_PREFIX = "jgc-portal-v";
 const JGC_CACHE_NAME = JGC_CACHE_PREFIX + JGC_RELEASE_ID;
 const JGC_APP_SHELL = [
@@ -338,7 +338,7 @@ const JGC_APP_SHELL = [
   "./admin-dashboard-grid.js?v=1",
   "./admin-shell-design-system.css?v=5",
   "./inspection-history-today.css?v=2",
-  "./inspection-history-previous.css?v=2",
+  "./inspection-history-previous.css?v=3",
   "./safety-records-admin.css?v=3",
   "./admin-global-search.css?v=10",
   "./accounting-admin.css?v=9",

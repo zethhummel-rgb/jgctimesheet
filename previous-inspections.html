@@ -8,7 +8,7 @@
 <title>Previous Inspections</title>
 <!-- Deploy refresh marker: previous inspections vehicle history update. -->
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-<link rel="stylesheet" href="inspection-history-previous.css?v=2">
+<link rel="stylesheet" href="inspection-history-previous.css?v=3">
 </head>
 
 <body class="inspection-history-page jgc-page jgc-system-page">
@@ -549,44 +549,212 @@ async function loadInspections() {
     renderInspectionRows(filteredData);
 }
 
+// Records grouped by job in collapsible sections, one card per record (type, date, person, a short
+// summary and its actions), with a search box and type filter. This replaced a 9-column table that
+// scrolled sideways on phones (Zeth, 2026-09-27).
+const recordBrowser = { search: "", type: "", openJobs: new Set(), touched: false };
+
+function getRecordType(record) {
+    return String(record.report_type || record.inspection_type || "Record").trim();
+}
+
+function getRecordPerson(record) {
+    return String(record.completed_by || record.worker_display_name || record.worker_name || "").trim();
+}
+
+function getRecordJob(record) {
+    const project = record.report_source
+        ? record.project
+        : findFieldValue(record, /^(Project|Job)/i) || findFieldValue(record, /Project|Job|Location of Use|Site Location/i);
+    return String(project || "").trim();
+}
+
+function isIncidentType(type) {
+    return /incident|accident|injury|near miss/i.test(type);
+}
+
+function formatCardDate(value) {
+    if (!value) {
+        return "";
+    }
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(value))
+        ? new Date(...String(value).split("-").map((part, index) => Number(part) - (index === 1 ? 1 : 0)))
+        : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+    const options = { month: "short", day: "numeric" };
+    if (date.getFullYear() !== new Date().getFullYear()) {
+        options.year = "numeric";
+    }
+    return date.toLocaleDateString(undefined, options);
+}
+
+function buildCardDetails(record) {
+    if (isVehicleInspectionRecord(record)) {
+        return buildDetails(record);
+    }
+    if (record.report_source) {
+        return [record.location ? "Location: " + record.location : "", record.summary || ""]
+            .filter(Boolean)
+            .map((line) => escapeHtml(line))
+            .join("<br>");
+    }
+    const fields = record.form_data && Array.isArray(record.form_data.fields) ? record.form_data.fields : [];
+    return fields
+        .filter((field) => field.label && field.value && field.value !== "No" && !/^(Project|Job)/i.test(field.label))
+        .slice(0, 3)
+        .map((field) => `${escapeHtml(field.label)}: ${escapeHtml(field.value)}`)
+        .join("<br>");
+}
+
+function renderRecordCard(record) {
+    const type = getRecordType(record);
+    const person = getRecordPerson(record);
+    const recordDate = formatCardDate(record.report_date || record.inspection_date);
+    const savedDate = formatCardDate(record.created_at);
+    const actions = [];
+    [renderPreviousViewCell(record), renderPreviousPdfCell(record), renderPreviousEmailCell(record), renderPreviousDeleteCell(record)]
+        .forEach((html) => {
+            if (html && html !== "-" && !actions.includes(html)) {
+                actions.push(html);
+            }
+        });
+    const details = buildCardDetails(record);
+
+    return `
+        <article class="history-card${isIncidentType(type) ? " is-incident" : ""}">
+            <div class="history-card__top">
+                <strong class="history-card__type">${escapeHtml(type)}</strong>
+                <span class="history-card__meta">${escapeHtml([recordDate, person].filter(Boolean).join(" · "))}</span>
+            </div>
+            ${details ? `<div class="history-card__details">${details}</div>` : ""}
+            ${savedDate && savedDate !== recordDate ? `<div class="history-card__saved">Saved ${escapeHtml(savedDate)}</div>` : ""}
+            ${actions.length ? `<div class="history-card__actions">${actions.join("")}</div>` : ""}
+        </article>
+    `;
+}
+
+function recordMatchesBrowser(record) {
+    if (recordBrowser.type && getRecordType(record) !== recordBrowser.type) {
+        return false;
+    }
+    const query = recordBrowser.search.trim().toLowerCase();
+    if (!query) {
+        return true;
+    }
+    const text = [getRecordJob(record), getRecordType(record), getRecordPerson(record), record.location, record.summary,
+        buildCardDetails(record).replace(/<br>/g, " ")]
+        .join(" ")
+        .toLowerCase();
+    return query.split(/\s+/).every((term) => text.includes(term));
+}
+
+function renderRecordGroups() {
+    const groupsEl = document.getElementById("recordGroups");
+    const summaryEl = document.getElementById("recordSummary");
+    if (!groupsEl) {
+        return;
+    }
+    const noun = isReportsView ? "report" : isPermitsView ? "permit" : "inspection";
+    const visible = inspectionRecords.filter(recordMatchesBrowser);
+    const groups = new Map();
+    visible.forEach((record) => {
+        const job = getRecordJob(record);
+        const key = job ? job.toLowerCase() : "";
+        if (!groups.has(key)) {
+            groups.set(key, { key, job, records: [] });
+        }
+        groups.get(key).records.push(record);
+    });
+    const ordered = Array.from(groups.values()).sort((a, b) => {
+        if (!a.key || !b.key) {
+            return a.key ? -1 : 1;
+        }
+        return new Date(b.records[0].created_at || 0) - new Date(a.records[0].created_at || 0);
+    });
+    const filtering = Boolean(recordBrowser.search.trim() || recordBrowser.type);
+    const jobCount = ordered.filter((group) => group.key).length;
+
+    summaryEl.textContent = visible.length
+        ? `${visible.length} ${noun}${visible.length === 1 ? "" : "s"} on ${jobCount} job${jobCount === 1 ? "" : "s"}`
+        : `No ${noun}s match.`;
+
+    groupsEl.innerHTML = ordered.map((group, index) => {
+        const open = filtering
+            || recordBrowser.openJobs.has(group.key)
+            || (!recordBrowser.touched && index === 0);
+        const incidents = group.records.filter((record) => isIncidentType(getRecordType(record))).length;
+        return `
+            <details class="record-job" data-record-job="${escapeHtml(group.key)}"${open ? " open" : ""}>
+                <summary class="record-job__summary">
+                    <span class="record-job__title">${escapeHtml(group.job || "No job listed")}</span>
+                    ${incidents ? `<span class="record-job__badge is-incident">${incidents} incident${incidents === 1 ? "" : "s"}</span>` : ""}
+                    <span class="record-job__badge">${group.records.length}</span>
+                </summary>
+                <div class="record-job__cards">${group.records.map(renderRecordCard).join("")}</div>
+            </details>
+        `;
+    }).join("");
+}
+
 function renderInspectionRows(filteredData) {
     const list = document.getElementById("inspectionList");
     inspectionRecords = filteredData;
-    list.className = "table-wrap jgc-table-wrap";
-    const dateHeading = isReportsView ? "Report Date" : "Inspection Date";
-    const typeHeading = isReportsView ? "Report" : "Inspection";
+    list.className = "record-browser";
+    const types = Array.from(filteredData.reduce((counts, record) => {
+        const type = getRecordType(record);
+        counts.set(type, (counts.get(type) || 0) + 1);
+        return counts;
+    }, new Map()).entries()).sort((a, b) => b[1] - a[1]).map((entry) => entry[0]);
+    if (recordBrowser.type && !types.includes(recordBrowser.type)) {
+        recordBrowser.type = "";
+    }
+    const noun = isReportsView ? "reports" : isPermitsView ? "permits" : "inspections";
+
     list.innerHTML = `
-        <table class="jgc-table">
-            <thead>
-                <tr>
-                    <th>Saved</th>
-                    <th>${dateHeading}</th>
-                    <th>${typeHeading}</th>
-                    <th>Completed By</th>
-                    <th>Details</th>
-                    <th>View</th>
-                    <th>PDF</th>
-                    <th>Email</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filteredData.map((record) => `
-                    <tr>
-                        <td>${escapeHtml(formatDate(record.created_at))}</td>
-                        <td>${escapeHtml(formatDate(record.report_date || record.inspection_date))}</td>
-                        <td>${escapeHtml(record.report_type || record.inspection_type)}</td>
-                        <td>${escapeHtml(record.completed_by || record.worker_display_name || record.worker_name)}</td>
-                        <td>${buildDetails(record)}</td>
-                        <td>${renderPreviousViewCell(record)}</td>
-                        <td>${renderPreviousPdfCell(record)}</td>
-                        <td>${renderPreviousEmailCell(record)}</td>
-                        <td>${renderPreviousDeleteCell(record)}</td>
-                    </tr>
-                `).join("")}
-            </tbody>
-        </table>
+        <div class="record-browser__tools">
+            <input id="recordSearch" class="jgc-input" type="search" autocomplete="off" placeholder="Search job, client, person or type" aria-label="Search ${noun}" value="${escapeHtml(recordBrowser.search)}">
+            <div class="record-browser__types" role="group" aria-label="Filter by type">
+                ${[""].concat(types).map((type) => `<button type="button" class="record-type-chip${recordBrowser.type === type ? " is-active" : ""}" data-record-type="${escapeHtml(type)}" aria-pressed="${recordBrowser.type === type}">${escapeHtml(type || "All")}</button>`).join("")}
+            </div>
+        </div>
+        <p id="recordSummary" class="record-browser__summary"></p>
+        <div id="recordGroups" class="record-browser__groups"></div>
     `;
+
+    list.querySelector("#recordSearch").addEventListener("input", (event) => {
+        recordBrowser.search = event.target.value;
+        renderRecordGroups();
+    });
+    list.querySelector(".record-browser__types").addEventListener("click", (event) => {
+        const chip = event.target.closest("[data-record-type]");
+        if (!chip) {
+            return;
+        }
+        recordBrowser.type = chip.dataset.recordType;
+        list.querySelectorAll("[data-record-type]").forEach((button) => {
+            const active = button === chip;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-pressed", String(active));
+        });
+        renderRecordGroups();
+    });
+    // Remember which jobs were opened or closed by hand across searches and reloads.
+    list.querySelector("#recordGroups").addEventListener("toggle", (event) => {
+        const group = event.target.closest("[data-record-job]");
+        if (!group || recordBrowser.search.trim() || recordBrowser.type) {
+            return;
+        }
+        recordBrowser.touched = true;
+        if (group.open) {
+            recordBrowser.openJobs.add(group.dataset.recordJob);
+        } else {
+            recordBrowser.openJobs.delete(group.dataset.recordJob);
+        }
+    }, true);
+
+    renderRecordGroups();
 }
 
 function addPdfLine(doc, text, x, y, maxWidth) {

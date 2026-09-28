@@ -125,8 +125,9 @@ test("Previous Reports: a JSA's details read as plain text, without a literal <b
   await signIn(page);
   await page.route(`${supabaseOrigin}/rest/v1/inspection_records**`, route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([jsa]) }));
   await page.goto("/previous-inspections.html?recordType=reports", { waitUntil: "load" });
-  const row = page.locator("tr", { hasText: "Inspection Phone" }).first();
-  await expect(row).toContainText("Summary: Company: John Gordon Construction; Crew size: 4 & 1 apprentice");
+  // Release 951 shows reports as cards grouped by job.
+  const row = page.locator(".history-card", { hasText: "Inspection Phone" }).first();
+  await expect(row).toContainText("Company: John Gordon Construction; Crew size: 4 & 1 apprentice");
   const html = await row.innerHTML();
   expect(html).not.toContain("&lt;br&gt;");
   expect(html).not.toContain("&amp;amp;");
