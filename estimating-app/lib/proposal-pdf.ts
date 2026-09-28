@@ -70,7 +70,7 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const changeNotice = quote.documentKind === "Change Notice";
   const approvedChange = changeNotice && quote.status === "Won" && Boolean(quote.changeOrder);
   const documentTitle = approvedChange ? "Change Order" : changeNotice ? "Contemplated Change Notice" : quote.customerQuoteType === "Budget Quote" ? "Budget Quote" : "Proposal";
-  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : quote.customerQuoteType === "Budget Quote" ? "BUDGET QUOTATION" : "QUOTATION";
+  const documentEyebrow = approvedChange ? "APPROVED CHANGE ORDER" : changeNotice ? "CHANGE PROPOSAL" : "";
   const documentNumber = approvedChange ? quote.changeOrder?.coNumber || quote.number : quote.number;
   const documentNumberLabel = approvedChange ? "CHANGE ORDER NUMBER" : changeNotice ? "CCN NUMBER" : "QUOTE NUMBER";
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -223,9 +223,9 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   y -= 22;
   page.drawLine({ start: { x: PAGE.margin, y }, end: { x: PAGE.width - PAGE.margin, y }, thickness: 2.2, color: dark });
 
-  const titleHeight = 49;
-  page.drawText(documentEyebrow, { x: PAGE.margin, y: y - 15, size: 5.8, font: bold, color: green });
-  page.drawText(documentTitle, { x: PAGE.margin, y: y - 34, size: 17, font: bold, color: dark });
+  const titleHeight = changeNotice ? 49 : 44;
+  if (documentEyebrow) page.drawText(documentEyebrow, { x: PAGE.margin, y: y - 15, size: 5.8, font: bold, color: green });
+  page.drawText(documentTitle, { x: PAGE.margin, y: y - (changeNotice ? 34 : 26), size: changeNotice ? 17 : 13, font: bold, color: dark });
   const quoteCardWidth = 126;
   page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: quoteCardWidth, height: 34, color: panel, ...panelBorder });
   page.drawRectangle({ x: PAGE.width - PAGE.margin - quoteCardWidth, y: y - 39, width: 3, height: 34, color: green });
@@ -240,13 +240,22 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
   const projectAddress = quote.address?.trim() || client?.sites.find((site) => site.label.trim().toLocaleLowerCase() === quote.site.trim().toLocaleLowerCase())?.address?.trim() || "";
   const metaX = PAGE.margin;
   const metaWidth = PAGE.width - PAGE.margin * 2;
-  const metaColumns = [0.32, 0.51, 0.17];
+  const metaColumns = [0.38, 0.45, 0.17];
   const meta = [
-    { label: "PREPARED FOR", strong: client?.name || "Client not selected", size: 8, detail: [quote.site?.trim(), projectAddress, quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : ""].filter(Boolean).join("\n") },
+    { label: "PREPARED FOR", strong: client?.name || "Client not selected", size: 12, detail: "", clientDetails: [
+      { value: quote.site?.trim() || "", size: 10, font: bold, color: dark },
+      { value: projectAddress, size: 9, font: regular, color: dark },
+      { value: quote.proposalAttention || client?.contact ? `Attention: ${quote.proposalAttention || client?.contact}` : "", size: 7.5, font: regular, color: grey },
+    ] },
     { label: "PROJECT", strong: quote.project || "Project not named", size: 12, detail: [changeNotice ? `Change: ${quote.changeTitle || "Change not named"}` : "", quote.reference ? `Reference: ${quote.reference}` : ""].filter(Boolean).join("\n") },
     { label: changeNotice ? approvedChange ? "APPROVED DATE" : "CCN DATE" : "QUOTE DATE", strong: formatDate(approvedChange ? quote.changeOrder?.approvedDate || quote.quoteDate : quote.quoteDate), size: 6.5, detail: approvedChange ? `Approved by ${quote.changeOrder?.approvedBy || "Not recorded"}` : changeNotice && quote.changeRequestedBy ? `Requested by ${quote.changeRequestedBy}` : `Valid until ${formatDate(quote.validUntil)}` },
-  ].map((item, index) => ({ ...item, width: metaWidth * metaColumns[index], strongLines: wrap(item.strong, bold, item.size, metaWidth * metaColumns[index] - 20), detailLines: wrap(item.detail, regular, 5.8, metaWidth * metaColumns[index] - 20) }));
-  const metaHeight = Math.max(62, ...meta.map((item) => 26 + item.strongLines.length * (item.size + 2) + item.detailLines.length * 7 + 8));
+  ].map((item, index) => {
+    const width = metaWidth * metaColumns[index];
+    const details = item.clientDetails ?? [{ value: item.detail, size: 5.8, font: regular, color: grey }];
+    const detailLines = details.flatMap(({ value, size, font, color }) => wrap(value, font, size, width - 20).map((value) => ({ value, size, font, color, height: size + 2.5 })));
+    return { ...item, width, strongLines: wrap(item.strong, bold, item.size, width - 20), detailLines };
+  });
+  const metaHeight = Math.max(62, ...meta.map((item) => 26 + item.strongLines.length * (item.size + 2) + item.detailLines.reduce((height, detail) => height + detail.height, 0) + 8));
   page.drawRectangle({ x: metaX, y: y - metaHeight, width: metaWidth, height: metaHeight, color: panel, ...panelBorder });
   let metaOffset = 0;
   meta.forEach((item, index) => {
@@ -254,8 +263,11 @@ export async function createProposalPdf(state: AppState, quote: Quote, logoBytes
     if (index > 0) page.drawLine({ start: { x: metaX + metaOffset, y: y - 10 }, end: { x: metaX + metaOffset, y: y - metaHeight + 10 }, thickness: 0.6, color: line });
     page.drawText(item.label, { x: columnX, y: y - 14, size: 5.2, font: bold, color: green });
     item.strongLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: y - 29 - lineIndex * (item.size + 2), size: item.size, font: bold, color: dark }));
-    const detailStart = y - 30 - item.strongLines.length * (item.size + 2);
-    item.detailLines.forEach((value, lineIndex) => page.drawText(value, { x: columnX, y: detailStart - lineIndex * 7, size: 5.8, font: regular, color: grey }));
+    let detailY = y - 30 - item.strongLines.length * (item.size + 2);
+    item.detailLines.forEach(({ value, size, font, color, height }) => {
+      page.drawText(value, { x: columnX, y: detailY, size, font, color });
+      detailY -= height;
+    });
     metaOffset += item.width;
   });
   y -= metaHeight + 13;

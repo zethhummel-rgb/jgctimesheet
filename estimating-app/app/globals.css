@@ -357,7 +357,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .hybrid-letterhead { min-height: 94px; padding-bottom: 17px; display: grid; grid-template-columns: minmax(280px, 1.2fr) minmax(260px, .8fr); align-items: center; gap: 28px; border-bottom: 3px solid var(--navy-900); }
 .hybrid-letterhead img { width: 100%; max-width: 385px; max-height: 92px; object-fit: contain; object-position: left center; }
 .hybrid-company-contact { text-align: right; }.hybrid-company-contact > span { color: var(--green-700); font-size: 8px; font-weight: 900; letter-spacing: .16em; }.hybrid-company-contact > div { margin: 8px 0 6px; display: flex; justify-content: flex-end; gap: 22px; }.hybrid-company-contact p { margin: 0; }.hybrid-company-contact strong, .hybrid-company-contact small { display: block; }.hybrid-company-contact strong { color: var(--navy-900); font-size: 11px; }.hybrid-company-contact small { margin-top: 1px; color: var(--slate-500); font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.hybrid-company-contact address { color: var(--slate-600); font-size: 9px; font-style: normal; line-height: 1.45; }
-.hybrid-titlebar { padding: 18px 0 15px; display: flex; align-items: center; justify-content: space-between; gap: 25px; border-bottom: 1px solid var(--slate-200); }.hybrid-titlebar > div:first-child > span { color: var(--green-700); font-size: 8px; font-weight: 900; letter-spacing: .17em; }.hybrid-titlebar h1 { margin: 2px 0 0; color: var(--navy-950); font-size: 30px; line-height: 1; }.hybrid-quote-id { min-width: 190px; padding: 9px 12px; border-left: 3px solid var(--green-600); background: var(--slate-50); }.hybrid-quote-id span, .hybrid-quote-id strong, .hybrid-quote-id small { display: block; }.hybrid-quote-id span { color: var(--slate-500); font-size: 7px; font-weight: 850; letter-spacing: .1em; }.hybrid-quote-id strong { margin-top: 3px; color: var(--navy-900); font-size: 12px; }.hybrid-quote-id small { margin-top: 1px; color: var(--slate-500); font-size: 8px; }
+.hybrid-titlebar { padding: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 25px; border-bottom: 1px solid var(--slate-200); }.hybrid-titlebar > div:first-child > span { color: var(--green-700); font-size: 8px; font-weight: 900; letter-spacing: .17em; }.hybrid-titlebar h1 { margin: 0; color: var(--navy-950); font-size: 20px; line-height: 1.2; }.hybrid-quote-id { min-width: 190px; padding: 9px 12px; border-left: 3px solid var(--green-600); background: var(--slate-50); }.hybrid-quote-id span, .hybrid-quote-id strong, .hybrid-quote-id small { display: block; }.hybrid-quote-id span { color: var(--slate-500); font-size: 7px; font-weight: 850; letter-spacing: .1em; }.hybrid-quote-id strong { margin-top: 3px; color: var(--navy-900); font-size: 12px; }.hybrid-quote-id small { margin-top: 1px; color: var(--slate-500); font-size: 8px; }
 .hybrid-meta { margin-top: 18px; padding: 16px 18px; display: grid; grid-template-columns: 1.15fr 1.5fr .8fr; gap: 24px; border: 1px solid var(--slate-200); border-radius: 7px; background: #f7fafc; }.hybrid-meta > div + div { padding-left: 20px; border-left: 1px solid var(--slate-200); }.hybrid-meta span { display: block; margin-bottom: 6px; color: var(--blue-600); font-size: 7px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }.hybrid-meta strong { display: block; color: var(--navy-900); font-size: 11px; line-height: 1.3; }.hybrid-meta p { margin: 4px 0 0; color: var(--slate-600); font-size: 8.5px; line-height: 1.4; }
 .hybrid-intro { padding: 18px 2px 0; color: var(--slate-700); font-size: 10px; line-height: 1.55; }.hybrid-intro p { margin: 0 0 8px; }.hybrid-intro p:last-child { margin-bottom: 0; color: var(--navy-900); font-weight: 650; }
 .hybrid-document-section { margin-top: 24px; }.hybrid-document-section > header { margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }.hybrid-document-section > header > span { width: 27px; height: 27px; flex: 0 0 27px; display: grid; place-items: center; background: var(--navy-900); color: #fff; font-size: 8px; font-weight: 900; }.hybrid-document-section > header small { display: block; color: var(--green-700); font-size: 7px; font-weight: 900; letter-spacing: .12em; }.hybrid-document-section > header h2 { margin: 1px 0 0; color: var(--navy-900); font-size: 15px; line-height: 1; }
@@ -2012,11 +2012,15 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
 .job-field-invalid .saved-data-picker input { border-color: #b42318; }
 
 /* Customer document hierarchy and compact secondary job actions. */
-.hybrid-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, .55fr); gap: 14px; }
+.hybrid-meta { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.45fr) minmax(0, .55fr); gap: 14px; }
 .hybrid-meta > div { min-width: 0; overflow-wrap: anywhere; }
 .hybrid-meta .document-project strong { font-size: 19px; line-height: 1.2; }
 .hybrid-meta .document-date strong { font-size: 9px; }
-.hybrid-meta .document-date p, .hybrid-meta .document-address { font-size: 8px; }
+.hybrid-meta .document-date p { font-size: 8px; }
+.hybrid-meta .document-client strong { font-size: 18px; line-height: 1.25; }
+.hybrid-meta .document-client p { font-size: 10px; }
+.hybrid-meta .document-client .document-site { font-size: 14px; font-weight: 600; color: var(--navy-900); }
+.hybrid-meta .document-client .document-address { font-size: 12.5px; color: var(--slate-700); }
 .quote-workspace .quote-identity h1 { font-size: 34px; white-space: normal; overflow-wrap: anywhere; }
 .quote-workspace .quote-identity .quote-project-address { font-size: 11px; margin-top: 3px; }
 .proposal-breakdown-line-option { min-width: 0; }
@@ -2035,7 +2039,7 @@ html.accounting-download-embed, html.accounting-download-embed body { min-height
   .job-action-stack .job-header-status-actions { justify-content: flex-start; flex-wrap: wrap; }
 }
 @media print {
-  .hybrid-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, .55fr); }
+  .hybrid-meta { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.45fr) minmax(0, .55fr); }
 }
 
 /* Define pale proposal panels on photocopies without changing their fills or spacing. */
