@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Aerial Lift Pre-Use Inspection</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-<link rel="stylesheet" href="specialty-inspection-design-system.css?v=3">
+<link rel="stylesheet" href="specialty-inspection-design-system.css?v=4">
 
 </head>
 
@@ -29,8 +29,7 @@
 
     <div class="field">
         <label>Lift ID #</label>
-        <input id="aerialLiftEquipment" type="text" list="aerialLiftEquipmentOptions" placeholder="Select lift or type rented unit" onchange="fillAerialLiftDetails()" oninput="fillAerialLiftDetails()">
-        <datalist id="aerialLiftEquipmentOptions"></datalist>
+        <input id="aerialLiftEquipment" type="text" placeholder="Rented lift: company and unit #" onchange="fillAerialLiftDetails()" oninput="fillAerialLiftDetails()">
     </div>
 
     <div class="field">
@@ -129,7 +128,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
   <script src="common.js?v=71"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
-<script src="inspection-records.js?v=11"></script>
+<script src="inspection-records.js?v=12"></script>
 <script src="inspection-mobile.js?v=6"></script>
 <script>
 const workerName = localStorage.getItem('currentWorker');
@@ -180,14 +179,14 @@ function getAerialLiftUnitType(item) {
     return "Other";
 }
 
-function updateAerialLiftOptions() {
-    const options = aerialLiftEquipmentItems
-        .slice()
-        .sort((a, b) => getAerialLiftDisplay(a).localeCompare(getAerialLiftDisplay(b), undefined, { numeric: true }))
-        .map((item) => '<option value="' + escapeHtml(getAerialLiftDisplay(item)) + '"></option>')
-        .join("");
+const aerialLiftUnitSelect = installInspectionUnitSelect(document.getElementById("aerialLiftEquipment"), {
+    label: "Lift ID",
+    placeholder: "Select a lift",
+    getLabel: getAerialLiftDisplay
+});
 
-    document.getElementById("aerialLiftEquipmentOptions").innerHTML = options;
+function updateAerialLiftOptions() {
+    aerialLiftUnitSelect.render(aerialLiftEquipmentItems);
 }
 
 function fillAerialLiftDetails() {

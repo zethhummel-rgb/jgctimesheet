@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Telehandler Inspection Checklist</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-<link rel="stylesheet" href="specialty-inspection-design-system.css?v=3">
+<link rel="stylesheet" href="specialty-inspection-design-system.css?v=4">
 
 </head>
 
@@ -23,7 +23,7 @@
 <div class="subtitle">All checks must be carried out in line with manufacturer's operator manual.</div>
 
 <div class="details-grid">
-    <div class="field"><label>Telehandler</label><input id="telehandlerEquipment" type="text" list="telehandlerEquipmentOptions" placeholder="Select telehandler or type rented unit" onchange="fillTelehandlerDetails()" oninput="fillTelehandlerDetails()"><datalist id="telehandlerEquipmentOptions"></datalist></div>
+    <div class="field"><label>Telehandler</label><input id="telehandlerEquipment" type="text" placeholder="Rented telehandler: company and unit #" onchange="fillTelehandlerDetails()" oninput="fillTelehandlerDetails()"></div>
     <div class="field"><label>Plant or Serial No.</label><input id="telehandlerIdentification" type="text"></div>
     <div class="field"><label>Machine Hours</label><input id="telehandlerHours" type="text"></div>
     <div class="field"><label>Date</label><input type="date"></div>
@@ -67,7 +67,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=71"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
-<script src="inspection-records.js?v=11"></script>
+<script src="inspection-records.js?v=12"></script>
 <script src="inspection-mobile.js?v=6"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
@@ -128,12 +128,14 @@ function isTelehandlerEquipment(item) {
     return /\b(telehandler|tele-handler|tele handler)\b/.test(text);
 }
 
+const telehandlerUnitSelect = installInspectionUnitSelect(document.getElementById("telehandlerEquipment"), {
+    label: "Telehandler",
+    placeholder: "Select a telehandler",
+    getLabel: getTelehandlerDisplay
+});
+
 function updateTelehandlerOptions() {
-    document.getElementById("telehandlerEquipmentOptions").innerHTML = telehandlerEquipmentItems
-        .slice()
-        .sort((a, b) => getTelehandlerDisplay(a).localeCompare(getTelehandlerDisplay(b), undefined, { numeric: true }))
-        .map((item) => '<option value="' + escapeHtml(getTelehandlerDisplay(item)) + '"></option>')
-        .join("");
+    telehandlerUnitSelect.render(telehandlerEquipmentItems);
 }
 
 function getSelectedTelehandlerEquipment() {

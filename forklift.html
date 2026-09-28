@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Daily Forklift Inspection</title>
 <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13">
-<link rel="stylesheet" href="specialty-inspection-design-system.css?v=3">
+<link rel="stylesheet" href="specialty-inspection-design-system.css?v=4">
 
 </head>
 
@@ -21,6 +21,16 @@
 <div class="container jgc-page-shell jgc-page-shell--wide">
 <h1>John Gordon Construction</h1>
 <h2>Daily Forklift Inspection Form</h2>
+
+<div class="field-grid">
+    <div class="field"><label>Project / Site</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
+    <div class="field"><label>Forklift</label><input id="forkliftEquipment" type="text" placeholder="Rented forklift: company and unit #" onchange="fillForkliftDetails()" oninput="fillForkliftDetails()"></div>
+    <div class="field"><label>Capacity</label><input type="text"></div>
+    <div class="field"><label>Identification</label><input id="forkliftIdentification" type="text"></div>
+    <div class="field"><label>Hours/Mileage</label><input id="forkliftHours" type="text"></div>
+    <div class="field"><label>Date</label><input type="date"></div>
+    <div class="field"><label>Time</label><input type="time"></div>
+</div>
 
 <div class="table-wrap">
 <table>
@@ -54,16 +64,6 @@
 </table>
 </div>
 
-<div class="field-grid">
-    <div class="field"><label>Project / Site</label><input type="text" data-jgc-project-job placeholder="Select project/job or type location manually"></div>
-    <div class="field"><label>Forklift</label><input id="forkliftEquipment" type="text" list="forkliftEquipmentOptions" placeholder="Select forklift or type rented unit" onchange="fillForkliftDetails()" oninput="fillForkliftDetails()"><datalist id="forkliftEquipmentOptions"></datalist></div>
-    <div class="field"><label>Capacity</label><input type="text"></div>
-    <div class="field"><label>Identification</label><input id="forkliftIdentification" type="text"></div>
-    <div class="field"><label>Hours/Mileage</label><input id="forkliftHours" type="text"></div>
-    <div class="field"><label>Date</label><input type="date"></div>
-    <div class="field"><label>Time</label><input type="time"></div>
-</div>
-
 <div class="field">
     <label>Comments</label>
     <textarea></textarea>
@@ -90,7 +90,7 @@
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
 <script src="common.js?v=71"></script>
 <script src="safety-acknowledgements.js?v=7"></script>
-<script src="inspection-records.js?v=11"></script>
+<script src="inspection-records.js?v=12"></script>
 <script src="inspection-mobile.js?v=6"></script>
 <script>
 const workerName = localStorage.getItem("currentWorker");
@@ -120,12 +120,14 @@ function isForkliftEquipment(item) {
     return /\b(forklift|fork lift)\b/.test(text);
 }
 
+const forkliftUnitSelect = installInspectionUnitSelect(document.getElementById("forkliftEquipment"), {
+    label: "Forklift",
+    placeholder: "Select a forklift",
+    getLabel: getForkliftDisplay
+});
+
 function updateForkliftOptions() {
-    document.getElementById("forkliftEquipmentOptions").innerHTML = forkliftEquipmentItems
-        .slice()
-        .sort((a, b) => getForkliftDisplay(a).localeCompare(getForkliftDisplay(b), undefined, { numeric: true }))
-        .map((item) => '<option value="' + escapeHtml(getForkliftDisplay(item)) + '"></option>')
-        .join("");
+    forkliftUnitSelect.render(forkliftEquipmentItems);
 }
 
 function getSelectedForkliftEquipment() {
