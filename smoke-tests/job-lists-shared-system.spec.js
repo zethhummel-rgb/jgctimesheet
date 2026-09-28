@@ -69,14 +69,14 @@ test("Job Notes family uses one token-only shared visual source", async () => {
     expect(source).not.toMatch(/\sstyle\s*=/i);
     expect(source).not.toContain('href="styles.css');
     expect(source).toContain('jgc-design-system.css?v=13');
-    expect(source).toContain('job-lists.css?v=11');
+    expect(source).toContain('job-lists.css?v=12');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
 
   expect(featureCss, "Job Notes CSS must use centralized tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
   const releaseId = Number(serviceWorker.match(/JGC_RELEASE_ID = "(\d+)"/)?.[1] || 0);
   expect(releaseId).toBeGreaterThanOrEqual(763);
-  expect(serviceWorker).toContain('"./job-lists.css?v=11"');
+  expect(serviceWorker).toContain('"./job-lists.css?v=12"');
 });
 
 for (const viewport of [

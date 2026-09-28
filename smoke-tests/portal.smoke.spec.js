@@ -4660,7 +4660,10 @@ test("job note checkpoints autosave once and Save & Close returns to the notes l
   await page.goto("/job-lists.html", { waitUntil: "domcontentloaded" });
   await page.locator("#jobListsNewButton").click();
   await page.locator("#jobListTitle").fill("Jobsite materials");
-  await page.locator("#jobListJob").selectOption(job.id);
+  // The job box is the shared job picker (release 950): search, then pick the card.
+  await page.locator("#jobListJobSearch").fill("26040");
+  await page.locator('#jobListJobOptions [data-job-list-pick-job]').click();
+  await expect(page.locator("#jobListJob")).toHaveValue(job.id);
   await expect(page.locator("#jobListAutosaveStatus")).toHaveText("Saved");
   expect(listCreateCount).toBe(1);
 
