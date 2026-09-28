@@ -5,8 +5,8 @@
   <meta name="googlebot" content="noindex, nofollow, noarchive" />
   <title>Time Sheet App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="stylesheet" href="jgc-design-system.css?v=12" />
-  <link rel="stylesheet" href="timesheet-design-system.css?v=6" />
+  <link rel="stylesheet" href="jgc-design-system.css?v=13" />
+  <link rel="stylesheet" href="timesheet-design-system.css?v=7" />
 </head>
 
 <body class="timesheet-page jgc-page jgc-system-page">
@@ -98,19 +98,22 @@
 
   <div id="workEntryFields">
     <label id="jobNameLabel">Job Name</label>
-    <div id="jobPicker" class="job-picker">
-      <input class="jgc-input"
-        id="jobName"
-        placeholder="Search jobs or type job name"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="words"
-        onfocus="openJobDropdown()"
-        onblur="scheduleCloseJobDropdown()"
-        onchange="fillJobNumberForSelectedJob()"
-        oninput="handleJobNameInput()"
-      />
-      <div id="jobDropdown" class="job-dropdown" role="listbox" aria-label="Active jobs"></div>
+    <div id="jobPicker" class="job-picker jgc-job-picker">
+      <div class="jgc-job-picker__field">
+        <input class="jgc-input"
+          id="jobName"
+          placeholder="Search jobs or type job name"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          onfocus="openJobDropdown()"
+          onblur="scheduleCloseJobDropdown()"
+          onchange="handleJobNameChange()"
+          oninput="handleJobNameInput()"
+        />
+        <button id="jobNameClear" type="button" class="jgc-job-picker__clear" aria-label="Remove job" title="Remove job" onclick="clearTimesheetJob()">&times;</button>
+      </div>
+      <div id="jobDropdown" class="job-dropdown jgc-job-dropdown" role="listbox" aria-label="Active jobs"></div>
     </div>
     <label id="jobNumberLabel">Job Number</label>
     <input class="jgc-input"
@@ -196,7 +199,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=70"></script>
+<script src="common.js?v=71"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script>
 const TIMESHEET_EMAIL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSW9gOO44n6eMaZyQwB-pXWmkEgbUNeSAxa6jbrTM5c_7ZgSD6RRrbO7YkFuqQl_-4/exec";
@@ -1750,24 +1753,6 @@ function getJobDisplay(job) {
   return jobNumber ? jobNumber + " - " + jobName : jobName;
 }
 
-function getJobTypeLabel(job) {
-  const type = String(job && (job.job_type || job.jobType) || "").trim().toLowerCase();
-
-  if (type.includes("contract")) {
-    return "Contract";
-  }
-
-  if (type.includes("t&m") || type === "tm" || type.includes("time")) {
-    return "T&M";
-  }
-
-  return "";
-}
-
-function getJobTypeClass(job) {
-  return getJobTypeLabel(job).toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
 function sortJobsByNumber(a, b) {
   return String(a.job_number || "").localeCompare(String(b.job_number || ""), undefined, { numeric: true });
 }
@@ -1823,24 +1808,13 @@ function renderJobDropdown() {
   const jobs = getFilteredJobOptions();
 
   if (!jobs.length) {
-    dropdown.innerHTML = '<div class="job-option-empty">No matching jobs. You can still type it manually.</div>';
+    dropdown.innerHTML = '<div class="jgc-job-dropdown__empty">No matching jobs. You can still type it manually.</div>';
     return;
   }
 
+  // The shared job dropdown rows (jgc-design-system.css), also used by Work Orders and PO.
   dropdown.innerHTML = jobs.map(function(job) {
-    const jobNumber = String(job.job_number || "").trim();
-    const jobName = cleanRepeatedJobName(job.job_name);
-    const jobTypeLabel = getJobTypeLabel(job);
-    const jobTypeClass = getJobTypeClass(job);
-    return `
-      <button type="button" class="job-option" role="option" onmousedown="selectJobOption('${escapeHtml(job.id)}')">
-        <span class="job-option-meta">
-          <span class="job-option-number">${escapeHtml(jobNumber || "No Job #")}</span>
-          ${jobTypeLabel ? '<span class="job-option-type ' + escapeHtml(jobTypeClass) + '">' + escapeHtml(jobTypeLabel) + '</span>' : ""}
-        </span>
-        <span class="job-option-name">${escapeHtml(jobName)}</span><span class="job-option-name">${escapeHtml(job.customer || "Client not provided")}</span>
-      </button>
-    `;
+    return getJgcJobOptionHtml(job, 'onmousedown="selectJobOption(\'' + escapeHtml(job.id) + '\')"');
   }).join("");
 }
 
@@ -1849,13 +1823,57 @@ let jobDropdownCloseTimer = null;
 function openJobDropdown() {
   window.clearTimeout(jobDropdownCloseTimer);
   const dropdown = document.getElementById("jobDropdown");
+  const jobNameInput = document.getElementById("jobName");
 
-  if (!dropdown) {
+  if (!dropdown || (jobNameInput && jobNameInput.readOnly)) {
     return;
   }
 
   renderJobDropdown();
   dropdown.classList.add("open");
+}
+
+// A job picked from the list (or typed in full with its number) locks the box, and the X is the only way
+// to remove it, as on Work Orders and PO. Typed names that aren't a listed job stay editable.
+function syncTimesheetJobLock() {
+  const picker = document.getElementById("jobPicker");
+  const jobNameInput = document.getElementById("jobName");
+  const jobNumberInput = document.getElementById("jobNumber");
+  const entryTypeInput = document.getElementById("entryType");
+
+  if (!picker || !jobNameInput) {
+    return;
+  }
+
+  const isWork = !entryTypeInput || (entryTypeInput.value || "work") === "work";
+  const name = jobNameInput.value.trim();
+  const number = jobNumberInput ? jobNumberInput.value.trim() : "";
+  const locked = isWork && Boolean(name) && activeJobs.some(function(job) {
+    return cleanRepeatedJobName(job.job_name) === name && String(job.job_number || "").trim() === number;
+  });
+
+  picker.classList.toggle("is-selected", locked);
+  jobNameInput.readOnly = locked;
+  if (locked) {
+    closeJobDropdown();
+  }
+}
+
+// Leaving the box: an exact job name fills its number and locks, like picking it from the list.
+function handleJobNameChange() {
+  fillJobNumberForSelectedJob();
+  syncTimesheetJobLock();
+}
+
+function clearTimesheetJob() {
+  const jobNameInput = document.getElementById("jobName");
+  const jobNumberInput = document.getElementById("jobNumber");
+  jobNameInput.value = "";
+  jobNumberInput.value = "";
+  jobNumberInput.dataset.autoJobNumber = "false";
+  syncTimesheetJobLock();
+  jobNameInput.focus();
+  openJobDropdown();
 }
 
 function closeJobDropdown() {
@@ -1892,6 +1910,7 @@ function selectJobOption(jobId) {
   jobNumberInput.value = String(job.job_number || "").trim();
   jobNumberInput.dataset.autoJobNumber = "true";
   closeJobDropdown();
+  syncTimesheetJobLock();
 }
 
 function updateJobSuggestions() {
@@ -1904,6 +1923,7 @@ function updateJobSuggestions() {
   }
 
   renderJobDropdown();
+  syncTimesheetJobLock();
 }
 
 function markManualJobNumber() {
@@ -1929,6 +1949,7 @@ function handleJobNumberInput() {
   }
 
   markManualJobNumber();
+  syncTimesheetJobLock();
 }
 
 function fillJobNumberForSelectedJob() {
@@ -2074,6 +2095,7 @@ function prefillTimesheetFromWoRequest(request) {
   document.getElementById("jobName").value = cleanRepeatedJobName(request.jobName || "");
   document.getElementById("jobNumber").value = request.jobNumber || "";
   document.getElementById("jobNumber").dataset.autoJobNumber = request.jobNumber ? "true" : "false";
+  syncTimesheetJobLock();
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
   document.getElementById("tookLunch").checked = false;
@@ -2466,6 +2488,7 @@ function resetTimeEntryFields() {
   document.getElementById("jobName").value = "";
   document.getElementById("jobNumber").value = "";
   document.getElementById("jobNumber").dataset.autoJobNumber = "false";
+  syncTimesheetJobLock();
   document.getElementById("day").value = "";
   document.getElementById("timeIn").value = "";
   document.getElementById("timeOut").value = "";
@@ -2570,6 +2593,7 @@ function updateEntryTypeFields() {
     leaveTypeLabel.classList.add("field-hidden");
     halfDayFields.classList.add("field-hidden");
     multiDayFields.classList.add("field-hidden");
+    syncTimesheetJobLock();
     return;
   }
 
@@ -2613,6 +2637,7 @@ function updateEntryTypeFields() {
     document.getElementById("leaveNote").classList.add("field-hidden");
     multiDayFields.classList.toggle("field-hidden", entryType !== "sick");
   }
+  syncTimesheetJobLock();
 }
 
 function setEditMode(entry) {
@@ -2669,6 +2694,7 @@ function editEntry(entryId) {
   document.getElementById("timeOut").value = entryIsOvernight ? "next-" + entry.timeOut : entry.timeOut;
   document.getElementById("jobName").value = cleanRepeatedJobName(entry.jobName);
   document.getElementById("jobNumber").value = entry.jobNumber || getEntryLeaveNote(entry);
+  syncTimesheetJobLock();
   setEditMode(entry);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }

@@ -1073,6 +1073,13 @@ input::-webkit-date-and-time-value {
   position: relative;
 }
 
+/* Block, so the X centres on the box and the list opens just under it whatever margins a page gives
+   its inputs (they collapse outside the picker). */
+.jgc-job-picker__field .jgc-input {
+  display: block;
+  width: 100%;
+}
+
 .jgc-job-picker.is-selected .jgc-input {
   padding-right: 52px;
   color: var(--jgc-color-text-dark);

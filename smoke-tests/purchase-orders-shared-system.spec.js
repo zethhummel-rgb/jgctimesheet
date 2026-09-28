@@ -126,8 +126,8 @@ test("Purchase Orders family uses the shared visual source without inline stylin
     expect(source).not.toMatch(/<style\b/i);
     expect(source).not.toMatch(/\sstyle\s*=/i);
     expect(source).not.toContain("styles.css");
-    expect(source).toContain('jgc-design-system.css?v=12');
-    expect(source).toContain('purchase-orders.css?v=22');
+    expect(source).toContain('jgc-design-system.css?v=13');
+    expect(source).toContain('purchase-orders.css?v=23');
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   }
   expect(adminSource).toContain('purchase-orders-admin.js?v=14');

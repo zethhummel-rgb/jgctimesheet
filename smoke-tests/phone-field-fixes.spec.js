@@ -295,3 +295,68 @@ test("Work Orders: typing or backspacing to a job number never re-picks the job"
   await expect(search).not.toBeEditable();
   await expect(page.locator("#woJobNumber")).toHaveValue("26140");
 });
+
+// Release 948: Timesheet and PO use the same job dropdown and the same lock + X as Work Orders.
+for (const [name, url, selectors] of [
+  ["Timesheet", "/timesheet.html", { search: "#jobName", clear: "#jobNameClear", list: "#jobDropdown", number: "#jobNumber", picked: "Ingleside Development" }],
+  ["PO", "/purchase-orders.html", { search: "#poJobSearch", clear: "#poJobClear", list: "#poJobOptions", form: "#poFormView", picked: "26132 - McKay Mechanical - Ingleside Development - Contract" }]
+]) {
+  test(`${name}: the job list uses the shared cards, and a picked job is locked until the X removes it`, async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await signIn(page);
+    await page.goto(url, { waitUntil: "load" });
+    if (selectors.form) {
+      // The PO form opens after a number is reserved; only the picker matters here.
+      await page.locator(selectors.form).evaluate(el => { el.hidden = false; });
+    }
+    const search = page.locator(selectors.search);
+    const clear = page.locator(selectors.clear);
+    await expect(clear).toBeHidden();
+    await search.click();
+    const options = page.locator(`${selectors.list} .jgc-job-option`);
+    await expect(options).toHaveCount(2);
+    await expect(options.first().locator(".jgc-job-option__number")).toHaveText("26132");
+    await expect(options.first().locator(".jgc-job-option__type")).toHaveText("Contract");
+    await expect(options.first().locator(".jgc-job-option__client")).toHaveText("McKay Mechanical");
+    expect(await options.first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 255)");
+
+    await options.first().click();
+    await expect(search).toHaveValue(selectors.picked);
+    if (selectors.number) await expect(page.locator(selectors.number)).toHaveValue("26132");
+    await expect(search).not.toBeEditable();
+    await expect(clear).toBeVisible();
+    await search.click();
+    await page.keyboard.press("Backspace");
+    await expect(search).toHaveValue(selectors.picked);
+    await expect(page.locator(selectors.list)).toBeHidden();
+    const [box, x] = await Promise.all([search.boundingBox(), clear.boundingBox()]);
+    expect(x.x + x.width).toBeLessThanOrEqual(box.x + box.width);
+    expect(Math.abs((x.y + x.height / 2) - (box.y + box.height / 2))).toBeLessThanOrEqual(2);
+
+    await clear.click();
+    await expect(search).toHaveValue("");
+    await expect(search).toBeEditable();
+    await expect(search).toBeFocused();
+    await expect(clear).toBeHidden();
+    if (selectors.number) await expect(page.locator(selectors.number)).toHaveValue("");
+    await expect(options).toHaveCount(2);
+  });
+}
+
+test("Timesheet: a typed job name that isn't listed stays editable; a listed name locks when leaving the box", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await signIn(page);
+  await page.goto("/timesheet.html", { waitUntil: "load" });
+  const name = page.locator("#jobName");
+  await name.click();
+  await page.keyboard.type("Garage cleanup");
+  await name.blur();
+  await expect(name).toBeEditable();
+  await expect(page.locator("#jobNameClear")).toBeHidden();
+
+  await name.fill("Gate Replacement");
+  await name.blur();
+  await expect(page.locator("#jobNumber")).toHaveValue("26140");
+  await expect(name).not.toBeEditable();
+  await expect(page.locator("#jobNameClear")).toBeVisible();
+});

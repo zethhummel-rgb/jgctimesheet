@@ -98,7 +98,7 @@ for (const theme of ["light", "dark"]) {
       await expect(page.locator(".form-card")).toBeVisible();
       await page.evaluate((value) => { storeJgcThemePreference(value); applyJgcTheme(value); }, theme);
       await page.locator("#jobName").click();
-      const options = page.locator("#jobDropdown .job-option");
+      const options = page.locator("#jobDropdown .jgc-job-option");
       await expect(options).toHaveCount(2);
 
       const assertContrast = async () => {
@@ -115,7 +115,7 @@ for (const theme of ["light", "dark"]) {
             const c = value / 255;
             return sum + (c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][i];
           }, 0);
-          return Array.from(dropdown.querySelectorAll(".job-option-name, .job-option-number, .job-option-type, .job-option-empty")).map((element) => {
+          return Array.from(dropdown.querySelectorAll(".jgc-job-option__name, .jgc-job-option__client, .jgc-job-option__number, .jgc-job-option__type, .jgc-job-dropdown__empty")).map((element) => {
             const style = getComputedStyle(element);
             let background = [255, 255, 255, 255];
             const ancestors = [];
@@ -152,8 +152,12 @@ for (const theme of ["light", "dark"]) {
       await expect(page.locator("#jobNumber")).toHaveValue("99002");
       await expect(page.locator("#jobName")).toHaveValue(/Sample Community Centre/);
       await expect(page.locator("#jobDropdown")).not.toBeVisible();
+      // A picked job is locked; the X clears it before a new name can be typed.
+      await expect(page.locator("#jobName")).not.toBeEditable();
+      await page.locator("#jobNameClear").click();
+      await expect(page.locator("#jobNumber")).toHaveValue("");
       await page.locator("#jobName").fill("No matching test job");
-      await expect(page.locator(".job-option-empty")).toBeVisible();
+      await expect(page.locator(".jgc-job-dropdown__empty")).toBeVisible();
       await assertContrast();
       await context.close();
     });
@@ -171,18 +175,18 @@ test("Timesheets family has one token-only visual source", async () => {
 
   expect(employeeHead).not.toMatch(/<style\b/i);
   expect(employeeHead).not.toContain("styles.css");
-  expect(employeeHead).toContain('jgc-design-system.css?v=12');
-  expect(employeeHead).toContain('timesheet-design-system.css?v=6');
+  expect(employeeHead).toContain('jgc-design-system.css?v=13');
+  expect(employeeHead).toContain('timesheet-design-system.css?v=7');
   expect(employee).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
   expect(employee.match(/<style\b/gi) || [], "Only the generated PDF template keeps its print style block").toHaveLength(1);
   expect(featureCss, "Timesheet-only CSS must use centralized design tokens").not.toMatch(/#[0-9a-f]{3,8}|rgba?\(/i);
-  expect(admin).toContain('timesheet-design-system.css?v=6');
+  expect(admin).toContain('timesheet-design-system.css?v=7');
   expect(adminCss).not.toMatch(/admin-time-entry-card|timesheet-(?:edit|worker)/i);
   expect(adminJs.match(/\sstyle\s*=/gi) || [], "Only the generated Admin PDF night row keeps inline print styling").toHaveLength(1);
   const releaseMatch = serviceWorker.match(/const JGC_RELEASE_ID = "(\d+)"/);
   expect(releaseMatch, "The service worker must expose a numeric release id").not.toBeNull();
   expect(Number(releaseMatch[1])).toBeGreaterThanOrEqual(758);
-  expect(serviceWorker).toContain('timesheet-design-system.css?v=6');
+  expect(serviceWorker).toContain('timesheet-design-system.css?v=7');
 });
 
 for (const viewport of [

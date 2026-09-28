@@ -644,9 +644,26 @@
   function renderReferenceOptions() {
     const selectedJob = state.jobs.find((job) => String(job.id) === String(elements.job.value || ""));
     if (selectedJob) {
-      elements.jobSearch.value = getJobDisplay(selectedJob);
+      elements.jobSearch.value = getJgcEmployeeJobLabel(selectedJob);
     }
     renderJobOptions(elements.jobSearch.value);
+    syncJobLock();
+  }
+
+  // A picked job locks the box and the X is the only way to remove it, as on Work Orders and Timesheet.
+  function syncJobLock() {
+    const picked = Boolean(elements.job.value);
+    elements.jobPicker.classList.toggle("is-selected", picked);
+    elements.jobSearch.readOnly = picked;
+    if (picked) {
+      closeJobOptions();
+    }
+  }
+
+  function clearSelectedJob() {
+    selectJob("");
+    elements.jobSearch.focus();
+    openJobOptions();
   }
 
   function getJobDisplay(job) {
@@ -665,24 +682,27 @@
     }).slice(0, 80);
   }
 
+  // The shared job dropdown rows (jgc-design-system.css), also used by Work Orders and Timesheet.
   function renderJobOptions(searchValue) {
     const matches = getMatchingJobs(searchValue);
     elements.jobOptions.innerHTML = matches.length
-      ? matches.map((job) => `<button class="po-job-option" type="button" role="option" data-po-job-id="${escapeText(job.id)}">${escapeText(getJgcEmployeeJobLabel(job))}</button>`).join("")
-      : '<div class="po-job-empty">No matching listed jobs. Use the manual job fields below.</div>';
+      ? matches.map((job) => getJgcJobOptionHtml(job, `data-po-job-id="${escapeText(job.id)}"`)).join("")
+      : '<div class="jgc-job-dropdown__empty">No matching listed jobs. Use the manual job fields below.</div>';
   }
 
   function openJobOptions() {
-    if (elements.jobSearch.disabled) {
+    if (elements.jobSearch.disabled || elements.jobSearch.readOnly) {
       return;
     }
     renderJobOptions(elements.jobSearch.value);
     elements.jobOptions.hidden = false;
+    elements.jobOptions.classList.add("open");
     elements.jobSearch.setAttribute("aria-expanded", "true");
   }
 
   function closeJobOptions() {
     elements.jobOptions.hidden = true;
+    elements.jobOptions.classList.remove("open");
     elements.jobSearch.setAttribute("aria-expanded", "false");
   }
 
@@ -690,7 +710,7 @@
     const settings = options || {};
     const job = state.jobs.find((item) => String(item.id) === String(jobId || ""));
     elements.job.value = job ? String(job.id) : "";
-    elements.jobSearch.value = job ? getJobDisplay(job) : "";
+    elements.jobSearch.value = job ? getJgcEmployeeJobLabel(job) : "";
 
     if (job && settings.clearManual !== false) {
       elements.manualJobNumber.value = "";
@@ -698,13 +718,13 @@
     }
 
     closeJobOptions();
+    syncJobLock();
     renderJobNotesPanel();
   }
 
   function handleJobSearchInput() {
-    const selectedJob = state.jobs.find((job) => String(job.id) === String(elements.job.value || ""));
-    if (selectedJob && elements.jobSearch.value.trim() !== getJobDisplay(selectedJob)) {
-      elements.job.value = "";
+    if (elements.job.value) {
+      return;
     }
     openJobOptions();
     renderJobNotesPanel();
@@ -1073,6 +1093,7 @@
     state.formLocked = Boolean(locked);
     const editableInputs = elements.form.querySelectorAll("input:not(#poId):not(#poRevision), select, textarea");
     editableInputs.forEach((input) => { input.disabled = locked; });
+    elements.jobClear.disabled = locked;
     elements.addItemButton.disabled = locked;
     elements.materialList.querySelectorAll("button").forEach((button) => { button.disabled = locked; });
     elements.saveButton.hidden = locked;
@@ -1981,7 +2002,10 @@
       if (event.key === "Enter" && !elements.jobOptions.hidden) {
         const options = Array.from(elements.jobOptions.querySelectorAll("[data-po-job-id]"));
         const exactValue = elements.jobSearch.value.trim().toLowerCase();
-        const exactOption = options.find((option) => option.textContent.trim().toLowerCase() === exactValue);
+        const exactOption = options.find((option) => {
+          const job = state.jobs.find((item) => String(item.id) === option.dataset.poJobId);
+          return job && [getJgcEmployeeJobLabel(job), getJobDisplay(job), job.job_number].some((label) => String(label || "").trim().toLowerCase() === exactValue);
+        });
         const option = exactOption || (options.length === 1 ? options[0] : null);
         if (option) {
           event.preventDefault();
@@ -1993,9 +2017,9 @@
       const option = event.target.closest("[data-po-job-id]");
       if (option) {
         selectJob(option.dataset.poJobId);
-        elements.jobSearch.focus();
       }
     });
+    elements.jobClear.addEventListener("click", clearSelectedJob);
     [elements.manualJobNumber, elements.manualJobName].forEach((input) => {
       input.addEventListener("input", () => {
         if (hasManualJobEntry()) {
@@ -2137,6 +2161,7 @@
       orderDate: byId("poOrderDate"),
       jobPicker: byId("poJobPicker"),
       jobSearch: byId("poJobSearch"),
+      jobClear: byId("poJobClear"),
       jobOptions: byId("poJobOptions"),
       job: byId("poJob"),
       manualJobNumber: byId("poManualJobNumber"),
