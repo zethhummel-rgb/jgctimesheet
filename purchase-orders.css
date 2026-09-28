@@ -496,49 +496,11 @@ body.po-page {
   width: 100%;
 }
 
+/* The list itself is the shared .jgc-job-dropdown; PO keeps it above its sticky bars. */
 .po-job-options {
-  position: absolute;
   z-index: 180;
-  top: calc(100% + 5px);
-  right: 0;
-  left: 0;
   max-height: 320px;
-  overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--jgc-color-brand-400);
-  border-radius: 6px;
-  padding: 5px;
-  background: var(--jgc-color-notice);
-  box-shadow: 0 14px 32px color-mix(in srgb, var(--jgc-color-page-deep) 42%, transparent);
-}
-
-.po-job-options[hidden] {
-  display: none;
-}
-
-.po-job-option {
-  display: block;
-  width: 100%;
-  min-height: 42px;
-  border: 0;
-  border-radius: 4px;
-  padding: 9px 11px;
-  background: transparent !important;
-  color: var(--po-text);
-  line-height: 1.25;
-  text-align: left;
-}
-
-.po-job-option:hover,
-.po-job-option:focus-visible {
-  background: var(--jgc-color-brand-700) !important;
-  color: var(--jgc-color-on-brand);
-}
-
-.po-job-empty {
-  padding: 12px;
-  color: var(--po-muted);
-  font-size: 14px;
 }
 
 .po-section-band {

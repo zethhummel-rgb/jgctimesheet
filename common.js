@@ -48,7 +48,7 @@ const JGC_SUBCONTRACTOR_NAV_LINKS = [
   { label: "Policies", href: "policies-announcements.html" },
   { label: "Contacts", href: "contacts.html" }
 ];
-const JGC_DESIGN_SYSTEM_VERSION = "12";
+const JGC_DESIGN_SYSTEM_VERSION = "13";
 const JGC_UPLOAD_SYSTEM_VERSION = "3";
 const JGC_ADMIN_GLOBAL_SEARCH_VERSION = "10";
 const JGC_THEME_PREFERENCE_TABLE = "portal_user_preferences";
@@ -172,7 +172,7 @@ function loadJgcReadabilityStyles() {
   if (document.querySelector("link[data-jgc-readability]")) return;
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = new URL("portal-readability.css?v=1", document.currentScript?.src || document.baseURI).href;
+  stylesheet.href = new URL("portal-readability.css?v=2", document.currentScript?.src || document.baseURI).href;
   stylesheet.setAttribute("data-jgc-readability", "1");
   document.head.appendChild(stylesheet);
 }

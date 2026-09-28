@@ -83,19 +83,6 @@
     box-shadow: inset 0 0 0 1px #fff;
   }
 
-  /* Result buttons inherit generic PO button colors unless explicitly paired. */
-  body.po-page #poJobOptions { background: var(--jgc-color-surface-raised) !important; }
-  body.po-page #poJobOptions .po-job-option {
-    background: var(--jgc-color-surface-raised) !important;
-    color: var(--jgc-color-text) !important;
-    -webkit-text-fill-color: currentColor;
-    opacity: 1;
-  }
-  body.po-page #poJobOptions .po-job-option:is(:hover, :focus-visible) {
-    background: #0b5e3b !important;
-    color: #fff !important;
-  }
-  body.po-page #poJobOptions .po-job-empty { color: var(--jgc-color-text-muted) !important; }
 
   /* The bell appears on pages with different button/descendant color rules. */
   body .jgc-notification-panel .jgc-notification-item {

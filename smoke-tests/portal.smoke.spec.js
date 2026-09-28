@@ -4067,14 +4067,18 @@ test("purchase order job picker searches by job name and number", async ({ page 
   await search.fill("Amazon");
   await expect(options).toBeVisible();
   await expect(options.locator("[data-po-job-id]")).toHaveCount(1);
-  await expect(options).toContainText("25058 - Amazon Drain Issue #2");
+  await expect(options.locator(".jgc-job-option__number")).toHaveText("25058");
+  await expect(options.locator(".jgc-job-option__name")).toHaveText("Amazon Drain Issue #2");
   await options.locator("[data-po-job-id]").click();
   await expect(page.locator("#poJob")).toHaveValue(jobs[0].id);
   await expect(search).toHaveValue("25058 - Amazon Drain Issue #2");
 
+  // A picked job is locked; the X clears it before searching again (release 948).
+  await page.locator("#poJobClear").click();
+  await expect(page.locator("#poJob")).toHaveValue("");
   await search.fill("26040");
   await expect(options.locator("[data-po-job-id]")).toHaveCount(1);
-  await expect(options).toContainText("26040 - Williamstown Fairboard Entrance Sign");
+  await expect(options.locator(".jgc-job-option__name")).toHaveText("Williamstown Fairboard Entrance Sign");
   await options.locator("[data-po-job-id]").click();
   await expect(page.locator("#poJob")).toHaveValue(jobs[1].id);
   await expect(search).toHaveValue("26040 - Williamstown Fairboard Entrance Sign");
@@ -5343,7 +5347,7 @@ test('readability stylesheet resolves from nested Estimate Desk pages', async ({
   const response = page.waitForResponse(r => new URL(r.url()).pathname === '/portal-readability.css');
   await page.goto('/estimating/index.html');
   expect((await response).status()).toBe(200);
-  await expect(page.locator('link[data-jgc-readability]')).toHaveAttribute('href', /\/portal-readability\.css\?v=1$/);
+  await expect(page.locator('link[data-jgc-readability]')).toHaveAttribute('href', /\/portal-readability\.css\?v=2$/);
   expect(await page.locator('link[data-jgc-readability]').getAttribute('href')).not.toContain('/estimating/');
 });
 
