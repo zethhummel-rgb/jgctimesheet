@@ -4,8 +4,8 @@ const path = require("path");
 
 const portalRoot = path.resolve(__dirname, "..");
 const historyPages = [
-  { file: "todays-inspections.html", css: "inspection-history-today.css" },
-  { file: "previous-inspections.html", css: "inspection-history-previous.css" }
+  { file: "todays-inspections.html", css: "inspection-history-today.css", version: 2 },
+  { file: "previous-inspections.html", css: "inspection-history-previous.css", version: 3 }
 ];
 
 test("inspection records screens and Admin Safety Records use token-only visual sources", async () => {
@@ -16,7 +16,7 @@ test("inspection records screens and Admin Safety Records use token-only visual 
 
     expect(source).not.toContain("styles.css");
     expect(source).toContain('jgc-design-system.css?v=13');
-    expect(source).toContain(`${page.css}?v=2`);
+    expect(source).toContain(`${page.css}?v=${page.version}`);
     expect(source).toMatch(/<body\b[^>]*\bjgc-system-page\b/i);
     expect(screenMarkup).not.toMatch(/<style\b/i);
     expect(screenMarkup).not.toMatch(/\sstyle\s*=/i);
@@ -34,7 +34,7 @@ test("inspection records screens and Admin Safety Records use token-only visual 
   expect(safetyCss).toContain("var(--jgc-color-");
 
   const serviceWorker = fs.readFileSync(path.join(portalRoot, "service-worker.js"), "utf8");
-  for (const asset of ["inspection-history-today.css?v=2", "inspection-history-previous.css?v=2", "safety-records-admin.css?v=3", "admin.css?v=18"]) {
+  for (const asset of ["inspection-history-today.css?v=2", "inspection-history-previous.css?v=3", "safety-records-admin.css?v=3", "admin.css?v=18"]) {
     expect(serviceWorker).toContain(`"./${asset}"`);
   }
 });

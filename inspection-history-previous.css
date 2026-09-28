@@ -426,3 +426,165 @@ button:hover {
         grid-template-columns: 1fr;
     }
 }
+/* Records grouped by job: search, type chips, collapsible job sections and one card per record. It
+   replaced a 9-column table that scrolled sideways on phones. */
+.inspection-history-page .record-browser__tools {
+    display: grid;
+    gap: var(--jgc-space-2);
+}
+
+.inspection-history-page .record-browser__types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.inspection-history-page .record-type-chip {
+    min-height: 32px;
+    padding: 5px 12px;
+    color: var(--jgc-color-text);
+    background: transparent;
+    border: 1px solid var(--jgc-color-input-border);
+    border-radius: var(--jgc-radius-pill);
+    font-size: var(--jgc-font-size-sm);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.inspection-history-page .record-type-chip.is-active {
+    color: var(--jgc-color-on-brand);
+    background: var(--jgc-color-brand-700);
+    border-color: var(--jgc-color-brand-700);
+}
+
+.inspection-history-page .record-browser__summary {
+    margin: var(--jgc-space-3) 0 var(--jgc-space-2);
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-sm);
+    font-weight: 700;
+}
+
+.inspection-history-page .record-browser__groups {
+    display: grid;
+    gap: var(--jgc-space-3);
+}
+
+.inspection-history-page .record-job {
+    min-width: 0;
+    overflow: hidden;
+    background: var(--jgc-color-surface-raised);
+    border: 1px solid var(--jgc-color-border-soft);
+    border-radius: var(--jgc-radius-lg);
+}
+
+.inspection-history-page .record-job__summary {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: var(--jgc-space-2);
+    padding: 10px var(--jgc-space-3);
+    background: color-mix(in srgb, var(--jgc-color-brand-500) 12%, var(--jgc-color-surface-raised));
+    cursor: pointer;
+    list-style: none;
+}
+
+.inspection-history-page .record-job__summary::-webkit-details-marker {
+    display: none;
+}
+
+.inspection-history-page .record-job__summary::before {
+    content: "\203A";
+    flex: none;
+    width: 18px;
+    color: var(--jgc-color-brand-400);
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    transition: transform 0.15s ease;
+}
+
+.inspection-history-page .record-job[open] > .record-job__summary::before {
+    transform: rotate(90deg);
+}
+
+.inspection-history-page .record-job__title {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    color: var(--jgc-color-text);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.inspection-history-page .record-job__badge {
+    flex: none;
+    min-width: 28px;
+    padding: 3px 9px;
+    color: var(--jgc-color-text);
+    background: var(--jgc-color-surface-soft);
+    border-radius: var(--jgc-radius-pill);
+    font-size: var(--jgc-font-size-xs);
+    font-weight: 800;
+    text-align: center;
+}
+
+.inspection-history-page .record-job__badge.is-incident {
+    color: var(--jgc-color-on-brand);
+    background: var(--jgc-color-danger);
+}
+
+.inspection-history-page .history-card {
+    display: grid;
+    gap: 4px;
+    padding: 12px var(--jgc-space-3);
+    border-top: 1px solid var(--jgc-color-border-soft);
+}
+
+.inspection-history-page .history-card.is-incident {
+    box-shadow: inset 3px 0 0 var(--jgc-color-danger);
+}
+
+.inspection-history-page .history-card__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+}
+
+.inspection-history-page .history-card__type {
+    color: var(--jgc-color-text);
+    font-size: var(--jgc-font-size-md);
+}
+
+.inspection-history-page .history-card__meta,
+.inspection-history-page .history-card__saved {
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-sm);
+}
+
+.inspection-history-page .history-card__details {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--jgc-color-text-muted);
+    font-size: var(--jgc-font-size-sm);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.inspection-history-page .history-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.inspection-history-page .history-card__actions .jgc-button {
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: var(--jgc-font-size-sm);
+    text-decoration: none;
+}
