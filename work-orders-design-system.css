@@ -552,42 +552,6 @@ body.work-orders-page.embedded-work-order .card {
   white-space: nowrap;
 }
 
-.work-orders-page .job-search-wrap {
-  position: relative;
-}
-
-.work-orders-page .job-suggestions {
-  display: none;
-  margin-top: 6px;
-  border: 1px solid var(--jgc-color-border);
-  border-radius: var(--jgc-radius-md);
-  background: var(--jgc-color-page-deep);
-  max-height: 220px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.work-orders-page .job-suggestions.open {
-  display: grid;
-}
-
-.work-orders-page .job-suggestion {
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--jgc-color-text) 8%, transparent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--jgc-color-text);
-  text-align: left;
-  white-space: normal;
-}
-
-.work-orders-page .job-suggestion:hover,
-.work-orders-page .job-suggestion:focus {
-  background: color-mix(in srgb, var(--jgc-color-brand-400) 18%, transparent);
-}
-
 .work-orders-page .labour-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

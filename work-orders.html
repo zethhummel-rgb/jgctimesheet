@@ -8,8 +8,8 @@
 <title>JGC Portal - Work Orders</title>
 <meta name="theme-color" content="#0b5e3b">
 <link rel="manifest" href="manifest.json?v=7">
-<link rel="stylesheet" href="jgc-design-system.css?v=11" data-jgc-design-system="11">
-<link rel="stylesheet" href="work-orders-design-system.css?v=3">
+<link rel="stylesheet" href="jgc-design-system.css?v=12" data-jgc-design-system="12">
+<link rel="stylesheet" href="work-orders-design-system.css?v=4">
 </head>
 <body class="work-orders-page jgc-page jgc-system-page">
 <main class="page jgc-page-shell jgc-page-shell--wide">
@@ -84,10 +84,12 @@
         </div>
         <div class="full jgc-field jgc-field--full">
           <label>Job</label>
-          <div class="job-search-wrap">
-            <input id="woJobSearch" class="jgc-input" list="woJobOptions" placeholder="Start typing job number or job name" autocomplete="off" onfocus="renderJobSearchSuggestions()" oninput="handleJobSearchInput()" onchange="handleJobSearchInput()">
-            <datalist id="woJobOptions"></datalist>
-            <div id="woJobSuggestions" class="job-suggestions"></div>
+          <div id="woJobPicker" class="jgc-job-picker">
+            <div class="jgc-job-picker__field">
+              <input id="woJobSearch" class="jgc-input" placeholder="Start typing job number, client or job name" autocomplete="off" role="combobox" aria-controls="woJobSuggestions" aria-autocomplete="list" onfocus="renderJobSearchSuggestions()" onblur="scheduleCloseJobSearchSuggestions()" oninput="handleJobSearchInput(event)" onchange="handleJobSearchInput(event)">
+              <button id="woJobClear" type="button" class="jgc-job-picker__clear" aria-label="Remove job" title="Remove job" onclick="clearWorkOrderJob()">&times;</button>
+            </div>
+            <div id="woJobSuggestions" class="jgc-job-dropdown" role="listbox" aria-label="Active jobs"></div>
             <input id="woJob" type="hidden">
           </div>
         </div>
@@ -247,7 +249,7 @@
 </main>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=69"></script>
+<script src="common.js?v=70"></script>
 <script src="job-list-sync.js?v=1"></script>
 <script src="employee-feature-access.js?v=3"></script>
 <script>
@@ -428,6 +430,7 @@ function restoreLocalWorkOrderDraft() {
   document.getElementById("woCustomerPo").value = draft.customerPoNumber || "";
   document.getElementById("woJob").value = draft.jobId || "";
   document.getElementById("woJobSearch").value = draft.jobSearch || "";
+  syncWorkOrderJobLock();
   document.getElementById("woJobNumber").value = draft.jobNumber || "";
   document.getElementById("woJobName").value = draft.jobName || "";
   document.getElementById("woJobType").value = draft.jobType || "T&M";
@@ -676,21 +679,17 @@ function getFilteredJobSuggestions(value) {
   const normalizedValue = normalizeText(value);
 
   if (!normalizedValue) {
-    return jobs.slice(0, 12);
-  }
-
-  // Tapping back into a chosen job lists it first, with the other jobs to switch to.
-  const chosen = jobs.find((job) => normalizeText(getJobOptionLabel(job)) === normalizedValue);
-  if (chosen) {
-    return [chosen].concat(jobs.filter((job) => job !== chosen).slice(0, 11));
+    return jobs.slice(0, 20);
   }
 
   return jobs.filter((job) => {
     const haystack = normalizeText([getJobOptionLabel(job), job.job_number, job.customer, job.job_name, job.job_type, job.address].filter(Boolean).join(" "));
     return haystack.includes(normalizedValue) || normalizeJobNumber(job.job_number).includes(normalizeJobNumber(value));
-  }).slice(0, 12);
+  }).slice(0, 20);
 }
 
+// The shared job dropdown (Timesheet cards, jgc-design-system.css). A picked job is locked, so the list
+// only opens while no job is chosen.
 function renderJobSearchSuggestions() {
   const list = document.getElementById("woJobSuggestions");
   const input = document.getElementById("woJobSearch");
@@ -699,12 +698,15 @@ function renderJobSearchSuggestions() {
     return;
   }
 
+  if (document.getElementById("woJob").value) {
+    closeJobSearchSuggestions();
+    return;
+  }
+
   const matches = getFilteredJobSuggestions(input.value);
   const html = matches.length
-    ? matches.map((job) =>
-      '<button type="button" class="job-suggestion" onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')">' + escapeHtml(getJgcEmployeeJobLabel(job)) + '</button>'
-    ).join("")
-    : '<div class="small wo-empty-message">No matching jobs found.</div>';
+    ? matches.map((job) => getJgcJobOptionHtml(job, 'onclick="selectJobFromSearch(\'' + escapeHtml(job.id) + '\')"')).join("")
+    : '<div class="jgc-job-dropdown__empty">No matching jobs found.</div>';
 
   // Leaving the box to press a suggestion fires "change", which renders the list again. Rebuilding the
   // same buttons mid-click lost the click, so an unchanged list is left in place.
@@ -712,15 +714,29 @@ function renderJobSearchSuggestions() {
     list.innerHTML = html;
     list.dataset.rendered = html;
   }
+  window.clearTimeout(jobSearchCloseTimer);
   list.classList.add("open");
+  input.setAttribute("aria-expanded", "true");
 }
+
+let jobSearchCloseTimer = null;
 
 function closeJobSearchSuggestions() {
   const list = document.getElementById("woJobSuggestions");
+  window.clearTimeout(jobSearchCloseTimer);
 
   if (list) {
     list.classList.remove("open");
   }
+  const input = document.getElementById("woJobSearch");
+  if (input) {
+    input.setAttribute("aria-expanded", "false");
+  }
+}
+
+function scheduleCloseJobSearchSuggestions() {
+  window.clearTimeout(jobSearchCloseTimer);
+  jobSearchCloseTimer = window.setTimeout(closeJobSearchSuggestions, 200);
 }
 
 function selectJobFromSearch(jobId) {
@@ -736,27 +752,61 @@ function selectJobFromSearch(jobId) {
   fillSelectedJob();
 }
 
-function handleJobSearchInput() {
+// While typing, the box only searches: backspacing down to "25169 - " used to re-pick job 25169 and
+// refill it, so a job could never be removed. Leaving the box still picks a job whose number, name or
+// full label was typed in full.
+function handleJobSearchInput(event) {
   const input = document.getElementById("woJobSearch");
   const hidden = document.getElementById("woJob");
-  const job = findJobFromSearchValue(input.value);
-  renderJobSearchSuggestions();
 
-  if (!job) {
-    hidden.value = "";
-    document.getElementById("woJobNumber").value = "";
-    document.getElementById("woJobName").value = "";
-    document.getElementById("woJobType").value = "T&M";
-    if (!editingWorkOrderId) {
-      document.getElementById("woNumber").value = "";
-    }
-    renderLabourPreview();
+  if (hidden.value) {
     return;
   }
 
-  hidden.value = job.id || "";
-  fillSelectedJob();
-  closeJobSearchSuggestions();
+  const job = event && event.type === "change" ? findJobFromSearchValue(input.value) : null;
+
+  if (job) {
+    hidden.value = job.id || "";
+    fillSelectedJob();
+    closeJobSearchSuggestions();
+    return;
+  }
+
+  clearSelectedJobFields();
+  renderJobSearchSuggestions();
+}
+
+function clearSelectedJobFields() {
+  document.getElementById("woJobNumber").value = "";
+  document.getElementById("woJobName").value = "";
+  document.getElementById("woJobType").value = "T&M";
+  if (!editingWorkOrderId) {
+    workOrderNumberRequestId++;
+    document.getElementById("woNumber").value = "";
+    document.getElementById("woNumber").placeholder = "Select a job to generate";
+  }
+  renderLabourPreview();
+}
+
+// The X on a picked job: the only way to remove it (a picked job can't be typed over or backspaced).
+function clearWorkOrderJob() {
+  const input = document.getElementById("woJobSearch");
+  document.getElementById("woJob").value = "";
+  input.value = "";
+  clearSelectedJobFields();
+  syncWorkOrderJobLock();
+  input.focus();
+  renderJobSearchSuggestions();
+}
+
+function syncWorkOrderJobLock() {
+  const picked = Boolean(document.getElementById("woJob").value);
+  const input = document.getElementById("woJobSearch");
+  document.getElementById("woJobPicker").classList.toggle("is-selected", picked);
+  input.readOnly = picked;
+  if (picked) {
+    closeJobSearchSuggestions();
+  }
 }
 
 function fillSelectedJob() {
@@ -770,20 +820,13 @@ function fillSelectedJob() {
   document.getElementById("woJobNumber").value = job.job_number || "";
   document.getElementById("woJobName").value = job.job_name || "";
   document.getElementById("woJobType").value = "T&M";
+  syncWorkOrderJobLock();
   updateWorkOrderNumberForSelectedJob();
 
   renderLabourPreview();
   if (window.jgcDigitalPoWorkOrder) {
     window.jgcDigitalPoWorkOrder.refresh();
   }
-}
-
-function renderJobOptions() {
-  const list = document.getElementById("woJobOptions");
-  list.innerHTML = jobs.map((job) => {
-    const label = getJobOptionLabel(job);
-    return '<option value="' + escapeHtml(label) + '"></option>';
-  }).join("");
 }
 
 function getDayNames() {
@@ -1508,6 +1551,7 @@ function resetWorkOrderForm(options) {
   renderSubmittedInfo(null);
   document.getElementById("woJob").value = "";
   document.getElementById("woJobSearch").value = "";
+  syncWorkOrderJobLock();
   document.getElementById("woJobNumber").value = "";
   document.getElementById("woJobName").value = "";
   document.getElementById("woJobType").value = "T&M";
@@ -1819,10 +1863,11 @@ function editWorkOrder(id) {
       job_name: wo.job_name || "",
       job_type: wo.job_type || "Archived/removed job"
     });
-    renderJobOptions();
   }
   document.getElementById("woJob").value = wo.job_id || "";
-  document.getElementById("woJobSearch").value = [wo.job_number, wo.job_name, wo.job_type || "Archived/removed job"].filter(Boolean).join(" - ");
+  const savedJob = getSelectedJob();
+  document.getElementById("woJobSearch").value = savedJob ? getJobOptionLabel(savedJob) : [wo.job_number, wo.job_name, wo.job_type || "Archived/removed job"].filter(Boolean).join(" - ");
+  syncWorkOrderJobLock();
   document.getElementById("woJobNumber").value = wo.job_number || "";
   document.getElementById("woJobName").value = wo.job_name || "";
   document.getElementById("woJobType").value = wo.job_type || "";
@@ -2806,7 +2851,6 @@ async function loadJobs(background = false) {
   }
 
   jobs = data || [];
-  renderJobOptions();
 }
 
 async function loadEmployees() {

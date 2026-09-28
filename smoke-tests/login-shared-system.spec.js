@@ -10,7 +10,7 @@ test("Login uses one token-only visual source", async () => {
   const screenMarkup = html.split('<script src="vendor/supabase-js.min.js')[0];
 
   expect(html).not.toContain("styles.css");
-  expect(html).toContain('jgc-design-system.css?v=11');
+  expect(html).toContain('jgc-design-system.css?v=12');
   expect(html).toContain('login-design-system.css?v=7');
   expect(html).toMatch(/<body\b[^>]*\bjgc-page\b/i);
   expect(screenMarkup).not.toMatch(/<style\b/i);

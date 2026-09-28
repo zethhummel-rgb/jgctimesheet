@@ -1061,6 +1061,169 @@ input::-webkit-date-and-time-value {
   display: none !important;
 }
 
+/* Job picker: one look for every job dropdown (the Timesheet cards: green job number, Contract/T&M tag,
+   job name, client). Once a job is picked the box locks and the X is the only way to remove it. Rules
+   inside the picker are two classes deep so page-wide button styles never win. */
+.jgc-job-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.jgc-job-picker__field {
+  position: relative;
+}
+
+.jgc-job-picker.is-selected .jgc-input {
+  padding-right: 52px;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  font-weight: 700;
+  cursor: default;
+}
+
+.jgc-job-picker .jgc-job-picker__clear {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: none;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  color: var(--jgc-color-text-dark);
+  background: color-mix(in srgb, var(--jgc-color-text-dark) 9%, transparent);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.jgc-job-picker.is-selected .jgc-job-picker__clear {
+  display: inline-flex;
+}
+
+.jgc-job-picker .jgc-job-picker__clear:hover,
+.jgc-job-picker .jgc-job-picker__clear:focus-visible {
+  background: color-mix(in srgb, var(--jgc-color-text-dark) 16%, transparent);
+  outline: 2px solid var(--jgc-color-brand-500);
+  outline-offset: 1px;
+}
+
+.jgc-job-picker .jgc-job-picker__clear:disabled {
+  display: none;
+}
+
+.jgc-job-picker .jgc-job-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  display: none;
+  max-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--jgc-color-input);
+  border: 1px solid color-mix(in srgb, var(--jgc-color-brand-500) 42%, transparent);
+  border-radius: var(--jgc-radius-md);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--jgc-color-page-deep) 36%, transparent);
+}
+
+.jgc-job-picker .jgc-job-dropdown.open {
+  display: block;
+}
+
+.jgc-job-dropdown .jgc-job-option {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border: 0;
+  border-bottom: 1px solid var(--jgc-color-input-border);
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+}
+
+.jgc-job-dropdown .jgc-job-option:last-child {
+  border-bottom: 0;
+}
+
+.jgc-job-dropdown .jgc-job-option:hover,
+.jgc-job-dropdown .jgc-job-option:focus {
+  color: var(--jgc-color-text-dark);
+  background: color-mix(in srgb, var(--jgc-color-brand-700) 10%, var(--jgc-color-input));
+  outline: none;
+}
+
+.jgc-job-dropdown .jgc-job-option:focus-visible {
+  outline: 2px solid var(--jgc-color-brand-700);
+  outline-offset: -2px;
+}
+
+.jgc-job-option .jgc-job-option__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.jgc-job-option .jgc-job-option__number {
+  color: var(--jgc-color-brand-700);
+  font-weight: 800;
+}
+
+.jgc-job-option .jgc-job-option__type {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  color: var(--jgc-color-on-brand);
+  background: var(--jgc-color-brand-700);
+  border: 1px solid var(--jgc-color-brand-700);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.jgc-job-option .jgc-job-option__type.is-contract {
+  color: var(--jgc-color-text-dark);
+  background: var(--jgc-color-input);
+  border-color: var(--jgc-color-input-border);
+}
+
+.jgc-job-option .jgc-job-option__name,
+.jgc-job-option .jgc-job-option__client {
+  display: block;
+  margin-top: 2px;
+  color: var(--jgc-color-text-dark);
+  overflow-wrap: anywhere;
+}
+
+.jgc-job-dropdown .jgc-job-dropdown__empty {
+  padding: 11px 12px;
+  color: var(--jgc-color-text-dark);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .jgc-help-text {
   margin-top: var(--jgc-space-1);
   color: var(--jgc-color-text-muted);
