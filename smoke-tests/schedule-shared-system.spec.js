@@ -438,6 +438,7 @@ test("Admin Schedule fits all seven calendar columns in phone landscape", async 
 
 async function openCalendarEditor(page, theme = "light") {
   await installState(page, "admin");
+  await page.addInitScript((theme) => localStorage.setItem("jgcPortalTheme", theme), theme);
   await page.goto("/admin.html?tab=summary", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => adminDataLoaded === true);
   await page.evaluate((theme) => applyJgcTheme(theme), theme);
@@ -516,6 +517,7 @@ for (const theme of ["light", "dark"]) {
     test(`event details show saved notes without writing at ${width}px in ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await installState(page, "admin");
+      await page.addInitScript((theme) => localStorage.setItem("jgcPortalTheme", theme), theme);
       await page.goto("/admin.html?tab=summary");
       await page.waitForFunction(() => adminDataLoaded === true);
       const notes = 'Meet at the site trailer.\nBring the drawings & PPE.\n<script>window.unexpectedEventScript = true</script>';
@@ -559,6 +561,7 @@ for (const theme of ["light", "dark"]) {
       await expect(modal.getByRole("button", { name: "Close event details" })).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(page.locator("#adminScheduleDetailsEdit")).toBeFocused();
+      await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
       if (process.env.JGC_SCHEDULE_SCREENSHOT_DIR) {
         fs.mkdirSync(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, { recursive: true });
         await page.screenshot({ path: path.join(process.env.JGC_SCHEDULE_SCREENSHOT_DIR, `event-details-${width}-${theme}.png`) });
