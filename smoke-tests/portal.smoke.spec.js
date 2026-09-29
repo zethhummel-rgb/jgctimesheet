@@ -5699,7 +5699,10 @@ for(const theme of ['light','dark'])test(`Dashboard calendar keeps two items per
  await expectReadableText(list.locator('strong, .admin-schedule-overflow-open'),'Calendar overflow list '+theme);
  await page.screenshot({path:testInfo.outputPath('calendar-overflow-page.png')});await expect(list).toBeVisible();
  await page.keyboard.press('Escape');await expect(list).toBeHidden();await expect(more).toBeFocused();
- await more.click();await list.getByRole('button',{name:/Safety meeting/}).click();await expect(list).toBeHidden();await expect(page.locator('#adminScheduleModal')).toHaveClass(/open/);
+ await more.click();await list.getByRole('button',{name:/Safety meeting/}).click();await expect(list).toBeHidden();
+ await expect(page.locator('#adminScheduleDetailsModal')).toHaveClass(/open/);await expect(page.locator('#adminScheduleDetailsTitle')).toHaveText('Safety meeting');
+ await expect(page.locator('#adminScheduleModal')).not.toHaveClass(/open/);
+ await page.locator('#adminScheduleDetailsEdit').click();await expect(page.locator('#adminScheduleModal')).toHaveClass(/open/);
 });
 
 for(const theme of ['light','dark'])for(const width of [390,1440])test(`Accounting search bar opens the shared Portal search ${theme} ${width}`,async({page},testInfo)=>{

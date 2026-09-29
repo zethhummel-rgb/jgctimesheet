@@ -1232,7 +1232,7 @@ function renderAdminScheduleAgenda() {
 
                     if (item.source === "schedule") {
                         return `
-                            <button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="openAdminScheduleModal('${escapeHtml(item.date)}', '${escapeHtml(item.id)}');">
+                            <button type="button" class="admin-agenda-item ${escapeHtml(item.type)}" onclick="openAdminScheduleDetails('${escapeHtml(item.id)}');">
                                 ${content}
                             </button>
                         `;
@@ -1403,7 +1403,7 @@ function renderAdminScheduleCalendar() {
             const label = '<span class="schedule-sync-dot ' + syncClass + '" title="' + escapeHtml(syncLabel) + '"></span>' +
                 (timeText ? '<span class="schedule-event-time">' + escapeHtml(timeText) + '</span>' : "") +
                 '<span class="schedule-event-title">' + escapeHtml(getAdminScheduleTitle(event)) + '</span>';
-            return '<button type="button" title="' + escapeHtml([timeText, getAdminScheduleTitle(event)].filter(Boolean).join(" · ")) + '" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleModal(\'' + escapeHtml(dateValue) + '\', \'' + escapeHtml(event.id) + '\');">' + label + '</button>';
+            return '<button type="button" title="' + escapeHtml([timeText, getAdminScheduleTitle(event)].filter(Boolean).join(" · ")) + '" class="admin-schedule-item admin-schedule-event-button admin-event-' + escapeHtml(type) + '" style="' + getAdminScheduleTypeStyle(type) + '" onclick="event.stopPropagation(); openAdminScheduleDetails(\'' + escapeHtml(event.id) + '\');">' + label + '</button>';
         });
         const vacationItems = vacations.map((request) =>
             '<div class="admin-schedule-item admin-event-vacation" style="' + getAdminScheduleTypeStyle("vacation") + '">' +
@@ -2041,6 +2041,66 @@ let adminScheduleModalGeneration = 0;
 let adminScheduleReturnFocus = null;
 let adminScheduleSaving = false;
 let adminScheduleReferenceSelectionTouched = false;
+let adminScheduleViewedEventId = "";
+let adminScheduleDetailsReturnFocus = null;
+
+function openAdminScheduleDetails(id) {
+    if (adminScheduleSaving || document.getElementById("adminScheduleModal").classList.contains("open")) return;
+    const event = scheduleEvents.find((item) => String(item.id) === String(id));
+    if (!event) {
+        alert("That schedule event could not be found. Refresh the admin page and try again.");
+        return;
+    }
+    const modal = document.getElementById("adminScheduleDetailsModal");
+    if (!modal.classList.contains("open")) {
+        // Overflow items disappear when selected; return focus to their +N button instead.
+        adminScheduleDetailsReturnFocus = document.getElementById("adminScheduleOverflow")?._opener || document.activeElement;
+    }
+    adminScheduleViewedEventId = event.id;
+    document.getElementById("adminScheduleDetailsTitle").textContent = event.title || event.job_name || "Schedule event";
+    document.getElementById("adminScheduleDetailsDate").textContent = event.event_date
+        ? makeAdminScheduleDate(event.event_date).toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+        : "Date not entered";
+    const time = [JgcScheduleUI.formatTime(event.start_time), JgcScheduleUI.formatTime(event.end_time)].filter(Boolean).join(" – ");
+    const crew = [event.employee_names, event.employee_keys, event.employee_emails]
+        .find((values) => Array.isArray(values) && values.some(Boolean)) || [];
+    const fields = [
+        ["Time", time || "Time not entered"],
+        ["Event type", getAdminScheduleTypeLabel(getAdminScheduleType(event))],
+        [getAdminScheduleType(event) === "vehicle" ? "Vehicle / equipment" : "Job", [event.job_number, event.job_name].filter(Boolean).join(" · ")],
+        ["Location / address", event.location],
+        ["Reason for appointment", event.maintenance_reason],
+        ["Tagged employees", crew.filter(Boolean).join(", ") || "No employees tagged"]
+    ];
+    // Read only the saved event: opening details must never initialize or save an edit form.
+    document.getElementById("adminScheduleDetailsContent").innerHTML =
+        '<dl class="schedule-event-facts">' + fields.filter(([, value]) => value).map(([label, value]) =>
+            '<div><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value) + '</dd></div>'
+        ).join("") + '</dl><section class="schedule-event-notes" aria-labelledby="adminScheduleDetailsNotesTitle">' +
+        '<h3 id="adminScheduleDetailsNotesTitle">Notes for the crew</h3><p>' + escapeHtml(event.notes || "No notes entered.") + '</p></section>';
+    modal.classList.add("open");
+    document.documentElement.classList.add("schedule-modal-open");
+    modal.scrollTop = 0;
+    document.getElementById("adminScheduleDetailsTitle").focus({ preventScroll: true });
+}
+
+function closeAdminScheduleDetails(restoreFocus = true) {
+    document.getElementById("adminScheduleDetailsModal").classList.remove("open");
+    document.documentElement.classList.remove("schedule-modal-open");
+    adminScheduleViewedEventId = "";
+    if (restoreFocus && adminScheduleDetailsReturnFocus?.isConnected) adminScheduleDetailsReturnFocus.focus({ preventScroll: true });
+}
+
+function editAdminScheduleViewedEvent() {
+    const event = scheduleEvents.find((item) => String(item.id) === String(adminScheduleViewedEventId));
+    if (!event) {
+        closeAdminScheduleDetails();
+        return;
+    }
+    closeAdminScheduleDetails(false);
+    openAdminScheduleModal(event.event_date, event.id);
+    adminScheduleReturnFocus = adminScheduleDetailsReturnFocus;
+}
 
 function updateAdminScheduleDay() {
     const dateValue = document.getElementById("adminScheduleDate").value;
@@ -2116,20 +2176,21 @@ function closeAdminScheduleModal(event) {
     if (adminScheduleReturnFocus?.isConnected) adminScheduleReturnFocus.focus({ preventScroll: true });
 }
 
-document.getElementById("adminScheduleModal").addEventListener("keydown", (event) => {
+["adminScheduleModal", "adminScheduleDetailsModal"].forEach((id) => document.getElementById(id).addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
         event.preventDefault();
-        closeAdminScheduleModal();
+        if (id === "adminScheduleDetailsModal") closeAdminScheduleDetails();
+        else closeAdminScheduleModal();
     }
     if (event.key === "Tab") {
         const focusable = Array.from(event.currentTarget.querySelectorAll('button:not(:disabled), input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]'))
             .filter((element) => element.getClientRects().length);
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-});
+}));
 
 ["adminScheduleJob", "adminScheduleJobName", "adminScheduleJobNumber", "adminScheduleVehicle"].forEach((id) => {
     document.getElementById(id).addEventListener("input", () => { adminScheduleReferenceSelectionTouched = true; });
