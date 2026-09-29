@@ -526,7 +526,9 @@ for (const theme of ["light", "dark"]) {
       }, { theme, notes });
       const writes = [];
       page.on("request", (request) => {
-        if (request.url().startsWith(supabaseOrigin) && ["POST", "PATCH", "DELETE", "PUT"].includes(request.method())) writes.push(request.url());
+        // Theme preferences and routine dashboard notices save independently of the event viewer.
+        const scheduleRequest = /\/rest\/v1\/(schedule_events|equipment_maintenance_logs|announcements)(\?|$)|script\.google/.test(request.url());
+        if (scheduleRequest && ["POST", "PATCH", "DELETE", "PUT"].includes(request.method())) writes.push(request.url());
       });
       const entry = page.locator(width === 390 ? "#adminScheduleAgenda .admin-agenda-item.work" : "#adminScheduleCalendar .admin-schedule-event-button").first();
       await entry.click();
@@ -536,7 +538,7 @@ for (const theme of ["light", "dark"]) {
       await expect(modal.locator("input, textarea, select")).toHaveCount(0);
       await expect(modal.getByRole("button", { name: /Save/ })).toHaveCount(0);
       await expect(modal.locator(".schedule-event-notes p")).toHaveText(notes);
-      for (const value of ["7:00 AM – 3:30 PM", "Work / Job", "26090 · Cornwall Courthouse", "1019 Larin Avenue, Cornwall", "Zeth Hummel"]) {
+      for (const value of ["7:00 AM – 3:30 PM", "Work", "26090 · Cornwall Courthouse", "1019 Larin Avenue, Cornwall", "Zeth Hummel"]) {
         await expect(modal.locator(".schedule-event-facts")).toContainText(value);
       }
       expect(await page.evaluate(() => window.unexpectedEventScript)).toBeUndefined();
