@@ -19,14 +19,15 @@ function session(expired = false) {
 async function setup(page, options = {}) {
   const state = { tokens: 0, reads: 0, inserts: 0, activity: 0, errors: [] };
   page.on("pageerror", error => state.errors.push(error.message));
-  await page.addInitScript(({ stored, ref, persist }) => {
+  await page.addInitScript(({ stored, ref, persist, theme }) => {
+    if (theme) localStorage.setItem("jgcPortalTheme", theme);
     if (stored) {
       const storage = persist === false ? sessionStorage : localStorage;
       storage.setItem(`sb-${ref}-auth-token`, JSON.stringify(stored));
       localStorage.setItem("jgcStayLoggedIn", persist === false ? "false" : "true");
       if (!persist) sessionStorage.setItem("jgcActiveSession", "true");
     }
-  }, { stored: options.stored ? session(options.expired) : null, ref, persist: options.persist !== false });
+  }, { stored: options.stored ? session(options.expired) : null, ref, persist: options.persist !== false, theme: options.theme });
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (url.hostname === "127.0.0.1" || url.hostname === "localhost") {
@@ -176,6 +177,29 @@ test("missing profile during restore does not create an account", async ({ page 
   expect(state.inserts).toBe(0);
 });
 
+test("missing profile after password login preserves account approval setup", async ({ page }) => {
+  const state = await setup(page, { missing: true });
+  await page.goto("/index.html");
+  await page.locator("#email").fill(user.email);
+  await page.locator("#password").fill("synthetic-only");
+  await page.locator("#loginSubmit").click();
+  await expect(page.locator("#loginStatus")).toContainText("waiting for admin approval");
+  expect(state.inserts).toBe(1);
+  expect(await page.evaluate(() => localStorage.getItem("currentWorker"))).toBeNull();
+});
+
+for (const event of ["online", "visibilitychange"]) {
+  test(`recovery retries when ${event} arrives after a connection failure`, async ({ page }) => {
+    const options = { stored: true, failProfile: true };
+    await setup(page, options);
+    await page.goto("/index.html");
+    await expect(page.locator("#loginRetry")).toBeVisible();
+    options.failProfile = false;
+    await page.evaluate(event => (event === "online" ? window : document).dispatchEvent(new Event(event)), event);
+    await expect(page).toHaveURL(/admin.html$/);
+  });
+}
+
 for (const [status, role, destination] of [
   ["approved", "worker", "home.html"], ["limited", "worker", "limited-access.html"]
 ]) {
@@ -215,9 +239,9 @@ for (const width of [390, 1440]) for (const theme of ["light", "dark"]) {
   test(`session recovery readable at ${width}px in ${theme}`, async ({ page }) => {
     const tokenGate = gate();
     await page.setViewportSize({ width, height: width === 390 ? 844 : 950 });
-    await setup(page, { stored: true, expired: true, tokenGate });
+    await setup(page, { stored: true, expired: true, tokenGate, theme });
     await page.goto("/index.html");
-    await page.evaluate(theme => document.documentElement.setAttribute("data-theme", theme), theme);
+    await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
     await expect(page.locator("#loginStatus")).toBeVisible();
     await expect(page.locator("#loginControls")).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
