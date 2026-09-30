@@ -3,14 +3,24 @@ function cleanJgcAuthText(value, maxLength) {
 }
 
 async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) {
-  const stayLoggedIn = !options || options.stayLoggedIn !== false;
+  const settings = options || {};
+  const stayLoggedIn = settings.stayLoggedIn !== false;
+  const isCurrent = settings.isCurrent || (() => true);
   let { data: profile, error } = await supabaseClient
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .abortSignal(settings.signal)
+    .maybeSingle();
 
-  if (error || !profile) {
+  if (!isCurrent()) return false;
+  if (error) throw error;
+
+  if (!profile) {
+    if (!settings.allowProfileCreation) {
+      setStatus("Your account profile could not be found. Please ask admin.");
+      return false;
+    }
     const displayName = user.user_metadata && user.user_metadata.display_name
       ? cleanJgcAuthText(user.user_metadata.display_name, 80)
       : user.email;
@@ -27,11 +37,13 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
         account_status: "pending"
       })
       .select("*")
+      .abortSignal(settings.signal)
       .single();
 
+    if (!isCurrent()) return false;
     if (createProfileError || !createdProfile) {
       setStatus("Account found, but profile setup failed. Please ask admin.");
-      return;
+      return false;
     }
 
     profile = createdProfile;
@@ -39,26 +51,34 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
 
   if (profile.account_status === "pending") {
     await supabaseClient.auth.signOut();
+    if (!isCurrent()) return false;
     clearJgcSession();
     setStatus("Your account is waiting for admin approval.");
-    return;
+    return false;
   }
 
   if (profile.account_status === "inactive") {
     await supabaseClient.auth.signOut();
+    if (!isCurrent()) return false;
     clearJgcSession();
     setStatus("This account has been deactivated. Please ask admin.");
-    return;
+    return false;
   }
 
   const hasLimitedAccess = profile.account_status === "limited";
 
   if (typeof recordJgcProfileActivity === "function") {
-    const loginActivity = await recordJgcProfileActivity(supabaseClient, {
-      user,
-      profileId: profile.id,
-      isLogin: true
-    });
+    // Give activity recording a brief chance; it must never hold Portal entry.
+    let activityTimer;
+    const loginActivity = await Promise.race([
+      Promise.resolve().then(() => recordJgcProfileActivity(supabaseClient, {
+        user,
+        profileId: profile.id,
+        isLogin: settings.isLogin !== false
+      })).catch(() => null),
+      new Promise(resolve => { activityTimer = setTimeout(() => resolve(null), 600); })
+    ]);
+    clearTimeout(activityTimer);
     const activityRow = loginActivity && loginActivity.data;
 
     if (activityRow) {
@@ -67,6 +87,7 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
     }
   }
 
+  if (!isCurrent()) return false;
   setJgcAuthPersistencePreference(stayLoggedIn);
   localStorage.setItem("currentWorker", profile.worker_key);
   localStorage.setItem("currentWorkerDisplay", profile.display_name);
@@ -79,4 +100,5 @@ async function loadJgcProfileAndEnter(supabaseClient, user, setStatus, options) 
   window.location.href = hasLimitedAccess
     ? "limited-access.html"
     : (isAdminWorker(profile.worker_key, profile.role, profile.email) ? "admin.html" : "home.html");
+  return true;
 }
