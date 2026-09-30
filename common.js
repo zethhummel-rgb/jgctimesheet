@@ -757,15 +757,18 @@ function setJgcAuthPersistencePreference(stayLoggedIn) {
   }
 }
 
+let jgcSharedSupabaseClient = null;
+
 function createJgcSupabaseClient() {
-  return window.supabase
-    ? window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY, {
+  if (!jgcSharedSupabaseClient && window.supabase) {
+    jgcSharedSupabaseClient = window.supabase.createClient(JGC_SUPABASE_URL, JGC_SUPABASE_KEY, {
         auth: {
           persistSession: true,
           storage: JGC_SUPABASE_AUTH_STORAGE
         }
-      })
-    : null;
+      });
+  }
+  return jgcSharedSupabaseClient;
 }
 
 window.setJgcAuthPersistencePreference = setJgcAuthPersistencePreference;

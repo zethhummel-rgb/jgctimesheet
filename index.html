@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json?v=7" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=4" />
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13" />
-  <link rel="stylesheet" href="login-design-system.css?v=7" />
+  <link rel="stylesheet" href="login-design-system.css?v=8" />
 </head>
 
 <body class="login-page jgc-page">
@@ -45,6 +45,9 @@
       </div>
       <div class="divider"></div>
       <button type="button" class="public-tool-button public-tool-button-top jgc-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
+      <div id="loginStatus" class="status jgc-notice" role="status" aria-live="polite">Restoring your session…</div>
+      <button id="loginRetry" type="button" class="jgc-button jgc-button--secondary" onclick="checkExistingSession()" hidden>Try again</button>
+      <fieldset id="loginControls" class="login-controls" hidden disabled>
       <button type="button" class="secondary subcontractor-access-button jgc-button jgc-button--secondary" onclick="openSubcontractorAccess()">Subcontractor Access</button>
       <h3>Welcome Back</h3>
       <p class="login-subtitle">Sign in to access your employee portal</p>
@@ -60,9 +63,8 @@
         Stay logged in
       </label>
 
-      <button type="button" class="jgc-button" onclick="signIn()">Sign In</button>
+      <button id="loginSubmit" type="button" class="jgc-button" onclick="signIn()">Sign In</button>
       <button type="button" class="secondary jgc-button jgc-button--secondary" onclick="resetPassword()">Forgot Password</button>
-      <div id="loginStatus" class="status jgc-notice" role="status" aria-live="polite"></div>
       <div class="security-note">Secure. Private. Trusted.</div>
 
       <div class="toggle-card jgc-card">
@@ -84,6 +86,7 @@
           <div class="small jgc-help-text">Use your real full name. This connects your account to your timesheets, certificates, and inspections.</div>
         </div>
       </div>
+      </fieldset>
 
       <div class="portal-share-qr jgc-card" aria-label="JGC Portal QR code">
         <h4>Share Portal</h4>
@@ -120,8 +123,8 @@
 </div>
 
 <script src="vendor/supabase-js.min.js?v=1" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';"></script>
-<script src="common.js?v=71"></script>
-<script src="auth.js?v=7"></script>
+<script src="common.js?v=72"></script>
+<script src="auth.js?v=8"></script>
 <script>
 const supabaseClient = createJgcSupabaseClient();
 
@@ -224,51 +227,6 @@ async function clearSession() {
   }
 
   clearJgcSession();
-}
-
-async function checkExistingSession() {
-  if (!supabaseClient) {
-    setStatus("Supabase is not available right now.");
-    return;
-  }
-
-  const { data } = await supabaseClient.auth.getSession();
-  if (data.session && data.session.user) {
-    await loadJgcProfileAndEnter(supabaseClient, data.session.user, setStatus);
-  }
-}
-
-async function signIn() {
-  if (!supabaseClient) {
-    alert("Supabase is not available right now.");
-    return;
-  }
-
-  const email = cleanLoginEmail(document.getElementById("email").value);
-  const password = document.getElementById("password").value;
-
-  if (!email || !password) {
-    alert("Enter your email and password.");
-    return;
-  }
-
-  if (!isValidLoginEmail(email) || password.length > 128) {
-    alert("Enter a valid email and password.");
-    return;
-  }
-
-  const stayLoggedIn = document.getElementById("stayLoggedIn").checked;
-  setJgcAuthPersistencePreference(stayLoggedIn);
-  setStatus("Signing in...");
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    setStatus("");
-    alert("Sign in failed. Check your email and password.");
-    return;
-  }
-
-  await loadJgcProfileAndEnter(supabaseClient, data.user, setStatus, { stayLoggedIn });
 }
 
 async function signUp() {
@@ -403,8 +361,8 @@ function submitOnEnter(event) {
   }
 }
 
-checkExistingSession();
 </script>
+<script src="login-session.js?v=1"></script>
 
 </body>
 </html>
