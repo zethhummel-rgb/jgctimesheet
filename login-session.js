@@ -132,6 +132,21 @@ function signIn() {
   return runJgcLoginOperation("sign-in", { email, password });
 }
 
+async function signUp() {
+  if (isJgcLoginBusy() || jgcLoginMode !== "ready") return;
+  const operation = { current: true };
+  jgcLoginOperation = operation;
+  setJgcLoginView("signing-in", "Creating account…");
+  try {
+    await submitJgcAccountRequest();
+  } catch (error) {
+    setStatus("We couldn’t finish your account request. Please try again.");
+  } finally {
+    if (jgcLoginOperation === operation) jgcLoginOperation = null;
+    setJgcLoginView("ready", document.getElementById("loginStatus").textContent);
+  }
+}
+
 window.addEventListener("online", () => {
   if (jgcLoginMode === "retry") checkExistingSession();
 });
@@ -140,7 +155,7 @@ document.addEventListener("visibilitychange", () => {
 });
 if (supabaseClient) {
   supabaseClient.auth.onAuthStateChange((event, session) => {
-    if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+    if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session && !isJgcLoginBusy()) {
       // Run after the SDK releases its callback/refresh lock.
       setTimeout(() => {
         if (!isJgcLoginBusy() && jgcLoginMode !== "recovering" && jgcLoginMode !== "signing-in") {

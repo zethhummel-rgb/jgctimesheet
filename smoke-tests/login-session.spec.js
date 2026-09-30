@@ -45,7 +45,8 @@ async function setup(page, options = {}) {
         body: JSON.stringify({ code: options.tokenError, msg: options.tokenError === "invalid_credentials"
           ? "Invalid login credentials" : "Synthetic error" }) });
       body = session();
-    } else if (url.pathname === "/auth/v1/user") body = user;
+    } else if (url.pathname === "/auth/v1/signup") body = session();
+    else if (url.pathname === "/auth/v1/user") body = user;
     else if (url.pathname === "/auth/v1/logout") body = {};
     else if (url.pathname === "/rest/v1/profiles") {
       if (route.request().method() === "POST") { state.inserts++; body = { ...profile, account_status: "pending" }; }
@@ -186,6 +187,25 @@ test("missing profile after password login preserves account approval setup", as
   await expect(page.locator("#loginStatus")).toContainText("waiting for admin approval");
   expect(state.inserts).toBe(1);
   expect(await page.evaluate(() => localStorage.getItem("currentWorker"))).toBeNull();
+});
+
+test("account requests do not race automatic session entry", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/index.html");
+  await page.locator("#createAccountToggle").click();
+  await page.locator("#signupName").fill("Synthetic Worker");
+  await page.locator("#signupEmail").fill(user.email);
+  await page.locator("#signupPassword").fill("synthetic-only");
+  await page.evaluate(() => {
+    window.alert = () => {};
+    getJgcAdminNotificationRecipients = async () => [];
+    createJgcPortalNotifications = async () => {};
+  });
+  await page.locator("#createAccountPanel button").click();
+  await expect(page.locator("#loginStatus")).toContainText("Admin must approve");
+  await expect(page).toHaveURL(/index.html$/);
+  expect(state.reads).toBe(0);
+  await expect(page.locator("#loginSubmit")).toBeEnabled();
 });
 
 for (const event of ["online", "visibilitychange"]) {

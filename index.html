@@ -229,7 +229,7 @@ async function clearSession() {
   clearJgcSession();
 }
 
-async function signUp() {
+async function submitJgcAccountRequest() {
   if (!supabaseClient) {
     alert("Supabase is not available right now.");
     return;
