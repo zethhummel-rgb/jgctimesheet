@@ -1,4 +1,5 @@
 import type { Rfi } from "./rfi-workflow";
+import type { JobSchedule } from "./job-schedule";
 import { normalizeProposalScopeClosingLine } from "./proposal-rich-text";
 
 export type ViewKey =
@@ -441,6 +442,7 @@ export interface Job {
   purchaseOrders?: PurchaseOrder[];
   shopDrawings?: ShopDrawing[];
   rfis?: Rfi[];
+  schedule?: JobSchedule;
   notes: string;
 }
 
