@@ -181,7 +181,7 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
       </section>;
   return <section className={`job-schedule ${editor?'has-activity-editor':''}`} aria-label="Job Schedule" style={{'--schedule-toolbar-height':`${toolbarHeight}px`,'--schedule-editor-width':`${width}px`} as CSSProperties}>
     <header className="schedule-heading"><div><p className="eyebrow">PROJECT TIMELINE · OPTIONAL</p><h2>Job Schedule</h2><p>Phases, activities and milestones for Job {job.jobNumber}.</p></div><div className="schedule-actions">
-      {saved&&<button className="button secondary" disabled={exporting||editing||syncPending} onClick={()=>void exportPdf(false)}>{exporting?'Creating PDF…':'Download schedule PDF'}</button>}
+      {saved&&!editing&&<button className="button secondary" disabled={exporting||syncPending} onClick={()=>void exportPdf(false)}>{exporting?'Creating PDF…':'Download schedule PDF'}</button>}
       {saved&&syncPending&&!editing&&<button className="button secondary" disabled={exporting} onClick={()=>void exportPdf(true)}>Download draft PDF</button>}
       {!editing&&<button className="button primary" disabled={syncPending} onClick={begin}>{saved?'Edit schedule':'Create schedule'}</button>}
     </div></header>
