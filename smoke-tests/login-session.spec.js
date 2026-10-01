@@ -86,7 +86,8 @@ test("saved session enters while activity logging is still stalled", async ({ pa
   const state = await setup(page, { stored: true, activityGate });
   await page.goto("/index.html");
   await expect(page).toHaveURL(/admin.html$/, { timeout: 4000 });
-  expect(state.activity).toBe(1);
+  // Recovery and delayed page activity may both be recorded; neither may block entry.
+  await expect.poll(() => state.activity).toBeGreaterThanOrEqual(1);
   expect(await page.evaluate(() => localStorage.getItem("currentWorker"))).toBe("synthetic");
   activityGate.release();
 });
