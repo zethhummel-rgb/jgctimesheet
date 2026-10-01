@@ -65,11 +65,11 @@ test('reordering changes phase and sequence while preserving dates, progress and
  expect(rows.map(t=>t.id)).toEqual(['b','a','c']);expect(rows[1]).toEqual({...a,phase:'Rough-ins'});expect(rows[0]).toEqual(b);
  expect(ui.reorderTask(rows,'a',{id:'a',phase:'Finishes',after:false})).toEqual(rows);
 });
-for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test('top activity entry leaves Gantt visible '+theme+' '+viewport.width,async({page},testInfo)=>{
+for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:1000},{width:390,height:844}])test('inline activity entry keeps rows and dates visible '+theme+' '+viewport.width,async({page},testInfo)=>{
  await page.setViewportSize(viewport);await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Add activity',exact:false}).click();
  const editor=page.getByRole('dialog',{name:'Schedule activity editor'}),chart=page.locator('.schedule-scroll');
  await expect(editor).toHaveAttribute('aria-modal','false');await expect(page.locator('.schedule-modal-backdrop')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
- const eb=await editor.boundingBox(),gb=await chart.boundingBox();expect(gb.y).toBeGreaterThanOrEqual(eb.y+eb.height);expect(gb.y).toBeLessThan(viewport.height-90);
+ const eb=await editor.boundingBox(),gb=await chart.boundingBox();expect(eb.y).toBeGreaterThan(gb.y);expect(eb.y).toBeLessThan(viewport.height-90);await expect(editor.locator('xpath=ancestor::div[contains(@class,"schedule-grid")]')).toHaveCount(1);
  await editor.getByLabel('Activity name *').fill('New electrical inspection');await editor.getByLabel('Start date *').fill('2026-12-14');await expect(chart).toHaveAttribute('data-finish','2027-01-29');
  await expect.poll(()=>chart.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('entry-'+theme+'-'+viewport.width+'.png')});
@@ -134,8 +134,12 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:90
  expect(await add.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
  await page.screenshot({path:testInfo.outputPath(`sticky-${theme}-${viewport.width}.png`)});
  await add.click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
- await expect(editor).toBeVisible();const input=editor.getByLabel('Activity name *');await input.fill('Added while scrolled');
+ await expect(editor).toBeVisible();await expect(page.locator('.schedule-preview-row')).toBeVisible();const head=await page.locator('.schedule-grid-head').boundingBox(),chartBox=await page.locator('.schedule-scroll').boundingBox();expect(head.y).toBeGreaterThanOrEqual(chartBox.y);expect(head.y+head.height).toBeLessThan(viewport.height-100);const input=editor.getByLabel('Activity name *');await input.fill('Added while scrolled');await page.screenshot({path:testInfo.outputPath('inline-'+theme+'-'+viewport.width+'.png')});
  expect(await input.evaluate(el=>{const r=el.getBoundingClientRect();return el===document.elementFromPoint(r.x+20,r.y+r.height/2);})).toBe(true);
  await editor.getByRole('button',{name:'Apply to draft'}).click();await expect(page.locator('.schedule-task-name').filter({hasText:'Added while scrolled'})).toBeVisible();
+ const added=page.locator('.schedule-task-name').filter({hasText:'Added while scrolled'});
+ await expect(added).toBeFocused(); await expect(page.locator('.schedule-preview-row')).toHaveCount(0);
+ const newBox=await added.boundingBox();expect(newBox.y).toBeGreaterThan(130);expect(newBox.y+newBox.height).toBeLessThanOrEqual(viewport.height-64);
+ await page.screenshot({path:testInfo.outputPath('added-'+theme+'-'+viewport.width+'.png')});
  expect(saves).toHaveLength(0);
 });

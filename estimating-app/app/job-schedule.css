@@ -101,9 +101,17 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
 /* Keep schedule actions below the sticky Estimate Desk header and Job tabs. */
 .schedule-toolbar { position:sticky; top:calc(130px + var(--jgc-top-inset,0px)); z-index:21; align-self:start; padding:8px 10px; border:1px solid var(--slate-200); border-radius:10px; background:var(--schedule-surface); box-shadow:0 3px 12px #0001; }
 /* The active entry form replaces the toolbar; do not obscure its fields. */
-.job-schedule:has(.schedule-entry) .schedule-toolbar { position:static; }
+
 @media(max-width:760px) {
  .schedule-toolbar > .schedule-hint { display:none; }
  .schedule-toolbar .schedule-actions .button { min-height:44px; }
 }
 @media print { .schedule-toolbar { position:static; box-shadow:none; } }
+
+/* The editor belongs to its Gantt row; the date header remains in view above it. */
+.schedule-scroll { position:sticky; top:calc(138px + var(--jgc-top-inset,0px) + var(--schedule-toolbar-height,60px)); max-height:calc(100dvh - 226px - var(--jgc-top-inset,0px) - var(--schedule-toolbar-height,60px)); scroll-margin-top:calc(138px + var(--jgc-top-inset,0px) + var(--schedule-toolbar-height,60px)); scroll-padding-block:76px; }
+.schedule-entry { position:sticky; left:0; z-index:3; width:var(--schedule-editor-width,100%); max-width:100%; margin:0; border-radius:0; scroll-margin-top:164px; }
+.schedule-entry input,.schedule-entry select,.schedule-entry textarea { scroll-margin-block:90px; }
+.schedule-preview-row { --phase-color:#197451; background:var(--green-100); }
+.schedule-preview-row .schedule-bar { border-style:dashed; }
+@media print { .schedule-scroll { position:static; max-height:none; } .schedule-entry { position:static; } }
