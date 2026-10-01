@@ -1,4 +1,5 @@
 import { rfiPersistenceError } from "../lib/rfi-workflow";
+import { schedulePersistenceError } from "../lib/job-schedule";
 import { createDefaultState, normalizeAppState, type AppState, type Job, type Vendor, type VendorContact } from "../lib/estimator-data";
 import type { SupplierCatalogItemRecord, SupplierCatalogSearchResponse, SupplierImportApplyMetadata } from "../lib/supplier-catalog-types";
 import { normalizeMaterialName } from "../lib/material-price-workbook";
@@ -964,6 +965,8 @@ async function putState(client: any, request: Request) {
   const localState = stripPortalSnapshots(body.state);
   const rfiError = rfiPersistenceError(stateBase, localState);
   if (rfiError) return json({ error: rfiError }, 409);
+  const scheduleError = schedulePersistenceError(stateBase, localState);
+  if (scheduleError) return json({ error: scheduleError }, 409);
   const result = await client
     .from("estimator_workspaces")
     .update({ payload: localState, updated_at: new Date().toISOString() })
@@ -993,13 +996,15 @@ async function putState(client: any, request: Request) {
   const merged = mergeConcurrentEstimatorState(baseState, localState, remoteState);
   if (!merged.state) {
     return json({
-      error: merged.conflicts.some(path => path.includes(".rfis")) ? "This RFI changed in another browser. Copy your unsaved text, then refresh to preserve the saved history." : "The same estimate field changed in another browser. Tap the save warning to keep this browser's current value, or refresh to use the shared value.",
+      error: merged.conflicts.some(path => path.includes(".schedule")) ? "This schedule changed in another browser. Keep a copy of your draft, then reload the latest schedule before saving." : merged.conflicts.some(path => path.includes(".rfis")) ? "This RFI changed in another browser. Copy your unsaved text, then refresh to preserve the saved history." : "The same estimate field changed in another browser. Tap the save warning to keep this browser's current value, or refresh to use the shared value.",
       conflicts: merged.conflicts,
     }, 409);
   }
 
   const mergedRfiError = rfiPersistenceError(remoteState, merged.state);
   if (mergedRfiError) return json({ error: mergedRfiError }, 409);
+  const mergedScheduleError = schedulePersistenceError(remoteState, merged.state);
+  if (mergedScheduleError) return json({ error: mergedScheduleError }, 409);
   const retry = await client
     .from("estimator_workspaces")
     .update({ payload: merged.state, updated_at: new Date().toISOString() })

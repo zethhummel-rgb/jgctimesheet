@@ -367,6 +367,8 @@ test("Job Control Centre exposes accessible tabs and a complete Summary", async 
 
   await jobTab(page, "Summary").focus();
   await jobTab(page, "Summary").press("ArrowRight");
+  await expect(jobTab(page, "Schedule")).toBeFocused();
+  await jobTab(page, "Schedule").press("ArrowRight");
   await expect(jobTab(page, "Purchase Orders")).toBeFocused();
   await expect(jobTab(page, "Purchase Orders")).toHaveAttribute("aria-selected", "true");
   await expect(jobTab(page, "Purchase Orders")).toHaveAttribute("tabindex", "0");

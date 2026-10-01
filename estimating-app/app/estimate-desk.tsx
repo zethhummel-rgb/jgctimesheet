@@ -1,4 +1,5 @@
 import { JobRfis } from "./job-rfis";
+import { JobSchedule } from "./job-schedule";
 import { ShopDrawingHistory } from "./shop-drawing-history";
 import { approvedDrawingFile, drawingHistory, drawingSnapshot, validateDrawing } from "../lib/shop-drawing-workflow";
 import type { JobCreationDraft } from "../lib/job-creation";
@@ -186,9 +187,10 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
+type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
+  { key: "schedule", label: "Schedule" },
   { key: "purchase-orders", label: "Purchase Orders" },
   { key: "changes", label: "CCNs / Change Orders" },
   { key: "shop-drawings", label: "Shop Drawings" },
@@ -6603,6 +6605,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
+        <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>
           <section className="job-kpi-grid job-operational-costs" aria-label="Job costs to date">
             <div><span>Actual cost to date</span><strong>{jobCostingStatus === "ready" ? money(totals.actual) : "Awaiting labour"}</strong><small>Loaded Portal labour + entered actuals</small></div>
