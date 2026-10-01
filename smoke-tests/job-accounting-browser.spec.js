@@ -14,6 +14,24 @@ async function setup(page, options = {}) {
     const existing = { ...preview.sourceSnapshot[1], jobNumber: "26906", jobName: "Existing inactive without billing status" };
     for (const snapshot of [preview.sourceSnapshot, preview.previousSnapshot, preview.baselineSnapshot]) snapshot.push(structuredClone(existing));
   }
+  if (options.clientNames) {
+    const rows = [
+      ["26901", "Cornwall Electric", "New Control Room"],
+      ["26902", "Via Rail Canada", "Via Rail Canada - Property Inspection"],
+      ["26904", "", "Original 26904"],
+      ["26906", "BGIS", "BGIS IO Gate Repair"],
+      ["26907", "Client", ""],
+    ];
+    for (const [jobNumber, customer, jobName] of rows) {
+      for (const snapshot of [preview.sourceSnapshot, preview.baselineSnapshot, preview.previousSnapshot]) {
+        const source = snapshot.find(job => job.jobNumber === jobNumber);
+        if (source) Object.assign(source, { customer, jobName });
+        else snapshot.push({ ...snapshot[0], jobNumber, customer, jobName, active: true });
+      }
+      const master = preview.masterRows.find(row => row.jobNumber === jobNumber);
+      if (master) master.cells[0] = jobName;
+    }
+  }
   const versions = [], logs = [], calls = [], resets = [];
   await page.route("**/api/job-accounting-export*", async (route) => {
     const req = route.request(), url = new URL(req.url());
@@ -101,12 +119,12 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   const book = new ExcelJS.Workbook(); await book.xlsx.load(bytes);
   expect(book.worksheets.map((s) => s.name)).toEqual(["2026", "2025", "Download details"]);
   const sheet = book.getWorksheet("2026");
-  expect(sheet.getCell("A3").value).toBe("Original 26901");
+  expect(sheet.getCell("A3").value).toBe("Client — Original 26901");
   expect(sheet.getCell("G3").value).toBe("000123");
   expect(sheet.getCell("J3").value).toBe(1200);
   expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
   expect(sheet.getCell("A4").fill.fgColor.argb).toBe("FFFFFF00");
-  expect(sheet.getCell("A5").value).toBe("Original 26904");
+  expect(sheet.getCell("A5").value).toBe("Client — Original 26904");
   expect(sheet.getCell("A5").fill.fgColor.argb).toBe("FFFFFFFF");
   expect(sheet.getCell("A3").font.color.argb).toBe("FF000000");
   expect(sheet.views[0].ySplit).toBe(2);
@@ -138,6 +156,27 @@ test("real XLSX, exact old-version download, green-to-yellow and history leave j
   await expect(page.locator(".job-import-disclosure")).toHaveCount(0);
   if (process.env.JGC_CAPTURE_VISUAL_QA) await page.locator(".job-accounting-panel").screenshot({ path: testInfo.outputPath("accounting-desktop.png") });
 });
+test("Excel first column includes client and master job title, with missing-name and existing-prefix fallbacks", async ({ page }, testInfo) => {
+  const state = await setup(page, { clientNames: true });
+  const file = await create(page, 1);
+  await file.saveAs(testInfo.outputPath("client-job-name.xlsx"));
+  const book = new ExcelJS.Workbook(); await book.xlsx.load(fs.readFileSync(await file.path()));
+  const sheet = book.getWorksheet("2026");
+  expect(sheet.getCell("A1").value).toBe("Client / Job Name");
+  expect([3, 4, 5, 6, 7].map(row => sheet.getCell(row, 1).value)).toEqual([
+    "Cornwall Electric — New Control Room", "Via Rail Canada - Property Inspection", "Original 26904", "BGIS IO Gate Repair", "Client",
+  ]);
+  expect(book.getWorksheet("2025").getCell("A3").value).toBe("Original 25903");
+  expect(sheet.getCell("A3").isMerged).toBe(true);
+  expect(sheet.getCell("E3").master.address).toBe("A3");
+  expect(sheet.getRow(3).height).toBe(12.75);
+  expect(sheet.getCell("A3").alignment.wrapText).toBe(false);
+  expect(sheet.getCell("G3").value).toBe("000123");
+  expect(sheet.getCell("J3").value).toBe(1200);
+  expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
+  expect(state.captures.jobInfo).toEqual([]); expect(state.captures.writes).toEqual([]);
+});
+
 for (const width of [390, 1366]) test(`revision downloads keep job rows closed until explicitly opened at ${width}px`, async ({ page }, testInfo) => {
   const state = await setup(page);
   await page.setViewportSize({ width, height: 900 });

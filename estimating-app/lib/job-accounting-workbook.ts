@@ -17,6 +17,17 @@ async function excelWriter(): Promise<any> {
 }
 const colors = { white: "FFFFFFFF", green: "FF92D050", yellow: "FFFFFF00", red: "FFFF0000", blue: "FF9BC2E6" };
 const excelValue = (value: AccountingCell) => value && typeof value === "object" ? new Date(`${value.date.slice(0, 10)}T00:00:00Z`) : value;
+function clientJobName(customer: string, value: AccountingCell): string {
+  const client = customer.trim();
+  const name = value == null ? "" : String(value).trim();
+  if (!client) return name;
+  if (!name) return client;
+  // Preserve master titles that already start with this client, including old separators.
+  const prefix = name.slice(0, client.length).toLocaleLowerCase();
+  const boundary = name.slice(client.length, client.length + 1);
+  if (prefix === client.toLocaleLowerCase() && (!boundary || /[\s\-–—:]/.test(boundary))) return name;
+  return `${client} — ${name}`;
+}
 const states = { white: "Active", green: "Closed - ready to invoice", yellow: "Previously handed to accounting", red: "Cancelled", blue: "Closed - discuss invoicing" };
 // Measured from the supplied master: Arial 10 pt, 12.75 pt standard rows.
 // Keep entries single-line like that workbook; do not auto-grow the job list.
@@ -41,7 +52,7 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
     const widths = [8.43, 8.43, 8.43, 8.43, 17.71, 10, 17, 10, 12, 14, 12, 12, 9, 32, 15, 9];
     widths.forEach((width, index) => { sheet.getColumn(index + 1).width = width; });
     sheet.mergeCells("A1:E2");
-    sheet.getCell("A1").value = "Job Name";
+    sheet.getCell("A1").value = "Client / Job Name";
     const headings = ["Job No", "PO No", "Est By", "Start", "Price", "Type", "Extras", "Subs", "Date", "Date Completed", "NEW"];
     headings.forEach((label, index) => { const column = index + 6; sheet.mergeCells(1, column, 2, column); sheet.getCell(1, column).value = label; });
     for (let r = 1; r <= 2; r++) for (let c = 1; c <= 16; c++) {
@@ -58,7 +69,7 @@ export async function buildJobAccountingWorkbook(preview: AccountingExportPrevie
         // Job names span A:E; merged slave cells must not overwrite the name.
         if (col > 0 && col < 5) return;
         const cell = sheet.getCell(number, col + 1);
-        cell.value = excelValue(value);
+        cell.value = col === 0 ? clientJobName(source.customer, value) : excelValue(value);
         cell.font = { name: "Arial", size: 10, color: { argb: "FF000000" } };
         cell.alignment = { vertical: "bottom", wrapText: false, horizontal: col === 0 ? "left" : [9, 11].includes(col) ? "right" : "center" };
         if (col === 5 || col === 6) { cell.value = value == null ? null : String(value); cell.numFmt = "@"; }
