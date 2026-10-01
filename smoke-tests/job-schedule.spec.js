@@ -97,7 +97,7 @@ test('compact rows expand independently; applying a new activity reveals the row
  await expect(page.locator('.schedule-row-extra')).toHaveCount(0);await page.getByRole('button',{name:'Show details for Existing 0',exact:true}).click();await expect(page.locator('.schedule-row-extra')).toHaveCount(1);await page.getByRole('button',{name:'Hide details for Existing 0',exact:true}).click();
  await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Add activity',exact:false}).click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
  await editor.getByLabel('Activity name *').fill('Newest activity');await editor.getByLabel('Start date *').fill('2027-01-04');await editor.getByRole('button',{name:'Apply to draft'}).click();const added=page.locator('.schedule-task-name').filter({hasText:'Newest activity'});
- await expect(added).toBeVisible();await expect.poll(()=>page.locator('.schedule-scroll').evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+ await expect(added).toBeVisible();await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(0);expect(await page.locator('.schedule-scroll').evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);
  const b=await added.boundingBox(),s=await page.locator('.schedule-scroll').boundingBox();expect(b.y).toBeGreaterThanOrEqual(s.y);expect(b.y+b.height).toBeLessThanOrEqual(s.y+s.height+2);
  const bar=await added.locator('xpath=ancestor::*[@data-task-id]').locator('.schedule-bar').boundingBox();expect(bar.x).toBeGreaterThanOrEqual(s.x+330);expect(bar.x+bar.width).toBeLessThanOrEqual(s.x+s.width+2);
 });
@@ -114,8 +114,8 @@ test('row grab auto-scrolls a long list before dropping into the current visible
  const tasks=Array.from({length:40},(_,i)=>activity('t'+i,'Row '+i,'2026-10-05','2026-10-09')),saved=w.commitSchedule(tasks,undefined,'Test admin','Initial');const saves=await setup(page,saved);
  await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-scroll').evaluate(el=>el.scrollIntoView({block:'start'}));
  const scroll=page.locator('.schedule-scroll'),grip=page.getByRole('button',{name:'Reorder Row 0',exact:true}),a=await grip.boundingBox(),b=await scroll.boundingBox();
- await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+a.width/2,Math.min(b.y+b.height-20,844-90),{steps:5});
- await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(120);await page.mouse.up();
+ await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+a.width/2,Math.min(b.y+b.height-20,page.viewportSize().height-90),{steps:5});
+ const before=await page.evaluate(()=>window.scrollY);await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeGreaterThan(before+120);await page.mouse.up();
  const order=await page.locator('[data-schedule-row="task"]').evaluateAll(es=>es.map(e=>e.dataset.taskId));expect(order.indexOf('t0')).toBeGreaterThan(2);expect(new Set(order).size).toBe(40);expect(saves).toHaveLength(0);
 });
 
@@ -134,7 +134,7 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:90
  expect(await add.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
  await page.screenshot({path:testInfo.outputPath(`sticky-${theme}-${viewport.width}.png`)});
  await add.click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
- await expect(editor).toBeVisible();await expect(page.locator('.schedule-preview-row')).toBeVisible();const head=await page.locator('.schedule-grid-head').boundingBox(),chartBox=await page.locator('.schedule-scroll').boundingBox();expect(head.y).toBeGreaterThanOrEqual(chartBox.y);expect(head.y+head.height).toBeLessThan(viewport.height-100);const input=editor.getByLabel('Activity name *');await input.fill('Added while scrolled');await page.screenshot({path:testInfo.outputPath('inline-'+theme+'-'+viewport.width+'.png')});
+ await expect(editor).toBeVisible();await expect(page.locator('.schedule-preview-row')).toBeVisible();const head=await page.locator('.schedule-grid-head').boundingBox(),chartBox=await page.locator('.schedule-scroll').boundingBox();expect(head.y).toBeGreaterThanOrEqual(130);expect(await page.locator('.schedule-scroll').evaluate(el=>el.scrollHeight<=el.clientHeight+1)).toBe(true);expect(head.y+head.height).toBeLessThan(viewport.height-100);const input=editor.getByLabel('Activity name *');await input.fill('Added while scrolled');await page.screenshot({path:testInfo.outputPath('inline-'+theme+'-'+viewport.width+'.png')});
  expect(await input.evaluate(el=>{const r=el.getBoundingClientRect();return el===document.elementFromPoint(r.x+20,r.y+r.height/2);})).toBe(true);
  await editor.getByRole('button',{name:'Apply to draft'}).click();await expect(page.locator('.schedule-task-name').filter({hasText:'Added while scrolled'})).toBeVisible();
  const added=page.locator('.schedule-task-name').filter({hasText:'Added while scrolled'});
