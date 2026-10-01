@@ -143,3 +143,16 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:90
  await page.screenshot({path:testInfo.outputPath('added-'+theme+'-'+viewport.width+'.png')});
  expect(saves).toHaveLength(0);
 });
+
+test('inline entry accepts typed 1, 5 and 120 days; finish-date selection recalculates duration',async({page})=>{
+ await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Add activity',exact:false}).click();
+ const entry=page.getByRole('dialog',{name:'Schedule activity editor'}),start=entry.getByLabel('Start date *'),finish=entry.getByLabel('Finish date *'),days=entry.getByLabel('Duration (days)');
+ await start.fill('2026-10-05');
+ for(const [value,end] of [['1','2026-10-05'],['5','2026-10-09'],['120','2027-03-19']]){await days.fill('');await expect(days).toHaveValue('');await days.pressSequentially(value);await expect(days).toHaveValue(value);await expect(finish).toHaveValue(end);}
+ await finish.fill('2026-10-16');await expect(days).toHaveValue('10');
+ await entry.getByLabel('Count days as').selectOption('calendar');await days.fill('120');await expect(finish).toHaveValue('2027-02-01');
+ await finish.fill('2026-10-16');await expect(days).toHaveValue('12');
+ await start.fill('2026-11-02');await expect(days).toHaveValue('12');await expect(finish).toHaveValue('2026-11-13');
+ await entry.getByLabel('Activity name *').fill('Typed duration');await days.fill('');await entry.getByRole('button',{name:'Apply to draft'}).click();await expect(entry).toContainText('Enter a whole duration');
+ await days.fill('5');await entry.getByRole('button',{name:'Apply to draft'}).click();await expect(entry).toHaveCount(0);
+});
