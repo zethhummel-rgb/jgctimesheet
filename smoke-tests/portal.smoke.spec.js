@@ -5639,9 +5639,11 @@ test('Dashboard saves layout, hides/restores widgets, resets, and preserves the 
 
 test('Dashboard approved default layout applies to new accounts and Reset while preserving personal layouts',async({page})=>{
  const state=await mockDashboard(page);await page.setViewportSize({width:1440,height:1100});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
- const expected=[['jobs-stat',3,63,0,0],['quotes',3,61,3,0],['work-orders',3,62,6,0],['purchase-orders',3,62,9,0],['vacation',4,62,0,77],['equipment-expiry',4,62,4,77],['missing-timesheets',4,62,8,77],['calendar',7,636,0,154],['recent',5,299,7,156],['active-jobs',5,311,7,476],['subcontractors',4,280,0,804],['tasks',4,280,4,804],['announcements',4,280,8,804]];
+ const expected=[['jobs-stat',3,44,0,0],['quotes',3,44,3,0],['work-orders',3,44,6,0],['purchase-orders',3,44,9,0],['vacation',2,44,0,0],['equipment-expiry',2,44,2,0],['missing-timesheets',2,44,4,0],['calendar',6,574,0,64],['recent',6,310,6,0],['active-jobs',6,310,6,328],['subcontractors',4,280,0,652],['tasks',4,280,4,652],['announcements',4,280,8,652]];
  const read=()=>page.locator('.dashboard-widget').evaluateAll(els=>els.map(e=>[e.dataset.widget,Number(e.style.getPropertyValue('--widget-width')),parseInt(e.style.getPropertyValue('--widget-height')),Number(e.style.getPropertyValue('--widget-x'))-1,Number(e.style.getPropertyValue('--widget-y'))-1]));
  expect(await read()).toEqual(expected);expect(state.writes).toHaveLength(0);
+ for(const id of ['jobs-stat','quotes','work-orders','purchase-orders'])await expect(page.locator(`[data-widget="${id}"]`)).toBeHidden();
+ const calendar=await page.locator('[data-widget="calendar"]').boundingBox(),recent=await page.locator('[data-widget="recent"]').boundingBox(),jobs=await page.locator('[data-widget="active-jobs"]').boundingBox();expect(Math.abs(calendar.width-recent.width)).toBeLessThan(1);expect(Math.abs(jobs.y+jobs.height-calendar.y-calendar.height)).toBeLessThan(1);
  await page.locator('[data-widget="recent"] .dashboard-widget-options').click();await page.getByLabel('Recent Work width',{exact:true}).selectOption('4');
  await expect(page.locator('#dashboardLayoutStatus')).toHaveText('Layout saved to your account.');const personal=await read();
  await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();expect(await read()).toEqual(personal);
@@ -5821,7 +5823,7 @@ for(const theme of ['light','dark'])test(`Dashboard stacked calendar layout and 
   const rects=await page.locator('.dashboard-widget').evaluateAll(elements=>Object.fromEntries(elements.filter(el=>!el.hidden).map(el=>{const r=el.getBoundingClientRect();return [el.dataset.widget,{x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}];})));
   const c=rects.calendar,r=rects.recent,j=rects['active-jobs'];
   expect(Math.abs(c.y-r.y)).toBeLessThan(1);expect(Math.abs(j.x-r.x)).toBeLessThan(1);expect(Math.abs(j.y-r.bottom-14)).toBeLessThan(1);expect(Math.abs(j.bottom-c.bottom)).toBeLessThan(1);
-  for(const id of ['jobs-stat','quotes','work-orders','purchase-orders','vacation','equipment-expiry','missing-timesheets'])expect(rects[id].height).toBe(44);
+  for(const id of ['vacation','equipment-expiry','missing-timesheets'])expect(rects[id].height).toBe(44);
   const entries=Object.entries(rects);for(let i=0;i<entries.length;i++)for(let k=i+1;k<entries.length;k++){const a=entries[i][1],b=entries[k][1];expect(a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1,entries[i][0]+' overlaps '+entries[k][0]).toBe(false);}
  }
  await check();await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await check();
@@ -5855,7 +5857,7 @@ test('Dashboard tablet touch dragging and keyboard resizing save real coordinate
   for(let n=1;n<=8;n++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x,y:point.y+n*10}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').y).toBeGreaterThan(58);
-  await card.locator('.dashboard-resize').focus();await page.keyboard.press('ArrowUp');await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(259);
+  await card.locator('.dashboard-resize').focus();await page.keyboard.press('ArrowUp');await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='recent').height).toBe(270);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  } finally {await context.close();}
 });
@@ -5879,6 +5881,7 @@ test('Dashboard calendar cells resize to the available month area at small and l
 for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboard empty Work Orders stays clean in slim cards ${theme} ${width}`,async({page},testInfo)=>{
  await mockDashboard(page,{theme});await page.route(`${supabaseOrigin}/rest/v1/work_orders*`,r=>r.fulfill({headers:{'content-range':'*/0','access-control-expose-headers':'content-range'},json:[]}));
  await page.setViewportSize({width,height:1000});await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="work-orders"]').check();await page.keyboard.press('Escape');
  const card=page.locator('[data-widget="work-orders"]'),count=card.locator('.dashboard-metric strong'),empty=card.getByText('No open work orders.',{exact:true});
  await expect(count).toHaveText('0');await expect(empty).toBeHidden();
  async function clean(){const c=await card.boundingBox(),n=await count.boundingBox();expect(Math.abs(n.y+n.height/2-c.y-c.height/2)).toBeLessThan(2);expect(n.x+n.width).toBeLessThan(c.x+c.width-28);}
@@ -5887,4 +5890,9 @@ for(const theme of ['light','dark'])for(const width of [390,1440])test(`Dashboar
  await card.screenshot({path:testInfo.outputPath('empty-wo-'+theme+'-'+width+'.png')});
  await card.locator('.dashboard-widget-options').click();await page.getByLabel('Work Orders height',{exact:true}).selectOption('280');await expect(empty).toBeVisible();
  await page.getByLabel('Work Orders height',{exact:true}).selectOption('44');await expect(empty).toBeHidden();await clean();
+});
+
+for(const width of [390,1440])test(`Dashboard screenshot default fits and preserves saved personal visibility ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:1100});const state=await mockDashboard(page);await page.goto('/admin.html?tab=summary');await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(page.locator('[data-widget="vacation"]')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);await page.screenshot({path:testInfo.outputPath('new-default.png'),fullPage:true});
+ await openDashboardWidgetMenu(page);await page.locator('#dashboardWidgetChoices input[value="jobs-stat"]').check();await expect(page.locator('[data-widget="jobs-stat"]')).toBeVisible();await expect.poll(()=>state.layout?.widgets.find(w=>w.id==='jobs-stat').visible).toBe(true);await page.reload();await expect(page.locator('#dashboardEdit')).toBeEnabled();await expect(page.locator('[data-widget="jobs-stat"]')).toBeVisible();
 });
