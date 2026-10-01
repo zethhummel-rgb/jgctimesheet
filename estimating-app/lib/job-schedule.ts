@@ -13,6 +13,7 @@ export interface ScheduleTask {
   notes: string;
 }
 export interface ScheduleRevision { id: string; at: string; actor: string; number: number; tasks: ScheduleTask[]; note: string }
+export interface ScheduleDraft { tasks: ScheduleTask[]; editor: ScheduleTask | null; durationInput: string | null; note: string; baseSchedule: string }
 export interface JobSchedule { version: 1; revision: number; tasks: ScheduleTask[]; revisions: ScheduleRevision[] }
 export const scheduleToday = () => {
   const d = new Date();
