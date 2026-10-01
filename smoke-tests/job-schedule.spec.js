@@ -71,6 +71,7 @@ for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:10
  await expect(editor).toHaveAttribute('aria-modal','false');await expect(page.locator('.schedule-modal-backdrop')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
  const eb=await editor.boundingBox(),gb=await chart.boundingBox();expect(gb.y).toBeGreaterThanOrEqual(eb.y+eb.height);expect(gb.y).toBeLessThan(viewport.height-90);
  await editor.getByLabel('Activity name *').fill('New electrical inspection');await editor.getByLabel('Start date *').fill('2026-12-14');await expect(chart).toHaveAttribute('data-finish','2027-01-29');
+ await expect.poll(()=>chart.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:testInfo.outputPath('entry-'+theme+'-'+viewport.width+'.png')});
  await page.keyboard.press('Escape');await expect(editor).toHaveCount(0);
 });
@@ -95,9 +96,10 @@ test('compact rows expand independently; applying a new activity reveals the row
  const tasks=Array.from({length:35},(_,i)=>activity('t'+i,'Existing '+i,'2026-10-05','2026-10-09')),saved=w.commitSchedule(tasks,undefined,'Test admin','Initial');await setup(page,saved);
  await expect(page.locator('.schedule-row-extra')).toHaveCount(0);await page.getByRole('button',{name:'Show details for Existing 0',exact:true}).click();await expect(page.locator('.schedule-row-extra')).toHaveCount(1);await page.getByRole('button',{name:'Hide details for Existing 0',exact:true}).click();
  await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.getByRole('button',{name:'Add activity',exact:false}).click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
- await editor.getByLabel('Activity name *').fill('Newest activity');await editor.getByRole('button',{name:'Apply to draft'}).click();const added=page.locator('.schedule-task-name').filter({hasText:'Newest activity'});
+ await editor.getByLabel('Activity name *').fill('Newest activity');await editor.getByLabel('Start date *').fill('2027-01-04');await editor.getByRole('button',{name:'Apply to draft'}).click();const added=page.locator('.schedule-task-name').filter({hasText:'Newest activity'});
  await expect(added).toBeVisible();await expect.poll(()=>page.locator('.schedule-scroll').evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
  const b=await added.boundingBox(),s=await page.locator('.schedule-scroll').boundingBox();expect(b.y).toBeGreaterThanOrEqual(s.y);expect(b.y+b.height).toBeLessThanOrEqual(s.y+s.height+2);
+ const bar=await added.locator('xpath=ancestor::*[@data-task-id]').locator('.schedule-bar').boundingBox();expect(bar.x).toBeGreaterThanOrEqual(s.x+330);expect(bar.x+bar.width).toBeLessThanOrEqual(s.x+s.width+2);
 });
 test('Days Weeks Months Fit fill the chart and keep real month headings readable',async({page},testInfo)=>{
  await page.setViewportSize({width:1440,height:1000});await setup(page,seed());await expect(page.locator('.schedule-scroll')).toHaveAttribute('data-finish','2026-12-04');
@@ -106,4 +108,13 @@ test('Days Weeks Months Fit fill the chart and keep real month headings readable
 test('draft download is an Adobe-readable PDF marked Draft without saving a revision',async({page},testInfo)=>{
  const saves=await setup(page,seed());await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-task-name').first().click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});await editor.getByLabel('Activity name *').fill('Draft electrical inspection');await editor.getByRole('button',{name:'Apply to draft'}).click();
  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download draft PDF',exact:true}).click();const pdf=await pending;expect(pdf.suggestedFilename()).toBe('26999 Job Schedule Draft.pdf');await pdf.saveAs(testInfo.outputPath('draft-schedule.pdf'));const bytes=fs.readFileSync(testInfo.outputPath('draft-schedule.pdf'));expect(bytes.subarray(0,5).toString()).toBe('%PDF-');const doc=await require('../estimating-app/node_modules/pdf-lib').PDFDocument.load(bytes);expect(doc.getTitle()).toContain('DRAFT');expect(saves).toHaveLength(0);await expect(page.getByRole('button',{name:'Save schedule',exact:true})).toBeVisible();
+});
+
+test('row grab auto-scrolls a long list before dropping into the current visible target',async({page})=>{
+ const tasks=Array.from({length:40},(_,i)=>activity('t'+i,'Row '+i,'2026-10-05','2026-10-09')),saved=w.commitSchedule(tasks,undefined,'Test admin','Initial');const saves=await setup(page,saved);
+ await page.getByRole('button',{name:'Edit schedule',exact:true}).click();await page.locator('.schedule-scroll').evaluate(el=>el.scrollIntoView({block:'start'}));
+ const scroll=page.locator('.schedule-scroll'),grip=page.getByRole('button',{name:'Reorder Row 0',exact:true}),a=await grip.boundingBox(),b=await scroll.boundingBox();
+ await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+a.width/2,Math.min(b.y+b.height-20,844-90),{steps:5});
+ await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(120);await page.mouse.up();
+ const order=await page.locator('[data-schedule-row="task"]').evaluateAll(es=>es.map(e=>e.dataset.taskId));expect(order.indexOf('t0')).toBeGreaterThan(2);expect(new Set(order).size).toBe(40);expect(saves).toHaveLength(0);
 });
