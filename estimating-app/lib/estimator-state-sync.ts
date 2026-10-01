@@ -65,7 +65,7 @@ function mergeValue(path: string, base: MergeValue, local: MergeValue, remote: M
 
   // A revision, its decision and its audit entries form one unit. Never combine
   // two reviewers' competing edits or two separately created "next" revisions.
-  if (/\.(?:shopDrawings|rfis)\[[^\]]+\]$/.test(path) || /\.schedule$/.test(path)) {
+  if (/\.(?:shopDrawings|rfis)\[[^\]]+\]$/.test(path) || /\.schedule(?:Draft)?$/.test(path)) {
     conflicts.push(path);
     return local;
   }

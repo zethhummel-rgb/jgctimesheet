@@ -111,7 +111,8 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
 
 /* One vertical page scroll. Only the date axis scrolls horizontally. */
 .schedule-datebar { position:sticky; top:calc(138px + var(--jgc-top-inset,0px) + var(--schedule-toolbar-height,60px)); z-index:20; min-width:0; width:100%; border-radius:12px 12px 0 0; background:#0d5038; margin-bottom:-18px; }
-.schedule-date-scroll { overflow:hidden; width:100%; border-radius:inherit; }
+.schedule-date-scroll { overflow-x:auto; scrollbar-width:none; width:100%; border-radius:inherit; }
+.schedule-date-scroll::-webkit-scrollbar { display:none; }
 .schedule-datebar .schedule-grid-head { position:relative; top:auto; width:calc(330px + var(--timeline-width)); min-width:100%; }
 .schedule-scroll { position:relative; top:auto; max-height:none; overflow:auto; border-radius:0 0 12px 12px; scroll-margin-top:calc(210px + var(--jgc-top-inset,0px) + var(--schedule-toolbar-height,60px)); }
 .schedule-entry { position:sticky; left:0; z-index:3; width:var(--schedule-editor-width,100%); max-width:100%; margin:0; border-radius:0; scroll-margin-top:calc(310px + var(--jgc-top-inset,0px) + var(--schedule-toolbar-height,60px)); }
