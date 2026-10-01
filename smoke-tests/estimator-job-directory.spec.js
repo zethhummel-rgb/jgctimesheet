@@ -1126,3 +1126,22 @@ test("manager aliases filter by job responsibility without rewriting raw assignm
 });
 
 async function revealJobAction(action) { if (!(await action.isVisible())) await action.locator("xpath=ancestor::details[1]").locator(":scope > summary").click(); }
+
+// Release 955: every Estimator search box has a clear X, so a search never needs backspacing.
+for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
+  test(`job search clears with one tap of the X at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await serveDirectory(page, directoryState());
+    const search = page.getByLabel("Search jobs", { exact: true, includeHidden: true });
+    const clear = page.locator(".search-field-clear");
+    await expect(clear).toHaveCount(0);
+    await search.fill("mckay");
+    await expect(clear).toBeVisible();
+    const [box, x] = await Promise.all([search.boundingBox(), clear.boundingBox()]);
+    expect(x.x + x.width).toBeLessThanOrEqual(box.x + box.width);
+    expect(x.x).toBeGreaterThan(box.x + box.width / 2);
+    await clear.click();
+    await expect(search).toHaveValue("");
+    await expect(clear).toHaveCount(0);
+  });
+}

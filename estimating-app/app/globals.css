@@ -226,6 +226,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .toolbar-panel { min-height: 62px; padding: 10px 12px; display: flex; align-items: center; gap: 14px; }
 .search-field { min-width: 280px; flex: 1; position: relative; }.search-field > span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--slate-500); font-size: 18px; }
 .search-field input { width: 100%; height: 40px; padding: 0 12px 0 38px; border: 1px solid var(--slate-300); border-radius: 6px; background: #fff; }
+/* Clear X inside every search box (release 955): one tap empties the search instead of backspacing. */
+.search-field input { padding-right: 40px; }
+.search-field-clear { position: absolute; top: 50%; right: 5px; width: 30px; height: 30px; min-height: 0; display: grid; place-items: center; padding: 0; transform: translateY(-50%); border: 0; border-radius: 6px; background: var(--slate-100); color: var(--slate-600); font-size: 19px; line-height: 1; cursor: pointer; }
+.search-field-clear:hover, .search-field-clear:focus-visible { background: var(--slate-200); color: var(--navy-900); }
 .filter-tabs { padding: 3px; display: flex; gap: 2px; border-radius: 7px; background: var(--slate-100); }
 .filter-tabs button { height: 33px; padding: 0 11px; border: 0; border-radius: 5px; background: transparent; color: var(--slate-600); font-size: 12px; font-weight: 650; }.filter-tabs button.active { background: #fff; color: var(--navy-900); box-shadow: var(--shadow-sm); }
 .table-panel { overflow: hidden; }.table-summary { min-height: 52px; padding: 0 18px; display: flex; align-items: center; justify-content: space-between; border-bottom: 0; }.table-summary span { color: var(--slate-500); font-size: 12px; }
