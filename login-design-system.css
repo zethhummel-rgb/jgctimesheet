@@ -893,8 +893,10 @@ body.login-page.jgc-page {
 .login-loader-board { stroke: var(--jgc-color-text-muted); stroke-width: 4; stroke-linecap: round; opacity: .45; }
 .login-loader-nail { stroke: currentColor; stroke-width: 3; stroke-linecap: round; animation: login-nail 1.5s infinite; }
 .login-loader-hammer { transform-origin: 33px 49px; animation: login-hammer 1.5s infinite; }
-.login-loader-handle { stroke: #b78b37; stroke-width: 7; stroke-linecap: round; }
-.login-loader-head { fill: currentColor; }
+.login-loader-handle { fill: url(#loginHammerWood); stroke: #805521; stroke-width: .8; }
+.login-loader-grain { fill: none; stroke: #f1cd94; stroke-width: .8; opacity: .7; }
+.login-loader-head { fill: url(#loginHammerSteel); stroke: #58666e; stroke-width: .8; stroke-linejoin: round; }
+.login-loader-steel-detail { fill: none; stroke: #f2f6f7; stroke-width: 1; opacity: .7; }
 .login-loader-impact { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 0; animation: login-impact 1.5s infinite; }
 .login-loader-track { height: 3px; margin: 7px 8px 0; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, currentColor 15%, transparent); }
 .login-loader-track span { display: block; height: 100%; width: 35%; background: currentColor; border-radius: inherit; animation: login-sweep 1.5s ease-in-out infinite; }

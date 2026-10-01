@@ -47,11 +47,19 @@
       <button type="button" class="public-tool-button public-tool-button-top jgc-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
       <div class="login-loader" aria-hidden="true">
         <svg class="login-loader-scene" viewBox="0 0 96 72" focusable="false">
+          <defs>
+            <linearGradient id="loginHammerSteel" x2="0" y2="1"><stop stop-color="#eef3f4"/><stop offset=".45" stop-color="#a5b1b6"/><stop offset="1" stop-color="#58666e"/></linearGradient>
+            <linearGradient id="loginHammerWood"><stop stop-color="#805521"/><stop offset=".45" stop-color="#d8aa62"/><stop offset="1" stop-color="#a5702d"/></linearGradient>
+          </defs>
           <path class="login-loader-board" d="M12 60h72" />
           <g class="login-loader-nail"><path d="M62 39v21M56 39h12" /></g>
           <g class="login-loader-hammer">
-            <path class="login-loader-handle" d="M33 49l20-26" />
-            <path class="login-loader-head" d="m47 16 6-7 20 15-7 9-7-5-4 5-8-6 4-5z" />
+            <path class="login-loader-handle" d="m30 47 22-26 5 4-21 28q-3 3-6 0t0-6z" />
+            <path class="login-loader-grain" d="m34 47 17-21" />
+            <g transform="rotate(37 55 22)">
+              <path class="login-loader-head" d="M42 14h7v3h7q5-5 12-3l10 3q-7 0-13 4 6 0 11 5l-11-3q-5-1-8 3h-8v3h-7z" />
+              <path class="login-loader-steel-detail" d="M47 15v13m11-9v5" />
+            </g>
           </g>
           <path class="login-loader-impact" d="m74 39 6-3m-7 10 7 2m-16-16 2-6" />
         </svg>
