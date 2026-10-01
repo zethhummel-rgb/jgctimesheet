@@ -4,7 +4,7 @@ import { dateNumber, dateString, duration, scheduleRange, scheduleRows, weekend,
 
 // Tabloid landscape keeps the Gantt readable on paper. Long schedules tile by
 // date and row, with the client, activity labels and dates repeated on each page.
-export async function buildSchedulePdf({job,state,schedule,logoBytes}:{job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array}) {
+export async function buildSchedulePdf({job,state,schedule,logoBytes,draft=false}:{job:Job;state:AppState;schedule:JobSchedule;logoBytes:Uint8Array;draft?:boolean}) {
   const doc=await PDFDocument.create(),font=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold),logo=await doc.embedPng(logoBytes);
   const green=rgb(.045,.29,.20),ink=rgb(.09,.16,.18),muted=rgb(.33,.40,.43),line=rgb(.75,.80,.81),pale=rgb(.95,.97,.96);
   const colours=[rgb(.10,.45,.32),rgb(.16,.42,.62),rgb(.47,.34,.64),rgb(.63,.41,.09),rgb(.22,.49,.50),rgb(.65,.33,.33)];
@@ -26,7 +26,7 @@ export async function buildSchedulePdf({job,state,schedule,logoBytes}:{job:Job;s
     page=doc.addPage([1224,792]);
     const dim=logo.scaleToFit(196,70);page.drawImage(logo,{x:right-dim.width,y:699,width:dim.width,height:dim.height});
     text('JOHN GORDON CONSTRUCTION',left,751,10,true,green);text('PROJECT SCHEDULE',left,723,24,true);
-    text(`JOB ${job.jobNumber}  |  REVISION ${schedule.revision}`,left+290,725,11,true,green);
+    text(`JOB ${job.jobNumber}  |  ${draft?'DRAFT':`REVISION ${schedule.revision}`}`,left+290,725,11,true,green);
     page.drawLine({start:{x:left,y:689},end:{x:right,y:689},color:green,thickness:2});
     const clients=wrap([client,site,address].filter(Boolean).join('\n'),440,11);
     clients.forEach((s,i)=>text(s,left,669-i*14,i===0?14:11,i===0));
@@ -77,7 +77,7 @@ export async function buildSchedulePdf({job,state,schedule,logoBytes}:{job:Job;s
   }
   const noted=schedule.tasks.filter(t=>t.notes||t.predecessorId);
   if(noted.length){let y=lastY-30;if(y<130)y=header('Activity notes and links');text('ACTIVITY NOTES / LINKS',left,y,10,true,green);y-=24;for(const task of noted){const prior=schedule.tasks.find(t=>t.id===task.predecessorId),lines=wrap(`${task.phase} / ${task.name}\n${prior?`Starts after: ${prior.name} | Waiting time: ${task.lag} calendar days\n`:''}${task.notes}`,1140,10);for(const s of lines){if(y<66)y=header('Activity notes and links (continued)');text(s,left+6,y,10);y-=15;}y-=18;}}
-  const pages=doc.getPages();pages.forEach((p,i)=>{p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});p.drawText(`JGC | Job ${clean(job.jobNumber)} | Schedule Rev ${schedule.revision} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});});
-  doc.setTitle(`${job.jobNumber} - Job Schedule - Revision ${schedule.revision}`);doc.setAuthor('John Gordon Construction Inc.');
+  const pages=doc.getPages();pages.forEach((p,i)=>{p.drawLine({start:{x:left,y:33},end:{x:right,y:33},color:line,thickness:.5});p.drawText(`JGC | Job ${clean(job.jobNumber)} | ${draft?'Schedule DRAFT':`Schedule Rev ${schedule.revision}`} | Generated ${new Date().toLocaleDateString('en-CA')}`,{x:left,y:20,size:8,font,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:right-42,y:20,size:8,font,color:muted});});
+  doc.setTitle(`${job.jobNumber} - Job Schedule - ${draft?'DRAFT':`Revision ${schedule.revision}`}`);doc.setAuthor('John Gordon Construction Inc.');
   return doc.save();
 }
