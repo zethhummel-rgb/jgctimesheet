@@ -118,3 +118,24 @@ test('row grab auto-scrolls a long list before dropping into the current visible
  await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBeGreaterThan(120);await page.mouse.up();
  const order=await page.locator('[data-schedule-row="task"]').evaluateAll(es=>es.map(e=>e.dataset.taskId));expect(order.indexOf('t0')).toBeGreaterThan(2);expect(new Set(order).size).toBe(40);expect(saves).toHaveLength(0);
 });
+
+for(const theme of ['light','dark'])for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`sticky schedule toolbar ${theme} ${viewport.width}: add from scrolled timeline`,async({page},testInfo)=>{
+ await page.setViewportSize(viewport);await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);
+ const tasks=Array.from({length:30},(_,i)=>activity('long'+i,'Activity '+i,'2026-10-05','2026-10-09'));
+ const saves=await setup(page,w.commitSchedule(tasks,undefined,'Test Admin','Long schedule'));
+ await page.getByRole('button',{name:'Edit schedule',exact:true}).click();
+ const toolbar=page.locator('.schedule-toolbar'),add=toolbar.getByRole('button',{name:'Add activity',exact:false});
+ const start=await toolbar.boundingBox();
+ await page.evaluate(y=>window.scrollTo(0,y),await page.evaluate(()=>window.scrollY)+start.y-130+100);
+ await expect.poll(async()=>Math.round((await toolbar.boundingBox()).y)).toBe(130);
+ const bounds=await toolbar.boundingBox(),tabs=await page.locator('.job-tabs').boundingBox();
+ expect(bounds.y).toBeGreaterThanOrEqual(tabs.y+tabs.height-1);
+ expect(bounds.y+bounds.height).toBeLessThan(viewport.height-100);
+ expect(await add.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+ await page.screenshot({path:testInfo.outputPath(`sticky-${theme}-${viewport.width}.png`)});
+ await add.click();const editor=page.getByRole('dialog',{name:'Schedule activity editor'});
+ await expect(editor).toBeVisible();const input=editor.getByLabel('Activity name *');await input.fill('Added while scrolled');
+ expect(await input.evaluate(el=>{const r=el.getBoundingClientRect();return el===document.elementFromPoint(r.x+20,r.y+r.height/2);})).toBe(true);
+ await editor.getByRole('button',{name:'Apply to draft'}).click();await expect(page.locator('.schedule-task-name').filter({hasText:'Added while scrolled'})).toBeVisible();
+ expect(saves).toHaveLength(0);
+});

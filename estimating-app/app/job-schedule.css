@@ -97,3 +97,13 @@ html[data-jgc-theme=dark] .schedule-error { color:#b72d2d; }
  .schedule-grid-head .schedule-label,.schedule-phase-row .schedule-label { padding:8px; }
  .schedule-scroll { max-height:540px; }
 }
+
+/* Keep schedule actions below the sticky Estimate Desk header and Job tabs. */
+.schedule-toolbar { position:sticky; top:calc(130px + var(--jgc-top-inset,0px)); z-index:21; align-self:start; padding:8px 10px; border:1px solid var(--slate-200); border-radius:10px; background:var(--schedule-surface); box-shadow:0 3px 12px #0001; }
+/* The active entry form replaces the toolbar; do not obscure its fields. */
+.job-schedule:has(.schedule-entry) .schedule-toolbar { position:static; }
+@media(max-width:760px) {
+ .schedule-toolbar > .schedule-hint { display:none; }
+ .schedule-toolbar .schedule-actions .button { min-height:44px; }
+}
+@media print { .schedule-toolbar { position:static; box-shadow:none; } }
