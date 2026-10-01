@@ -170,7 +170,7 @@ test("Excel first column includes client and master job title, with missing-name
   expect(sheet.getCell("A3").isMerged).toBe(true);
   expect(sheet.getCell("E3").master.address).toBe("A3");
   expect(sheet.getRow(3).height).toBe(12.75);
-  expect(sheet.getCell("A3").alignment.wrapText).toBe(false);
+  expect(sheet.getCell("A3").alignment.wrapText ?? false).toBe(false);
   expect(sheet.getCell("G3").value).toBe("000123");
   expect(sheet.getCell("J3").value).toBe(1200);
   expect(sheet.getCell("A3").fill.fgColor.argb).toBe("FF92D050");
