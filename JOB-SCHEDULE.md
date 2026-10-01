@@ -9,7 +9,7 @@ Release 956 adds a Schedule tab to Estimator Jobs. Creating and using a job neve
 - Working days means Monday to Friday. Holidays are not automatically excluded. Calendar days includes weekends and suits curing or weekend work.
 - Edit schedule enters a draft. Open activity names to edit, drag bars to move, or drag the right edge to resize. Undo restores the last draft change.
 - A linked activity starts after its predecessor finishes, plus optional calendar-day waiting time. Its duration stays constant; following linked activities move together. Unlinked activities keep their dates. Circular links are rejected.
-- Save schedule records a revision. Wait for the existing All changes saved indicator. Download schedule PDF uses saved dates only. PDF uses 17 × 11 inch landscape pages and tiles long timelines and activity lists; notes and links appear in an appendix.
+- Save schedule records a revision. Wait for the existing All changes saved indicator. Download schedule PDF uses saved dates only. PDF uses 17 × 11 inch landscape pages and tiles long timelines and activity lists; notes and links appear below the chart or continue onto additional pages.
 - Saved revisions preserve earlier issued dates. Loading previous dates creates a draft for a new revision. It does not overwrite the old record.
 
 ## Storage and access

@@ -14,7 +14,7 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
   const [message,setMessage]=useState(''),[note,setNote]=useState(''),[zoom,setZoom]=useState('Weeks'),[exporting,setExporting]=useState(false),[detail,setDetail]=useState<ScheduleTask|null>(null);
   const [undo,setUndo]=useState<ScheduleTask[][]>([]),[width,setWidth]=useState(900),[collapsed,setCollapsed]=useState<string[]>([]);
   const scroller=useRef<HTMLDivElement>(null),base=useRef(''),saving=useRef(false);
-  const gesture=useRef<{task:ScheduleTask;x:number;resize:boolean;days:number;before:ScheduleTask[]}|null>(null);
+  const gesture=useRef<{task:ScheduleTask;x:number;resize:boolean;days:number;scale:number;before:ScheduleTask[]}|null>(null);
   const tasks=draft??saved?.tasks??[],editing=draft!==null,dirty=editing&&JSON.stringify(draft)!==JSON.stringify(saved?.tasks??[]);
   const range=scheduleRange(tasks),rows=scheduleRows(tasks),phases=rows.filter(r=>r.kind==='phase');
   const dayWidth=zoom==='Days'?34:zoom==='Weeks'?18:zoom==='Months'?5:Math.max(2,(width-(window.matchMedia('(max-width:760px)').matches?190:330))/Math.max(14,range.days+6));
@@ -73,11 +73,11 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
   const startGesture=(event:PointerEvent<HTMLButtonElement>,task:ScheduleTask,resize=false)=> {
     if(!editing||(!resize&&task.predecessorId))return;
     event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);
-    gesture.current={task:structuredClone(task),x:event.clientX,resize,days:0,before:structuredClone(tasks)};
+    gesture.current={task:structuredClone(task),x:event.clientX,resize,days:0,scale:dayWidth,before:structuredClone(tasks)};
   };
   const drag=(event:PointerEvent<HTMLButtonElement>)=> {
     const g=gesture.current;if(!g)return;
-    const days=Math.round((event.clientX-g.x)/dayWidth);if(days===g.days)return;g.days=days;
+    const days=Math.round((event.clientX-g.x)/g.scale);if(days===g.days)return;g.days=days;
     let task:ScheduleTask;
     if(g.resize){let finish=addDays(g.task.finish,days);if(finish<g.task.start)finish=g.task.start;if(g.task.calendar==='weekdays'){while(weekend(dateNumber(finish)))finish=addDays(finish,days<0?-1:1);}task={...g.task,finish};}
     else task=moveTask(g.task,addDays(g.task.start,days));
@@ -95,6 +95,7 @@ export function JobSchedule({job,state,setState,actor,workspaceSaved}:{job:Job;s
   return <section className="job-schedule" aria-label="Job Schedule">
     <header className="schedule-heading"><div><p className="eyebrow">PROJECT TIMELINE · OPTIONAL</p><h2>Job Schedule</h2><p>Phases, activities and milestones for Job {job.jobNumber}.</p></div><div className="schedule-actions">
       {saved&&<button className="button secondary" disabled={exporting||editing||syncPending} onClick={()=>void exportPdf()}>{exporting?'Creating PDF…':'Download schedule PDF'}</button>}
+      {saved&&syncPending&&!editing&&<button className="button secondary" onClick={()=>download(new Blob([JSON.stringify({jobNumber:job.jobNumber,tasks:saved.tasks},null,2)],{type:'application/json'}),`${job.jobNumber} Schedule Draft.json`)}>Download draft</button>}
       {!editing&&<button className="button primary" disabled={syncPending} onClick={begin}>{saved?'Edit schedule':'Create schedule'}</button>}
     </div></header>
     {message&&<p className="schedule-message" role="status">{message}</p>}

@@ -59,7 +59,11 @@ export function blankTask(start=scheduleToday(),phase='Preparation'): ScheduleTa
 export function validateTask(task: ScheduleTask, tasks: ScheduleTask[]) {
   const errors:Record<string,string>={};
   if (!task.name.trim()) errors.name='An activity name is required.';
+  if (task.name.length>200) errors.name='Keep activity names within 200 characters; put detail in Notes.';
   if (!task.phase.trim()) errors.phase='A phase is required.';
+  if (task.phase.length>80) errors.phase='Keep phase names within 80 characters.';
+  if (task.owner.length>120) errors.owner='Keep responsibility names within 120 characters.';
+  if (task.notes.length>6000) errors.notes='Keep activity notes within 6,000 characters.';
   if (!Number.isFinite(dateNumber(task.start))) errors.start='A valid start date is required.';
   if (!Number.isFinite(dateNumber(task.finish))) errors.finish='A valid finish date is required.';
   if (task.finish<task.start) errors.finish='Finish must be on or after start.';
@@ -90,7 +94,9 @@ export function reflowTasks(tasks: ScheduleTask[]) {
     const result=prior?moveTask(task,addDays(prior.finish,task.lag+1)):task;
     visiting.delete(id);done.set(id,result);return result;
   }
-  return tasks.map(t=>resolve(t.id));
+  const result=tasks.map(t=>resolve(t.id));
+  if(scheduleRange(result).days>3650)throw new Error('Keep the overall job schedule within 10 years.');
+  return result;
 }
 export function scheduleRows(tasks: ScheduleTask[]) {
   const phases=[...new Set(tasks.map(t=>t.phase))];
