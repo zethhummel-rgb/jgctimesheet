@@ -885,3 +885,24 @@ body.login-page.jgc-page {
 .login-page .login-signup-help {
   margin: 0 0 var(--jgc-space-4);
 }
+
+/* Decorative, indeterminate activity: follows the existing session busy state. */
+.login-page .login-loader { display: none; width: 96px; margin: 18px auto 10px; color: var(--jgc-color-brand-400); }
+.login-page .login-card[aria-busy="true"] .login-loader { display: block; }
+.login-loader-scene { display: block; width: 96px; height: 72px; overflow: visible; }
+.login-loader-board { stroke: var(--jgc-color-text-muted); stroke-width: 4; stroke-linecap: round; opacity: .45; }
+.login-loader-nail { stroke: currentColor; stroke-width: 3; stroke-linecap: round; animation: login-nail 1.5s infinite; }
+.login-loader-hammer { transform-origin: 33px 49px; animation: login-hammer 1.5s infinite; }
+.login-loader-handle { stroke: #b78b37; stroke-width: 7; stroke-linecap: round; }
+.login-loader-head { fill: currentColor; }
+.login-loader-impact { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 0; animation: login-impact 1.5s infinite; }
+.login-loader-track { height: 3px; margin: 7px 8px 0; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, currentColor 15%, transparent); }
+.login-loader-track span { display: block; height: 100%; width: 35%; background: currentColor; border-radius: inherit; animation: login-sweep 1.5s ease-in-out infinite; }
+@keyframes login-hammer { 0%, 100% { transform: rotate(-28deg); } 32% { transform: rotate(-40deg); } 45%, 53% { transform: rotate(16deg); } 72% { transform: rotate(-28deg); } }
+@keyframes login-nail { 0%, 40%, 100% { transform: translateY(0); } 48%, 78% { transform: translateY(5px); } }
+@keyframes login-impact { 0%, 43%, 63%, 100% { opacity: 0; } 48%, 53% { opacity: .8; } }
+@keyframes login-sweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(390%); } }
+@media (prefers-reduced-motion: reduce) {
+  .login-loader-hammer, .login-loader-nail, .login-loader-impact, .login-loader-track span { animation: none; }
+  .login-loader-track span { width: 100%; opacity: .55; }
+}

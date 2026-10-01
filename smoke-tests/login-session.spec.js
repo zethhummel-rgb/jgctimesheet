@@ -97,6 +97,7 @@ test("transient profile error keeps session and retries without creating a profi
   const state = await setup(page, options);
   await page.goto("/index.html");
   await expect(page.locator("#loginRetry")).toBeVisible();
+  await expect(page.locator(".login-loader")).toBeHidden();
   await expect(page.locator("#loginControls")).toBeHidden();
   expect(state.inserts).toBe(0);
   expect(await page.evaluate(ref => !!localStorage.getItem(`sb-${ref}-auth-token`), ref)).toBe(true);
@@ -114,6 +115,7 @@ test("slow profile timeout cannot redirect later; Retry can recover", async ({ p
   await expect.poll(() => state.reads).toBe(1);
   await page.clock.fastForward(13000);
   await expect(page.locator("#loginRetry")).toBeVisible();
+  await expect(page.locator(".login-loader")).toBeHidden();
   profileGate.release();
   await expect(page).toHaveURL(/index.html$/);
   await page.locator("#loginRetry").click();
@@ -130,6 +132,7 @@ test("refresh timeout reuses outstanding SDK request and recovers on its late su
   await expect.poll(() => state.tokens).toBe(1);
   await page.clock.fastForward(13000);
   await expect(page.locator("#loginRetry")).toBeVisible();
+  await expect(page.locator(".login-loader")).toBeHidden();
   await page.locator("#loginRetry").click();
   expect(state.tokens).toBe(1);
   tokenGate.release();
@@ -215,6 +218,7 @@ for (const event of ["online", "visibilitychange"]) {
     await setup(page, options);
     await page.goto("/index.html");
     await expect(page.locator("#loginRetry")).toBeVisible();
+  await expect(page.locator(".login-loader")).toBeHidden();
     options.failProfile = false;
     await page.evaluate(event => (event === "online" ? window : document).dispatchEvent(new Event(event)), event);
     await expect(page).toHaveURL(/admin.html$/);
@@ -264,6 +268,11 @@ for (const width of [390, 1440]) for (const theme of ["light", "dark"]) {
     await page.goto("/index.html");
     await expect(page.locator("html")).toHaveAttribute("data-jgc-theme", theme);
     await expect(page.locator("#loginStatus")).toBeVisible();
+    await expect(page.locator(".login-loader")).toBeVisible();
+    expect(await page.locator(".login-loader-hammer").evaluate(el => getComputedStyle(el).animationName)).toBe("login-hammer");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await page.locator(".login-loader-hammer").evaluate(el => getComputedStyle(el).animationName)).toBe("none");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await expect(page.locator("#loginControls")).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (process.env.JGC_LOGIN_SCREENSHOTS) {
