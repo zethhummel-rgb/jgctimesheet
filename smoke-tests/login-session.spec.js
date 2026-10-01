@@ -270,6 +270,16 @@ for (const width of [390, 1440]) for (const theme of ["light", "dark"]) {
     await expect(page.locator("#loginStatus")).toBeVisible();
     await expect(page.locator(".login-loader")).toBeVisible();
     expect(await page.locator(".login-loader-hammer").evaluate(el => getComputedStyle(el).animationName)).toBe("login-hammer");
+    if (width === 390 && theme === "light") {
+      const motion = () => page.locator(".login-loader-hammer").evaluate(el => {
+        const animation = el.getAnimations()[0];
+        return { duration: animation.effect.getTiming().duration,
+          iterations: animation.effect.getTiming().iterations === Infinity,
+          elapsed: animation.currentTime };
+      });
+      expect(await motion()).toMatchObject({ duration: 850, iterations: true });
+      await expect.poll(async () => (await motion()).elapsed).toBeGreaterThan(1700);
+    }
     await page.emulateMedia({ reducedMotion: "reduce" });
     expect(await page.locator(".login-loader-hammer").evaluate(el => getComputedStyle(el).animationName)).toBe("none");
     await page.emulateMedia({ reducedMotion: "no-preference" });
