@@ -2825,7 +2825,7 @@ function QuotesPage({ state, search, setSearch, statusFilter, setStatusFilter, o
         description="Browse by estimator, year, client and work location, or search across every quote."
       />
       <section className="panel toolbar-panel">
-        <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" /></div>
+        <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search quote, client, project or reference" aria-label="Search quotes" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div>
         <div className="filter-tabs" role="group" aria-label="Filter quotes by status">
           {[{ value: "All", label: "All" }, { value: "Draft", label: "Draft" }, { value: "Finished", label: "Finished" }, { value: "Lost", label: "Lost" }, { value: "Expired", label: "Expired" }].map((status) => (
             <button key={status.value} className={statusFilter === status.value ? "active" : ""} onClick={() => { setStatusFilter(status.value); setLibraryPath([]); }}>{status.label}</button>
@@ -4976,7 +4976,7 @@ function ClientsPage({ state, setState, search, setSearch, onAdd, onOpenQuote }:
   return (
     <div className="page-stack">
       <PageHeading title="Clients and sites" description="Keep the customer, contact and work location consistent across every quote." actions={<button className="button primary" onClick={onAdd}>＋ Add client</button>} />
-      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search clients or sites" /></div><span className="toolbar-note">{clients.length} client{clients.length === 1 ? "" : "s"}</span></section>
+      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search clients or sites" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div><span className="toolbar-note">{clients.length} client{clients.length === 1 ? "" : "s"}</span></section>
       <div className="entity-grid">
         {clients.map((client) => {
           const quotes = state.quotes.filter((quote) => !isChangeNotice(quote) && quote.clientId === client.id);
@@ -5110,7 +5110,7 @@ function PriceBookPage({ state, setState, search, setSearch, category, setCatego
         <div><span>Actual-cost verified</span><strong>{state.priceBook.filter((item) => item.actualVerified !== "No").length}</strong></div>
       </section>
       <section className="panel toolbar-panel price-toolbar">
-        <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product, service or trade" /></div>
+        <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product, service or trade" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div>
         <label className="compact-select"><span>Division</span><select value={category} onChange={(event) => setCategory(event.target.value)}>{divisions.map((item) => <option key={item}>{item}</option>)}</select></label>
         <span className="toolbar-note">{items.length} item{items.length === 1 ? "" : "s"}</span>
       </section>
@@ -5177,7 +5177,7 @@ function PriceBookPage({ state, setState, search, setSearch, category, setCatego
       </>}
       {priceBookSection === "materials" && <>
         <section className="panel toolbar-panel material-price-toolbar">
-          <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search material, supplier or supplier reference" /></div>
+          <div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search material, supplier or supplier reference" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div>
           <div className="material-price-toolbar-note"><strong>Material names drive future updates.</strong><span>Spreadsheet rows can move without breaking the pricing match.</span></div>
         </section>
         <SupplierCatalogSection search={search} divisions={constructionDivisions} refreshKey={supplierRefreshKey} onImport={onImport} />
@@ -5258,7 +5258,7 @@ function VendorsPage({ state, setState, search, setSearch, onAdd }: {
       <PageHeading title="Vendors" description="The same subcontractor companies and contacts are shared with the Portal." actions={<div className="heading-actions"><button className="button secondary" onClick={() => void syncRequest("/api/vendors")} disabled={busy}>↻ Refresh</button><button className="button primary" onClick={onAdd}>＋ Add subcontractor</button></div>} />
       <div className="estimating-boundary-note"><strong>One shared list</strong><p>Edit companies and contacts here or on the Portal’s Subs/Suppliers page. Both screens use the same records.</p><a href="../admin.html?tab=adminTools&section=subcontractorsSuppliers">Open Subs/Suppliers in Portal →</a></div>
       {message && <div className={`vendor-sync-message ${message.includes("updated") ? "success" : "error"}`}>{message}</div>}
-      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subcontractor, trade or contact" /></div><span className="toolbar-note">{vendors.length} subcontractor{vendors.length === 1 ? "" : "s"}</span></section>
+      <section className="panel toolbar-panel"><div className="search-field"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subcontractor, trade or contact" />{search && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setSearch("")}>{"×"}</button>}</div><span className="toolbar-note">{vendors.length} subcontractor{vendors.length === 1 ? "" : "s"}</span></section>
       <section className="vendor-grid">
         {vendors.map((vendor) => {
           const contacts = (vendor.contacts ?? []).filter((contact) => contact.active);
@@ -6538,7 +6538,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </div>
 
           <div className="shop-drawing-toolbar">
-            <div className="search-field"><span>⌕</span><input aria-label="Search shop drawings" value={shopDrawingSearch} onChange={(event) => setShopDrawingSearch(event.target.value)} placeholder="Search SD number, description, vendor or consultant" /></div>
+            <div className="search-field"><span>⌕</span><input aria-label="Search shop drawings" value={shopDrawingSearch} onChange={(event) => setShopDrawingSearch(event.target.value)} placeholder="Search SD number, description, vendor or consultant" />{shopDrawingSearch && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setShopDrawingSearch("")}>{"×"}</button>}</div>
             <div className="segmented-control" aria-label="Filter shop drawings">
               {(["Open", "All", "Approved"] as const).map((filter) => <button key={filter} type="button" className={shopDrawingFilter === filter ? "active" : ""} aria-pressed={shopDrawingFilter === filter} onClick={() => setShopDrawingFilter(filter)}>{filter}</button>)}
             </div>
@@ -6698,7 +6698,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
         <div><span>Inactive jobs</span><strong>{state.jobs.filter((item) => item.status === "Archived").length}</strong><small>Retained history</small></div>
       </section>
       <section className="panel toolbar-panel job-directory-toolbar">
-        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder={isPhone ? "Search job #, name or client" : "Search job #, name, client, manager or location"} aria-label="Search jobs" aria-describedby="job-search-scope" /></div>
+        <div className="search-field"><span>⌕</span><input value={jobSearch} onChange={(event) => setJobSearch(event.target.value)} placeholder={isPhone ? "Search job #, name or client" : "Search job #, name, client, manager or location"} aria-label="Search jobs" aria-describedby="job-search-scope" />{jobSearch && <button type="button" className="search-field-clear" aria-label="Clear search" onClick={() => setJobSearch("")}>{"×"}</button>}</div>
         <label className="compact-select"><span>Project manager</span><select value={managerFilter} onChange={(event) => setManagerFilter(event.target.value)} aria-label="Filter jobs by project manager"><option value="">All managers</option>{managerOptions.map((manager) => <option key={manager.key} value={manager.key}>{manager.label}</option>)}</select></label>
         <div className="filter-tabs" role="group" aria-label="Filter jobs by status">
           {(["Active", "Archived"] as const).map((status) => <button key={status} className={!searchingAllJobStatuses && statusFilter === status ? "active" : ""} aria-pressed={!searchingAllJobStatuses && statusFilter === status} disabled={searchingAllJobStatuses} title={searchingAllJobStatuses ? "Search includes both statuses. Clear the search to use status tabs." : undefined} onClick={() => setStatusFilter(status)}>{quoteStatusLabel(status)}</button>)}
