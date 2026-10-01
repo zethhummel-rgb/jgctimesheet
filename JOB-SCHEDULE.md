@@ -27,3 +27,13 @@ The current Estimator gate and live workspace RLS allow approved administrators 
 - Tests: `smoke-tests/job-schedule.spec.js` plus existing Job control, persistence, access and PDF suites.
 
 The user-supplied Cornwall Electric workbook/PDF informed the design. No customer schedule was imported into production or committed into this repository.
+
+## Release 957 refinements
+
+- Activity entry appears in a compact panel above the scrollable Gantt; optional notes/progress/links stay collapsed until needed.
+- The screen timeline always has six extra weeks beyond the final activity, with distinct readable month/week headings. This planning room does not change dates or add blank weeks to PDFs.
+- Rows start compact; expand one row to see responsibility, dates, duration and progress.
+- Left/right end dots adjust start/finish separately; the centre moves the complete activity. Linked starts follow their predecessor.
+- Grab a row to reorder it. Dropping into another phase moves that activity into the destination phase. Keyboard arrow keys work on the grab handle. Dates and links remain unchanged; Undo restores the draft order.
+- Applying a new activity reveals its row and bar automatically.
+- Download draft PDF is a standard JGC PDF marked DRAFT and does not save a revision. An optional editable JSON copy is under Editable data copy.
