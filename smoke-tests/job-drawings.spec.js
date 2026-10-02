@@ -210,14 +210,16 @@ test('dense vector PDFs retain late thin extension lines and snap in transformed
  expect(snap.snapPoint({x:-52,y:72},segments,3).point).toEqual({x:-50,y:70});
 });
 
-test('PDF comment icons stay beside boxed text for every page rotation',async({},info)=>{
+test('PDF comment icons stay outside boxed text and inside crop edges for every rotation',async({},info)=>{
  const pdf=await PDFDocument.create(),content=load('drawing-model').emptyDrawing(),angles=[0,90,180,270];
  for(const [i,rotation] of angles.entries()){const p=pdf.addPage([612,792]);p.setRotation(degrees(rotation));content.marks.push({id:'note-'+i,page:i+1,kind:'text',points:[{x:220,y:500}],color:'#d62828',text:'Rotated comment stays readable',author:'Test admin',createdAt:'2026-10-02T12:00:00Z',layer:'Review',rotation});}
  const bytes=await load('drawing-pdf').markedDrawingPdf(await pdf.save(),content),exported=await PDFDocument.load(bytes);
  for(const [i,rotation] of angles.entries()){
   const annotation=exported.getPage(i).node.Annots().lookup(0),rect=annotation.lookup(PDFName.of('Rect')).asArray().map(n=>n.asNumber()),angle=rotation*Math.PI/180;
-  const across=[[rect[0],rect[1]],[rect[0],rect[3]],[rect[2],rect[1]],[rect[2],rect[3]]].map(([x,y])=>(x-220)*Math.cos(angle)+(y-500)*Math.sin(angle));
-  expect(Math.min(...across)).toBeGreaterThan(185);expect(annotation.lookup(PDFName.of('Contents')).decodeText()).toBe('Rotated comment stays readable');
+  const corners=[[rect[0],rect[1]],[rect[0],rect[3]],[rect[2],rect[1]],[rect[2],rect[3]]],across=corners.map(([x,y])=>(x-220)*Math.cos(angle)+(y-500)*Math.sin(angle)),along=corners.map(([x,y])=>-(x-220)*Math.sin(angle)+(y-500)*Math.cos(angle));
+  expect(Math.min(...across)>185||Math.max(...across)<0||Math.min(...along)>=24||Math.max(...along)<=-62).toBe(true);
+  expect(rect[0]).toBeGreaterThanOrEqual(24);expect(rect[1]).toBeGreaterThanOrEqual(24);expect(rect[2]).toBeLessThanOrEqual(612-24);expect(rect[3]).toBeLessThanOrEqual(792-24);
+  expect(annotation.lookup(PDFName.of('Contents')).decodeText()).toBe('Rotated comment stays readable');
  }
  fs.writeFileSync(info.outputPath('boxed-comments-rotations.pdf'),bytes);
 });

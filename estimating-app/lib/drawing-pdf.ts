@@ -49,9 +49,14 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
     const label = mark.kind === 'text' ? mark.text : isMeasurement(mark.kind) ? measurement(mark,content.scales[String(mark.page)]) : '';
     const comment=mark.kind==='stamp'&&mark.stamp?`Shop drawing review: ${mark.stamp.status}\nReviewed by: ${mark.stamp.reviewer}\nDate: ${mark.stamp.date}${mark.text?'\n'+mark.text:''}`:mark.text;
     if (comment.trim()) {
-      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],outside=mark.kind==='stamp'?(mark.stamp?.width??0)+8:['text','callout'].includes(mark.kind)?193:0;
-      const corner=(x:number,y:number)=>({x:anchor.x+Math.cos(angle)*x-Math.sin(angle)*y,y:anchor.y+Math.sin(angle)*x+Math.cos(angle)*y}),a=corner(outside,0),b=corner(outside+16,16);
-      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[Math.min(a.x,b.x),Math.min(a.y,b.y),Math.max(a.x,b.x),Math.max(a.y,b.y)],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
+      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],boxed=['text','callout','stamp'].includes(mark.kind),width=mark.kind==='stamp'?(mark.stamp?.width??0):185,height=mark.kind==='stamp'?width*222/350:Math.max(38,commentLines(mark.text).length*12+14);
+      const corner=(x:number,y:number)=>({x:anchor.x+Math.cos(angle)*x-Math.sin(angle)*y,y:anchor.y+Math.sin(angle)*x+Math.cos(angle)*y});
+      const offsets=boxed?[[width+8,0],[0,24],[-40,0],[0,-height-40]]:[[0,0]];
+      const rectangles=offsets.map(([x,y])=>{const corners=[corner(x,y),corner(x+16,y),corner(x,y+16),corner(x+16,y+16)];return [Math.min(...corners.map(p=>p.x)),Math.min(...corners.map(p=>p.y)),Math.max(...corners.map(p=>p.x)),Math.max(...corners.map(p=>p.y))];});
+      // PDF readers can display a larger fixed-size icon than its annotation rectangle.
+      // Prefer beside the box, with room at crop edges; fall back above, left or below.
+      const crop=page.getCropBox(),margin=Math.min(24,crop.width/10,crop.height/10),rect=rectangles.find(r=>r[0]>=crop.x+margin&&r[1]>=crop.y+margin&&r[2]<=crop.x+crop.width-margin&&r[3]<=crop.y+crop.height-margin)??rectangles[0];
+      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:rect,Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
       page.node.addAnnot(pdf.context.register(note));
     }
     if (label && mark.kind!=='distance'&&mark.kind!=='text') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
