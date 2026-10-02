@@ -99,7 +99,7 @@ test('larger PDFs upload in resumable chunks with retry and progress, never upse
  await page.evaluate(()=>{const factory=window.createJgcSupabaseClient;window.createJgcSupabaseClient=()=>{const c=factory();c.auth.getSession=async()=>({data:{session:{access_token:'test-access'}},error:null});return c;};});
  await page.route('https://drawings.example.test/storage/v1/upload/resumable**',async route=>{
   const request=route.request(),headers=request.headers(),method=request.method();expect(headers['x-upsert']??'false').toBe('false');
-  const common={'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Location, Upload-Offset, Upload-Length, Tus-Resumable'};
+  const common={'Tus-Resumable':'1.0.0','Upload-Offset':String(offset),'Upload-Length':String(bytes.length),'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Location, Upload-Offset, Upload-Length, Tus-Resumable'};
   if(method==='POST'){metadata=headers['upload-metadata'];return route.fulfill({status:201,headers:{...common,Location:'https://drawings.example.test/storage/v1/upload/resumable/test-upload'}});}
   if(method==='HEAD'){heads++;return route.fulfill({status:200,headers:common});}
   if(method==='PATCH'){if(offset>0&&!failed){failed=true;return route.fulfill({status:503,headers:common});}expect(Number(headers['upload-offset'])).toBe(offset);const chunk=request.postDataBuffer();chunks.push(chunk.length);offset+=chunk.length;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({status:204,headers:{...common,'Upload-Offset':String(offset)}});}
