@@ -1,6 +1,6 @@
 const {test,expect}=require('@playwright/test');
 const fs=require('node:fs'),path=require('node:path'),ts=require('../estimating-app/node_modules/typescript');
-const {PDFDocument,StandardFonts,rgb,degrees}=require('../estimating-app/node_modules/pdf-lib');
+const {PDFDocument,StandardFonts,rgb,degrees,PDFName}=require('../estimating-app/node_modules/pdf-lib');
 const cache={};function load(name){if(cache[name])return cache[name];const m={exports:{}};Function('exports','module','require',ts.transpileModule(fs.readFileSync(path.resolve(__dirname,'../estimating-app/lib/'+name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(m.exports,m,n=>n.startsWith('.')?load(n.replace(/^\.\//,'')):require('../estimating-app/node_modules/'+n));return cache[name]=m.exports;}
 async function sample(){const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);for(let n=1;n<=2;n++){const p=pdf.addPage([612,792]);p.drawText('JGC TEST DRAWING PAGE '+n,{x:70,y:700,size:18,font});p.drawLine({start:{x:70,y:600},end:{x:370,y:600},thickness:2,color:rgb(0,0,0)});if(n===2){p.setCropBox(30,40,540,700);p.setRotation(degrees(90));}}return Buffer.from(await pdf.save());}
 function state(){const s=load('estimator-data').createDefaultState();s.clients=[];s.quotes=[];s.priceBook=[];s.jobs=[{id:'job',jobNumber:'26999',quoteId:'',clientId:'',project:'Drawing review',status:'Active',portalJobId:'portal-job',acceptedRevenue:0,originalCostBudget:0,approvedRevenueChanges:0,approvedCostChanges:0,estimateToComplete:0,acceptedAt:'2026-10-01',costs:[],notes:''}];return s;}
@@ -208,4 +208,16 @@ test('dense vector PDFs retain late thin extension lines and snap in transformed
  const segments=await snap.drawingSegments({getOperatorList:async()=>({fnArray,argsArray})},OPS);expect(segments).toHaveLength(31001);
  const point={x:-30,y:71},result=snap.snapPoint(point,segments,2);expect(result.snapped).toBe(true);expect(result.point).toEqual({x:-30,y:70});expect(snap.snapPoint(point,segments.slice(0,30000),2).snapped).toBe(false);
  expect(snap.snapPoint({x:-52,y:72},segments,3).point).toEqual({x:-50,y:70});
+});
+
+test('PDF comment icons stay beside boxed text for every page rotation',async({},info)=>{
+ const pdf=await PDFDocument.create(),content=load('drawing-model').emptyDrawing(),angles=[0,90,180,270];
+ for(const [i,rotation] of angles.entries()){const p=pdf.addPage([612,792]);p.setRotation(degrees(rotation));content.marks.push({id:'note-'+i,page:i+1,kind:'text',points:[{x:220,y:500}],color:'#d62828',text:'Rotated comment stays readable',author:'Test admin',createdAt:'2026-10-02T12:00:00Z',layer:'Review',rotation});}
+ const bytes=await load('drawing-pdf').markedDrawingPdf(await pdf.save(),content),exported=await PDFDocument.load(bytes);
+ for(const [i,rotation] of angles.entries()){
+  const annotation=exported.getPage(i).node.Annots().lookup(0),rect=annotation.lookup(PDFName.of('Rect')).asArray().map(n=>n.asNumber()),angle=rotation*Math.PI/180;
+  const across=[[rect[0],rect[1]],[rect[0],rect[3]],[rect[2],rect[1]],[rect[2],rect[3]]].map(([x,y])=>(x-220)*Math.cos(angle)+(y-500)*Math.sin(angle));
+  expect(Math.min(...across)).toBeGreaterThan(185);expect(annotation.lookup(PDFName.of('Contents')).decodeText()).toBe('Rotated comment stays readable');
+ }
+ fs.writeFileSync(info.outputPath('boxed-comments-rotations.pdf'),bytes);
 });

@@ -49,8 +49,9 @@ export async function markedDrawingPdf(source: Uint8Array, content: DrawingConte
     const label = mark.kind === 'text' ? mark.text : isMeasurement(mark.kind) ? measurement(mark,content.scales[String(mark.page)]) : '';
     const comment=mark.kind==='stamp'&&mark.stamp?`Shop drawing review: ${mark.stamp.status}\nReviewed by: ${mark.stamp.reviewer}\nDate: ${mark.stamp.date}${mark.text?'\n'+mark.text:''}`:mark.text;
     if (comment.trim()) {
-      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],outside=mark.kind==='stamp'?(mark.stamp?.width??0)+8:mark.kind==='callout'?193:0,position={x:anchor.x+Math.cos(angle)*outside,y:anchor.y+Math.sin(angle)*outside};
-      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[position.x,position.y,position.x+16,position.y+16],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
+      const angle=rotation*Math.PI/180,anchor=mark.kind==='callout'?pts[1]:pts[0],outside=mark.kind==='stamp'?(mark.stamp?.width??0)+8:['text','callout'].includes(mark.kind)?193:0;
+      const corner=(x:number,y:number)=>({x:anchor.x+Math.cos(angle)*x-Math.sin(angle)*y,y:anchor.y+Math.sin(angle)*x+Math.cos(angle)*y}),a=corner(outside,0),b=corner(outside+16,16);
+      const note=pdf.context.obj({Type:'Annot',Subtype:'Text',Rect:[Math.min(a.x,b.x),Math.min(a.y,b.y),Math.max(a.x,b.x),Math.max(a.y,b.y)],Contents:PDFHexString.fromText(comment),T:PDFHexString.fromText(mark.author),Subj:PDFHexString.fromText('JGC '+mark.layer),NM:PDFHexString.fromText(mark.id),Name:'Comment',F:4,C:[parseInt(mark.color.slice(1,3),16)/255,parseInt(mark.color.slice(3,5),16)/255,parseInt(mark.color.slice(5,7),16)/255]});
       page.node.addAnnot(pdf.context.register(note));
     }
     if (label && mark.kind!=='distance'&&mark.kind!=='text') page.drawText(supported(label),{ x: pts[0].x, y: pts[0].y, size: 10, lineHeight: 12, font, color, rotate: degrees(rotation) });
