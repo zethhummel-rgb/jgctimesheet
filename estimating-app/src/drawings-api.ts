@@ -21,11 +21,12 @@ async function uploadOriginal(c:any,id:string,file:File,onProgress:(percent:numb
   await new Promise<void>((resolve,reject)=>{
     const upload=new Upload(file,{
       endpoint:`${url.origin}/storage/v1/upload/resumable`,chunkSize:6*1024*1024,retryDelays:[0,1000,3000,5000],storeFingerprintForResuming:false,
-      headers:{authorization:`Bearer ${data.session.access_token}`,'x-upsert':'false'},
+      headers:{'x-upsert':'false'},
       metadata:{bucketName:'job-drawings',objectName:`${id}/original.pdf`,contentType:'application/pdf',cacheControl:'3600'},
-      onBeforeRequest:async request=>{const fresh=await c.auth.getSession();if(fresh.data.session?.access_token)request.setHeader('authorization',`Bearer ${fresh.data.session.access_token}`);},
+      // XHR appends repeated headers. Set Authorization once per request here, never in both hooks.
+      onBeforeRequest:async request=>{const fresh=await c.auth.getSession();if(fresh.error||!fresh.data.session?.access_token)throw new Error('Sign in again before uploading this drawing.');request.setHeader('authorization',`Bearer ${fresh.data.session.access_token}`);},
       onProgress:(sent,total)=>onProgress(Math.round(sent/total*100)),
-      onError:()=>reject(new Error('The drawing upload did not finish. Check your connection and storage limit, then retry.')),
+      onError:error=>{const response=(error as {originalResponse?:{getStatus:()=>number;getBody:()=>string}}).originalResponse,status=response?.getStatus()??0;let code='';try{code=JSON.parse(response?.getBody()??'{}').error??'';}catch{/* Report a safe category, not request headers or signed URLs. */}const message=status===413?`The drawing exceeds the storage upload limit (${DRAWING_MAX_MB} MB).`:status===401||status===403||code==='AccessDenied'?'Your sign-in was not accepted for this upload. Refresh the Portal, sign in again if needed, then retry.':status===429?'The upload service is busy. Wait a moment, then retry.':status?'The drawing upload did not finish (HTTP '+status+'). Please retry.':'The drawing upload could not connect. Check your connection and retry.';reject(new Error(message));},
       onSuccess:()=>resolve(),
     });upload.start();
   });
