@@ -184,6 +184,19 @@ test('placed stamps return to Select, move, resize and accept review choices on 
  const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download marked PDF'}).click();await(await pending).saveAs(info.outputPath('moved-stamp.pdf'));await page.locator('.drawing-sheet').screenshot({path:info.outputPath('moved-stamp.png')});fs.writeFileSync(info.outputPath('moved-stamp-content.json'),JSON.stringify(s.row.content));
 });
 
+for(const theme of ['light','dark'])for(const width of [390,1440])test(`selected stamp delete X saves and can be undone ${theme} ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:1000});await page.addInitScript(t=>localStorage.setItem('jgcPortalTheme',t),theme);
+ const s=await store();await setup(page,s);await page.getByRole('button',{name:'Stamps',exact:true}).click();await page.getByLabel('Stamp reviewer',{exact:true}).fill('Test reviewer');await page.getByLabel('Stamp date',{exact:true}).fill('2026-10-02');
+ await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+45,b.y+65);
+ const remove=page.getByRole('button',{name:'Delete stamp',exact:true});await expect(remove).toBeVisible();await expect.poll(()=>s.row.content.marks.length).toBe(1);
+ const saved=JSON.stringify(s.row.content.marks[0]);await page.locator('.drawing-workspace').screenshot({path:info.outputPath(`stamp-delete-${theme}-${width}.png`)});
+ await remove.click();await expect(page.locator('.drawing-stamp')).toHaveCount(0);await expect.poll(()=>s.row.content.marks.length).toBe(0);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();await expect.poll(()=>s.row.content.marks.length).toBe(1);expect(JSON.stringify(s.row.content.marks[0])).toBe(saved);
+ await page.locator('.drawing-stamp').click({position:{x:20,y:15}});await expect(remove).toBeVisible();await remove.click();await expect.poll(()=>s.row.content.marks.length).toBe(0);
+ await page.getByRole('button',{name:'Refresh drawings'}).click();await expect(page.locator('.drawing-stamp')).toHaveCount(0);expect(s.row.content.marks).toHaveLength(0);
+ const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download marked PDF'}).click();await(await pending).saveAs(info.outputPath('removed-stamp.pdf'));const exported=await PDFDocument.load(fs.readFileSync(info.outputPath('removed-stamp.pdf')));expect(exported.getPages().every(p=>!p.node.Annots()||p.node.Annots().size()===0)).toBe(true);
+});
+
 test('inline comments reopen for typing with the markup panel closed',async({page},info)=>{
  const s=await store();await setup(page,s);await text(page,'Original note');await page.getByRole('button',{name:'Hide markup panel'}).click();await page.getByRole('button',{name:'Select',exact:true}).click();
  await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));const b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+350,b.y+220);await expect(page.getByLabel('Edit drawing comment')).toHaveCount(0);await page.locator('.drawing-text-comment').click();await expect(page.getByLabel('Edit drawing comment')).toBeFocused();await page.getByLabel('Edit drawing comment').fill('Revised directly on the drawing');
