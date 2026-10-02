@@ -10,7 +10,7 @@ create table public.job_drawings (
   content jsonb not null default '{"version":1,"marks":[],"scales":{}}'::jsonb
     check (content ?& array['version','marks','scales'] and jsonb_typeof(content)='object' and content->>'version'='1' and jsonb_typeof(content->'marks')='array' and jsonb_typeof(content->'scales')='object' and octet_length(content::text)<=2097152),
   revision integer not null default 1 check (revision>0),
-  created_by uuid not null default auth.uid() references auth.users(id),
+  created_by uuid not null default auth.uid(), -- historical author ID; does not block later Auth account deletion
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
