@@ -58,6 +58,8 @@ export function JobWarrantyPage({job,state,setState,actor,workspaceSaved}:{job:J
   const [menu,setMenu]=useState<DownloadVersion|null>(null),[filename,setFilename]=useState(''),[busy,setBusy]=useState(false),[downloaded,setDownloaded]=useState('');
   const [finish,setFinish]=useState<DownloadVersion|null>(null),[reopen,setReopen]=useState(false),[history,setHistory]=useState<WarrantyRevision|null>(null);
   const actionRef=useRef<HTMLButtonElement>(null),historyRef=useRef<HTMLDetailsElement>(null);
+  const dialogWasOpen=useRef(false),dialogOpen=Boolean(menu||finish||reopen||history);
+  useEffect(()=>{if(dialogWasOpen.current&&!dialogOpen)actionRef.current?.focus({preventScroll:true});dialogWasOpen.current=dialogOpen;},[dialogOpen]);
   const defaultName=warrantyFilename(job.portalCustomer||state.clients.find(c=>c.id===job.clientId)?.name||value.fields.owner,job.project||value.fields.project);
   const change=(key:keyof WarrantyFields,text:string)=>{
     if(locked)return;setErrors(e=>({...e,[key]:undefined}));setMessage('');

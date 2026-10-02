@@ -5,7 +5,7 @@ type WarrantyDocument=Pick<JobWarranty,'fields'|'templateVersion'> & {revision:n
 const green=rgb(.065,.25,.19),gold=rgb(.70,.54,.17),ink=rgb(.14,.17,.16),muted=rgb(.36,.40,.38),line=rgb(.79,.83,.81),pale=rgb(.92,.95,.93);
 const printable=(v:string)=>v.normalize('NFC').replace(/[\u2010-\u2015]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/\u00a0/g,' ');
 function safeText(v:string,font:PDFFont) {
-  return [...printable(v)].map(c=>{try{font.encodeText(c);return c;}catch{return '?';}}).join('');
+  return [...printable(v).replace(/\r\n?/g,'\n')].map(c=>{if(c==='\n')return c;try{font.encodeText(c);return c;}catch{return '?';}}).join('');
 }
 function wrap(value:string,font:PDFFont,size:number,width:number) {
   const lines:string[]=[];
@@ -65,7 +65,7 @@ export async function buildWarrantyPdf(options:{warranty:WarrantyDocument;logoBy
     text(p,`${index+1}.`,72,y,9.5);rows.forEach((v,i)=>text(p,v,91,y-i*13.3,9.5));y-=height;
   }
   for(let i=0;i<3;i++)condition(i);
-  continued();for(let i=3;i<7;i++)condition(i);
+  if(pages.length===1)continued();for(let i=3;i<7;i++)condition(i);
   if(y<306){p=makePage();y=645;}
   y=heading(p,'Warranty Authorization',y-11);text(p,'Issued by John Gordon Construction Inc.',54,y,8,bold,muted);
   p.drawImage(signature,{x:54,y:y-57,width:241,height:241*signature.height/signature.width});
@@ -83,9 +83,9 @@ export async function buildWarrantyPdf(options:{warranty:WarrantyDocument;logoBy
   text(p,'Authorized Official',54,y-12,8.5,bold,muted);text(p,'Date',374,y-12,8.5,bold,muted);
   pages.forEach((page,i)=>{
     rule(page,35);
-    const label=`FIELD WARRANTY | ${fields.project.toUpperCase()} | REV ${warranty.revision}`;
-    let size=6.8;while(size>4&&bold.widthOfTextAtSize(safeText(label,bold),size)>422)size-=.2;
-    text(page,label,54,25,size,regular,muted);text(page,`PAGE ${i+1} OF ${pages.length}`,512,25,6.5,regular,muted);
+    let project=fields.project.toUpperCase().replace(/\s+/g,' '),label=`FIELD WARRANTY | ${project} | REV ${warranty.revision}`;
+    while(project&&regular.widthOfTextAtSize(safeText(label,regular),6.8)>422){project=project.slice(0,-1);label=`FIELD WARRANTY | ${project.trimEnd()}... | REV ${warranty.revision}`;}
+    text(page,label,54,25,6.8,regular,muted);text(page,`PAGE ${i+1} OF ${pages.length}`,512,25,6.5,regular,muted);
   });
   return doc.save();
 }
