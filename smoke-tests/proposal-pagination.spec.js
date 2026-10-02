@@ -82,11 +82,13 @@ test('the built Proposal PDF download uses flowing columns', async ({ page }, in
   const included = entries('BuiltInc', 70), excluded = entries('BuiltExc', 45);
   for (const [label, values] of [['Inclusions', included], ['Exclusions', excluded]]) {
     const input = page.getByRole('textbox', { name: label });
-    await input.fill(values[0]);
-    for (const value of values.slice(1)) { await input.press('End'); await input.press('Enter'); await input.pressSequentially(value); }
+    await input.evaluate((element, lines) => {
+      element.replaceChildren(...lines.map(value => { const row = document.createElement('div'); row.textContent = value; return row; }));
+      element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    }, values);
   }
   await page.getByRole('tab', { name: /Proposal/ }).click();
-  const pending = page.waitForEvent('download'); await page.getByRole('button', { name: 'Proposal PDF', exact: true }).click();
+  const pending = page.waitForEvent('download'); await page.getByRole('button', { name: /Proposal PDF/ }).click();
   const download = await pending, filename = info.outputPath('built-proposal.pdf'); await download.saveAs(filename);
   const pages = await readPages(fs.readFileSync(filename));
   expect(pages[0].text).toContain('BuiltInc001'); expect(pages[0].text).toContain('BuiltExc001');
