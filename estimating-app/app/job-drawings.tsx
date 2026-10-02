@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import type { Job } from '../lib/estimator-data';
@@ -26,6 +26,10 @@ function Thumb({ pdf, number, label, onClick, selected }: { pdf: PDFDocumentProx
   },[pdf,number,visible,selected]);
   return <button className={selected?'selected':''} onClick={onClick} aria-label={`Page ${label}`} aria-current={selected?'page':undefined}><canvas ref={canvas}/><span>Page {label}</span></button>;
 }
+function PanelTab({ side, expanded, controls, onClick }: { side: 'pages'|'markups'; expanded: boolean; controls: string; onClick: () => void }) {
+  const label=`${expanded?'Hide':'Show'} ${side==='pages'?'pages':'markup panel'}`,right=side==='pages'?!expanded:expanded;
+  return <button type="button" className={`drawing-panel-tab drawing-${side}-tab`} aria-label={label} title={label} aria-expanded={expanded} aria-controls={controls} onClick={onClick}><svg viewBox="0 0 20 16" aria-hidden="true"><path d={right?'m8 3 5 5-5 5z':'m12 3-5 5 5 5z'}/></svg></button>;
+}
 export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:boolean}) {
   const [records,setRecords]=useState<DrawingRecord[]>([]),[record,setRecord]=useState<DrawingRecord|null>(null),[title,setTitle]=useState(''),[content,setContent]=useState<DrawingContent>(emptyDrawing),[pdf,setPdf]=useState<PDFDocumentProxy|null>(null);
   const [page,setPage]=useState(1),[zoom,setZoom]=useState(1),[rotation,setRotation]=useState(0),[viewport,setViewport]=useState<PageViewport|null>(null),[tool,setTool]=useState('select'),[color,setColor]=useState('#d62828'),[layer,setLayer]=useState<Mark['layer']>('Review');
@@ -36,6 +40,8 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   const order=pdf?drawingPageOrder(content,pdf.numPages):[],sourcePage=order[page-1]??1;
   const measureStart=useRef<Point|null>(null),dimensionDrag=useRef<Mark|null>(null),dimensionLatest=useRef<{id:string;offset:number}|null>(null),[dimensionPreview,setDimensionPreview]=useState<{id:string;offset:number}|null>(null);
   const pan=useRef<{x:number;y:number;left:number;top:number}|null>(null),uploading=useRef(false);
+  const panelId=useId(),zoomValue=useRef(zoom),zoomAnchor=useRef<{x:number;y:number;offsetX:number;offsetY:number;page:number;zoom:number}|null>(null),renderedView=useRef<{pdf:PDFDocumentProxy;page:number;rotation:number}|null>(null);
+  zoomValue.current=zoom;
   const canvas=useRef<HTMLCanvasElement>(null),stage=useRef<HTMLDivElement>(null),source=useRef<Uint8Array|null>(null),generation=useRef(0),recordRef=useRef<DrawingRecord|null>(null),current=useRef({content,title}),dirty=useRef(false),saving=useRef(false),blocked=useRef(false),loaded=useRef(false),history=useRef<DrawingContent[]>([]),future=useRef<DrawingContent[]>([]),[historyTick,setHistoryTick]=useState(0),gesture=useRef<Point[]|null>(null),timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   current.current={content,title};
   const reportSave=(value:string)=>{setSaveStatus(value);window.dispatchEvent(new CustomEvent('jgc-drawing-save-status',{detail:value==='Not saved'?'error':value==='Saving\u2026'||value==='Unsaved drawing changes'?'saving':'saved'}));};
@@ -61,10 +67,18 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
   useEffect(()=>{if(full==='window'){const previous=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.body.style.overflow=previous;};}},[full]);
   useEffect(()=>{if(!active&&full!=='none'){if(document.fullscreenElement)void document.exitFullscreen();setFull('none');}},[active,full]);
   const toggleFull=async()=>{if(full!=='none'){if(document.fullscreenElement)await document.exitFullscreen();setFull('none');return;}if(viewer.current?.requestFullscreen){try{await viewer.current.requestFullscreen();setFull('native');return;}catch{/* Use a full-window viewer on unsupported devices. */}}setFull('window');};
-  const navigate=(next:number,edge:'top'|'bottom'='top')=>{if(!pdf||busy||next<1||next>pdf.numPages||next===page)return;scrollEdge.current=edge;pageLock.current=Date.now()+850;setPage(next);setDraft([]);setSelected('');setReference([]);setSnapAt(null);measureStart.current=null;};
-  useEffect(()=>{if(!pdf)return;let cancelled=false,task:ReturnType<Awaited<ReturnType<PDFDocumentProxy['getPage']>>['render']>|undefined;setViewport(null);
+  const navigate=(next:number,edge:'top'|'bottom'='top')=>{if(!pdf||busy||next<1||next>pdf.numPages||next===page)return;zoomAnchor.current=null;scrollEdge.current=edge;pageLock.current=Date.now()+850;setPage(next);setDraft([]);setSelected('');setReference([]);setSnapAt(null);measureStart.current=null;};
+  useEffect(()=>{if(!pdf)return;let cancelled=false,task:ReturnType<Awaited<ReturnType<PDFDocumentProxy['getPage']>>['render']>|undefined;const previous=renderedView.current;if(previous?.pdf!==pdf||previous.page!==sourcePage||previous.rotation!==rotation)setViewport(null);renderedView.current={pdf,page:sourcePage,rotation};
     void pageLines(pdf,sourcePage).then(found=>{if(!cancelled)setLines(found);return pdf.getPage(sourcePage);}).then(p=>{if(cancelled||!canvas.current)return;const v=p.getViewport({scale:zoom,rotation:(p.rotate+rotation)%360});const ratio=Math.min(window.devicePixelRatio||1,2,Math.sqrt(16000000/(v.width*v.height)),8192/v.width,8192/v.height);canvas.current.width=Math.ceil(v.width*ratio);canvas.current.height=Math.ceil(v.height*ratio);canvas.current.style.width=`${v.width}px`;canvas.current.style.height=`${v.height}px`;setViewport(v);task=p.render({canvas:canvas.current,viewport:v,transform:ratio===1?undefined:[ratio,0,0,ratio,0,0]});return task.promise.then(()=>{if(!cancelled&&stage.current&&scrollEdge.current){stage.current.scrollTop=scrollEdge.current==='bottom'?stage.current.scrollHeight:0;scrollEdge.current=null;}});}).catch(e=>{if(!cancelled)setError(e.message);});return()=>{cancelled=true;task?.cancel();};
   },[pdf,sourcePage,zoom,rotation,full]);
+  useLayoutEffect(()=>{
+    const anchor=zoomAnchor.current,view=stage.current,sheet=view?.querySelector('.drawing-sheet');
+    if(!anchor||!view||!sheet||!viewport||anchor.page!==sourcePage||anchor.zoom!==viewport.scale)return;
+    const box=sheet.getBoundingClientRect(),bounds=view.getBoundingClientRect();
+    view.scrollLeft+=box.left+anchor.x*viewport.width-bounds.left-view.clientLeft-anchor.offsetX;
+    view.scrollTop+=box.top+anchor.y*viewport.height-bounds.top-view.clientTop-anchor.offsetY;
+    zoomAnchor.current=null;
+  },[viewport,sourcePage]);
   useEffect(()=>()=>{void pdf?.loadingTask.destroy().catch(()=>{});},[pdf]);
   const open=async(r:DrawingRecord,bytes?:Uint8Array)=>{
     if(dirty.current||saving.current){await flush();if(dirty.current||saving.current){setError('Wait for saving to finish, or recover your unsaved markups before switching drawings.');return;}}
@@ -123,14 +137,25 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
     const view=stage.current;if(!view||!pdf)return;
     const boundary=(delta:number)=>delta>0?view.scrollTop+view.clientHeight>=view.scrollHeight-2:view.scrollTop<=2;
     const advance=(delta:number)=>{if(Date.now()<pageLock.current||busy||!delta||!boundary(delta))return false;const next=page+(delta>0?1:-1);if(next<1||next>pdf.numPages)return false;navigate(next,delta>0?'top':'bottom');return true;};
-    const wheel=(event:WheelEvent)=>{if(event.ctrlKey||event.metaKey||Math.abs(event.deltaX)>Math.abs(event.deltaY))return;if(Date.now()-wheelTime.current>250)wheelDelta.current=0;wheelTime.current=Date.now();wheelDelta.current+=event.deltaY;
+    const wheel=(event:WheelEvent)=>{
+      if(event.ctrlKey||event.metaKey){
+        event.preventDefault();wheelDelta.current=0;wheelTime.current=0;
+        const sheet=view.querySelector('.drawing-sheet');if(!sheet||busy||!event.deltaY)return;
+        const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?view.clientHeight:1);
+        const next=Math.min(4,Math.max(.1,zoomValue.current*Math.exp(-Math.max(-240,Math.min(240,delta))*.002)));
+        if(next===zoomValue.current)return;
+        const box=sheet.getBoundingClientRect(),bounds=view.getBoundingClientRect();if(!box.width||!box.height)return;
+        zoomAnchor.current={x:Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)),y:Math.max(0,Math.min(1,(event.clientY-box.top)/box.height)),offsetX:event.clientX-bounds.left-view.clientLeft,offsetY:event.clientY-bounds.top-view.clientTop,page:sourcePage,zoom:next};
+        zoomValue.current=next;setZoom(next);return;
+      }
+      if(Math.abs(event.deltaX)>Math.abs(event.deltaY))return;if(Date.now()-wheelTime.current>250)wheelDelta.current=0;wheelTime.current=Date.now();wheelDelta.current+=event.deltaY;
       if(boundary(event.deltaY)&&Math.abs(wheelDelta.current)>35&&advance(event.deltaY)){event.preventDefault();wheelDelta.current=0;}};
     const scroll=()=>{if(Date.now()-wheelTime.current<250&&Math.abs(wheelDelta.current)>35)advance(wheelDelta.current);};
     const start=(event:TouchEvent)=>{if(['select','hand'].includes(tool)&&event.touches.length===1)touchStart.current=event.touches[0].clientY;else touchStart.current=null;};
     const end=(event:TouchEvent)=>{if(touchStart.current===null)return;const delta=touchStart.current-(event.changedTouches[0]?.clientY??touchStart.current);touchStart.current=null;if(Math.abs(delta)>60)advance(delta);};
     view.addEventListener('wheel',wheel,{passive:false});view.addEventListener('scroll',scroll);view.addEventListener('touchstart',start,{passive:true});view.addEventListener('touchend',end,{passive:true});
     return()=>{view.removeEventListener('wheel',wheel);view.removeEventListener('scroll',scroll);view.removeEventListener('touchstart',start);view.removeEventListener('touchend',end);};
-  },[pdf,page,busy,full,tool]);
+  },[pdf,page,sourcePage,busy,full,tool]);
   const scaleDescription=scale?`${scale.knownLength} ${scale.displayUnit??(scale.unit==='ft'?'ft-in':scale.unit)} reference saved`:'Calibrate each page before measuring.';
   const tools:Record<string,[string,string][]>={
     navigate:[],measure:[['calibrate','Set scale'],['distance','Distance'],['perimeter','Perimeter'],['area','Area']],
@@ -143,13 +168,12 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
         <button className="drawing-full-button" onClick={()=>void toggleFull()}><DrawingIcon name={full==='none'?'fullscreen':'exit'}/>{full==='none'?'Full screen':'Exit full screen'}</button>
       </div>
       <div className="drawing-toolbar" role="toolbar" aria-label="Drawing tools">
-        <button aria-pressed={showPages} onClick={()=>setShowPages(v=>!v)}><DrawingIcon name="pages"/>Pages</button>
         {[['select','Select'],['hand','Hand'],...tools[mode]].map(([key,label])=><button key={key} disabled={busy||blocked.current||(isMeasurement(key)&&!scale)} aria-pressed={tool===key} title={isMeasurement(key)&&!scale?'Set this page’s scale first':label} onClick={()=>{setTool(key);measureStart.current=null;setDraft([]);setError('');if(['text','calibrate','stamp','callout'].includes(key))setShowNotes(true);}}><DrawingIcon name={key}/>{label}</button>)}
         {['measure','edit','comments'].includes(mode)&&<button aria-pressed={snap} onClick={()=>{setSnap(v=>!v);setSnapAt(null);}} title="Snap to vector line endpoints and edges"><DrawingIcon name="snap"/>Snap to lines</button>}
         {['edit','comments','measure'].includes(mode)&&<label className="drawing-color">Colour<input type="color" aria-label="Markup colour" value={color} onChange={e=>setColor(e.target.value)}/></label>}
         <select aria-label="Markup layer" value={layer} onChange={e=>setLayer(e.target.value as Mark['layer'])}><option>Review</option><option>As-built</option></select>
         <button disabled={!history.current.length||blocked.current||busy} onClick={()=>undo()}><DrawingIcon name="undo"/>Undo</button><button disabled={!future.current.length||blocked.current||busy} onClick={()=>undo(true)}><DrawingIcon name="redo"/>Redo</button>
-        <button aria-pressed={showNotes} onClick={()=>setShowNotes(v=>!v)}><DrawingIcon name="comments"/>Markup panel</button><button className="drawing-export" disabled={busy||blocked.current} onClick={()=>void exportPdf()}><DrawingIcon name="download"/>Download marked PDF</button>
+        <button className="drawing-export" disabled={busy||blocked.current} onClick={()=>void exportPdf()}><DrawingIcon name="download"/>Download marked PDF</button>
       </div>
       {mode==='organize'&&<div className="drawing-organizer">
         <div><h3>Organize pages</h3><p>Drag a page to its new position, or use its arrows. Markups and scales follow their original page.</p></div>
@@ -163,9 +187,11 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
       <div className="drawing-viewbar"><button aria-label="Previous page" disabled={page===1||busy} onClick={()=>navigate(page-1,'bottom')}>‹</button><label>Page <input aria-label="Page number" type="number" min={1} max={pdf.numPages} value={page} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=pdf.numPages)navigate(n);}}/> of {pdf.numPages}</label><button aria-label="Next page" disabled={page===pdf.numPages||busy} onClick={()=>navigate(page+1)}>›</button><button aria-label="Zoom out" onClick={()=>setZoom(z=>Math.max(.1,z/1.25))}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Zoom in" onClick={()=>setZoom(z=>Math.min(4,z*1.25))}>＋</button><button onClick={()=>void fit()}><DrawingIcon name="fit"/>Fit width</button><button onClick={()=>setRotation(r=>(r+90)%360)}><DrawingIcon name="rotate"/>Rotate view</button><span className="drawing-scale-label">{scale?`Calibrated · ${scaleDescription}`:'Page scale not set'}</span></div>
       {snap&&<div className="drawing-snap-hint">{lines.length?'Snapping to drawing line endpoints and edges.':'No vector lines found on this page. Scanned drawings can be measured manually.'}</div>}
       <div className={`drawing-workspace ${showPages?'with-pages':''} ${showNotes?'with-comments':''}`}>
-        {showPages&&<aside className="drawing-thumbnails" aria-label="Page thumbnails">{order.map((n,i)=><Thumb key={n} pdf={pdf} number={n} label={i+1} selected={page===i+1} onClick={()=>navigate(i+1)}/>)}</aside>}
+        {showPages&&<aside id={`${panelId}-pages`} className="drawing-thumbnails" aria-label="Page thumbnails">{order.map((n,i)=><Thumb key={n} pdf={pdf} number={n} label={i+1} selected={page===i+1} onClick={()=>navigate(i+1)}/>)}</aside>}
+        <PanelTab side="pages" expanded={showPages} controls={`${panelId}-pages`} onClick={()=>setShowPages(v=>!v)}/>
         <div ref={stage} className="drawing-stage" tabIndex={0} aria-label="PDF drawing view"><div className="drawing-sheet" style={viewport?{width:viewport.width,height:viewport.height}:undefined}><canvas ref={canvas}/>{viewport&&<svg aria-label="Drawing markup canvas" viewBox={`0 0 ${viewport.width} ${viewport.height}`} width={viewport.width} height={viewport.height} className={`drawing-overlay tool-${tool}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={()=>{pan.current=null;gesture.current=null;dimensionDrag.current=null;setDimensionPreview(null);measureStart.current=null;setDraft([]);}}>{marks.map(m=>shape(m))}{draft.length>0&&shape({id:'preview',page:sourcePage,kind:tool==='calibrate'?'line':tool as Mark['kind'],points:draft,color,text:note,author:actor,createdAt:'',layer},true)}{snapAt&&<circle className="drawing-snap-point" cx={transform(snapAt)[0]} cy={transform(snapAt)[1]} r="6"/>}</svg>}</div></div>
-        {showNotes&&<aside className="drawing-comments"><h3>Page {page} · {mode==='stamps'?'Review stamp':'Markups'}</h3><p className="drawing-hint">{tool==='select'?'Select a markup to view its details.':tool==='area'||tool==='perimeter'?'Click each corner, then Finish.':tool==='text'?'Type below, then click the drawing.':tool==='stamp'?'Choose your review status, then click the drawing to place the stamp.':tool==='callout'?'Drag from the arrow tip to the comment box, then type your comment.':tool==='distance'?'Click the first point, then the second. Drag the dimension line to offset it without changing the endpoints.':tool==='calibrate'?'Drag along a known dimension, then enter its actual length below.':'Drag on the drawing to add a markup.'}</p>
+        <PanelTab side="markups" expanded={showNotes} controls={`${panelId}-markups`} onClick={()=>setShowNotes(v=>!v)}/>
+        {showNotes&&<aside id={`${panelId}-markups`} className="drawing-comments" aria-label="Drawing comments"><h3>Page {page} · {mode==='stamps'?'Review stamp':'Markups'}</h3><p className="drawing-hint">{tool==='select'?'Select a markup to view its details.':tool==='area'||tool==='perimeter'?'Click each corner, then Finish.':tool==='text'?'Type below, then click the drawing.':tool==='stamp'?'Choose your review status, then click the drawing to place the stamp.':tool==='callout'?'Drag from the arrow tip to the comment box, then type your comment.':tool==='distance'?'Click the first point, then the second. Drag the dimension line to offset it without changing the endpoints.':tool==='calibrate'?'Drag along a known dimension, then enter its actual length below.':'Drag on the drawing to add a markup.'}</p>
           {['area','perimeter'].includes(tool)&&<div><button className="button primary compact" disabled={draft.length<(tool==='area'?3:2)} onClick={finish}>Finish {tool}</button><button className="button secondary compact" onClick={()=>setDraft([])}>Cancel</button></div>}
           {mode==='stamps'&&<StampFields value={stamp} onChange={setStamp} disabled={busy||blocked.current}/>}
           {['edit','comments'].includes(mode)&&<label>Markup text<textarea aria-label="Markup text" value={note} maxLength={2000} onChange={e=>setNote(e.target.value)}/></label>}
@@ -173,7 +199,7 @@ export function JobDrawings({job,actor,active}:{job:Job;actor:string;active:bool
           {selectedMark&&<div className="drawing-selection"><strong>{selectedMark.kind} · {selectedMark.layer}</strong>{selectedMark.kind==='stamp'&&selectedMark.stamp&&<StampFields prefix="Selected stamp" value={selectedMark.stamp} disabled={busy||blocked.current} onChange={value=>{if(value.date)change({...current.current.content,marks:current.current.content.marks.map(m=>m.id===selected?{...m,stamp:value}:m)});}}/>}<label>Comment<textarea ref={commentInput} aria-label="Edit selected comment" disabled={blocked.current} value={selectedMark.text} maxLength={2000} onChange={e=>change({...current.current.content,marks:current.current.content.marks.map(m=>m.id===selected?{...m,text:e.target.value}:m)})}/></label>{isMeasurement(selectedMark.kind)&&<p>{measurement(selectedMark,content.scales[String(selectedMark.page)])}</p>}<small>{selectedMark.author} · {new Date(selectedMark.createdAt).toLocaleString()}</small><button className="button secondary compact" disabled={blocked.current} onClick={()=>{change({...current.current.content,marks:current.current.content.marks.filter(m=>m.id!==selected)});setSelected('');}}>Remove markup</button></div>}
           <ul>{marks.map(m=><li key={m.id}><button className={m.id===selected?'selected':''} onClick={()=>setSelected(m.id)}><span style={{background:m.color}}/><strong>{m.layer} · {m.kind}</strong><small>{isMeasurement(m.kind)?measurement(m,scale):m.kind==='stamp'?m.stamp?.status:m.text||m.author}</small></button></li>)}</ul>
         </aside>}
-      </div><footer className="drawing-footer">Scroll to the bottom or top to move between pages · Original PDF preserved · Markups autosave separately · Verify your page scale against a known dimension. <button onClick={()=>source.current&&download(source.current,record?.file_name||'Original.pdf','application/pdf')}>Download original</button></footer>
+      </div><footer className="drawing-footer">Ctrl + scroll to zoom · Scroll to the bottom or top to move between pages · Original PDF preserved · Markups autosave separately · Verify your page scale against a known dimension. <button onClick={()=>source.current&&download(source.current,record?.file_name||'Original.pdf','application/pdf')}>Download original</button></footer>
       </div>):null;
   // Component stays mounted across Job tabs so pending saves finish safely.
   return <section className="job-drawings" hidden={!active} aria-label="Job drawings">

@@ -81,6 +81,37 @@ test('full screen has an exit button and Escape restores the Portal viewer',asyn
  await page.getByRole('button',{name:'Exit full screen',exact:true}).click();await expect(page.getByRole('button',{name:'Full screen',exact:true})).toBeVisible();
  await page.evaluate(()=>{Object.defineProperty(HTMLElement.prototype,'requestFullscreen',{configurable:true,value:undefined});});await page.getByRole('button',{name:'Full screen',exact:true}).click();await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Full screen',exact:true})).toBeVisible();
 });
+for(const width of [390,1440])test(`edge panel tabs reopen without losing page or markups at ${width}px`,async({page},info)=>{
+ await page.setViewportSize({width,height:1000});const s=await store();await setup(page,s);await text(page,'Keep this review note');await expect.poll(()=>s.row.content.marks.length).toBe(1);
+ await page.getByRole('button',{name:'Page 2',exact:true}).click();const stage=page.getByLabel('PDF drawing view',{exact:true}),before=await stage.boundingBox(),revision=s.row.revision;
+ await page.getByRole('button',{name:'Hide pages',exact:true}).click();await expect(page.getByLabel('Page thumbnails',{exact:true})).toHaveCount(0);
+ const closedPages=page.getByRole('button',{name:'Show pages',exact:true});await expect(closedPages).toHaveAttribute('aria-expanded','false');expect((await stage.boundingBox()).width).toBeGreaterThan(before.width);
+ await page.getByRole('button',{name:'Hide markup panel',exact:true}).click();await expect(page.getByLabel('Drawing comments',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Show markup panel',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');expect(s.row.revision).toBe(revision);
+ await page.locator('.drawing-workspace').screenshot({path:info.outputPath(`closed-panels-${width}.png`)});
+ await closedPages.focus();await page.keyboard.press('Enter');await expect(page.getByRole('button',{name:'Page 2',exact:true})).toHaveAttribute('aria-current','page');
+ await page.getByRole('button',{name:'Show markup panel',exact:true}).focus();await page.keyboard.press('Space');await expect(page.getByLabel('Drawing comments',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Page 1',exact:true}).click();await expect(page.locator('.drawing-overlay text')).toContainText('Keep this review note');
+ await page.getByRole('button',{name:'Full screen',exact:true}).click();await page.getByRole('button',{name:'Hide pages',exact:true}).click();await page.getByRole('button',{name:'Hide markup panel',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Show pages',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Show markup panel',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Show pages',exact:true}).click();await page.getByRole('button',{name:'Show markup panel',exact:true}).click();await expect(page.locator('.drawing-overlay text')).toContainText('Keep this review note');
+ await page.screenshot({path:info.outputPath(`fullscreen-panels-${width}.png`)});await page.getByRole('button',{name:'Exit full screen',exact:true}).click();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+test('Ctrl wheel zoom follows the pointer without changing pages or browser scale',async({page})=>{
+ await page.setViewportSize({width:1440,height:1000});const s=await store();await setup(page,s);await text(page,'Zoom keeps markups');await expect.poll(()=>s.row.content.marks.length).toBe(1);
+ const saved=JSON.stringify(s.row.content),stage=page.getByLabel('PDF drawing view',{exact:true});await page.getByRole('button',{name:'Hide pages',exact:true}).click();await page.getByRole('button',{name:'Hide markup panel',exact:true}).click();await page.getByRole('button',{name:'Fit width',exact:true}).click();await stage.scrollIntoViewIfNeeded();
+ const zoom=()=>page.locator('.drawing-viewbar').evaluate(el=>parseInt([...el.querySelectorAll('span')].find(s=>s.textContent.endsWith('%')).textContent));
+ const b=await stage.boundingBox(),pointer={x:b.x+b.width*.6,y:b.y+Math.min(200,b.height*.4)};
+ const atPointer=()=>page.locator('.drawing-sheet').evaluate((el,p)=>{const r=el.getBoundingClientRect();return{x:(p.x-r.left)/r.width,y:(p.y-r.top)/r.height};},pointer);
+ const start=await zoom(),anchor=await atPointer(),browser=await page.evaluate(()=>({width:innerWidth,scale:visualViewport.scale}));
+ await page.mouse.move(pointer.x,pointer.y);await page.keyboard.down('Control');await page.mouse.wheel(0,-160);await expect.poll(zoom).toBeGreaterThan(start);
+ await expect.poll(async()=>Math.abs((await atPointer()).x-anchor.x)).toBeLessThan(.004);await expect.poll(async()=>Math.abs((await atPointer()).y-anchor.y)).toBeLessThan(.004);
+ const higher=await zoom();await page.mouse.wheel(0,160);await expect.poll(zoom).toBeLessThan(higher);await page.keyboard.up('Control');
+ await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');expect(await page.evaluate(()=>({width:innerWidth,scale:visualViewport.scale}))).toEqual(browser);expect(JSON.stringify(s.row.content)).toBe(saved);
+ await stage.evaluate(el=>el.scrollTop=el.scrollHeight);await page.keyboard.down('Control');await page.mouse.wheel(0,100);await page.keyboard.up('Control');await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('1');
+ await page.waitForTimeout(900);await stage.evaluate(el=>el.scrollTop=el.scrollHeight);await page.mouse.wheel(0,220);await expect(page.getByLabel('Page number',{exact:true})).toHaveValue('2');
+});
 test('click click distance and draggable offset preserve endpoints and calibrated length',async({page},info)=>{
  const s=await store();await setup(page,s);await page.getByRole('button',{name:'Measure',exact:true}).click();await drag(page,70,90,130);await page.getByLabel('Known length').fill('10');await page.getByRole('button',{name:'Apply page scale'}).click();
  await page.locator('.drawing-overlay').evaluate(svg=>scrollTo(0,scrollY+svg.getBoundingClientRect().top-240));let b=await page.locator('.drawing-overlay').boundingBox();await page.mouse.click(b.x+70,b.y+150);await page.mouse.move(b.x+200,b.y+150);
