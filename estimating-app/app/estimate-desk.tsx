@@ -1,4 +1,5 @@
 import { JobDrawings } from "./job-drawings";
+import { JobWarrantyPage } from "./job-warranty";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
 import { ShopDrawingHistory } from "./shop-drawing-history";
@@ -188,7 +189,7 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings";
+type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings" | "warranty";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "schedule", label: "Schedule" },
@@ -198,6 +199,7 @@ const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
   { key: "drawings", label: "Drawings" },
+  { key: "warranty", label: "Warranty" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 function initialJobTab(job: Job | undefined): JobTab {
@@ -6610,6 +6612,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
         <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
+        {tab === "warranty" && <JobWarrantyPage key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>

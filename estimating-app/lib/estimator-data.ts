@@ -401,6 +401,7 @@ export interface ShopDrawing {
 }
 
 export interface Job {
+  warranty?: import('./job-warranty').JobWarranty;
   jobDate?: string;
   hasQuotedValue?: boolean;
   clientReference?: string;
