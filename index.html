@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json?v=7" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png?v=4" />
   <link rel="stylesheet" href="jgc-design-system.css?v=13" data-jgc-design-system="13" />
-  <link rel="stylesheet" href="login-design-system.css?v=10" />
+  <link rel="stylesheet" href="login-design-system.css?v=11" />
 </head>
 
 <body class="login-page jgc-page">
@@ -46,23 +46,23 @@
       <div class="divider"></div>
       <button type="button" class="public-tool-button public-tool-button-top jgc-button" onclick="window.location.href='field-calculator.html'">Field Calculator</button>
       <div class="login-loader" aria-hidden="true">
-        <svg class="login-loader-scene" viewBox="0 0 96 72" focusable="false">
-          <defs>
-            <linearGradient id="loginHammerSteel" x2="0" y2="1"><stop stop-color="#eef3f4"/><stop offset=".45" stop-color="#a5b1b6"/><stop offset="1" stop-color="#58666e"/></linearGradient>
-            <linearGradient id="loginHammerWood"><stop stop-color="#805521"/><stop offset=".45" stop-color="#d8aa62"/><stop offset="1" stop-color="#a5702d"/></linearGradient>
-          </defs>
-          <path class="login-loader-board" d="M12 60h72" />
-          <g class="login-loader-nail"><path d="M62 39v21M56 39h12" /></g>
-          <g class="login-loader-hammer">
+        <div class="login-loader-scene">
+          <svg viewBox="0 0 96 72" focusable="false"><path class="login-loader-board" d="M12 60h72" /></svg>
+          <span class="login-loader-nail"><svg viewBox="0 0 96 72" focusable="false"><path d="M62 39v21M56 39h12" /></svg></span>
+          <span class="login-loader-hammer"><svg viewBox="0 0 96 72" focusable="false">
+            <defs>
+              <linearGradient id="loginHammerSteel" x2="0" y2="1"><stop stop-color="#eef3f4"/><stop offset=".45" stop-color="#a5b1b6"/><stop offset="1" stop-color="#58666e"/></linearGradient>
+              <linearGradient id="loginHammerWood"><stop stop-color="#805521"/><stop offset=".45" stop-color="#d8aa62"/><stop offset="1" stop-color="#a5702d"/></linearGradient>
+            </defs>
             <path class="login-loader-handle" d="m30 47 22-26 5 4-21 28q-3 3-6 0t0-6z" />
             <path class="login-loader-grain" d="m34 47 17-21" />
             <g transform="rotate(37 55 22) translate(110 0) scale(-1 1)">
               <path class="login-loader-head" d="M42 14h7v3h7q5-5 12-3l10 3q-7 0-13 4 6 0 11 5l-11-3q-5-1-8 3h-8v3h-7z" />
               <path class="login-loader-steel-detail" d="M47 15v13m11-9v5" />
             </g>
-          </g>
-          <path class="login-loader-impact" d="m74 39 6-3m-7 10 7 2m-16-16 2-6" />
-        </svg>
+          </svg></span>
+          <span class="login-loader-impact"><svg viewBox="0 0 96 72" focusable="false"><path d="m74 39 6-3m-7 10 7 2m-16-16 2-6" /></svg></span>
+        </div>
         <div class="login-loader-track"><span></span></div>
       </div>
       <div id="loginStatus" class="status jgc-notice" role="status" aria-live="polite">Restoring your session…</div>

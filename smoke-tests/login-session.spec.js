@@ -292,3 +292,23 @@ for (const width of [390, 1440]) for (const theme of ["light", "dark"]) {
     tokenGate.release();
   });
 }
+
+
+test("loading still visibly moves after a long profile check and resumes after hiding", async ({ page }) => {
+  const profileGate = gate();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup(page, { stored: true, profileGate });
+  await page.goto("/index.html");
+  await expect(page.locator("#loginStatus")).toHaveText("Opening your Portal…");
+  const hammer = page.locator(".login-loader-hammer");
+  await expect.poll(() => hammer.evaluate(el => el.getAnimations()[0]?.currentTime || 0), { timeout: 11000 }).toBeGreaterThan(8500);
+  await expect(page.locator(".login-loader")).toBeVisible();
+  const frame = await page.locator(".login-loader-scene").screenshot({ animations: "allow" });
+  await expect.poll(async () => Buffer.compare(frame, await page.locator(".login-loader-scene").screenshot({ animations: "allow" })), { timeout: 1500 }).not.toBe(0);
+  await page.evaluate(() => { document.querySelector(".login-card").style.display = "none"; });
+  await page.evaluate(() => { document.querySelector(".login-card").style.display = ""; });
+  await expect(hammer).toBeVisible();
+  await expect.poll(() => hammer.evaluate(el => el.getAnimations()[0]?.currentTime || 0), { timeout: 1500 }).toBeGreaterThan(200);
+  profileGate.release();
+  await expect(page).toHaveURL(/admin.html$/);
+});
