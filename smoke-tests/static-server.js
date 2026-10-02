@@ -7,6 +7,8 @@ const portFlag = process.argv.indexOf("--port");
 const port = Number(portFlag >= 0 ? process.argv[portFlag + 1] : process.env.JGC_SMOKE_PORT || 41738);
 
 const mimeTypes = {
+  ".mjs": "text/javascript; charset=utf-8",
+  ".pdf": "application/pdf",
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
   ".html": "text/html; charset=utf-8",

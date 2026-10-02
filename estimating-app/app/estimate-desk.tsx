@@ -1,3 +1,4 @@
+import { JobDrawings } from "./job-drawings";
 import { JobRfis } from "./job-rfis";
 import { JobSchedule } from "./job-schedule";
 import { ShopDrawingHistory } from "./shop-drawing-history";
@@ -187,7 +188,7 @@ const navItems: { key: ViewKey; label: string }[] = [
 const tabBarItems = navItems.slice(0, 4);
 
 type QuoteTab = "details" | "estimate" | "breakdown" | "review" | "divisions" | "proposal" | "purchase-orders" | "history";
-type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics";
+type JobTab = "summary" | "schedule" | "purchase-orders" | "changes" | "shop-drawings" | "rfis" | "statistics" | "drawings";
 const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "schedule", label: "Schedule" },
@@ -196,6 +197,7 @@ const jobTabs: readonly { key: JobTab; label: string }[] = [
   { key: "shop-drawings", label: "Shop Drawings" },
   { key: "rfis", label: "RFIs" },
   { key: "statistics", label: "Statistics / Other" },
+  { key: "drawings", label: "Drawings" },
 ];
 type SaveStatus = "loading" | "saved" | "saving" | "offline" | "error";
 function initialJobTab(job: Job | undefined): JobTab {
@@ -6604,6 +6606,7 @@ function JobsPage({ state, setState, currentEstimator, directoryActionTarget, wo
           </table></div> : <div className="empty-state compact-empty shop-drawing-empty"><span>SD</span><h3>{shopDrawings.length ? `No ${shopDrawingFilter.toLocaleLowerCase()} drawings match` : "No shop drawings entered"}</h3><p>{shopDrawings.length ? "Change the filter or search to see another register item." : "Add the required submissions for this job. OneDrive files stay in their existing folders."}</p>{!shopDrawings.length && <button className="button secondary compact" type="button" onClick={startNewShopDrawing}>＋ Add first drawing</button>}</div>}
           <p className="shop-drawing-footnote">Internal by default. Employee sharing is available only for Approved or Approved as noted current revisions and replaces the existing employee job-list document button.</p>
         </section>}
+        <JobDrawings key={job.id} job={job} actor={currentEstimator.name} active={tab === "drawings"} />
         {tab === "rfis" && <JobRfis key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} />}
         <div className="schedule-tab" hidden={tab !== "schedule"}><JobSchedule key={job.id} job={job} state={state} setState={setState} actor={currentEstimator.name} workspaceSaved={workspaceSaved} /></div>
         {tab === "statistics" && <>
